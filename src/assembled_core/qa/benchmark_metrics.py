@@ -23,7 +23,9 @@ class BenchmarkMetrics:
 
     alpha: float | None  # Annualized Jensen's alpha
     beta: float | None  # Portfolio beta to benchmark
-    information_ratio: float | None  # IR = mean(active return) / std(active return) * sqrt(252)
+    information_ratio: (
+        float | None
+    )  # IR = mean(active return) / std(active return) * sqrt(252)
     tracking_error: float | None  # Annualized std of active returns
     active_return: float | None  # Annualized mean active return
     r_squared: float | None  # R² of portfolio vs benchmark
@@ -47,16 +49,23 @@ def compute_benchmark_metrics(
         BenchmarkMetrics dataclass.
     """
     # Align series
-    aligned = pd.DataFrame({
-        "port": portfolio_returns,
-        "bench": benchmark_returns,
-    }).dropna()
+    aligned = pd.DataFrame(
+        {
+            "port": portfolio_returns,
+            "bench": benchmark_returns,
+        }
+    ).dropna()
 
     if len(aligned) < 10:
         return BenchmarkMetrics(
-            alpha=None, beta=None, information_ratio=None,
-            tracking_error=None, active_return=None, r_squared=None,
-            up_capture=None, down_capture=None,
+            alpha=None,
+            beta=None,
+            information_ratio=None,
+            tracking_error=None,
+            active_return=None,
+            r_squared=None,
+            up_capture=None,
+            down_capture=None,
         )
 
     port = aligned["port"]
@@ -79,17 +88,24 @@ def compute_benchmark_metrics(
     active_mean = float(active.mean())
     active_std = float(active.std())
 
-    tracking_error = active_std * np.sqrt(PERIODS_PER_YEAR) if active_std > 1e-12 else None
+    tracking_error = (
+        active_std * np.sqrt(PERIODS_PER_YEAR) if active_std > 1e-12 else None
+    )
     active_return = active_mean * PERIODS_PER_YEAR
     information_ratio = (
         float(active_mean / active_std * np.sqrt(PERIODS_PER_YEAR))
-        if active_std > 1e-12 else None
+        if active_std > 1e-12
+        else None
     )
 
     # R-squared
-    ss_res = ((port - (daily_rf + beta * (bench - daily_rf))) ** 2).sum() if beta else None
+    ss_res = (
+        ((port - (daily_rf + beta * (bench - daily_rf))) ** 2).sum() if beta else None
+    )
     ss_tot = ((port - port.mean()) ** 2).sum()
-    r_squared = float(1 - ss_res / ss_tot) if ss_res is not None and ss_tot > 1e-12 else None
+    r_squared = (
+        float(1 - ss_res / ss_tot) if ss_res is not None and ss_tot > 1e-12 else None
+    )
 
     # Capture ratios
     up_days = bench > 0
@@ -112,7 +128,9 @@ def compute_benchmark_metrics(
     return BenchmarkMetrics(
         alpha=round(alpha, 4) if alpha is not None else None,
         beta=round(beta, 4) if beta is not None else None,
-        information_ratio=round(information_ratio, 4) if information_ratio is not None else None,
+        information_ratio=(
+            round(information_ratio, 4) if information_ratio is not None else None
+        ),
         tracking_error=round(tracking_error, 4) if tracking_error is not None else None,
         active_return=round(active_return, 4),
         r_squared=round(r_squared, 4) if r_squared is not None else None,
@@ -153,36 +171,55 @@ def brinson_fachler_attribution(
     Returns:
         BrinsonAttribution with per-sector decomposition.
     """
+
     # Build sector-level aggregates
     def aggregate_by_sector(weights_df, returns_df, sector_map):
-        merged = weights_df.merge(returns_df, on="symbol", how="inner", suffixes=("", "_ret"))
+        merged = weights_df.merge(
+            returns_df, on="symbol", how="inner", suffixes=("", "_ret")
+        )
         if "sector" not in merged.columns and sector_map:
             merged["sector"] = merged["symbol"].map(sector_map).fillna("Other")
         elif "sector" not in merged.columns:
             merged["sector"] = "Other"
 
-        ret_col = [c for c in merged.columns if "return" in c.lower() or c.endswith("_ret")]
+        ret_col = [
+            c for c in merged.columns if "return" in c.lower() or c.endswith("_ret")
+        ]
         ret_col = ret_col[0] if ret_col else "return"
 
         sector_agg = merged.groupby("sector").agg(
             weight=("weight", "sum"),
-            weighted_return=(ret_col, lambda x: (x * merged.loc[x.index, "weight"]).sum() / max(merged.loc[x.index, "weight"].sum(), 1e-12)),
+            weighted_return=(
+                ret_col,
+                lambda x: (x * merged.loc[x.index, "weight"]).sum()
+                / max(merged.loc[x.index, "weight"].sum(), 1e-12),
+            ),
         )
         return sector_agg
 
     try:
-        port_sectors = aggregate_by_sector(portfolio_weights, portfolio_returns, sector_mapping)
-        bench_sectors = aggregate_by_sector(benchmark_weights, benchmark_returns, sector_mapping)
+        port_sectors = aggregate_by_sector(
+            portfolio_weights, portfolio_returns, sector_mapping
+        )
+        bench_sectors = aggregate_by_sector(
+            benchmark_weights, benchmark_returns, sector_mapping
+        )
     except Exception as e:
         _log.warning("Brinson-Fachler attribution failed: %s", e)
         return BrinsonAttribution(
-            allocation_effect={}, selection_effect={}, interaction_effect={},
-            total_allocation=0.0, total_selection=0.0, total_interaction=0.0,
+            allocation_effect={},
+            selection_effect={},
+            interaction_effect={},
+            total_allocation=0.0,
+            total_selection=0.0,
+            total_interaction=0.0,
             total_active_return=0.0,
         )
 
     all_sectors = set(port_sectors.index) | set(bench_sectors.index)
-    bench_total_return = float((bench_sectors["weight"] * bench_sectors["weighted_return"]).sum())
+    bench_total_return = float(
+        (bench_sectors["weight"] * bench_sectors["weighted_return"]).sum()
+    )
 
     allocation: dict[str, float] = {}
     selection: dict[str, float] = {}
@@ -190,9 +227,21 @@ def brinson_fachler_attribution(
 
     for sector in all_sectors:
         wp = port_sectors.loc[sector, "weight"] if sector in port_sectors.index else 0.0
-        wb = bench_sectors.loc[sector, "weight"] if sector in bench_sectors.index else 0.0
-        rp = port_sectors.loc[sector, "weighted_return"] if sector in port_sectors.index else 0.0
-        rb = bench_sectors.loc[sector, "weighted_return"] if sector in bench_sectors.index else 0.0
+        wb = (
+            bench_sectors.loc[sector, "weight"]
+            if sector in bench_sectors.index
+            else 0.0
+        )
+        rp = (
+            port_sectors.loc[sector, "weighted_return"]
+            if sector in port_sectors.index
+            else 0.0
+        )
+        rb = (
+            bench_sectors.loc[sector, "weighted_return"]
+            if sector in bench_sectors.index
+            else 0.0
+        )
 
         allocation[sector] = round(float((wp - wb) * (rb - bench_total_return)), 6)
         selection[sector] = round(float(wb * (rp - rb)), 6)
@@ -206,7 +255,10 @@ def brinson_fachler_attribution(
         total_selection=round(sum(selection.values()), 6),
         total_interaction=round(sum(interaction.values()), 6),
         total_active_return=round(
-            sum(allocation.values()) + sum(selection.values()) + sum(interaction.values()), 6
+            sum(allocation.values())
+            + sum(selection.values())
+            + sum(interaction.values()),
+            6,
         ),
     )
 

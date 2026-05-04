@@ -168,8 +168,8 @@ def build_news_sentiment_factors(
         """Compute rolling trend (slope) over window."""
         x = np.arange(window, dtype=float)
         sum_x = x.sum()
-        sum_x2 = (x ** 2).sum()
-        denom = window * sum_x2 - sum_x ** 2
+        sum_x2 = (x**2).sum()
+        denom = window * sum_x2 - sum_x**2
         if denom == 0:
             return pd.Series(np.nan, index=series.index)
         rolling_xy = series.rolling(window, min_periods=window).apply(
@@ -209,7 +209,9 @@ def build_news_sentiment_factors(
             [group_col, timestamp_col]
         ).reset_index(drop=True)
 
-        for symbol, symbol_sentiment in sentiment_per_symbol.groupby(group_col, sort=False):
+        for symbol, symbol_sentiment in sentiment_per_symbol.groupby(
+            group_col, sort=False
+        ):
             symbol_sentiment = symbol_sentiment.reset_index(drop=True)
 
             # Rolling mean of sentiment
@@ -544,51 +546,77 @@ def build_macro_regime_factors(
 
     # Growth: GDP > 2 → expansion, GDP < 0 → recession; UNEMPLOYMENT fallback
     gpivot = (
-        growth_data.pivot_table(index="_date", columns="macro_code", values="value", aggfunc="mean")
-        .reindex(date_index)
-        if not growth_data.empty else pd.DataFrame(index=date_index)
+        growth_data.pivot_table(
+            index="_date", columns="macro_code", values="value", aggfunc="mean"
+        ).reindex(date_index)
+        if not growth_data.empty
+        else pd.DataFrame(index=date_index)
     )
     gdp_regime = (
         np.where(gpivot["GDP"] > 2.0, 1.0, np.where(gpivot["GDP"] < 0.0, -1.0, 0.0))
-        if "GDP" in gpivot.columns else np.zeros(len(date_index))
+        if "GDP" in gpivot.columns
+        else np.zeros(len(date_index))
     )
     unemp_regime = (
-        np.where(gpivot["UNEMPLOYMENT"] < 4.0, 1.0, np.where(gpivot["UNEMPLOYMENT"] > 7.0, -1.0, 0.0))
-        if "UNEMPLOYMENT" in gpivot.columns else np.zeros(len(date_index))
+        np.where(
+            gpivot["UNEMPLOYMENT"] < 4.0,
+            1.0,
+            np.where(gpivot["UNEMPLOYMENT"] > 7.0, -1.0, 0.0),
+        )
+        if "UNEMPLOYMENT" in gpivot.columns
+        else np.zeros(len(date_index))
     )
     growth_regime_arr = np.where(gdp_regime != 0.0, gdp_regime, unemp_regime)
 
     # Inflation: avg across codes > 3 → high, < 1 → low
     ipivot = (
-        inflation_data.pivot_table(index="_date", columns="macro_code", values="value", aggfunc="mean")
-        .reindex(date_index)
-        if not inflation_data.empty else pd.DataFrame(index=date_index)
+        inflation_data.pivot_table(
+            index="_date", columns="macro_code", values="value", aggfunc="mean"
+        ).reindex(date_index)
+        if not inflation_data.empty
+        else pd.DataFrame(index=date_index)
     )
-    avg_infl = ipivot.mean(axis=1) if not ipivot.empty else pd.Series(np.nan, index=date_index)
-    inflation_regime_arr = np.where(avg_infl > 3.0, 1.0, np.where(avg_infl < 1.0, -1.0, 0.0))
+    avg_infl = (
+        ipivot.mean(axis=1) if not ipivot.empty else pd.Series(np.nan, index=date_index)
+    )
+    inflation_regime_arr = np.where(
+        avg_infl > 3.0, 1.0, np.where(avg_infl < 1.0, -1.0, 0.0)
+    )
 
     # Risk aversion: FED_RATE > 5 → risk-off, < 2 → risk-on; VIX fallback
     rpivot = (
-        risk_data.pivot_table(index="_date", columns="macro_code", values="value", aggfunc="mean")
-        .reindex(date_index)
-        if not risk_data.empty else pd.DataFrame(index=date_index)
+        risk_data.pivot_table(
+            index="_date", columns="macro_code", values="value", aggfunc="mean"
+        ).reindex(date_index)
+        if not risk_data.empty
+        else pd.DataFrame(index=date_index)
     )
     fed_regime = (
-        np.where(rpivot["FED_RATE"] > 5.0, 1.0, np.where(rpivot["FED_RATE"] < 2.0, -1.0, 0.0))
-        if "FED_RATE" in rpivot.columns else np.zeros(len(date_index))
+        np.where(
+            rpivot["FED_RATE"] > 5.0, 1.0, np.where(rpivot["FED_RATE"] < 2.0, -1.0, 0.0)
+        )
+        if "FED_RATE" in rpivot.columns
+        else np.zeros(len(date_index))
     )
     vix_regime = (
         np.where(rpivot["VIX"] > 20.0, 1.0, np.where(rpivot["VIX"] < 15.0, -1.0, 0.0))
-        if "VIX" in rpivot.columns else np.zeros(len(date_index))
+        if "VIX" in rpivot.columns
+        else np.zeros(len(date_index))
     )
     risk_aversion_arr = np.where(fed_regime != 0.0, fed_regime, vix_regime)
 
-    regime_df = pd.DataFrame({
-        timestamp_col: pd.to_datetime(date_index, utc=True),
-        "macro_growth_regime": growth_regime_arr,
-        "macro_inflation_regime": inflation_regime_arr,
-        "macro_risk_aversion_proxy": risk_aversion_arr,
-    }).sort_values(timestamp_col).reset_index(drop=True)
+    regime_df = (
+        pd.DataFrame(
+            {
+                timestamp_col: pd.to_datetime(date_index, utc=True),
+                "macro_growth_regime": growth_regime_arr,
+                "macro_inflation_regime": inflation_regime_arr,
+                "macro_risk_aversion_proxy": risk_aversion_arr,
+            }
+        )
+        .sort_values(timestamp_col)
+        .reset_index(drop=True)
+    )
 
     if regime_df.empty:
         logger.warning("No regime factors computed. Returning prices with NaN factors.")

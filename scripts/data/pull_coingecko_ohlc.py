@@ -23,7 +23,9 @@ def pull_one(symbol: str, days: int, ccy: str = "usd") -> pd.DataFrame:
     url = BASE.format(cid=cid, ccy=ccy, days=days)
     data = http_get_json(url)
     # Antwort: [[ts, open, high, low, close], ...] (ms-epoch)
-    df = pd.DataFrame(data, columns=["ts_ms", "open", "high", "low", "close"])  # kein Volume hier
+    df = pd.DataFrame(
+        data, columns=["ts_ms", "open", "high", "low", "close"]
+    )  # kein Volume hier
     df["timestamp"] = pd.to_datetime(df["ts_ms"], unit="ms", utc=True)
     df["volume"] = 0.0
     df = df.drop(columns=["ts_ms"])
@@ -35,7 +37,7 @@ def main():
     if len(sys.argv) < 4:
         print("Usage: python pull_coingecko_ohlc.py <symbols_csv> <days> <out_dir>")
         sys.exit(2)
-    symbols = sys.argv[1].split(',')
+    symbols = sys.argv[1].split(",")
     try:
         days = int(sys.argv[2])
     except ValueError:

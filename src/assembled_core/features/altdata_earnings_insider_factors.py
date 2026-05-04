@@ -253,7 +253,9 @@ def build_earnings_surprise_factors(
     result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
 
     # Pre-group events_sorted by symbol to avoid O(N*M) per-symbol filter
-    _events_sorted_by_sym = {sym: grp for sym, grp in events_sorted.groupby(group_col, sort=False)}
+    _events_sorted_by_sym = {
+        sym: grp for sym, grp in events_sorted.groupby(group_col, sort=False)
+    }
 
     # Perform merge_asof per group to avoid sorting issues with multiple groups
     merged_parts = []
@@ -463,9 +465,10 @@ def build_insider_activity_factors(
             events_insider["event_date"] = events_insider[timestamp_col].dt.normalize()
         if "disclosure_date" not in events_insider.columns:
             from pandas import Timedelta as _TD
+
             # T2.3: Form-4 filings have minimum T+2 SEC disclosure latency
-            events_insider["disclosure_date"] = (
-                events_insider["event_date"] + _TD(days=2)
+            events_insider["disclosure_date"] = events_insider["event_date"] + _TD(
+                days=2
             )
 
         # If as_of is provided, discard events not yet disclosed.
@@ -532,7 +535,9 @@ def build_insider_activity_factors(
     ).reset_index(drop=True)
 
     # Pre-group events_filtered by symbol to avoid O(N*M) per-symbol filter
-    _events_filtered_by_sym = {sym: grp for sym, grp in events_filtered.groupby(group_col, sort=False)}
+    _events_filtered_by_sym = {
+        sym: grp for sym, grp in events_filtered.groupby(group_col, sort=False)
+    }
 
     # For each symbol, compute rolling aggregations over lookback window
     factors_list = []

@@ -46,7 +46,7 @@ def _make_signals(n: int, scores: list[float]) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "timestamp": pd.Timestamp("2026-05-31"),
-            "symbol": symbols[:len(scores)],
+            "symbol": symbols[: len(scores)],
             "direction": "LONG",
             "score": scores,
         }
@@ -60,6 +60,7 @@ def _make_signals(n: int, scores: list[float]) -> pd.DataFrame:
 def test_gross_weight_bounded(n_signals: int) -> None:
     """Gross weight sum should not exceed target_invested_pct."""
     import numpy as np
+
     rng = np.random.default_rng(42 + n_signals)
     scores = [float(rng.uniform(0.5, 3.0)) for _ in range(n_signals)]
     signals = _make_signals(n_signals, scores)
@@ -95,6 +96,7 @@ def test_gross_weight_bounded(n_signals: int) -> None:
 def test_individual_weight_capped(n_signals: int) -> None:
     """No single position exceeds max_position_weight."""
     import numpy as np
+
     rng = np.random.default_rng(99 + n_signals)
     scores = [float(rng.uniform(0.5, 5.0)) for _ in range(n_signals)]
     signals = _make_signals(n_signals, scores)
@@ -124,6 +126,7 @@ def test_individual_weight_capped(n_signals: int) -> None:
 def test_all_weights_nonneg(n_signals: int) -> None:
     """Long-only: all target_weight >= 0."""
     import numpy as np
+
     rng = np.random.default_rng(77 + n_signals)
     scores = [float(rng.uniform(0.5, 3.0)) for _ in range(n_signals)]
     signals = _make_signals(n_signals, scores)

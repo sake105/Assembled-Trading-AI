@@ -3,6 +3,7 @@
 Validates that the inclusive <= as_of filter is correct for EOD bar-open
 convention: a bar timestamped T is available at close of day T.
 """
+
 import pandas as pd
 
 from src.assembled_core.pipeline.trading_cycle_shared import _filter_prices_for_as_of
@@ -13,7 +14,9 @@ def _make_prices(dates: list[str], symbols: list[str] | None = None) -> pd.DataF
     rows = []
     for d in dates:
         for s in syms:
-            rows.append({"timestamp": pd.Timestamp(d, tz="UTC"), "symbol": s, "close": 100.0})
+            rows.append(
+                {"timestamp": pd.Timestamp(d, tz="UTC"), "symbol": s, "close": 100.0}
+            )
     return pd.DataFrame(rows)
 
 
@@ -54,5 +57,7 @@ def test_universe_filter_applied() -> None:
     """Only symbols in universe are returned."""
     prices = _make_prices(["2024-03-15"], symbols=["AAPL", "MSFT", "GOOG"])
     as_of = pd.Timestamp("2024-03-15", tz="UTC")
-    filtered, _ = _filter_prices_for_as_of(prices, as_of, universe=["AAPL", "GOOG"], mode="eod")
+    filtered, _ = _filter_prices_for_as_of(
+        prices, as_of, universe=["AAPL", "GOOG"], mode="eod"
+    )
     assert set(filtered["symbol"]) == {"AAPL", "GOOG"}

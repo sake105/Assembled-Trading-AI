@@ -72,7 +72,9 @@ def test_split_day_no_fake_crash_in_research_prices() -> None:
     ), "close_research should be split-adjusted"
 
     # Verify: Returns with close_research show NO fake crash
-    returns_research = prices_research["close_research"].pct_change(fill_method=None).dropna()
+    returns_research = (
+        prices_research["close_research"].pct_change(fill_method=None).dropna()
+    )
     # Day 1->2: (102.5 - 100.0) / 100.0 = +2.5%
     # Day 2->3: (100.0 - 102.5) / 102.5 = -2.44% (small, NOT -50%!)
     # Day 3->4: (102.0 - 100.0) / 100.0 = +2.0%

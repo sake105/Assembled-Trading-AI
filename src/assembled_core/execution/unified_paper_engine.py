@@ -64,6 +64,7 @@ try:
         guard_orders_with_kill_switch,
         is_kill_switch_engaged,
     )
+
     _HAS_KILL_SWITCH = True
 except Exception:  # pragma: no cover
     _HAS_KILL_SWITCH = False
@@ -71,6 +72,7 @@ except Exception:  # pragma: no cover
 
 try:
     from src.assembled_core.execution.fat_finger_guard import apply_fat_finger_guard
+
     _HAS_FAT_FINGER = True
 except Exception:  # pragma: no cover
     _HAS_FAT_FINGER = False
@@ -78,6 +80,7 @@ except Exception:  # pragma: no cover
 
 try:
     from src.assembled_core.execution.pre_trade_checks import run_pre_trade_checks
+
     _HAS_PRE_TRADE = True
 except Exception:  # pragma: no cover
     _HAS_PRE_TRADE = False
@@ -87,6 +90,7 @@ try:
     from src.assembled_core.execution.symbol_kill_switch import (
         filter_orders_from_policy as _symbol_kill_filter,
     )
+
     _HAS_SYMBOL_KILL = True
 except Exception:  # pragma: no cover
     _HAS_SYMBOL_KILL = False
@@ -102,6 +106,7 @@ try:
     from src.assembled_core.accounting.ledger import (
         store_ledger_events_parquet,
     )
+
     _HAS_LEDGER = True
 except Exception:  # pragma: no cover
     _HAS_LEDGER = False
@@ -113,6 +118,7 @@ try:
         evaluate_reconcile_slo,
         reconcile_ledger_vs_broker,
     )
+
     _HAS_RECONCILIATION = True
 except Exception:  # pragma: no cover
     _HAS_RECONCILIATION = False
@@ -127,12 +133,14 @@ except Exception:  # pragma: no cover
 
 try:
     from src.assembled_core.execution.smart_order_router import route_order
+
     _HAS_SOR = True
 except Exception:  # pragma: no cover
     _HAS_SOR = False
 
 try:
     from src.assembled_core.ops.experience_log import log_experience_entry
+
     _HAS_EXPERIENCE_LOG = True
 except Exception:  # pragma: no cover
     _HAS_EXPERIENCE_LOG = False
@@ -142,6 +150,7 @@ try:
         OrderLifecycleTracker,
         OrderState,
     )
+
     _HAS_LIFECYCLE = True
 except Exception:  # pragma: no cover
     _HAS_LIFECYCLE = False
@@ -149,6 +158,7 @@ except Exception:  # pragma: no cover
 
 try:
     from src.assembled_core.ops.replay_snapshot import RunSnapshot, make_rng
+
     _HAS_REPLAY = True
 except Exception:  # pragma: no cover
     _HAS_REPLAY = False
@@ -160,6 +170,7 @@ try:
         compute_config_hash,
         write_run_manifest,
     )
+
     _HAS_MANIFEST = True
 except Exception:  # pragma: no cover
     _HAS_MANIFEST = False
@@ -170,6 +181,7 @@ try:
         compute_factor_attribution,
         compute_regime_attribution,
     )
+
     _HAS_ATTRIBUTION = True
 except Exception:  # pragma: no cover
     _HAS_ATTRIBUTION = False
@@ -181,6 +193,7 @@ try:
         check_circuit_breaker,
         compute_adversarial_fill_cost,
     )
+
     _HAS_CIRCUIT_BREAKER = True
 except Exception:  # pragma: no cover
     _HAS_CIRCUIT_BREAKER = False
@@ -191,6 +204,7 @@ try:
         BorrowRateTable,
         compute_borrow_cost_for_positions,
     )
+
     _HAS_BORROW = True
 except Exception:  # pragma: no cover
     _HAS_BORROW = False
@@ -200,6 +214,7 @@ try:
     from src.assembled_core.data.corporate_actions import (
         adjust_prices_for_splits,
     )
+
     _HAS_CORP_ACTIONS = True
 except Exception:  # pragma: no cover
     _HAS_CORP_ACTIONS = False
@@ -207,6 +222,7 @@ except Exception:  # pragma: no cover
 
 try:
     from src.assembled_core.costs import get_tier_costs_for_symbol
+
     _HAS_COST_TIERS = True
 except Exception:  # pragma: no cover
     _HAS_COST_TIERS = False
@@ -216,6 +232,7 @@ except Exception:  # pragma: no cover
 # ---------------------------------------------------------------------------
 # Config and result dataclasses
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class UnifiedPaperConfig:
@@ -344,6 +361,7 @@ class PaperDayResult:
 # Engine
 # ---------------------------------------------------------------------------
 
+
 class UnifiedPaperEngine:
     """Unified paper trading engine.
 
@@ -446,7 +464,9 @@ class UnifiedPaperEngine:
         if self.config.enable_kill_switch and _HAS_KILL_SWITCH:
             try:
                 if is_kill_switch_engaged():
-                    logger.warning("[PAPER] Kill switch engaged — skipping %s", as_of_date)
+                    logger.warning(
+                        "[PAPER] Kill switch engaged — skipping %s", as_of_date
+                    )
                     self._append_equity_point(as_of_date, equity_before)
                     if not dry_run:
                         self._save_state()
@@ -470,7 +490,9 @@ class UnifiedPaperEngine:
             prices = self._try_load_prices(as_of_date)
 
         if prices is None or prices.empty:
-            logger.warning("[PAPER] No prices available for %s — skipping fills", as_of_date)
+            logger.warning(
+                "[PAPER] No prices available for %s — skipping fills", as_of_date
+            )
             errors.append("No prices available")
             equity_after = equity_before
             self._append_equity_point(as_of_date, equity_after)
@@ -505,8 +527,9 @@ class UnifiedPaperEngine:
         # Lifecycle: CREATED for every order generated today.
         orders = self._lifecycle_attach(orders, as_of_date)
         pre_risk_ids = (
-            list(orders["order_id"]) if orders is not None and not orders.empty
-            and "order_id" in orders.columns else []
+            list(orders["order_id"])
+            if orders is not None and not orders.empty and "order_id" in orders.columns
+            else []
         )
 
         fills = pd.DataFrame()
@@ -528,8 +551,11 @@ class UnifiedPaperEngine:
 
             # Lifecycle: VALIDATED for survivors, REJECTED for those dropped.
             post_risk_ids = (
-                list(orders["order_id"]) if orders is not None and not orders.empty
-                and "order_id" in orders.columns else []
+                list(orders["order_id"])
+                if orders is not None
+                and not orders.empty
+                and "order_id" in orders.columns
+                else []
             )
             self._lifecycle_mark_validation(pre_risk_ids, post_risk_ids)
 
@@ -561,20 +587,36 @@ class UnifiedPaperEngine:
             # Phase 6: expose latest orders/fills to reconciliation SLO step.
             # B3: stored as plain attrs — not persisted via _save_state.
             self._last_orders_n = int(len(orders)) if orders is not None else 0
-            self._last_fills = fills if isinstance(fills, pd.DataFrame) else pd.DataFrame()
+            self._last_fills = (
+                fills if isinstance(fills, pd.DataFrame) else pd.DataFrame()
+            )
             # Slippage observations: (fill_price - mid_price) / mid_price * 10_000
-            if isinstance(fills, pd.DataFrame) and not fills.empty and {"fill_price", "mid_price", "status"}.issubset(fills.columns):
+            if (
+                isinstance(fills, pd.DataFrame)
+                and not fills.empty
+                and {"fill_price", "mid_price", "status"}.issubset(fills.columns)
+            ):
                 _f = fills[fills["status"].isin({"filled", "partial"})]
                 if not _f.empty:
                     _mid = _f["mid_price"]
-                    self._last_slippage_obs = ((_f["fill_price"] - _mid) / _mid.where(_mid != 0, other=float("nan")) * 10_000).dropna().tolist()
+                    self._last_slippage_obs = (
+                        (
+                            (_f["fill_price"] - _mid)
+                            / _mid.where(_mid != 0, other=float("nan"))
+                            * 10_000
+                        )
+                        .dropna()
+                        .tolist()
+                    )
                 else:
                     self._last_slippage_obs = []
                 # Rejection counts keyed by reject_reason
                 if "reject_reason" in fills.columns:
                     _rej = fills[fills["status"] == "rejected"]
                     if not _rej.empty:
-                        self._last_rejection_counts = _rej["reject_reason"].value_counts().to_dict()
+                        self._last_rejection_counts = (
+                            _rej["reject_reason"].value_counts().to_dict()
+                        )
                     else:
                         self._last_rejection_counts = {}
                 else:
@@ -587,7 +629,12 @@ class UnifiedPaperEngine:
         logger.info("[PAPER] %s fills executed for %s", n_fills, as_of_date)
 
         # Step 8 — Ledger events
-        if self.config.enable_ledger and _HAS_LEDGER and not fills.empty and not dry_run:
+        if (
+            self.config.enable_ledger
+            and _HAS_LEDGER
+            and not fills.empty
+            and not dry_run
+        ):
             self._write_ledger_events(fills, as_of_date)
 
         # Step 9 — Update positions (average-cost accounting)
@@ -620,11 +667,15 @@ class UnifiedPaperEngine:
 
         # Step 11 — Experience log
         equity_after = self._compute_equity(prices)
-        daily_return = (equity_after / equity_before - 1.0) if equity_before > 0 else 0.0
+        daily_return = (
+            (equity_after / equity_before - 1.0) if equity_before > 0 else 0.0
+        )
         self._append_equity_point(as_of_date, equity_after)
 
         if not dry_run and _HAS_EXPERIENCE_LOG:
-            self._write_experience_entry(as_of_date, equity_before, equity_after, n_fills)
+            self._write_experience_entry(
+                as_of_date, equity_before, equity_after, n_fills
+            )
 
         # Step 11b — Lifecycle dump (per-day JSONL snapshot)
         if not dry_run:
@@ -742,8 +793,7 @@ class UnifiedPaperEngine:
         # Equity without current prices — best-effort using cost basis
         cost_basis: dict[str, float] = self._state.get("cost_basis", {})
         position_value = sum(
-            qty * cost_basis.get(sym, 0.0)
-            for sym, qty in positions.items()
+            qty * cost_basis.get(sym, 0.0) for sym, qty in positions.items()
         )
         equity = cash + position_value
         total_pnl = equity - self.config.seed_capital
@@ -929,8 +979,8 @@ class UnifiedPaperEngine:
         """Return the default initial state."""
         return {
             "cash": self.config.seed_capital,
-            "positions": {},          # symbol → qty (float)
-            "cost_basis": {},         # symbol → avg_cost_per_share (float)
+            "positions": {},  # symbol → qty (float)
+            "cost_basis": {},  # symbol → avg_cost_per_share (float)
             "created_at": datetime.now(timezone.utc).isoformat(),
             "last_updated": None,
         }
@@ -939,7 +989,9 @@ class UnifiedPaperEngine:
     # Fill simulation
     # ------------------------------------------------------------------
 
-    def _simulate_fills(self, orders: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
+    def _simulate_fills(
+        self, orders: pd.DataFrame, prices: pd.DataFrame
+    ) -> pd.DataFrame:
         """Simulate fills using spread + Almgren-Chriss impact model.
 
         Fill price formula:
@@ -966,9 +1018,17 @@ class UnifiedPaperEngine:
         adv_map: dict[str, float] = {}
         if prices is not None and not prices.empty:
             sym_col = "symbol" if "symbol" in prices.columns else prices.columns[0]
-            price_col = "close" if "close" in prices.columns else (
-                "price" if "price" in prices.columns else (
-                    prices.columns[1] if len(prices.columns) > 1 else prices.columns[0]
+            price_col = (
+                "close"
+                if "close" in prices.columns
+                else (
+                    "price"
+                    if "price" in prices.columns
+                    else (
+                        prices.columns[1]
+                        if len(prices.columns) > 1
+                        else prices.columns[0]
+                    )
                 )
             )
             syms = prices[sym_col].astype(str).tolist()
@@ -1007,11 +1067,31 @@ class UnifiedPaperEngine:
         # the per-iteration work to arithmetic + dict lookups, which is
         # 2-4× faster and still deterministic.
         _n_orders = len(orders)
-        _sym_arr = orders["symbol"].astype(str).tolist() if "symbol" in orders.columns else [""] * _n_orders
-        _side_arr = orders["side"].astype(str).str.upper().tolist() if "side" in orders.columns else ["BUY"] * _n_orders
-        _qty_arr = orders["qty"].astype(float).abs().tolist() if "qty" in orders.columns else [0.0] * _n_orders
-        _order_id_arr = orders["order_id"].tolist() if "order_id" in orders.columns else [None] * _n_orders
-        _price_arr = orders["price"].astype(float).tolist() if "price" in orders.columns else [0.0] * _n_orders
+        _sym_arr = (
+            orders["symbol"].astype(str).tolist()
+            if "symbol" in orders.columns
+            else [""] * _n_orders
+        )
+        _side_arr = (
+            orders["side"].astype(str).str.upper().tolist()
+            if "side" in orders.columns
+            else ["BUY"] * _n_orders
+        )
+        _qty_arr = (
+            orders["qty"].astype(float).abs().tolist()
+            if "qty" in orders.columns
+            else [0.0] * _n_orders
+        )
+        _order_id_arr = (
+            orders["order_id"].tolist()
+            if "order_id" in orders.columns
+            else [None] * _n_orders
+        )
+        _price_arr = (
+            orders["price"].astype(float).tolist()
+            if "price" in orders.columns
+            else [0.0] * _n_orders
+        )
         if "signal_strength" in orders.columns:
             _sig_arr = orders["signal_strength"].fillna(0.0).astype(float).tolist()
         else:
@@ -1238,8 +1318,16 @@ class UnifiedPaperEngine:
         running_cash = cash
         _side_list = fills["side"].astype(str).str.upper().tolist()
         _notional_list = fills["notional"].astype(float).tolist()
-        _symbol_list = fills["symbol"].astype(str).tolist() if "symbol" in fills.columns else [""] * len(fills)
-        _qty_list = fills["qty"].astype(float).tolist() if "qty" in fills.columns else [0.0] * len(fills)
+        _symbol_list = (
+            fills["symbol"].astype(str).tolist()
+            if "symbol" in fills.columns
+            else [""] * len(fills)
+        )
+        _qty_list = (
+            fills["qty"].astype(float).tolist()
+            if "qty" in fills.columns
+            else [0.0] * len(fills)
+        )
         _index_list = list(fills.index)
         keep_rows: list = []
         for _i in range(len(fills)):
@@ -1266,7 +1354,11 @@ class UnifiedPaperEngine:
         if fills.empty:
             return fills, 0.0
 
-        avg_cost_bps = float(fills["total_cost_bps"].mean()) if "total_cost_bps" in fills.columns else 0.0
+        avg_cost_bps = (
+            float(fills["total_cost_bps"].mean())
+            if "total_cost_bps" in fills.columns
+            else 0.0
+        )
         return fills, avg_cost_bps
 
     # ------------------------------------------------------------------
@@ -1411,7 +1503,11 @@ class UnifiedPaperEngine:
             side = str(fill["side"]).upper()
             # Partial-fill-aware: use fill_qty when available, else fall back to qty
             raw_fill_qty = fill.get("fill_qty", fill["qty"])
-            qty = abs(float(raw_fill_qty)) if pd.notna(raw_fill_qty) else abs(float(fill["qty"]))
+            qty = (
+                abs(float(raw_fill_qty))
+                if pd.notna(raw_fill_qty)
+                else abs(float(fill["qty"]))
+            )
             if qty <= 0:
                 continue
 
@@ -1555,7 +1651,8 @@ class UnifiedPaperEngine:
         if prices is not None and not prices.empty:
             sym_col = "symbol" if "symbol" in prices.columns else prices.columns[0]
             price_col = (
-                "close" if "close" in prices.columns
+                "close"
+                if "close" in prices.columns
                 else ("price" if "price" in prices.columns else prices.columns[-1])
             )
             for _, row in prices.iterrows():
@@ -1577,7 +1674,9 @@ class UnifiedPaperEngine:
             )
             logger.info(
                 "[PAPER] Borrow cost %s: %.2f USD across %d shorts",
-                as_of_date, total, len(costs),
+                as_of_date,
+                total,
+                len(costs),
             )
             self._state.setdefault("borrow_cost_history", []).append(
                 {"date": as_of_date, "cost_usd": total, "per_symbol": costs}
@@ -1613,7 +1712,9 @@ class UnifiedPaperEngine:
             )
             return prices
         try:
-            actions = pd.read_csv(ca_path, dtype={"symbol": "string", "action_type": "string"})
+            actions = pd.read_csv(
+                ca_path, dtype={"symbol": "string", "action_type": "string"}
+            )
         except Exception as exc:
             logger.warning("[PAPER] Could not read CA file: %s", exc)
             return prices
@@ -1690,10 +1791,7 @@ class UnifiedPaperEngine:
             cash = float(self._state.get("cash", self.config.seed_capital))
 
             ledger_positions_df = pd.DataFrame(
-                [
-                    {"symbol": sym, "qty": float(qty)}
-                    for sym, qty in positions.items()
-                ]
+                [{"symbol": sym, "qty": float(qty)} for sym, qty in positions.items()]
             )
             if ledger_positions_df.empty:
                 ledger_positions_df = pd.DataFrame(columns=["symbol", "qty"])
@@ -1738,7 +1836,10 @@ class UnifiedPaperEngine:
                 ]
                 if last_orders_n > 0:
                     fill_rate = float(len(filled)) / float(last_orders_n)
-                if "arrival_price" in last_fills.columns and "fill_price" in last_fills.columns:
+                if (
+                    "arrival_price" in last_fills.columns
+                    and "fill_price" in last_fills.columns
+                ):
                     ap = last_fills["arrival_price"].astype(float)
                     fp = last_fills["fill_price"].astype(float)
                     non_zero = ap.abs() > 0
@@ -1793,10 +1894,12 @@ class UnifiedPaperEngine:
             "written_at_utc": datetime.now(timezone.utc).isoformat(),
         }
         from src.assembled_core.utils.atomic_io import atomic_write_json
+
         atomic_write_json(out_path, payload)
         logger.warning(
             "[PAPER] Reconcile alert written: %s (severity=%s)",
-            out_path, verdict["severity"],
+            out_path,
+            verdict["severity"],
         )
         return out_path
 
@@ -1829,11 +1932,19 @@ class UnifiedPaperEngine:
         # Per-order frame (empty frame = still write an empty CSV so downstream
         # tooling can safely assume the artifact exists after a run).
         cols = [
-            "date", "symbol", "side", "qty", "fill_qty",
-            "arrival_price", "fill_price",
+            "date",
+            "symbol",
+            "side",
+            "qty",
+            "fill_qty",
+            "arrival_price",
+            "fill_price",
             "arrival_slippage_bps",
-            "spread_cost_bps", "impact_cost_bps",
-            "adversarial_cost_bps", "sor_cost_bps", "total_cost_bps",
+            "spread_cost_bps",
+            "impact_cost_bps",
+            "adversarial_cost_bps",
+            "sor_cost_bps",
+            "total_cost_bps",
             "status",
         ]
         rows: list[dict] = []
@@ -1845,22 +1956,26 @@ class UnifiedPaperEngine:
                 side_sign = 1.0 if str(f.get("side", "BUY")).upper() == "BUY" else -1.0
                 if ap == ap and fp == fp and ap > 0:
                     slip_bps = side_sign * (fp - ap) / ap * 10_000.0
-                rows.append({
-                    "date": as_of_date,
-                    "symbol": str(f.get("symbol", "")),
-                    "side": str(f.get("side", "")),
-                    "qty": float(f.get("qty", 0.0)),
-                    "fill_qty": float(f.get("fill_qty", f.get("qty", 0.0))),
-                    "arrival_price": ap,
-                    "fill_price": fp,
-                    "arrival_slippage_bps": slip_bps,
-                    "spread_cost_bps": float(f.get("spread_cost_bps", 0.0)),
-                    "impact_cost_bps": float(f.get("impact_cost_bps", 0.0)),
-                    "adversarial_cost_bps": float(f.get("adversarial_cost_bps", 0.0)),
-                    "sor_cost_bps": float(f.get("sor_cost_bps", 0.0)),
-                    "total_cost_bps": float(f.get("total_cost_bps", 0.0)),
-                    "status": str(f.get("status", "filled")),
-                })
+                rows.append(
+                    {
+                        "date": as_of_date,
+                        "symbol": str(f.get("symbol", "")),
+                        "side": str(f.get("side", "")),
+                        "qty": float(f.get("qty", 0.0)),
+                        "fill_qty": float(f.get("fill_qty", f.get("qty", 0.0))),
+                        "arrival_price": ap,
+                        "fill_price": fp,
+                        "arrival_slippage_bps": slip_bps,
+                        "spread_cost_bps": float(f.get("spread_cost_bps", 0.0)),
+                        "impact_cost_bps": float(f.get("impact_cost_bps", 0.0)),
+                        "adversarial_cost_bps": float(
+                            f.get("adversarial_cost_bps", 0.0)
+                        ),
+                        "sor_cost_bps": float(f.get("sor_cost_bps", 0.0)),
+                        "total_cost_bps": float(f.get("total_cost_bps", 0.0)),
+                        "status": str(f.get("status", "filled")),
+                    }
+                )
         per_order = pd.DataFrame(rows, columns=cols)
 
         out_dir = Path(self.config.tca_dir)
@@ -1871,7 +1986,9 @@ class UnifiedPaperEngine:
 
         # Aggregate metrics
         n_orders = int(len(orders)) if orders is not None else 0
-        n_fills = int((per_order["status"] != "rejected").sum()) if not per_order.empty else 0
+        n_fills = (
+            int((per_order["status"] != "rejected").sum()) if not per_order.empty else 0
+        )
         fill_rate = (n_fills / n_orders) if n_orders > 0 else 0.0
 
         def _pct(series: pd.Series, q: float) -> float:
@@ -1895,27 +2012,48 @@ class UnifiedPaperEngine:
             "n_fills": n_fills,
             "fill_rate": fill_rate,
             "slippage_bps": {
-                "p50": _pct(per_order.get("arrival_slippage_bps", pd.Series(dtype=float)), 0.50),
-                "p90": _pct(per_order.get("arrival_slippage_bps", pd.Series(dtype=float)), 0.90),
-                "p99": _pct(per_order.get("arrival_slippage_bps", pd.Series(dtype=float)), 0.99),
+                "p50": _pct(
+                    per_order.get("arrival_slippage_bps", pd.Series(dtype=float)), 0.50
+                ),
+                "p90": _pct(
+                    per_order.get("arrival_slippage_bps", pd.Series(dtype=float)), 0.90
+                ),
+                "p99": _pct(
+                    per_order.get("arrival_slippage_bps", pd.Series(dtype=float)), 0.99
+                ),
             },
             "cost_bps_avg": {
-                "spread": _avg(per_order.get("spread_cost_bps", pd.Series(dtype=float))),
-                "impact": _avg(per_order.get("impact_cost_bps", pd.Series(dtype=float))),
-                "adversarial": _avg(per_order.get("adversarial_cost_bps", pd.Series(dtype=float))),
+                "spread": _avg(
+                    per_order.get("spread_cost_bps", pd.Series(dtype=float))
+                ),
+                "impact": _avg(
+                    per_order.get("impact_cost_bps", pd.Series(dtype=float))
+                ),
+                "adversarial": _avg(
+                    per_order.get("adversarial_cost_bps", pd.Series(dtype=float))
+                ),
                 "sor": _avg(per_order.get("sor_cost_bps", pd.Series(dtype=float))),
                 "total": _avg(per_order.get("total_cost_bps", pd.Series(dtype=float))),
             },
             "cost_bps_sum": {
-                "spread": _total(per_order.get("spread_cost_bps", pd.Series(dtype=float))),
-                "impact": _total(per_order.get("impact_cost_bps", pd.Series(dtype=float))),
-                "adversarial": _total(per_order.get("adversarial_cost_bps", pd.Series(dtype=float))),
+                "spread": _total(
+                    per_order.get("spread_cost_bps", pd.Series(dtype=float))
+                ),
+                "impact": _total(
+                    per_order.get("impact_cost_bps", pd.Series(dtype=float))
+                ),
+                "adversarial": _total(
+                    per_order.get("adversarial_cost_bps", pd.Series(dtype=float))
+                ),
                 "sor": _total(per_order.get("sor_cost_bps", pd.Series(dtype=float))),
-                "total": _total(per_order.get("total_cost_bps", pd.Series(dtype=float))),
+                "total": _total(
+                    per_order.get("total_cost_bps", pd.Series(dtype=float))
+                ),
             },
             "written_at_utc": datetime.now(timezone.utc).isoformat(),
         }
         from src.assembled_core.utils.atomic_io import atomic_write_json
+
         atomic_write_json(json_path, aggregate)
         logger.info("[PAPER] TCA artifacts written: %s", csv_path)
         return csv_path, json_path
@@ -1965,6 +2103,7 @@ class UnifiedPaperEngine:
             "written_at_utc": datetime.now(timezone.utc).isoformat(),
         }
         from src.assembled_core.utils.atomic_io import atomic_write_json
+
         atomic_write_json(json_path, payload)
         logger.info("[PAPER] Attribution artifacts written: %s", csv_path)
         return csv_path, json_path
@@ -1995,12 +2134,10 @@ class UnifiedPaperEngine:
             "tca_csv": self.config.tca_dir / f"tca_{run_id}_{as_of_date}.csv",
             "tca_json": self.config.tca_dir / f"tca_{run_id}_{as_of_date}.json",
             "attribution_csv": (
-                self.config.attribution_dir
-                / f"attribution_{run_id}_{as_of_date}.csv"
+                self.config.attribution_dir / f"attribution_{run_id}_{as_of_date}.csv"
             ),
             "attribution_json": (
-                self.config.attribution_dir
-                / f"attribution_{run_id}_{as_of_date}.json"
+                self.config.attribution_dir / f"attribution_{run_id}_{as_of_date}.json"
             ),
             "reconcile_alert": (
                 self.config.reconcile_alerts_dir
@@ -2040,6 +2177,7 @@ class UnifiedPaperEngine:
         from src.assembled_core.ops.run_manifest import (
             _compute_git_sha,
         )
+
         append_run_index(
             run_id=run_id,
             date=as_of_date,
@@ -2130,12 +2268,16 @@ class UnifiedPaperEngine:
             side = str(order.get("side", ""))
             fill = fill_by_key.get(pair_key)
             filled_qty = (
-                float(fill.get("fill_qty", fill.get("qty", 0.0))) if fill is not None else 0.0
+                float(fill.get("fill_qty", fill.get("qty", 0.0)))
+                if fill is not None
+                else 0.0
             )
             filled_price = (
                 float(fill.get("fill_price", 0.0)) if fill is not None else None
             )
-            status = str(fill.get("status", "filled")) if fill is not None else "rejected"
+            status = (
+                str(fill.get("status", "filled")) if fill is not None else "rejected"
+            )
             try:
                 record_order_complete(
                     sym,
@@ -2171,9 +2313,7 @@ class UnifiedPaperEngine:
             sym = str(order.get("symbol", ""))
             side = str(order.get("side", ""))
             qty = float(order.get("qty", 0.0))
-            sim_fill = fills[
-                (fills.get("symbol") == sym) & (fills.get("side") == side)
-            ]
+            sim_fill = fills[(fills.get("symbol") == sym) & (fills.get("side") == side)]
             sim_price = (
                 float(sim_fill.iloc[0]["fill_price"])
                 if not sim_fill.empty and "fill_price" in sim_fill.columns
@@ -2181,7 +2321,8 @@ class UnifiedPaperEngine:
             )
             sim_status = (
                 str(sim_fill.iloc[0].get("status", "filled"))
-                if not sim_fill.empty else "rejected"
+                if not sim_fill.empty
+                else "rejected"
             )
             try:
                 live = self.config.shadow_broker.submit(  # type: ignore[attr-defined]
@@ -2194,20 +2335,27 @@ class UnifiedPaperEngine:
                 live_price = float("nan")
                 live_status = "error"
             diff_bps = float("nan")
-            if sim_price and live_price and sim_price == sim_price and live_price == live_price:
+            if (
+                sim_price
+                and live_price
+                and sim_price == sim_price
+                and live_price == live_price
+            ):
                 if sim_price != 0:
                     diff_bps = (live_price - sim_price) / sim_price * 10_000.0
-            rows.append({
-                "date": as_of_date,
-                "symbol": sym,
-                "side": side,
-                "qty": qty,
-                "sim_fill_price": sim_price,
-                "live_fill_price": live_price,
-                "diff_bps": diff_bps,
-                "sim_status": sim_status,
-                "live_status": live_status,
-            })
+            rows.append(
+                {
+                    "date": as_of_date,
+                    "symbol": sym,
+                    "side": side,
+                    "qty": qty,
+                    "sim_fill_price": sim_price,
+                    "live_fill_price": live_price,
+                    "diff_bps": diff_bps,
+                    "sim_status": sim_status,
+                    "live_status": live_status,
+                }
+            )
         out_dir = Path(self.config.shadow_compare_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"shadow_compare_{self.config.run_id}_{as_of_date}.csv"
@@ -2240,8 +2388,10 @@ class UnifiedPaperEngine:
         price_map: dict[str, float] = {}
         if prices is not None and not prices.empty:
             sym_col = "symbol" if "symbol" in prices.columns else prices.columns[0]
-            price_col = "close" if "close" in prices.columns else (
-                "price" if "price" in prices.columns else prices.columns[-1]
+            price_col = (
+                "close"
+                if "close" in prices.columns
+                else ("price" if "price" in prices.columns else prices.columns[-1])
             )
             for _, row in prices.iterrows():
                 price_map[str(row[sym_col])] = float(row[price_col])
@@ -2274,7 +2424,9 @@ class UnifiedPaperEngine:
         logger.debug("[PAPER] No external price loader configured for %s", as_of_date)
         return None
 
-    def _generate_orders(self, as_of_date: str, prices: pd.DataFrame) -> pd.DataFrame | None:
+    def _generate_orders(
+        self, as_of_date: str, prices: pd.DataFrame
+    ) -> pd.DataFrame | None:
         """Generate orders for the trading day.
 
         Default implementation returns an empty DataFrame.
@@ -2581,9 +2733,7 @@ class UnifiedPaperEngine:
             if lines:
                 path.write_text("\n".join(lines) + "\n", encoding="utf-8")
                 self._lifecycle_dumped_ids.update(fresh_ids)
-                logger.debug(
-                    "[PAPER] Lifecycle dump %s (%d rows)", path, len(lines)
-                )
+                logger.debug("[PAPER] Lifecycle dump %s (%d rows)", path, len(lines))
         except Exception as exc:  # pragma: no cover
             logger.warning("[PAPER] Lifecycle dump failed: %s", exc)
 
@@ -2599,7 +2749,11 @@ class UnifiedPaperEngine:
                     "date": as_of_date,
                     "equity_before": equity_before,
                     "equity_after": equity_after,
-                    "daily_return": (equity_after / equity_before - 1.0) if equity_before > 0 else 0.0,
+                    "daily_return": (
+                        (equity_after / equity_before - 1.0)
+                        if equity_before > 0
+                        else 0.0
+                    ),
                     "n_fills": n_fills,
                     "run_id": self.config.run_id,
                 }
@@ -2619,12 +2773,15 @@ class UnifiedPaperEngine:
         self._state = self._default_state()
         self._equity_curve = []
         self._save_state()
-        logger.info("[PAPER] State reset to seed_capital=%.2f", self.config.seed_capital)
+        logger.info(
+            "[PAPER] State reset to seed_capital=%.2f", self.config.seed_capital
+        )
 
 
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -2632,14 +2789,20 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     group = p.add_mutually_exclusive_group(required=True)
-    group.add_argument("--date", metavar="YYYY-MM-DD", help="Run a single paper trading day.")
+    group.add_argument(
+        "--date", metavar="YYYY-MM-DD", help="Run a single paper trading day."
+    )
     group.add_argument(
         "--start-date",
         metavar="YYYY-MM-DD",
         help="Start of date range (requires --end-date).",
     )
-    p.add_argument("--end-date", metavar="YYYY-MM-DD", help="End of date range (inclusive).")
-    p.add_argument("--dry-run", action="store_true", help="Simulate without persisting state.")
+    p.add_argument(
+        "--end-date", metavar="YYYY-MM-DD", help="End of date range (inclusive)."
+    )
+    p.add_argument(
+        "--dry-run", action="store_true", help="Simulate without persisting state."
+    )
     p.add_argument(
         "--seed-capital",
         type=float,

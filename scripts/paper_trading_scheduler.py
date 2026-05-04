@@ -115,11 +115,13 @@ def _write_heartbeat(status: str = "alive") -> None:
     import os as _os
 
     HEARTBEAT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps({
-        "status": status,
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "pid": _os.getpid(),
-    })
+    payload = json.dumps(
+        {
+            "status": status,
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "pid": _os.getpid(),
+        }
+    )
     tmp = HEARTBEAT_PATH.with_suffix(HEARTBEAT_PATH.suffix + ".tmp")
     try:
         tmp.write_text(payload, encoding="utf-8")
@@ -138,7 +140,12 @@ def _run_price_update() -> bool:
     logger.info("[Scheduler] Updating price cache...")
     try:
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "update_prices.py"), "--days", "10"],
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "update_prices.py"),
+                "--days",
+                "10",
+            ],
             capture_output=True,
             text=True,
             timeout=600,

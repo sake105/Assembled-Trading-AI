@@ -19,9 +19,12 @@ pytestmark = pytest.mark.phase12
 # Adversarial Validation
 # ---------------------------------------------------------------------------
 
+
 def test_adversarial_no_shift():
     """Identische Verteilungen → AUC nahe 0.5."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.adversarial_validation')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.adversarial_validation")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.adversarial_validation import run_adversarial_validation
 
@@ -39,26 +42,34 @@ def test_adversarial_no_shift():
 
 def test_adversarial_strong_shift():
     """Stark verschiedene Verteilungen → hohe AUC."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.adversarial_validation')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.adversarial_validation")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.adversarial_validation import run_adversarial_validation
 
     rng = np.random.default_rng(42)
     n = 400
     X1 = pd.DataFrame({"a": rng.standard_normal(n), "b": rng.standard_normal(n)})
-    X2 = pd.DataFrame({
-        "a": rng.standard_normal(n) + 3.0,  # massiver Shift
-        "b": rng.standard_normal(n) * 3.0,
-    })
+    X2 = pd.DataFrame(
+        {
+            "a": rng.standard_normal(n) + 3.0,  # massiver Shift
+            "b": rng.standard_normal(n) * 3.0,
+        }
+    )
     result = run_adversarial_validation(X1, X2)
     assert result.auc > 0.85
     assert "SHIFT" in result.interpret()
 
 
 def test_adversarial_sample_weights():
-    import pytest; pytest.importorskip('src.assembled_core.ml.adversarial_validation')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.adversarial_validation")
     pytest.importorskip("sklearn")
-    from src.assembled_core.ml.adversarial_validation import sample_weight_from_adversarial
+    from src.assembled_core.ml.adversarial_validation import (
+        sample_weight_from_adversarial,
+    )
 
     rng = np.random.default_rng(7)
     n = 200
@@ -75,8 +86,11 @@ def test_adversarial_sample_weights():
 # Feature Clustering
 # ---------------------------------------------------------------------------
 
+
 def test_cluster_by_correlation_separates_groups():
-    import pytest; pytest.importorskip('src.assembled_core.ml.feature_clustering')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.feature_clustering")
     from src.assembled_core.ml.feature_clustering import cluster_features_by_correlation
 
     pytest.importorskip("scipy")
@@ -102,11 +116,14 @@ def test_cluster_by_correlation_separates_groups():
 
 
 def test_cluster_ic_selection():
-    import pytest; pytest.importorskip('src.assembled_core.ml.feature_clustering')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.feature_clustering")
     from src.assembled_core.ml.feature_clustering import (
         cluster_features_by_correlation,
         select_features_by_cluster_ic,
     )
+
     pytest.importorskip("scipy")
 
     rng = np.random.default_rng(3)
@@ -128,7 +145,9 @@ def test_cluster_ic_selection():
 
 
 def test_clustered_mda():
-    import pytest; pytest.importorskip('src.assembled_core.ml.feature_clustering')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.feature_clustering")
     pytest.importorskip("sklearn")
     pytest.importorskip("scipy")
     from sklearn.ensemble import RandomForestRegressor
@@ -140,11 +159,13 @@ def test_clustered_mda():
 
     rng = np.random.default_rng(5)
     n = 300
-    X = pd.DataFrame({
-        "a": rng.standard_normal(n),
-        "b": rng.standard_normal(n),
-        "c": rng.standard_normal(n),
-    })
+    X = pd.DataFrame(
+        {
+            "a": rng.standard_normal(n),
+            "b": rng.standard_normal(n),
+            "c": rng.standard_normal(n),
+        }
+    )
     y = pd.Series(2.0 * X["a"] + rng.normal(0, 0.5, n))
 
     model = RandomForestRegressor(n_estimators=30, random_state=0)
@@ -161,8 +182,11 @@ def test_clustered_mda():
 # Model Registry
 # ---------------------------------------------------------------------------
 
+
 def test_registry_register_and_list(tmp_path):
-    import pytest; pytest.importorskip('src.assembled_core.ml.model_registry')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.model_registry")
     pytest.importorskip("joblib")
     from sklearn.linear_model import Ridge
 
@@ -185,7 +209,9 @@ def test_registry_register_and_list(tmp_path):
 
 
 def test_registry_approval_deployment_workflow(tmp_path):
-    import pytest; pytest.importorskip('src.assembled_core.ml.model_registry')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.model_registry")
     pytest.importorskip("joblib")
     from sklearn.linear_model import Ridge
 
@@ -220,7 +246,9 @@ def test_registry_approval_deployment_workflow(tmp_path):
 
 
 def test_registry_rollback(tmp_path):
-    import pytest; pytest.importorskip('src.assembled_core.ml.model_registry')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.model_registry")
     pytest.importorskip("joblib")
     from sklearn.linear_model import Ridge
     from src.assembled_core.ml.model_registry import ModelRegistry
@@ -245,8 +273,11 @@ def test_registry_rollback(tmp_path):
 # Bayesian Ensemble
 # ---------------------------------------------------------------------------
 
+
 def test_bma_weights_softmax():
-    import pytest; pytest.importorskip('src.assembled_core.ml.bayesian_ensemble')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.bayesian_ensemble")
     from src.assembled_core.ml.bayesian_ensemble import compute_bma_weights
 
     scores = {"a": -0.1, "b": -0.5, "c": -2.0}  # neg_mse: higher = better
@@ -257,7 +288,9 @@ def test_bma_weights_softmax():
 
 
 def test_bma_weights_temperature():
-    import pytest; pytest.importorskip('src.assembled_core.ml.bayesian_ensemble')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.bayesian_ensemble")
     from src.assembled_core.ml.bayesian_ensemble import compute_bma_weights
 
     scores = {"a": 0.9, "b": 0.3, "c": -0.5}
@@ -269,7 +302,9 @@ def test_bma_weights_temperature():
 
 
 def test_bma_training_and_predict():
-    import pytest; pytest.importorskip('src.assembled_core.ml.bayesian_ensemble')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.bayesian_ensemble")
     pytest.importorskip("sklearn")
     from sklearn.linear_model import Lasso, Ridge
 
@@ -281,8 +316,10 @@ def test_bma_training_and_predict():
     y = pd.Series(X["f1"] + 0.5 * X["f2"] + rng.normal(0, 0.3, n))
 
     result = run_bayesian_ensemble(
-        X_train=X.iloc[:200], y_train=y.iloc[:200],
-        X_val=X.iloc[200:300], y_val=y.iloc[200:300],
+        X_train=X.iloc[:200],
+        y_train=y.iloc[:200],
+        X_val=X.iloc[200:300],
+        y_val=y.iloc[200:300],
         model_factories={
             "ridge": lambda: Ridge(),
             "lasso": lambda: Lasso(alpha=0.1),

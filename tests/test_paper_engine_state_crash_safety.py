@@ -24,7 +24,6 @@ from src.assembled_core.execution.unified_paper_engine import (
     UnifiedPaperEngine,
 )
 
-
 pytestmark = pytest.mark.phase_zero
 
 

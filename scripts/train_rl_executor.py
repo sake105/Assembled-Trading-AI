@@ -10,6 +10,7 @@ Usage:
 Requires: stable-baselines3, gymnasium (or gym).
 Falls back to TWAP baseline evaluation when SB3 is not installed.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,9 +34,16 @@ def main() -> None:
     parser.add_argument("--arrival-price", type=float, default=100.0)
     parser.add_argument("--sigma-daily", type=float, default=0.015)
     parser.add_argument("--timesteps", type=int, default=100_000)
-    parser.add_argument("--out", default="models/rl_executor", help="Model save path (no extension)")
+    parser.add_argument(
+        "--out", default="models/rl_executor", help="Model save path (no extension)"
+    )
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--eval-episodes", type=int, default=10, help="Episodes to evaluate after training")
+    parser.add_argument(
+        "--eval-episodes",
+        type=int,
+        default=10,
+        help="Episodes to evaluate after training",
+    )
     args = parser.parse_args()
 
     from src.assembled_core.execution.rl_environment import (
@@ -57,7 +65,9 @@ def main() -> None:
     )
 
     if not (SB3_AVAILABLE and GYM_AVAILABLE):
-        log.warning("stable-baselines3 or gymnasium not installed — running TWAP baseline only")
+        log.warning(
+            "stable-baselines3 or gymnasium not installed — running TWAP baseline only"
+        )
         baseline = RuleBasedExecutor(config=env_cfg)
         shortfalls = []
         for ep in range(args.eval_episodes):
@@ -65,7 +75,11 @@ def main() -> None:
             shortfalls.append(res["shortfall_bps"])
             log.info("[TWAP ep=%d] shortfall=%.2f bps", ep, res["shortfall_bps"])
         avg = sum(shortfalls) / max(len(shortfalls), 1)
-        log.info("[TWAP baseline] avg shortfall=%.2f bps over %d episodes", avg, len(shortfalls))
+        log.info(
+            "[TWAP baseline] avg shortfall=%.2f bps over %d episodes",
+            avg,
+            len(shortfalls),
+        )
         return
 
     # Ensure output dir exists
@@ -73,8 +87,15 @@ def main() -> None:
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    executor = RLExecutor(config=env_cfg, model_path=args.out, total_timesteps=args.timesteps)
-    log.info("Training PPO for %d timesteps (total_shares=%d, n_steps=%d)...", args.timesteps, args.total_shares, args.n_steps)
+    executor = RLExecutor(
+        config=env_cfg, model_path=args.out, total_timesteps=args.timesteps
+    )
+    log.info(
+        "Training PPO for %d timesteps (total_shares=%d, n_steps=%d)...",
+        args.timesteps,
+        args.total_shares,
+        args.n_steps,
+    )
     executor.train()
 
     # Evaluate trained agent vs TWAP baseline
@@ -102,7 +123,12 @@ def main() -> None:
         "improvement_bps": round(improvement_bps, 3),
         "backend": "ppo",
     }
-    log.info("[RESULT] RL shortfall=%.2f bps, TWAP=%.2f bps, improvement=%.2f bps", rl_avg, twap_avg, improvement_bps)
+    log.info(
+        "[RESULT] RL shortfall=%.2f bps, TWAP=%.2f bps, improvement=%.2f bps",
+        rl_avg,
+        twap_avg,
+        improvement_bps,
+    )
     print(json.dumps(summary, indent=2))
 
 

@@ -12,7 +12,6 @@ from src.assembled_core.strategies.base import (
     StrategyRegistry,
 )
 
-
 # -- Fixtures ---------------------------------------------------------------
 
 
@@ -23,22 +22,26 @@ class DummyStrategy(Strategy):
 
     def generate_signals(self, prices, **kwargs):
         return StrategySignal(
-            signals=pd.DataFrame({
-                "timestamp": [pd.Timestamp("2024-01-01")],
-                "symbol": ["AAPL"],
-                "direction": ["LONG"],
-                "score": [0.8],
-            })
+            signals=pd.DataFrame(
+                {
+                    "timestamp": [pd.Timestamp("2024-01-01")],
+                    "symbol": ["AAPL"],
+                    "direction": ["LONG"],
+                    "score": [0.8],
+                }
+            )
         )
 
 
 def dummy_func(prices, **kwargs):
-    return pd.DataFrame({
-        "timestamp": [pd.Timestamp("2024-01-01")],
-        "symbol": ["SPY"],
-        "direction": ["LONG"],
-        "score": [0.5],
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2024-01-01")],
+            "symbol": ["SPY"],
+            "direction": ["LONG"],
+            "score": [0.5],
+        }
+    )
 
 
 # -- Tests -------------------------------------------------------------------
@@ -47,12 +50,16 @@ def dummy_func(prices, **kwargs):
 @pytest.mark.phase12
 class TestStrategySignal:
     def test_valid_signal(self):
-        sig = StrategySignal(signals=pd.DataFrame({
-            "timestamp": [pd.Timestamp("2024-01-01")],
-            "symbol": ["AAPL"],
-            "direction": ["LONG"],
-            "score": [0.5],
-        }))
+        sig = StrategySignal(
+            signals=pd.DataFrame(
+                {
+                    "timestamp": [pd.Timestamp("2024-01-01")],
+                    "symbol": ["AAPL"],
+                    "direction": ["LONG"],
+                    "score": [0.5],
+                }
+            )
+        )
         assert len(sig.signals) == 1
 
     def test_empty_signal_ok(self):
@@ -61,9 +68,15 @@ class TestStrategySignal:
 
     def test_missing_column_raises(self):
         with pytest.raises(ValueError, match="missing required columns"):
-            StrategySignal(signals=pd.DataFrame({
-                "timestamp": [1], "symbol": ["A"], "score": [0.5],
-            }))
+            StrategySignal(
+                signals=pd.DataFrame(
+                    {
+                        "timestamp": [1],
+                        "symbol": ["A"],
+                        "score": [0.5],
+                    }
+                )
+            )
 
 
 @pytest.mark.phase12
@@ -84,9 +97,13 @@ class TestStrategy:
 
     def test_validate_inputs(self):
         strat = DummyStrategy()
-        good = pd.DataFrame({
-            "timestamp": [1], "symbol": ["A"], "close": [100.0],
-        })
+        good = pd.DataFrame(
+            {
+                "timestamp": [1],
+                "symbol": ["A"],
+                "close": [100.0],
+            }
+        )
         assert strat.validate_inputs(good) is True
         assert strat.validate_inputs(pd.DataFrame()) is False
 
@@ -103,6 +120,7 @@ class TestFunctionalStrategy:
     def test_bad_return_type_raises(self):
         def bad_func(prices, **kwargs):
             return "not a dataframe"
+
         fs = FunctionalStrategy("bad", bad_func)
         with pytest.raises(TypeError, match="expected DataFrame"):
             fs.generate_signals(pd.DataFrame())

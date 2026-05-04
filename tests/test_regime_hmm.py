@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import pytest; pytest.importorskip("src.assembled_core.ml.regime_hmm")
+import pytest
+
+pytest.importorskip("src.assembled_core.ml.regime_hmm")
 import pytest
 import numpy as np
 import pandas as pd
@@ -74,19 +76,23 @@ class TestRegimeHMM:
 @pytest.mark.phase12
 class TestMultiFeatureRegimeHMM:
     def test_fallback_without_hmmlearn(self):
-        features = pd.DataFrame({
-            "ret": np.random.default_rng(42).normal(0, 0.01, 100),
-            "vol": np.random.default_rng(42).uniform(0.01, 0.03, 100),
-        })
+        features = pd.DataFrame(
+            {
+                "ret": np.random.default_rng(42).normal(0, 0.01, 100),
+                "vol": np.random.default_rng(42).uniform(0.01, 0.03, 100),
+            }
+        )
         mf = MultiFeatureRegimeHMM(n_regimes=2)
         proba = mf.predict_proba(features)
         assert proba.shape[0] == len(features)
 
     def test_crisis_alert(self):
-        features = pd.DataFrame({
-            "ret": np.random.default_rng(42).normal(-0.02, 0.03, 50),
-            "vol": np.random.default_rng(42).uniform(0.02, 0.05, 50),
-        })
+        features = pd.DataFrame(
+            {
+                "ret": np.random.default_rng(42).normal(-0.02, 0.03, 50),
+                "vol": np.random.default_rng(42).uniform(0.02, 0.05, 50),
+            }
+        )
         mf = MultiFeatureRegimeHMM(n_regimes=2)
         alert = mf.crisis_alert(features, threshold=0.3)
         assert "alert" in alert

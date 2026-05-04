@@ -113,12 +113,18 @@ def add_congress_features(
             continue
 
         # Determine window time column and PIT flag once per symbol
-        window_time_col = "event_date" if "event_date" in symbol_events.columns else "timestamp"
+        window_time_col = (
+            "event_date" if "event_date" in symbol_events.columns else "timestamp"
+        )
         has_pit = "disclosure_date" in symbol_events.columns
         has_amount = "amount" in symbol_events.columns
 
         ev_time_ns = symbol_events[window_time_col].values.astype("int64")
-        ev_amounts = symbol_events["amount"].values if has_amount else np.zeros(len(symbol_events))
+        ev_amounts = (
+            symbol_events["amount"].values
+            if has_amount
+            else np.zeros(len(symbol_events))
+        )
         if has_pit:
             ev_disclose_ns = symbol_events["disclosure_date"].values.astype("int64")
         else:
@@ -187,13 +193,23 @@ def compute_congress_net_buy_score(
         return {}
 
     df = trades_df.copy()
-    df["_amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0.0) if "amount" in df.columns else 0.0
-    df["_sign"] = np.where(
-        df["type"].astype(str).str.lower().isin(("buy", "purchase")), 1.0, -1.0
-    ) if "type" in df.columns else 1.0
+    df["_amount"] = (
+        pd.to_numeric(df["amount"], errors="coerce").fillna(0.0)
+        if "amount" in df.columns
+        else 0.0
+    )
+    df["_sign"] = (
+        np.where(
+            df["type"].astype(str).str.lower().isin(("buy", "purchase")), 1.0, -1.0
+        )
+        if "type" in df.columns
+        else 1.0
+    )
     df["_weight"] = 1.0
     if committee_members and "member_id" in df.columns:
-        df["_weight"] = np.where(df["member_id"].isin(committee_members), committee_weight, 1.0)
+        df["_weight"] = np.where(
+            df["member_id"].isin(committee_members), committee_weight, 1.0
+        )
     df["_net"] = df["_amount"] * df["_sign"] * df["_weight"]
     scores_series = df.groupby("symbol")["_net"].sum().round(2)
     return {str(sym): float(v) for sym, v in scores_series.items()}

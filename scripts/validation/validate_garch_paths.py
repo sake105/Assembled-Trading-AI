@@ -18,6 +18,7 @@ Interpretation:
   - If real Sharpe is *inside* the band: GARCH captures the return dynamics well.
   - If real Sharpe is *outside* the band: model is missing regime / dependency structure.
 """
+
 from __future__ import annotations
 
 import sys
@@ -48,19 +49,29 @@ if _LOCAL_PARQUET.exists():
         if spx_returns is None and "close" in _df.columns:
             spx_returns = _df["close"].dropna().pct_change(fill_method=None).dropna()
         if spx_returns is not None:
-            print(f"    [local] {len(spx_returns)} daily returns from {_LOCAL_PARQUET.name}")
+            print(
+                f"    [local] {len(spx_returns)} daily returns from {_LOCAL_PARQUET.name}"
+            )
     except Exception as _e:
         print(f"    [WARN] local parquet failed ({_e}), trying yfinance ...")
 
 if spx_returns is None:
     try:
         import yfinance as yf
-        raw = yf.download("^SPX", start="2020-01-01", end="2024-12-31",
-                          progress=False, auto_adjust=True)
+
+        raw = yf.download(
+            "^SPX",
+            start="2020-01-01",
+            end="2024-12-31",
+            progress=False,
+            auto_adjust=True,
+        )
         spx_close = raw["Close"].squeeze().dropna()
         spx_returns = spx_close.pct_change(fill_method=None).dropna()
-        print(f"    [yfinance] {len(spx_returns)} daily returns "
-              f"({spx_returns.index[0].date()} to {spx_returns.index[-1].date()})")
+        print(
+            f"    [yfinance] {len(spx_returns)} daily returns "
+            f"({spx_returns.index[0].date()} to {spx_returns.index[-1].date()})"
+        )
     except Exception as e:
         print(f"    [WARN] yfinance failed ({e}). Using synthetic stand-in.")
 
@@ -78,21 +89,23 @@ ret_pct = spx_returns.values * 100  # arch expects percentage returns
 garch_model = arch_model(ret_pct, vol="GARCH", p=1, q=1, dist="normal", mean="Zero")
 res = garch_model.fit(disp="off")
 
-omega = float(res.params["omega"]) / 10_000   # convert from pct² to decimal²
+omega = float(res.params["omega"]) / 10_000  # convert from pct² to decimal²
 alpha = float(res.params["alpha[1]"])
-beta  = float(res.params["beta[1]"])
+beta = float(res.params["beta[1]"])
 unconditional_vol = float(np.sqrt(omega / max(1 - alpha - beta, 1e-8)))
 
 print(f"    omega={omega:.6e}  alpha={alpha:.4f}  beta={beta:.4f}")
-print(f"    Unconditional daily vol: {unconditional_vol*100:.3f}%  "
-      f"({unconditional_vol*np.sqrt(252)*100:.1f}% annualised)")
+print(
+    f"    Unconditional daily vol: {unconditional_vol*100:.3f}%  "
+    f"({unconditional_vol*np.sqrt(252)*100:.1f}% annualised)"
+)
 
 # ---------------------------------------------------------------------------
 # Step 3: Run 1000 simulated paths
 # ---------------------------------------------------------------------------
-N_PATHS  = 1000
-N_DAYS   = len(spx_returns)
-LOOKBACK = 60      # momentum signal window (days)
+N_PATHS = 1000
+N_DAYS = len(spx_returns)
+LOOKBACK = 60  # momentum signal window (days)
 
 print(f"[3/5] Simulating {N_PATHS} GARCH paths ({N_DAYS} days each) ...")
 from assembled_core.data.synthetic_generator import generate_garch_returns
@@ -103,9 +116,12 @@ rng_global = np.random.default_rng(42)
 for i in range(N_PATHS):
     seed = int(rng_global.integers(0, 2**31))
     df = generate_garch_returns(
-        n_days=N_DAYS, n_assets=1,
-        omega=omega, alpha=alpha, beta=beta,
-        mean_annual=0.08,   # conservative drift
+        n_days=N_DAYS,
+        n_assets=1,
+        omega=omega,
+        alpha=alpha,
+        beta=beta,
+        mean_annual=0.08,  # conservative drift
         seed=seed,
     )
     r = df["ASSET_0"].values
@@ -116,19 +132,21 @@ for i in range(N_PATHS):
     strat_ret = r * sig_binary.values
 
     mean_r = strat_ret.mean()
-    std_r  = strat_ret.std()
+    std_r = strat_ret.std()
     sharpe = (mean_r / std_r * np.sqrt(252)) if std_r > 1e-8 else 0.0
     sim_sharpes.append(sharpe)
 
 sim_sharpes_arr = np.array(sim_sharpes)
-p5  = float(np.percentile(sim_sharpes_arr, 5))
+p5 = float(np.percentile(sim_sharpes_arr, 5))
 p25 = float(np.percentile(sim_sharpes_arr, 25))
 p50 = float(np.percentile(sim_sharpes_arr, 50))
 p75 = float(np.percentile(sim_sharpes_arr, 75))
 p95 = float(np.percentile(sim_sharpes_arr, 95))
 
-print(f"    Simulated Sharpe band:  p5={p5:.2f}  p25={p25:.2f}  "
-      f"p50={p50:.2f}  p75={p75:.2f}  p95={p95:.2f}")
+print(
+    f"    Simulated Sharpe band:  p5={p5:.2f}  p25={p25:.2f}  "
+    f"p50={p50:.2f}  p75={p75:.2f}  p95={p95:.2f}"
+)
 
 # ---------------------------------------------------------------------------
 # Step 4: Real SPX strategy Sharpe
@@ -138,8 +156,14 @@ r_real = spx_returns.values
 sig_real = pd.Series(r_real).rolling(LOOKBACK).mean().shift(1)
 sig_binary_real = (sig_real > 0).astype(float)
 strat_real = r_real * sig_binary_real.values
-real_sharpe = float(strat_real.mean() / strat_real.std() * np.sqrt(252)) if strat_real.std() > 0 else 0.0
-real_buyhold_sharpe = float(r_real.mean() / r_real.std() * np.sqrt(252)) if r_real.std() > 0 else 0.0
+real_sharpe = (
+    float(strat_real.mean() / strat_real.std() * np.sqrt(252))
+    if strat_real.std() > 0
+    else 0.0
+)
+real_buyhold_sharpe = (
+    float(r_real.mean() / r_real.std() * np.sqrt(252)) if r_real.std() > 0 else 0.0
+)
 
 print(f"    Real SPX strategy Sharpe:    {real_sharpe:.3f}")
 print(f"    Real SPX buy-hold Sharpe:    {real_buyhold_sharpe:.3f}")
@@ -159,7 +183,9 @@ print(f"  alpha  = {alpha:.4f}        (ARCH — shock persistence)")
 print(f"  beta   = {beta:.4f}        (GARCH — variance persistence)")
 print(f"  alpha+beta = {alpha+beta:.4f}  (persistence; >0.98 = very sticky)")
 
-print(f"\nSimulated Sharpe distribution (N={N_PATHS} paths, {LOOKBACK}d momentum strategy):")
+print(
+    f"\nSimulated Sharpe distribution (N={N_PATHS} paths, {LOOKBACK}d momentum strategy):"
+)
 print(f"  5th pct:   {p5:+.3f}")
 print(f"  25th pct:  {p25:+.3f}")
 print(f"  Median:    {p50:+.3f}")
@@ -177,6 +203,10 @@ else:
     pct_rank = float(np.mean(sim_sharpes_arr < real_sharpe)) * 100
     print(f"\nVerdict: Real Sharpe ({real_sharpe:.2f}) is at percentile {pct_rank:.0f}")
     if pct_rank > 95:
-        print("         Real outperformance exceeds model expectation — check survivorship bias.")
+        print(
+            "         Real outperformance exceeds model expectation — check survivorship bias."
+        )
     else:
-        print("         Real underperformance — possibly due to regime not captured (COVID crash).")
+        print(
+            "         Real underperformance — possibly due to regime not captured (COVID crash)."
+        )

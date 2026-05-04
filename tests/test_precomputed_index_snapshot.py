@@ -6,7 +6,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-import pytest; pytest.importorskip('src.assembled_core.pipeline.precomputed_index')
+import pytest
+
+pytest.importorskip("src.assembled_core.pipeline.precomputed_index")
 from src.assembled_core.pipeline.precomputed_index import (
     build_panel_index,
     snapshot_as_of,

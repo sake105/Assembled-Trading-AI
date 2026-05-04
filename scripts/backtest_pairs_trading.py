@@ -7,6 +7,7 @@ Usage:
     python scripts/backtest_pairs_trading.py --start 2020-01-01 --end 2024-12-31
     python scripts/backtest_pairs_trading.py --start 2020-01-01 --end 2024-12-31 --price-file data/sample/watchlist_2020_2026.parquet
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,7 +45,10 @@ def _load_prices(price_file: str, start: str, end: str) -> pd.DataFrame:
     if "date" not in df.columns:
         if "timestamp" in df.columns:
             df = df.rename(columns={"timestamp": "date"})
-        elif isinstance(df.index, pd.DatetimeIndex) or df.index.name in ("date", "timestamp"):
+        elif isinstance(df.index, pd.DatetimeIndex) or df.index.name in (
+            "date",
+            "timestamp",
+        ):
             df = df.reset_index()
             df = df.rename(columns={df.columns[0]: "date"})
     df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
@@ -66,17 +70,21 @@ def _run_pairs_backtest(
 ) -> dict:
     from src.assembled_core.strategies.pairs_trading_v1 import PairsTradingStrategy
 
-    strategy = PairsTradingStrategy({
-        "lookback_days": lookback_days,
-        "min_cointegration_p": min_cointegration_p,
-        "entry_zscore": entry_z,
-        "exit_zscore": exit_z,
-        "max_pairs": max_pairs,
-    })
+    strategy = PairsTradingStrategy(
+        {
+            "lookback_days": lookback_days,
+            "min_cointegration_p": min_cointegration_p,
+            "entry_zscore": entry_z,
+            "exit_zscore": exit_z,
+            "max_pairs": max_pairs,
+        }
+    )
 
     dates = sorted(prices["date"].unique())
     if len(dates) < lookback_days + 5:
-        logger.error("Not enough data (%d dates) for %d-day lookback", len(dates), lookback_days)
+        logger.error(
+            "Not enough data (%d dates) for %d-day lookback", len(dates), lookback_days
+        )
         return {}
 
     equity = start_capital
@@ -90,7 +98,9 @@ def _run_pairs_backtest(
     logger.info("Active pairs (%d): %s", len(active_pairs), active_pairs)
 
     if not active_pairs:
-        logger.warning("No pairs discovered — check data coverage and cointegration settings")
+        logger.warning(
+            "No pairs discovered — check data coverage and cointegration settings"
+        )
         return {"n_trades": 0, "sharpe": 0.0, "mdd_pct": 0.0, "activation": "FAIL"}
 
     # Walk-forward through dates
@@ -128,15 +138,20 @@ def _run_pairs_backtest(
                 qty = pos["qty"]
                 side = pos["side"]
                 entry_px = pos["entry_px"]
-                pnl = qty * (close_px - entry_px) * (1 if side == "LONG" else -1) - commission_per_trade
+                pnl = (
+                    qty * (close_px - entry_px) * (1 if side == "LONG" else -1)
+                    - commission_per_trade
+                )
                 equity += pnl
-                trades.append({
-                    "date": str(date),
-                    "symbol": sym,
-                    "side": side,
-                    "pnl": round(pnl, 2),
-                    "type": "close",
-                })
+                trades.append(
+                    {
+                        "date": str(date),
+                        "symbol": sym,
+                        "side": side,
+                        "pnl": round(pnl, 2),
+                        "type": "close",
+                    }
+                )
             elif direction in ("LONG", "SHORT") and sym not in open_positions:
                 entry_row = prices[(prices["date"] == date) & (prices["symbol"] == sym)]
                 if entry_row.empty:
@@ -146,14 +161,21 @@ def _run_pairs_backtest(
                     continue
                 qty = notional_per_leg / entry_px
                 equity -= commission_per_trade
-                open_positions[sym] = {"qty": qty, "side": direction, "entry_px": entry_px, "date": str(date)}
-                trades.append({
-                    "date": str(date),
-                    "symbol": sym,
+                open_positions[sym] = {
+                    "qty": qty,
                     "side": direction,
-                    "pnl": -commission_per_trade,
-                    "type": "open",
-                })
+                    "entry_px": entry_px,
+                    "date": str(date),
+                }
+                trades.append(
+                    {
+                        "date": str(date),
+                        "symbol": sym,
+                        "side": direction,
+                        "pnl": -commission_per_trade,
+                        "type": "open",
+                    }
+                )
 
         equity_curve.append(equity)
 
@@ -165,9 +187,20 @@ def _run_pairs_backtest(
             continue
         close_px = float(close_row["close"].iloc[0])
         qty = pos["qty"]
-        pnl = qty * (close_px - pos["entry_px"]) * (1 if pos["side"] == "LONG" else -1) - 1.0
+        pnl = (
+            qty * (close_px - pos["entry_px"]) * (1 if pos["side"] == "LONG" else -1)
+            - 1.0
+        )
         equity += pnl
-        trades.append({"date": str(last_date), "symbol": sym, "side": pos["side"], "pnl": round(pnl, 2), "type": "close_eod"})
+        trades.append(
+            {
+                "date": str(last_date),
+                "symbol": sym,
+                "side": pos["side"],
+                "pnl": round(pnl, 2),
+                "type": "close_eod",
+            }
+        )
     equity_curve.append(equity)
 
     # Compute metrics
@@ -181,19 +214,29 @@ def _run_pairs_backtest(
     else:
         sharpe = 0.0
 
-    n_years = (pd.Timestamp(dates[-1]) - pd.Timestamp(dates[lookback_days])).days / 365.25
-    cagr = float((equity / start_capital) ** (1 / max(n_years, 0.01)) - 1) if n_years > 0 else 0.0
+    n_years = (
+        pd.Timestamp(dates[-1]) - pd.Timestamp(dates[lookback_days])
+    ).days / 365.25
+    cagr = (
+        float((equity / start_capital) ** (1 / max(n_years, 0.01)) - 1)
+        if n_years > 0
+        else 0.0
+    )
 
     peaks = np.maximum.accumulate(eq)
     drawdowns = (eq - peaks) / np.where(peaks > 0, peaks, 1)
     mdd_pct = float(np.min(drawdowns) * 100)
 
     thresholds = ACTIVATION_THRESHOLDS
-    activation = "GO" if (
-        sharpe >= thresholds["min_sharpe"]
-        and mdd_pct >= thresholds["max_mdd_pct"]
-        and n_trades >= thresholds["min_trades"]
-    ) else "NO-GO"
+    activation = (
+        "GO"
+        if (
+            sharpe >= thresholds["min_sharpe"]
+            and mdd_pct >= thresholds["max_mdd_pct"]
+            and n_trades >= thresholds["min_trades"]
+        )
+        else "NO-GO"
+    )
 
     return {
         "n_trades": n_trades,

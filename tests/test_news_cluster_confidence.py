@@ -44,8 +44,16 @@ class TestClusterManagerConfidence:
         mgr = ClusterManager()
         now = datetime.now(tz=timezone.utc)
         events = [
-            _make_event("Sanctions escalation against Russia", source_id="reuters_world", tier=SourceTier.T1),
-            _make_event("Sanctions escalation: new oil ban", source_id="ap_world", tier=SourceTier.T1),
+            _make_event(
+                "Sanctions escalation against Russia",
+                source_id="reuters_world",
+                tier=SourceTier.T1,
+            ),
+            _make_event(
+                "Sanctions escalation: new oil ban",
+                source_id="ap_world",
+                tier=SourceTier.T1,
+            ),
         ]
         clusters = mgr.update_clusters(events, now=now)
         assert len(clusters) >= 1
@@ -71,9 +79,21 @@ class TestClusterManagerConfidence:
         mgr = ClusterManager()
         now = datetime.now(tz=timezone.utc)
         events = [
-            _make_event("Missile strike reported in Ukraine", source_id="reuters_world", tier=SourceTier.T1),
-            _make_event("Missile strike confirmed in Ukraine", source_id="ap_world", tier=SourceTier.T1),
-            _make_event("Explosion heard in Kyiv: military strike", source_id="bbc_world", tier=SourceTier.T1),
+            _make_event(
+                "Missile strike reported in Ukraine",
+                source_id="reuters_world",
+                tier=SourceTier.T1,
+            ),
+            _make_event(
+                "Missile strike confirmed in Ukraine",
+                source_id="ap_world",
+                tier=SourceTier.T1,
+            ),
+            _make_event(
+                "Explosion heard in Kyiv: military strike",
+                source_id="bbc_world",
+                tier=SourceTier.T1,
+            ),
         ]
         clusters = mgr.update_clusters(events, now=now)
         # At least one cluster with non-trivial confidence
@@ -82,6 +102,7 @@ class TestClusterManagerConfidence:
 
     def test_expired_cluster_removed(self):
         from datetime import timedelta
+
         mgr = ClusterManager(cluster_ttl_minutes=1)
         now = datetime.now(tz=timezone.utc)
         event = _make_event("Sanctions escalation against Russia")
@@ -96,7 +117,9 @@ class TestClusterManagerConfidence:
     def test_t3_events_classified(self):
         mgr = ClusterManager()
         now = datetime.now(tz=timezone.utc)
-        event = _make_event("Energy shortage deepens as winter approaches", tier=SourceTier.T3)
+        event = _make_event(
+            "Energy shortage deepens as winter approaches", tier=SourceTier.T3
+        )
         clusters = mgr.update_clusters([event], now=now)
         # May or may not form a cluster depending on keywords, but should not crash
         assert isinstance(clusters, list)

@@ -34,14 +34,24 @@ _OUTPUT_DIR = _REPO_ROOT / "data" / "intel"
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Assembled-Trading-AI standalone RSS fetcher")
-    parser.add_argument("--tier", choices=["T0", "T1", "T2", "T3"], help="Fetch only this tier")
+    parser = argparse.ArgumentParser(
+        description="Assembled-Trading-AI standalone RSS fetcher"
+    )
+    parser.add_argument(
+        "--tier", choices=["T0", "T1", "T2", "T3"], help="Fetch only this tier"
+    )
     parser.add_argument("--focus", help="Fetch feeds whose focus contains this keyword")
     parser.add_argument("--feed", help="Fetch a single feed by id")
-    parser.add_argument("--dry-run", action="store_true", help="Print summary, do not write files")
-    parser.add_argument("--no-skip-seen", action="store_true", help="Include already-seen entries")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print summary, do not write files"
+    )
+    parser.add_argument(
+        "--no-skip-seen", action="store_true", help="Include already-seen entries"
+    )
     parser.add_argument("--output-dir", default=str(_OUTPUT_DIR))
-    parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    parser.add_argument(
+        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
+    )
     args = parser.parse_args()
 
     logging.basicConfig(

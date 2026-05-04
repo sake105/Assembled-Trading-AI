@@ -12,7 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-pytest.importorskip('src.assembled_core.portfolio.bl_sizing')
+pytest.importorskip("src.assembled_core.portfolio.bl_sizing")
 from src.assembled_core.portfolio.bl_sizing import (  # noqa: E402
     apply_bl_sizing,
     apply_bl_sizing_from_policy,
@@ -32,11 +32,13 @@ def _panel(symbols: list[str], n_bars: int = 120, seed: int = 9) -> pd.DataFrame
         rets = rng.normal(0.0005, 0.012 + 0.002 * i, size=n_bars)
         px = 100.0 * np.cumprod(1.0 + rets)
         for b in range(n_bars):
-            rows.append({
-                "timestamp": base + pd.Timedelta(days=b),
-                "symbol": sym,
-                "close": float(px[b]),
-            })
+            rows.append(
+                {
+                    "timestamp": base + pd.Timedelta(days=b),
+                    "symbol": sym,
+                    "close": float(px[b]),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -149,9 +151,9 @@ def test_compute_bl_target_weights_positive_view_beats_negative() -> None:
 
     views = pd.Series({"POS": 1.5, "NEG": -1.5})
     w = compute_bl_target_weights(panel, views, target_gross=1.0)
-    assert w["POS"] > w["NEG"], (
-        f"positive view should dominate: POS={w['POS']}, NEG={w['NEG']}"
-    )
+    assert (
+        w["POS"] > w["NEG"]
+    ), f"positive view should dominate: POS={w['POS']}, NEG={w['NEG']}"
 
 
 @pytest.mark.phase12

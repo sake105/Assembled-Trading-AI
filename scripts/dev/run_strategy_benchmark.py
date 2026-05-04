@@ -480,6 +480,7 @@ def run_benchmark(
         # Limit quick-mode window to 90 trading days so smoke tests stay fast
         if horizons:
             import pandas as _pd
+
             _h = horizons[0]
             _trading_dts = _pd.bdate_range(_h[1], _h[2])
             if len(_trading_dts) > 90:

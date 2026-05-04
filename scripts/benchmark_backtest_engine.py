@@ -69,12 +69,14 @@ def simple_signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
     """Simple signal function for benchmarking."""
     is_long = prices_df["close"].to_numpy() > 100.0
     direction = np.where(is_long, "LONG", "FLAT")
-    return pd.DataFrame({
-        "timestamp": prices_df["timestamp"].values,
-        "symbol": prices_df["symbol"].values,
-        "direction": direction,
-        "score": is_long.astype(float),
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": prices_df["timestamp"].values,
+            "symbol": prices_df["symbol"].values,
+            "direction": direction,
+            "score": is_long.astype(float),
+        }
+    )
 
 
 def simple_position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
@@ -86,11 +88,13 @@ def simple_position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.Da
     syms = long_signals["symbol"].unique()
     n = len(syms)
     w = 1.0 / n if n > 0 else 0.0
-    return pd.DataFrame({
-        "symbol": syms,
-        "target_weight": w,
-        "target_qty": (capital / n) / 100.0,  # Rough price estimate
-    })
+    return pd.DataFrame(
+        {
+            "symbol": syms,
+            "target_weight": w,
+            "target_qty": (capital / n) / 100.0,  # Rough price estimate
+        }
+    )
 
 
 def run_benchmark(

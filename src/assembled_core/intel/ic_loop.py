@@ -20,8 +20,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_IC_THRESHOLD = 0.05   # IC below this → flagged as weak
-_DEFAULT_WINDOW = 60           # rolling window (observations)
+_DEFAULT_IC_THRESHOLD = 0.05  # IC below this → flagged as weak
+_DEFAULT_WINDOW = 60  # rolling window (observations)
 
 
 class ICTracker:
@@ -56,7 +56,7 @@ class ICTracker:
         bucket.append((float(signal), float(realized_return)))
         # Keep only last `window` observations
         if len(bucket) > self._window:
-            self._observations[trigger_type] = bucket[-self._window:]
+            self._observations[trigger_type] = bucket[-self._window :]
         if self._path:
             self._save()
 
@@ -83,7 +83,9 @@ class ICTracker:
             if results[ttype]["flagged_weak"]:
                 logger.warning(
                     "[WARN] IC-Loop: trigger_type=%s IC=%.4f < threshold=%.4f — flagged weak",
-                    ttype, ic_val, self._threshold,
+                    ttype,
+                    ic_val,
+                    self._threshold,
                 )
         return {"generated_utc": now, "window": self._window, "results": results}
 
@@ -106,8 +108,7 @@ class ICTracker:
             "window": self._window,
             "ic_threshold": self._threshold,
             "observations": {
-                k: [[s, r] for s, r in v]
-                for k, v in self._observations.items()
+                k: [[s, r] for s, r in v] for k, v in self._observations.items()
             },
         }
         tmp = self._path.with_suffix(".tmp")
@@ -121,11 +122,12 @@ class ICTracker:
             self._threshold = float(data.get("ic_threshold") or self._threshold)
             raw = data.get("observations", {})
             self._observations = {
-                k: [(float(s), float(r)) for s, r in v]
-                for k, v in raw.items()
+                k: [(float(s), float(r)) for s, r in v] for k, v in raw.items()
             }
         except Exception as exc:
-            logger.warning("[WARN] IC-Loop: failed to load state from %s: %s", self._path, exc)
+            logger.warning(
+                "[WARN] IC-Loop: failed to load state from %s: %s", self._path, exc
+            )
 
 
 def _pearson_corr(x: list[float], y: list[float]) -> float | None:

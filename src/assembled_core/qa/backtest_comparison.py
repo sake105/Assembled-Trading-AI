@@ -129,7 +129,7 @@ def _compute_metrics(
 
 def _diebold_mariano(errors_a: np.ndarray, errors_b: np.ndarray) -> tuple[float, float]:
     """DM-Test — copy aus scripts/analysis/compare_models.py für Self-Containment."""
-    d = errors_a ** 2 - errors_b ** 2
+    d = errors_a**2 - errors_b**2
     n = len(d)
     if n < 10 or d.std() < 1e-12:
         return 0.0, 1.0
@@ -137,9 +137,10 @@ def _diebold_mariano(errors_a: np.ndarray, errors_b: np.ndarray) -> tuple[float,
     stat = float(d.mean() / se) if se > 0 else 0.0
     try:
         from scipy.stats import norm  # type: ignore
+
         p = 2.0 * (1.0 - norm.cdf(abs(stat)))
     except ImportError:
-        p = float(2.0 * np.exp(-0.5 * stat ** 2) / np.sqrt(2 * np.pi))
+        p = float(2.0 * np.exp(-0.5 * stat**2) / np.sqrt(2 * np.pi))
         p = min(1.0, max(0.0, p))
     return stat, p
 
@@ -180,7 +181,9 @@ def compare_backtests(
         common = ret_a.index.intersection(ret_b.index)
         if len(common) < 10:
             continue
-        errs_a = -ret_a.loc[common].values  # negative return = error against "alpha = 0"
+        errs_a = -ret_a.loc[
+            common
+        ].values  # negative return = error against "alpha = 0"
         errs_b = -ret_b.loc[common].values
         stat, p = _diebold_mariano(errs_a, errs_b)
         bonf_p = min(1.0, p * max(1, n_pairs))
@@ -189,14 +192,16 @@ def compare_backtests(
             - {m.name: m.sharpe for m in metrics}[a],
             3,
         )
-        pairwise.append(PairwiseComparison(
-            strategy_a=a,
-            strategy_b=b,
-            sharpe_diff=sharpe_diff,
-            dm_statistic=round(stat, 3),
-            dm_pvalue=round(p, 4),
-            bonferroni_pvalue=round(bonf_p, 4),
-        ))
+        pairwise.append(
+            PairwiseComparison(
+                strategy_a=a,
+                strategy_b=b,
+                sharpe_diff=sharpe_diff,
+                dm_statistic=round(stat, 3),
+                dm_pvalue=round(p, 4),
+                bonferroni_pvalue=round(bonf_p, 4),
+            )
+        )
 
     # Ranking by Sharpe desc, tie-break by Calmar
     ranked = sorted(metrics, key=lambda m: (-m.sharpe, -m.calmar))
@@ -209,7 +214,9 @@ def compare_backtests(
     )
     logger.info(
         "[BTCompare] %d Strategien verglichen, Top: %s (Sharpe=%.2f)",
-        len(metrics), ranking[0][0], ranking[0][1],
+        len(metrics),
+        ranking[0][0],
+        ranking[0][1],
     )
     return report
 
@@ -220,10 +227,7 @@ def rank_strategies(
     tiebreaker: str = "calmar",
 ) -> list[tuple[str, float]]:
     """Einfaches Ranking ohne Statistik-Tests."""
-    metrics = [
-        _compute_metrics(name, rets)
-        for name, rets in strategies.items()
-    ]
+    metrics = [_compute_metrics(name, rets) for name, rets in strategies.items()]
     ranked = sorted(
         metrics,
         key=lambda m: (-getattr(m, primary_metric), -getattr(m, tiebreaker)),

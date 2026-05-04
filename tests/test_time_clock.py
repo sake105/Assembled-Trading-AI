@@ -1,4 +1,5 @@
 """Tests for assembled_core/time/clock.py (spec 42_EVENT_REPLAY_SYSTEM)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta

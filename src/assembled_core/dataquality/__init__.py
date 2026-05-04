@@ -1,4 +1,5 @@
 """Data-Quality-Gate — validates OHLCV data before the feature pipeline."""
+
 from .checks import (
     detect_missing_trading_days,
     detect_price_spikes,

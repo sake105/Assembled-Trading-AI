@@ -18,7 +18,9 @@ from src.assembled_core.risk.risk_metrics import (
 )
 
 
-def _gauss_returns(n: int = 2000, mu: float = 0.0, sigma: float = 0.01, seed: int = 42) -> pd.Series:
+def _gauss_returns(
+    n: int = 2000, mu: float = 0.0, sigma: float = 0.01, seed: int = 42
+) -> pd.Series:
     rng = np.random.default_rng(seed)
     return pd.Series(rng.normal(mu, sigma, n))
 

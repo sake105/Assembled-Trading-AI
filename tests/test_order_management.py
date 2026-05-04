@@ -1,4 +1,5 @@
 """Tests for execution/order_management.py (spec 33_EXECUTION_ORDERMANAGEMENT)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -20,19 +21,33 @@ from assembled_core.execution.order_management import (
     submit_with_idempotency,
 )
 
-
 # ---------------------------------------------------------------------------
 # submit_with_idempotency
 # ---------------------------------------------------------------------------
 
-def _intent(signal_id="sig-001", symbol="AAPL", side="buy", qty=100,
-            order_type="market", tif="day", limit_price=None):
+
+def _intent(
+    signal_id="sig-001",
+    symbol="AAPL",
+    side="buy",
+    qty=100,
+    order_type="market",
+    tif="day",
+    limit_price=None,
+):
     from types import SimpleNamespace
     from assembled_core.execution.idempotency import compute_intent_hash
+
     intent_hash = compute_intent_hash(symbol, side, qty, order_type, limit_price)
     return SimpleNamespace(
-        signal_id=signal_id, intent_hash=intent_hash, symbol=symbol,
-        qty=qty, side=side, order_type=order_type, tif=tif, limit_price=limit_price,
+        signal_id=signal_id,
+        intent_hash=intent_hash,
+        symbol=symbol,
+        qty=qty,
+        side=side,
+        order_type=order_type,
+        tif=tif,
+        limit_price=limit_price,
     )
 
 
@@ -48,7 +63,10 @@ class TestSubmitWithIdempotency:
     def test_already_submitted_on_duplicate(self):
         client = MagicMock()
         client.submit_order.side_effect = Exception("duplicate client_order_id")
-        client.get_order_by_client_order_id.return_value = {"id": "order-1", "status": "filled"}
+        client.get_order_by_client_order_id.return_value = {
+            "id": "order-1",
+            "status": "filled",
+        }
         status, resp, err = submit_with_idempotency(client, _intent())
         assert status == "already_submitted"
         assert resp["status"] == "filled"
@@ -72,6 +90,7 @@ class TestSubmitWithIdempotency:
 # PartialFillPolicy
 # ---------------------------------------------------------------------------
 
+
 class TestPartialFillPolicy:
     def _now(self):
         return datetime.now(timezone.utc)
@@ -80,19 +99,22 @@ class TestPartialFillPolicy:
         assert PartialFillPolicy.classify(self._now(), 100, 100) == "complete"
 
     def test_wait_within_window(self):
-        assert PartialFillPolicy.classify(
-            self._now() - timedelta(seconds=30), 100, 40
-        ) == "wait"
+        assert (
+            PartialFillPolicy.classify(self._now() - timedelta(seconds=30), 100, 40)
+            == "wait"
+        )
 
     def test_partial_accepted_above_ratio(self):
-        assert PartialFillPolicy.classify(
-            self._now() - timedelta(seconds=200), 100, 60
-        ) == "partial_accepted"
+        assert (
+            PartialFillPolicy.classify(self._now() - timedelta(seconds=200), 100, 60)
+            == "partial_accepted"
+        )
 
     def test_partial_failed_below_ratio(self):
-        assert PartialFillPolicy.classify(
-            self._now() - timedelta(seconds=200), 100, 20
-        ) == "partial_failed"
+        assert (
+            PartialFillPolicy.classify(self._now() - timedelta(seconds=200), 100, 20)
+            == "partial_failed"
+        )
 
     def test_cancel_threshold_constant(self):
         assert PartialFillPolicy.CANCEL_AFTER_SECONDS == 120
@@ -105,12 +127,16 @@ class TestPartialFillPolicy:
 # position_reconcile_before_signal
 # ---------------------------------------------------------------------------
 
+
 class TestPositionReconcile:
     def test_no_delta_returns_none(self):
         assert position_reconcile_before_signal("AAPL", 100, 100) is None
 
     def test_tiny_delta_returns_none(self):
-        assert position_reconcile_before_signal("AAPL", 100, 99.5, min_trade_size=1.0) is None
+        assert (
+            position_reconcile_before_signal("AAPL", 100, 99.5, min_trade_size=1.0)
+            is None
+        )
 
     def test_small_pct_delta_returns_none(self):
         # 5% delta < 10% threshold
@@ -131,6 +157,7 @@ class TestPositionReconcile:
 # ---------------------------------------------------------------------------
 # ExecutionCostModel
 # ---------------------------------------------------------------------------
+
 
 class TestExecutionCostModel:
     def setup_method(self):
@@ -175,6 +202,7 @@ class TestExecutionCostModel:
 # handle_rejection
 # ---------------------------------------------------------------------------
 
+
 class TestHandleRejection:
     def test_known_reason_returns_action(self):
         result = handle_rejection("insufficient_buying_power", "AAPL")
@@ -201,6 +229,7 @@ class TestHandleRejection:
 # ---------------------------------------------------------------------------
 # has_recent_loss_close
 # ---------------------------------------------------------------------------
+
 
 class TestHasRecentLossClose:
     def _closed(self, symbol, days_ago, pnl):
@@ -233,6 +262,7 @@ class TestHasRecentLossClose:
 # ---------------------------------------------------------------------------
 # reconcile_positions / reconcile_cash
 # ---------------------------------------------------------------------------
+
 
 class TestReconcilePositions:
     def test_no_drift(self):
@@ -283,8 +313,8 @@ class TestReconcileCash:
 # ExitManager
 # ---------------------------------------------------------------------------
 
-def _pos(symbol, entry, stop=None, pt=None, days=None,
-         opened_days_ago=0, side="long"):
+
+def _pos(symbol, entry, stop=None, pt=None, days=None, opened_days_ago=0, side="long"):
     return PositionRecord(
         symbol=symbol,
         qty=100,
@@ -361,6 +391,7 @@ class TestExitManager:
 # ---------------------------------------------------------------------------
 # OrderStatusStream
 # ---------------------------------------------------------------------------
+
 
 class TestOrderStatusStream:
     def test_is_not_running_by_default(self):

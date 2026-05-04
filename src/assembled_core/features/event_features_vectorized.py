@@ -125,9 +125,9 @@ def build_event_feature_panel_vectorized(
         result.loc[sym_idx, f"{feature_prefix}_sum_{lookback_days}d"] = features[
             "sum"
         ].values.astype(np.float64)
-        result.loc[sym_idx, f"{feature_prefix}_mean_{lookback_days}d"] = (
-            pd.to_numeric(features["mean"], errors="coerce").values
-        )
+        result.loc[sym_idx, f"{feature_prefix}_mean_{lookback_days}d"] = pd.to_numeric(
+            features["mean"], errors="coerce"
+        ).values
 
     # Final deterministic sort (same as legacy)
     result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(
@@ -315,7 +315,9 @@ def add_disclosure_count_feature_vectorized(
     result[out_col] = 0
 
     # Pre-group events_normalized by symbol to avoid O(N*M) per-symbol filter
-    _events_norm_by_sym = {sym: grp for sym, grp in events_normalized.groupby("symbol", sort=False)}
+    _events_norm_by_sym = {
+        sym: grp for sym, grp in events_normalized.groupby("symbol", sort=False)
+    }
 
     # Process per symbol
     for symbol, symbol_prices in result.groupby("symbol", sort=False):

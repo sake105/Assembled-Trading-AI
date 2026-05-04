@@ -21,6 +21,7 @@ To update a snapshot after an intentional change::
 
     UPDATE_SNAPSHOTS=1 pytest tests/characterization/test_golden_equity.py
 """
+
 from __future__ import annotations
 
 import difflib

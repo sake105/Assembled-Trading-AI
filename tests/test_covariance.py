@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytest.importorskip('src.assembled_core.portfolio.covariance')
+pytest.importorskip("src.assembled_core.portfolio.covariance")
 from src.assembled_core.portfolio.covariance import (
     estimate_covariance,
     returns_from_prices,
@@ -18,12 +18,14 @@ from src.assembled_core.portfolio.covariance import (
 def _synthetic_returns(n: int = 200, k: int = 4, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     # Correlated returns via Cholesky
-    L = np.array([
-        [1.0, 0, 0, 0],
-        [0.5, 0.866, 0, 0],
-        [0.3, 0.2, 0.933, 0],
-        [0.1, 0.1, 0.1, 0.980],
-    ])[:k, :k]
+    L = np.array(
+        [
+            [1.0, 0, 0, 0],
+            [0.5, 0.866, 0, 0],
+            [0.3, 0.2, 0.933, 0],
+            [0.1, 0.1, 0.1, 0.980],
+        ]
+    )[:k, :k]
     raw = rng.normal(0, 0.01, (n, k))
     correlated = raw @ L.T
     dates = pd.bdate_range("2020-01-01", periods=n)
@@ -111,7 +113,8 @@ class TestEnsurePSD:
     def test_already_psd(self):
         cov = pd.DataFrame(
             np.eye(3) * 0.01,
-            index=["A", "B", "C"], columns=["A", "B", "C"],
+            index=["A", "B", "C"],
+            columns=["A", "B", "C"],
         )
         result = _ensure_psd(cov)
         np.testing.assert_allclose(result.values, cov.values, atol=1e-6)
@@ -129,11 +132,13 @@ class TestEnsurePSD:
 class TestReturnsFromPrices:
     def test_basic_log_returns(self):
         dates = pd.bdate_range("2024-01-01", periods=5)
-        prices = pd.DataFrame({
-            "timestamp": list(dates) * 2,
-            "symbol": ["AAPL"] * 5 + ["MSFT"] * 5,
-            "close": [100, 101, 102, 103, 104, 200, 202, 204, 206, 208],
-        })
+        prices = pd.DataFrame(
+            {
+                "timestamp": list(dates) * 2,
+                "symbol": ["AAPL"] * 5 + ["MSFT"] * 5,
+                "close": [100, 101, 102, 103, 104, 200, 202, 204, 206, 208],
+            }
+        )
         ret = returns_from_prices(prices, log_returns=True)
         assert "AAPL" in ret.columns
         assert "MSFT" in ret.columns
@@ -141,10 +146,12 @@ class TestReturnsFromPrices:
 
     def test_simple_returns(self):
         dates = pd.bdate_range("2024-01-01", periods=3)
-        prices = pd.DataFrame({
-            "timestamp": list(dates) * 2,
-            "symbol": ["A"] * 3 + ["B"] * 3,
-            "close": [100.0, 110.0, 121.0, 200.0, 210.0, 220.5],
-        })
+        prices = pd.DataFrame(
+            {
+                "timestamp": list(dates) * 2,
+                "symbol": ["A"] * 3 + ["B"] * 3,
+                "close": [100.0, 110.0, 121.0, 200.0, 210.0, 220.5],
+            }
+        )
         ret = returns_from_prices(prices, log_returns=False)
         assert ret["A"].iloc[0] == pytest.approx(0.1, abs=0.001)

@@ -58,22 +58,27 @@ def _split_train_val_test(
     n_val = int(n * val_frac)
     return (
         panel.iloc[:n_train].copy(),
-        panel.iloc[n_train:n_train + n_val].copy(),
-        panel.iloc[n_train + n_val:].copy(),
+        panel.iloc[n_train : n_train + n_val].copy(),
+        panel.iloc[n_train + n_val :].copy(),
     )
 
 
 def _detect_features(panel: pd.DataFrame, label: str) -> list[str]:
     excluded = {label, "timestamp", "symbol", "date"}
     return [
-        c for c in panel.select_dtypes(include="number").columns
-        if c not in excluded and not c.startswith("fwd_return") and not c.startswith("tb_")
+        c
+        for c in panel.select_dtypes(include="number").columns
+        if c not in excluded
+        and not c.startswith("fwd_return")
+        and not c.startswith("tb_")
     ]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="End-to-End ML-Stack-Training")
-    parser.add_argument("--panel", type=Path, required=True, help="Factor panel parquet/csv")
+    parser.add_argument(
+        "--panel", type=Path, required=True, help="Factor panel parquet/csv"
+    )
     parser.add_argument("--label", default="fwd_return_5d", help="Target column")
     parser.add_argument("--model-id", default="full_stack_v1", help="Registry model ID")
     parser.add_argument("--timestamp-col", default="timestamp")
@@ -96,13 +101,20 @@ def main() -> int:
     feature_cols = _detect_features(panel, args.label)
     logger.info(
         "Panel: %d rows, %d features (target=%s)",
-        len(panel), len(feature_cols), args.label,
+        len(panel),
+        len(feature_cols),
+        args.label,
     )
 
     # ---------- 2. Split ----------
-    train_df, val_df, test_df = _split_train_val_test(panel, timestamp_col=args.timestamp_col)
+    train_df, val_df, test_df = _split_train_val_test(
+        panel, timestamp_col=args.timestamp_col
+    )
     logger.info(
-        "Split: train=%d val=%d test=%d", len(train_df), len(val_df), len(test_df),
+        "Split: train=%d val=%d test=%d",
+        len(train_df),
+        len(val_df),
+        len(test_df),
     )
 
     # ---------- 3. Feature Clustering ----------
@@ -115,15 +127,20 @@ def main() -> int:
                 cluster_features_by_correlation,
                 select_features_by_cluster_ic,
             )
+
             clusters = cluster_features_by_correlation(
-                train_df, feature_cols=feature_cols,
+                train_df,
+                feature_cols=feature_cols,
                 distance_threshold=args.cluster_threshold,
             )
-            clusters = select_features_by_cluster_ic(train_df, train_df[args.label], clusters)
+            clusters = select_features_by_cluster_ic(
+                train_df, train_df[args.label], clusters
+            )
             selected_features = clusters.get_selected_features()
             logger.info(
                 "Reduced %d → %d features via clustering",
-                len(feature_cols), len(selected_features),
+                len(feature_cols),
+                len(selected_features),
             )
         except Exception as exc:
             logger.warning("Clustering fehlgeschlagen: %s — nutze alle Features", exc)
@@ -136,12 +153,17 @@ def main() -> int:
             from src.assembled_core.ml.adversarial_validation import (
                 run_adversarial_validation,
             )
+
             adv = run_adversarial_validation(
-                X_train=train_df, X_test=test_df, feature_cols=selected_features,
+                X_train=train_df,
+                X_test=test_df,
+                feature_cols=selected_features,
             )
             logger.info("Distribution shift AUC=%.3f (%s)", adv.auc, adv.interpret())
             if adv.auc > 0.80:
-                logger.warning("EXTREME distribution shift — Training fortgesetzt mit Warnung")
+                logger.warning(
+                    "EXTREME distribution shift — Training fortgesetzt mit Warnung"
+                )
         except Exception as exc:
             logger.warning("Adversarial val fehlgeschlagen: %s", exc)
 
@@ -152,12 +174,20 @@ def main() -> int:
         logger.info("Step 5: Walk-forward HPO (%d trials)", args.n_hpo_trials)
         try:
             from scripts.training.walk_forward_hpo import run_hpo_optuna
+
             hpo_result = run_hpo_optuna(
-                train_df, train_df[args.label], train_df[args.timestamp_col],
-                feature_cols=selected_features, n_trials=args.n_hpo_trials,
+                train_df,
+                train_df[args.label],
+                train_df[args.timestamp_col],
+                feature_cols=selected_features,
+                n_trials=args.n_hpo_trials,
             )
             best_params = hpo_result["best_params"]
-            logger.info("Best HPO params: %s (score=%.4f)", best_params, hpo_result["best_value"])
+            logger.info(
+                "Best HPO params: %s (score=%.4f)",
+                best_params,
+                hpo_result["best_value"],
+            )
         except Exception as exc:
             logger.warning("HPO fehlgeschlagen: %s", exc)
 
@@ -169,6 +199,7 @@ def main() -> int:
             StackingConfig,
             run_stacking_cv,
         )
+
         cfg = StackingConfig(
             base_models=["ridge", "random_forest", "gradient_boosting"],
             meta_model="ridge",
@@ -176,11 +207,15 @@ def main() -> int:
             use_purged_cv=False,
         )
         stack = run_stacking_cv(
-            train_df, train_df[args.label], config=cfg, feature_cols=selected_features,
+            train_df,
+            train_df[args.label],
+            config=cfg,
+            feature_cols=selected_features,
         )
         logger.info(
             "Stacked IC=%.4f vs best base IC=%.4f",
-            stack.stacked_ic, max(stack.base_ic.values()) if stack.base_ic else 0.0,
+            stack.stacked_ic,
+            max(stack.base_ic.values()) if stack.base_ic else 0.0,
         )
     except Exception as exc:
         logger.error("Stacking failed: %s", exc)
@@ -197,7 +232,9 @@ def main() -> int:
         half_width = float(np.quantile(residuals, q_level))
         logger.info(
             "Conformal: α=%.2f, %.0f%%-Intervall half-width=%.4f",
-            args.conformal_alpha, (1 - args.conformal_alpha) * 100, half_width,
+            args.conformal_alpha,
+            (1 - args.conformal_alpha) * 100,
+            half_width,
         )
     except Exception as exc:
         logger.warning("Conformal calibration failed: %s", exc)
@@ -209,7 +246,9 @@ def main() -> int:
     try:
         test_preds = stack.predict(test_df)
         if test_preds.std() > 1e-9:
-            test_ic = float(np.corrcoef(test_preds.values, test_df[args.label].values)[0, 1])
+            test_ic = float(
+                np.corrcoef(test_preds.values, test_df[args.label].values)[0, 1]
+            )
         else:
             test_ic = 0.0
         logger.info("OOS test IC=%.4f", test_ic)
@@ -222,6 +261,7 @@ def main() -> int:
     logger.info("Step 9: Registry (status=candidate, auto_deploy=False)")
     try:
         from src.assembled_core.ml.model_registry import ModelRegistry
+
         registry = ModelRegistry(base_dir=args.registry_dir)
 
         # Save stacked result as dict (model_dict)
@@ -245,13 +285,22 @@ def main() -> int:
                 "best_hpo_params": best_params,
             },
             features=selected_features,
-            train_start=str(train_df[args.timestamp_col].min()) if args.timestamp_col in train_df.columns else None,
-            train_end=str(train_df[args.timestamp_col].max()) if args.timestamp_col in train_df.columns else None,
+            train_start=(
+                str(train_df[args.timestamp_col].min())
+                if args.timestamp_col in train_df.columns
+                else None
+            ),
+            train_end=(
+                str(train_df[args.timestamp_col].max())
+                if args.timestamp_col in train_df.columns
+                else None
+            ),
             notes="End-to-end ML stack via train_full_ml_stack.py",
         )
         logger.info(
             "[OK] Registered %s v%d (status=candidate). Use promote_to_deployed() manually.",
-            record.model_id, record.version,
+            record.model_id,
+            record.version,
         )
     except Exception as exc:
         logger.error("Registry failed: %s", exc)
@@ -261,7 +310,10 @@ def main() -> int:
     logger.info("FULL ML STACK TRAINING COMPLETE")
     logger.info(
         "Summary: train_ic=%.4f test_ic=%.4f features=%d conformal_hw=%.4f",
-        stack.stacked_ic, test_ic, len(selected_features), half_width,
+        stack.stacked_ic,
+        test_ic,
+        len(selected_features),
+        half_width,
     )
     return 0
 

@@ -91,15 +91,19 @@ class ExtractedEntity:
 def _try_spacy():
     try:
         import spacy
+
         return spacy
     except ImportError:
-        logger.warning("spaCy not installed — pip install spacy && python -m spacy download en_core_web_lg")
+        logger.warning(
+            "spaCy not installed — pip install spacy && python -m spacy download en_core_web_lg"
+        )
         return None
 
 
 def _try_gliner():
     try:
         from gliner import GLiNER
+
         return GLiNER
     except ImportError:
         logger.debug("GLiNER not installed — pip install gliner")
@@ -150,11 +154,15 @@ def _load_spacy_model():
             logger.warning("en_core_web_lg not found, using en_core_web_sm")
             return _spacy_nlp
         except OSError:
-            logger.warning("No spaCy model found. Run: python -m spacy download en_core_web_lg")
+            logger.warning(
+                "No spaCy model found. Run: python -m spacy download en_core_web_lg"
+            )
             return None
 
 
-def extract_entities_spacy(text: str, min_confidence: float = 0.7) -> list[ExtractedEntity]:
+def extract_entities_spacy(
+    text: str, min_confidence: float = 0.7
+) -> list[ExtractedEntity]:
     """Extract ORG/PERSON/GPE entities using spaCy.
 
     Args:
@@ -170,13 +178,15 @@ def extract_entities_spacy(text: str, min_confidence: float = 0.7) -> list[Extra
 
     # Always extract cashtags first
     for ticker in extract_cashtags(text):
-        entities.append(ExtractedEntity(
-            text=f"${ticker}",
-            label="CASHTAG",
-            ticker=ticker,
-            confidence=1.0,
-            source="cashtag_regex",
-        ))
+        entities.append(
+            ExtractedEntity(
+                text=f"${ticker}",
+                label="CASHTAG",
+                ticker=ticker,
+                confidence=1.0,
+                source="cashtag_regex",
+            )
+        )
 
     if nlp is None:
         return entities
@@ -188,13 +198,15 @@ def extract_entities_spacy(text: str, min_confidence: float = 0.7) -> list[Extra
                 continue
 
             ticker = company_to_ticker(ent.text)
-            entities.append(ExtractedEntity(
-                text=ent.text,
-                label=ent.label_,
-                ticker=ticker,
-                confidence=0.8,
-                source="spacy",
-            ))
+            entities.append(
+                ExtractedEntity(
+                    text=ent.text,
+                    label=ent.label_,
+                    ticker=ticker,
+                    confidence=0.8,
+                    source="spacy",
+                )
+            )
     except Exception as exc:
         logger.debug("spaCy NER failed: %s", exc)
 
@@ -248,13 +260,15 @@ def extract_entities_gliner(
         results = []
         for pred in predictions:
             ticker = company_to_ticker(pred["text"])
-            results.append(ExtractedEntity(
-                text=pred["text"],
-                label=pred["label"],
-                ticker=ticker,
-                confidence=float(pred.get("score", 0.5)),
-                source="gliner",
-            ))
+            results.append(
+                ExtractedEntity(
+                    text=pred["text"],
+                    label=pred["label"],
+                    ticker=ticker,
+                    confidence=float(pred.get("score", 0.5)),
+                    source="gliner",
+                )
+            )
         return results
     except Exception as exc:
         logger.debug("GLiNER extraction failed: %s", exc)

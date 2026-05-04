@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
-pytest.importorskip('src.assembled_core.ml.rl_execution')
+pytest.importorskip("src.assembled_core.ml.rl_execution")
 from src.assembled_core.ml.rl_execution import (
     ExecutionState,
     QLearningExecutionAgent,
@@ -20,9 +20,12 @@ from src.assembled_core.ml.rl_execution import (
 class TestExecutionState:
     def test_to_array(self):
         state = ExecutionState(
-            remaining_qty=0.5, time_remaining=0.8,
-            spread_bps=10.0, volume_ratio=1.5,
-            volatility_ratio=1.2, momentum=0.3,
+            remaining_qty=0.5,
+            time_remaining=0.8,
+            spread_bps=10.0,
+            volume_ratio=1.5,
+            volatility_ratio=1.2,
+            momentum=0.3,
             inventory_risk=0.2,
         )
         arr = state.to_array()
@@ -31,9 +34,12 @@ class TestExecutionState:
 
     def test_normalized_values(self):
         state = ExecutionState(
-            remaining_qty=1.0, time_remaining=1.0,
-            spread_bps=50.0, volume_ratio=3.0,
-            volatility_ratio=3.0, momentum=0.0,
+            remaining_qty=1.0,
+            time_remaining=1.0,
+            spread_bps=50.0,
+            volume_ratio=3.0,
+            volatility_ratio=3.0,
+            momentum=0.0,
             inventory_risk=0.0,
         )
         arr = state.to_array()
@@ -78,15 +84,21 @@ class TestQLearningAgent:
 class TestExecutionReward:
     def test_perfect_execution(self):
         reward = compute_execution_reward(
-            execution_price=100.0, arrival_price=100.0,
-            spread_bps=5.0, remaining_qty=0.0, time_remaining=0.5,
+            execution_price=100.0,
+            arrival_price=100.0,
+            spread_bps=5.0,
+            remaining_qty=0.0,
+            time_remaining=0.5,
         )
         assert reward > -1.0  # should be near zero cost
 
     def test_costly_execution(self):
         reward = compute_execution_reward(
-            execution_price=101.0, arrival_price=100.0,
-            spread_bps=20.0, remaining_qty=0.5, time_remaining=0.05,
+            execution_price=101.0,
+            arrival_price=100.0,
+            spread_bps=20.0,
+            remaining_qty=0.5,
+            time_remaining=0.05,
         )
         assert reward < 0  # high cost
 
@@ -100,7 +112,10 @@ class TestSimulateEpisode:
     def test_basic_episode(self):
         agent = QLearningExecutionAgent()
         result = simulate_execution_episode(
-            agent, total_qty=1.0, n_steps=10, seed=42,
+            agent,
+            total_qty=1.0,
+            n_steps=10,
+            seed=42,
         )
         assert "total_reward" in result
         assert "vwap_slippage_bps" in result
@@ -119,7 +134,9 @@ class TestSimulateEpisode:
 class TestTrainAgent:
     def test_basic_training(self):
         agent, metrics = train_execution_agent(
-            n_episodes=50, n_steps=10, seed=42,
+            n_episodes=50,
+            n_steps=10,
+            seed=42,
         )
         assert isinstance(agent, QLearningExecutionAgent)
         assert len(metrics) == 50
@@ -127,7 +144,9 @@ class TestTrainAgent:
 
     def test_training_improves(self):
         agent, metrics = train_execution_agent(
-            n_episodes=200, n_steps=15, seed=42,
+            n_episodes=200,
+            n_steps=15,
+            seed=42,
         )
         early_reward = np.mean([m["total_reward"] for m in metrics[:20]])
         late_reward = np.mean([m["total_reward"] for m in metrics[-20:]])

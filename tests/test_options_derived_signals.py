@@ -19,12 +19,14 @@ from src.assembled_core.features.options_derived_signals import (
 def _synthetic_cboe(n: int = 300, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     dates = pd.bdate_range("2023-01-01", periods=n)
-    return pd.DataFrame({
-        "timestamp": dates,
-        "vix": 15.0 + rng.normal(0, 5, n).clip(8, 80),
-        "vix3m": 18.0 + rng.normal(0, 4, n).clip(10, 70),
-        "put_call_ratio": 0.85 + rng.normal(0, 0.2, n).clip(0.3, 2.0),
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "vix": 15.0 + rng.normal(0, 5, n).clip(8, 80),
+            "vix3m": 18.0 + rng.normal(0, 4, n).clip(10, 70),
+            "put_call_ratio": 0.85 + rng.normal(0, 0.2, n).clip(0.3, 2.0),
+        }
+    )
 
 
 @pytest.mark.phase12
@@ -64,20 +66,24 @@ class TestBuildOptionsRegimeFactors:
         assert len(result) == 0
 
     def test_missing_vix_column(self):
-        cboe = pd.DataFrame({
-            "timestamp": pd.bdate_range("2024-01-01", periods=10),
-            "put_call_ratio": [0.9] * 10,
-        })
+        cboe = pd.DataFrame(
+            {
+                "timestamp": pd.bdate_range("2024-01-01", periods=10),
+                "put_call_ratio": [0.9] * 10,
+            }
+        )
         result = build_options_regime_factors(cboe)
         assert "put_call_ratio_raw" in result.columns
         assert "vix_level" not in result.columns
 
     def test_missing_pcr_column(self):
-        cboe = pd.DataFrame({
-            "timestamp": pd.bdate_range("2024-01-01", periods=10),
-            "vix": [20.0] * 10,
-            "vix3m": [22.0] * 10,
-        })
+        cboe = pd.DataFrame(
+            {
+                "timestamp": pd.bdate_range("2024-01-01", periods=10),
+                "vix": [20.0] * 10,
+                "vix3m": [22.0] * 10,
+            }
+        )
         result = build_options_regime_factors(cboe)
         assert "vix_level" in result.columns
         assert "put_call_ratio_raw" not in result.columns
@@ -89,17 +95,21 @@ class TestAlignOptionsToPanel:
         cboe = _synthetic_cboe(n=50)
         factors = build_options_regime_factors(cboe)
         dates = cboe["timestamp"].tolist()
-        panel = pd.DataFrame({
-            "timestamp": dates * 2,
-            "symbol": ["AAPL"] * 50 + ["MSFT"] * 50,
-            "close": np.random.default_rng(1).normal(100, 10, 100),
-        })
+        panel = pd.DataFrame(
+            {
+                "timestamp": dates * 2,
+                "symbol": ["AAPL"] * 50 + ["MSFT"] * 50,
+                "close": np.random.default_rng(1).normal(100, 10, 100),
+            }
+        )
         merged = align_options_factors_to_panel(panel, factors)
         assert "vix_level" in merged.columns
         assert len(merged) == 100
 
     def test_empty_factors(self):
-        panel = pd.DataFrame({"timestamp": [pd.Timestamp("2024-01-01")], "symbol": ["A"], "close": [100]})
+        panel = pd.DataFrame(
+            {"timestamp": [pd.Timestamp("2024-01-01")], "symbol": ["A"], "close": [100]}
+        )
         result = align_options_factors_to_panel(panel, pd.DataFrame())
         assert len(result) == 1
 

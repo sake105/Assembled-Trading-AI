@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 CANARY_SCHEDULE: list[tuple[int, int | None, float]] = [
-    (0, 5, 0.0),      # days 1-5: shadow only
-    (6, 20, 0.10),    # days 6-20: 10 % if Sharpe_15d > 0.5
-    (21, 45, 0.33),   # days 21-45: 33 % if Sharpe > 0.5 + DD < 1.5× training
+    (0, 5, 0.0),  # days 1-5: shadow only
+    (6, 20, 0.10),  # days 6-20: 10 % if Sharpe_15d > 0.5
+    (21, 45, 0.33),  # days 21-45: 33 % if Sharpe > 0.5 + DD < 1.5× training
     (46, None, 1.0),  # day 46+: full size
 ]
 
@@ -68,8 +68,12 @@ class ShadowSignal:
         if not self.live:
             self.shadow_trades.append(result)
 
-        logger.debug("[%s shadow=%s] score=%.3f", self.name, not self.live,
-                     result.get("score", 0.0))
+        logger.debug(
+            "[%s shadow=%s] score=%.3f",
+            self.name,
+            not self.live,
+            result.get("score", 0.0),
+        )
         return result
 
     def rolling_ic(self, window: int = 60) -> float:
@@ -81,6 +85,7 @@ class ShadowSignal:
         returns = [t.get("return_next", 0.0) for t in recent]
         try:
             from scipy.stats import spearmanr
+
             ic, _ = spearmanr(scores, returns)
             return float(ic)
         except ImportError:
@@ -89,15 +94,19 @@ class ShadowSignal:
             rank_s = np.argsort(np.argsort(scores))
             rank_r = np.argsort(np.argsort(returns))
             d_sq = ((rank_s - rank_r) ** 2).sum()
-            return float(1.0 - 6.0 * d_sq / max(n * (n ** 2 - 1), 1))
+            return float(1.0 - 6.0 * d_sq / max(n * (n**2 - 1), 1))
 
-    def should_promote(self, ic_threshold: float = 0.03, sharpe_threshold: float = 0.5) -> bool:
+    def should_promote(
+        self, ic_threshold: float = 0.03, sharpe_threshold: float = 0.5
+    ) -> bool:
         """Return True if shadow IC and simulated Sharpe meet promotion criteria."""
         ic = self.rolling_ic(60)
         if np.isnan(ic) or ic < ic_threshold:
             return False
-        returns = [t.get("return_next", 0.0) * np.sign(t.get("score", 0.0))
-                   for t in self.shadow_trades[-60:]]
+        returns = [
+            t.get("return_next", 0.0) * np.sign(t.get("score", 0.0))
+            for t in self.shadow_trades[-60:]
+        ]
         if len(returns) < 10:
             return False
         sharpe = np.mean(returns) / max(np.std(returns), 1e-9) * np.sqrt(252)

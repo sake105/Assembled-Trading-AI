@@ -87,6 +87,7 @@ MIN_SINGLE_WEIGHT = 0.0
 # Regime label generation
 # ---------------------------------------------------------------------------
 
+
 def generate_regime_labels(
     prices_df: pd.DataFrame,
     method: str = "hmm",
@@ -110,7 +111,9 @@ def generate_regime_labels(
         DataFrame with columns: date | regime_label
         Falls back to 'sideways' for every row when HMM cannot be fit.
     """
-    _log(f"Generating regime labels via {method} (n_regimes={n_regimes}, symbol={benchmark_symbol})")
+    _log(
+        f"Generating regime labels via {method} (n_regimes={n_regimes}, symbol={benchmark_symbol})"
+    )
 
     # ---- resolve date index ------------------------------------------------
     if "date" in prices_df.columns:
@@ -123,7 +126,9 @@ def generate_regime_labels(
         price_series = prices_df[benchmark_symbol].dropna()
     elif prices_df.shape[1] == 1:
         price_series = prices_df.iloc[:, 0].dropna()
-        _warn(f"Symbol '{benchmark_symbol}' not found; using first column: {prices_df.columns[0]}")
+        _warn(
+            f"Symbol '{benchmark_symbol}' not found; using first column: {prices_df.columns[0]}"
+        )
     else:
         _warn(f"Symbol '{benchmark_symbol}' not found; using row-mean as proxy.")
         price_series = prices_df.mean(axis=1).dropna()
@@ -131,7 +136,9 @@ def generate_regime_labels(
     returns = np.log((price_series / price_series.shift(1)).clip(lower=1e-10)).dropna()
 
     if len(returns) < 60:
-        _warn("Too few observations for HMM -- falling back to equal 'sideways' labels.")
+        _warn(
+            "Too few observations for HMM -- falling back to equal 'sideways' labels."
+        )
         return _fallback_labels(returns.index)
 
     # ---- fit HMM -----------------------------------------------------------
@@ -143,7 +150,9 @@ def generate_regime_labels(
         model = RegimeHMM(n_regimes=n_regimes, random_state=42)
         model.fit(returns)
         regime_series = model.predict_regime(returns)
-        _log(f"[OK] HMM fit complete -- value counts: {regime_series.value_counts().to_dict()}")
+        _log(
+            f"[OK] HMM fit complete -- value counts: {regime_series.value_counts().to_dict()}"
+        )
     except Exception as exc:
         _warn(f"HMM fit failed ({exc!r}) -- falling back to 'sideways' for all rows.")
         return _fallback_labels(returns.index)
@@ -165,6 +174,7 @@ def _fallback_labels(index: pd.Index) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Per-regime IC statistics
 # ---------------------------------------------------------------------------
+
 
 def compute_per_regime_ic(
     ic_timeseries_df: pd.DataFrame,
@@ -207,7 +217,9 @@ def compute_per_regime_ic(
     available = [c for c in factor_cols if c in ic_df.columns]
     missing = set(factor_cols) - set(available)
     if missing:
-        _warn(f"Skipping {len(missing)} factor cols not in IC timeseries: {sorted(missing)[:10]}")
+        _warn(
+            f"Skipping {len(missing)} factor cols not in IC timeseries: {sorted(missing)[:10]}"
+        )
     if not available:
         _warn("No valid factor columns -- returning empty dict.")
         return {}
@@ -215,7 +227,9 @@ def compute_per_regime_ic(
     merged = ic_df[["date"] + available].merge(
         reg_df[["date", "regime_label"]], on="date", how="inner"
     )
-    _log(f"Merged rows: {len(merged)} across {merged['regime_label'].nunique()} regimes")
+    _log(
+        f"Merged rows: {len(merged)} across {merged['regime_label'].nunique()} regimes"
+    )
 
     results: dict[str, pd.DataFrame] = {}
 
@@ -226,8 +240,14 @@ def compute_per_regime_ic(
             n = len(series)
             if n < 2:
                 rows.append(
-                    {"factor": col, "mean_ic": np.nan, "ic_ir": np.nan,
-                     "hit_ratio": np.nan, "t_stat": np.nan, "n_obs": n}
+                    {
+                        "factor": col,
+                        "mean_ic": np.nan,
+                        "ic_ir": np.nan,
+                        "hit_ratio": np.nan,
+                        "t_stat": np.nan,
+                        "n_obs": n,
+                    }
                 )
                 continue
             mean_ic = float(series.mean())
@@ -235,17 +255,21 @@ def compute_per_regime_ic(
             ic_ir = mean_ic / std_ic if std_ic > 1e-12 else 0.0
             hit_ratio = float((series > 0).mean())
             t_stat_val, _ = ttest_1samp(series, popmean=0.0)
-            rows.append({
-                "factor": col,
-                "mean_ic": round(mean_ic, 6),
-                "ic_ir": round(ic_ir, 6),
-                "hit_ratio": round(hit_ratio, 4),
-                "t_stat": round(float(t_stat_val), 4),
-                "n_obs": n,
-            })
+            rows.append(
+                {
+                    "factor": col,
+                    "mean_ic": round(mean_ic, 6),
+                    "ic_ir": round(ic_ir, 6),
+                    "hit_ratio": round(hit_ratio, 4),
+                    "t_stat": round(float(t_stat_val), 4),
+                    "n_obs": n,
+                }
+            )
         df_out = pd.DataFrame(rows).set_index("factor")
         results[str(regime)] = df_out
-        _log(f"[OK] Regime '{regime}': {len(group)} obs, {len(available)} factors computed")
+        _log(
+            f"[OK] Regime '{regime}': {len(group)} obs, {len(available)} factors computed"
+        )
 
     return results
 
@@ -253,6 +277,7 @@ def compute_per_regime_ic(
 # ---------------------------------------------------------------------------
 # Weight computation helpers
 # ---------------------------------------------------------------------------
+
 
 def _equal_weights(factor_cols: list[str]) -> dict[str, float]:
     """Return equal positive weights summing to 1."""
@@ -265,7 +290,9 @@ def _equal_weights(factor_cols: list[str]) -> dict[str, float]:
 
 def _normalise(raw: dict[str, float]) -> dict[str, float]:
     """Clip to [MIN, MAX] and normalise to sum = 1. Fallback to equal if all zero."""
-    clipped = {k: max(MIN_SINGLE_WEIGHT, min(MAX_SINGLE_WEIGHT, v)) for k, v in raw.items()}
+    clipped = {
+        k: max(MIN_SINGLE_WEIGHT, min(MAX_SINGLE_WEIGHT, v)) for k, v in raw.items()
+    }
     total = sum(clipped.values())
     if total < 1e-12:
         return _equal_weights(list(raw.keys()))
@@ -284,7 +311,9 @@ def _ic_ir_weighted(stats_df: pd.DataFrame, factor_cols: list[str]) -> dict[str,
     return _normalise(raw)
 
 
-def _optimisation_weights(stats_df: pd.DataFrame, factor_cols: list[str]) -> dict[str, float]:
+def _optimisation_weights(
+    stats_df: pd.DataFrame, factor_cols: list[str]
+) -> dict[str, float]:
     """Scipy optimisation: maximise w'@mean_ic s.t. sum(w)=1, 0<=w<=0.5."""
     try:
         from scipy.optimize import minimize  # type: ignore
@@ -292,10 +321,12 @@ def _optimisation_weights(stats_df: pd.DataFrame, factor_cols: list[str]) -> dic
         _warn("scipy not available -- falling back to IC-IR weighted method.")
         return _ic_ir_weighted(stats_df, factor_cols)
 
-    mean_ics = np.array([
-        float(stats_df.loc[c, "mean_ic"]) if c in stats_df.index else 0.0
-        for c in factor_cols
-    ])
+    mean_ics = np.array(
+        [
+            float(stats_df.loc[c, "mean_ic"]) if c in stats_df.index else 0.0
+            for c in factor_cols
+        ]
+    )
     mean_ics = np.nan_to_num(mean_ics, nan=0.0)
 
     n = len(factor_cols)
@@ -327,16 +358,21 @@ def _optimisation_weights(stats_df: pd.DataFrame, factor_cols: list[str]) -> dic
     if res.success:
         w_opt = np.clip(res.x, MIN_SINGLE_WEIGHT, MAX_SINGLE_WEIGHT)
         w_sum = w_opt.sum()
-        w_opt = w_opt / w_sum if w_sum > 1e-12 else np.full_like(w_opt, 1.0 / len(w_opt))
+        w_opt = (
+            w_opt / w_sum if w_sum > 1e-12 else np.full_like(w_opt, 1.0 / len(w_opt))
+        )
         return {c: round(float(w), 8) for c, w in zip(factor_cols, w_opt)}
     else:
-        _warn(f"Optimisation did not converge ({res.message}) -- falling back to IC-IR method.")
+        _warn(
+            f"Optimisation did not converge ({res.message}) -- falling back to IC-IR method."
+        )
         return _ic_ir_weighted(stats_df, factor_cols)
 
 
 # ---------------------------------------------------------------------------
 # Main training function
 # ---------------------------------------------------------------------------
+
 
 def train_regime_weights(
     ic_timeseries_df: pd.DataFrame,
@@ -375,7 +411,9 @@ def train_regime_weights(
     Returns:
         Dict: regime -> {factor_col: weight, ...}
     """
-    _log(f"[START] train_regime_weights | method={method} | lambda={shrinkage_to_equal}")
+    _log(
+        f"[START] train_regime_weights | method={method} | lambda={shrinkage_to_equal}"
+    )
 
     per_regime_stats = compute_per_regime_ic(
         ic_timeseries_df, regime_state_df, factor_cols
@@ -389,7 +427,8 @@ def train_regime_weights(
     # valid factor cols (intersection with what was computed)
     computed_cols = (
         list(next(iter(per_regime_stats.values())).index)
-        if per_regime_stats else factor_cols
+        if per_regime_stats
+        else factor_cols
     )
 
     regime_weights: dict[str, dict[str, float]] = {}
@@ -449,6 +488,7 @@ def train_regime_weights(
 # ---------------------------------------------------------------------------
 # Walk-forward validation
 # ---------------------------------------------------------------------------
+
 
 def validate_regime_weights_wf(
     panel_df: pd.DataFrame,
@@ -531,7 +571,9 @@ def validate_regime_weights_wf(
         # Merge test IC with regime labels
         reg_df = regime_state_df.copy()
         reg_df["date"] = pd.to_datetime(reg_df["date"])
-        test_merged = test_df.merge(reg_df[["date", "regime_label"]], on="date", how="left")
+        test_merged = test_df.merge(
+            reg_df[["date", "regime_label"]], on="date", how="left"
+        )
         test_merged["regime_label"] = test_merged["regime_label"].fillna("sideways")
 
         # Compute weighted vs equal IC per row
@@ -541,7 +583,9 @@ def validate_regime_weights_wf(
         for row in test_merged.itertuples(index=False):
             regime = str(row.regime_label)
             w_map = weights.get(regime, _equal_weights(factor_cols))
-            ic_vals = {c: getattr(row, c) for c in factor_cols if not np.isnan(getattr(row, c))}
+            ic_vals = {
+                c: getattr(row, c) for c in factor_cols if not np.isnan(getattr(row, c))
+            }
             if not ic_vals:
                 continue
             wt_ic = sum(w_map.get(c, eq_w) * v for c, v in ic_vals.items())
@@ -557,25 +601,33 @@ def validate_regime_weights_wf(
         improvement = mean_wt - mean_eq
         improvements.append(improvement)
 
-        fold_results.append({
-            "fold": fold,
-            "train_rows": len(train_df),
-            "test_rows": len(test_df),
-            "wt_avg_ic": round(mean_wt, 6),
-            "eq_avg_ic": round(mean_eq, 6),
-            "improvement": round(improvement, 6),
-        })
+        fold_results.append(
+            {
+                "fold": fold,
+                "train_rows": len(train_df),
+                "test_rows": len(test_df),
+                "wt_avg_ic": round(mean_wt, 6),
+                "eq_avg_ic": round(mean_eq, 6),
+                "improvement": round(improvement, 6),
+            }
+        )
         _log(
             f"[OK] Fold {fold}: wt_ic={mean_wt:.4f} | eq_ic={mean_eq:.4f} | "
             f"delta={improvement:+.4f}"
         )
 
     if not improvements:
-        return {"fold_results": fold_results, "mean_improvement": 0.0, "wt_sharpe": np.nan}
+        return {
+            "fold_results": fold_results,
+            "mean_improvement": 0.0,
+            "wt_sharpe": np.nan,
+        }
 
     arr = np.array(improvements)
     mean_imp = float(arr.mean())
-    wt_sharpe = float(arr.mean() / arr.std(ddof=1)) if arr.std(ddof=1) > 1e-12 else np.nan
+    wt_sharpe = (
+        float(arr.mean() / arr.std(ddof=1)) if arr.std(ddof=1) > 1e-12 else np.nan
+    )
 
     _log(
         f"[DONE] WF validation | mean_improvement={mean_imp:+.4f} | "
@@ -592,6 +644,7 @@ def validate_regime_weights_wf(
 # ---------------------------------------------------------------------------
 # I/O helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_ic_timeseries(ic_dir: Path) -> pd.DataFrame | None:
     """Load and concatenate all ic_timeseries_*.parquet files in ic_dir."""
@@ -648,6 +701,7 @@ def _build_meta(
 # Main entry point
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Train regime-conditional factor weights from IC timeseries.",
@@ -664,14 +718,14 @@ def main(argv: list[str] | None = None) -> None:
         type=Path,
         default=None,
         help="Path to price/returns panel parquet (used to generate regime labels via HMM). "
-             "Required unless --regime-labels-path is given.",
+        "Required unless --regime-labels-path is given.",
     )
     parser.add_argument(
         "--regime-labels-path",
         type=Path,
         default=None,
         help="Pre-computed regime labels parquet (date | regime_label). "
-             "If provided, --panel-path is not needed.",
+        "If provided, --panel-path is not needed.",
     )
     parser.add_argument(
         "--output-path",
@@ -737,7 +791,9 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
 
     factor_cols = [c for c in ic_df.columns if c.startswith("ic_")]
-    _log(f"Factor columns in IC data: {len(factor_cols)} -> {factor_cols[:8]}{'...' if len(factor_cols) > 8 else ''}")
+    _log(
+        f"Factor columns in IC data: {len(factor_cols)} -> {factor_cols[:8]}{'...' if len(factor_cols) > 8 else ''}"
+    )
 
     # ---------------------------------------------------------- 2. Regime labels
     if args.regime_labels_path and args.regime_labels_path.exists():
@@ -779,7 +835,9 @@ def main(argv: list[str] | None = None) -> None:
 
     # ---- build per-regime stats for meta block ----------------------------
     per_regime_stats = compute_per_regime_ic(ic_df, regime_df, factor_cols)
-    meta = _build_meta(args.method, args.shrinkage_lambda, regime_weights, per_regime_stats)
+    meta = _build_meta(
+        args.method, args.shrinkage_lambda, regime_weights, per_regime_stats
+    )
 
     # ---------------------------------------------------------- 4. Save JSON
     output: dict[str, Any] = {}

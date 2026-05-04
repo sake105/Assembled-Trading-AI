@@ -10,7 +10,9 @@ import pytest
 from src.assembled_core.intel.models import NewsEvent, SourceTier
 
 
-def _make_news_event(title: str = "Sanctions escalation against Russia", n: int = 0) -> NewsEvent:
+def _make_news_event(
+    title: str = "Sanctions escalation against Russia", n: int = 0
+) -> NewsEvent:
     return NewsEvent(
         event_id=f"rss_test_{n}",
         source_id="reuters_world",
@@ -194,7 +196,9 @@ class TestIntelCycleRSSWiring:
 
         # Two events with slightly different titles but same core story
         e1 = _make_news_event("Russia escalates sanctions pressure on Ukraine", n=10)
-        e2 = _make_news_event("Russia escalates sanctions pressure on Ukraine today", n=11)
+        e2 = _make_news_event(
+            "Russia escalates sanctions pressure on Ukraine today", n=11
+        )
         config = self._build_config([e1, e2])
         # Pre-seed semantic dedup with e1
         sem = SemanticDedup(enabled=False, retention_hours=1.0)

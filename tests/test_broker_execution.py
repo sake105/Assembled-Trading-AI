@@ -15,7 +15,6 @@ from src.assembled_core.execution.broker_execution import (
     submit_orders_to_broker,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -56,7 +55,9 @@ class FakeAdapter:
     def submit_market_order(self, symbol, qty, side) -> BrokerOrder:
         self._submit_count += 1
         oid = f"fake-{self._submit_count}"
-        order = _make_order(order_id=oid, symbol=symbol, side=side, qty=qty, status="new")
+        order = _make_order(
+            order_id=oid, symbol=symbol, side=side, qty=qty, status="new"
+        )
         self._orders[oid] = order
         return order
 
@@ -82,13 +83,18 @@ class FakeAdapter:
 # ---------------------------------------------------------------------------
 
 
-@patch("src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=False)
+@patch(
+    "src.assembled_core.execution.kill_switch.is_kill_switch_engaged",
+    return_value=False,
+)
 def test_submit_dry_run(mock_ks):
     adapter = FakeAdapter()
-    df = _orders_df([
-        {"symbol": "AAPL", "side": "buy", "qty": 10},
-        {"symbol": "MSFT", "side": "sell", "qty": 5},
-    ])
+    df = _orders_df(
+        [
+            {"symbol": "AAPL", "side": "buy", "qty": 10},
+            {"symbol": "MSFT", "side": "sell", "qty": 5},
+        ]
+    )
     results, intent_keys = submit_orders_to_broker(adapter, df, dry_run=True)
     assert len(results) == 2
     assert all(o is not None for o in results)
@@ -96,7 +102,9 @@ def test_submit_dry_run(mock_ks):
     assert adapter._submit_count == 0  # No real calls
 
 
-@patch("src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=True)
+@patch(
+    "src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=True
+)
 def test_submit_kill_switch_blocks(mock_ks):
     adapter = FakeAdapter()
     df = _orders_df([{"symbol": "AAPL", "side": "buy", "qty": 10}])
@@ -104,15 +112,20 @@ def test_submit_kill_switch_blocks(mock_ks):
     assert all(o is None for o in results)
 
 
-@patch("src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=False)
+@patch(
+    "src.assembled_core.execution.kill_switch.is_kill_switch_engaged",
+    return_value=False,
+)
 def test_submit_skips_invalid_orders(mock_ks):
     adapter = FakeAdapter()
-    df = _orders_df([
-        {"symbol": "", "side": "buy", "qty": 10},      # empty symbol
-        {"symbol": "AAPL", "side": "hold", "qty": 10},  # invalid side
-        {"symbol": "AAPL", "side": "buy", "qty": 0},    # zero qty
-        {"symbol": "MSFT", "side": "buy", "qty": 5},    # valid
-    ])
+    df = _orders_df(
+        [
+            {"symbol": "", "side": "buy", "qty": 10},  # empty symbol
+            {"symbol": "AAPL", "side": "hold", "qty": 10},  # invalid side
+            {"symbol": "AAPL", "side": "buy", "qty": 0},  # zero qty
+            {"symbol": "MSFT", "side": "buy", "qty": 5},  # valid
+        ]
+    )
     results, intent_keys = submit_orders_to_broker(adapter, df)
     assert len(results) == 4
     assert results[0] is None  # empty symbol
@@ -121,7 +134,10 @@ def test_submit_skips_invalid_orders(mock_ks):
     assert results[3] is not None  # valid
 
 
-@patch("src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=False)
+@patch(
+    "src.assembled_core.execution.kill_switch.is_kill_switch_engaged",
+    return_value=False,
+)
 def test_submit_empty_df(mock_ks):
     adapter = FakeAdapter()
     df = pd.DataFrame(columns=["symbol", "side", "qty"])
@@ -216,7 +232,10 @@ def test_convert_skips_no_price():
 # ---------------------------------------------------------------------------
 
 
-@patch("src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=False)
+@patch(
+    "src.assembled_core.execution.kill_switch.is_kill_switch_engaged",
+    return_value=False,
+)
 def test_execute_via_broker_dry_run(mock_ks):
     adapter = FakeAdapter()
     df = _orders_df([{"symbol": "AAPL", "side": "buy", "qty": 10}])
@@ -227,23 +246,29 @@ def test_execute_via_broker_dry_run(mock_ks):
     assert len(result.submitted) == 1
 
 
-@patch("src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=False)
+@patch(
+    "src.assembled_core.execution.kill_switch.is_kill_switch_engaged",
+    return_value=False,
+)
 def test_execute_via_broker_live(mock_ks):
     adapter = FakeAdapter()
-    df = _orders_df([
-        {"symbol": "AAPL", "side": "buy", "qty": 10},
-        {"symbol": "MSFT", "side": "sell", "qty": 5},
-    ])
-    result = execute_via_broker(
-        adapter, df, timeout_s=5, poll_interval_s=0.1
+    df = _orders_df(
+        [
+            {"symbol": "AAPL", "side": "buy", "qty": 10},
+            {"symbol": "MSFT", "side": "sell", "qty": 5},
+        ]
     )
+    result = execute_via_broker(adapter, df, timeout_s=5, poll_interval_s=0.1)
     assert result.dry_run is False
     assert len(result.filled) == 2
     assert len(result.fills_for_ledger) == 2
     assert result.execution_time_s > 0
 
 
-@patch("src.assembled_core.execution.kill_switch.is_kill_switch_engaged", return_value=False)
+@patch(
+    "src.assembled_core.execution.kill_switch.is_kill_switch_engaged",
+    return_value=False,
+)
 def test_execute_via_broker_empty(mock_ks):
     adapter = FakeAdapter()
     df = pd.DataFrame(columns=["symbol", "side", "qty"])

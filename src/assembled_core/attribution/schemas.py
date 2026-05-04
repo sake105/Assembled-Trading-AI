@@ -2,6 +2,7 @@
 
 From 38_FEATURE_ATTRIBUTION_DASHBOARD.md §2.1.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,12 +13,13 @@ from typing import Any
 @dataclass
 class CompositeAttribution:
     """Per-decision attribution for a single composite score."""
+
     timestamp: datetime
     ticker: str
     composite_score: float
     dimension_contributions: dict[str, float]  # dim → weighted contribution
-    dimension_raw_scores: dict[str, float]      # dim → raw score pre-weight
-    dimension_weights: dict[str, float]         # dim → weight
+    dimension_raw_scores: dict[str, float]  # dim → raw score pre-weight
+    dimension_weights: dict[str, float]  # dim → weight
     strategy_id: str
     model_version: str
     regime: str

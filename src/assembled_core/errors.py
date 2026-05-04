@@ -29,6 +29,7 @@ from __future__ import annotations
 # Base categories
 # ---------------------------------------------------------------------------
 
+
 class AssembledError(Exception):
     """Base class for all Assembled Trading AI errors."""
 
@@ -59,6 +60,7 @@ class FatalTradingError(AssembledError):
 # ---------------------------------------------------------------------------
 # Domain-specific errors (Recoverable)
 # ---------------------------------------------------------------------------
+
 
 class DataFeedError(RecoverableError):
     """Data feed temporarily unavailable or returned invalid data."""
@@ -104,6 +106,7 @@ class UniverseLookupError(RecoverableError):
 # Domain-specific errors (Degradable)
 # ---------------------------------------------------------------------------
 
+
 class StaleDataWarning(DegradableError):
     """Data is stale but pipeline can proceed with reduced quality."""
 
@@ -123,6 +126,7 @@ class OptionalSourceUnavailable(DegradableError):
 # ---------------------------------------------------------------------------
 # Domain-specific errors (Fatal)
 # ---------------------------------------------------------------------------
+
 
 class RiskLimitBreached(FatalTradingError):
     """A hard risk limit has been breached — all trading must stop."""

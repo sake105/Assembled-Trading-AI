@@ -78,12 +78,14 @@ class CrisisStateConfig:
     decay_half_life_minutes: int = 180
     cooldown_min_minutes: int = 720
     # Risk posture per state (can be overridden)
-    risk_posture_by_state: dict[str, dict[str, Any]] = field(default_factory=lambda: {
-        CrisisMode.NORMAL.value: _RISK_POSTURE_NORMAL,
-        CrisisMode.WATCH.value: _RISK_POSTURE_WATCH,
-        CrisisMode.ACTIVE.value: _RISK_POSTURE_ACTIVE,
-        CrisisMode.COOLDOWN.value: _RISK_POSTURE_COOLDOWN,
-    })
+    risk_posture_by_state: dict[str, dict[str, Any]] = field(
+        default_factory=lambda: {
+            CrisisMode.NORMAL.value: _RISK_POSTURE_NORMAL,
+            CrisisMode.WATCH.value: _RISK_POSTURE_WATCH,
+            CrisisMode.ACTIVE.value: _RISK_POSTURE_ACTIVE,
+            CrisisMode.COOLDOWN.value: _RISK_POSTURE_COOLDOWN,
+        }
+    )
 
     def risk_posture(self, mode: CrisisMode) -> dict[str, Any]:
         return self.risk_posture_by_state.get(mode.value, _RISK_POSTURE_NORMAL)
@@ -172,43 +174,69 @@ def update_crisis_state(
     if all_expired and geo_score == 0:
         new_mode = CrisisMode.NORMAL
         if prev_mode != CrisisMode.NORMAL:
-            audit_trail.append(_make_audit_entry(
-                prev_mode, new_mode, "all_triggers_expired", now, geo_score
-            ))
+            audit_trail.append(
+                _make_audit_entry(
+                    prev_mode, new_mode, "all_triggers_expired", now, geo_score
+                )
+            )
     elif prev_mode == CrisisMode.NORMAL:
         if geo_score >= config.geo_score_watch_threshold:
             new_mode = CrisisMode.WATCH
-            audit_trail.append(_make_audit_entry(
-                prev_mode, new_mode, f"geo_score_reached_{geo_score}", now, geo_score
-            ))
+            audit_trail.append(
+                _make_audit_entry(
+                    prev_mode,
+                    new_mode,
+                    f"geo_score_reached_{geo_score}",
+                    now,
+                    geo_score,
+                )
+            )
 
     elif prev_mode == CrisisMode.WATCH:
-        if geo_score >= config.geo_score_active_threshold and _market_confirm_active(market_confirm):
+        if geo_score >= config.geo_score_active_threshold and _market_confirm_active(
+            market_confirm
+        ):
             new_mode = CrisisMode.ACTIVE
-            audit_trail.append(_make_audit_entry(
-                prev_mode, new_mode, "geo_score_and_market_confirm", now, geo_score
-            ))
+            audit_trail.append(
+                _make_audit_entry(
+                    prev_mode, new_mode, "geo_score_and_market_confirm", now, geo_score
+                )
+            )
         elif geo_score < config.geo_score_watch_threshold:
             # Fell back below watch threshold
             new_mode = CrisisMode.NORMAL
-            audit_trail.append(_make_audit_entry(
-                prev_mode, new_mode, f"geo_score_dropped_{geo_score}", now, geo_score
-            ))
+            audit_trail.append(
+                _make_audit_entry(
+                    prev_mode,
+                    new_mode,
+                    f"geo_score_dropped_{geo_score}",
+                    now,
+                    geo_score,
+                )
+            )
 
     elif prev_mode == CrisisMode.ACTIVE:
         if all_expired or geo_score < config.geo_score_active_threshold:
             new_mode = CrisisMode.COOLDOWN
-            audit_trail.append(_make_audit_entry(
-                prev_mode, new_mode, "active_threshold_dropped_or_expired", now, geo_score
-            ))
+            audit_trail.append(
+                _make_audit_entry(
+                    prev_mode,
+                    new_mode,
+                    "active_threshold_dropped_or_expired",
+                    now,
+                    geo_score,
+                )
+            )
 
     elif prev_mode == CrisisMode.COOLDOWN:
         cooldown_elapsed = (now - prev_state.entered_at).total_seconds() / 60
         if cooldown_elapsed >= config.cooldown_min_minutes:
             new_mode = CrisisMode.NORMAL
-            audit_trail.append(_make_audit_entry(
-                prev_mode, new_mode, "cooldown_elapsed", now, geo_score
-            ))
+            audit_trail.append(
+                _make_audit_entry(
+                    prev_mode, new_mode, "cooldown_elapsed", now, geo_score
+                )
+            )
 
     # Determine when we entered the new mode
     if new_mode != prev_mode:

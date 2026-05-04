@@ -11,6 +11,7 @@ Usage:
 
 Run via cron: 09:00 ET Monday weekly
 """
+
 from __future__ import annotations
 
 import json
@@ -41,15 +42,24 @@ def main() -> int:
 
     # 1. Should start disengaged
     initial = is_kill_switch_engaged()
-    step("initial_state_disengaged", not initial,
-         "already engaged at drill start — deactivate first" if initial else "disengaged ✓")
+    step(
+        "initial_state_disengaged",
+        not initial,
+        (
+            "already engaged at drill start — deactivate first"
+            if initial
+            else "disengaged ✓"
+        ),
+    )
 
     if initial:
         deactivate_kill_switch(reason="drill_cleanup", actor="drill_kill_switch")
 
     # 2. Activate
     try:
-        activate_kill_switch(throttle_pct=0.0, reason="drill_test", actor="drill_kill_switch")
+        activate_kill_switch(
+            throttle_pct=0.0, reason="drill_test", actor="drill_kill_switch"
+        )
         engaged = is_kill_switch_engaged()
         step("activation_works", engaged, "engaged" if engaged else "FAILED to engage")
     except Exception as exc:
@@ -62,7 +72,11 @@ def main() -> int:
     try:
         deactivate_kill_switch(reason="drill_done", actor="drill_kill_switch")
         disengaged = not is_kill_switch_engaged()
-        step("deactivation_works", disengaged, "disengaged" if disengaged else "FAILED to disengage")
+        step(
+            "deactivation_works",
+            disengaged,
+            "disengaged" if disengaged else "FAILED to disengage",
+        )
     except Exception as exc:
         step("deactivation_works", False, str(exc))
         report["verdict"] = "FAIL"

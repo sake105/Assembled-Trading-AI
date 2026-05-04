@@ -94,7 +94,9 @@ class StressTestConfig:
 
     enabled: bool = True
     scenarios: list[str] = field(default_factory=lambda: list(STRESS_SCENARIOS.keys()))
-    loss_floors: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_LOSS_FLOORS))
+    loss_floors: dict[str, float] = field(
+        default_factory=lambda: dict(DEFAULT_LOSS_FLOORS)
+    )
     sector_mapping: dict[str, str] = field(default_factory=dict)
 
 
@@ -183,7 +185,9 @@ def evaluate_stress_scenarios(
     if violated:
         _log.warning(
             "STRESS TEST VIOLATIONS: %s (worst: %s = %.2f%%)",
-            violated, worst_sc, worst_loss * 100,
+            violated,
+            worst_sc,
+            worst_loss * 100,
         )
 
     return StressTestResult(

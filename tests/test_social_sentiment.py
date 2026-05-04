@@ -21,11 +21,13 @@ def _synthetic_mentions(n: int = 200, seed: int = 42) -> pd.DataFrame:
     dates = pd.date_range("2024-01-01", periods=30, freq="D")
     timestamps = rng.choice(dates, n)
     sentiments = rng.uniform(-1.0, 1.0, n)
-    return pd.DataFrame({
-        "symbol": symbols,
-        "timestamp": timestamps,
-        "sentiment": sentiments,
-    })
+    return pd.DataFrame(
+        {
+            "symbol": symbols,
+            "timestamp": timestamps,
+            "sentiment": sentiments,
+        }
+    )
 
 
 @pytest.mark.phase12
@@ -50,11 +52,13 @@ class TestAggregateDailySentiment:
         assert all(0.0 <= r <= 1.0 for r in result["bullish_ratio"])
 
     def test_min_mentions_filter(self):
-        mentions = pd.DataFrame({
-            "symbol": ["AAPL"] * 3,
-            "timestamp": pd.date_range("2024-01-01", periods=3),
-            "sentiment": [0.5, 0.3, 0.2],
-        })
+        mentions = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 3,
+                "timestamp": pd.date_range("2024-01-01", periods=3),
+                "sentiment": [0.5, 0.3, 0.2],
+            }
+        )
         cfg = SentimentConfig(min_mentions=5)
         result = aggregate_daily_sentiment(mentions, config=cfg)
         assert len(result) == 0  # below min threshold
@@ -74,7 +78,9 @@ class TestAggregateDailySentiment:
 class TestSentimentMomentum:
     def test_adds_momentum_column(self):
         mentions = _synthetic_mentions(n=300)
-        daily = aggregate_daily_sentiment(mentions, config=SentimentConfig(min_mentions=1))
+        daily = aggregate_daily_sentiment(
+            mentions, config=SentimentConfig(min_mentions=1)
+        )
         result = add_sentiment_momentum(daily, window=3)
         assert "sentiment_momentum_3d" in result.columns
 
@@ -87,20 +93,24 @@ class TestSentimentMomentum:
 class TestCrowdConsensus:
     def test_crowd_signal_values(self):
         mentions = _synthetic_mentions(n=300)
-        daily = aggregate_daily_sentiment(mentions, config=SentimentConfig(min_mentions=1))
+        daily = aggregate_daily_sentiment(
+            mentions, config=SentimentConfig(min_mentions=1)
+        )
         result = compute_crowd_consensus(daily)
         assert "crowd_signal" in result.columns
         assert set(result["crowd_signal"].unique()) <= {-1.0, 0.0, 1.0}
 
     def test_high_bullish_detected(self):
-        daily = pd.DataFrame({
-            "symbol": ["AAPL"],
-            "date": ["2024-01-15"],
-            "sentiment_score": [0.8],
-            "sentiment_volume": [50],
-            "bullish_ratio": [0.9],
-            "sentiment_dispersion": [0.1],
-        })
+        daily = pd.DataFrame(
+            {
+                "symbol": ["AAPL"],
+                "date": ["2024-01-15"],
+                "sentiment_score": [0.8],
+                "sentiment_volume": [50],
+                "bullish_ratio": [0.9],
+                "sentiment_dispersion": [0.1],
+            }
+        )
         result = compute_crowd_consensus(daily, threshold_bullish=0.7)
         assert result["crowd_signal"].iloc[0] == 1.0
 

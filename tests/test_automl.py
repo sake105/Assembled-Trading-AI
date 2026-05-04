@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytest.importorskip('src.assembled_core.ml.automl')
+pytest.importorskip("src.assembled_core.ml.automl")
 from src.assembled_core.ml.automl import (
     AutoMLResult,
     compute_ic,
@@ -21,13 +21,15 @@ def synthetic_features():
     """Synthetic feature matrix with signal and noise."""
     rng = np.random.default_rng(42)
     n = 300
-    return pd.DataFrame({
-        "signal_1": rng.normal(0, 1, n),
-        "signal_2": rng.normal(0, 1, n),
-        "noise_1": rng.normal(0, 1, n),
-        "noise_2": rng.normal(0, 1, n),
-        "noise_3": rng.normal(0, 1, n),
-    })
+    return pd.DataFrame(
+        {
+            "signal_1": rng.normal(0, 1, n),
+            "signal_2": rng.normal(0, 1, n),
+            "noise_1": rng.normal(0, 1, n),
+            "noise_2": rng.normal(0, 1, n),
+            "noise_3": rng.normal(0, 1, n),
+        }
+    )
 
 
 @pytest.fixture
@@ -70,14 +72,18 @@ class TestComputeIC:
 @pytest.mark.phase12
 class TestFeatureSelection:
     def test_selects_signal_features(self, synthetic_features, synthetic_target):
-        selected = select_features_mi(synthetic_features, synthetic_target, max_features=3)
+        selected = select_features_mi(
+            synthetic_features, synthetic_target, max_features=3
+        )
         assert len(selected) <= 3
         assert len(selected) > 0
         # Signal features should rank higher
         assert "signal_1" in selected or "signal_2" in selected
 
     def test_max_features_respected(self, synthetic_features, synthetic_target):
-        selected = select_features_mi(synthetic_features, synthetic_target, max_features=2)
+        selected = select_features_mi(
+            synthetic_features, synthetic_target, max_features=2
+        )
         assert len(selected) <= 2
 
     def test_empty_features(self, synthetic_target):
@@ -113,9 +119,11 @@ class TestRunAutoML:
     )
     def test_basic_automl(self, synthetic_features, synthetic_target):
         result = run_automl(
-            synthetic_features, synthetic_target,
+            synthetic_features,
+            synthetic_target,
             model_types=["ridge", "lasso"],
-            max_features=3, n_folds=3,
+            max_features=3,
+            n_folds=3,
         )
         assert isinstance(result, AutoMLResult)
         assert result.n_models_evaluated > 0
@@ -128,8 +136,10 @@ class TestRunAutoML:
     )
     def test_all_candidates_ranked(self, synthetic_features, synthetic_target):
         result = run_automl(
-            synthetic_features, synthetic_target,
-            model_types=["ridge"], n_folds=3,
+            synthetic_features,
+            synthetic_target,
+            model_types=["ridge"],
+            n_folds=3,
         )
         ranks = [c.rank for c in result.all_candidates]
         assert ranks == sorted(ranks)
@@ -146,8 +156,10 @@ class TestRunAutoML:
     )
     def test_ic_ir_ordering(self, synthetic_features, synthetic_target):
         result = run_automl(
-            synthetic_features, synthetic_target,
-            model_types=["ridge", "lasso"], n_folds=3,
+            synthetic_features,
+            synthetic_target,
+            model_types=["ridge", "lasso"],
+            n_folds=3,
         )
         if len(result.all_candidates) >= 2:
             # Should be sorted by IC-IR descending

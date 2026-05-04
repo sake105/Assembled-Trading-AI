@@ -5,6 +5,7 @@ From 39_HYPERPARAMETER_GOVERNANCE.md.
 Uses MLflow when available; falls back to a local JSON-append store.
 API surface mirrors the MLflow idioms so the call sites are identical.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,6 +24,7 @@ _MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "")
 def _mlflow_available() -> bool:
     try:
         import mlflow  # noqa: F401
+
         return bool(_MLFLOW_TRACKING_URI)
     except ImportError:
         return False
@@ -111,6 +113,7 @@ def start_run(
     """
     if _mlflow_available():
         import mlflow
+
         return mlflow.start_run(run_name=run_name)
     return _LocalTracker(run_name, Path(local_store_dir))
 

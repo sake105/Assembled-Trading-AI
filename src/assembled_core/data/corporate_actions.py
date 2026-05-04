@@ -48,7 +48,11 @@ def apply_splits_for_research_prices(
         raise ValueError("actions must contain only SPLIT actions")
 
     # Normalize timestamps for comparison
-    ts_col = "timestamp" if "timestamp" in result.columns else (result.columns[0] if len(result.columns) > 0 else "timestamp")
+    ts_col = (
+        "timestamp"
+        if "timestamp" in result.columns
+        else (result.columns[0] if len(result.columns) > 0 else "timestamp")
+    )
     result_ts = pd.to_datetime(result[ts_col], utc=True)
     actions = actions.copy()
     actions["effective_date"] = pd.to_datetime(actions["effective_date"], utc=True)
@@ -125,7 +129,9 @@ def compute_dividend_cashflows(
     )
     if merged.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "cashflow_type", "amount"])
-    merged["amount"] = merged["qty"] * pd.to_numeric(merged["dividend_cash"], errors="coerce").fillna(0.0)
+    merged["amount"] = merged["qty"] * pd.to_numeric(
+        merged["dividend_cash"], errors="coerce"
+    ).fillna(0.0)
     merged["cashflow_type"] = "DIVIDEND"
     out = merged.rename(columns={"effective_date": "timestamp"})[
         ["timestamp", "symbol", "cashflow_type", "amount"]
@@ -189,7 +195,11 @@ def adjust_prices_for_splits(
     result = prices.copy()
 
     # Determine timestamp column
-    ts_col = "timestamp" if "timestamp" in result.columns else (result.columns[0] if len(result.columns) > 0 else "timestamp")
+    ts_col = (
+        "timestamp"
+        if "timestamp" in result.columns
+        else (result.columns[0] if len(result.columns) > 0 else "timestamp")
+    )
     result_ts = pd.to_datetime(result[ts_col], utc=True, errors="coerce")
     split_actions["effective_date"] = pd.to_datetime(
         split_actions["effective_date"], utc=True, errors="coerce"
@@ -273,7 +283,10 @@ def compute_total_return_index(
     result[ts_col] = pd.to_datetime(result[ts_col], utc=True)
 
     # Pre-group divs by symbol to avoid O(N*M) per-symbol filter
-    _divs_by_sym = {sym: grp.sort_values("effective_date") for sym, grp in divs.groupby("symbol", sort=False)}
+    _divs_by_sym = {
+        sym: grp.sort_values("effective_date")
+        for sym, grp in divs.groupby("symbol", sort=False)
+    }
 
     # For each symbol, compute cumulative dividend adjustment
     for sym, sym_prices in result.groupby("symbol", sort=False):
@@ -376,7 +389,11 @@ def apply_delisting_exits(
     if delistings.empty:
         return pd.DataFrame(columns=out_cols)
 
-    ts_col = "timestamp" if "timestamp" in prices.columns else (prices.columns[0] if len(prices.columns) > 0 else "timestamp")
+    ts_col = (
+        "timestamp"
+        if "timestamp" in prices.columns
+        else (prices.columns[0] if len(prices.columns) > 0 else "timestamp")
+    )
     pos_qty_map = positions.groupby("symbol")["qty"].first().to_dict()
     sym_prices_map = {sym: grp for sym, grp in prices.groupby("symbol")}
     rows: list[dict] = []
@@ -396,13 +413,15 @@ def apply_delisting_exits(
             last_price = float(sym_prices["close"].iloc[-1])
         else:
             last_price = float(before["close"].iloc[-1])
-        rows.append({
-            "timestamp": eff,
-            "symbol": sym,
-            "exit_type": "DELIST_EXIT",
-            "exit_price": last_price,
-            "qty": qty,
-        })
+        rows.append(
+            {
+                "timestamp": eff,
+                "symbol": sym,
+                "exit_type": "DELIST_EXIT",
+                "exit_price": last_price,
+                "qty": qty,
+            }
+        )
 
     if not rows:
         return pd.DataFrame(columns=out_cols)
@@ -442,7 +461,13 @@ def apply_spinoff(
     if actions is None or actions.empty:
         return positions.copy()
 
-    required = {"symbol", "action_type", "effective_date", "child_symbol", "spinoff_ratio"}
+    required = {
+        "symbol",
+        "action_type",
+        "effective_date",
+        "child_symbol",
+        "spinoff_ratio",
+    }
     missing = required - set(actions.columns)
     if missing:
         # A spinoff with a renamed column (spinoff_ratio → ratio) previously

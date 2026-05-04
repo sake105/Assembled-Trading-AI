@@ -71,7 +71,11 @@ def _synthetic_factor_panel(
         fwd = rng.normal(0.0, 0.02, size=n_symbols)
         row_base = {"timestamp": ts}
         for sym_i, sym in enumerate(symbols):
-            row: dict[str, Any] = {**row_base, "symbol": sym, "fwd_return_1m": float(fwd[sym_i])}
+            row: dict[str, Any] = {
+                **row_base,
+                "symbol": sym,
+                "fwd_return_1m": float(fwd[sym_i]),
+            }
             for name, ic in ic_per_factor.items():
                 noise = rng.normal(0.0, 1.0)
                 row[name] = ic * fwd[sym_i] + (1.0 - abs(ic)) * noise
@@ -81,7 +85,9 @@ def _synthetic_factor_panel(
 
 def _profile_to_dict(profile: SignalDecayProfile) -> dict[str, Any]:
     return {
-        "ic_mean": float(profile.ic_mean) if profile.ic_mean == profile.ic_mean else 0.0,
+        "ic_mean": (
+            float(profile.ic_mean) if profile.ic_mean == profile.ic_mean else 0.0
+        ),
         "ic_ir": float(profile.ic_ir) if profile.ic_ir == profile.ic_ir else 0.0,
         "ic_half_life_days": (
             float(profile.ic_half_life_days)
@@ -114,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         "--panel",
         default=None,
         help="Optional CSV/Parquet factor panel. If omitted, a synthetic "
-             "panel is generated so the wiring is always exercised.",
+        "panel is generated so the wiring is always exercised.",
     )
     parser.add_argument(
         "--factors",
@@ -155,7 +161,8 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("[signal_decay] using synthetic panel rows=%d", len(panel))
 
     report = build_report(
-        panel, factor_cols,
+        panel,
+        factor_cols,
         universe=args.universe,
         forward_return_col=args.forward_return_col,
     )

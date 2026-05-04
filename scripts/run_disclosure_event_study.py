@@ -35,9 +35,12 @@ _POLICY_PATH = ROOT / "configs" / "policy.yaml"
 def _is_kill_switch_active(policy_path: Path = _POLICY_PATH) -> bool:
     try:
         import yaml
+
         with open(policy_path, "r", encoding="utf-8") as fh:
             policy = yaml.safe_load(fh)
-        return bool((policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False))
+        return bool(
+            (policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False)
+        )
     except Exception as exc:
         logger.warning("[WARN] Could not read kill_switch from policy: %s", exc)
         return False
@@ -45,18 +48,25 @@ def _is_kill_switch_active(policy_path: Path = _POLICY_PATH) -> bool:
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Disclosure Event Study (T6.2)")
-    p.add_argument("--disclosures", required=True, help="Path to disclosures CSV/Parquet")
+    p.add_argument(
+        "--disclosures", required=True, help="Path to disclosures CSV/Parquet"
+    )
     p.add_argument("--prices", required=True, help="Path to price panel CSV/Parquet")
-    p.add_argument("--output", default="output/intel/event_study", help="Output directory")
+    p.add_argument(
+        "--output", default="output/intel/event_study", help="Output directory"
+    )
     p.add_argument("--window-before", type=int, default=5)
     p.add_argument("--window-after", type=int, default=20)
-    p.add_argument("--min-severity", default=None, help="Filter by minimum severity label")
+    p.add_argument(
+        "--min-severity", default=None, help="Filter by minimum severity label"
+    )
     p.add_argument("--tier", default=None, help="Filter by source tier (T0/T1/T2/T3)")
     return p.parse_args()
 
 
 def _load_frame(path: str) -> "pd.DataFrame":  # noqa: F821
     import pandas as pd
+
     p = Path(path)
     if p.suffix == ".parquet":
         return pd.read_parquet(p)
@@ -66,13 +76,14 @@ def _load_frame(path: str) -> "pd.DataFrame":  # noqa: F821
 def _compute_ic(windows: "pd.DataFrame", window_after: int) -> dict:  # noqa: F821
     """Compute forward-return IC between event day return and post-event drift."""
     import numpy as np
+
     try:
-        event_day = windows[windows["rel_day"] == 0][["event_id", "event_return"]].rename(
-            columns={"event_return": "event_day_return"}
-        )
-        forward = windows[windows["rel_day"] == window_after][["event_id", "event_return"]].rename(
-            columns={"event_return": "forward_return"}
-        )
+        event_day = windows[windows["rel_day"] == 0][
+            ["event_id", "event_return"]
+        ].rename(columns={"event_return": "event_day_return"})
+        forward = windows[windows["rel_day"] == window_after][
+            ["event_id", "event_return"]
+        ].rename(columns={"event_return": "forward_return"})
         merged = event_day.merge(forward, on="event_id")
         if len(merged) < 5:
             return {"ic": None, "n_events": len(merged), "note": "too few events"}
@@ -80,7 +91,11 @@ def _compute_ic(windows: "pd.DataFrame", window_after: int) -> dict:  # noqa: F8
         y = merged["forward_return"].values
         mask = np.isfinite(x) & np.isfinite(y)
         if mask.sum() < 5:
-            return {"ic": None, "n_events": int(mask.sum()), "note": "too few valid pairs"}
+            return {
+                "ic": None,
+                "n_events": int(mask.sum()),
+                "note": "too few valid pairs",
+            }
         corr = float(np.corrcoef(x[mask], y[mask])[0, 1])
         return {"ic": round(corr, 4), "n_events": int(mask.sum())}
     except Exception as exc:
@@ -89,7 +104,9 @@ def _compute_ic(windows: "pd.DataFrame", window_after: int) -> dict:  # noqa: F8
 
 def main() -> None:
     if _is_kill_switch_active():
-        logger.info("[SKIP] kill_switch_active — disclosure_event_study halted by policy.")
+        logger.info(
+            "[SKIP] kill_switch_active — disclosure_event_study halted by policy."
+        )
         return
 
     args = _parse_args()
@@ -109,22 +126,34 @@ def main() -> None:
     # Apply filters
     if args.min_severity and "severity" in disclosures.columns:
         disclosures = disclosures[disclosures["severity"] == args.min_severity]
-        logger.info("[OK] Filtered to severity=%s: %d events", args.min_severity, len(disclosures))
+        logger.info(
+            "[OK] Filtered to severity=%s: %d events",
+            args.min_severity,
+            len(disclosures),
+        )
 
     if args.tier and "source_tier" in disclosures.columns:
         disclosures = disclosures[disclosures["source_tier"] == args.tier]
         logger.info("[OK] Filtered to tier=%s: %d events", args.tier, len(disclosures))
 
     if disclosures.empty:
-        logger.warning("[WARN] No disclosure events after filtering — nothing to study.")
+        logger.warning(
+            "[WARN] No disclosure events after filtering — nothing to study."
+        )
         return
 
     # Rename/normalize columns for event_study
     if "event_type" not in disclosures.columns:
         disclosures = disclosures.copy()
-        disclosures["event_type"] = disclosures.get("severity", pd.Series(["disclosure"] * len(disclosures))).fillna("disclosure")
+        disclosures["event_type"] = disclosures.get(
+            "severity", pd.Series(["disclosure"] * len(disclosures))
+        ).fillna("disclosure")
 
-    logger.info("[START] Building event windows (before=%d, after=%d)", args.window_before, args.window_after)
+    logger.info(
+        "[START] Building event windows (before=%d, after=%d)",
+        args.window_before,
+        args.window_after,
+    )
     windows = build_event_window_prices(
         prices,
         disclosures,
@@ -170,7 +199,9 @@ def main() -> None:
     out_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     logger.info("[OK] Event study report written: %s", out_path)
-    logger.info("[OK] Overall IC: %s (n=%s)", ic_result.get("ic"), ic_result.get("n_events"))
+    logger.info(
+        "[OK] Overall IC: %s (n=%s)", ic_result.get("ic"), ic_result.get("n_events")
+    )
 
 
 if __name__ == "__main__":

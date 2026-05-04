@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 def _try_import_arch():
     try:
         from arch import arch_model
+
         return arch_model
     except ImportError:
         logger.warning("arch not installed — install with: pip install arch==8.0.0")

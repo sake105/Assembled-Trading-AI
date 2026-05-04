@@ -7,6 +7,7 @@ These instruments are referenced by existing modules but not yet in local data:
 - VIX3M: CBOE 3-Month VIX (^VIX3M) — for term structure
 - UUP : Invesco DB US Dollar Index Bullish Fund (USD strength proxy)
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,15 +22,17 @@ import yfinance as yf
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw", "equities_eod", "yfinance")
+OUT_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "data", "raw", "equities_eod", "yfinance"
+)
 START = "2023-01-01"
 
 TICKERS = {
-    "SH":    "SH",      # ProShares Short S&P500
-    "PSQ":   "PSQ",     # ProShares Short QQQ
-    "VIX":   "^VIX",    # CBOE VIX spot
+    "SH": "SH",  # ProShares Short S&P500
+    "PSQ": "PSQ",  # ProShares Short QQQ
+    "VIX": "^VIX",  # CBOE VIX spot
     "VIX3M": "^VIX3M",  # CBOE 3-Month VIX
-    "UUP":   "UUP",     # Dollar index ETF
+    "UUP": "UUP",  # Dollar index ETF
 }
 
 

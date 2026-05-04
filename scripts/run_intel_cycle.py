@@ -64,10 +64,14 @@ def _is_kill_switch_active(policy_path: Path = _POLICY_PATH) -> bool:
     try:
         with open(policy_path, "r", encoding="utf-8") as fh:
             policy = yaml.safe_load(fh)
-        return bool((policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False))
+        return bool(
+            (policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False)
+        )
     except Exception as exc:
         logger.warning("[WARN] Could not read kill_switch from policy: %s", exc)
         return False
+
+
 _DEFAULT_STATE_DIR = "data/intel/state"
 _DEFAULT_GRAPH_PATH = "configs/dependency_graph.yaml"
 _DEFAULT_INTERVAL = 900  # 15 minutes
@@ -87,7 +91,9 @@ def _load_or_init_crisis_state(output_dir: Path) -> CrisisState:
                 data = json.load(fh)
             return CrisisState.model_validate(data)
         except Exception as exc:
-            logger.warning("[WARN] Could not load crisis_state.json: %s — using fresh state", exc)
+            logger.warning(
+                "[WARN] Could not load crisis_state.json: %s — using fresh state", exc
+            )
 
     return CrisisState(
         mode=CrisisMode.NORMAL,
@@ -108,13 +114,15 @@ def _build_triggers_artifact(
     """Build the triggers_latest.json artifact (schema: news.triggers.v1)."""
     trigger_list = []
     for t in triggers:
-        trigger_list.append({
-            "trigger_id": t.trigger_id,
-            "trigger_type": t.trigger_type.value,
-            "severity": t.trigger_score,
-            "confidence": round(t.confidence, 4),
-            "ttl_minutes": t.ttl_minutes,
-        })
+        trigger_list.append(
+            {
+                "trigger_id": t.trigger_id,
+                "trigger_type": t.trigger_type.value,
+                "severity": t.trigger_score,
+                "confidence": round(t.confidence, 4),
+                "ttl_minutes": t.ttl_minutes,
+            }
+        )
 
     sev1_plus = sum(1 for t in triggers if t.trigger_score >= 1)
     sev2_plus = sum(1 for t in triggers if t.trigger_score >= 2)
@@ -184,6 +192,7 @@ def run_single_cycle(config: dict) -> dict:
     if event_store is None:
         try:
             from src.assembled_core.intel.news_event_store import NewsEventStore
+
             event_store = NewsEventStore(max_events=5_000)
             config["_event_store"] = event_store
         except Exception:
@@ -191,13 +200,17 @@ def run_single_cycle(config: dict) -> dict:
     if velocity_tracker is None:
         try:
             from src.assembled_core.intel.news_velocity import VelocityTracker
-            velocity_tracker = VelocityTracker(short_window_min=15, long_window_min=60, surge_threshold=2.5)
+
+            velocity_tracker = VelocityTracker(
+                short_window_min=15, long_window_min=60, surge_threshold=2.5
+            )
             config["_velocity_tracker"] = velocity_tracker
         except Exception:
             pass
     if enricher is None:
         try:
             from src.assembled_core.intel.news_enricher import NewsEventEnricher
+
             enricher = NewsEventEnricher(
                 event_store=event_store,
                 velocity_tracker=velocity_tracker,
@@ -212,6 +225,7 @@ def run_single_cycle(config: dict) -> dict:
     if sector_overlay is None:
         try:
             from src.assembled_core.intel.sector_news_overlay import SectorNewsOverlay
+
             sector_overlay = SectorNewsOverlay(decay_hours=12.0)
             config["_sector_overlay"] = sector_overlay
         except Exception as exc:
@@ -221,7 +235,10 @@ def run_single_cycle(config: dict) -> dict:
     if alert_engine is None:
         try:
             from src.assembled_core.intel.news_alerts import AlertEngine
-            alert_engine = AlertEngine(min_severity=8.0, include_default_log_handler=False)
+
+            alert_engine = AlertEngine(
+                min_severity=8.0, include_default_log_handler=False
+            )
             config["_alert_engine"] = alert_engine
         except Exception as exc:
             logger.debug("[SKIP] AlertEngine init: %s", exc)
@@ -230,11 +247,14 @@ def run_single_cycle(config: dict) -> dict:
     if macro_cal is None:
         try:
             from src.assembled_core.intel.news_macro_calendar import MacroCalendar
+
             macro_cal = MacroCalendar()
             _cal_path = _REPO_ROOT / "configs" / "macro_calendar.json"
             if _cal_path.exists():
                 n = macro_cal.load_json(_cal_path)
-                logger.debug("[OK] MacroCalendar: loaded %d events from %s", n, _cal_path)
+                logger.debug(
+                    "[OK] MacroCalendar: loaded %d events from %s", n, _cal_path
+                )
             config["_macro_cal"] = macro_cal
         except Exception as exc:
             logger.debug("[SKIP] MacroCalendar init: %s", exc)
@@ -245,6 +265,7 @@ def run_single_cycle(config: dict) -> dict:
             from src.assembled_core.intel.news_sentiment_drift import (
                 SentimentDriftTracker,
             )
+
             sentiment_tracker = SentimentDriftTracker(window_min=60, min_events=3)
             config["_sentiment_tracker"] = sentiment_tracker
         except Exception as exc:
@@ -256,6 +277,7 @@ def run_single_cycle(config: dict) -> dict:
             from src.assembled_core.intel.news_ticker_velocity import (
                 TickerVelocityTracker,
             )
+
             ticker_velocity = TickerVelocityTracker(
                 short_window_min=15, long_window_min=60, surge_threshold=3.0
             )
@@ -267,6 +289,7 @@ def run_single_cycle(config: dict) -> dict:
     if semantic_dedup is None:
         try:
             from src.assembled_core.intel.news_semantic_dedup import SemanticDedup
+
             semantic_dedup = SemanticDedup(enabled=False, retention_hours=6.0)
             config["_semantic_dedup"] = semantic_dedup
         except Exception as exc:
@@ -276,6 +299,7 @@ def run_single_cycle(config: dict) -> dict:
     if entity_graph is None:
         try:
             from src.assembled_core.intel.news_entity_graph import EntityCoGraph
+
             entity_graph = EntityCoGraph(retention_hours=48.0)
             config["_entity_graph"] = entity_graph
         except Exception as exc:
@@ -318,7 +342,9 @@ def run_single_cycle(config: dict) -> dict:
             else:
                 semantic_filtered.append(evt)
         if semantic_dropped:
-            logger.info("[OK] SemanticDedup: dropped %d near-duplicate events", semantic_dropped)
+            logger.info(
+                "[OK] SemanticDedup: dropped %d near-duplicate events", semantic_dropped
+            )
         new_events = semantic_filtered
         new_count = len(new_events)
 
@@ -328,6 +354,7 @@ def run_single_cycle(config: dict) -> dict:
         if new_events:
             try:
                 from src.assembled_core.intel.news_archiver import NewsArchiver
+
                 archiver: NewsArchiver = config.setdefault(
                     "_archiver", NewsArchiver(base_dir=output_dir / "archive")
                 )
@@ -348,7 +375,9 @@ def run_single_cycle(config: dict) -> dict:
         if vel is not None and getattr(vel, "is_surge", False):
             logger.warning(
                 "[WARN] News velocity surge: %.1fx — sectors=%s count=%d",
-                vel.velocity, vel.surge_sectors, vel.short_count,
+                vel.velocity,
+                vel.surge_sectors,
+                vel.short_count,
             )
     elif new_events:
         # Fallback: no enricher available, keep prior behaviour
@@ -359,7 +388,9 @@ def run_single_cycle(config: dict) -> dict:
             if vel.is_surge:
                 logger.warning(
                     "[WARN] News velocity surge: %.1fx — sectors=%s count=%d",
-                    vel.velocity, vel.surge_sectors, vel.short_count,
+                    vel.velocity,
+                    vel.surge_sectors,
+                    vel.short_count,
                 )
 
     # Step 2.6: Alert evaluation + sentiment drift + ticker velocity + contradiction + entity graph
@@ -371,7 +402,9 @@ def run_single_cycle(config: dict) -> dict:
             try:
                 cycle_alerts = alert_engine.evaluate(new_events)
                 if cycle_alerts:
-                    logger.info("[OK] AlertEngine: %d alert(s) emitted", len(cycle_alerts))
+                    logger.info(
+                        "[OK] AlertEngine: %d alert(s) emitted", len(cycle_alerts)
+                    )
             except Exception as exc:
                 logger.warning("[WARN] AlertEngine.evaluate: %s", exc)
 
@@ -385,11 +418,19 @@ def run_single_cycle(config: dict) -> dict:
             try:
                 _ticker_signals = ticker_velocity.update(new_events, now=now)
                 ticker_surges = [
-                    {"ticker": s.ticker, "velocity": s.velocity, "short_count": s.short_count}
-                    for s in _ticker_signals if s.is_surge
+                    {
+                        "ticker": s.ticker,
+                        "velocity": s.velocity,
+                        "short_count": s.short_count,
+                    }
+                    for s in _ticker_signals
+                    if s.is_surge
                 ]
                 if ticker_surges:
-                    logger.info("[OK] TickerVelocity: surging=%s", [t["ticker"] for t in ticker_surges[:5]])
+                    logger.info(
+                        "[OK] TickerVelocity: surging=%s",
+                        [t["ticker"] for t in ticker_surges[:5]],
+                    )
             except Exception as exc:
                 logger.debug("[SKIP] TickerVelocityTracker.update: %s", exc)
 
@@ -398,12 +439,14 @@ def run_single_cycle(config: dict) -> dict:
             from src.assembled_core.intel.news_contradiction import (
                 ContradictionDetector,
             )
+
             _contra_report = ContradictionDetector().analyse(new_events)
             _contra_hits = [v for v in _contra_report.values() if v.contradicts]
             contradiction_count = len(_contra_hits)
             if _contra_hits:
                 logger.warning(
-                    "[WARN] Contradictions: %d story conflicts detected", contradiction_count
+                    "[WARN] Contradictions: %d story conflicts detected",
+                    contradiction_count,
                 )
         except Exception as exc:
             logger.debug("[SKIP] ContradictionDetector: %s", exc)
@@ -432,10 +475,13 @@ def run_single_cycle(config: dict) -> dict:
     # Step 3: Cluster
     active_clusters = cluster_mgr.update_clusters(new_events, now=now)
 
-    cluster_summary = ", ".join(
-        f"{cl.trigger_type.value} x{len(cl.supporting_events)}"
-        for cl in active_clusters
-    ) or "none"
+    cluster_summary = (
+        ", ".join(
+            f"{cl.trigger_type.value} x{len(cl.supporting_events)}"
+            for cl in active_clusters
+        )
+        or "none"
+    )
     logger.info("[OK] Clusters: %d active (%s)", len(active_clusters), cluster_summary)
 
     # Step 3.5: D10 — FinBERT sentiment enrichment (optional)
@@ -443,17 +489,30 @@ def run_single_cycle(config: dict) -> dict:
     if finbert_enabled and active_clusters:
         try:
             from src.assembled_core.ml.nlp_sentiment import score_texts_finbert
+
             for cluster in active_clusters:
-                texts = [ev.headline for ev in getattr(cluster, "events", []) if getattr(ev, "headline", None)]
+                texts = [
+                    ev.headline
+                    for ev in getattr(cluster, "events", [])
+                    if getattr(ev, "headline", None)
+                ]
                 if texts:
-                    sentiment_scores = score_texts_finbert(texts[:10])  # cap at 10 texts per cluster
+                    sentiment_scores = score_texts_finbert(
+                        texts[:10]
+                    )  # cap at 10 texts per cluster
                     if sentiment_scores:
-                        avg_sentiment = sum(s.get("score", 0) * (1 if s.get("label") == "positive" else -1)
-                                           for s in sentiment_scores) / len(sentiment_scores)
+                        avg_sentiment = sum(
+                            s.get("score", 0)
+                            * (1 if s.get("label") == "positive" else -1)
+                            for s in sentiment_scores
+                        ) / len(sentiment_scores)
                         # Attach to cluster if it supports it
                         if hasattr(cluster, "sentiment_score"):
                             cluster.sentiment_score = float(avg_sentiment)
-            logger.info("[OK] FinBERT sentiment enrichment applied to %d clusters", len(active_clusters))
+            logger.info(
+                "[OK] FinBERT sentiment enrichment applied to %d clusters",
+                len(active_clusters),
+            )
         except Exception as e:
             logger.debug("[SKIP] FinBERT enrichment skipped: %s", e)
 
@@ -508,7 +567,10 @@ def run_single_cycle(config: dict) -> dict:
                 logger.info(
                     "[OK] SectorOverlay: %d sectors — top=%s",
                     len(sector_overlay_scores),
-                    sorted(sector_overlay_scores, key=lambda k: -abs(sector_overlay_scores[k]))[:3],
+                    sorted(
+                        sector_overlay_scores,
+                        key=lambda k: -abs(sector_overlay_scores[k]),
+                    )[:3],
                 )
         except Exception as exc:
             logger.warning("[WARN] SectorNewsOverlay.compute: %s", exc)
@@ -517,11 +579,19 @@ def run_single_cycle(config: dict) -> dict:
     if macro_cal is not None:
         try:
             upcoming = macro_cal.upcoming(now=now, horizon_hours=24.0)
-            blackout_kinds = [k for k in ["fomc", "cpi", "nfp", "ecb"] if macro_cal.is_blackout(k, now=now)]
+            blackout_kinds = [
+                k
+                for k in ["fomc", "cpi", "nfp", "ecb"]
+                if macro_cal.is_blackout(k, now=now)
+            ]
             macro_meta = {
                 "upcoming_24h": [
-                    {"event_id": e.event_id, "kind": e.kind,
-                     "ts": e.ts.isoformat(), "importance": e.importance}
+                    {
+                        "event_id": e.event_id,
+                        "kind": e.kind,
+                        "ts": e.ts.isoformat(),
+                        "importance": e.importance,
+                    }
                     for e in upcoming
                 ],
                 "blackout_active": bool(blackout_kinds),
@@ -540,9 +610,12 @@ def run_single_cycle(config: dict) -> dict:
             # B7: Pass regime and magnitude to enhanced propagation
             crisis_mode = getattr(config.get("crisis_state"), "mode", "NORMAL")
             prop_regime = "crisis" if crisis_mode == "CRISIS" else "sideways"
-            prop_magnitude = 1.0 + (top_trigger.trigger_score - 1) * 0.3  # score 1→1.0, 3→1.6
+            prop_magnitude = (
+                1.0 + (top_trigger.trigger_score - 1) * 0.3
+            )  # score 1→1.0, 3→1.6
             transmissions = shock_propagation.propagate(
-                shocks, dep_graph,
+                shocks,
+                dep_graph,
                 trigger_id=top_trigger.trigger_id,
                 magnitude=prop_magnitude,
                 regime=prop_regime,
@@ -556,7 +629,9 @@ def run_single_cycle(config: dict) -> dict:
                 )
 
     # Step 7: Update crisis state — compute real market confirmation
-    market_confirm = compute_market_confirmation(lookback_days=5, cache=config.get("_mc_cache"))
+    market_confirm = compute_market_confirmation(
+        lookback_days=5, cache=config.get("_mc_cache")
+    )
     new_state = crisis_alpha_worker.update_crisis_state(
         prev_state=prev_state,
         geo_score=geo_score,
@@ -648,7 +723,9 @@ def run_single_cycle(config: dict) -> dict:
                         for d in drift_report
                     ],
                 }
-                _write_artifact(output_dir / "intel_sentiment.json", drift_artifact, dry_run)
+                _write_artifact(
+                    output_dir / "intel_sentiment.json", drift_artifact, dry_run
+                )
         except Exception as exc:
             logger.debug("[SKIP] SentimentDriftTracker.report: %s", exc)
 
@@ -718,7 +795,9 @@ def _build_config(args: argparse.Namespace) -> dict:
         except Exception as exc:
             logger.warning("[WARN] Could not load dependency graph: %s", exc)
     else:
-        logger.warning("[WARN] Dependency graph not found at %s — propagation disabled", graph_path)
+        logger.warning(
+            "[WARN] Dependency graph not found at %s — propagation disabled", graph_path
+        )
 
     fetcher = GdeltFetcher(state_dir / "gdelt_state.json")
     dedupe = NewsDedupeIndex(
@@ -748,6 +827,7 @@ def _build_config(args: argparse.Namespace) -> dict:
             SimpleEntityLinker,  # noqa: PLC0415
         )
         from src.assembled_core.intel.rss_fetcher import RSSFetcher  # noqa: PLC0415
+
         rss_fetcher = RSSFetcher(
             timeout=10,
             retries=1,
@@ -755,7 +835,11 @@ def _build_config(args: argparse.Namespace) -> dict:
             entity_linker=SimpleEntityLinker(),
         )
         health.register("rss", stale_threshold_minutes=30)
-        logger.info("[OK] RSS fetcher enabled: %d feeds (nlp=%s)", len(rss_fetcher.feed_ids), nlp_enabled)
+        logger.info(
+            "[OK] RSS fetcher enabled: %d feeds (nlp=%s)",
+            len(rss_fetcher.feed_ids),
+            nlp_enabled,
+        )
 
     prev_state = _load_or_init_crisis_state(output_dir)
 

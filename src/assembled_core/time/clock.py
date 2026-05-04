@@ -6,6 +6,7 @@ All time-dependent code should accept a Clock instead of calling
 datetime.utcnow() directly. This makes replay deterministic: the
 ReplayClock is driven by ClockTick events rather than wall time.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -15,8 +16,7 @@ from typing import Protocol
 class Clock(Protocol):
     """Minimal clock protocol — returns current datetime."""
 
-    def now(self) -> datetime:
-        ...
+    def now(self) -> datetime: ...
 
 
 class RealClock:

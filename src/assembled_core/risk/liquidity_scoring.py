@@ -104,13 +104,23 @@ def compute_liquidity_scores(
         grp = grp.sort_values(timestamp_col).tail(lookback_days)
 
         close = grp[close_col].values.astype(float)
-        vol = grp[volume_col].values.astype(float) if volume_col in grp.columns else np.ones(len(grp))
+        vol = (
+            grp[volume_col].values.astype(float)
+            if volume_col in grp.columns
+            else np.ones(len(grp))
+        )
 
         if len(close) < 10:
-            scores.append(LiquidityScore(
-                symbol=str(sym), amihud_lambda=np.inf,
-                roll_spread_bps=0.0, adv_usd=0.0, score=0.0, tier="micro",
-            ))
+            scores.append(
+                LiquidityScore(
+                    symbol=str(sym),
+                    amihud_lambda=np.inf,
+                    roll_spread_bps=0.0,
+                    adv_usd=0.0,
+                    score=0.0,
+                    tier="micro",
+                )
+            )
             continue
 
         # Returns
@@ -140,18 +150,22 @@ def compute_liquidity_scores(
         else:
             tier = "micro"
 
-        scores.append(LiquidityScore(
-            symbol=str(sym),
-            amihud_lambda=amihud,
-            roll_spread_bps=round(roll_bps, 2),
-            adv_usd=round(adv, 0),
-            score=0.0,  # Will be normalized below
-            tier=tier,
-        ))
+        scores.append(
+            LiquidityScore(
+                symbol=str(sym),
+                amihud_lambda=amihud,
+                roll_spread_bps=round(roll_bps, 2),
+                adv_usd=round(adv, 0),
+                score=0.0,  # Will be normalized below
+                tier=tier,
+            )
+        )
 
     # Normalize scores: rank-based 0-1 (lower Amihud = more liquid = higher score)
     if scores:
-        amihud_vals = np.array([s.amihud_lambda if np.isfinite(s.amihud_lambda) else 1e10 for s in scores])
+        amihud_vals = np.array(
+            [s.amihud_lambda if np.isfinite(s.amihud_lambda) else 1e10 for s in scores]
+        )
         # Rank: lower Amihud = higher rank = higher score
         ranks = np.argsort(np.argsort(amihud_vals))  # ascending rank
         n = len(scores)
@@ -162,7 +176,10 @@ def compute_liquidity_scores(
     _log.info(
         "Liquidity scores: %d symbols, tiers: %s",
         len(scores),
-        {t: sum(1 for s in scores if s.tier == t) for t in ["mega", "large", "mid", "small", "micro"]},
+        {
+            t: sum(1 for s in scores if s.tier == t)
+            for t in ["mega", "large", "mid", "small", "micro"]
+        },
     )
 
     return scores
@@ -198,7 +215,7 @@ def apply_liquidity_adjusted_sizing(
             adjusted[sym] = 0.0
             _log.debug("Liquidity filter: %s zeroed (score=%.3f)", sym, liq)
             continue
-        adjusted[sym] = w * (liq ** alpha)
+        adjusted[sym] = w * (liq**alpha)
 
     # Renormalize to preserve gross exposure
     total_orig = sum(abs(v) for v in target_weights.values())

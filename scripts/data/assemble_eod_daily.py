@@ -37,7 +37,16 @@ def load_one_parquet(p: Path) -> pd.DataFrame:
         # wenn keine adj_close vorhanden, setze = close (harmlos für Start)
         df["adj_close"] = df["close"]
 
-    keep = ["timestamp", "symbol", "open", "high", "low", "close", "adj_close", "volume"]
+    keep = [
+        "timestamp",
+        "symbol",
+        "open",
+        "high",
+        "low",
+        "close",
+        "adj_close",
+        "volume",
+    ]
     keep = [c for c in keep if c in df.columns]
     return df[keep]
 

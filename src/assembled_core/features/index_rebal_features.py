@@ -81,17 +81,25 @@ def build_index_rebal_features(
         DataFrame with rebalancing feature columns per symbol per date.
     """
     if changes_df.empty:
-        return pd.DataFrame(columns=[
-            symbol_col, date_col, "index_addition_flag",
-            "predicted_demand_pct", "rebal_window_flag", "index_demand_score",
-        ])
+        return pd.DataFrame(
+            columns=[
+                symbol_col,
+                date_col,
+                "index_addition_flag",
+                "predicted_demand_pct",
+                "rebal_window_flag",
+                "index_demand_score",
+            ]
+        )
 
     df = changes_df.copy()
     df[date_col] = pd.to_datetime(df[date_col])
 
     # Classify action
     action_map = {"add": 1, "addition": 1, "delete": -1, "deletion": -1, "removal": -1}
-    df["index_addition_flag"] = df[action_col].str.lower().map(action_map).fillna(0).astype(float)
+    df["index_addition_flag"] = (
+        df[action_col].str.lower().map(action_map).fillna(0).astype(float)
+    )
 
     # Rebalancing window: 5 trading days before effective date
     rows = []
@@ -111,19 +119,24 @@ def build_index_rebal_features(
             est_weight = 1.0 / n_constituents
             est_demand = est_weight * aum  # demand in dollars  # noqa: F841
 
-            rows.append({
-                symbol_col: sym,
-                date_col: wd,
-                "index_addition_flag": flag,
-                "predicted_demand_pct": est_weight * 100,  # simplified
-                "rebal_window_flag": 1.0,
-                "days_to_rebal": days_to_rebal,
-                "index_demand_score": float(flag) * max(0, 1 - days_to_rebal / 6),
-            })
+            rows.append(
+                {
+                    symbol_col: sym,
+                    date_col: wd,
+                    "index_addition_flag": flag,
+                    "predicted_demand_pct": est_weight * 100,  # simplified
+                    "rebal_window_flag": 1.0,
+                    "days_to_rebal": days_to_rebal,
+                    "index_demand_score": float(flag) * max(0, 1 - days_to_rebal / 6),
+                }
+            )
 
     result = pd.DataFrame(rows)
-    logger.info("[IndexRebal] Built features for %d events, %d window-rows",
-                len(df), len(result))
+    logger.info(
+        "[IndexRebal] Built features for %d events, %d window-rows",
+        len(df),
+        len(result),
+    )
     return result
 
 

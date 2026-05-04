@@ -10,7 +10,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.pipeline.trading_cycle_shared import _evaluate_circuit_breaker_daily
+from src.assembled_core.pipeline.trading_cycle_shared import (
+    _evaluate_circuit_breaker_daily,
+)
 
 
 def _mk_prices(ref_closes: list[float], symbol: str = "SPY") -> pd.DataFrame:
@@ -35,7 +37,10 @@ POLICY_ON = {
 
 def test_disabled_policy_returns_none() -> None:
     prices = _mk_prices([100, 95])  # huge drop
-    assert _evaluate_circuit_breaker_daily(prices, {"circuit_breaker": {"enabled": False}}) is None
+    assert (
+        _evaluate_circuit_breaker_daily(prices, {"circuit_breaker": {"enabled": False}})
+        is None
+    )
 
 
 def test_no_trip_on_small_drop() -> None:

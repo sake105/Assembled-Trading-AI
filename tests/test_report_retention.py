@@ -22,7 +22,9 @@ def test_purge_noop_when_below_limit(tmp_path):
     for i in range(3):
         _touch(tmp_path / f"tca_report_2026010{i}.json", time.time() - i)
 
-    assert purge_old_dated_reports(tmp_path, "tca_report_", ".json", keep_last_n=10) == 0
+    assert (
+        purge_old_dated_reports(tmp_path, "tca_report_", ".json", keep_last_n=10) == 0
+    )
     assert len(list(tmp_path.glob("tca_report_*.json"))) == 3
 
 

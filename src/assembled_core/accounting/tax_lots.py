@@ -9,6 +9,7 @@ required for the German Anlage-KAP tax filing.
 Requires no external services; ECB rate can be provided manually or via
 the optional async `get_ecb_usd_eur_rate` helper (needs httpx + asyncio).
 """
+
 from __future__ import annotations
 
 import json
@@ -31,9 +32,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TaxLot:
     """Single FIFO lot — either an open buy or a closed position."""
+
     id: str
     symbol: str
-    side: str                    # "buy" | "sell"
+    side: str  # "buy" | "sell"
     qty: float
     price_usd: float
     price_eur: float
@@ -42,10 +44,10 @@ class TaxLot:
     trade_timestamp: datetime
     fees_usd: float = 0.0
     fees_eur: float = 0.0
-    matched_against: str | None = None   # lot id of the opening trade
+    matched_against: str | None = None  # lot id of the opening trade
     realized_pnl_eur: float | None = None
     holding_days: int | None = None
-    status: str = "open"         # "open" | "closed"
+    status: str = "open"  # "open" | "closed"
 
     @classmethod
     def open_lot(
@@ -84,9 +86,10 @@ class TaxLot:
 @dataclass
 class FIFOCloseResult:
     """Result of matching a closing trade against open lots."""
-    lots_closed: list[dict]   # list of {lot_id, qty, pnl_eur, holding_days}
+
+    lots_closed: list[dict]  # list of {lot_id, qty, pnl_eur, holding_days}
     total_pnl_eur: float
-    qty_remaining: float      # > 0 if insufficient open lots
+    qty_remaining: float  # > 0 if insufficient open lots
 
 
 # ---------------------------------------------------------------------------
@@ -129,12 +132,14 @@ def match_fifo(
         pnl_eur = exit_eur - entry_eur - lot.fees_eur * fee_ratio
         holding_days = (exit_date - lot.trade_date).days
 
-        lots_closed.append({
-            "lot_id": lot.id,
-            "qty": match_qty,
-            "pnl_eur": round(pnl_eur, 4),
-            "holding_days": holding_days,
-        })
+        lots_closed.append(
+            {
+                "lot_id": lot.id,
+                "qty": match_qty,
+                "pnl_eur": round(pnl_eur, 4),
+                "holding_days": holding_days,
+            }
+        )
         remaining -= match_qty
 
     total_pnl = sum(row["pnl_eur"] for row in lots_closed)
@@ -163,6 +168,7 @@ def get_ecb_usd_eur_rate_sync(
     """
     try:
         import urllib.request
+
         url = (
             "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A"
             f"?startPeriod={trade_date.isoformat()}&endPeriod={trade_date.isoformat()}"
@@ -181,7 +187,9 @@ def get_ecb_usd_eur_rate_sync(
         usd_per_eur = float(first_obs[0])
         return round(1.0 / usd_per_eur, 6)
     except Exception as _exc:
-        logger.warning("[ECB] FX rate fetch failed (%s) — using fallback %.4f", _exc, fallback_rate)
+        logger.warning(
+            "[ECB] FX rate fetch failed (%s) — using fallback %.4f", _exc, fallback_rate
+        )
         return fallback_rate
 
 
@@ -227,8 +235,7 @@ class TaxLotStore:
                 "ON tax_lots(symbol, status)"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_lots_year "
-                "ON tax_lots(trade_date)"
+                "CREATE INDEX IF NOT EXISTS idx_lots_year " "ON tax_lots(trade_date)"
             )
 
     def add_lot(self, lot: TaxLot) -> None:
@@ -267,7 +274,9 @@ class TaxLotStore:
     ) -> FIFOCloseResult:
         """Execute FIFO close and persist the updated lot status."""
         open_lots = self.open_lots_for(symbol)
-        result = match_fifo(open_lots, qty_to_close, exit_price_usd, usd_eur_rate, exit_date)
+        result = match_fifo(
+            open_lots, qty_to_close, exit_price_usd, usd_eur_rate, exit_date
+        )
 
         lot_map = {lot.id: lot for lot in open_lots}
         with sqlite3.connect(self.db_path) as conn:
@@ -289,7 +298,12 @@ class TaxLotStore:
                     closed_fees_eur = lot.fees_eur * closed_frac
                     conn.execute(
                         "UPDATE tax_lots SET qty=?, fees_usd=?, fees_eur=? WHERE id=?",
-                        (new_qty, lot.fees_usd - closed_fees_usd, lot.fees_eur - closed_fees_eur, lot.id),
+                        (
+                            new_qty,
+                            lot.fees_usd - closed_fees_usd,
+                            lot.fees_eur - closed_fees_eur,
+                            lot.id,
+                        ),
                     )
                     partial = TaxLot(
                         id=str(uuid.uuid4()),
@@ -315,18 +329,28 @@ class TaxLotStore:
                             matched_against,realized_pnl_eur,holding_days,status)
                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (
-                            partial.id, partial.symbol, partial.side, partial.qty,
-                            partial.price_usd, partial.price_eur, partial.usd_eur_rate,
+                            partial.id,
+                            partial.symbol,
+                            partial.side,
+                            partial.qty,
+                            partial.price_usd,
+                            partial.price_eur,
+                            partial.usd_eur_rate,
                             partial.trade_date.isoformat(),
                             partial.trade_timestamp.isoformat(),
-                            partial.fees_usd, partial.fees_eur,
-                            partial.matched_against, partial.realized_pnl_eur,
-                            partial.holding_days, partial.status,
+                            partial.fees_usd,
+                            partial.fees_eur,
+                            partial.matched_against,
+                            partial.realized_pnl_eur,
+                            partial.holding_days,
+                            partial.status,
                         ),
                     )
         logger.debug(
             "FIFO close %s qty=%.4f pnl_eur=%.2f",
-            symbol, qty_to_close, result.total_pnl_eur,
+            symbol,
+            qty_to_close,
+            result.total_pnl_eur,
         )
         return result
 
@@ -375,10 +399,18 @@ class TaxLotTracker:
     def __init__(self) -> None:
         self._lots: dict[str, list[tuple[float, float]]] = {}  # symbol → [(qty, price)]
 
-    def buy(self, symbol: str, qty: float, price: float, trade_date: date | None = None) -> None:
+    def buy(
+        self, symbol: str, qty: float, price: float, trade_date: date | None = None
+    ) -> None:
         self._lots.setdefault(symbol, []).append((qty, price))
 
-    def sell(self, symbol: str, qty_to_sell: float, exit_price: float, trade_date: date | None = None) -> float:
+    def sell(
+        self,
+        symbol: str,
+        qty_to_sell: float,
+        exit_price: float,
+        trade_date: date | None = None,
+    ) -> float:
         """FIFO sell; returns realized P&L in USD."""
         remaining = qty_to_sell
         pnl = 0.0
@@ -403,6 +435,10 @@ class TaxLotTracker:
 
 
 __all__ = [
-    "TaxLot", "TaxLotStore", "TaxLotTracker",
-    "FIFOCloseResult", "match_fifo", "get_ecb_usd_eur_rate_sync",
+    "TaxLot",
+    "TaxLotStore",
+    "TaxLotTracker",
+    "FIFOCloseResult",
+    "match_fifo",
+    "get_ecb_usd_eur_rate_sync",
 ]

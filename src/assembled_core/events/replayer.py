@@ -56,7 +56,9 @@ class Replayer:
         """Register a handler for an event_type (or '*' for all events)."""
         self._handlers.setdefault(event_type, []).append(handler)
 
-    def replay_session(self, session_id: str, stop_on_error: bool = False) -> ReplayResult:
+    def replay_session(
+        self, session_id: str, stop_on_error: bool = False
+    ) -> ReplayResult:
         """Replay all events for *session_id* in sequence order.
 
         Args:
@@ -73,7 +75,12 @@ class Replayer:
             try:
                 payload = json.loads(row.get("payload_json", "{}"))
             except json.JSONDecodeError as _exc:
-                logger.warning("[replayer] malformed payload_json in session %s seq %s: %s", session_id, row.get("sequence"), _exc)
+                logger.warning(
+                    "[replayer] malformed payload_json in session %s seq %s: %s",
+                    session_id,
+                    row.get("sequence"),
+                    _exc,
+                )
                 payload = {}
             event_dict = {
                 "session_id": row["session_id"],
@@ -101,8 +108,11 @@ class Replayer:
         result.ended_at = datetime.now(tz=timezone.utc)
         logger.info(
             "Replay session=%s: %d events, %d outputs, %d errors, %.2fs",
-            session_id, result.n_events_replayed, len(result.outputs),
-            len(result.errors), result.duration_seconds or 0,
+            session_id,
+            result.n_events_replayed,
+            len(result.outputs),
+            len(result.errors),
+            result.duration_seconds or 0,
         )
         return result
 

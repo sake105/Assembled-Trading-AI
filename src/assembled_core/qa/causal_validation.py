@@ -2,6 +2,7 @@
 
 Uses `dowhy` if available; falls back to linear regression ATE when it is not.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -54,7 +55,8 @@ def estimate_news_trigger_effect(
     """
     if common_causes is None:
         common_causes = [
-            c for c in trades_df.columns
+            c
+            for c in trades_df.columns
             if c not in (treatment_col, outcome_col)
             and pd.api.types.is_numeric_dtype(trades_df[c])
         ]
@@ -76,6 +78,7 @@ def estimate_news_trigger_effect(
 # ---------------------------------------------------------------------------
 # Backends
 # ---------------------------------------------------------------------------
+
 
 def _estimate_ols(
     df: pd.DataFrame,
@@ -114,7 +117,11 @@ def _estimate_ols(
     if len(treated) >= 2 and len(control) >= 2:
         _, p_val = scipy_stats.ttest_ind(treated, control)
 
-    naive_ate = float(np.mean(treated) - np.mean(control)) if len(treated) and len(control) else 0.0
+    naive_ate = (
+        float(np.mean(treated) - np.mean(control))
+        if len(treated) and len(control)
+        else 0.0
+    )
 
     estimates = {
         "ols_adjusted": CausalEstimate(ate=ate, method="ols_adjusted", p_value=p_val),
@@ -162,7 +169,10 @@ def _estimate_dowhy(
 
     # Refutation check (only for linear regression)
     refutations: dict[str, Any] = {}
-    if "backdoor.linear_regression" in estimates and estimates["backdoor.linear_regression"].get("ate") is not None:
+    if (
+        "backdoor.linear_regression" in estimates
+        and estimates["backdoor.linear_regression"].get("ate") is not None
+    ):
         try:
             lin_est = model.estimate_effect(
                 identified, method_name="backdoor.linear_regression"
@@ -173,9 +183,11 @@ def _estimate_dowhy(
             refutations["random_common_cause"] = {
                 "original_effect": ref.estimated_effect,
                 "new_effect": ref.new_effect,
-                "p_value": ref.refutation_result.get("p_value")
-                if ref.refutation_result
-                else None,
+                "p_value": (
+                    ref.refutation_result.get("p_value")
+                    if ref.refutation_result
+                    else None
+                ),
             }
         except Exception as exc:
             refutations["error"] = str(exc)

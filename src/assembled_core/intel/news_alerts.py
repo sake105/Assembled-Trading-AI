@@ -49,7 +49,11 @@ class NewsAlert:
 def _default_log_handler(alert: NewsAlert) -> None:
     logger.warning(
         "[ALERT] %s kind=%s src=%s sev=%.1f msg=%s",
-        alert.event_id, alert.kind, alert.source_id, alert.severity, alert.message,
+        alert.event_id,
+        alert.kind,
+        alert.source_id,
+        alert.severity,
+        alert.message,
     )
 
 
@@ -76,7 +80,9 @@ class AlertEngine:
         self._recent_keys: dict[tuple[str, str], datetime] = {}
         # Rate-limit: last N dispatch timestamps; drops if >= limit in last 60s.
         self._rate_limit = max(0, int(rate_limit_per_min))
-        self._dispatch_times: deque[datetime] = deque(maxlen=max(1, self._rate_limit * 2))
+        self._dispatch_times: deque[datetime] = deque(
+            maxlen=max(1, self._rate_limit * 2)
+        )
         # Observability counters.
         self.dropped_dedup = 0
         self.dropped_rate = 0
@@ -139,26 +145,32 @@ class AlertEngine:
         corr_n = int(getattr(evt, "corroboration_n_sources", 0) or 0)
 
         if severity >= self._min_sev:
-            out.append(NewsAlert(
-                kind=_ALERT_CRITICAL,
-                event_id=event_id,
-                source_id=source_id,
-                severity=severity,
-                message=f"High-severity event: {event_types[:3]}",
-                extra={"event_types": event_types},
-            ))
+            out.append(
+                NewsAlert(
+                    kind=_ALERT_CRITICAL,
+                    event_id=event_id,
+                    source_id=source_id,
+                    severity=severity,
+                    message=f"High-severity event: {event_types[:3]}",
+                    extra={"event_types": event_types},
+                )
+            )
         if corr_score >= self._min_corr_score and corr_n >= self._min_corr_n:
-            out.append(NewsAlert(
-                kind=_ALERT_CORROBORATED,
-                event_id=event_id,
-                source_id=source_id,
-                severity=severity,
-                message=f"Widely corroborated story: n={corr_n} score={corr_score:.2f}",
-                extra={"n_sources": corr_n, "score": corr_score},
-            ))
+            out.append(
+                NewsAlert(
+                    kind=_ALERT_CORROBORATED,
+                    event_id=event_id,
+                    source_id=source_id,
+                    severity=severity,
+                    message=f"Widely corroborated story: n={corr_n} score={corr_score:.2f}",
+                    extra={"n_sources": corr_n, "score": corr_score},
+                )
+            )
         return out
 
-    def surge_alert(self, ticker: str, velocity: float, event_ref: str = "") -> NewsAlert:
+    def surge_alert(
+        self, ticker: str, velocity: float, event_ref: str = ""
+    ) -> NewsAlert:
         a = NewsAlert(
             kind=_ALERT_SURGE,
             event_id=event_ref or f"surge_{ticker}",
@@ -171,7 +183,10 @@ class AlertEngine:
         return a
 
     def contradiction_alert(
-        self, story_key: str, split: str, severity: float = 5.0,
+        self,
+        story_key: str,
+        split: str,
+        severity: float = 5.0,
     ) -> NewsAlert:
         a = NewsAlert(
             kind=_ALERT_CONTRADICTION,

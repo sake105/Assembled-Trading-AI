@@ -82,7 +82,9 @@ def build_options_regime_factors(
         # Z-score of VIX relative to 252-day rolling window
         rolling_mean = df[vix_col].rolling(252, min_periods=63).mean()
         rolling_std = df[vix_col].rolling(252, min_periods=63).std()
-        df["vix_zscore_252d"] = (df[vix_col] - rolling_mean) / rolling_std.replace(0, np.nan)
+        df["vix_zscore_252d"] = (df[vix_col] - rolling_mean) / rolling_std.replace(
+            0, np.nan
+        )
 
         # Categorical regime
         vix = df[vix_col]
@@ -110,18 +112,27 @@ def build_options_regime_factors(
 
         pcr = df[pcr_col]
         pcr_extreme = np.where(
-            pcr > _PCR_FEAR_THRESHOLD, 1.0,
+            pcr > _PCR_FEAR_THRESHOLD,
+            1.0,
             np.where(pcr < _PCR_COMPLACENCY_THRESHOLD, -1.0, 0.0),
         )
         df["equity_put_call_extreme"] = pcr_extreme
     else:
-        logger.warning("[Options] put_call_ratio column not found — PCR factors skipped")
+        logger.warning(
+            "[Options] put_call_ratio column not found — PCR factors skipped"
+        )
 
     # Keep only timestamp + output factor columns
     factor_cols = [
-        "vix_level", "vix_change_5d", "vix_change_20d", "vix_term_slope",
-        "vix_regime", "put_call_ratio_raw", "put_call_ratio_ma_20d",
-        "equity_put_call_extreme", "vix_zscore_252d",
+        "vix_level",
+        "vix_change_5d",
+        "vix_change_20d",
+        "vix_term_slope",
+        "vix_regime",
+        "put_call_ratio_raw",
+        "put_call_ratio_ma_20d",
+        "equity_put_call_extreme",
+        "vix_zscore_252d",
     ]
     output_cols = [timestamp_col] + [c for c in factor_cols if c in df.columns]
     result = df[output_cols].copy()
@@ -179,9 +190,15 @@ def align_options_factors_to_panel(
 def get_options_factor_names() -> list[str]:
     """Return list of all options regime factor column names."""
     return [
-        "vix_level", "vix_change_5d", "vix_change_20d", "vix_term_slope",
-        "vix_regime", "put_call_ratio_raw", "put_call_ratio_ma_20d",
-        "equity_put_call_extreme", "vix_zscore_252d",
+        "vix_level",
+        "vix_change_5d",
+        "vix_change_20d",
+        "vix_term_slope",
+        "vix_regime",
+        "put_call_ratio_raw",
+        "put_call_ratio_ma_20d",
+        "equity_put_call_extreme",
+        "vix_zscore_252d",
     ]
 
 

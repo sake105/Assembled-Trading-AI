@@ -6,6 +6,7 @@ Usage:
 
 Exit: 0 OK, 1 schema error
 """
+
 from __future__ import annotations
 
 import json
@@ -13,13 +14,21 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT   = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_MAP = REPO_ROOT / "docs/architecture/system_map/data/system_map.json"
-STALE_DAYS  = 30
+STALE_DAYS = 30
 
 VALID_STATUSES = {"green", "yellow", "orange", "red", "gray"}
-VALID_TYPES    = {"galaxy", "domain", "module", "external_api", "script", "workflow", "entry_point"}
-VALID_KINDS    = {"import", "api_call", "data_flow", "trigger"}
+VALID_TYPES = {
+    "galaxy",
+    "domain",
+    "module",
+    "external_api",
+    "script",
+    "workflow",
+    "entry_point",
+}
+VALID_KINDS = {"import", "api_call", "data_flow", "trigger"}
 
 
 def validate(path: Path) -> int:
@@ -38,7 +47,13 @@ def validate(path: Path) -> int:
 
     # ── Meta ─────────────────────────────────────────────────
     meta = data.get("meta", {})
-    for field in ("generated_at", "generator_version", "source_commit", "node_count", "edge_count"):
+    for field in (
+        "generated_at",
+        "generator_version",
+        "source_commit",
+        "node_count",
+        "edge_count",
+    ):
         if field not in meta:
             errors.append(f"meta.{field} missing")
 
@@ -48,7 +63,9 @@ def validate(path: Path) -> int:
             gen_dt = datetime.fromisoformat(meta["generated_at"].replace("Z", "+00:00"))
             age_days = (datetime.now(timezone.utc) - gen_dt).days
             if age_days > STALE_DAYS:
-                warnings.append(f"Map is {age_days} days old (threshold: {STALE_DAYS}d) — run generator")
+                warnings.append(
+                    f"Map is {age_days} days old (threshold: {STALE_DAYS}d) — run generator"
+                )
         except Exception:
             warnings.append("Could not parse meta.generated_at")
 
@@ -105,7 +122,8 @@ def validate(path: Path) -> int:
     # ── God Module Report (top 5 fan-in) ─────────────────────
     god_modules = sorted(
         [n for n in nodes if n.get("type") == "module"],
-        key=lambda n: n.get("fan_in", 0), reverse=True
+        key=lambda n: n.get("fan_in", 0),
+        reverse=True,
     )[:5]
     if god_modules and god_modules[0].get("fan_in", 0) > 10:
         warnings.append("High fan-in modules (potential god modules):")
@@ -121,10 +139,14 @@ def validate(path: Path) -> int:
         sys.stderr.buffer.flush()
 
     if errors:
-        print(f"\nValidation FAILED: {len(errors)} error(s), {len(warnings)} warning(s)")
+        print(
+            f"\nValidation FAILED: {len(errors)} error(s), {len(warnings)} warning(s)"
+        )
         return 1
 
-    print(f"[OK] Validation passed — {len(nodes)} nodes, {len(edges)} edges, {len(warnings)} warning(s)")
+    print(
+        f"[OK] Validation passed — {len(nodes)} nodes, {len(edges)} edges, {len(warnings)} warning(s)"
+    )
     return 0
 
 

@@ -25,14 +25,14 @@ logger = logging.getLogger(__name__)
 class CrashSignal:
     """Output of the CrashPredictionEngine."""
 
-    crash_probability: float            # 0-1: probability of significant decline (>10%)
-    expected_severity: float            # 0-1: 0=mild correction, 1=systemic crisis
-    time_horizon_days: int              # Expected days to crash onset
-    confidence: float                   # 0-1: confidence in the prediction
+    crash_probability: float  # 0-1: probability of significant decline (>10%)
+    expected_severity: float  # 0-1: 0=mild correction, 1=systemic crisis
+    time_horizon_days: int  # Expected days to crash onset
+    confidence: float  # 0-1: confidence in the prediction
     contributing_signals: dict[str, float] = field(default_factory=dict)
     recommended_sectors_short: list[str] = field(default_factory=list)
     recommended_instruments: list[str] = field(default_factory=list)
-    active: bool = False               # True when crash_probability >= threshold
+    active: bool = False  # True when crash_probability >= threshold
 
 
 # ---------------------------------------------------------------------------
@@ -55,23 +55,23 @@ SECTOR_SHORT_PRIORITY = {
     "SEMIS": 0.85,
     "SHIPPING": 0.7,
     "MINING": 0.65,
-    "ENERGY": 0.5,   # Energy can be hedge
+    "ENERGY": 0.5,  # Energy can be hedge
     "DEFENSE": 0.3,  # Defense rises in crises
-    "GOLD": 0.0,     # Never short gold in crisis
+    "GOLD": 0.0,  # Never short gold in crisis
 }
 
 # Inverse ETF recommendations per sector
 SECTOR_TO_INVERSE_ETF = {
-    "TECH": "PSQ",          # ProShares Short QQQ
-    "SEMIS": "SSG",         # ProShares UltraShort Semiconductors
-    "FINANCE": "SEF",       # ProShares Short Financials
-    "ENERGY": "DDG",        # ProShares Short Oil & Gas
-    "AUTO": "SH",           # ProShares Short S&P500 (broad)
+    "TECH": "PSQ",  # ProShares Short QQQ
+    "SEMIS": "SSG",  # ProShares UltraShort Semiconductors
+    "FINANCE": "SEF",  # ProShares Short Financials
+    "ENERGY": "DDG",  # ProShares Short Oil & Gas
+    "AUTO": "SH",  # ProShares Short S&P500 (broad)
     "CONSUMER": "SH",
     "SHIPPING": "SH",
-    "MINING": "MYY",        # ProShares Short MidCap400
-    "BROAD": "SH",          # Default: short S&P500
-    "RUSSELL": "RWM",       # ProShares Short Russell2000
+    "MINING": "MYY",  # ProShares Short MidCap400
+    "BROAD": "SH",  # Default: short S&P500
+    "RUSSELL": "RWM",  # ProShares Short Russell2000
 }
 
 
@@ -156,7 +156,10 @@ class CrashPredictionEngine:
 
         logger.info(
             "[CrashPrediction] prob=%.3f severity=%.3f horizon=%dd active=%s",
-            crash_prob, severity, horizon, result.active,
+            crash_prob,
+            severity,
+            horizon,
+            result.active,
         )
         return result
 
@@ -298,6 +301,7 @@ class CrashPredictionEngine:
                 )
             else:
                 import math
+
                 if math.isfinite(p) and 0.0 <= p <= 1.0:
                     return p
                 logger.warning(
@@ -340,7 +344,8 @@ class CrashPredictionEngine:
             return 0.0
         # Support dict or object
         geo_score = (
-            intel_state.get("geo_score", 0) if isinstance(intel_state, dict)
+            intel_state.get("geo_score", 0)
+            if isinstance(intel_state, dict)
             else getattr(intel_state, "geo_score", 0)
         )
         return min(float(geo_score) / 3.0, 1.0)
@@ -350,7 +355,8 @@ class CrashPredictionEngine:
         if intel_state is None:
             return 0.0
         cascade = (
-            intel_state.get("shock_cascade_risk", 0) if isinstance(intel_state, dict)
+            intel_state.get("shock_cascade_risk", 0)
+            if isinstance(intel_state, dict)
             else getattr(intel_state, "shock_cascade_risk", 0)
         )
         return min(float(cascade), 1.0)
@@ -360,10 +366,15 @@ class CrashPredictionEngine:
         if intel_state is None:
             return 0.0
         shocks = (
-            intel_state.get("active_shocks", []) if isinstance(intel_state, dict)
+            intel_state.get("active_shocks", [])
+            if isinstance(intel_state, dict)
             else getattr(intel_state, "active_shocks", [])
         )
-        sanctions_shocks = {"sanctions_exposure", "banking_isolation", "secondary_sanctions_risk"}
+        sanctions_shocks = {
+            "sanctions_exposure",
+            "banking_isolation",
+            "secondary_sanctions_risk",
+        }
         matches = sum(1 for s in shocks if str(s).lower() in sanctions_shocks)
         return min(matches * 0.35, 1.0)
 
@@ -372,10 +383,15 @@ class CrashPredictionEngine:
         if intel_state is None:
             return 0.0
         shocks = (
-            intel_state.get("active_shocks", []) if isinstance(intel_state, dict)
+            intel_state.get("active_shocks", [])
+            if isinstance(intel_state, dict)
             else getattr(intel_state, "active_shocks", [])
         )
-        military_shocks = {"nuclear_escalation_risk", "military_loss_surge", "supply_line_threat"}
+        military_shocks = {
+            "nuclear_escalation_risk",
+            "military_loss_surge",
+            "supply_line_threat",
+        }
         matches = sum(1 for s in shocks if str(s).lower() in military_shocks)
         # Nuclear escalation is especially severe
         if "nuclear_escalation_risk" in [str(s).lower() for s in shocks]:
@@ -390,7 +406,9 @@ class CrashPredictionEngine:
         """2s10s yield curve inversion depth."""
         if not macro_data:
             return 0.0
-        spread = macro_data.get("yield_2s10s", 1.0)  # positive = normal, negative = inverted
+        spread = macro_data.get(
+            "yield_2s10s", 1.0
+        )  # positive = normal, negative = inverted
         if spread >= 0.50:
             return 0.0
         elif spread >= 0:
@@ -431,7 +449,7 @@ class CrashPredictionEngine:
             return 0.60
         elif rate_change_12m > 1.0:
             return 0.35
-        elif rate_level > 5.0:     # High absolute rate
+        elif rate_level > 5.0:  # High absolute rate
             return 0.25
         return 0.0
 
@@ -441,19 +459,39 @@ class CrashPredictionEngine:
 
     def _weighted_aggregate(self, signals: dict[str, float]) -> float:
         """Category-weighted average of all signals."""
-        tech_signals = ["death_cross", "breadth_collapse", "vix_regime",
-                        "put_call_extreme", "new_lows_expansion", "ad_divergence"]
+        tech_signals = [
+            "death_cross",
+            "breadth_collapse",
+            "vix_regime",
+            "put_call_extreme",
+            "new_lows_expansion",
+            "ad_divergence",
+        ]
         regime_signals = ["regime_bear_prob", "hmm_crisis_prob", "vol_regime_shift"]
-        geo_signals = ["geo_crisis_score", "shock_cascade_risk",
-                       "sanctions_escalation", "military_escalation"]
-        macro_signals = ["yield_curve_inversion", "credit_spread_widening", "monetary_tightening"]
+        geo_signals = [
+            "geo_crisis_score",
+            "shock_cascade_risk",
+            "sanctions_escalation",
+            "military_escalation",
+        ]
+        macro_signals = [
+            "yield_curve_inversion",
+            "credit_spread_widening",
+            "monetary_tightening",
+        ]
 
         import math as _math
 
         def cat_avg(keys: list[str]) -> float:
             # Drop NaN values: a NaN sub-signal must not poison the aggregate
             # (min(nan, 1.0) evaluates to nan → crash_prob>=0.60 silently disarms)
-            vals = [v for k in keys if k in signals for v in [signals[k]] if isinstance(v, (int, float)) and not _math.isnan(v)]
+            vals = [
+                v
+                for k in keys
+                if k in signals
+                for v in [signals[k]]
+                if isinstance(v, (int, float)) and not _math.isnan(v)
+            ]
             return sum(vals) / len(vals) if vals else 0.0
 
         score = (
@@ -470,31 +508,33 @@ class CrashPredictionEngine:
         nuclear = signals.get("military_escalation", 0)
         geo = signals.get("geo_crisis_score", 0)
         credit = signals.get("credit_spread_widening", 0)
-        technical = (signals.get("death_cross", 0) + signals.get("breadth_collapse", 0)) / 2
+        technical = (
+            signals.get("death_cross", 0) + signals.get("breadth_collapse", 0)
+        ) / 2
 
-        severity = (
-            0.35 * nuclear
-            + 0.25 * credit
-            + 0.25 * geo
-            + 0.15 * technical
-        )
+        severity = 0.35 * nuclear + 0.25 * credit + 0.25 * geo + 0.15 * technical
         return min(severity, 1.0)
 
-    def _estimate_horizon(self, signals: dict[str, float], macro_data: dict | None) -> int:
+    def _estimate_horizon(
+        self, signals: dict[str, float], macro_data: dict | None
+    ) -> int:
         """Estimate days until crash onset."""
         # Yield curve inversion = 12-18 months lead time
         # Technical signals = days to weeks
         # Geopolitical = immediate to weeks
-        if signals.get("yield_curve_inversion", 0) > 0.5 and signals.get("death_cross", 0) < 0.3:
+        if (
+            signals.get("yield_curve_inversion", 0) > 0.5
+            and signals.get("death_cross", 0) < 0.3
+        ):
             return 180  # 6 months lead
         elif signals.get("death_cross", 0) > 0.5:
-            return 14   # 2 weeks
+            return 14  # 2 weeks
         elif signals.get("geo_crisis_score", 0) > 0.7:
-            return 7    # 1 week
+            return 7  # 1 week
         elif signals.get("breadth_collapse", 0) > 0.5:
-            return 30   # 1 month
+            return 30  # 1 month
         else:
-            return 60   # 2 months default
+            return 60  # 2 months default
 
     def _identify_vulnerable_sectors(
         self, signals: dict[str, float], intel_state: Any
@@ -503,7 +543,10 @@ class CrashPredictionEngine:
         sectors = []
 
         # Tech/Semis vulnerable when geopolitical or tech decoupling active
-        if signals.get("geo_crisis_score", 0) > 0.4 or signals.get("sanctions_escalation", 0) > 0.3:
+        if (
+            signals.get("geo_crisis_score", 0) > 0.4
+            or signals.get("sanctions_escalation", 0) > 0.3
+        ):
             sectors.extend(["SEMIS", "TECH"])
 
         # Finance vulnerable in credit stress
@@ -511,20 +554,31 @@ class CrashPredictionEngine:
             sectors.append("FINANCE")
 
         # Consumer/Auto vulnerable in rate shock or recession
-        if signals.get("monetary_tightening", 0) > 0.4 or signals.get("yield_curve_inversion", 0) > 0.4:
+        if (
+            signals.get("monetary_tightening", 0) > 0.4
+            or signals.get("yield_curve_inversion", 0) > 0.4
+        ):
             sectors.extend(["CONSUMER", "AUTO"])
 
         # Broad market short if severe technical breakdown
-        if signals.get("death_cross", 0) > 0.5 and signals.get("breadth_collapse", 0) > 0.3:
+        if (
+            signals.get("death_cross", 0) > 0.5
+            and signals.get("breadth_collapse", 0) > 0.3
+        ):
             sectors.append("BROAD")
 
         # Energy vulnerable only in demand collapse (not supply shock)
-        if signals.get("regime_bear_prob", 0) > 0.7 and signals.get("geo_crisis_score", 0) < 0.3:
+        if (
+            signals.get("regime_bear_prob", 0) > 0.7
+            and signals.get("geo_crisis_score", 0) < 0.3
+        ):
             sectors.append("ENERGY")
 
         return list(dict.fromkeys(sectors))  # deduplicate while preserving order
 
-    def _select_short_instruments(self, sectors: list[str], severity: float) -> list[str]:
+    def _select_short_instruments(
+        self, sectors: list[str], severity: float
+    ) -> list[str]:
         """Select specific short instruments based on sectors and severity."""
         instruments = []
         for sector in sectors:

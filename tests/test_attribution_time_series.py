@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/attribution/time_series.py."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -45,6 +46,7 @@ def _make_attr(
 # attributions_to_df
 # ---------------------------------------------------------------------------
 
+
 class TestAttributionsToDF:
     def test_basic_columns(self):
         attrs = [_make_attr(), _make_attr(ticker="MSFT", composite=0.1)]
@@ -70,6 +72,7 @@ class TestAttributionsToDF:
 # ---------------------------------------------------------------------------
 # detect_dead_features
 # ---------------------------------------------------------------------------
+
 
 class TestDetectDeadFeatures:
     def _make_ic_df(self, trend_ics, news_ics, dates):
@@ -115,6 +118,7 @@ class TestDetectDeadFeatures:
 # rolling_dimension_ic
 # ---------------------------------------------------------------------------
 
+
 class TestRollingDimensionIC:
     def _make_attrs_and_returns(self, n=60, seed=42):
         rng = np.random.default_rng(seed)
@@ -122,13 +126,18 @@ class TestRollingDimensionIC:
         attrs = []
         for i, d in enumerate(dates):
             trend = float(rng.normal(0, 0.5))
-            attrs.append(_make_attr(
-                timestamp=d,
-                dims={"trend": trend, "news": float(rng.normal(0, 0.2))},
-            ))
+            attrs.append(
+                _make_attr(
+                    timestamp=d,
+                    dims={"trend": trend, "news": float(rng.normal(0, 0.2))},
+                )
+            )
         fwd = pd.Series(
-            [attrs[i].dimension_contributions["trend"] * 0.1 + float(rng.normal(0, 0.005))
-             for i in range(n)],
+            [
+                attrs[i].dimension_contributions["trend"] * 0.1
+                + float(rng.normal(0, 0.005))
+                for i in range(n)
+            ],
             index=dates,
         )
         return attrs, fwd
@@ -158,6 +167,7 @@ class TestRollingDimensionIC:
 # detect_attribution_drift
 # ---------------------------------------------------------------------------
 
+
 class TestDetectAttributionDrift:
     def _make_attrs_with_drift(self, n=30, drift=False, seed=0):
         rng = np.random.default_rng(seed)
@@ -165,11 +175,15 @@ class TestDetectAttributionDrift:
         for i in range(n):
             ts = datetime(2024, 1, 1 + i % 28, tzinfo=timezone.utc)
             if drift:
-                dims = {"trend": float(rng.normal(1.0, 0.1)),
-                        "news": float(rng.normal(0.0, 0.1))}
+                dims = {
+                    "trend": float(rng.normal(1.0, 0.1)),
+                    "news": float(rng.normal(0.0, 0.1)),
+                }
             else:
-                dims = {"trend": float(rng.normal(0.0, 0.1)),
-                        "news": float(rng.normal(0.0, 0.1))}
+                dims = {
+                    "trend": float(rng.normal(0.0, 0.1)),
+                    "news": float(rng.normal(0.0, 0.1)),
+                }
             attrs.append(_make_attr(timestamp=ts, dims=dims))
         return attrs
 

@@ -213,6 +213,7 @@ def _z_score(alpha: float) -> float:
         return _Z_SCORES[alpha]
     try:
         from scipy.stats import norm  # type: ignore
+
         return float(norm.ppf(alpha))
     except Exception as exc:  # pragma: no cover - scipy missing
         raise ValueError(
@@ -974,18 +975,24 @@ def compute_brinson_fachler_attribution(
 
         # Weighted-average returns within sector
         if w_p > 0:
-            r_p = sum(
-                portfolio_weights.get(s, 0) * portfolio_returns.get(s, 0)
-                for s in symbols
-            ) / w_p
+            r_p = (
+                sum(
+                    portfolio_weights.get(s, 0) * portfolio_returns.get(s, 0)
+                    for s in symbols
+                )
+                / w_p
+            )
         else:
             r_p = 0.0
 
         if w_b > 0:
-            r_b = sum(
-                benchmark_weights.get(s, 0) * benchmark_returns.get(s, 0)
-                for s in symbols
-            ) / w_b
+            r_b = (
+                sum(
+                    benchmark_weights.get(s, 0) * benchmark_returns.get(s, 0)
+                    for s in symbols
+                )
+                / w_b
+            )
         else:
             r_b = 0.0
 
@@ -994,17 +1001,19 @@ def compute_brinson_fachler_attribution(
         selection = w_b * (r_p - r_b)
         interaction = (w_p - w_b) * (r_p - r_b)
 
-        rows.append({
-            "sector": sector,
-            "allocation_effect": round(allocation, 6),
-            "selection_effect": round(selection, 6),
-            "interaction_effect": round(interaction, 6),
-            "total_effect": round(allocation + selection + interaction, 6),
-            "portfolio_weight": round(w_p, 6),
-            "benchmark_weight": round(w_b, 6),
-            "portfolio_return": round(r_p, 6),
-            "benchmark_return": round(r_b, 6),
-        })
+        rows.append(
+            {
+                "sector": sector,
+                "allocation_effect": round(allocation, 6),
+                "selection_effect": round(selection, 6),
+                "interaction_effect": round(interaction, 6),
+                "total_effect": round(allocation + selection + interaction, 6),
+                "portfolio_weight": round(w_p, 6),
+                "benchmark_weight": round(w_b, 6),
+                "portfolio_return": round(r_p, 6),
+                "benchmark_return": round(r_b, 6),
+            }
+        )
 
     result = pd.DataFrame(rows)
 

@@ -333,6 +333,7 @@ _DEDUP_THRESHOLD = 0.92  # cosine similarity → duplicate
 def _try_hdbscan():
     try:
         import hdbscan as _hdbscan
+
         return _hdbscan
     except ImportError:
         _logger.warning("hdbscan not installed — pip install hdbscan==0.8.38")
@@ -342,6 +343,7 @@ def _try_hdbscan():
 def _try_hnswlib():
     try:
         import hnswlib as _hnswlib
+
         return _hnswlib
     except ImportError:
         _logger.warning("hnswlib not installed — pip install hnswlib==0.8.0")
@@ -366,7 +368,9 @@ def cluster_embeddings_hdbscan(
     hdbscan = _try_hdbscan()
     if hdbscan is None or len(embeddings) < min_cluster_size:
         return np.full(len(embeddings), -1)
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, metric=metric, core_dist_n_jobs=-1)
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=min_cluster_size, metric=metric, core_dist_n_jobs=-1
+    )
     return clusterer.fit_predict(embeddings)
 
 
@@ -382,7 +386,12 @@ class SemanticDeduplicator:
                 process()
     """
 
-    def __init__(self, dim: int = 384, max_elements: int = 100_000, threshold: float = _DEDUP_THRESHOLD):
+    def __init__(
+        self,
+        dim: int = 384,
+        max_elements: int = 100_000,
+        threshold: float = _DEDUP_THRESHOLD,
+    ):
         self._dim = dim
         self._threshold = threshold
         self._count = 0
@@ -414,7 +423,10 @@ class SemanticDeduplicator:
             self._count += 1
         except Exception as exc:
             import logging as _logging
-            _logging.getLogger(__name__).warning("[SemanticDeduplicator] index.add_items failed: %s", exc)
+
+            _logging.getLogger(__name__).warning(
+                "[SemanticDeduplicator] index.add_items failed: %s", exc
+            )
 
     @property
     def size(self) -> int:

@@ -37,14 +37,24 @@ def _load_returns(path: Path) -> pd.Series:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Monte-Carlo Stress-Test")
-    parser.add_argument("--returns", type=Path, required=True, help="Path to portfolio returns (CSV/Parquet/JSON)")
     parser.add_argument(
-        "--portfolio-returns", type=Path, default=None,
+        "--returns",
+        type=Path,
+        required=True,
+        help="Path to portfolio returns (CSV/Parquet/JSON)",
+    )
+    parser.add_argument(
+        "--portfolio-returns",
+        type=Path,
+        default=None,
         help="Optional: per-asset returns DataFrame for correlation scenarios",
     )
     parser.add_argument(
-        "--out", type=Path,
-        default=Path(f"output/ops/stress_test_{pd.Timestamp.now().strftime('%Y%m%d')}.json"),
+        "--out",
+        type=Path,
+        default=Path(
+            f"output/ops/stress_test_{pd.Timestamp.now().strftime('%Y%m%d')}.json"
+        ),
     )
     args = parser.parse_args()
 
@@ -83,7 +93,10 @@ def main() -> int:
     for sc in report.scenarios:
         logger.info(
             "  %s: CVaR95=%.4f MaxDD=%.4f σ=%.4f",
-            sc.scenario_name, sc.cvar_95, sc.max_drawdown, sc.std_return,
+            sc.scenario_name,
+            sc.cvar_95,
+            sc.max_drawdown,
+            sc.std_return,
         )
 
     logger.info("=" * 60)
@@ -96,11 +109,16 @@ def main() -> int:
         "worst_cvar": report.worst_cvar,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report_dict, indent=2, default=str), encoding="utf-8")
+    args.out.write_text(
+        json.dumps(report_dict, indent=2, default=str), encoding="utf-8"
+    )
     logger.info("[OK] Saved: %s", args.out)
     try:
         from src.assembled_core.ops.report_retention import purge_old_dated_reports
-        purge_old_dated_reports(args.out.parent, "stress_test_", ".json", keep_last_n=60)
+
+        purge_old_dated_reports(
+            args.out.parent, "stress_test_", ".json", keep_last_n=60
+        )
     except Exception:
         pass
     return 0

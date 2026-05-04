@@ -11,8 +11,12 @@ from src.assembled_core.intel.models import NewsEvent, SourceTier
 from src.assembled_core.intel.news_entity_graph import EntityCoGraph
 
 
-def _evt(eid: str, entities: list[str], ts: datetime | None = None,
-         tickers: list[str] | None = None) -> NewsEvent:
+def _evt(
+    eid: str,
+    entities: list[str],
+    ts: datetime | None = None,
+    tickers: list[str] | None = None,
+) -> NewsEvent:
     ts = ts or datetime.now(tz=timezone.utc)
     return NewsEvent(
         event_id=eid,
@@ -50,20 +54,24 @@ class TestEntityCoGraph:
 
     def test_multiple_co_occurrences_increment(self):
         g = EntityCoGraph()
-        g.ingest([
-            _evt("e1", ["openai", "nvidia"]),
-            _evt("e2", ["openai", "nvidia"]),
-            _evt("e3", ["openai", "nvidia"]),
-        ])
+        g.ingest(
+            [
+                _evt("e1", ["openai", "nvidia"]),
+                _evt("e2", ["openai", "nvidia"]),
+                _evt("e3", ["openai", "nvidia"]),
+            ]
+        )
         assert g.edge_weight("openai", "nvidia") == 3
 
     def test_neighbours_sorted_and_filtered(self):
         g = EntityCoGraph()
-        g.ingest([
-            _evt("e1", ["openai", "nvidia"]),
-            _evt("e2", ["openai", "msft"]),
-            _evt("e3", ["openai", "nvidia"]),
-        ])
+        g.ingest(
+            [
+                _evt("e1", ["openai", "nvidia"]),
+                _evt("e2", ["openai", "msft"]),
+                _evt("e3", ["openai", "nvidia"]),
+            ]
+        )
         nbrs = g.neighbours("openai")
         assert nbrs[0] == ("nvidia", 2)
         filt = g.neighbours("openai", min_weight=2)
@@ -77,11 +85,13 @@ class TestEntityCoGraph:
 
     def test_top_entities_ordering(self):
         g = EntityCoGraph()
-        g.ingest([
-            _evt("e1", ["openai", "nvidia"]),
-            _evt("e2", ["openai", "msft"]),
-            _evt("e3", ["openai", "google"]),
-        ])
+        g.ingest(
+            [
+                _evt("e1", ["openai", "nvidia"]),
+                _evt("e2", ["openai", "msft"]),
+                _evt("e3", ["openai", "google"]),
+            ]
+        )
         top = g.top_entities(n=4)
         assert top[0].entity == "openai"
         assert top[0].degree == 3

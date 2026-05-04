@@ -18,7 +18,6 @@ from src.assembled_core.qa.portfolio_analyzer import (
     format_portfolio_report,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -126,7 +125,7 @@ def test_portfolio_structure_herfindahl():
     """Herfindahl index should be sum(w_i^2)."""
     weights = {"A": 0.4, "B": 0.3, "C": 0.2, "D": 0.1}
     struct = compute_portfolio_structure(weights)
-    expected = sum(w ** 2 for w in weights.values())
+    expected = sum(w**2 for w in weights.values())
     assert abs(struct.herfindahl_index - expected) < 1e-9
 
 
@@ -179,9 +178,7 @@ def test_regime_performance():
     """At least 2 distinct regimes should be identified."""
     n = 200
     returns = pd.Series(RNG.normal(0.001, 0.01, n))
-    labels = pd.Series(
-        ["bull"] * 100 + ["bear"] * 100, dtype=str
-    )
+    labels = pd.Series(["bull"] * 100 + ["bear"] * 100, dtype=str)
     result = analyze_regime_performance(returns, labels)
     assert len(result) >= 2, f"Expected >= 2 regimes, got {len(result)}"
     assert "bull" in result

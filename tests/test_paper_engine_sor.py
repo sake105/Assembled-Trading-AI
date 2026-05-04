@@ -53,9 +53,7 @@ def test_sor_disabled_is_zero_and_legacy_price(tmp_path: Path) -> None:
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 100.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}])
     fills = eng._simulate_fills(orders, prices)
     assert "sor_cost_bps" in fills.columns
     assert fills.loc[0, "sor_cost_bps"] == pytest.approx(0.0)
@@ -68,9 +66,7 @@ def test_sor_enabled_adds_cost_and_venues(tmp_path: Path) -> None:
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 100.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}])
     fills = eng._simulate_fills(orders, prices)
     assert fills.loc[0, "sor_cost_bps"] > 0.0
     assert isinstance(fills.loc[0, "sor_venues"], str)
@@ -93,9 +89,7 @@ def test_sor_crisis_regime_strictly_costlier_than_bull(tmp_path: Path) -> None:
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 100.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}])
     f_bull = eng_bull._simulate_fills(orders, prices)
     f_crisis = eng_crisis._simulate_fills(orders, prices)
 

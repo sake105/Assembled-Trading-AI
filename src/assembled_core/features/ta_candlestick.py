@@ -30,9 +30,9 @@ _SYMBOL = "symbol"
 _TIMESTAMP = "timestamp"
 
 # Threshold ratios used across patterns
-_DOJI_BODY_RATIO = 0.1       # body/range <= 10% → doji
-_SMALL_BODY_RATIO = 0.3      # body/range <= 30% → small body
-_LONG_SHADOW_RATIO = 2.0     # shadow >= 2x body length → long shadow
+_DOJI_BODY_RATIO = 0.1  # body/range <= 10% → doji
+_SMALL_BODY_RATIO = 0.3  # body/range <= 30% → small body
+_LONG_SHADOW_RATIO = 2.0  # shadow >= 2x body length → long shadow
 
 
 def _body(df: pd.DataFrame) -> pd.Series:
@@ -71,7 +71,8 @@ def _add_doji(df: pd.DataFrame) -> pd.Series:
     rng = _range(df)
     return pd.Series(
         np.where((body / rng).fillna(1.0) <= _DOJI_BODY_RATIO, 1.0, 0.0),
-        index=df.index, name="cs_doji_v1",
+        index=df.index,
+        name="cs_doji_v1",
     )
 
 
@@ -100,7 +101,9 @@ def _add_hanging_man(df: pd.DataFrame) -> pd.Series:
         & ((lower >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False))
         & ((upper <= 0.1 * rng.fillna(1e-9)).fillna(False))
     )
-    return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_hanging_man_v1")
+    return pd.Series(
+        np.where(cond, -1.0, 0.0), index=df.index, name="cs_hanging_man_v1"
+    )
 
 
 def _add_shooting_star(df: pd.DataFrame) -> pd.Series:
@@ -114,7 +117,9 @@ def _add_shooting_star(df: pd.DataFrame) -> pd.Series:
         & ((upper >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False))
         & ((lower <= 0.1 * rng.fillna(1e-9)).fillna(False))
     )
-    return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_shooting_star_v1")
+    return pd.Series(
+        np.where(cond, -1.0, 0.0), index=df.index, name="cs_shooting_star_v1"
+    )
 
 
 def _add_engulfing(df: pd.DataFrame) -> pd.Series:
@@ -129,7 +134,8 @@ def _add_engulfing(df: pd.DataFrame) -> pd.Series:
     bearish = prev_bull & curr_bear & (o >= c.shift(1)) & (c <= o.shift(1))
     return pd.Series(
         np.where(bullish, 1.0, np.where(bearish, -1.0, 0.0)),
-        index=df.index, name="cs_engulfing_v1",
+        index=df.index,
+        name="cs_engulfing_v1",
     )
 
 
@@ -162,8 +168,12 @@ def _add_morning_star(df: pd.DataFrame) -> pd.Series:
     c2_small = body.shift(1) < 0.3 * body2.where(body2 > 0)
     c3_bull = c > o
     c3_above = c > (o.shift(2) + c.shift(2)) / 2
-    cond = c1_bear & c1_large.fillna(False) & c2_small.fillna(False) & c3_bull & c3_above
-    return pd.Series(np.where(cond, 1.0, 0.0), index=df.index, name="cs_morning_star_v1")
+    cond = (
+        c1_bear & c1_large.fillna(False) & c2_small.fillna(False) & c3_bull & c3_above
+    )
+    return pd.Series(
+        np.where(cond, 1.0, 0.0), index=df.index, name="cs_morning_star_v1"
+    )
 
 
 def _add_evening_star(df: pd.DataFrame) -> pd.Series:
@@ -179,8 +189,12 @@ def _add_evening_star(df: pd.DataFrame) -> pd.Series:
     c2_small = body.shift(1) < 0.3 * body2.where(body2 > 0)
     c3_bear = c < o
     c3_below = c < (o.shift(2) + c.shift(2)) / 2
-    cond = c1_bull & c1_large.fillna(False) & c2_small.fillna(False) & c3_bear & c3_below
-    return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_evening_star_v1")
+    cond = (
+        c1_bull & c1_large.fillna(False) & c2_small.fillna(False) & c3_bear & c3_below
+    )
+    return pd.Series(
+        np.where(cond, -1.0, 0.0), index=df.index, name="cs_evening_star_v1"
+    )
 
 
 def _add_three_white_soldiers(df: pd.DataFrame) -> pd.Series:
@@ -190,11 +204,15 @@ def _add_three_white_soldiers(df: pd.DataFrame) -> pd.Series:
     all_bull = (c > o) & (c.shift(1) > o.shift(1)) & (c.shift(2) > o.shift(2))
     rising = (c.shift(2) < c.shift(1)) & (c.shift(1) < c)
     opens_within = (
-        (o.shift(1) > o.shift(2)) & (o.shift(1) < c.shift(2))
-        & (o > o.shift(1)) & (o < c.shift(1))
+        (o.shift(1) > o.shift(2))
+        & (o.shift(1) < c.shift(2))
+        & (o > o.shift(1))
+        & (o < c.shift(1))
     )
     cond = all_bull & rising & opens_within
-    return pd.Series(np.where(cond, 1.0, 0.0), index=df.index, name="cs_three_white_soldiers_v1")
+    return pd.Series(
+        np.where(cond, 1.0, 0.0), index=df.index, name="cs_three_white_soldiers_v1"
+    )
 
 
 def _add_three_black_crows(df: pd.DataFrame) -> pd.Series:
@@ -204,11 +222,15 @@ def _add_three_black_crows(df: pd.DataFrame) -> pd.Series:
     all_bear = (c < o) & (c.shift(1) < o.shift(1)) & (c.shift(2) < o.shift(2))
     falling = (c.shift(2) > c.shift(1)) & (c.shift(1) > c)
     opens_within = (
-        (o.shift(1) < o.shift(2)) & (o.shift(1) > c.shift(2))
-        & (o < o.shift(1)) & (o > c.shift(1))
+        (o.shift(1) < o.shift(2))
+        & (o.shift(1) > c.shift(2))
+        & (o < o.shift(1))
+        & (o > c.shift(1))
     )
     cond = all_bear & falling & opens_within
-    return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_three_black_crows_v1")
+    return pd.Series(
+        np.where(cond, -1.0, 0.0), index=df.index, name="cs_three_black_crows_v1"
+    )
 
 
 # ---------------------------------------------------------------------------

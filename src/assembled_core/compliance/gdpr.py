@@ -3,6 +3,7 @@
 From 50_COMPLIANCE_RECHT.md §50.2.
 Personal-use only: aggregation-first approach to avoid storing PII.
 """
+
 from __future__ import annotations
 
 import hashlib

@@ -9,6 +9,7 @@ Usage:
 Output:
   docs/validation/news_event_study_<date>.md
 """
+
 from __future__ import annotations
 
 import argparse
@@ -117,7 +118,11 @@ def main() -> None:
 
     report = build_report(significance, es_df)
     report += "\n\n## Production Gate (Level B only)\n\n"
-    report += "```\n" + gate_summary("finbert_sentiment", all_passed, per_criterion) + "\n```\n"
+    report += (
+        "```\n"
+        + gate_summary("finbert_sentiment", all_passed, per_criterion)
+        + "\n```\n"
+    )
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

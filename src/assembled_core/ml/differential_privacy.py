@@ -18,6 +18,7 @@ References:
   - Abadi et al. (2016) "Deep Learning with Differential Privacy" (DP-SGD)
   - Mironov (2017) "Rényi Differential Privacy"
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 _OPACUS_AVAILABLE = False
 try:
     import opacus  # type: ignore[import]  # noqa: F401
+
     _OPACUS_AVAILABLE = True
 except ImportError:
     pass
@@ -41,6 +43,7 @@ except ImportError:
 # Privacy budget tracker
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PrivacyBudget:
     """Tracks cumulative epsilon-delta consumption across queries.
@@ -49,6 +52,7 @@ class PrivacyBudget:
         epsilon_total: Total privacy budget (e.g. 1.0 for epsilon-1 DP).
         delta: Failure probability (e.g. 1e-5).
     """
+
     epsilon_total: float = 1.0
     delta: float = 1e-5
     epsilon_used: float = 0.0
@@ -67,7 +71,9 @@ class PrivacyBudget:
         if self.epsilon_used + epsilon > self.epsilon_total:
             logger.warning(
                 "[DP] budget exhausted: used=%.4f total=%.4f requested=%.4f",
-                self.epsilon_used, self.epsilon_total, epsilon,
+                self.epsilon_used,
+                self.epsilon_total,
+                epsilon,
             )
             return False
         self.epsilon_used += epsilon
@@ -78,6 +84,7 @@ class PrivacyBudget:
 # ---------------------------------------------------------------------------
 # Gaussian mechanism
 # ---------------------------------------------------------------------------
+
 
 def gaussian_noise_scale(
     sensitivity: float,
@@ -136,6 +143,7 @@ def gaussian_mechanism(
 # Laplace mechanism
 # ---------------------------------------------------------------------------
 
+
 def laplace_noise_scale(sensitivity: float, epsilon: float) -> float:
     """Laplace mechanism noise scale b = sensitivity / epsilon."""
     if epsilon <= 0:
@@ -169,6 +177,7 @@ def laplace_mechanism(
 # ---------------------------------------------------------------------------
 # DP-mean and DP-quantile (common analytics queries)
 # ---------------------------------------------------------------------------
+
 
 def dp_mean(
     data: np.ndarray,
@@ -215,6 +224,7 @@ def dp_count(
 # DP-SGD stub (Opacus integration)
 # ---------------------------------------------------------------------------
 
+
 class DPSGDTrainer:
     """Stub for Differentially Private SGD using Opacus.
 
@@ -246,7 +256,9 @@ class DPSGDTrainer:
                 "Install with: pip install opacus"
             )
 
-    def make_private(self, model: Any, optimizer: Any, data_loader: Any) -> tuple[Any, Any, Any]:
+    def make_private(
+        self, model: Any, optimizer: Any, data_loader: Any
+    ) -> tuple[Any, Any, Any]:
         """Wrap model/optimizer for DP-SGD. Raises NotImplementedError in stub mode."""
         if not _OPACUS_AVAILABLE:
             raise NotImplementedError(
@@ -255,6 +267,7 @@ class DPSGDTrainer:
             )
 
         from opacus import PrivacyEngine  # type: ignore[import]
+
         engine = PrivacyEngine()
         model_dp, optimizer_dp, dl_dp = engine.make_private_with_epsilon(
             module=model,

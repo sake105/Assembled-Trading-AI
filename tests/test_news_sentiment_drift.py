@@ -11,8 +11,13 @@ from src.assembled_core.intel.models import NewsEvent, SourceTier
 from src.assembled_core.intel.news_sentiment_drift import SentimentDriftTracker
 
 
-def _evt(event_id: str, tickers: list[str], sent: float, ts: datetime,
-         sectors: list[str] | None = None) -> NewsEvent:
+def _evt(
+    event_id: str,
+    tickers: list[str],
+    sent: float,
+    ts: datetime,
+    sectors: list[str] | None = None,
+) -> NewsEvent:
     return NewsEvent(
         event_id=event_id,
         source_id="reuters",
@@ -85,10 +90,13 @@ class TestSentimentDriftTracker:
     def test_window_pruning(self):
         tr = SentimentDriftTracker(window_min=10, min_events=2)
         now = datetime.now(tz=timezone.utc)
-        tr.update([
-            _evt("old1", ["X"], -0.5, now - timedelta(hours=5)),
-            _evt("old2", ["X"], -0.5, now - timedelta(hours=5)),
-        ], now=now - timedelta(hours=5))
+        tr.update(
+            [
+                _evt("old1", ["X"], -0.5, now - timedelta(hours=5)),
+                _evt("old2", ["X"], -0.5, now - timedelta(hours=5)),
+            ],
+            now=now - timedelta(hours=5),
+        )
         rep = tr.report(now=now)
         assert all(e.key != "TICKER:X" for e in rep)
 

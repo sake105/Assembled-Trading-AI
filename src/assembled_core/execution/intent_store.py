@@ -188,7 +188,10 @@ def record_intent(
             # idempotency key so a post-mortem can identify the at-risk intent.
             logger.warning(
                 "[INTENT] fsync failed for action=%s key=%s path=%s: %s",
-                action, idempotency_key, path, exc,
+                action,
+                idempotency_key,
+                path,
+                exc,
             )
 
     logger.info(

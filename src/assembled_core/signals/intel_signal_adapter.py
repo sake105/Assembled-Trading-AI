@@ -24,14 +24,38 @@ logger = logging.getLogger(__name__)
 # Positive weight = sector benefits; negative = sector is hurt.
 SHOCK_BENEFICIARY_MAP: dict[str, dict[str, float]] = {
     "defense_demand_surge": {"defense": 1.0, "aerospace": 0.8, "cybersecurity": 0.6},
-    "global_risk_off": {"gold": 1.0, "treasuries": 0.8, "utilities": 0.4, "equities": -0.8},
+    "global_risk_off": {
+        "gold": 1.0,
+        "treasuries": 0.8,
+        "utilities": 0.4,
+        "equities": -0.8,
+    },
     "inflation_spike": {"commodities": 1.0, "tips": 0.8, "reits": -0.4, "growth": -0.6},
-    "shipping_cost_risk": {"shipping": 1.0, "logistics": 0.6, "retail": -0.5, "manufacturing": -0.4},
-    "oil_supply_risk": {"energy": 1.0, "oil_majors": 0.8, "airlines": -0.8, "chemicals": -0.4},
-    "semiconductor_supply_risk": {"semis": -0.9, "tech_hardware": -0.7, "defense_tech": 0.4},
+    "shipping_cost_risk": {
+        "shipping": 1.0,
+        "logistics": 0.6,
+        "retail": -0.5,
+        "manufacturing": -0.4,
+    },
+    "oil_supply_risk": {
+        "energy": 1.0,
+        "oil_majors": 0.8,
+        "airlines": -0.8,
+        "chemicals": -0.4,
+    },
+    "semiconductor_supply_risk": {
+        "semis": -0.9,
+        "tech_hardware": -0.7,
+        "defense_tech": 0.4,
+    },
     "energy_price_spike": {"energy": 1.0, "utilities": -0.3, "industrials": -0.5},
     "rate_shock": {"financials": 0.5, "growth": -1.0, "bonds": -0.8, "value": 0.4},
-    "nuclear_escalation_risk": {"defense": 1.0, "gold": 1.0, "equities": -1.0, "em_equities": -1.0},
+    "nuclear_escalation_risk": {
+        "defense": 1.0,
+        "gold": 1.0,
+        "equities": -1.0,
+        "em_equities": -1.0,
+    },
 }
 
 # When risk_level is HIGH/CRITICAL, multiply the overlay strength by this factor.
@@ -59,11 +83,15 @@ class IntelOverlay:
     macro_score: float = 0.0
     risk_level: str = "LOW"
     is_actionable: bool = False
-    generated_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    generated_at: datetime = field(
+        default_factory=lambda: datetime.now(tz=timezone.utc)
+    )
 
     @classmethod
     def neutral(cls) -> "IntelOverlay":
-        return cls(ticker_scores={}, macro_score=0.0, risk_level="LOW", is_actionable=False)
+        return cls(
+            ticker_scores={}, macro_score=0.0, risk_level="LOW", is_actionable=False
+        )
 
 
 def adapt_intel_signal(intel_signal: object | None) -> IntelOverlay:
@@ -115,7 +143,10 @@ def adapt_intel_signal(intel_signal: object | None) -> IntelOverlay:
 
     logger.debug(
         "[IntelAdapter] net_dir=%s risk=%s macro=%.2f tickers=%d",
-        net_direction, risk_level, macro_score, len(ticker_scores),
+        net_direction,
+        risk_level,
+        macro_score,
+        len(ticker_scores),
     )
 
     return IntelOverlay(
@@ -135,8 +166,14 @@ def overlay_to_dataframe(overlay: IntelOverlay) -> pd.DataFrame:
     """
     if not overlay.ticker_scores:
         return pd.DataFrame(
-            columns=["symbol", "intel_score", "macro_score", "risk_level",
-                     "is_actionable", "generated_at"]
+            columns=[
+                "symbol",
+                "intel_score",
+                "macro_score",
+                "risk_level",
+                "is_actionable",
+                "generated_at",
+            ]
         )
 
     rows = [
@@ -174,7 +211,9 @@ def compute_symbol_intel_scores(
     all_symbols = set(sector_impacts or {}) | set(supply_chain_vulnerability or {})
     result: dict[str, float] = {}
     for sym in all_symbols:
-        raw = (sector_impacts or {}).get(sym, 0.0) - (supply_chain_vulnerability or {}).get(sym, 0.0)
+        raw = (sector_impacts or {}).get(sym, 0.0) - (
+            supply_chain_vulnerability or {}
+        ).get(sym, 0.0)
         conf = (confidence or {}).get(sym, 1.0)
         result[sym] = raw * conf
     return result
@@ -207,6 +246,7 @@ def build_intel_alpha_factor(
     )
     normed = normalize_intel_scores(raw) if raw else {}
     import pandas as pd
+
     s = pd.Series(normed, name="intel_alpha")
     s.index.name = "symbol"
     return s

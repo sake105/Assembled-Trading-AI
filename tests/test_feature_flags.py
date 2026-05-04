@@ -1,8 +1,13 @@
 """Tests for assembled_core/config/feature_flags.py (spec 36)."""
+
 from __future__ import annotations
 
 
-from assembled_core.config.feature_flags import FeatureFlags, load_flags, emit_startup_banner
+from assembled_core.config.feature_flags import (
+    FeatureFlags,
+    load_flags,
+    emit_startup_banner,
+)
 
 
 class TestFeatureFlags:
@@ -27,8 +32,21 @@ class TestFeatureFlags:
     def test_is_active_canary_10pct(self):
         flags = FeatureFlags(news_topic_clustering="canary")
         # Some tickers hash to 0 mod 10, others don't
-        active = [flags.is_active("news_topic_clustering", t) for t in
-                  ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA", "META", "NVDA", "AMD", "NFLX", "INTC"]]
+        active = [
+            flags.is_active("news_topic_clustering", t)
+            for t in [
+                "AAPL",
+                "MSFT",
+                "GOOG",
+                "AMZN",
+                "TSLA",
+                "META",
+                "NVDA",
+                "AMD",
+                "NFLX",
+                "INTC",
+            ]
+        ]
         # With canary, roughly 10% should be True — at least some True and some False
         # (exact ratio depends on hash, but we just verify both can occur)
         assert isinstance(active, list)

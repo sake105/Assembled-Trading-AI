@@ -64,8 +64,12 @@ class AttributionResult:
             "alpha_t_stat": round(self.alpha_t_stat, 3),
             "r_squared": round(self.r_squared, 4),
             "factor_betas": {k: round(v, 4) for k, v in self.factor_betas.items()},
-            "factor_contributions": {k: round(v, 6) for k, v in self.factor_contributions.items()},
-            "factor_contribution_pct": {k: round(v, 2) for k, v in self.factor_contribution_pct.items()},
+            "factor_contributions": {
+                k: round(v, 6) for k, v in self.factor_contributions.items()
+            },
+            "factor_contribution_pct": {
+                k: round(v, 2) for k, v in self.factor_contribution_pct.items()
+            },
             "n_obs": self.n_obs,
         }
 
@@ -92,7 +96,9 @@ def compute_attribution(
     Raises:
         ValueError bei zu wenigen Beobachtungen oder Dimensions-Mismatch.
     """
-    aligned = pd.concat([portfolio_returns.rename("_portfolio"), factor_returns], axis=1).dropna()
+    aligned = pd.concat(
+        [portfolio_returns.rename("_portfolio"), factor_returns], axis=1
+    ).dropna()
     if len(aligned) < min_obs:
         raise ValueError(
             f"[Attribution] Nur {len(aligned)} Beobachtungen (min: {min_obs})"
@@ -115,7 +121,7 @@ def compute_attribution(
     # Residuen + R²
     y_pred = X_with_const @ coef
     residuals = y - y_pred
-    ss_res = float((residuals ** 2).sum())
+    ss_res = float((residuals**2).sum())
     ss_tot = float(((y - y.mean()) ** 2).sum())
     r_squared = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
 
@@ -157,7 +163,10 @@ def compute_attribution(
     )
     logger.info(
         "[Attribution] n=%d α=%.4f (t=%.2f) R²=%.3f",
-        n, alpha, alpha_t, r_squared,
+        n,
+        alpha,
+        alpha_t,
+        r_squared,
     )
     return result
 
@@ -182,13 +191,15 @@ def rolling_attribution(
     Returns:
         DataFrame mit Spalten: alpha, r_squared, beta_<factor>
     """
-    aligned = pd.concat([portfolio_returns.rename("_portfolio"), factor_returns], axis=1).dropna()
+    aligned = pd.concat(
+        [portfolio_returns.rename("_portfolio"), factor_returns], axis=1
+    ).dropna()
     if len(aligned) < window:
         raise ValueError(f"Datenlänge {len(aligned)} < Fenster {window}")
 
     records = []
     for end in range(window, len(aligned) + 1):
-        slice_df = aligned.iloc[end - window: end]
+        slice_df = aligned.iloc[end - window : end]
         if len(slice_df) < min_obs:
             continue
         try:
@@ -207,7 +218,9 @@ def rolling_attribution(
                 rec[f"beta_{name}"] = b
             records.append(rec)
         except Exception as exc:
-            logger.debug("[Attribution] Rolling window @%s failed: %s", slice_df.index[-1], exc)
+            logger.debug(
+                "[Attribution] Rolling window @%s failed: %s", slice_df.index[-1], exc
+            )
 
     return pd.DataFrame(records).set_index("timestamp") if records else pd.DataFrame()
 

@@ -116,7 +116,9 @@ def fetch_news_headlines(
                 source = (art.get("source") or {}).get("title") or ""
                 rows.append(
                     {
-                        "timestamp": pd.to_datetime(published, utc=True, errors="coerce"),
+                        "timestamp": pd.to_datetime(
+                            published, utc=True, errors="coerce"
+                        ),
                         "title": art.get("title") or "",
                         "description": art.get("body") or art.get("description") or "",
                         "source": source,

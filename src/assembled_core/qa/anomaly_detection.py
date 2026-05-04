@@ -2,6 +2,7 @@
 
 Uses PyOD ensemble if installed; falls back to numpy-based IQR/Z-score detector.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AnomalyResult:
     scores: pd.Series
-    flags: pd.Series   # 1 = anomaly
+    flags: pd.Series  # 1 = anomaly
     method: str
     n_anomalies: int
     contamination: float
@@ -100,8 +101,11 @@ class TradeAnomalyDetector:
         flags = pd.Series(consensus, index=index, name="anomaly_flag")
         scores = pd.Series(avg_score, index=index, name="anomaly_score")
         return AnomalyResult(
-            scores=scores, flags=flags, method="pyod_ensemble",
-            n_anomalies=int(consensus.sum()), contamination=self.contamination,
+            scores=scores,
+            flags=flags,
+            method="pyod_ensemble",
+            n_anomalies=int(consensus.sum()),
+            contamination=self.contamination,
             details={k: v.tolist() for k, v in scores_dict.items()},
         )
 
@@ -113,7 +117,9 @@ class TradeAnomalyDetector:
         self._baseline_stats = {}
         for i, col in enumerate(cols):
             col_data = X[:, i]
-            q1, q3 = float(np.percentile(col_data, 25)), float(np.percentile(col_data, 75))
+            q1, q3 = float(np.percentile(col_data, 25)), float(
+                np.percentile(col_data, 75)
+            )
             iqr = q3 - q1
             mean = float(col_data.mean())
             std = float(col_data.std(ddof=1)) or 1.0
@@ -134,16 +140,21 @@ class TradeAnomalyDetector:
             lo, hi = q1 - 3 * iqr, q3 + 3 * iqr
             iqr_flags += (col_data < lo) | (col_data > hi)
             z = np.abs((col_data - mean) / std)
-            z_flags += (z > 4.0)
+            z_flags += z > 4.0
             z_scores_all.append(z)
 
         consensus = ((iqr_flags >= 1) | (z_flags >= 1)).astype(int)
-        avg_z = np.column_stack(z_scores_all).mean(axis=1) if z_scores_all else np.zeros(n)
+        avg_z = (
+            np.column_stack(z_scores_all).mean(axis=1) if z_scores_all else np.zeros(n)
+        )
         flags = pd.Series(consensus, index=df.index, name="anomaly_flag")
         scores = pd.Series(avg_z, index=df.index, name="anomaly_score")
         return AnomalyResult(
-            scores=scores, flags=flags, method="iqr_zscore_fallback",
-            n_anomalies=int(consensus.sum()), contamination=self.contamination,
+            scores=scores,
+            flags=flags,
+            method="iqr_zscore_fallback",
+            n_anomalies=int(consensus.sum()),
+            contamination=self.contamination,
         )
 
     @staticmethod
@@ -163,5 +174,7 @@ def detect_fat_finger(
     """
     if len(trade_sizes) < min_samples:
         return pd.Series(False, index=trade_sizes.index, name="fat_finger")
-    median = trade_sizes.rolling(min(50, len(trade_sizes)), min_periods=min_samples).median()
+    median = trade_sizes.rolling(
+        min(50, len(trade_sizes)), min_periods=min_samples
+    ).median()
     return (trade_sizes > median * multiplier).rename("fat_finger")

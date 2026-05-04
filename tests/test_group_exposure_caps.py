@@ -16,9 +16,24 @@ from src.assembled_core.pipeline.trading_cycle_shared import _apply_group_exposu
 def _meta() -> pd.DataFrame:
     return pd.DataFrame(
         [
-            {"symbol": "AAA", "sector": "Technology", "region": "US", "currency": "USD"},
-            {"symbol": "BBB", "sector": "Technology", "region": "US", "currency": "USD"},
-            {"symbol": "CCC", "sector": "Technology", "region": "US", "currency": "USD"},
+            {
+                "symbol": "AAA",
+                "sector": "Technology",
+                "region": "US",
+                "currency": "USD",
+            },
+            {
+                "symbol": "BBB",
+                "sector": "Technology",
+                "region": "US",
+                "currency": "USD",
+            },
+            {
+                "symbol": "CCC",
+                "sector": "Technology",
+                "region": "US",
+                "currency": "USD",
+            },
             {"symbol": "DDD", "sector": "Energy", "region": "US", "currency": "USD"},
         ]
     )

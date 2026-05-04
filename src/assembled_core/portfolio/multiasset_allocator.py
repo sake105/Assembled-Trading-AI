@@ -11,6 +11,7 @@ Regime detection rules:
 
 Hysteresis: regime must persist for 3 consecutive bars before switching.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,6 +29,7 @@ _log = logging.getLogger(__name__)
 @dataclass
 class RegimeAllocation:
     """Target allocation fractions by regime."""
+
     # equity bucket weight (applied to equity signal weights)
     equity: float
     # individual macro instrument targets
@@ -47,10 +49,10 @@ class RegimeAllocation:
 
 
 REGIME_ALLOCATIONS: dict[str, RegimeAllocation] = {
-    "bull":      RegimeAllocation(equity=0.85, tlt=0.08, ief=0.02, gld=0.05, sh=0.00),
-    "sideways":  RegimeAllocation(equity=0.60, tlt=0.20, ief=0.05, gld=0.15, sh=0.00),
-    "bear":      RegimeAllocation(equity=0.30, tlt=0.35, ief=0.05, gld=0.20, sh=0.10),
-    "crisis":    RegimeAllocation(equity=0.10, tlt=0.35, ief=0.05, gld=0.30, sh=0.20),
+    "bull": RegimeAllocation(equity=0.85, tlt=0.08, ief=0.02, gld=0.05, sh=0.00),
+    "sideways": RegimeAllocation(equity=0.60, tlt=0.20, ief=0.05, gld=0.15, sh=0.00),
+    "bear": RegimeAllocation(equity=0.30, tlt=0.35, ief=0.05, gld=0.20, sh=0.10),
+    "crisis": RegimeAllocation(equity=0.10, tlt=0.35, ief=0.05, gld=0.30, sh=0.20),
 }
 
 
@@ -63,8 +65,8 @@ class RegimeDetectorConfig:
     breadth_bear_threshold: float = 0.40
     breadth_crisis_threshold: float = 0.25
     spy_ma_window: int = 200
-    spy_bear_pct: float = 0.95   # SPY < 200d MA * this → bear signal
-    hysteresis_bars: int = 3     # bars regime must persist before switching
+    spy_bear_pct: float = 0.95  # SPY < 200d MA * this → bear signal
+    hysteresis_bars: int = 3  # bars regime must persist before switching
 
 
 class RegimeDetector:
@@ -93,7 +95,7 @@ class RegimeDetector:
         # Compute SPY 200d MA position
         spy_above_ma = True  # default: assume bull
         if len(self._spy_prices) >= cfg.spy_ma_window:
-            ma200 = np.mean(self._spy_prices[-cfg.spy_ma_window:])
+            ma200 = np.mean(self._spy_prices[-cfg.spy_ma_window :])
             spy_above_ma = self._spy_prices[-1] >= ma200 * cfg.spy_bear_pct
 
         # Determine raw regime
@@ -110,14 +112,18 @@ class RegimeDetector:
             if self._current_regime != self._candidate_regime:
                 _log.info(
                     "REGIME CHANGE: %s → %s (VIX=%.1f, breadth=%.2f)",
-                    self._current_regime, self._candidate_regime,
-                    vix or 0, breadth or 0,
+                    self._current_regime,
+                    self._candidate_regime,
+                    vix or 0,
+                    breadth or 0,
                 )
             self._current_regime = self._candidate_regime
 
         return self._current_regime
 
-    def _classify(self, vix: float | None, breadth: float | None, spy_above_ma: bool) -> str:
+    def _classify(
+        self, vix: float | None, breadth: float | None, spy_above_ma: bool
+    ) -> str:
         cfg = self.config
 
         # Safe defaults
@@ -140,7 +146,11 @@ class RegimeDetector:
             return "bear"
 
         # Bull: low VIX AND decent breadth AND SPY above MA
-        if v < cfg.vix_bull_threshold and b > cfg.breadth_bull_threshold and spy_above_ma:
+        if (
+            v < cfg.vix_bull_threshold
+            and b > cfg.breadth_bull_threshold
+            and spy_above_ma
+        ):
             return "bull"
 
         # Default: sideways
@@ -191,7 +201,7 @@ def allocate_by_regime(
         "TLT": allocation.tlt,
         "IEF": allocation.ief,
         "GLD": allocation.gld,
-        "SH":  allocation.sh,
+        "SH": allocation.sh,
     }
     for sym, target_w in macro_map.items():
         if target_w > 0:
@@ -238,9 +248,15 @@ def allocate_by_regime_with_strategy_weights(
             from src.assembled_core.portfolio.regime_conditional_allocator import (
                 build_regime_allocator,
             )
+
             # Build a synthetic regime series from the regime label (all bars = current regime)
-            n_bars = max(len(v) for v in strategy_returns.values()) if strategy_returns else 1
+            n_bars = (
+                max(len(v) for v in strategy_returns.values())
+                if strategy_returns
+                else 1
+            )
             import pandas as _pd
+
             regime_series = _pd.Series([regime] * n_bars)
             allocator = build_regime_allocator(
                 strategy_returns=strategy_returns,
@@ -252,7 +268,10 @@ def allocate_by_regime_with_strategy_weights(
                 # Use Sharpe-proportional weights as the equity bucket weights
                 scaled_equity = dict(result.weights)
     except Exception as _exc:
-        _log.debug("[allocate_by_regime_with_strategy_weights] regime allocator failed: %s", _exc)
+        _log.debug(
+            "[allocate_by_regime_with_strategy_weights] regime allocator failed: %s",
+            _exc,
+        )
 
     return allocate_by_regime(
         regime=regime,

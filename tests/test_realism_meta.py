@@ -12,13 +12,14 @@ import pytest
 
 pytestmark = pytest.mark.phase12
 
-import pytest; pytest.importorskip("src.assembled_core.data.realism_meta")
+import pytest
+
+pytest.importorskip("src.assembled_core.data.realism_meta")
 from src.assembled_core.data.realism_meta import (
     REALISM_LEVELS,
     build_realism_label,
     build_realism_label_from_policy,
 )
-
 
 # ---------------------------------------------------------------------------
 # build_realism_label

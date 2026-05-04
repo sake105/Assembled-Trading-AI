@@ -39,9 +39,9 @@ def test_make_cycle_fn_exposes_enable_risk_controls() -> None:
     sig = inspect.signature(make_cycle_fn)
     assert "enable_risk_controls" in sig.parameters
     default = sig.parameters["enable_risk_controls"].default
-    assert default is True, (
-        f"make_cycle_fn.enable_risk_controls default must be True, got {default!r}"
-    )
+    assert (
+        default is True
+    ), f"make_cycle_fn.enable_risk_controls default must be True, got {default!r}"
 
 
 def test_trading_context_exposes_kill_switch_persist() -> None:
@@ -73,14 +73,20 @@ def test_make_cycle_fn_applies_enable_risk_controls_to_ctx() -> None:
     # Minimal template — backtest_engine's make_cycle_fn only reads what it
     # needs for the replace() call.
     template = TradingContext(
-        prices=pd.DataFrame([{"symbol": "AAA", "timestamp": pd.Timestamp("2025-01-15"), "close": 100.0}]),
+        prices=pd.DataFrame(
+            [{"symbol": "AAA", "timestamp": pd.Timestamp("2025-01-15"), "close": 100.0}]
+        ),
         mode="backtest",
     )
 
     cycle = make_cycle_fn(
         template,
-        signal_fn=lambda _p: pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"]),
-        position_sizing_fn=lambda _s, _c: pd.DataFrame(columns=["symbol", "target_qty"]),
+        signal_fn=lambda _p: pd.DataFrame(
+            columns=["timestamp", "symbol", "direction", "score"]
+        ),
+        position_sizing_fn=lambda _s, _c: pd.DataFrame(
+            columns=["symbol", "target_qty"]
+        ),
         capital=10_000.0,
         run_trading_cycle_fn=fake_run_cycle,
         enable_risk_controls=True,
@@ -90,8 +96,12 @@ def test_make_cycle_fn_applies_enable_risk_controls_to_ctx() -> None:
 
     cycle_off = make_cycle_fn(
         template,
-        signal_fn=lambda _p: pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"]),
-        position_sizing_fn=lambda _s, _c: pd.DataFrame(columns=["symbol", "target_qty"]),
+        signal_fn=lambda _p: pd.DataFrame(
+            columns=["timestamp", "symbol", "direction", "score"]
+        ),
+        position_sizing_fn=lambda _s, _c: pd.DataFrame(
+            columns=["symbol", "target_qty"]
+        ),
         capital=10_000.0,
         run_trading_cycle_fn=fake_run_cycle,
         enable_risk_controls=False,

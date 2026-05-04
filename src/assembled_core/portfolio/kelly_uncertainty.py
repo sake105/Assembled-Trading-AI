@@ -57,7 +57,11 @@ def compute_kelly_with_uncertainty(
 
     # Uncertainty scale: 1.0 = volle Sicherheit, 0.0 = maximale Unsicherheit
     # Formel: scale = 1 - clip(cw / ref_cw, 0, 1) gemäß Docstring
-    if conformal_half_width is None or reference_half_width is None or reference_half_width <= 1e-12:
+    if (
+        conformal_half_width is None
+        or reference_half_width is None
+        or reference_half_width <= 1e-12
+    ):
         uncertainty_scale = 1.0
     elif not np.isfinite(conformal_half_width):
         uncertainty_scale = 0.0
@@ -98,7 +102,13 @@ def compute_kelly_weights_with_uncertainty(
 
     weights = pd.Series(0.0, index=edges.index, name="kelly_weight")
     for sym in edges.index:
-        cw = conformal_half_widths[sym] if (conformal_half_widths is not None and sym in conformal_half_widths.index) else None
+        cw = (
+            conformal_half_widths[sym]
+            if (
+                conformal_half_widths is not None and sym in conformal_half_widths.index
+            )
+            else None
+        )
         w = compute_kelly_with_uncertainty(
             edge=float(edges[sym]),
             variance=float(variances[sym]),
@@ -116,7 +126,8 @@ def compute_kelly_weights_with_uncertainty(
 
     logger.info(
         "[KellyUnc] %d Weights berechnet, mean|w|=%.4f",
-        len(weights), float(weights.abs().mean()),
+        len(weights),
+        float(weights.abs().mean()),
     )
     return weights
 

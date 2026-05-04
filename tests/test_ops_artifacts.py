@@ -15,7 +15,6 @@ from src.assembled_core.ops.kpi_artifacts import (
     write_targets_artifact,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

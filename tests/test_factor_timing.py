@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytest.importorskip('src.assembled_core.ml.factor_timing')
+pytest.importorskip("src.assembled_core.ml.factor_timing")
 from src.assembled_core.ml.factor_timing import (
     FactorTimingConfig,
     FactorTimingResult,
@@ -90,10 +90,12 @@ class TestFactorCrowding:
     def test_uniform_not_crowded(self):
         """Uniform distribution should have low crowding."""
         rng = np.random.default_rng(42)
-        df = pd.DataFrame({
-            "f1": rng.uniform(-1, 1, 100),
-            "f2": rng.normal(0, 1, 100),
-        })
+        df = pd.DataFrame(
+            {
+                "f1": rng.uniform(-1, 1, 100),
+                "f2": rng.normal(0, 1, 100),
+            }
+        )
         scores = compute_factor_crowding(df)
         # Uniform has negative excess kurtosis, should be low/zero crowding
         assert isinstance(scores, dict)
@@ -103,7 +105,9 @@ class TestFactorCrowding:
 class TestFactorMeanReversion:
     def test_basic_mean_reversion(self, factor_returns):
         scores = compute_factor_mean_reversion(
-            factor_returns, short_lookback=12, long_lookback=60,
+            factor_returns,
+            short_lookback=12,
+            long_lookback=60,
         )
         assert len(scores) == 5
 
@@ -117,7 +121,9 @@ class TestFactorMeanReversion:
 class TestAdjustFactorWeights:
     def test_basic_adjustment(self, base_weights, factor_returns, factor_exposures):
         result = adjust_factor_weights(
-            base_weights, factor_returns, factor_exposures,
+            base_weights,
+            factor_returns,
+            factor_exposures,
         )
         assert isinstance(result, FactorTimingResult)
         assert len(result.adjusted_weights) == 5
@@ -138,27 +144,37 @@ class TestAdjustFactorWeights:
     def test_tilt_bounded(self, base_weights, factor_returns):
         cfg = FactorTimingConfig(max_tilt_pct=0.10)  # 10% max
         result = adjust_factor_weights(
-            base_weights, factor_returns, config=cfg,
+            base_weights,
+            factor_returns,
+            config=cfg,
         )
         for f in base_weights:
             assert abs(result.tilt_applied[f]) <= 0.10
 
     def test_momentum_tilts_toward_winner(self, base_weights, factor_returns):
         cfg = FactorTimingConfig(
-            momentum_weight=1.0, mean_reversion_weight=0.0, crowding_weight=0.0,
+            momentum_weight=1.0,
+            mean_reversion_weight=0.0,
+            crowding_weight=0.0,
         )
         result = adjust_factor_weights(
-            base_weights, factor_returns, config=cfg,
+            base_weights,
+            factor_returns,
+            config=cfg,
         )
         # Momentum factor had boosted recent returns -> should get more weight
         assert result.adjusted_weights["momentum"] >= base_weights["momentum"]
 
     def test_crowding_reduces_weight(self, base_weights, factor_exposures):
         cfg = FactorTimingConfig(
-            momentum_weight=0.0, mean_reversion_weight=0.0, crowding_weight=1.0,
+            momentum_weight=0.0,
+            mean_reversion_weight=0.0,
+            crowding_weight=1.0,
         )
         result = adjust_factor_weights(
-            base_weights, factor_exposures=factor_exposures, config=cfg,
+            base_weights,
+            factor_exposures=factor_exposures,
+            config=cfg,
         )
         # Most crowded factor should have reduced weight
         assert isinstance(result.crowding_scores, dict)

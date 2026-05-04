@@ -48,6 +48,7 @@ try:
     from src.assembled_core.strategies.ema_trend_v0 import (
         compute_signals as _v1_compute_signals,
     )
+
     _V1_AVAILABLE = True
 except Exception as _e_v1:
     _V1_AVAILABLE = False
@@ -56,6 +57,7 @@ try:
     from src.assembled_core.strategies.multifactor_v2 import (
         compute_signals as _v2_compute_signals,
     )
+
     _V2_AVAILABLE = True
 except Exception as _e_v2:
     _V2_AVAILABLE = False
@@ -84,6 +86,7 @@ def _warn(msg: str) -> None:
 # FillModel
 # ---------------------------------------------------------------------------
 
+
 def _simulate_fill_price(
     price: float,
     qty: float,
@@ -98,7 +101,9 @@ def _simulate_fill_price(
     SELL: fill = price * (1 - slippage_fraction)
     """
     pov = min(float(qty) / max(float(adv_proxy), 1.0), 1.0)
-    slippage_bps = float(half_spread_bps) + float(impact_coefficient) * np.sqrt(pov) * 10_000.0
+    slippage_bps = (
+        float(half_spread_bps) + float(impact_coefficient) * np.sqrt(pov) * 10_000.0
+    )
     slippage_frac = slippage_bps / 10_000.0
     if side.upper() == "BUY":
         return float(price) * (1.0 + slippage_frac)
@@ -108,6 +113,7 @@ def _simulate_fill_price(
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class DaySnapshot:
@@ -138,6 +144,7 @@ class StrategyResult:
 # Price loading
 # ---------------------------------------------------------------------------
 
+
 def _load_prices(price_dir: Path, n_days: int) -> pd.DataFrame:
     """Load parquet price files from price_dir, return last n_days of data."""
     parquets = sorted(price_dir.glob("*.parquet"))
@@ -161,10 +168,16 @@ def _load_prices(price_dir: Path, n_days: int) -> pd.DataFrame:
     # Normalise timestamp
     ts_col = "timestamp" if "timestamp" in combined.columns else "date"
     if ts_col not in combined.columns:
-        raise ValueError(f"No timestamp/date column in price data; got {combined.columns.tolist()}")
+        raise ValueError(
+            f"No timestamp/date column in price data; got {combined.columns.tolist()}"
+        )
 
-    combined["timestamp"] = pd.to_datetime(combined[ts_col], utc=True, errors="coerce").dt.tz_localize(None)
-    combined = combined.dropna(subset=["timestamp"]).sort_values(["symbol", "timestamp"])
+    combined["timestamp"] = pd.to_datetime(
+        combined[ts_col], utc=True, errors="coerce"
+    ).dt.tz_localize(None)
+    combined = combined.dropna(subset=["timestamp"]).sort_values(
+        ["symbol", "timestamp"]
+    )
 
     # Keep only last n_days of calendar dates
     all_dates = sorted(combined["timestamp"].dt.normalize().unique())
@@ -195,16 +208,14 @@ def _load_prices_from_panel(panel_path: Path, n_days: int) -> pd.DataFrame:
         cutoff = all_dates[-n_days]
         df = df[df["timestamp"] >= cutoff]
 
-    _log(
-        f"Panel prices: {len(df)} rows, "
-        f"{df['symbol'].nunique()} symbols"
-    )
+    _log(f"Panel prices: {len(df)} rows, " f"{df['symbol'].nunique()} symbols")
     return df.reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------
 # Signal helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_longs(signals: pd.DataFrame) -> set[str]:
     """Extract LONG symbols from a signals DataFrame."""
@@ -241,7 +252,9 @@ def _compute_v2_signals(prices_up_to: pd.DataFrame) -> set[str]:
         return set()
 
 
-def _ema_signal_fallback(prices_up_to: pd.DataFrame, fast: int = 20, slow: int = 60) -> set[str]:
+def _ema_signal_fallback(
+    prices_up_to: pd.DataFrame, fast: int = 20, slow: int = 60
+) -> set[str]:
     """Pure-pandas EMA crossover fallback (used when V1 import fails)."""
     if prices_up_to.empty or "close" not in prices_up_to.columns:
         return set()
@@ -262,6 +275,7 @@ def _ema_signal_fallback(prices_up_to: pd.DataFrame, fast: int = 20, slow: int =
 # ---------------------------------------------------------------------------
 # Portfolio simulation
 # ---------------------------------------------------------------------------
+
 
 def _simulate_strategy(
     prices: pd.DataFrame,
@@ -300,7 +314,9 @@ def _simulate_strategy(
         today_closes: dict[str, float] = {}
         if "close" in prices_today.columns:
             _valid = prices_today.dropna(subset=["close"])
-            today_closes = dict(zip(_valid["symbol"].astype(str), _valid["close"].astype(float)))
+            today_closes = dict(
+                zip(_valid["symbol"].astype(str), _valid["close"].astype(float))
+            )
 
         if not today_closes:
             equity_curve.append(cash + _mark_positions(positions, prices_up_to))
@@ -310,7 +326,9 @@ def _simulate_strategy(
         target_longs = signal_fn(prices_up_to)
 
         # Estimate ADV proxy as 10x today's close (simplification)
-        adv_proxy: dict[str, float] = {sym: close * 10_000 for sym, close in today_closes.items()}
+        adv_proxy: dict[str, float] = {
+            sym: close * 10_000 for sym, close in today_closes.items()
+        }
 
         # Current portfolio value for position sizing
         portfolio_value = cash + _mark_positions(positions, prices_up_to)
@@ -326,10 +344,14 @@ def _simulate_strategy(
             if sym not in today_closes or qty <= 0:
                 continue
             mid = today_closes[sym]
-            fill = _simulate_fill_price(mid, qty, adv_proxy.get(sym, mid * 1000),
-                                        side="SELL",
-                                        half_spread_bps=half_spread_bps,
-                                        impact_coefficient=impact_coefficient)
+            fill = _simulate_fill_price(
+                mid,
+                qty,
+                adv_proxy.get(sym, mid * 1000),
+                side="SELL",
+                half_spread_bps=half_spread_bps,
+                impact_coefficient=impact_coefficient,
+            )
             proceeds = fill * qty
             cash += proceeds
             daily_turnover += proceeds
@@ -355,10 +377,14 @@ def _simulate_strategy(
                 qty = int(cash * 0.95 / mid)
             if qty <= 0:
                 continue
-            fill = _simulate_fill_price(mid, qty, adv_proxy.get(sym, mid * 1000),
-                                        side="BUY",
-                                        half_spread_bps=half_spread_bps,
-                                        impact_coefficient=impact_coefficient)
+            fill = _simulate_fill_price(
+                mid,
+                qty,
+                adv_proxy.get(sym, mid * 1000),
+                side="BUY",
+                half_spread_bps=half_spread_bps,
+                impact_coefficient=impact_coefficient,
+            )
             cost_actual = fill * qty
             if cost_actual > cash:
                 continue
@@ -400,7 +426,12 @@ def _simulate_strategy(
         result.max_drawdown = round(float(dd.min()), 4)
 
         result.total_return = round(
-            float(equity_curve[-1] / equity_curve[0] - 1) if equity_curve[0] != 0 else 0.0, 4
+            (
+                float(equity_curve[-1] / equity_curve[0] - 1)
+                if equity_curve[0] != 0
+                else 0.0
+            ),
+            4,
         )
         result.final_equity = round(equity_curve[-1], 2)
 
@@ -427,7 +458,11 @@ def _mark_positions(
     # Build last-close lookup from prices_df
     close_map: dict[str, float] = {}
     for sym, grp in prices_df.groupby("symbol", sort=False):
-        last_close = grp["close"].dropna().iloc[-1] if not grp["close"].dropna().empty else np.nan
+        last_close = (
+            grp["close"].dropna().iloc[-1]
+            if not grp["close"].dropna().empty
+            else np.nan
+        )
         if not np.isnan(last_close):
             close_map[str(sym)] = float(last_close)
 
@@ -442,8 +477,10 @@ def _mark_positions(
 # Comparison metrics
 # ---------------------------------------------------------------------------
 
+
 def _compare_results(v1: StrategyResult, v2: StrategyResult) -> dict[str, Any]:
     """Compute side-by-side comparison dict."""
+
     def _s(r: StrategyResult) -> dict[str, Any]:
         return {
             "final_equity": r.final_equity,
@@ -477,7 +514,9 @@ def _compare_results(v1: StrategyResult, v2: StrategyResult) -> dict[str, Any]:
             "return_improvement": round(v2.total_return - v1.total_return, 4),
             "maxdd_improvement": round(v2.max_drawdown - v1.max_drawdown, 4),
             "return_correlation": round(corr, 4) if not np.isnan(corr) else None,
-            "tracking_error_annualised": round(te_ann, 4) if not np.isnan(te_ann) else None,
+            "tracking_error_annualised": (
+                round(te_ann, 4) if not np.isnan(te_ann) else None
+            ),
             "v2_better_sharpe": bool(v2.sharpe > v1.sharpe),
             "v2_better_return": bool(v2.total_return > v1.total_return),
             "v2_lower_maxdd": bool(v2.max_drawdown > v1.max_drawdown),
@@ -491,6 +530,7 @@ def _compare_results(v1: StrategyResult, v2: StrategyResult) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
+
 
 def run_paper_comparison(
     price_dir: Path | None,
@@ -545,16 +585,26 @@ def run_paper_comparison(
     if _V1_AVAILABLE:
         v1_fn = _compute_v1_signals
         v1_result = _simulate_strategy(
-            prices, "V1_EMA", v1_fn, seed_capital,
-            half_spread_bps, impact_coefficient, max_positions, target_position_size,
+            prices,
+            "V1_EMA",
+            v1_fn,
+            seed_capital,
+            half_spread_bps,
+            impact_coefficient,
+            max_positions,
+            target_position_size,
         )
     else:
         _warn("V1 strategy import failed -- using pure-pandas EMA fallback.")
         v1_result = _simulate_strategy(
-            prices, "V1_EMA_fallback",
+            prices,
+            "V1_EMA_fallback",
             lambda p: _ema_signal_fallback(p, fast=20, slow=60),
-            seed_capital, half_spread_bps, impact_coefficient,
-            max_positions, target_position_size,
+            seed_capital,
+            half_spread_bps,
+            impact_coefficient,
+            max_positions,
+            target_position_size,
         )
         v1_result.skip_reason = "import_failed_used_fallback"
 
@@ -569,12 +619,20 @@ def run_paper_comparison(
     if _V2_AVAILABLE:
         v2_fn = _compute_v2_signals
         v2_result = _simulate_strategy(
-            prices, "V2_multifactor", v2_fn, seed_capital,
-            half_spread_bps, impact_coefficient, max_positions, target_position_size,
+            prices,
+            "V2_multifactor",
+            v2_fn,
+            seed_capital,
+            half_spread_bps,
+            impact_coefficient,
+            max_positions,
+            target_position_size,
         )
     else:
         _warn("V2 strategy import failed -- V2 result will be empty.")
-        v2_result = StrategyResult(name="V2_multifactor", available=False, skip_reason="import_failed")
+        v2_result = StrategyResult(
+            name="V2_multifactor", available=False, skip_reason="import_failed"
+        )
 
     if v2_result.available:
         _log(
@@ -596,8 +654,14 @@ def run_paper_comparison(
         return {
             "sampled_equity": r.equity_curve[::step],
             "snapshots_count": n,
-            "daily_return_mean": round(float(np.mean(r.daily_returns)), 6) if r.daily_returns else None,
-            "daily_return_std": round(float(np.std(r.daily_returns, ddof=1)), 6) if len(r.daily_returns) > 1 else None,
+            "daily_return_mean": (
+                round(float(np.mean(r.daily_returns)), 6) if r.daily_returns else None
+            ),
+            "daily_return_std": (
+                round(float(np.std(r.daily_returns, ddof=1)), 6)
+                if len(r.daily_returns) > 1
+                else None
+            ),
         }
 
     # ---- Assemble full report ------------------------------------------------
@@ -636,6 +700,7 @@ def run_paper_comparison(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(

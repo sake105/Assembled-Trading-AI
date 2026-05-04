@@ -2,6 +2,7 @@
 
 From 50_COMPLIANCE_RECHT.md (personal-use only, German tax context).
 """
+
 from __future__ import annotations
 
 from assembled_core.compliance.gdpr import (

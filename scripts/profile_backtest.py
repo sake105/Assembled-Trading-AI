@@ -51,7 +51,9 @@ def build_reference_prices(n_symbols: int, n_days: int, seed: int) -> pd.DataFra
         rets = rng.normal(0.0004, 0.018, len(dates))
         closes = base * np.exp(np.cumsum(rets))
         for i, date in enumerate(dates):
-            rows.append({"timestamp": date, "symbol": symbol, "close": float(closes[i])})
+            rows.append(
+                {"timestamp": date, "symbol": symbol, "close": float(closes[i])}
+            )
     return (
         pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     )
@@ -115,7 +117,11 @@ def run_reference_backtest(prices: pd.DataFrame, seed: int) -> dict:
     wall = time.perf_counter() - start
     equity_df = result.equity
     final_equity = float(equity_df["equity"].iloc[-1])
-    return {"wall_seconds": wall, "final_equity": final_equity, "n_bars": len(equity_df)}
+    return {
+        "wall_seconds": wall,
+        "final_equity": final_equity,
+        "n_bars": len(equity_df),
+    }
 
 
 def main() -> int:
@@ -162,8 +168,12 @@ def main() -> int:
     report = buf.getvalue()
     report_path.write_text(report, encoding="utf-8")
 
-    logger.info("[PROFILE] wall=%.3fs final_equity=%.2f bars=%d",
-                summary["wall_seconds"], summary["final_equity"], summary["n_bars"])
+    logger.info(
+        "[PROFILE] wall=%.3fs final_equity=%.2f bars=%d",
+        summary["wall_seconds"],
+        summary["final_equity"],
+        summary["n_bars"],
+    )
     logger.info("[PROFILE] prof=%s", prof_path)
     logger.info("[PROFILE] report=%s", report_path)
     return 0

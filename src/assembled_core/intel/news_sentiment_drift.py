@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DriftEntry:
-    key: str                   # "TICKER:AAPL" or "SECTOR:tech"
+    key: str  # "TICKER:AAPL" or "SECTOR:tech"
     n_events: int
     mean_sentiment: float
-    slope: float               # simple slope per minute
-    drift_direction: str       # "improving", "deteriorating", "flat"
+    slope: float  # simple slope per minute
+    drift_direction: str  # "improving", "deteriorating", "flat"
     latest_sentiment: float
 
 
@@ -42,7 +42,7 @@ class SentimentDriftTracker:
         self,
         window_min: int = 60,
         min_events: int = 3,
-        slope_threshold: float = 0.01,   # sentiment-units per minute
+        slope_threshold: float = 0.01,  # sentiment-units per minute
         max_buffer: int = 500,
     ) -> None:
         self._window_td = timedelta(minutes=window_min)
@@ -57,10 +57,16 @@ class SentimentDriftTracker:
             now = datetime.now(tz=timezone.utc)
         for evt in events:
             try:
-                ts = getattr(evt, "published_at", None) or getattr(evt, "ingested_at", None) or now
+                ts = (
+                    getattr(evt, "published_at", None)
+                    or getattr(evt, "ingested_at", None)
+                    or now
+                )
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
-                sent = max(-1.0, min(1.0, float(getattr(evt, "sentiment_score", 0.0) or 0.0)))
+                sent = max(
+                    -1.0, min(1.0, float(getattr(evt, "sentiment_score", 0.0) or 0.0))
+                )
                 tickers = list(getattr(evt, "tickers", []) or [])
                 if not tickers:
                     tickers = list(getattr(evt, "affected_assets", []) or [])
@@ -103,14 +109,16 @@ class SentimentDriftTracker:
                 direction = "deteriorating"
             else:
                 direction = "flat"
-            out.append(DriftEntry(
-                key=key,
-                n_events=len(points),
-                mean_sentiment=round(mean_s, 4),
-                slope=round(slope, 6),
-                drift_direction=direction,
-                latest_sentiment=round(points[-1][1], 4),
-            ))
+            out.append(
+                DriftEntry(
+                    key=key,
+                    n_events=len(points),
+                    mean_sentiment=round(mean_s, 4),
+                    slope=round(slope, 6),
+                    drift_direction=direction,
+                    latest_sentiment=round(points[-1][1], 4),
+                )
+            )
         out.sort(key=lambda e: -abs(e.slope))
         return out
 

@@ -79,7 +79,11 @@ def run_experiment(
             with app_cfg_path.open("r", encoding="utf-8") as f:
                 app_cfg = yaml.safe_load(f) or {}
         except Exception as exc:
-            log.warning("[ExperimentRunner] failed to load app config from %s: %s", app_cfg_path, exc)
+            log.warning(
+                "[ExperimentRunner] failed to load app config from %s: %s",
+                app_cfg_path,
+                exc,
+            )
     app_cfg = deep_merge_policy(app_cfg, app_overrides or {})
     app_snapshot_path = experiment_root / "app_snapshot.yaml"
     with app_snapshot_path.open("w", encoding="utf-8") as f:

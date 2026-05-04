@@ -13,6 +13,7 @@ pytestmark = pytest.mark.phase12
 # Performance Attribution
 # ---------------------------------------------------------------------------
 
+
 def test_attribution_basic():
     from src.assembled_core.qa.performance_attribution import compute_attribution
 
@@ -70,7 +71,9 @@ def test_rolling_attribution_shape():
     portfolio = pd.Series(rng.normal(0.001, 0.01, n), index=dates)
     market = pd.Series(rng.normal(0.001, 0.01, n), index=dates)
 
-    df = rolling_attribution(portfolio, pd.DataFrame({"market": market}, index=dates), window=60, min_obs=30)
+    df = rolling_attribution(
+        portfolio, pd.DataFrame({"market": market}, index=dates), window=60, min_obs=30
+    )
     assert "alpha" in df.columns
     assert "beta_market" in df.columns
     assert len(df) > 100
@@ -80,16 +83,21 @@ def test_rolling_attribution_shape():
 # Risk-Aware Signal Combiner
 # ---------------------------------------------------------------------------
 
+
 def test_risk_combiner_fit_combine():
-    import pytest; pytest.importorskip('src.assembled_core.signals.risk_aware_combiner')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.risk_aware_combiner")
     from src.assembled_core.signals.risk_aware_combiner import RiskAwareSignalCombiner
 
     rng = np.random.default_rng(11)
     n = 300
-    signals = pd.DataFrame({
-        "sig_a": rng.uniform(-1, 1, n),
-        "sig_b": rng.uniform(-1, 1, n),
-    })
+    signals = pd.DataFrame(
+        {
+            "sig_a": rng.uniform(-1, 1, n),
+            "sig_b": rng.uniform(-1, 1, n),
+        }
+    )
     returns = pd.Series(rng.normal(0, 0.01, n))
     regimes = pd.Series(rng.choice(["RISK_ON", "NEUTRAL", "RISK_OFF", "CRISIS"], n))
 
@@ -104,15 +112,19 @@ def test_risk_combiner_fit_combine():
 
 
 def test_risk_combiner_auto_regime():
-    import pytest; pytest.importorskip('src.assembled_core.signals.risk_aware_combiner')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.risk_aware_combiner")
     from src.assembled_core.signals.risk_aware_combiner import RiskAwareSignalCombiner
 
     rng = np.random.default_rng(13)
     n = 200
-    signals = pd.DataFrame({
-        "sig_a": rng.uniform(-1, 1, n),
-        "sig_b": rng.uniform(-1, 1, n),
-    })
+    signals = pd.DataFrame(
+        {
+            "sig_a": rng.uniform(-1, 1, n),
+            "sig_b": rng.uniform(-1, 1, n),
+        }
+    )
     returns = pd.Series(rng.normal(0, 0.01, n))
     regimes = pd.Series(rng.choice(["RISK_ON", "NEUTRAL"], n))
 
@@ -124,7 +136,9 @@ def test_risk_combiner_auto_regime():
 
 
 def test_risk_combiner_unknown_regime_fallback():
-    import pytest; pytest.importorskip('src.assembled_core.signals.risk_aware_combiner')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.risk_aware_combiner")
     from src.assembled_core.signals.risk_aware_combiner import RiskAwareSignalCombiner
 
     rng = np.random.default_rng(17)
@@ -145,9 +159,12 @@ def test_risk_combiner_unknown_regime_fallback():
 # ML Signal Integration Pipeline
 # ---------------------------------------------------------------------------
 
+
 def test_ml_pipeline_primary_only():
     """Ohne regime_router / nested_meta → pipeline passt durch."""
-    import pytest; pytest.importorskip('src.assembled_core.signals.ml_integration')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.ml_integration")
     pytest.importorskip("sklearn")
     from sklearn.linear_model import LinearRegression
 
@@ -175,7 +192,9 @@ def test_ml_pipeline_primary_only():
 
 def test_ml_pipeline_with_external_primary():
     """User liefert primary_signal direkt."""
-    import pytest; pytest.importorskip('src.assembled_core.signals.ml_integration')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.ml_integration")
     from src.assembled_core.signals.ml_integration import MLSignalPipeline
 
     rng = np.random.default_rng(23)
@@ -190,17 +209,23 @@ def test_ml_pipeline_with_external_primary():
 
 def test_ml_pipeline_multi_signal():
     """Multi-signal path via risk_combiner."""
-    import pytest; pytest.importorskip('src.assembled_core.signals.ml_integration')
-    import pytest; pytest.importorskip('src.assembled_core.signals.risk_aware_combiner')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.ml_integration")
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.risk_aware_combiner")
     from src.assembled_core.signals.ml_integration import MLSignalPipeline
     from src.assembled_core.signals.risk_aware_combiner import RiskAwareSignalCombiner
 
     rng = np.random.default_rng(27)
     n = 300
-    signals = pd.DataFrame({
-        "sig_a": rng.uniform(-1, 1, n),
-        "sig_b": rng.uniform(-1, 1, n),
-    })
+    signals = pd.DataFrame(
+        {
+            "sig_a": rng.uniform(-1, 1, n),
+            "sig_b": rng.uniform(-1, 1, n),
+        }
+    )
     returns = pd.Series(rng.normal(0, 0.01, n))
     regimes = pd.Series(["NEUTRAL"] * n)
 
@@ -214,10 +239,14 @@ def test_ml_pipeline_multi_signal():
 
 def test_ml_pipeline_no_models_graceful():
     """Pipeline ohne Modelle → Zero-Signal, kein Crash."""
-    import pytest; pytest.importorskip('src.assembled_core.signals.ml_integration')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.signals.ml_integration")
     from src.assembled_core.signals.ml_integration import MLSignalPipeline
 
-    X = pd.DataFrame(np.random.default_rng(0).standard_normal((20, 2)), columns=["f1", "f2"])
+    X = pd.DataFrame(
+        np.random.default_rng(0).standard_normal((20, 2)), columns=["f1", "f2"]
+    )
     pipeline = MLSignalPipeline()
     output = pipeline.run(X)
     # Primary-Signal sollte zero sein
@@ -228,6 +257,7 @@ def test_ml_pipeline_no_models_graceful():
 # ---------------------------------------------------------------------------
 # Model Comparison (smoke test — no real model compare)
 # ---------------------------------------------------------------------------
+
 
 def test_compare_models_metrics_computation():
     """Nur die _compute_metrics Funktion testen (ohne File-IO)."""

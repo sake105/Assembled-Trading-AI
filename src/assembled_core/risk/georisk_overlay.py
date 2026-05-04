@@ -190,15 +190,18 @@ def apply_exposure_multiplier_to_targets(
             if total_abs > max_gross_exposure:
                 scale_down = max_gross_exposure / total_abs
                 df.loc[risky_mask, "target_weight"] = (
-                    pd.to_numeric(df.loc[risky_mask, "target_weight"], errors="coerce")
-                    .fillna(0.0)
+                    pd.to_numeric(
+                        df.loc[risky_mask, "target_weight"], errors="coerce"
+                    ).fillna(0.0)
                     * scale_down
                 )
 
     return df
 
 
-def compute_edcl_conviction_multiplier(ctx: "TradingContext", policy: Dict[str, Any]) -> float:
+def compute_edcl_conviction_multiplier(
+    ctx: "TradingContext", policy: Dict[str, Any]
+) -> float:
     """Compute EDCL conviction-based exposure multiplier [1.0, max_multiplier].
 
     Only fires when edcl_conviction_overlay.enabled=true and ctx.edcl_state.conviction
@@ -254,6 +257,7 @@ def get_market_implied_geo_signal(
             from assembled_core.data.sources.polymarket_source import (
                 get_market_implied_geo_signal as _poly_signal,
             )
+
             poly_sig = _poly_signal(policy=policy)
         except Exception as _exc:
             log.debug("[GeoRisk] polymarket signal failed: %s", _exc)
@@ -266,6 +270,7 @@ def get_market_implied_geo_signal(
             from assembled_core.data.sources.kalshi_source import (
                 get_market_implied_geo_signal as _kals_signal,
             )
+
             kals_sig = _kals_signal()
         except Exception as _exc:
             log.debug("[GeoRisk] kalshi signal failed: %s", _exc)
@@ -277,11 +282,16 @@ def get_market_implied_geo_signal(
         from assembled_core.data.sources.kalshi_source import (
             fetch_combined_prediction_signal,
         )
+
         return fetch_combined_prediction_signal(poly_sig, kals_sig, poly_weight)
     except Exception:
         # Fallback: use whichever signal is available
         available = poly_sig or kals_sig
-        return available or {"signal": 0.0, "source": "prediction_markets_combined", "n_sources": 0}
+        return available or {
+            "signal": 0.0,
+            "source": "prediction_markets_combined",
+            "n_sources": 0,
+        }
 
 
 __all__ = [

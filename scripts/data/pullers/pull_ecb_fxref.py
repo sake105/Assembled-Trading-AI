@@ -6,6 +6,7 @@ Fetch ECB reference rates (EUR base). Produces daily time series for requested p
 Usage:
   python pull_ecb_fxref.py --pairs "EURUSD,EURGBP" --out data/raw/fx/ecb
 """
+
 from __future__ import annotations
 
 import argparse

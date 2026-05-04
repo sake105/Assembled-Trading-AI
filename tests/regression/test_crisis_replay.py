@@ -63,7 +63,6 @@ from scripts.profile_backtest import (  # noqa: E402
 )
 from src.assembled_core.qa.backtest_engine import run_portfolio_backtest  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Synthetic crisis fixtures
 # ---------------------------------------------------------------------------
@@ -82,13 +81,17 @@ def _base_path(
         rets = rng.normal(0.0004, 0.015, len(dates))
         closes = base * np.exp(np.cumsum(rets))
         for i, date in enumerate(dates):
-            rows.append({"timestamp": date, "symbol": symbol, "close": float(closes[i])})
+            rows.append(
+                {"timestamp": date, "symbol": symbol, "close": float(closes[i])}
+            )
     return (
         pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     )
 
 
-def _build_flash_2010(n_symbols: int = 15, n_days: int = 30, seed: int = 42) -> pd.DataFrame:
+def _build_flash_2010(
+    n_symbols: int = 15, n_days: int = 30, seed: int = 42
+) -> pd.DataFrame:
     """Synthetic flash-crash fixture: single-bar -9% drop then rebound."""
     df = _base_path(n_symbols, n_days, seed)
     # Pick the middle bar as the crash bar; drop all prices 9%, next bar rebound 7%.
@@ -100,7 +103,9 @@ def _build_flash_2010(n_symbols: int = 15, n_days: int = 30, seed: int = 42) -> 
     return df
 
 
-def _build_covid_2020(n_symbols: int = 15, n_days: int = 60, seed: int = 43) -> pd.DataFrame:
+def _build_covid_2020(
+    n_symbols: int = 15, n_days: int = 60, seed: int = 43
+) -> pd.DataFrame:
     """Synthetic COVID-style crash: 20-session compound drawdown.
 
     Applies a deterministic -3% daily compound drift on top of the baseline
@@ -116,13 +121,15 @@ def _build_covid_2020(n_symbols: int = 15, n_days: int = 60, seed: int = 43) -> 
         df.loc[df["timestamp"] == ts, "close"] *= 0.97 ** (i + 1)
     # Keep post-window prices anchored to the crash-end level.
     if drop_end < len(unique_ts):
-        final_mult = 0.97 ** 20
+        final_mult = 0.97**20
         for ts in unique_ts[drop_end:]:
             df.loc[df["timestamp"] == ts, "close"] *= final_mult
     return df
 
 
-def _build_gme_2021(n_symbols: int = 15, n_days: int = 30, seed: int = 44) -> pd.DataFrame:
+def _build_gme_2021(
+    n_symbols: int = 15, n_days: int = 30, seed: int = 44
+) -> pd.DataFrame:
     """Synthetic short-squeeze fixture: one symbol +1000% over 5 sessions.
 
     Applies a compounding level shift to SYM00 across a 5-bar squeeze window
@@ -139,14 +146,16 @@ def _build_gme_2021(n_symbols: int = 15, n_days: int = 30, seed: int = 44) -> pd
     for i, ts in enumerate(unique_ts[squeeze_start:squeeze_end]):
         mask = (df["timestamp"] == ts) & (df["symbol"] == gme)
         df.loc[mask, "close"] *= 1.58 ** (i + 1)
-    final_mult = 1.58 ** 5
+    final_mult = 1.58**5
     for ts in unique_ts[squeeze_end:]:
         mask = (df["timestamp"] == ts) & (df["symbol"] == gme)
         df.loc[mask, "close"] *= final_mult
     return df
 
 
-def _build_svb_2023(n_symbols: int = 15, n_days: int = 30, seed: int = 45) -> pd.DataFrame:
+def _build_svb_2023(
+    n_symbols: int = 15, n_days: int = 30, seed: int = 45
+) -> pd.DataFrame:
     """Synthetic regional-bank cluster shock: 3 symbols drop ~60% over 2 bars.
 
     Compounds 0.63 per session across 2 sessions (→ ~0.40 cumulative, i.e.
@@ -161,7 +170,7 @@ def _build_svb_2023(n_symbols: int = 15, n_days: int = 30, seed: int = 45) -> pd
     for i, ts in enumerate(unique_ts[crash_start:crash_end]):
         mask = (df["timestamp"] == ts) & (df["symbol"].isin(banks))
         df.loc[mask, "close"] *= 0.63 ** (i + 1)
-    final_mult = 0.63 ** 2
+    final_mult = 0.63**2
     for ts in unique_ts[crash_end:]:
         mask = (df["timestamp"] == ts) & (df["symbol"].isin(banks))
         df.loc[mask, "close"] *= final_mult
@@ -193,9 +202,9 @@ def _assert_engine_survives(scenario: str, prices: pd.DataFrame) -> None:
         strict_session_gate=False,
     )
 
-    assert result.equity is not None and not result.equity.empty, (
-        f"[{scenario}] equity curve empty — engine aborted silently"
-    )
+    assert (
+        result.equity is not None and not result.equity.empty
+    ), f"[{scenario}] equity curve empty — engine aborted silently"
     eq = result.equity["equity"].to_numpy(dtype=np.float64)
 
     # Invariant 1 — no NaN / inf.
@@ -283,7 +292,9 @@ def test_crisis_fixtures_actually_contain_shock() -> None:
     # GME is idiosyncratic: one symbol moves violently up, the rest are normal.
     # Stylized fact: peak/trough ratio on the squeezed name > 5x.
     gme_prices = CRISIS_BUILDERS["gme_2021"]()
-    sym00 = gme_prices[gme_prices["symbol"] == "SYM00"]["close"].to_numpy(dtype=np.float64)
+    sym00 = gme_prices[gme_prices["symbol"] == "SYM00"]["close"].to_numpy(
+        dtype=np.float64
+    )
     ratio = float(sym00.max() / sym00.min())
     assert ratio > 5.0, (
         f"[gme_2021] SYM00 peak/trough ratio {ratio:.2f} ≤ 5 — "

@@ -27,11 +27,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class VelocityResult:
     """Result of a velocity analysis pass."""
+
     timestamp: datetime
-    short_count: int      # events in short window
-    long_count: int       # events in long window
-    velocity: float       # short_rate / long_rate (>1 = accelerating)
-    is_surge: bool        # True when velocity >= surge_threshold
+    short_count: int  # events in short window
+    long_count: int  # events in long window
+    velocity: float  # short_rate / long_rate (>1 = accelerating)
+    is_surge: bool  # True when velocity >= surge_threshold
     surge_sectors: list[str] = field(default_factory=list)
     surge_event_types: list[str] = field(default_factory=list)
     avg_severity: float = 0.0
@@ -124,7 +125,11 @@ class VelocityTracker:
                 type_counts[et] = type_counts.get(et, 0) + 1
             severity_total += float(getattr(evt, "severity", 0.0) or 0.0)
 
-        avg_severity = round(severity_total / max(len(short_events), 1), 3) if short_events else 0.0
+        avg_severity = (
+            round(severity_total / max(len(short_events), 1), 3)
+            if short_events
+            else 0.0
+        )
 
         surge_sectors: list[str] = []
         surge_event_types: list[str] = []
@@ -133,7 +138,10 @@ class VelocityTracker:
             surge_event_types = sorted(type_counts, key=lambda k: -type_counts[k])[:3]
             logger.info(
                 "[WARN] News velocity surge: %.1fx — sectors=%s types=%s short_count=%d",
-                velocity, surge_sectors, surge_event_types, short_count,
+                velocity,
+                surge_sectors,
+                surge_event_types,
+                short_count,
             )
 
         return VelocityResult(

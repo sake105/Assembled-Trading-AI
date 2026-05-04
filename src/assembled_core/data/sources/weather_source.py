@@ -42,6 +42,7 @@ US_ENERGY_CITIES = {
 def _try_openmeteo():
     try:
         import openmeteo_requests
+
         return openmeteo_requests
     except ImportError:
         logger.warning(
@@ -76,6 +77,7 @@ def fetch_temperature_openmeteo(
 
     try:
         import requests
+
         url = "https://archive-api.open-meteo.com/v1/archive"
         params = {
             "latitude": latitude,
@@ -95,7 +97,9 @@ def fetch_temperature_openmeteo(
         return pd.Series(temps, index=idx, name="temp_c").dropna()
 
     except Exception as exc:
-        logger.debug("Open-Meteo fetch failed (%.2f, %.2f): %s", latitude, longitude, exc)
+        logger.debug(
+            "Open-Meteo fetch failed (%.2f, %.2f): %s", latitude, longitude, exc
+        )
         return pd.Series(dtype=float)
 
 
@@ -149,7 +153,8 @@ def us_energy_demand_signal(
 
     for city, coords in US_ENERGY_CITIES.items():
         temps = fetch_temperature_openmeteo(
-            coords["lat"], coords["lon"],
+            coords["lat"],
+            coords["lon"],
             lookback_days=lookback_days + 5,
         )
         if temps.empty:
@@ -201,6 +206,7 @@ def fetch_temperature_noaa(
         Daily mean temperature Series (°C). Empty on failure.
     """
     import os
+
     token = os.environ.get("NOAA_CDO_TOKEN")
     if not token:
         logger.debug("NOAA_CDO_TOKEN not set — using Open-Meteo fallback")
@@ -208,6 +214,7 @@ def fetch_temperature_noaa(
 
     try:
         import requests
+
         start = (date.today() - timedelta(days=lookback_days)).isoformat()
         end = date.today().isoformat()
 

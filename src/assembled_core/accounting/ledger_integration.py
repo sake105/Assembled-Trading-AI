@@ -107,6 +107,7 @@ def build_ledger_from_trades(
     # the pandas FutureWarning about all-NA column dtype inference — the current
     # behavior (using the non-NA frame's dtype) is exactly what we want here.
     import warnings as _w
+
     _frames = [f for f in [order_events, trade_events] if not f.empty]
     if not _frames:
         all_events = order_events.iloc[0:0].copy()

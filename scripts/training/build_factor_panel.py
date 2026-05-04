@@ -45,6 +45,7 @@ def _log(level: str, msg: str) -> None:
 # Price loading
 # ---------------------------------------------------------------------------
 
+
 def load_price_data(price_dir: Path) -> pd.DataFrame:
     """Load and concatenate all parquet files from price_dir.
 
@@ -70,11 +71,16 @@ def load_price_data(price_dir: Path) -> pd.DataFrame:
         raise RuntimeError("No parquet files could be loaded.")
 
     prices = pd.concat(frames, ignore_index=True)
-    _log("info", f"[OK] Raw rows loaded: {len(prices):,} across {prices['symbol'].nunique()} symbols")
+    _log(
+        "info",
+        f"[OK] Raw rows loaded: {len(prices):,} across {prices['symbol'].nunique()} symbols",
+    )
 
     # Normalise timestamp: coerce to tz-naive datetime (keep date precision)
     if "timestamp" in prices.columns:
-        prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True).dt.tz_localize(None)
+        prices["timestamp"] = pd.to_datetime(
+            prices["timestamp"], utc=True
+        ).dt.tz_localize(None)
     else:
         raise KeyError("Expected 'timestamp' column not found in price data.")
 
@@ -86,6 +92,7 @@ def load_price_data(price_dir: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Feature computation helpers
 # ---------------------------------------------------------------------------
+
 
 def _safe_merge(
     base: pd.DataFrame,
@@ -102,7 +109,10 @@ def _safe_merge(
     try:
         merged = base.merge(result_trimmed, on=merge_keys, how="left")
         added = set(merged.columns) - set(base.columns)
-        _log("info", f"[OK] {module_name}: merged {len(added)} new column(s): {sorted(added)}")
+        _log(
+            "info",
+            f"[OK] {module_name}: merged {len(added)} new column(s): {sorted(added)}",
+        )
         return merged
     except Exception as exc:
         _log("warning", f"[WARN] {module_name}: merge failed -- {exc}; skipping")
@@ -118,6 +128,7 @@ def _try_compute_ta_features(prices: pd.DataFrame) -> pd.DataFrame | None:
     """
     try:
         from src.assembled_core.features.ta_features import add_all_features
+
         result = add_all_features(prices.copy())
         result._inplace_result = True  # type: ignore[attr-defined]
         return result
@@ -135,7 +146,10 @@ def _try_compute_volatility_features(prices: pd.DataFrame) -> pd.DataFrame | Non
     NOTE: GARCH fitting for 90+ tickers takes 10-30 min (arch library holds GIL).
     Skipped in panel build; use pre-computed GARCH features or add separately.
     """
-    _log("warning", "[SKIP] volatility_features: GARCH too slow for panel build (93 tickers)")
+    _log(
+        "warning",
+        "[SKIP] volatility_features: GARCH too slow for panel build (93 tickers)",
+    )
     return None
 
 
@@ -145,6 +159,7 @@ def _try_compute_correlation_features(prices: pd.DataFrame) -> pd.DataFrame | No
         from src.assembled_core.features.correlation_features import (
             build_correlation_features_panel,
         )
+
         result = build_correlation_features_panel(prices.copy())
         return result
     except ImportError as exc:
@@ -163,6 +178,7 @@ def _try_compute_macro_features(prices: pd.DataFrame) -> pd.DataFrame | None:
     """
     try:
         from src.assembled_core.features.macro_features import add_latest_macro_value
+
         result = add_latest_macro_value(prices.copy())
         return result
     except ImportError as exc:
@@ -179,6 +195,7 @@ def _try_compute_mean_reversion_factors(prices: pd.DataFrame) -> pd.DataFrame | 
         from src.assembled_core.features.mean_reversion_factors import (
             compute_mean_reversion_factors,
         )
+
         result = compute_mean_reversion_factors(prices.copy())
         return result
     except ImportError as exc:
@@ -202,6 +219,7 @@ def _try_compute_liquidity_vol_factors(prices: pd.DataFrame) -> pd.DataFrame | N
             add_turnover_and_liquidity_proxies,
             add_vol_of_vol,
         )
+
         df = prices.copy()
         df = add_realized_volatility(df)
         df = add_vol_of_vol(df)
@@ -225,6 +243,7 @@ def _try_compute_market_breadth(prices: pd.DataFrame) -> pd.DataFrame | None:
     """
     try:
         from src.assembled_core.features.market_breadth import compute_market_breadth_ma
+
         result = compute_market_breadth_ma(prices.copy())
         return result
     except ImportError as exc:
@@ -239,6 +258,7 @@ def _try_compute_geopolitical_features(prices: pd.DataFrame) -> pd.DataFrame | N
     """src/assembled_core/features/geopolitical_features -> compute_gpr_proxy"""
     try:
         from src.assembled_core.features.geopolitical_features import compute_gpr_proxy
+
         result = compute_gpr_proxy(prices.copy())
         return result
     except ImportError as exc:
@@ -255,13 +275,16 @@ def _try_compute_altdata_factors(prices: pd.DataFrame) -> pd.DataFrame | None:
         from src.assembled_core.features.altdata_earnings_insider_factors import (
             build_earnings_surprise_factors,
         )
+
         result = build_earnings_surprise_factors(prices.copy())
         return result
     except ImportError as exc:
         _log("warning", f"[SKIP] altdata_earnings_insider_factors import failed: {exc}")
         return None
     except Exception as exc:
-        _log("warning", f"[SKIP] altdata_earnings_insider_factors compute failed: {exc}")
+        _log(
+            "warning", f"[SKIP] altdata_earnings_insider_factors compute failed: {exc}"
+        )
         return None
 
 
@@ -271,6 +294,7 @@ def _try_compute_supply_chain_features(prices: pd.DataFrame) -> pd.DataFrame | N
         from src.assembled_core.features.supply_chain_features import (
             build_supply_chain_features,
         )
+
         result = build_supply_chain_features(prices.copy())
         return result
     except ImportError as exc:
@@ -290,11 +314,14 @@ def _try_compute_intermarket_factors(prices: pd.DataFrame) -> pd.DataFrame | Non
             align_intermarket_factors_to_panel,
             build_intermarket_factors,
         )
+
         date_min = prices["timestamp"].min().strftime("%Y-%m-%d")
         date_max = prices["timestamp"].max().strftime("%Y-%m-%d")
+
         def _run():
             im_df = build_intermarket_factors(start_date=date_min, end_date=date_max)
             return align_intermarket_factors_to_panel(prices.copy(), im_df)
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
             fut = ex.submit(_run)
             result = fut.result(timeout=120)
@@ -314,6 +341,7 @@ def _try_compute_congress_features(prices: pd.DataFrame) -> pd.DataFrame | None:
     """src/assembled_core/features/congress_features -> add_congress_features"""
     try:
         from src.assembled_core.features.congress_features import add_congress_features
+
         result = add_congress_features(prices.copy())
         return result
     except ImportError as exc:
@@ -327,6 +355,7 @@ def _try_compute_congress_features(prices: pd.DataFrame) -> pd.DataFrame | None:
 # ---------------------------------------------------------------------------
 # Forward returns (PIT-safe -- must be called AFTER all features)
 # ---------------------------------------------------------------------------
+
 
 def _add_forward_returns(panel: pd.DataFrame, horizons: list[int]) -> pd.DataFrame:
     """Append simple forward returns for each horizon.
@@ -358,7 +387,10 @@ def _add_forward_returns(panel: pd.DataFrame, horizons: list[int]) -> pd.DataFra
         return result
 
     except Exception as exc:
-        _log("warning", f"[WARN] add_forward_returns failed ({exc}); computing inline fallback")
+        _log(
+            "warning",
+            f"[WARN] add_forward_returns failed ({exc}); computing inline fallback",
+        )
         result = panel.copy()
         result = result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
         for h in horizons:
@@ -366,7 +398,9 @@ def _add_forward_returns(panel: pd.DataFrame, horizons: list[int]) -> pd.DataFra
             fwd_price = result.groupby("symbol", group_keys=False)["close"].shift(-h)
             result[col_name] = fwd_price / result["close"].clip(lower=1e-9) - 1.0
             # PIT guard: last h rows per symbol must be NaN (no future data)
-            result[col_name] = result.groupby("symbol", group_keys=False)[col_name].transform(
+            result[col_name] = result.groupby("symbol", group_keys=False)[
+                col_name
+            ].transform(
                 lambda s: s.where(pd.Series(range(len(s)), index=s.index) < len(s) - h)
             )
             _log("info", f"[OK] Forward return added (fallback): {col_name}")
@@ -376,6 +410,7 @@ def _add_forward_returns(panel: pd.DataFrame, horizons: list[int]) -> pd.DataFra
 # ---------------------------------------------------------------------------
 # Main build function
 # ---------------------------------------------------------------------------
+
 
 def build_full_factor_panel(
     price_dir: Path = Path("data/raw/equities_eod/yfinance"),
@@ -405,31 +440,37 @@ def build_full_factor_panel(
         The completed factor panel DataFrame.
     """
     t_start = time.time()
-    _log("info", f"[START] build_full_factor_panel | price_dir={price_dir} | horizons={horizons}")
+    _log(
+        "info",
+        f"[START] build_full_factor_panel | price_dir={price_dir} | horizons={horizons}",
+    )
 
     # ------------------------------------------------------------------
     # 1. Load prices
     # ------------------------------------------------------------------
     prices = load_price_data(price_dir)
-    _log("info", f"[OK] Prices loaded: {prices.shape} | date range: "
-                 f"{prices['timestamp'].min().date()} - {prices['timestamp'].max().date()}")
+    _log(
+        "info",
+        f"[OK] Prices loaded: {prices.shape} | date range: "
+        f"{prices['timestamp'].min().date()} - {prices['timestamp'].max().date()}",
+    )
 
     # ------------------------------------------------------------------
     # 2. Feature modules: try each, collect results
     # ------------------------------------------------------------------
     MODULE_JOBS: list[tuple[str, object]] = [
-        ("ta_features",                      _try_compute_ta_features),
-        ("volatility_features",              _try_compute_volatility_features),
-        ("correlation_features",             _try_compute_correlation_features),
-        ("macro_features",                   _try_compute_macro_features),
-        ("mean_reversion_factors",           _try_compute_mean_reversion_factors),
-        ("ta_liquidity_vol_factors",         _try_compute_liquidity_vol_factors),
-        ("market_breadth",                   _try_compute_market_breadth),
-        ("geopolitical_features",            _try_compute_geopolitical_features),
+        ("ta_features", _try_compute_ta_features),
+        ("volatility_features", _try_compute_volatility_features),
+        ("correlation_features", _try_compute_correlation_features),
+        ("macro_features", _try_compute_macro_features),
+        ("mean_reversion_factors", _try_compute_mean_reversion_factors),
+        ("ta_liquidity_vol_factors", _try_compute_liquidity_vol_factors),
+        ("market_breadth", _try_compute_market_breadth),
+        ("geopolitical_features", _try_compute_geopolitical_features),
         ("altdata_earnings_insider_factors", _try_compute_altdata_factors),
-        ("supply_chain_features",            _try_compute_supply_chain_features),
-        ("intermarket_factors",              _try_compute_intermarket_factors),
-        ("congress_features",               _try_compute_congress_features),
+        ("supply_chain_features", _try_compute_supply_chain_features),
+        ("intermarket_factors", _try_compute_intermarket_factors),
+        ("congress_features", _try_compute_congress_features),
     ]
 
     # Base panel starts as prices (timestamp + symbol + ohlcv)
@@ -442,7 +483,10 @@ def build_full_factor_panel(
         _log("info", f"[START] Computing {module_name}...")
         try:
             # In-place modules receive the current panel; merge modules receive original prices
-            is_inplace_module = module_name in ("ta_features", "ta_liquidity_vol_factors")
+            is_inplace_module = module_name in (
+                "ta_features",
+                "ta_liquidity_vol_factors",
+            )
             result = compute_fn(panel if is_inplace_module else prices)
         except Exception as exc:
             _log("warning", f"[SKIP] {module_name}: unexpected error -- {exc}")
@@ -454,7 +498,10 @@ def build_full_factor_panel(
             continue
 
         if not isinstance(result, pd.DataFrame) or result.empty:
-            _log("warning", f"[SKIP] {module_name}: returned empty or non-DataFrame result")
+            _log(
+                "warning",
+                f"[SKIP] {module_name}: returned empty or non-DataFrame result",
+            )
             failed_modules.append(module_name)
             continue
 
@@ -462,7 +509,10 @@ def build_full_factor_panel(
         if getattr(result, "_inplace_result", False):
             new_cols = set(result.columns) - set(panel.columns)
             panel = result
-            _log("info", f"[OK] {module_name}: in-place, added {len(new_cols)} column(s): {sorted(new_cols)}")
+            _log(
+                "info",
+                f"[OK] {module_name}: in-place, added {len(new_cols)} column(s): {sorted(new_cols)}",
+            )
             succeeded_modules.append(module_name)
             continue
 
@@ -475,7 +525,10 @@ def build_full_factor_panel(
         elif has_timestamp and not has_symbol:
             merge_keys = ["timestamp"]
         else:
-            _log("warning", f"[SKIP] {module_name}: result missing 'timestamp' column; cannot merge")
+            _log(
+                "warning",
+                f"[SKIP] {module_name}: result missing 'timestamp' column; cannot merge",
+            )
             failed_modules.append(module_name)
             continue
 
@@ -501,7 +554,11 @@ def build_full_factor_panel(
     if triple_barrier:
         try:
             from src.assembled_core.ml.triple_barrier import build_triple_barrier_labels
-            _log("info", f"[START] Adding triple-barrier labels (upper={tb_upper_mult}, lower={tb_lower_mult})...")
+
+            _log(
+                "info",
+                f"[START] Adding triple-barrier labels (upper={tb_upper_mult}, lower={tb_lower_mult})...",
+            )
             for h in horizons:
                 panel = build_triple_barrier_labels(
                     panel,
@@ -533,7 +590,11 @@ def build_full_factor_panel(
     # ------------------------------------------------------------------
     # 6. Summary JSON sidecar
     # ------------------------------------------------------------------
-    all_factor_cols = [c for c in panel.columns if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume"}]
+    all_factor_cols = [
+        c
+        for c in panel.columns
+        if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume"}
+    ]
     nan_rates: dict[str, float] = {}
     for col in all_factor_cols:
         nan_rates[col] = round(float(panel[col].isna().mean()), 4)
@@ -574,6 +635,7 @@ def build_full_factor_panel(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -647,7 +709,9 @@ if __name__ == "__main__":
 
     # Resolve relative paths relative to repo root (two levels up from this file)
     _repo_root = Path(__file__).resolve().parents[2]
-    price_dir = args.price_dir if args.price_dir.is_absolute() else _repo_root / args.price_dir
+    price_dir = (
+        args.price_dir if args.price_dir.is_absolute() else _repo_root / args.price_dir
+    )
     output_path = args.output if args.output.is_absolute() else _repo_root / args.output
 
     # Ensure src is importable
@@ -665,4 +729,6 @@ if __name__ == "__main__":
     )
 
     print(f"\nFactor panel shape: {panel.shape}")
-    print(f"Columns ({len(panel.columns)}): {list(panel.columns)[:10]} ... (first 10 shown)")
+    print(
+        f"Columns ({len(panel.columns)}): {list(panel.columns)[:10]} ... (first 10 shown)"
+    )

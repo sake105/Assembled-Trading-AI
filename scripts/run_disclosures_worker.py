@@ -42,7 +42,9 @@ def _is_kill_switch_active(policy_path: Path = _POLICY_PATH) -> bool:
     try:
         with open(policy_path, "r", encoding="utf-8") as fh:
             policy = yaml.safe_load(fh)
-        return bool((policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False))
+        return bool(
+            (policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False)
+        )
     except Exception as exc:
         logger.warning("[WARN] Could not read kill_switch from policy: %s", exc)
         return False

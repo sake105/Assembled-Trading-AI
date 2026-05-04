@@ -50,14 +50,22 @@ def compute_lci(
     hy_ig_ratio = hy_spread / ig_spread.replace(0, np.nan)
 
     # Align all to common index
-    common = hy_ig_ratio.index.intersection(dxy.index).intersection(vix.index).intersection(yield_curve_slope.index)
+    common = (
+        hy_ig_ratio.index.intersection(dxy.index)
+        .intersection(vix.index)
+        .intersection(yield_curve_slope.index)
+    )
     if len(common) == 0:
         logger.warning("LCI: no common index across inputs — returning empty Series")
         return pd.Series(dtype=float)
 
     df = pd.DataFrame(
-        {"hy_ig": hy_ig_ratio.loc[common], "dxy": dxy.loc[common],
-         "vix": vix.loc[common], "curve": yield_curve_slope.loc[common]},
+        {
+            "hy_ig": hy_ig_ratio.loc[common],
+            "dxy": dxy.loc[common],
+            "vix": vix.loc[common],
+            "curve": yield_curve_slope.loc[common],
+        },
         index=common,
     )
     _min_p = max(lookback_days // 4, 20)
@@ -74,6 +82,7 @@ def lci_regime(lci: float | pd.Series) -> str | pd.Series:
 
     Returns one of: 'risk_on', 'normal', 'risk_off', 'crisis'
     """
+
     def _map(v: float) -> str:
         if v < -1.0:
             return "risk_on"

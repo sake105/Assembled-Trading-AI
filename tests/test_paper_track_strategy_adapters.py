@@ -13,7 +13,6 @@ from src.assembled_core.paper.paper_track import (
     PaperTrackState,
 )
 
-
 pytestmark = pytest.mark.advanced
 
 

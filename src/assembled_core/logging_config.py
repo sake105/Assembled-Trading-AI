@@ -187,7 +187,10 @@ def configure_json_logging(
     log.setLevel(getattr(logging, level.upper(), logging.INFO))
     handler = logging.StreamHandler()
     handler.setFormatter(JSONFormatter())
-    if not any(isinstance(h, logging.StreamHandler) and isinstance(h.formatter, JSONFormatter) for h in log.handlers):
+    if not any(
+        isinstance(h, logging.StreamHandler) and isinstance(h.formatter, JSONFormatter)
+        for h in log.handlers
+    ):
         log.addHandler(handler)
     return log
 

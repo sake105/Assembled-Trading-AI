@@ -16,6 +16,7 @@ Environment variables:
     QUESTDB_PASS   (default: quest)
     QUESTDB_DB     (default: qdb)
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ _connect_fn: Any = None
 
 try:
     import psycopg2  # type: ignore[import]
+
     _DRIVER = "psycopg2"
     _connect_fn = psycopg2.connect
 except ImportError:
@@ -40,6 +42,7 @@ except ImportError:
 if _DRIVER is None:
     try:
         import pg8000  # type: ignore[import]
+
         _DRIVER = "pg8000"
         _connect_fn = pg8000.connect
     except ImportError:
@@ -59,7 +62,9 @@ def _get_conn_kwargs() -> dict[str, Any]:
 def _open_conn() -> Any:
     """Open a PG-wire connection to QuestDB. Returns None on failure."""
     if _connect_fn is None:
-        logger.debug("[TickStore] no PG driver available (psycopg2/pg8000 not installed)")
+        logger.debug(
+            "[TickStore] no PG driver available (psycopg2/pg8000 not installed)"
+        )
         return None
     try:
         conn = _connect_fn(**_get_conn_kwargs())
@@ -72,8 +77,9 @@ def _open_conn() -> Any:
 @dataclass
 class OHLCVTick:
     """Single OHLCV record."""
+
     symbol: str
-    ts: datetime          # timezone-aware UTC timestamp
+    ts: datetime  # timezone-aware UTC timestamp
     open: float
     high: float
     low: float
@@ -122,6 +128,7 @@ def ensure_table() -> bool:
 # Write
 # ---------------------------------------------------------------------------
 
+
 def write_ticks(ticks: list[OHLCVTick]) -> int:
     """Insert OHLCV ticks into QuestDB.
 
@@ -166,6 +173,7 @@ def write_ticks(ticks: list[OHLCVTick]) -> int:
 # ---------------------------------------------------------------------------
 # Read / Query
 # ---------------------------------------------------------------------------
+
 
 def query_ohlcv(
     symbol: str,

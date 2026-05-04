@@ -106,7 +106,9 @@ class TrackedOrder:
     @property
     def is_terminal(self) -> bool:
         return self.current_state in {
-            OrderState.FILLED, OrderState.CANCELLED, OrderState.REJECTED,
+            OrderState.FILLED,
+            OrderState.CANCELLED,
+            OrderState.REJECTED,
         }
 
     def to_dict(self) -> dict:
@@ -198,7 +200,9 @@ class OrderLifecycleTracker:
         if reason:
             event_details["reason"] = reason
 
-        order.events.append(OrderEvent(state=new_state, timestamp=now, details=event_details))
+        order.events.append(
+            OrderEvent(state=new_state, timestamp=now, details=event_details)
+        )
         order.current_state = new_state
 
         if fill_price is not None:
@@ -210,8 +214,12 @@ class OrderLifecycleTracker:
 
         logger.debug(
             "[OrderLifecycle] %s %s %s %.0f %s -> %s",
-            order_id[:8], order.symbol, order.side,
-            order.quantity, order.events[-2].state.value, new_state.value,
+            order_id[:8],
+            order.symbol,
+            order.side,
+            order.quantity,
+            order.events[-2].state.value,
+            new_state.value,
         )
 
     def get_order(self, order_id: str) -> TrackedOrder | None:

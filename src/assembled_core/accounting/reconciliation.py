@@ -60,34 +60,82 @@ def evaluate_reconcile_slo(
     cash_bps = abs(cash_diff) / denom * 10_000.0
 
     if cash_bps >= slo.cash_diff_bps_fail:
-        violations.append({"metric": "cash_diff_bps", "value": cash_bps,
-                           "threshold": slo.cash_diff_bps_fail, "severity": "fail"})
+        violations.append(
+            {
+                "metric": "cash_diff_bps",
+                "value": cash_bps,
+                "threshold": slo.cash_diff_bps_fail,
+                "severity": "fail",
+            }
+        )
     elif cash_bps >= slo.cash_diff_bps_warn:
-        violations.append({"metric": "cash_diff_bps", "value": cash_bps,
-                           "threshold": slo.cash_diff_bps_warn, "severity": "warn"})
+        violations.append(
+            {
+                "metric": "cash_diff_bps",
+                "value": cash_bps,
+                "threshold": slo.cash_diff_bps_warn,
+                "severity": "warn",
+            }
+        )
 
     if max_qty_diff >= slo.position_qty_diff_fail:
-        violations.append({"metric": "position_qty_diff", "value": max_qty_diff,
-                           "threshold": slo.position_qty_diff_fail, "severity": "fail"})
+        violations.append(
+            {
+                "metric": "position_qty_diff",
+                "value": max_qty_diff,
+                "threshold": slo.position_qty_diff_fail,
+                "severity": "fail",
+            }
+        )
     elif max_qty_diff >= slo.position_qty_diff_warn:
-        violations.append({"metric": "position_qty_diff", "value": max_qty_diff,
-                           "threshold": slo.position_qty_diff_warn, "severity": "warn"})
+        violations.append(
+            {
+                "metric": "position_qty_diff",
+                "value": max_qty_diff,
+                "threshold": slo.position_qty_diff_warn,
+                "severity": "warn",
+            }
+        )
 
     if fill_rate is not None:
         if fill_rate < slo.fill_rate_min_fail:
-            violations.append({"metric": "fill_rate", "value": fill_rate,
-                               "threshold": slo.fill_rate_min_fail, "severity": "fail"})
+            violations.append(
+                {
+                    "metric": "fill_rate",
+                    "value": fill_rate,
+                    "threshold": slo.fill_rate_min_fail,
+                    "severity": "fail",
+                }
+            )
         elif fill_rate < slo.fill_rate_min_warn:
-            violations.append({"metric": "fill_rate", "value": fill_rate,
-                               "threshold": slo.fill_rate_min_warn, "severity": "warn"})
+            violations.append(
+                {
+                    "metric": "fill_rate",
+                    "value": fill_rate,
+                    "threshold": slo.fill_rate_min_warn,
+                    "severity": "warn",
+                }
+            )
 
     if slippage_p99_bps is not None:
         if slippage_p99_bps >= slo.slippage_p99_bps_fail:
-            violations.append({"metric": "slippage_p99_bps", "value": slippage_p99_bps,
-                               "threshold": slo.slippage_p99_bps_fail, "severity": "fail"})
+            violations.append(
+                {
+                    "metric": "slippage_p99_bps",
+                    "value": slippage_p99_bps,
+                    "threshold": slo.slippage_p99_bps_fail,
+                    "severity": "fail",
+                }
+            )
         elif slippage_p99_bps >= slo.slippage_p99_bps_warn:
-            violations.append({"metric": "slippage_p99_bps", "value": slippage_p99_bps,
-                               "threshold": slo.slippage_p99_bps_warn, "severity": "warn"})
+            violations.append(
+                {
+                    "metric": "slippage_p99_bps",
+                    "value": slippage_p99_bps,
+                    "threshold": slo.slippage_p99_bps_warn,
+                    "severity": "warn",
+                }
+            )
 
     if any(v["severity"] == "fail" for v in violations):
         severity = "fail"
@@ -96,8 +144,12 @@ def evaluate_reconcile_slo(
     else:
         severity = "ok"
 
-    return {"severity": severity, "violations": violations,
-            "cash_diff_bps": cash_bps, "max_qty_diff": max_qty_diff}
+    return {
+        "severity": severity,
+        "violations": violations,
+        "cash_diff_bps": cash_bps,
+        "max_qty_diff": max_qty_diff,
+    }
 
 
 def reconcile_ledger_vs_broker(
@@ -306,8 +358,6 @@ def reconcile_ledger_vs_broker(
 # ── Daily P&L Reconciliation (Plan 8.1) ──────────────────────────────
 
 
-
-
 def reconcile_daily_pnl(
     positions: dict[str, float],
     position_prices_start: dict[str, float],
@@ -367,7 +417,9 @@ def reconcile_daily_pnl(
     break_reason = ""
     if not ok:
         if abs(unexplained) > 0.01:
-            break_reason = "LARGE_BREAK: possible missing position, corporate action, or fee"
+            break_reason = (
+                "LARGE_BREAK: possible missing position, corporate action, or fee"
+            )
         elif abs(unexplained) > tolerance_pct:
             break_reason = "MINOR_BREAK: rounding, timing, or cash drag"
 
@@ -386,14 +438,18 @@ def reconcile_daily_pnl(
     if not ok:
         logger.warning(
             "[Reconcile] P&L break: explained=%.6f, portfolio=%.6f, break=%.6f%% (%s)",
-            explained, portfolio_return, break_pct * 100, break_reason,
+            explained,
+            portfolio_return,
+            break_pct * 100,
+            break_reason,
         )
     if skipped_symbols:
         logger.warning(
             "[Reconcile] %d held-position symbol(s) skipped due to missing "
             "start/end price — attribution for these positions is missing "
             "from explained_return: %s",
-            len(skipped_symbols), skipped_symbols,
+            len(skipped_symbols),
+            skipped_symbols,
         )
 
     return result

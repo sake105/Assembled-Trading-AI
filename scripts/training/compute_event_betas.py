@@ -43,16 +43,26 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Compute EDCL event_beta FeatureStore view")
-    parser.add_argument("--price-path", required=True, help="Panel parquet with date/symbol/close")
+    parser = argparse.ArgumentParser(
+        description="Compute EDCL event_beta FeatureStore view"
+    )
+    parser.add_argument(
+        "--price-path", required=True, help="Panel parquet with date/symbol/close"
+    )
     parser.add_argument(
         "--events-path",
         default="data/intel/geo_events_historical.parquet",
         help="Historical geo-trigger events (event_date, trigger_type, ...)",
     )
-    parser.add_argument("--lookback-days", type=int, default=5, help="Forward-return window")
-    parser.add_argument("--output-root", default="data/feature_store", help="FeatureStore root")
-    parser.add_argument("--min-events", type=int, default=3, help="Min events to compute beta")
+    parser.add_argument(
+        "--lookback-days", type=int, default=5, help="Forward-return window"
+    )
+    parser.add_argument(
+        "--output-root", default="data/feature_store", help="FeatureStore root"
+    )
+    parser.add_argument(
+        "--min-events", type=int, default=3, help="Min events to compute beta"
+    )
     args = parser.parse_args()
 
     try:
@@ -85,7 +95,11 @@ def main() -> None:
     prices = pd.read_parquet(price_path)
     required_cols = {"date", "symbol", "close"}
     if not required_cols.issubset(prices.columns):
-        log.error("Price file must have columns: %s — found: %s", required_cols, set(prices.columns))
+        log.error(
+            "Price file must have columns: %s — found: %s",
+            required_cols,
+            set(prices.columns),
+        )
         sys.exit(1)
     prices["date"] = pd.to_datetime(prices["date"])
     prices = prices.sort_values(["symbol", "date"])
@@ -104,7 +118,9 @@ def main() -> None:
 
     log.info(
         "Computing %d-day event betas: %d trigger types × %d symbols",
-        N, len(trigger_types), len(symbols),
+        N,
+        len(trigger_types),
+        len(symbols),
     )
 
     # Pivot prices to (date × symbol) matrix for efficient forward-return lookup
@@ -119,7 +135,9 @@ def main() -> None:
         dates_idx = sym_prices.index
 
         for ttype in trigger_types:
-            type_events = events[events["trigger_type"] == ttype]["event_date"].sort_values()
+            type_events = events[events["trigger_type"] == ttype][
+                "event_date"
+            ].sort_values()
             returns: list[float] = []
 
             for ev_date in type_events:
@@ -138,13 +156,17 @@ def main() -> None:
                 continue
 
             median_beta = float(np.median(returns))
-            rows.append({
-                "ticker": symbol,
-                f"beta_{ttype}_{N}d": median_beta,
-            })
+            rows.append(
+                {
+                    "ticker": symbol,
+                    f"beta_{ttype}_{N}d": median_beta,
+                }
+            )
 
     if not rows:
-        log.warning("No event betas computed — check that events overlap with price history")
+        log.warning(
+            "No event betas computed — check that events overlap with price history"
+        )
         return
 
     # Aggregate: one row per ticker with all trigger-type beta columns
@@ -160,7 +182,10 @@ def main() -> None:
     result.to_parquet(out_path, index=False)
     log.info(
         "Wrote event_beta view: %s (%d tickers, %d trigger types, as_of=%s)",
-        out_path, len(result), len(trigger_types), inference_ts.date(),
+        out_path,
+        len(result),
+        len(trigger_types),
+        inference_ts.date(),
     )
 
 

@@ -95,8 +95,14 @@ def test_lifecycle_full_happy_path_matches_by_symbol_side(tmp_path: Path) -> Non
 
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 10.0,
-             "fill_price": 100.5, "status": "filled"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 10.0,
+                "fill_price": 100.5,
+                "status": "filled",
+            },
         ]
     )
     eng._lifecycle_mark_fills(orders, fills, pre_ids)
@@ -119,8 +125,14 @@ def test_lifecycle_partial_fill_is_partial_fill_state(tmp_path: Path) -> None:
 
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 4.0,
-             "fill_price": 100.2, "status": "partial"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 4.0,
+                "fill_price": 100.2,
+                "status": "partial",
+            },
         ]
     )
     eng._lifecycle_mark_fills(orders, fills, pre_ids)
@@ -142,9 +154,15 @@ def test_lifecycle_fill_row_rejected_goes_to_rejected(tmp_path: Path) -> None:
 
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 0.0,
-             "fill_price": 100.0, "status": "rejected",
-             "reject_reason": "INSUFFICIENT_CASH"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 0.0,
+                "fill_price": 100.0,
+                "status": "rejected",
+                "reject_reason": "INSUFFICIENT_CASH",
+            },
         ]
     )
     eng._lifecycle_mark_fills(orders, fills, pre_ids)
@@ -183,8 +201,14 @@ def test_lifecycle_dump_writes_jsonl_on_day(tmp_path: Path) -> None:
     eng._lifecycle_mark_submitted(pre_ids)
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 10.0,
-             "fill_price": 100.0, "status": "filled"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 10.0,
+                "fill_price": 100.0,
+                "status": "filled",
+            },
         ]
     )
     eng._lifecycle_mark_fills(orders, fills, pre_ids)

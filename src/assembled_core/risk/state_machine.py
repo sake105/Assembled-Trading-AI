@@ -49,7 +49,9 @@ def _hours_since(iso_utc: str, now_utc: str) -> float:
         delta = t1 - t0
         return delta.total_seconds() / 3600.0
     except Exception as _exc:
-        logger.warning("[RiskState] _hours_since parse error (%s) — returning 0.0", _exc)
+        logger.warning(
+            "[RiskState] _hours_since parse error (%s) — returning 0.0", _exc
+        )
         return 0.0
 
 
@@ -73,6 +75,7 @@ def atomic_write_json_with_retry(
 ) -> None:
     """Write JSON to path atomically. Canonical impl: utils.atomic_io.atomic_write_json."""
     from src.assembled_core.utils.atomic_io import atomic_write_json
+
     atomic_write_json(path, data, retries=retries, backoff_ms=backoff_ms)
 
 
@@ -539,11 +542,36 @@ def compute_continuous_capital_scale(
 
 # Default limits per regime: max_gross, max_drawdown, max_single_weight
 REGIME_RISK_LIMITS: dict[str, dict[str, float]] = {
-    "bull": {"max_gross": 1.0, "max_dd": 0.20, "max_single": 0.15, "max_short_gross": 0.30},
-    "bear": {"max_gross": 0.70, "max_dd": 0.12, "max_single": 0.10, "max_short_gross": 0.20},
-    "crisis": {"max_gross": 0.50, "max_dd": 0.08, "max_single": 0.08, "max_short_gross": 0.10},
-    "recovery": {"max_gross": 0.90, "max_dd": 0.18, "max_single": 0.12, "max_short_gross": 0.25},
-    "sideways": {"max_gross": 0.85, "max_dd": 0.15, "max_single": 0.12, "max_short_gross": 0.20},
+    "bull": {
+        "max_gross": 1.0,
+        "max_dd": 0.20,
+        "max_single": 0.15,
+        "max_short_gross": 0.30,
+    },
+    "bear": {
+        "max_gross": 0.70,
+        "max_dd": 0.12,
+        "max_single": 0.10,
+        "max_short_gross": 0.20,
+    },
+    "crisis": {
+        "max_gross": 0.50,
+        "max_dd": 0.08,
+        "max_single": 0.08,
+        "max_short_gross": 0.10,
+    },
+    "recovery": {
+        "max_gross": 0.90,
+        "max_dd": 0.18,
+        "max_single": 0.12,
+        "max_short_gross": 0.25,
+    },
+    "sideways": {
+        "max_gross": 0.85,
+        "max_dd": 0.15,
+        "max_single": 0.12,
+        "max_short_gross": 0.20,
+    },
 }
 
 

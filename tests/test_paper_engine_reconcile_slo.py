@@ -115,7 +115,11 @@ def test_engine_reconcile_noop_is_ok(tmp_path: Path) -> None:
     assert verdict is not None
     assert verdict["severity"] == "ok"
     # No alert file written
-    alerts = list((tmp_path / "alerts").glob("*.json")) if (tmp_path / "alerts").exists() else []
+    alerts = (
+        list((tmp_path / "alerts").glob("*.json"))
+        if (tmp_path / "alerts").exists()
+        else []
+    )
     assert alerts == []
 
 
@@ -140,6 +144,7 @@ def test_engine_reconcile_cash_fail_writes_alert(tmp_path: Path) -> None:
     alerts = list((tmp_path / "alerts").glob("*.json"))
     assert len(alerts) == 1
     import json
+
     payload = json.loads(alerts[0].read_text())
     assert payload["severity"] == "fail"
     assert payload["run_id"] == "recon_test"

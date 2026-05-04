@@ -28,9 +28,11 @@ from pathlib import Path
 
 try:
     from zoneinfo import ZoneInfo
+
     _ET = ZoneInfo("America/New_York")
 except ImportError:  # pragma: no cover — Py < 3.9 fallback
     import pytz  # type: ignore
+
     _ET = pytz.timezone("America/New_York")
 
 logger = logging.getLogger("check_scheduler_health")
@@ -89,11 +91,15 @@ def main(argv: list[str] | None = None) -> int:
     in_hours = _in_market_hours(now_et)
 
     if not in_hours and not args.ignore_market_hours:
-        logger.info("[HEALTH] %s ET — out of market hours, silent ok", now_et.isoformat())
+        logger.info(
+            "[HEALTH] %s ET — out of market hours, silent ok", now_et.isoformat()
+        )
         return 0
 
     if not HEARTBEAT_PATH.exists():
-        logger.error("[HEALTH] heartbeat missing at %s during market hours", HEARTBEAT_PATH)
+        logger.error(
+            "[HEALTH] heartbeat missing at %s during market hours", HEARTBEAT_PATH
+        )
         return 2
 
     try:

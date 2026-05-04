@@ -11,6 +11,7 @@ Provides two independent allocation mechanisms:
    target portfolio volatility via ``inverse_vol_weights()`` /
    ``allocate_from_returns_dict()``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,20 +27,22 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StrategyStats:
     """Observed performance statistics for one strategy bucket."""
+
     name: str
-    returns: list[float]              # daily return series
-    realized_vol: float = 0.0        # annualised vol (filled in by allocator)
-    weight: float = 0.0              # target weight (filled in by allocator)
+    returns: list[float]  # daily return series
+    realized_vol: float = 0.0  # annualised vol (filled in by allocator)
+    weight: float = 0.0  # target weight (filled in by allocator)
 
 
 @dataclass
 class AllocationResult:
     """Output of the strategy allocator."""
-    weights: dict[str, float]          # strategy_name → target weight (sum ≈ 1)
-    vol_scale: float                   # portfolio-level volatility scalar applied
-    estimated_portfolio_vol: float     # annualised vol before scaling (%)
-    target_vol: float                  # target annualised vol
-    strategy_vols: dict[str, float]    # per-strategy annualised vol
+
+    weights: dict[str, float]  # strategy_name → target weight (sum ≈ 1)
+    vol_scale: float  # portfolio-level volatility scalar applied
+    estimated_portfolio_vol: float  # annualised vol before scaling (%)
+    target_vol: float  # target annualised vol
+    strategy_vols: dict[str, float]  # per-strategy annualised vol
 
 
 def _annualised_vol(returns: list[float], min_obs: int = 10) -> float:
@@ -83,7 +86,8 @@ def inverse_vol_weights(
     """
     if not strategies:
         return AllocationResult(
-            weights={}, vol_scale=1.0,
+            weights={},
+            vol_scale=1.0,
             estimated_portfolio_vol=0.0,
             target_vol=target_vol,
             strategy_vols={},
@@ -154,8 +158,7 @@ def allocate_from_returns_dict(
         AllocationResult.
     """
     strategies = [
-        StrategyStats(name=name, returns=rets)
-        for name, rets in returns_dict.items()
+        StrategyStats(name=name, returns=rets) for name, rets in returns_dict.items()
     ]
     return inverse_vol_weights(
         strategies=strategies,
@@ -171,6 +174,7 @@ def allocate_from_returns_dict(
 
 try:
     import pandas as pd  # type: ignore[import]
+
     _PANDAS_AVAILABLE = True
 except ImportError:
     _PANDAS_AVAILABLE = False
@@ -179,7 +183,10 @@ except ImportError:
 @dataclass
 class AllocationConfig:
     """Configuration for the signal-level StrategyAllocator ensemble."""
-    method: str = "weighted_average"     # "weighted_average" | "majority_vote" | "regime_conditional"
+
+    method: str = (
+        "weighted_average"  # "weighted_average" | "majority_vote" | "regime_conditional"
+    )
     weights: dict[str, float] = field(default_factory=dict)
     regime_weights: dict[str, dict[str, float]] = field(default_factory=dict)
     score_normalization: bool = True
@@ -196,7 +203,8 @@ class AllocationConfig:
 @dataclass
 class EnsembleResult:
     """Output of StrategyAllocator.generate_combined_signals()."""
-    combined_signals: Any          # pd.DataFrame
+
+    combined_signals: Any  # pd.DataFrame
     per_strategy_signals: dict[str, Any]
     strategy_contributions: dict[str, float]
     metadata: dict[str, Any]
@@ -342,7 +350,10 @@ class StrategyAllocator:
 
         combined_raw = pd.concat(all_dfs, ignore_index=True)
 
-        if "symbol" not in combined_raw.columns or "direction" not in combined_raw.columns:
+        if (
+            "symbol" not in combined_raw.columns
+            or "direction" not in combined_raw.columns
+        ):
             return combined_raw
 
         # Aggregate per symbol: weighted score, majority direction
@@ -352,12 +363,20 @@ class StrategyAllocator:
             else:
                 wscore = 0.0
             # Weighted direction vote
-            _w = grp["_weight"].astype(float) if "_weight" in grp.columns else pd.Series(1.0, index=grp.index)
+            _w = (
+                grp["_weight"].astype(float)
+                if "_weight" in grp.columns
+                else pd.Series(1.0, index=grp.index)
+            )
             dir_totals = _w.groupby(grp["direction"].astype(str)).sum()
             best_dir = str(dir_totals.idxmax()) if not dir_totals.empty else "NEUTRAL"
             return pd.Series({"score": wscore, "direction": best_dir})
 
-        result = combined_raw.groupby("symbol", group_keys=False).apply(_agg, include_groups=False).reset_index()
+        result = (
+            combined_raw.groupby("symbol", group_keys=False)
+            .apply(_agg, include_groups=False)
+            .reset_index()
+        )
         return result
 
     def _majority_vote(self, per_signals: dict[str, Any]) -> Any:
@@ -372,7 +391,10 @@ class StrategyAllocator:
 
         combined_raw = pd.concat(all_dfs, ignore_index=True)
 
-        if "symbol" not in combined_raw.columns or "direction" not in combined_raw.columns:
+        if (
+            "symbol" not in combined_raw.columns
+            or "direction" not in combined_raw.columns
+        ):
             return combined_raw
 
         def _vote(grp: Any) -> Any:
@@ -383,5 +405,9 @@ class StrategyAllocator:
             score = float(grp["score"].mean()) if "score" in grp.columns else 0.0
             return pd.Series({"direction": direction, "score": score})
 
-        result = combined_raw.groupby("symbol", group_keys=False).apply(_vote, include_groups=False).reset_index()
+        result = (
+            combined_raw.groupby("symbol", group_keys=False)
+            .apply(_vote, include_groups=False)
+            .reset_index()
+        )
         return result

@@ -1,4 +1,5 @@
 """Execution routing — dispatches parent orders to direct/TWAP/Almgren-Chriss child slices."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,13 +45,14 @@ class ChildOrder:
 @dataclass
 class ExecutionConfig:
     """Thresholds (as fraction of ADV) that gate routing decisions."""
-    direct_threshold: float = 0.01   # < 1% ADV → direct
-    twap_threshold: float = 0.10     # 1-10% ADV → TWAP
+
+    direct_threshold: float = 0.01  # < 1% ADV → direct
+    twap_threshold: float = 0.10  # 1-10% ADV → TWAP
     twap_slices: int = 10
     twap_duration_minutes: int = 60
-    almgren_eta: float = 0.1         # temporary impact coefficient
-    almgren_gamma: float = 0.1       # permanent impact coefficient
-    almgren_lambda: float = 1e-6     # risk aversion
+    almgren_eta: float = 0.1  # temporary impact coefficient
+    almgren_gamma: float = 0.1  # permanent impact coefficient
+    almgren_lambda: float = 1e-6  # risk aversion
 
 
 def twap_split(
@@ -117,7 +119,11 @@ def ac_split(order: Order, config: ExecutionConfig) -> list[ChildOrder]:
         t = float(i)
         t_next = float(i + 1)
         holding_t = math.sinh(kappa * (T - t)) / math.sinh(kappa * T)
-        holding_t_next = math.sinh(kappa * (T - t_next)) / math.sinh(kappa * T) if t_next <= T else 0.0
+        holding_t_next = (
+            math.sinh(kappa * (T - t_next)) / math.sinh(kappa * T)
+            if t_next <= T
+            else 0.0
+        )
         qty = max(0, round(order.quantity * (holding_t - holding_t_next)))
         if i == n - 1:
             qty = prev_remaining
@@ -143,6 +149,7 @@ def ac_split(order: Order, config: ExecutionConfig) -> list[ChildOrder]:
 # ---------------------------------------------------------------------------
 # Adaptive Almgren-Chriss (B10)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class AdaptiveACState:
@@ -208,7 +215,7 @@ class AdaptiveACState:
         slippage = max(slippage, 0.0)  # only cost (positive) fills update eta
 
         # Invert: slippage_frac = eta * qty * sigma^2 / price
-        var_daily = sigma_daily ** 2
+        var_daily = sigma_daily**2
         implied_eta = slippage * expected_price / max(qty_filled * var_daily, 1e-10)
         implied_eta = max(implied_eta, 1e-6)
 
@@ -218,8 +225,7 @@ class AdaptiveACState:
 
         # EWMA update
         self.eta_hat = (
-            self.ewma_alpha * implied_eta
-            + (1.0 - self.ewma_alpha) * self.eta_hat
+            self.ewma_alpha * implied_eta + (1.0 - self.ewma_alpha) * self.eta_hat
         )
         self.eta_hat = max(self.eta_hat, 1e-6)
 
@@ -270,13 +276,18 @@ def adaptive_ac_split(
         for i in range(n):
             q = base + (1 if i < rem else 0)
             if q > 0:
-                slices.append(ChildOrder(
-                    symbol=order.symbol, side=order.side,
-                    quantity=q, price=order.price,
-                    algo="almgren_chriss",
-                    slice_idx=i, total_slices=n,
-                    parent_order_id=order.order_id,
-                ))
+                slices.append(
+                    ChildOrder(
+                        symbol=order.symbol,
+                        side=order.side,
+                        quantity=q,
+                        price=order.price,
+                        algo="almgren_chriss",
+                        slice_idx=i,
+                        total_slices=n,
+                        parent_order_id=order.order_id,
+                    )
+                )
         return slices
 
     slices = []
@@ -285,7 +296,11 @@ def adaptive_ac_split(
         t = float(i)
         t_next = float(i + 1)
         holding_t = math.sinh(kappa * (T - t)) / math.sinh(kappa * T)
-        holding_tn = math.sinh(kappa * (T - t_next)) / math.sinh(kappa * T) if t_next <= T else 0.0
+        holding_tn = (
+            math.sinh(kappa * (T - t_next)) / math.sinh(kappa * T)
+            if t_next <= T
+            else 0.0
+        )
         child_qty = max(0, round(qty * (holding_t - holding_tn)))
         if i == n - 1:
             child_qty = prev_remaining
@@ -293,13 +308,18 @@ def adaptive_ac_split(
         if child_qty <= 0:
             continue
         prev_remaining -= child_qty
-        slices.append(ChildOrder(
-            symbol=order.symbol, side=order.side,
-            quantity=child_qty, price=order.price,
-            algo="almgren_chriss",
-            slice_idx=i, total_slices=n,
-            parent_order_id=order.order_id,
-        ))
+        slices.append(
+            ChildOrder(
+                symbol=order.symbol,
+                side=order.side,
+                quantity=child_qty,
+                price=order.price,
+                algo="almgren_chriss",
+                slice_idx=i,
+                total_slices=n,
+                parent_order_id=order.order_id,
+            )
+        )
     return slices
 
 
@@ -329,7 +349,10 @@ def route_order(
     if pct_of_adv < config.direct_threshold:
         return [ChildOrder.from_parent(order, "direct")]
     elif pct_of_adv < config.twap_threshold:
-        return twap_split(order, n_slices=config.twap_slices,
-                          duration_minutes=config.twap_duration_minutes)
+        return twap_split(
+            order,
+            n_slices=config.twap_slices,
+            duration_minutes=config.twap_duration_minutes,
+        )
     else:
         return ac_split(order, config)

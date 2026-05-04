@@ -43,7 +43,10 @@ def coerce_price_types(df: pd.DataFrame) -> pd.DataFrame:
     n_dropped = n_before - len(df)
     if n_dropped > 0:
         import logging as _logging
+
         _logging.getLogger(__name__).warning(
-            "[coerce_price_types] dropped %d/%d rows with invalid timestamp or close", n_dropped, n_before
+            "[coerce_price_types] dropped %d/%d rows with invalid timestamp or close",
+            n_dropped,
+            n_before,
         )
     return df

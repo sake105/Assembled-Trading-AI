@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # 1.2 Regime-Conditional Factor Weights
 # ---------------------------------------------------------------------------
@@ -39,15 +38,21 @@ class TestRegimeBlendedWeights:
             assert abs(result[cat] - expected) < 1e-5
 
     def test_factor_category_mapping(self):
-        from src.assembled_core.signals.multifactor_signal import compute_regime_blended_weights
+        from src.assembled_core.signals.multifactor_signal import (
+            compute_regime_blended_weights,
+        )
 
         mapping = {"rsi_14": "momentum", "pe_ratio": "value", "roe": "quality"}
-        result = compute_regime_blended_weights({"bull": 1.0}, factor_categories=mapping)
+        result = compute_regime_blended_weights(
+            {"bull": 1.0}, factor_categories=mapping
+        )
         assert set(result.keys()) == {"rsi_14", "pe_ratio", "roe"}
         assert result["rsi_14"] == 0.30  # bull momentum weight
 
     def test_empty_probabilities(self):
-        from src.assembled_core.signals.multifactor_signal import compute_regime_blended_weights
+        from src.assembled_core.signals.multifactor_signal import (
+            compute_regime_blended_weights,
+        )
 
         result = compute_regime_blended_weights({})
         assert result == {}
@@ -58,7 +63,13 @@ class TestRegimeBlendedWeights:
         )
 
         # All 5 regimes exist
-        assert set(REGIME_FACTOR_WEIGHTS.keys()) == {"bull", "bear", "crisis", "recovery", "sideways"}
+        assert set(REGIME_FACTOR_WEIGHTS.keys()) == {
+            "bull",
+            "bear",
+            "crisis",
+            "recovery",
+            "sideways",
+        }
         # All have the same categories
         cats = set(REGIME_FACTOR_WEIGHTS["bull"].keys())
         for regime in REGIME_FACTOR_WEIGHTS:
@@ -74,8 +85,12 @@ class TestIntelAlphaFactor:
     """Tests for compute_symbol_intel_scores, normalize_intel_scores, build_intel_alpha_factor."""
 
     def test_basic_scoring(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.intel_signal_adapter')
-        from src.assembled_core.signals.intel_signal_adapter import compute_symbol_intel_scores
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
+        from src.assembled_core.signals.intel_signal_adapter import (
+            compute_symbol_intel_scores,
+        )
 
         result = compute_symbol_intel_scores(
             sector_impacts={"AAPL": 0.5, "MSFT": -0.3},
@@ -89,8 +104,12 @@ class TestIntelAlphaFactor:
         assert result["MSFT"] < 0
 
     def test_normalization(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.intel_signal_adapter')
-        from src.assembled_core.signals.intel_signal_adapter import normalize_intel_scores
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
+        from src.assembled_core.signals.intel_signal_adapter import (
+            normalize_intel_scores,
+        )
 
         scores = {"A": 1.0, "B": -1.0, "C": 0.0}
         normed = normalize_intel_scores(scores)
@@ -99,8 +118,12 @@ class TestIntelAlphaFactor:
         assert abs(np.std(values) - 1.0) < 0.1
 
     def test_build_intel_alpha_factor_returns_series(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.intel_signal_adapter')
-        from src.assembled_core.signals.intel_signal_adapter import build_intel_alpha_factor
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
+        from src.assembled_core.signals.intel_signal_adapter import (
+            build_intel_alpha_factor,
+        )
 
         result = build_intel_alpha_factor(
             sector_impacts={"XLE": 0.8, "GLD": 0.5, "QQQ": -0.3},
@@ -110,14 +133,22 @@ class TestIntelAlphaFactor:
         assert len(result) == 3
 
     def test_empty_inputs(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.intel_signal_adapter')
-        from src.assembled_core.signals.intel_signal_adapter import compute_symbol_intel_scores
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
+        from src.assembled_core.signals.intel_signal_adapter import (
+            compute_symbol_intel_scores,
+        )
 
         assert compute_symbol_intel_scores() == {}
 
     def test_confidence_weighting(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.intel_signal_adapter')
-        from src.assembled_core.signals.intel_signal_adapter import compute_symbol_intel_scores
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
+        from src.assembled_core.signals.intel_signal_adapter import (
+            compute_symbol_intel_scores,
+        )
 
         high_conf = compute_symbol_intel_scores(
             sector_impacts={"A": 0.5},
@@ -139,7 +170,9 @@ class TestMultiFeatureHMM:
     """Tests for MultiFeatureRegimeHMM and build_multifeature_observables."""
 
     def test_build_observables(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.regime_hmm')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.regime_hmm")
         from src.assembled_core.ml.regime_hmm import build_multifeature_observables
 
         np.random.seed(42)
@@ -151,7 +184,9 @@ class TestMultiFeatureHMM:
         assert len(result) > 0
 
     def test_build_observables_with_extras(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.regime_hmm')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.regime_hmm")
         from src.assembled_core.ml.regime_hmm import build_multifeature_observables
 
         np.random.seed(42)
@@ -164,21 +199,27 @@ class TestMultiFeatureHMM:
 
     def test_fallback_proba(self):
         """Without hmmlearn, MultiFeatureRegimeHMM should use fallback."""
-        import pytest; pytest.importorskip('src.assembled_core.ml.regime_hmm')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.regime_hmm")
         from src.assembled_core.ml.regime_hmm import MultiFeatureRegimeHMM
 
         hmm = MultiFeatureRegimeHMM()
         np.random.seed(42)
-        features = pd.DataFrame({
-            "ret": np.random.normal(0, 0.01, 100),
-            "vol": np.random.uniform(0.01, 0.03, 100),
-        })
+        features = pd.DataFrame(
+            {
+                "ret": np.random.normal(0, 0.01, 100),
+                "vol": np.random.uniform(0.01, 0.03, 100),
+            }
+        )
         proba = hmm.predict_proba(features)
         # Fallback returns p_bull, p_bear, p_sideways
         assert "p_bull" in proba.columns or proba.empty
 
     def test_crisis_alert_unfitted(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.regime_hmm')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.regime_hmm")
         from src.assembled_core.ml.regime_hmm import MultiFeatureRegimeHMM
 
         hmm = MultiFeatureRegimeHMM()
@@ -197,36 +238,59 @@ class TestQuantileModels:
     """Tests for QuantilePrediction, fit_quantile_lgbm, predict_quantiles."""
 
     def test_quantile_prediction_properties(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.quantile_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.quantile_models")
         from src.assembled_core.ml.quantile_models import QuantilePrediction
 
         qp = QuantilePrediction(
-            symbol="AAPL", q05=-0.05, q25=-0.01, q50=0.02, q75=0.04, q95=0.08,
+            symbol="AAPL",
+            q05=-0.05,
+            q25=-0.01,
+            q50=0.02,
+            q75=0.04,
+            q95=0.08,
         )
         assert qp.confidence > 0
         assert qp.asymmetry > 0
         assert qp.expected_direction == "positive"
 
     def test_quantile_prediction_negative(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.quantile_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.quantile_models")
         from src.assembled_core.ml.quantile_models import QuantilePrediction
 
         qp = QuantilePrediction(
-            symbol="X", q05=-0.10, q25=-0.05, q50=-0.02, q75=0.01, q95=0.05,
+            symbol="X",
+            q05=-0.10,
+            q25=-0.05,
+            q50=-0.02,
+            q75=0.01,
+            q95=0.05,
         )
         assert qp.expected_direction == "negative"
 
     def test_quantile_prediction_neutral(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.quantile_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.quantile_models")
         from src.assembled_core.ml.quantile_models import QuantilePrediction
 
         qp = QuantilePrediction(
-            symbol="X", q05=-0.05, q25=-0.001, q50=0.0005, q75=0.001, q95=0.05,
+            symbol="X",
+            q05=-0.05,
+            q25=-0.001,
+            q50=0.0005,
+            q75=0.001,
+            q95=0.05,
         )
         assert qp.expected_direction == "neutral"
 
     def test_fallback_quantiles(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.quantile_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.quantile_models")
         from src.assembled_core.ml.quantile_models import _fallback_quantiles
 
         y_train = np.random.normal(0, 1, 200)
@@ -237,28 +301,36 @@ class TestQuantileModels:
             assert len(arr) == 10
 
     def test_predict_quantiles_small_data(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.quantile_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.quantile_models")
         from src.assembled_core.ml.quantile_models import predict_quantiles
 
-        df = pd.DataFrame({
-            "f1": np.random.normal(0, 1, 30),
-            "target": np.random.normal(0, 1, 30),
-        })
+        df = pd.DataFrame(
+            {
+                "f1": np.random.normal(0, 1, 30),
+                "target": np.random.normal(0, 1, 30),
+            }
+        )
         result = predict_quantiles(df, "target", ["f1"])
         assert result == []  # too few samples (<50)
 
     def test_predict_quantiles_sufficient(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.quantile_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.quantile_models")
         from src.assembled_core.ml.quantile_models import predict_quantiles
 
         np.random.seed(42)
         n = 100
-        df = pd.DataFrame({
-            "f1": np.random.normal(0, 1, n),
-            "f2": np.random.normal(0, 1, n),
-            "target": np.random.normal(0, 1, n),
-            "symbol": ["SYM"] * n,
-        })
+        df = pd.DataFrame(
+            {
+                "f1": np.random.normal(0, 1, n),
+                "f2": np.random.normal(0, 1, n),
+                "target": np.random.normal(0, 1, n),
+                "symbol": ["SYM"] * n,
+            }
+        )
         result = predict_quantiles(df, "target", ["f1", "f2"])
         assert len(result) > 0
         for qp in result:
@@ -274,7 +346,9 @@ class TestOnlineLearning:
     """Tests for EWRLSModel, RetrainingTrigger, compute_model_age_confidence."""
 
     def test_ewrls_basic(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.online_learning')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.online_learning")
         from src.assembled_core.ml.online_learning import EWRLSModel
 
         model = EWRLSModel(n_features=2)
@@ -283,7 +357,9 @@ class TestOnlineLearning:
         assert model.n_updates == 0
 
     def test_ewrls_converges(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.online_learning')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.online_learning")
         from src.assembled_core.ml.online_learning import EWRLSModel
 
         np.random.seed(42)
@@ -298,7 +374,9 @@ class TestOnlineLearning:
         assert model.n_updates == 500
 
     def test_ewrls_batch_update(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.online_learning')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.online_learning")
         from src.assembled_core.ml.online_learning import EWRLSModel
 
         np.random.seed(42)
@@ -310,7 +388,9 @@ class TestOnlineLearning:
         assert model.n_updates == 50
 
     def test_retraining_trigger_ic(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.online_learning')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.online_learning")
         from src.assembled_core.ml.online_learning import RetrainingTrigger
 
         trigger = RetrainingTrigger(ic_threshold=0.0, consecutive_bad_days=3)
@@ -320,7 +400,9 @@ class TestOnlineLearning:
         assert trigger.check(-0.03, 0.01)  # 3rd bad day
 
     def test_retraining_trigger_reset(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.online_learning')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.online_learning")
         from src.assembled_core.ml.online_learning import RetrainingTrigger
 
         trigger = RetrainingTrigger(consecutive_bad_days=5)
@@ -329,7 +411,9 @@ class TestOnlineLearning:
         assert trigger._bad_day_count == 0
 
     def test_model_age_confidence(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.online_learning')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.online_learning")
         from src.assembled_core.ml.online_learning import compute_model_age_confidence
 
         assert compute_model_age_confidence(0) == 1.0
@@ -357,8 +441,12 @@ class TestExpandedTriggerRules:
         from src.assembled_core.intel.geo_trigger import KEYWORD_RULES
         from src.assembled_core.intel.models import TriggerType
 
-        for tt in [TriggerType.BANKING_CRISIS, TriggerType.CREDIT_DOWNGRADE,
-                   TriggerType.RATE_SURPRISE, TriggerType.PEG_STRESS]:
+        for tt in [
+            TriggerType.BANKING_CRISIS,
+            TriggerType.CREDIT_DOWNGRADE,
+            TriggerType.RATE_SURPRISE,
+            TriggerType.PEG_STRESS,
+        ]:
             assert tt in KEYWORD_RULES, f"Missing {tt}"
             assert len(KEYWORD_RULES[tt]) >= 8
 
@@ -366,8 +454,11 @@ class TestExpandedTriggerRules:
         from src.assembled_core.intel.geo_trigger import KEYWORD_RULES
         from src.assembled_core.intel.models import TriggerType
 
-        for tt in [TriggerType.MILITARY_BUILDUP, TriggerType.NUCLEAR_THREAT,
-                   TriggerType.CAPABILITY_SHIFT]:
+        for tt in [
+            TriggerType.MILITARY_BUILDUP,
+            TriggerType.NUCLEAR_THREAT,
+            TriggerType.CAPABILITY_SHIFT,
+        ]:
             assert tt in KEYWORD_RULES, f"Missing {tt}"
             assert len(KEYWORD_RULES[tt]) >= 8
 

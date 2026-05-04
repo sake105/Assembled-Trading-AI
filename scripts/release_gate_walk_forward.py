@@ -72,13 +72,16 @@ def _synthetic_prices(
                     "volume": 1_000_000.0,
                 }
             )
-    return pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    return (
+        pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    )
 
 
 def _trend_signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
     from src.assembled_core.signals.rules_trend import (
         generate_trend_signals_from_prices,
     )
+
     return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
 
 
@@ -86,6 +89,7 @@ def _equal_weight_position_fn(signals_df: pd.DataFrame, capital: float) -> pd.Da
     from src.assembled_core.portfolio.position_sizing import (
         compute_target_positions_from_trend_signals,
     )
+
     return compute_target_positions_from_trend_signals(
         signals_df, total_capital=capital, top_n=None, min_score=0.0
     )
@@ -126,7 +130,9 @@ def _make_real_backtest_fn(prices: pd.DataFrame):
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "[RELEASE-GATE] backtest failed for %s..%s: %s — emitting zeros",
-                test_start.date(), test_end.date(), exc,
+                test_start.date(),
+                test_end.date(),
+                exc,
             )
             return {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0}
 
@@ -193,7 +199,9 @@ def build_gate_report(
 
     e3_pass = mean_oos_sharpe >= oos_sharpe_min
     dsr_prob = dsr_dict.get("deflated_sharpe_probability", float("nan"))
-    e4_pass = bool(isinstance(dsr_prob, float) and dsr_prob == dsr_prob and dsr_prob >= dsr_min)
+    e4_pass = bool(
+        isinstance(dsr_prob, float) and dsr_prob == dsr_prob and dsr_prob >= dsr_min
+    )
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),

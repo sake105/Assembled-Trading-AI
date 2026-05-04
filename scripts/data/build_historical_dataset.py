@@ -44,6 +44,7 @@ FRED_SERIES = {
 # Sektion 1 — Universe (PIT-safe, kein Survivorship Bias)
 # ---------------------------------------------------------------------------
 
+
 def load_sp500_historical_members(
     start: str,
     end: str,
@@ -72,36 +73,46 @@ def load_sp500_historical_members(
         for row in changes.itertuples(index=False):
             try:
                 date_raw = row[0]
-                added_sym = str(row[1]).replace(".", "-") if pd.notna(row[1]) else None  # noqa: F841
-                removed_sym = str(row[2]).replace(".", "-") if pd.notna(row[2]) else None
+                added_sym = (
+                    str(row[1]).replace(".", "-") if pd.notna(row[1]) else None
+                )  # noqa: F841
+                removed_sym = (
+                    str(row[2]).replace(".", "-") if pd.notna(row[2]) else None
+                )
                 chg_date = pd.to_datetime(date_raw, errors="coerce")
                 if pd.isna(chg_date):
                     continue
                 if removed_sym and removed_sym.strip():
-                    removed_rows.append({
-                        "symbol": removed_sym.strip(),
-                        "start_date": pd.NaT,
-                        "end_date": chg_date,
-                    })
+                    removed_rows.append(
+                        {
+                            "symbol": removed_sym.strip(),
+                            "start_date": pd.NaT,
+                            "end_date": chg_date,
+                        }
+                    )
             except Exception:
                 continue
 
-    removed_df = pd.DataFrame(removed_rows) if removed_rows else pd.DataFrame(
-        columns=["symbol", "start_date", "end_date"]
+    removed_df = (
+        pd.DataFrame(removed_rows)
+        if removed_rows
+        else pd.DataFrame(columns=["symbol", "start_date", "end_date"])
     )
 
-    all_members = pd.concat([
-        current[["symbol", "start_date", "end_date"]],
-        removed_df,
-    ], ignore_index=True)
+    all_members = pd.concat(
+        [
+            current[["symbol", "start_date", "end_date"]],
+            removed_df,
+        ],
+        ignore_index=True,
+    )
 
     # Filter: Mitglied im Zeitraum [start, end]
     range_start = pd.Timestamp(start)
     range_end = pd.Timestamp(end)
     mask = (
-        (all_members["end_date"].isna() | (all_members["end_date"] >= range_start))
-        & (all_members["start_date"].isna() | (all_members["start_date"] <= range_end))
-    )
+        all_members["end_date"].isna() | (all_members["end_date"] >= range_start)
+    ) & (all_members["start_date"].isna() | (all_members["start_date"] <= range_end))
     result = all_members[mask].drop_duplicates(subset=["symbol"]).reset_index(drop=True)
     logger.info("[Universe] %d Symbole für Zeitraum %s–%s", len(result), start, end)
     return result
@@ -110,6 +121,7 @@ def load_sp500_historical_members(
 # ---------------------------------------------------------------------------
 # Sektion 2 — OHLCV Download (yfinance in 50er-Batches)
 # ---------------------------------------------------------------------------
+
 
 def download_symbol_batch(
     symbols: list[str],
@@ -134,7 +146,7 @@ def download_symbol_batch(
     skipped = 0
 
     for i in range(0, len(symbols), 50):
-        batch = symbols[i: i + 50]
+        batch = symbols[i : i + 50]
         to_download = [s for s in batch if s not in manifest]
         if not to_download:
             skipped += len(batch)
@@ -179,7 +191,8 @@ def download_symbol_batch(
 
     logger.info(
         "[OHLCV] %d heruntergeladen, %d übersprungen (bereits vorhanden)",
-        downloaded, skipped,
+        downloaded,
+        skipped,
     )
     return manifest
 
@@ -187,6 +200,7 @@ def download_symbol_batch(
 # ---------------------------------------------------------------------------
 # Sektion 3 — Makro (FRED)
 # ---------------------------------------------------------------------------
+
 
 def download_fred_data(out_dir: Path) -> None:
     """Makro-Zeitreihen via fredapi.
@@ -198,6 +212,7 @@ def download_fred_data(out_dir: Path) -> None:
         import os
 
         from fredapi import Fred  # type: ignore
+
         fred = Fred(api_key=os.environ.get("FRED_API_KEY", ""))
     except ImportError:
         logger.warning("[FRED] fredapi nicht installiert — Makro-Download übersprungen")
@@ -210,7 +225,9 @@ def download_fred_data(out_dir: Path) -> None:
         try:
             data = fred.get_series(series_id)
             all_series[col_name] = data
-            logger.info("[FRED] %s (%s): %d Datenpunkte", col_name, series_id, len(data))
+            logger.info(
+                "[FRED] %s (%s): %d Datenpunkte", col_name, series_id, len(data)
+            )
             time.sleep(0.1)
         except Exception as exc:
             logger.warning("[FRED] %s fehlgeschlagen: %s", series_id, exc)
@@ -219,12 +236,17 @@ def download_fred_data(out_dir: Path) -> None:
         macro_df = pd.DataFrame(all_series)
         macro_df.index.name = "date"
         macro_df.to_parquet(out_dir / "fred_series.parquet")
-        logger.info("[FRED] Makro gespeichert: %d Zeilen, %d Spalten", len(macro_df), len(macro_df.columns))
+        logger.info(
+            "[FRED] Makro gespeichert: %d Zeilen, %d Spalten",
+            len(macro_df),
+            len(macro_df.columns),
+        )
 
 
 # ---------------------------------------------------------------------------
 # Sektion 4 — Quality Gate
 # ---------------------------------------------------------------------------
+
 
 def run_quality_gate(prices_dir: Path) -> dict:
     """Prüft jedes Symbol auf Datenqualität.
@@ -263,7 +285,9 @@ def run_quality_gate(prices_dir: Path) -> dict:
                 returns = df[close_col].pct_change(fill_method=None).abs()
                 if (returns > 0.5).any():
                     n_jumps = int((returns > 0.5).sum())
-                    failed.append({"symbol": sym, "reason": f"{n_jumps} Preissprünge > 50%"})
+                    failed.append(
+                        {"symbol": sym, "reason": f"{n_jumps} Preissprünge > 50%"}
+                    )
                     continue
 
             passed.append(sym)
@@ -280,7 +304,9 @@ def run_quality_gate(prices_dir: Path) -> dict:
     report_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     logger.info(
         "[QA] %d bestanden, %d disqualifiziert. Report: %s",
-        len(passed), len(failed), report_path,
+        len(passed),
+        len(failed),
+        report_path,
     )
     return report
 
@@ -288,6 +314,7 @@ def run_quality_gate(prices_dir: Path) -> dict:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(

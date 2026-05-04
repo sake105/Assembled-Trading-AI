@@ -140,12 +140,8 @@ class TestVolScaled:
     def test_higher_target_vol_higher_weights(
         self, long_signals: pd.DataFrame, volatilities: dict[str, float]
     ) -> None:
-        low = compute_vol_scaled_weights(
-            long_signals, volatilities, target_vol=0.10
-        )
-        high = compute_vol_scaled_weights(
-            long_signals, volatilities, target_vol=0.25
-        )
+        low = compute_vol_scaled_weights(long_signals, volatilities, target_vol=0.10)
+        high = compute_vol_scaled_weights(long_signals, volatilities, target_vol=0.25)
         assert high["target_weight"].sum() >= low["target_weight"].sum() - 1e-10
 
     def test_weights_sum_le_one_v3(

@@ -59,9 +59,7 @@ runs:
   - id: run1
     start_date: "2015-01-01"
     end_date: "2020-12-31"
-""".format(
-            output=str(tmp_path / "output").replace("\\", "/")
-        ),
+""".format(output=str(tmp_path / "output").replace("\\", "/")),
         encoding="utf-8",
     )
 
@@ -96,9 +94,7 @@ runs:
   - id: run1
     start_date: "2015-01-01"
     end_date: "2020-12-31"
-""".format(
-            output=str(tmp_path / "output").replace("\\", "/")
-        ),
+""".format(output=str(tmp_path / "output").replace("\\", "/")),
         encoding="utf-8",
     )
 

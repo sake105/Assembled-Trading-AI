@@ -26,7 +26,9 @@ from src.assembled_core.intel.models import NewsEvent, SourceTier
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_PATH = Path(__file__).resolve().parents[4] / "configs" / "intel" / "rss_feeds.yaml"
+_CONFIG_PATH = (
+    Path(__file__).resolve().parents[4] / "configs" / "intel" / "rss_feeds.yaml"
+)
 
 # Geopolitical keywords for relevance filtering (T2/T3 sources)
 _URGENCY_HIGH = frozenset({"breaking", "flash", "urgent"})
@@ -36,11 +38,40 @@ _URGENCY_MED = frozenset({"alert", "update"})
 # Language detection (fast heuristic, no ML)
 # ---------------------------------------------------------------------------
 
-_ENGLISH_STOP_WORDS = frozenset({
-    "the", "and", "of", "in", "to", "a", "is", "for", "on", "at", "by",
-    "with", "as", "an", "it", "be", "this", "that", "from", "or", "are",
-    "was", "were", "has", "have", "had", "not", "its", "their", "will",
-})
+_ENGLISH_STOP_WORDS = frozenset(
+    {
+        "the",
+        "and",
+        "of",
+        "in",
+        "to",
+        "a",
+        "is",
+        "for",
+        "on",
+        "at",
+        "by",
+        "with",
+        "as",
+        "an",
+        "it",
+        "be",
+        "this",
+        "that",
+        "from",
+        "or",
+        "are",
+        "was",
+        "were",
+        "has",
+        "have",
+        "had",
+        "not",
+        "its",
+        "their",
+        "will",
+    }
+)
 
 
 def _is_english(text: str) -> bool:
@@ -56,14 +87,43 @@ def _is_english(text: str) -> bool:
 # Noise filter (block sports/entertainment on geopolitical feeds)
 # ---------------------------------------------------------------------------
 
-_NOISE_PATTERNS = frozenset({
-    "celebrity", "birthday", "wedding", "divorce", "oscar", "grammy",
-    "nfl", "nba", "nhl", "football", "soccer", "baseball", "basketball",
-    "tennis", "golf", "formula 1", "formula one", "f1 race",
-    "recipe", "cooking", "fashion week", "makeup", "beauty tip", "horoscope",
-    "zodiac", "movie review", "box office", "album release", "concert tour",
-    "reality tv", "instagram", "tiktok viral", "celebrity couple",
-})
+_NOISE_PATTERNS = frozenset(
+    {
+        "celebrity",
+        "birthday",
+        "wedding",
+        "divorce",
+        "oscar",
+        "grammy",
+        "nfl",
+        "nba",
+        "nhl",
+        "football",
+        "soccer",
+        "baseball",
+        "basketball",
+        "tennis",
+        "golf",
+        "formula 1",
+        "formula one",
+        "f1 race",
+        "recipe",
+        "cooking",
+        "fashion week",
+        "makeup",
+        "beauty tip",
+        "horoscope",
+        "zodiac",
+        "movie review",
+        "box office",
+        "album release",
+        "concert tour",
+        "reality tv",
+        "instagram",
+        "tiktok viral",
+        "celebrity couple",
+    }
+)
 
 
 def _urgency_score(title: str) -> float:
@@ -79,13 +139,44 @@ def _urgency_score(title: str) -> float:
 
 
 _GEO_KEYWORDS = {
-    "war", "conflict", "sanctions", "military", "strike", "attack",
-    "troops", "missile", "nato", "coup", "crisis", "escalation",
-    "invasion", "blockade", "embargo", "shutdown", "explosion",
-    "protest", "uprising", "seized", "captured", "offensive",
-    "energy", "oil", "gas", "supply", "pipeline", "shortage",
-    "tariff", "trade", "deficit", "central bank", "rate", "inflation",
-    "debt", "default", "downgrade", "recession",
+    "war",
+    "conflict",
+    "sanctions",
+    "military",
+    "strike",
+    "attack",
+    "troops",
+    "missile",
+    "nato",
+    "coup",
+    "crisis",
+    "escalation",
+    "invasion",
+    "blockade",
+    "embargo",
+    "shutdown",
+    "explosion",
+    "protest",
+    "uprising",
+    "seized",
+    "captured",
+    "offensive",
+    "energy",
+    "oil",
+    "gas",
+    "supply",
+    "pipeline",
+    "shortage",
+    "tariff",
+    "trade",
+    "deficit",
+    "central bank",
+    "rate",
+    "inflation",
+    "debt",
+    "default",
+    "downgrade",
+    "recession",
 }
 
 
@@ -103,13 +194,16 @@ class FeedConfig:
 
 @dataclass
 class RSSFetchState:
-    last_seen_ids: dict[str, set[str]] = field(default_factory=dict)  # feed_id → seen entry hashes
+    last_seen_ids: dict[str, set[str]] = field(
+        default_factory=dict
+    )  # feed_id → seen entry hashes
 
 
 def _load_feed_configs(config_path: Path = _CONFIG_PATH) -> list[FeedConfig]:
     """Load feed registry from YAML."""
     try:
         import yaml
+
         with open(config_path, "r", encoding="utf-8") as fh:
             raw = yaml.safe_load(fh)
         configs = []
@@ -119,19 +213,23 @@ def _load_feed_configs(config_path: Path = _CONFIG_PATH) -> list[FeedConfig]:
                 tier = SourceTier(tier_str)
             except ValueError:
                 tier = SourceTier.T3
-            configs.append(FeedConfig(
-                id=entry["id"],
-                name=entry.get("name", entry["id"]),
-                url=entry.get("url", ""),
-                tier=tier,
-                focus=entry.get("focus", "general"),
-                enabled=entry.get("enabled", True),
-                note=entry.get("note", ""),
-                max_age_hours=int(entry.get("max_age_hours") or 0),
-            ))
+            configs.append(
+                FeedConfig(
+                    id=entry["id"],
+                    name=entry.get("name", entry["id"]),
+                    url=entry.get("url", ""),
+                    tier=tier,
+                    focus=entry.get("focus", "general"),
+                    enabled=entry.get("enabled", True),
+                    note=entry.get("note", ""),
+                    max_age_hours=int(entry.get("max_age_hours") or 0),
+                )
+            )
         return configs
     except Exception as exc:
-        logger.warning("[WARN] RSSFetcher: failed to load feed config %s: %s", config_path, exc)
+        logger.warning(
+            "[WARN] RSSFetcher: failed to load feed config %s: %s", config_path, exc
+        )
         return []
 
 
@@ -198,6 +296,7 @@ def _entry_to_news_event(
 
     # Step 4: Ticker extraction — title-based (fast, no I/O) + EntityLinker
     from src.assembled_core.intel.news_entity_mapper import extract_tickers_from_title
+
     tickers: list[str] = extract_tickers_from_title(title)
     seen_tickers: set[str] = set(tickers)
     if entity_linker is not None:
@@ -208,7 +307,9 @@ def _entry_to_news_event(
                     tickers.append(ticker)
                     seen_tickers.add(ticker)
             except Exception as _exc:
-                logger.debug("[rss_fetcher] entity_linker.link failed for %s: %s", entity, _exc)
+                logger.debug(
+                    "[rss_fetcher] entity_linker.link failed for %s: %s", entity, _exc
+                )
 
     # Step 5: Build base event
     event = NewsEvent(
@@ -237,7 +338,10 @@ def _entry_to_news_event(
         from src.assembled_core.intel.news_classifier import (
             classify_news_event as _classify,
         )
-        classification = _classify(title, geo_tags=geo_tags, source_tier=feed_cfg.tier.value, tickers=tickers)
+
+        classification = _classify(
+            title, geo_tags=geo_tags, source_tier=feed_cfg.tier.value, tickers=tickers
+        )
         event.event_types = classification.event_types
         event.severity = classification.severity
         event.market_direction = classification.market_direction
@@ -247,7 +351,9 @@ def _entry_to_news_event(
         # Apply source bias discount to confidence (Point 40)
         event.news_confidence = _bias_discount(classification.confidence, feed_cfg.id)
     except Exception as _clf_exc:
-        logger.debug("[SKIP] RSSFetcher: classifier error for %s: %s", event_id, _clf_exc)
+        logger.debug(
+            "[SKIP] RSSFetcher: classifier error for %s: %s", event_id, _clf_exc
+        )
 
     return event
 
@@ -330,11 +436,19 @@ class RSSFetcher:
                 events = self._fetch_one(cfg, skip_seen=skip_seen)
                 all_events.extend(events)
             except Exception as exc:
-                logger.warning("[WARN] RSSFetcher.fetch_all: feed=%s error=%s", cfg.id, exc)
-        logger.info("[OK] RSSFetcher.fetch_all: %d events from %d feeds", len(all_events), len(self.enabled_feeds))
+                logger.warning(
+                    "[WARN] RSSFetcher.fetch_all: feed=%s error=%s", cfg.id, exc
+                )
+        logger.info(
+            "[OK] RSSFetcher.fetch_all: %d events from %d feeds",
+            len(all_events),
+            len(self.enabled_feeds),
+        )
         return all_events
 
-    def fetch_by_tier(self, tier: SourceTier, *, skip_seen: bool = True) -> list[NewsEvent]:
+    def fetch_by_tier(
+        self, tier: SourceTier, *, skip_seen: bool = True
+    ) -> list[NewsEvent]:
         """Fetch only feeds of a specific tier."""
         all_events: list[NewsEvent] = []
         for cfg in self.enabled_feeds:
@@ -365,44 +479,68 @@ class RSSFetcher:
             try:
                 # feedparser can handle HTTP itself, but we use requests for
                 # consistent retry/timeout behavior
-                resp = requests.get(cfg.url, timeout=self._timeout, headers={
-                    "User-Agent": "AssembledTradingAI/1.0 (+https://github.com/sake105/Assembled-Trading-AI)"
-                })
+                resp = requests.get(
+                    cfg.url,
+                    timeout=self._timeout,
+                    headers={
+                        "User-Agent": "AssembledTradingAI/1.0 (+https://github.com/sake105/Assembled-Trading-AI)"
+                    },
+                )
                 if resp.status_code == 429:
-                    wait = self._backoff_base ** attempt
-                    logger.warning("[WARN] RSSFetcher: 429 rate-limit on %s, waiting %.1fs", cfg.id, wait)
+                    wait = self._backoff_base**attempt
+                    logger.warning(
+                        "[WARN] RSSFetcher: 429 rate-limit on %s, waiting %.1fs",
+                        cfg.id,
+                        wait,
+                    )
                     _time.sleep(wait)
                     continue
                 resp.raise_for_status()
                 import feedparser  # optional dep — lazy import
+
                 feed_data = feedparser.parse(resp.content)
                 last_exc = None
                 break
             except requests.RequestException as exc:
                 last_exc = exc
                 if attempt < self._retries - 1:
-                    wait = self._backoff_base ** attempt
-                    logger.warning("[WARN] RSSFetcher: %s attempt %d failed (%s), retry in %.1fs",
-                                   cfg.id, attempt + 1, exc, wait)
+                    wait = self._backoff_base**attempt
+                    logger.warning(
+                        "[WARN] RSSFetcher: %s attempt %d failed (%s), retry in %.1fs",
+                        cfg.id,
+                        attempt + 1,
+                        exc,
+                        wait,
+                    )
                     _time.sleep(wait)
 
         if feed_data is None:
-            logger.warning("[WARN] RSSFetcher: all retries failed for %s: %s", cfg.id, last_exc)
+            logger.warning(
+                "[WARN] RSSFetcher: all retries failed for %s: %s", cfg.id, last_exc
+            )
             return []
 
         if feed_data.bozo and not feed_data.entries:
-            logger.warning("[WARN] RSSFetcher: malformed feed %s: %s", cfg.id, feed_data.bozo_exception)
+            logger.warning(
+                "[WARN] RSSFetcher: malformed feed %s: %s",
+                cfg.id,
+                feed_data.bozo_exception,
+            )
             return []
 
         now = datetime.now(tz=timezone.utc)
         seen = self._seen.setdefault(cfg.id, set())
         events: list[NewsEvent] = []
 
-        age_cutoff = now - timedelta(hours=cfg.max_age_hours) if cfg.max_age_hours > 0 else None
+        age_cutoff = (
+            now - timedelta(hours=cfg.max_age_hours) if cfg.max_age_hours > 0 else None
+        )
 
         for entry in feed_data.entries[: self._max_entries]:
             try:
-                event = _entry_to_news_event(entry, cfg, now, entity_linker=self._entity_linker)
+                event = _entry_to_news_event(
+                    entry, cfg, now, entity_linker=self._entity_linker
+                )
                 if event is None:
                     continue
                 # Step 2: age filter
@@ -417,32 +555,48 @@ class RSSFetcher:
                     continue
                 # Skip noise events
                 if event.is_noise:
-                    logger.debug("[SKIP] RSSFetcher: noise event in %s: %s", cfg.id, event.title[:60])
+                    logger.debug(
+                        "[SKIP] RSSFetcher: noise event in %s: %s",
+                        cfg.id,
+                        event.title[:60],
+                    )
                     continue
                 seen.add(event.content_hash)
                 if event.url:
                     self._seen_urls.add(event.url)
                 events.append(event)
             except Exception as exc:
-                logger.debug("[SKIP] RSSFetcher: entry parse error in %s: %s", cfg.id, exc)
+                logger.debug(
+                    "[SKIP] RSSFetcher: entry parse error in %s: %s", cfg.id, exc
+                )
                 continue
 
         # Optional NLP sentiment scoring (FinBERT)
         if self._nlp_sentiment and events:
             self._score_sentiment_batch(events)
 
-        logger.info("[OK] RSSFetcher: feed=%s tier=%s events=%d", cfg.id, cfg.tier.value, len(events))
+        logger.info(
+            "[OK] RSSFetcher: feed=%s tier=%s events=%d",
+            cfg.id,
+            cfg.tier.value,
+            len(events),
+        )
         return events
 
     def _score_sentiment_batch(self, events: list[NewsEvent]) -> None:
         """Attempt FinBERT sentiment scoring; gracefully skips if unavailable."""
         try:
             from src.assembled_core.ml.nlp_sentiment import score_texts_finbert
+
             titles = [e.title for e in events]
             scores = score_texts_finbert(titles)
             for event, score_dict in zip(events, scores):
                 label = score_dict.get("label", "neutral")
                 raw = float(score_dict.get("score", 0.0))
-                event.sentiment_score = raw if label == "positive" else (-raw if label == "negative" else 0.0)
+                event.sentiment_score = (
+                    raw
+                    if label == "positive"
+                    else (-raw if label == "negative" else 0.0)
+                )
         except Exception as exc:
             logger.debug("[SKIP] RSSFetcher: NLP sentiment unavailable: %s", exc)

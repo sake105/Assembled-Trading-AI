@@ -12,6 +12,7 @@ Integrates:
   §8 portfolio/strategy_allocator — inverse-vol risk-parity weights
   §7 intel/news_rag         — weekly news-digest via LLM-RAG (optional)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -105,7 +106,9 @@ def _section_risk_parity(returns: dict[str, list[float]]) -> dict:
         section["vol_scale"] = round(result.vol_scale, 4)
         section["estimated_portfolio_vol"] = round(result.estimated_portfolio_vol, 6)
         section["target_vol"] = result.target_vol
-        section["strategy_vols"] = {k: round(v, 6) for k, v in result.strategy_vols.items()}
+        section["strategy_vols"] = {
+            k: round(v, 6) for k, v in result.strategy_vols.items()
+        }
     except Exception as exc:
         log.warning("strategy_allocator failed: %s", exc)
         section["error"] = str(exc)
@@ -125,13 +128,15 @@ def _section_news_rag(headlines: list[str]) -> dict:
         for hl in headlines[:10]:  # cap at 10 per report
             try:
                 result = rag.query(hl, ticker="")
-                section["results"].append({
-                    "headline": hl,
-                    "direction": result.predicted_direction,
-                    "confidence": round(result.confidence, 4),
-                    "reasoning": result.reasoning[:200] if result.reasoning else "",
-                    "backend": result.backend,
-                })
+                section["results"].append(
+                    {
+                        "headline": hl,
+                        "direction": result.predicted_direction,
+                        "confidence": round(result.confidence, 4),
+                        "reasoning": result.reasoning[:200] if result.reasoning else "",
+                        "backend": result.backend,
+                    }
+                )
                 section["backend"] = result.backend
             except Exception as e:
                 section["results"].append({"headline": hl, "error": str(e)})
@@ -141,7 +146,9 @@ def _section_news_rag(headlines: list[str]) -> dict:
     return section
 
 
-def _section_differential_privacy(returns: dict[str, list[float]], epsilon: float = 1.0) -> dict:
+def _section_differential_privacy(
+    returns: dict[str, list[float]], epsilon: float = 1.0
+) -> dict:
     """§10 — Differentially private Sharpe estimates (publishable without leaking raw returns).
 
     Applies Gaussian mechanism to Sharpe ratios so they can be shared externally
@@ -159,7 +166,14 @@ def _section_differential_privacy(returns: dict[str, list[float]], epsilon: floa
             if len(rets) < 5:
                 continue
             import math as _math
-            std = float(sum((r - sum(rets) / len(rets)) ** 2 for r in rets) / max(len(rets) - 1, 1)) ** 0.5
+
+            std = (
+                float(
+                    sum((r - sum(rets) / len(rets)) ** 2 for r in rets)
+                    / max(len(rets) - 1, 1)
+                )
+                ** 0.5
+            )
             raw_sharpe = (sum(rets) / len(rets)) / max(std, 1e-9) * _math.sqrt(252)
             # DP Sharpe: treat returns as the sensitive dataset; clip_bound protects individuals
             dp_sharpe = dp_mean(rets, clip_bound=0.10, epsilon=epsilon, delta=1e-5)
@@ -177,13 +191,16 @@ def _section_differential_privacy(returns: dict[str, list[float]], epsilon: floa
     return section
 
 
-def _section_trade_journal(journal_path: str = "output/runs/trade_journal.jsonl", n_days: int = 7) -> dict:
+def _section_trade_journal(
+    journal_path: str = "output/runs/trade_journal.jsonl", n_days: int = 7
+) -> dict:
     """Last N days trade summary from trade journal (Plan 11/10 §5.1.3)."""
     section: dict = {"n_days": n_days, "n_trades": 0, "top_symbols": []}
     try:
         from pathlib import Path as _Path
         from src.assembled_core.ops.trade_journal import load_trade_journal
         import pandas as _pd
+
         jp = _Path(journal_path)
         if not jp.exists():
             # Try output dir
@@ -201,7 +218,9 @@ def _section_trade_journal(journal_path: str = "output/runs/trade_journal.jsonl"
         section["n_trades"] = len(trades)
         if "symbol" in trades.columns:
             top = trades.groupby("symbol").size().sort_values(ascending=False).head(5)
-            section["top_symbols"] = [{"symbol": s, "count": int(c)} for s, c in top.items()]
+            section["top_symbols"] = [
+                {"symbol": s, "count": int(c)} for s, c in top.items()
+            ]
         if "pnl" in trades.columns:
             section["total_pnl"] = round(float(trades["pnl"].sum()), 2)
             section["avg_pnl_per_trade"] = round(float(trades["pnl"].mean()), 2)
@@ -211,32 +230,44 @@ def _section_trade_journal(journal_path: str = "output/runs/trade_journal.jsonl"
     return section
 
 
-def _section_sim_to_real_gap(paper_live_dir: str = "output/runs/_paper_ledger", n_days: int = 7) -> dict:
+def _section_sim_to_real_gap(
+    paper_live_dir: str = "output/runs/_paper_ledger", n_days: int = 7
+) -> dict:
     """Last N days: sim-to-real gap verdict (Plan 11/10 §3.2.3)."""
-    section: dict = {"n_days": n_days, "verdict": "NO_DATA", "classification": "UNKNOWN"}
+    section: dict = {
+        "n_days": n_days,
+        "verdict": "NO_DATA",
+        "classification": "UNKNOWN",
+    }
     try:
         from pathlib import Path as _Path
-        from src.assembled_core.qa.sim_to_real_analyzer import load_paper_live_summary, analyze_sim_to_real_gap
+        from src.assembled_core.qa.sim_to_real_analyzer import (
+            load_paper_live_summary,
+            analyze_sim_to_real_gap,
+        )
+
         pa = load_paper_live_summary(_Path(paper_live_dir), n_days=n_days)
         if not pa or pa.get("n_days_loaded", 0) == 0:
             section["verdict"] = "NO_DATA"
             return section
         # Use a TA-only backtest baseline (last known values from fresh backtest)
         bt = {
-            "sharpe": 2.45,          # OOS 2025-2026 baseline from 2026-05-03 session
+            "sharpe": 2.45,  # OOS 2025-2026 baseline from 2026-05-03 session
             "avg_slippage_bps": 1.5,  # Modeled slippage
             "fill_rate": 1.0,
             "daily_pnl_std": 0.01,
         }
         gap = analyze_sim_to_real_gap(bt, pa)
-        section.update({
-            "n_days_loaded": pa.get("n_days_loaded"),
-            "classification": gap["classification"],
-            "sharpe_drop": gap["sharpe_drop"],
-            "slippage_gap_bps": gap["slippage_gap_bps"],
-            "fill_rate_gap": gap["fill_rate_gap"],
-            "verdict": gap["verdict_text"],
-        })
+        section.update(
+            {
+                "n_days_loaded": pa.get("n_days_loaded"),
+                "classification": gap["classification"],
+                "sharpe_drop": gap["sharpe_drop"],
+                "slippage_gap_bps": gap["slippage_gap_bps"],
+                "fill_rate_gap": gap["fill_rate_gap"],
+                "verdict": gap["verdict_text"],
+            }
+        )
     except Exception as exc:
         log.warning("sim_to_real_gap section failed: %s", exc)
         section["error"] = str(exc)
@@ -245,11 +276,17 @@ def _section_sim_to_real_gap(paper_live_dir: str = "output/runs/_paper_ledger", 
 
 def _section_drill_status(drill_dir: str = "output/drills") -> dict:
     """Last 4 weeks of drill results (Plan 11/10 §4.2.2)."""
-    section: dict = {"n_drills": 0, "all_pass": True, "failed_drills": [], "verdicts": []}
+    section: dict = {
+        "n_drills": 0,
+        "all_pass": True,
+        "failed_drills": [],
+        "verdicts": [],
+    }
     try:
         import json as _json
         from pathlib import Path as _Path
         from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+
         cutoff = _dt.now(_tz.utc) - _td(days=28)
         drill_path = _Path(drill_dir)
         if not drill_path.exists():
@@ -264,7 +301,9 @@ def _section_drill_status(drill_dir: str = "output/drills") -> dict:
                 if ts_str:
                     ts = _dt.fromisoformat(ts_str.replace("Z", "+00:00"))
                     if ts >= cutoff:
-                        recent.append({"file": r.name, "verdict": data.get("verdict", "UNKNOWN")})
+                        recent.append(
+                            {"file": r.name, "verdict": data.get("verdict", "UNKNOWN")}
+                        )
             except Exception:
                 pass
         section["n_drills"] = len(recent)
@@ -273,7 +312,9 @@ def _section_drill_status(drill_dir: str = "output/drills") -> dict:
         section["failed_drills"] = failed
         section["verdicts"] = recent
         if failed:
-            log.warning("[QA] %d drill(s) FAILED in last 28 days: %s", len(failed), failed)
+            log.warning(
+                "[QA] %d drill(s) FAILED in last 28 days: %s", len(failed), failed
+            )
     except Exception as exc:
         log.warning("drill_status section failed: %s", exc)
         section["error"] = str(exc)
@@ -282,10 +323,27 @@ def _section_drill_status(drill_dir: str = "output/drills") -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Daily QA report")
-    parser.add_argument("--equity-file", default="", help="CSV with equity curves (one column per strategy)")
-    parser.add_argument("--strategies", default="", help="Comma-separated strategy names (filters equity-file columns)")
-    parser.add_argument("--news-headlines", default="", help="Semicolon-separated headlines for RAG digest")
-    parser.add_argument("--dp-epsilon", type=float, default=1.0, help="DP epsilon for Sharpe privatisation (default 1.0)")
+    parser.add_argument(
+        "--equity-file",
+        default="",
+        help="CSV with equity curves (one column per strategy)",
+    )
+    parser.add_argument(
+        "--strategies",
+        default="",
+        help="Comma-separated strategy names (filters equity-file columns)",
+    )
+    parser.add_argument(
+        "--news-headlines",
+        default="",
+        help="Semicolon-separated headlines for RAG digest",
+    )
+    parser.add_argument(
+        "--dp-epsilon",
+        type=float,
+        default=1.0,
+        help="DP epsilon for Sharpe privatisation (default 1.0)",
+    )
     parser.add_argument("--out", default="", help="Output JSON path (default: stdout)")
     args = parser.parse_args()
 
@@ -299,7 +357,11 @@ def main() -> None:
     else:
         log.info("No equity file provided — using empty returns for demonstration")
 
-    headlines = [h.strip() for h in args.news_headlines.split(";") if h.strip()] if args.news_headlines else []
+    headlines = (
+        [h.strip() for h in args.news_headlines.split(";") if h.strip()]
+        if args.news_headlines
+        else []
+    )
 
     report = {
         "report_date": str(date.today()),
@@ -307,7 +369,9 @@ def main() -> None:
         "bayesian_sharpe": _section_bayesian_sharpe(returns),
         "risk_parity": _section_risk_parity(returns),
         "news_rag_digest": _section_news_rag(headlines),
-        "differential_privacy": _section_differential_privacy(returns, epsilon=args.dp_epsilon),
+        "differential_privacy": _section_differential_privacy(
+            returns, epsilon=args.dp_epsilon
+        ),
         "sim_to_real_gap": _section_sim_to_real_gap(),
         "drill_status": _section_drill_status(),
         "trade_journal": _section_trade_journal(),
@@ -315,7 +379,10 @@ def main() -> None:
 
     out_str = json.dumps(report, indent=2)
     if args.out:
-        os.makedirs(os.path.dirname(args.out) if os.path.dirname(args.out) else ".", exist_ok=True)
+        os.makedirs(
+            os.path.dirname(args.out) if os.path.dirname(args.out) else ".",
+            exist_ok=True,
+        )
         with open(args.out, "w", encoding="utf-8") as f:
             f.write(out_str)
         log.info("[OK] report written to %s", args.out)

@@ -33,7 +33,9 @@ def load_ledger_state(
     p = Path(path)
 
     # Try main file first, then backups (.1, .2, .3)
-    candidates = [p] + [p.with_suffix(p.suffix + f".{i}") for i in range(1, _BACKUP_GENERATIONS + 1)]
+    candidates = [p] + [
+        p.with_suffix(p.suffix + f".{i}") for i in range(1, _BACKUP_GENERATIONS + 1)
+    ]
     data = None
     for candidate in candidates:
         if not candidate.exists():
@@ -116,13 +118,20 @@ def _rotate_backups(p: Path) -> None:
             try:
                 shutil.copy2(str(src), str(dst))
             except OSError as exc:
-                logger.warning("[PaperLedger] backup rotation copy failed %s -> %s: %s", src, dst, exc)
+                logger.warning(
+                    "[PaperLedger] backup rotation copy failed %s -> %s: %s",
+                    src,
+                    dst,
+                    exc,
+                )
     # Current → .1
     if p.exists():
         try:
             shutil.copy2(str(p), str(p.with_suffix(p.suffix + ".1")))
         except OSError as exc:
-            logger.warning("[PaperLedger] backup rotation copy failed for current -> .1: %s", exc)
+            logger.warning(
+                "[PaperLedger] backup rotation copy failed for current -> .1: %s", exc
+            )
 
 
 def save_ledger_state(state: dict[str, Any], path: str | Path) -> Path:
@@ -151,9 +160,7 @@ def save_ledger_state(state: dict[str, Any], path: str | Path) -> Path:
     def _do_save() -> Path:
         _rotate_backups(p)
         tmp = p.with_suffix(p.suffix + ".tmp")
-        tmp.write_text(
-            json.dumps(state, indent=2, ensure_ascii=True), encoding="utf-8"
-        )
+        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=True), encoding="utf-8")
         tmp.replace(p)
         return p
 
@@ -202,7 +209,9 @@ def simulate_fills(
 
     slippage_mult = 1.0 + (slippage_bps / 10000.0)
     is_sell = df["side"].astype(str).str.upper() == "SELL"
-    raw_price = np.where(is_sell, df["_base"] / slippage_mult, df["_base"] * slippage_mult)
+    raw_price = np.where(
+        is_sell, df["_base"] / slippage_mult, df["_base"] * slippage_mult
+    )
     commission = df["_base"].values * (commission_bps / 10000.0)
     fill_price = np.where(is_sell, raw_price - commission, raw_price + commission)
 
@@ -239,7 +248,9 @@ def apply_fills_to_ledger(
         price = float(f.get("price", 0))
         if qty <= 0 or price <= 0:
             continue
-        pos = out["positions"].setdefault(symbol, {"qty": 0.0, "avg_price": 0.0, "hwm": 0.0})
+        pos = out["positions"].setdefault(
+            symbol, {"qty": 0.0, "avg_price": 0.0, "hwm": 0.0}
+        )
         pos_qty = pos["qty"]
         pos_avg = pos["avg_price"]
         pos_hwm = pos.get("hwm", pos_avg)
@@ -247,7 +258,11 @@ def apply_fills_to_ledger(
             new_qty = pos_qty + qty
             new_avg = (pos_avg * pos_qty + price * qty) / new_qty if new_qty else 0.0
             new_hwm = max(pos_hwm, price) if pos_hwm > 0 else price
-            out["positions"][symbol] = {"qty": new_qty, "avg_price": new_avg, "hwm": new_hwm}
+            out["positions"][symbol] = {
+                "qty": new_qty,
+                "avg_price": new_avg,
+                "hwm": new_hwm,
+            }
             out["cash"] -= qty * price
         else:
             new_qty = pos_qty - qty
@@ -258,7 +273,11 @@ def apply_fills_to_ledger(
                 out["cash"] += sell_qty * price
             else:
                 # Partial sell: reduce position, keep avg_price and hwm
-                out["positions"][symbol] = {"qty": new_qty, "avg_price": pos_avg, "hwm": pos_hwm}
+                out["positions"][symbol] = {
+                    "qty": new_qty,
+                    "avg_price": pos_avg,
+                    "hwm": pos_hwm,
+                }
                 out["cash"] += qty * price
     return out
 

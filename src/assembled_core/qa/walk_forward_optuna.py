@@ -21,6 +21,7 @@ Algorithm:
 When Optuna is not installed, falls back to a single-pass evaluation using the
 caller-provided default parameters.
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import optuna  # type: ignore[import]
+
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     _OPTUNA_AVAILABLE = True
 except ImportError:
@@ -44,11 +46,13 @@ except ImportError:
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class WFOptunaTrial:
     """Result for one walk-forward fold."""
+
     fold_idx: int
-    train_start: int        # index into returns array
+    train_start: int  # index into returns array
     train_end: int
     test_start: int
     test_end: int
@@ -56,12 +60,13 @@ class WFOptunaTrial:
     train_sharpe: float
     test_sharpe: float
     n_trials: int
-    backend: str            # "optuna" or "default"
+    backend: str  # "optuna" or "default"
 
 
 @dataclass
 class WFOptunaResult:
     """Aggregated walk-forward + Optuna result."""
+
     folds: list[WFOptunaTrial]
     avg_test_sharpe: float
     std_test_sharpe: float
@@ -75,6 +80,7 @@ class WFOptunaResult:
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _sharpe(returns: np.ndarray) -> float:
     """Annualised Sharpe from daily return array."""
     if len(returns) < 5:
@@ -87,6 +93,7 @@ def _sharpe(returns: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 # Core walk-forward + Optuna driver
 # ---------------------------------------------------------------------------
+
 
 def walk_forward_optuna(
     returns: list[float] | np.ndarray,
@@ -131,13 +138,17 @@ def walk_forward_optuna(
     start = 0
 
     while start + train_days + test_days <= n:
-        train_sl = arr[start: start + train_days]
-        test_sl = arr[start + train_days: start + train_days + test_days]
+        train_sl = arr[start : start + train_days]
+        test_sl = arr[start + train_days : start + train_days + test_days]
 
         if _OPTUNA_AVAILABLE:
             best_params, train_sharpe, n_done = _run_optuna_fold(
-                train_sl, objective_fn, search_space,
-                n_trials, storage_path, f"{study_name_prefix}_fold{fold_idx}",
+                train_sl,
+                objective_fn,
+                search_space,
+                n_trials,
+                storage_path,
+                f"{study_name_prefix}_fold{fold_idx}",
             )
             backend = "optuna"
         else:
@@ -148,27 +159,33 @@ def walk_forward_optuna(
 
         test_sharpe = _sharpe(test_sl)
 
-        folds.append(WFOptunaTrial(
-            fold_idx=fold_idx,
-            train_start=start,
-            train_end=start + train_days,
-            test_start=start + train_days,
-            test_end=start + train_days + test_days,
-            best_params=best_params,
-            train_sharpe=round(train_sharpe, 4),
-            test_sharpe=round(test_sharpe, 4),
-            n_trials=n_done,
-            backend=backend,
-        ))
+        folds.append(
+            WFOptunaTrial(
+                fold_idx=fold_idx,
+                train_start=start,
+                train_end=start + train_days,
+                test_start=start + train_days,
+                test_end=start + train_days + test_days,
+                best_params=best_params,
+                train_sharpe=round(train_sharpe, 4),
+                test_sharpe=round(test_sharpe, 4),
+                n_trials=n_done,
+                backend=backend,
+            )
+        )
 
         start += step_days
         fold_idx += 1
 
     if not folds:
         return WFOptunaResult(
-            folds=[], avg_test_sharpe=0.0, std_test_sharpe=0.0,
-            avg_train_sharpe=0.0, best_global_params=default_params or {},
-            n_folds=0, backend="none",
+            folds=[],
+            avg_test_sharpe=0.0,
+            std_test_sharpe=0.0,
+            avg_train_sharpe=0.0,
+            best_global_params=default_params or {},
+            n_folds=0,
+            backend="none",
         )
 
     test_sharpes = [f.test_sharpe for f in folds]
@@ -241,6 +258,7 @@ def _run_optuna_fold(
 # ---------------------------------------------------------------------------
 # Built-in objective: momentum lookback optimisation
 # ---------------------------------------------------------------------------
+
 
 def momentum_sharpe_objective(
     returns: np.ndarray,

@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/config/env_settings.py."""
+
 from __future__ import annotations
 
 import pytest
@@ -33,6 +34,7 @@ def _set_dev_env(monkeypatch, mode: str = "mock"):
 # RiskLimits validator
 # ---------------------------------------------------------------------------
 
+
 class TestRiskLimits:
     def test_valid_config(self):
         r = RiskLimits(
@@ -49,7 +51,7 @@ class TestRiskLimits:
                 max_position_usd=1000,
                 max_daily_loss_usd=500,
                 max_open_positions=10,
-                kill_switch_loss_usd=500,   # equal → invalid
+                kill_switch_loss_usd=500,  # equal → invalid
             )
 
     def test_kill_switch_below_daily_loss_fails(self):
@@ -58,7 +60,7 @@ class TestRiskLimits:
                 max_position_usd=1000,
                 max_daily_loss_usd=500,
                 max_open_positions=10,
-                kill_switch_loss_usd=300,   # less → invalid
+                kill_switch_loss_usd=300,  # less → invalid
             )
 
     def test_zero_position_fails(self):
@@ -69,6 +71,7 @@ class TestRiskLimits:
 # ---------------------------------------------------------------------------
 # EnvSettings mode validation
 # ---------------------------------------------------------------------------
+
 
 class TestEnvSettings:
     def test_dev_mock_valid(self, monkeypatch):
@@ -133,6 +136,7 @@ class TestEnvSettings:
 # ---------------------------------------------------------------------------
 # get_env_settings
 # ---------------------------------------------------------------------------
+
 
 class TestGetEnvSettings:
     def test_default_env_is_dev(self, monkeypatch):

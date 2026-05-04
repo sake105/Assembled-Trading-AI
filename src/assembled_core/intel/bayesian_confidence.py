@@ -18,20 +18,20 @@ logger = logging.getLogger(__name__)
 
 # Source tier reliability priors (P(E|H) — likelihood of seeing this evidence given trigger is real)
 SOURCE_RELIABILITY: dict[str, float] = {
-    "T0":  0.95,   # Government sanctions lists — very reliable
-    "T1":  0.85,   # Licensed newswires (AP, Reuters)
+    "T0": 0.95,  # Government sanctions lists — very reliable
+    "T1": 0.85,  # Licensed newswires (AP, Reuters)
     "T1.5": 0.75,  # CFTC-regulated prediction markets (Polymarket, Kalshi) — crowd-sourced, liquid
-    "T2":  0.65,   # Open/aggregator (GDELT, ACLED, World Bank)
-    "T3":  0.35,   # Scrapes/social — low reliability
+    "T2": 0.65,  # Open/aggregator (GDELT, ACLED, World Bank)
+    "T3": 0.35,  # Scrapes/social — low reliability
 }
 
 # False positive rate per source tier (P(E|~H) — probability of seeing evidence even if trigger is false)
 FALSE_POSITIVE_RATE: dict[str, float] = {
-    "T0":  0.02,
-    "T1":  0.10,
+    "T0": 0.02,
+    "T1": 0.10,
     "T1.5": 0.15,  # Prediction markets occasionally price in noise; slightly higher FPR than newswires
-    "T2":  0.20,
-    "T3":  0.40,
+    "T2": 0.20,
+    "T3": 0.40,
 }
 
 # Initial priors per TriggerType (baseline probability before any evidence)
@@ -148,7 +148,10 @@ def sequential_bayesian_update(
 
     logger.debug(
         "[BayesianConfidence] %s: prior=%.3f → posterior=%.3f (n_evidence=%d)",
-        trigger_type, prior, current, len(evidence_list)
+        trigger_type,
+        prior,
+        current,
+        len(evidence_list),
     )
     return current
 
@@ -182,12 +185,14 @@ def compute_cluster_confidence(
     evidence_list = []
     for i, tier in enumerate(source_tiers):
         source_id = f"src_{i}"  # Use index as proxy for independence check
-        evidence_list.append({
-            "source_tier": tier,
-            "strength": keyword_match_strength,
-            "corroborates": True,
-            "source_id": source_id,
-        })
+        evidence_list.append(
+            {
+                "source_tier": tier,
+                "strength": keyword_match_strength,
+                "corroborates": True,
+                "source_id": source_id,
+            }
+        )
 
     # Apply independence bonus: more distinct sources = stronger signal
     independence_boost = min(math.log1p(n_independent_sources) / math.log(10), 0.3)

@@ -60,7 +60,9 @@ class TestNewsPipelineEndToEnd:
         now = datetime.now(tz=timezone.utc)
 
         store = NewsEventStore(max_events=100)
-        velocity = VelocityTracker(short_window_min=15, long_window_min=60, surge_threshold=2.5)
+        velocity = VelocityTracker(
+            short_window_min=15, long_window_min=60, surge_threshold=2.5
+        )
         dedupe = NewsDedupeIndex(persist_path=None, max_size=100)
         enricher = NewsEventEnricher(
             event_store=store,
@@ -95,7 +97,9 @@ class TestNewsPipelineEndToEnd:
 
         # Impact fields persisted on the model
         bearish_evt = bearish[0]
-        assert bearish_evt.impact_bps < 0, "bearish event should have negative BPS impact"
+        assert (
+            bearish_evt.impact_bps < 0
+        ), "bearish event should have negative BPS impact"
         assert bearish_evt.impact_dominant_event_type
         assert bearish_evt.impact_horizon_days > 0
 
@@ -108,12 +112,16 @@ class TestNewsPipelineEndToEnd:
         sector_scores = overlay.compute(clusters=[], event_store=store, now=now)
         assert sector_scores, "overlay should produce sector scores"
         # Bearish on energy/financials expected for sanctions + missile strike
-        assert any(v < 0 for v in sector_scores.values()), "should contain bearish sector tilts"
+        assert any(
+            v < 0 for v in sector_scores.values()
+        ), "should contain bearish sector tilts"
 
     def test_classification_to_signal_from_enriched_event(self):
         """Enriched event → NewsClassification-like object → PositionSignal."""
         from src.assembled_core.intel.news_classifier import classify_news_event
-        from src.assembled_core.intel.news_position_bridge import classification_to_signal
+        from src.assembled_core.intel.news_position_bridge import (
+            classification_to_signal,
+        )
 
         clf = classify_news_event(
             "Iran missile strike destroys oil refinery",
@@ -131,10 +139,16 @@ class TestNewsPipelineEndToEnd:
     def test_deterministic_signal_id_across_runs(self):
         """Signal IDs should be reproducible across processes (no hash() salt)."""
         from src.assembled_core.intel.news_classifier import classify_news_event
-        from src.assembled_core.intel.news_position_bridge import classification_to_signal
+        from src.assembled_core.intel.news_position_bridge import (
+            classification_to_signal,
+        )
 
-        clf_a = classify_news_event("Russia invades Ukraine, war escalates", source_tier="T1")
-        clf_b = classify_news_event("Russia invades Ukraine, war escalates", source_tier="T1")
+        clf_a = classify_news_event(
+            "Russia invades Ukraine, war escalates", source_tier="T1"
+        )
+        clf_b = classify_news_event(
+            "Russia invades Ukraine, war escalates", source_tier="T1"
+        )
         sig_a = classification_to_signal(clf_a, cluster_id="c1")
         sig_b = classification_to_signal(clf_b, cluster_id="c1")
         assert sig_a is not None and sig_b is not None
@@ -170,4 +184,6 @@ class TestNewsPipelineEndToEnd:
             clf = classify_news_event(t, source_tier="T1")
             # These titles contain no real event triggers; any match would be a false positive
             assert "war_escalation" not in clf.event_types, f"false war match on: {t}"
-            assert "political_crisis" not in clf.event_types, f"false crisis match on: {t}"
+            assert (
+                "political_crisis" not in clf.event_types
+            ), f"false crisis match on: {t}"

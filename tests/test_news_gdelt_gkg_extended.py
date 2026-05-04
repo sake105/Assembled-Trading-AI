@@ -32,8 +32,12 @@ class TestParsePersons:
 
 @pytest.mark.phase12
 class TestRecordsToNewsEvents:
-    def _rec(self, tone: float = 0.0, persons: list[str] | None = None,
-            orgs: list[str] | None = None) -> GdeltBatchRecord:
+    def _rec(
+        self,
+        tone: float = 0.0,
+        persons: list[str] | None = None,
+        orgs: list[str] | None = None,
+    ) -> GdeltBatchRecord:
         return GdeltBatchRecord(
             record_id="r1",
             date_str="20260420120000",

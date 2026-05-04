@@ -313,7 +313,9 @@ def write_risk_report_markdown(
                     )
 
                     # Compute returns for volatility and Sharpe
-                    returns = pd.Series(equity_series).pct_change(fill_method=None).dropna()
+                    returns = (
+                        pd.Series(equity_series).pct_change(fill_method=None).dropna()
+                    )
                     vol_annualized = (
                         float(returns.std() * (252**0.5)) * 100.0
                         if len(returns) > 1
@@ -855,7 +857,9 @@ def generate_risk_report(
                             benchmark_df["close"].values,
                             index=pd.to_datetime(benchmark_df["timestamp"], utc=True),
                         ).sort_index()
-                        benchmark_returns = benchmark_prices.pct_change(fill_method=None).dropna()
+                        benchmark_returns = benchmark_prices.pct_change(
+                            fill_method=None
+                        ).dropna()
 
             elif benchmark_symbol is not None:
                 logger.info(f"Loading benchmark prices for symbol: {benchmark_symbol}")
@@ -885,7 +889,9 @@ def generate_risk_report(
                                     benchmark_symbol_data["timestamp"], utc=True
                                 ),
                             )
-                            benchmark_returns = benchmark_prices.pct_change(fill_method=None).dropna()
+                            benchmark_returns = benchmark_prices.pct_change(
+                                fill_method=None
+                            ).dropna()
                 except Exception as e:
                     logger.warning(
                         f"Failed to load benchmark prices for {benchmark_symbol}: {e}"

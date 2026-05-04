@@ -6,6 +6,7 @@ both trading_cycle.py (legacy) and trading_cycle_v2.py (active).
 This file was extracted from trading_cycle.py so that trading_cycle_v2.py
 can be self-contained without importing from the legacy monolith.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,7 +18,9 @@ from typing import TYPE_CHECKING, Any, Literal
 import pandas as pd
 
 # Import existing modules (no duplication)
-from src.assembled_core.config import get_base_dir  # re-export for test monkeypatching  # noqa: F401
+from src.assembled_core.config import (
+    get_base_dir,
+)  # re-export for test monkeypatching  # noqa: F401
 from src.assembled_core.config.models import (
     FeatureConfig,
     ensure_feature_config,
@@ -216,8 +219,12 @@ class TradingContext:
     intel_health_flags: dict[str, str] = field(default_factory=dict)
 
     # GeoRisk intel (read from data/intel/crisis_state.json + triggers_latest.json)
-    news_geo: dict[str, Any] | None = None  # {"geo_score": int, "geo_confidence": float, "state_hint": str, ...}
-    crisis_state_intel: dict[str, Any] | None = None  # full crisis state from intel cycle
+    news_geo: dict[str, Any] | None = (
+        None  # {"geo_score": int, "geo_confidence": float, "state_hint": str, ...}
+    )
+    crisis_state_intel: dict[str, Any] | None = (
+        None  # full crisis state from intel cycle
+    )
     intel_sim_applied: bool = (
         False  # BENCH-1: when True, skip intel loading (paper_runner sets simulated intel)
     )
@@ -536,37 +543,49 @@ def _build_features_default(
     # D5: Intermarket factors (optional)
     # ---------------------------------------------------------------
     feature_cfg_obj = ensure_feature_config(ctx.feature_config)
-    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_intermarket", False):
+    if feature_cfg_obj is not None and getattr(
+        feature_cfg_obj, "include_intermarket", False
+    ):
         try:
             from src.assembled_core.features.intermarket_factors import (
                 align_intermarket_factors_to_panel,
                 build_intermarket_factors,
             )
+
             ts_min = prices_with_features["timestamp"].min()
             ts_max = prices_with_features["timestamp"].max()
             start_str = pd.Timestamp(ts_min).strftime("%Y-%m-%d")
             end_str = pd.Timestamp(ts_max).strftime("%Y-%m-%d")
-            im_factors = build_intermarket_factors(start_date=start_str, end_date=end_str)
+            im_factors = build_intermarket_factors(
+                start_date=start_str, end_date=end_str
+            )
             if not im_factors.empty:
                 prices_with_features = align_intermarket_factors_to_panel(
                     prices_with_features, im_factors
                 )
-                logger.debug("[Features] Intermarket factors merged: %d cols", len(im_factors.columns) - 1)
+                logger.debug(
+                    "[Features] Intermarket factors merged: %d cols",
+                    len(im_factors.columns) - 1,
+                )
         except Exception as e:
             logger.debug("[Features] Intermarket factors skipped: %s", e)
 
     # ---------------------------------------------------------------
     # D6: Candlestick pattern features (optional, requires OHLC)
     # ---------------------------------------------------------------
-    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_candlestick", False):
+    if feature_cfg_obj is not None and getattr(
+        feature_cfg_obj, "include_candlestick", False
+    ):
         try:
             has_ohlc_for_candles = all(
-                c in prices_with_features.columns for c in ["open", "high", "low", "close"]
+                c in prices_with_features.columns
+                for c in ["open", "high", "low", "close"]
             )
             if has_ohlc_for_candles:
                 from src.assembled_core.features.ta_candlestick import (
                     build_candlestick_features,
                 )
+
                 prices_with_features = build_candlestick_features(prices_with_features)
                 logger.debug("[Features] Candlestick patterns merged")
         except Exception as e:
@@ -575,11 +594,14 @@ def _build_features_default(
     # ---------------------------------------------------------------
     # D9: Earnings calendar timing factors (optional)
     # ---------------------------------------------------------------
-    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_earnings", False):
+    if feature_cfg_obj is not None and getattr(
+        feature_cfg_obj, "include_earnings", False
+    ):
         try:
             from src.assembled_core.data.sources.earnings_calendar_source import (
                 EarningsCalendarSource,
             )
+
             symbols = prices_with_features["symbol"].unique().tolist()
             ts_min = prices_with_features["timestamp"].min()
             ts_max = prices_with_features["timestamp"].max()
@@ -600,7 +622,9 @@ def _build_features_default(
     # ---------------------------------------------------------------
     # D10: Congressional trading features (optional, Sprint 5)
     # ---------------------------------------------------------------
-    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_congress", False):
+    if feature_cfg_obj is not None and getattr(
+        feature_cfg_obj, "include_congress", False
+    ):
         try:
             from src.assembled_core.data.congress_trades_ingest import (
                 load_congress_sample,
@@ -655,7 +679,11 @@ def should_rebalance(
         reasons.append("scheduled")
 
     # Trigger 2: Weight drift
-    if current_weights and not target_positions.empty and "symbol" in target_positions.columns:
+    if (
+        current_weights
+        and not target_positions.empty
+        and "symbol" in target_positions.columns
+    ):
         target_w: dict[str, float] = {}
         if "target_weight" in target_positions.columns:
             target_w = (
@@ -926,8 +954,10 @@ def _evaluate_var_gate(
     if prices is None or prices.empty or targets is None or len(targets) == 0:
         return None
 
-    price_col = "close" if "close" in prices.columns else (
-        "price" if "price" in prices.columns else None
+    price_col = (
+        "close"
+        if "close" in prices.columns
+        else ("price" if "price" in prices.columns else None)
     )
     if price_col is None:
         return None
@@ -944,13 +974,17 @@ def _evaluate_var_gate(
         # available, otherwise equal-weight the target symbols.
         if "weight" in targets.columns:
             w = targets.set_index("symbol")["weight"].astype(float)
-        elif "notional" in targets.columns and float(targets["notional"].abs().sum()) > 0:
+        elif (
+            "notional" in targets.columns and float(targets["notional"].abs().sum()) > 0
+        ):
             notl = targets.set_index("symbol")["notional"].astype(float)
             w = notl / float(notl.abs().sum())
         else:
             syms = targets["symbol"].unique()
             w = pd.Series(1.0 / max(len(syms), 1), index=syms)
-            logger.warning("[VAR-GATE] no weight/notional column in target_positions — using equal weights for VaR")
+            logger.warning(
+                "[VAR-GATE] no weight/notional column in target_positions — using equal weights for VaR"
+            )
 
         var_calc = PortfolioVaR(returns=returns.fillna(0.0), weights=w)
         alpha = float(cfg.get("confidence", 0.95))
@@ -1137,8 +1171,16 @@ def _apply_group_exposure_caps(
     """
     import numpy as np
 
-    if orders is None or orders.empty or security_meta_df is None or security_meta_df.empty:
-        return orders, {"scaled_groups": [], "n_orders": 0 if orders is None else len(orders)}
+    if (
+        orders is None
+        or orders.empty
+        or security_meta_df is None
+        or security_meta_df.empty
+    ):
+        return orders, {
+            "scaled_groups": [],
+            "n_orders": 0 if orders is None else len(orders),
+        }
 
     group_caps = {
         "sector": float(group_cfg.get("max_sector_gross", 0.0) or 0.0),
@@ -1147,7 +1189,8 @@ def _apply_group_exposure_caps(
     }
     # Keep only dims with meaningful cap (>0) that exist in meta
     active_dims = [
-        dim for dim, cap in group_caps.items()
+        dim
+        for dim, cap in group_caps.items()
         if cap > 0 and dim in security_meta_df.columns
     ]
     if not active_dims:
@@ -1159,7 +1202,11 @@ def _apply_group_exposure_caps(
 
     # notional per row (abs, for gross)
     qty = out["qty"].astype(float).values
-    price = out["price"].astype(float).values if "price" in out.columns else np.ones_like(qty)
+    price = (
+        out["price"].astype(float).values
+        if "price" in out.columns
+        else np.ones_like(qty)
+    )
     gross = np.abs(qty * price)
     total_gross = float(gross.sum())
     if total_gross <= 0:
@@ -1180,15 +1227,17 @@ def _apply_group_exposure_caps(
             if grp_frac > cap and grp_frac > 0:
                 factor = cap / grp_frac
                 scale_factors[mask] = np.minimum(scale_factors[mask], factor)
-                scaled_groups.append({
-                    "dim": dim,
-                    "group": str(grp),
-                    "fraction": round(grp_frac, 6),
-                    "cap": cap,
-                    "scale": round(factor, 6),
-                })
+                scaled_groups.append(
+                    {
+                        "dim": dim,
+                        "group": str(grp),
+                        "fraction": round(grp_frac, 6),
+                        "cap": cap,
+                        "scale": round(factor, 6),
+                    }
+                )
 
-    out["qty"] = (out["qty"].astype(float).values * scale_factors)
+    out["qty"] = out["qty"].astype(float).values * scale_factors
     out = out.drop(columns=active_dims, errors="ignore")
 
     meta = {
@@ -1397,8 +1446,8 @@ def _apply_risk_controls_default(
         log.critical(
             "[RISK-SAFETY] Risk controls raised %s: %s. "
             "BLOCKING all %d orders. Fix the risk module before trading.",
-            type(e).__name__, e, len(orders),
+            type(e).__name__,
+            e,
+            len(orders),
         )
         return []
-
-

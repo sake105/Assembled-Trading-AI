@@ -113,7 +113,9 @@ def latest_sentiment_score(fred_client: object, spy_return_127d: float) -> float
 
         vix_z = float(_zscore(vix).iloc[-1])
         hy_z = float(_zscore(hy).iloc[-1])
-        spy_z = -float((spy_return_127d - 0.0) / 0.15) if abs(spy_return_127d) < 2 else 0.0
+        spy_z = (
+            -float((spy_return_127d - 0.0) / 0.15) if abs(spy_return_127d) < 2 else 0.0
+        )
 
         umich_z = 0.0
         if umich is not None and len(umich) > 20:

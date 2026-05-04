@@ -8,6 +8,7 @@ Public REST API base: https://trading-api.kalshi.com/trade-api/v2
 Complements Polymarket — both cover similar macro/geo event categories but with
 independent liquidity, allowing cross-venue probability comparison.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,15 +23,26 @@ _GEO_SIGNAL_CACHE: dict[str, Any] | None = None
 _GEO_SIGNAL_CACHE_TS: float = 0.0
 _GEO_SIGNAL_TTL: float = 300.0  # 5 minutes — avoids 240+ calls/hour in fast cycles
 
-GEO_SERIES_TAGS = frozenset({
-    "GEOPOLITICS", "ECONOMICS", "ELECTIONS", "ENERGY", "FED", "RATES",
-    "TRADE", "DEFENSE", "SANCTIONS", "MACRO",
-})
+GEO_SERIES_TAGS = frozenset(
+    {
+        "GEOPOLITICS",
+        "ECONOMICS",
+        "ELECTIONS",
+        "ENERGY",
+        "FED",
+        "RATES",
+        "TRADE",
+        "DEFENSE",
+        "SANCTIONS",
+        "MACRO",
+    }
+)
 
 
 def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 10) -> Any:
     try:
         import httpx  # type: ignore[import]
+
         headers = {"Accept": "application/json"}
         r = httpx.get(url, params=params, headers=headers, timeout=timeout)
         r.raise_for_status()
@@ -76,17 +88,19 @@ def fetch_active_markets(
         yes_ask = float(m.get("yes_ask", 100) or 100) / 100.0
         mid = (yes_bid + yes_ask) / 2.0
 
-        markets.append({
-            "ticker":         m.get("ticker", ""),
-            "title":          m.get("title", ""),
-            "yes_bid":        round(yes_bid, 4),
-            "yes_ask":        round(yes_ask, 4),
-            "mid":            round(mid, 4),
-            "volume":         int(m.get("volume", 0) or 0),
-            "open_interest":  int(m.get("open_interest", 0) or 0),
-            "close_time":     m.get("close_time", ""),
-            "series_ticker":  m.get("series_ticker", ""),
-        })
+        markets.append(
+            {
+                "ticker": m.get("ticker", ""),
+                "title": m.get("title", ""),
+                "yes_bid": round(yes_bid, 4),
+                "yes_ask": round(yes_ask, 4),
+                "mid": round(mid, 4),
+                "volume": int(m.get("volume", 0) or 0),
+                "open_interest": int(m.get("open_interest", 0) or 0),
+                "close_time": m.get("close_time", ""),
+                "series_ticker": m.get("series_ticker", ""),
+            }
+        )
 
         if len(markets) >= limit:
             break
@@ -135,11 +149,11 @@ def get_market_implied_geo_signal(
     signal = min(1.0, max(0.0, (avg_mid - 0.40) / 0.40))
 
     result = {
-        "signal":               round(signal, 4),
-        "n_markets":            len(markets),
-        "avg_mid":              round(avg_mid, 4),
-        "volume_weighted_mid":  round(vol_weighted, 4),
-        "source":               "kalshi",
+        "signal": round(signal, 4),
+        "n_markets": len(markets),
+        "avg_mid": round(avg_mid, 4),
+        "volume_weighted_mid": round(vol_weighted, 4),
+        "source": "kalshi",
     }
     _GEO_SIGNAL_CACHE = result
     _GEO_SIGNAL_CACHE_TS = now
@@ -175,9 +189,9 @@ def fetch_combined_prediction_signal(
         combined = kals_s
 
     return {
-        "signal":      round(combined, 4),
+        "signal": round(combined, 4),
         "poly_signal": poly_s,
         "kals_signal": kals_s,
-        "source":      "prediction_markets_combined",
-        "n_sources":   (1 if poly_signal else 0) + (1 if kalshi_signal else 0),
+        "source": "prediction_markets_combined",
+        "n_sources": (1 if poly_signal else 0) + (1 if kalshi_signal else 0),
     }

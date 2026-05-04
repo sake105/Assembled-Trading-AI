@@ -52,7 +52,9 @@ def filter_deadzone_orders(
 
     pos_s = pd.to_numeric(current_positions["qty"], errors="coerce").abs().fillna(0.0)
     valid = pos_s > 0
-    pos_map: Dict[str, float] = dict(zip(current_positions.loc[valid, "symbol"], pos_s[valid]))
+    pos_map: Dict[str, float] = dict(
+        zip(current_positions.loc[valid, "symbol"], pos_s[valid])
+    )
 
     order_qty = pd.to_numeric(orders["qty"], errors="coerce").abs().fillna(0.0)
     current_qty = orders["symbol"].map(pos_map).fillna(0.0)

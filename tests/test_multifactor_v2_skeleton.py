@@ -108,8 +108,18 @@ def test_compute_target_positions_delegates() -> None:
     """v2 compute_target_positions must return v1 output unchanged."""
     signals = pd.DataFrame(
         [
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "AAA", "direction": "LONG", "score": 1.5},
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "BBB", "direction": "LONG", "score": 1.0},
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "AAA",
+                "direction": "LONG",
+                "score": 1.5,
+            },
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "BBB",
+                "direction": "LONG",
+                "score": 1.0,
+            },
         ]
     )
     v1_out = multifactor_v1.compute_target_positions(signals, total_capital=100_000.0)
@@ -175,9 +185,9 @@ def test_v2_default_weights_shape_and_sum() -> None:
     assert len(weights) == 30, f"expected 30 active factors, got {len(weights)}"
 
     total = sum(weights.values())
-    assert abs(total - 1.0) <= 0.02, (
-        f"factor weights should sum to ~1.0 (tol 0.02); got {total:.4f}"
-    )
+    assert (
+        abs(total - 1.0) <= 0.02
+    ), f"factor weights should sum to ~1.0 (tol 0.02); got {total:.4f}"
 
     # All weights should be positive
     for name, w in weights.items():

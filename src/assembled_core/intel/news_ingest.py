@@ -26,18 +26,31 @@ GDELT_TIER = SourceTier.T2
 # CAMEO/GDELT themes that are geopolitically relevant
 RELEVANT_THEMES = {
     # Conflict / War
-    "CRISISLEX_CRISISLEXREC", "TAX_MILITARY", "WB_1800_CONFLICT_AND_VIOLENCE",
-    "CONFLICT", "WB_2512_WAR_CRIME", "PROTEST", "REBELLION",
+    "CRISISLEX_CRISISLEXREC",
+    "TAX_MILITARY",
+    "WB_1800_CONFLICT_AND_VIOLENCE",
+    "CONFLICT",
+    "WB_2512_WAR_CRIME",
+    "PROTEST",
+    "REBELLION",
     # Energy
-    "ENV_OIL", "ENV_GAS", "ENERGY", "ENV_ENERGYCRISIS",
+    "ENV_OIL",
+    "ENV_GAS",
+    "ENERGY",
+    "ENV_ENERGYCRISIS",
     # Sanctions
-    "ECON_SANCTIONS", "TAX_WORLDBANK_POVERTY_ECONOMY_SANCTIONS",
+    "ECON_SANCTIONS",
+    "TAX_WORLDBANK_POVERTY_ECONOMY_SANCTIONS",
     # Shipping / Chokepoints
-    "TRANSPORT", "MARITIME", "MANMADE_DISASTER_MARITIME",
+    "TRANSPORT",
+    "MARITIME",
+    "MANMADE_DISASTER_MARITIME",
     # Cyber
-    "CYBER_ATTACK", "TAX_CYBER",
+    "CYBER_ATTACK",
+    "TAX_CYBER",
     # Geopolitical crisis
-    "CRISISLEX_T02_IMMINENT_DANGER_VIOLENCE", "WB_635_POLITICAL_INSTABILITY",
+    "CRISISLEX_T02_IMMINENT_DANGER_VIOLENCE",
+    "WB_635_POLITICAL_INSTABILITY",
 }
 
 # GKG column indices (0-based, tab-separated)
@@ -102,7 +115,9 @@ def parse_lastupdate(text: str) -> str | None:
     gkg_line = lines[2]
     parts = gkg_line.split()
     if len(parts) < 3:
-        logger.warning("[WARN] GKG line in lastupdate.txt has fewer than 3 fields: %r", gkg_line)
+        logger.warning(
+            "[WARN] GKG line in lastupdate.txt has fewer than 3 fields: %r", gkg_line
+        )
         return None
     return parts[2]
 
@@ -189,10 +204,12 @@ def fetch_gkg_batch(
         try:
             resp = requests.get(gkg_url, timeout=timeout)
             if resp.status_code == 429:
-                wait = backoff_base ** attempt
+                wait = backoff_base**attempt
                 logger.warning(
                     "[WARN] fetch_gkg_batch: 429 rate-limited (attempt %d/%d), waiting %.1fs",
-                    attempt + 1, retries, wait,
+                    attempt + 1,
+                    retries,
+                    wait,
                 )
                 _time.sleep(wait)
                 continue
@@ -202,14 +219,22 @@ def fetch_gkg_batch(
         except requests.RequestException as exc:
             last_exc = exc
             if attempt < retries - 1:
-                wait = backoff_base ** attempt
+                wait = backoff_base**attempt
                 logger.warning(
                     "[WARN] fetch_gkg_batch: attempt %d/%d failed (%s), retrying in %.1fs",
-                    attempt + 1, retries, exc, wait,
+                    attempt + 1,
+                    retries,
+                    exc,
+                    wait,
                 )
                 _time.sleep(wait)
     else:
-        logger.warning("[WARN] fetch_gkg_batch: all %d attempts failed for %s: %s", retries, gkg_url, last_exc)
+        logger.warning(
+            "[WARN] fetch_gkg_batch: all %d attempts failed for %s: %s",
+            retries,
+            gkg_url,
+            last_exc,
+        )
         return []
 
     try:
@@ -222,7 +247,9 @@ def fetch_gkg_batch(
             with zf.open(csv_name) as raw_csv:
                 content = raw_csv.read().decode("utf-8", errors="replace")
     except (zipfile.BadZipFile, KeyError, Exception) as exc:
-        logger.warning("[WARN] fetch_gkg_batch: zip parse error for %s: %s", gkg_url, exc)
+        logger.warning(
+            "[WARN] fetch_gkg_batch: zip parse error for %s: %s", gkg_url, exc
+        )
         return []
 
     records: list[GdeltBatchRecord] = []
@@ -242,9 +269,7 @@ def fetch_gkg_batch(
             country_codes = _parse_locations(row[_COL_LOCATIONS])
             organizations = _parse_organizations(row[_COL_ORGANIZATIONS])
             persons = (
-                _parse_persons(row[_COL_PERSONS])
-                if len(row) > _COL_PERSONS
-                else []
+                _parse_persons(row[_COL_PERSONS]) if len(row) > _COL_PERSONS else []
             )
 
             record = GdeltBatchRecord(
@@ -268,7 +293,11 @@ def fetch_gkg_batch(
             logger.debug("[SKIP] Row parse error: %s", exc)
             continue
 
-    logger.info("[OK] fetch_gkg_batch: parsed %d relevant records from %s", len(records), gkg_url)
+    logger.info(
+        "[OK] fetch_gkg_batch: parsed %d relevant records from %s",
+        len(records),
+        gkg_url,
+    )
     return records
 
 
@@ -365,7 +394,11 @@ class GdeltFetcher:
                     consecutive_failures=data.get("consecutive_failures", 0),
                 )
             except Exception as exc:
-                logger.warning("[WARN] GdeltFetcher.load_state: failed to load %s: %s", self._state_path, exc)
+                logger.warning(
+                    "[WARN] GdeltFetcher.load_state: failed to load %s: %s",
+                    self._state_path,
+                    exc,
+                )
         return GdeltFetchState()
 
     def save_state(self, state: GdeltFetchState) -> None:
@@ -402,7 +435,11 @@ class GdeltFetcher:
                     pass
                 raise
         except Exception as exc:
-            logger.warning("[WARN] GdeltFetcher.save_state: failed to save %s: %s", self._state_path, exc)
+            logger.warning(
+                "[WARN] GdeltFetcher.save_state: failed to save %s: %s",
+                self._state_path,
+                exc,
+            )
 
     def fetch_new_events(self) -> tuple[list[NewsEvent], bool]:
         """
@@ -416,13 +453,17 @@ class GdeltFetcher:
             resp.raise_for_status()
             gkg_url = parse_lastupdate(resp.text)
             if not gkg_url:
-                logger.warning("[WARN] GdeltFetcher: could not extract GKG URL from lastupdate.txt")
+                logger.warning(
+                    "[WARN] GdeltFetcher: could not extract GKG URL from lastupdate.txt"
+                )
                 self._state.consecutive_failures += 1
                 self.save_state(self._state)
                 return [], False
 
             if gkg_url == self._state.last_batch_url:
-                logger.debug("[SKIP] GdeltFetcher: batch already processed: %s", gkg_url)
+                logger.debug(
+                    "[SKIP] GdeltFetcher: batch already processed: %s", gkg_url
+                )
                 return [], False
 
             records = fetch_gkg_batch(gkg_url)
@@ -434,11 +475,15 @@ class GdeltFetcher:
             self._state.consecutive_failures = 0
             self.save_state(self._state)
 
-            logger.info("[OK] GdeltFetcher: %d events from new batch %s", len(events), gkg_url)
+            logger.info(
+                "[OK] GdeltFetcher: %d events from new batch %s", len(events), gkg_url
+            )
             return events, True
 
         except Exception as exc:
-            logger.warning("[WARN] GdeltFetcher.fetch_new_events: unexpected error: %s", exc)
+            logger.warning(
+                "[WARN] GdeltFetcher.fetch_new_events: unexpected error: %s", exc
+            )
             self._state.consecutive_failures += 1
             self.save_state(self._state)
             return [], False

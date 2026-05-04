@@ -71,15 +71,25 @@ def compute_news_features(
 
     if events.empty:
         return pd.DataFrame(
-            columns=["timestamp", "symbol", "news_sentiment",
-                     "news_event_count", "news_velocity", "news_confidence"]
+            columns=[
+                "timestamp",
+                "symbol",
+                "news_sentiment",
+                "news_event_count",
+                "news_velocity",
+                "news_confidence",
+            ]
         )
 
     events = events.copy()
     events["event_date"] = pd.to_datetime(events["event_date"], utc=True)
 
     if as_of is not None:
-        as_of_ts = pd.Timestamp(as_of).tz_localize("UTC") if pd.Timestamp(as_of).tzinfo is None else pd.Timestamp(as_of)
+        as_of_ts = (
+            pd.Timestamp(as_of).tz_localize("UTC")
+            if pd.Timestamp(as_of).tzinfo is None
+            else pd.Timestamp(as_of)
+        )
         events = events[events["event_date"] <= as_of_ts].copy()
 
     # Map direction to numeric score
@@ -109,7 +119,9 @@ def compute_news_features(
         if prices_dates is not None:
             _raw_idx = pd.DatetimeIndex(prices_dates)
             if _raw_idx.tz is None:
-                trade_idx = _raw_idx.tz_localize("UTC", nonexistent="shift_forward").normalize()
+                trade_idx = _raw_idx.tz_localize(
+                    "UTC", nonexistent="shift_forward"
+                ).normalize()
             else:
                 trade_idx = _raw_idx.tz_convert("UTC").normalize()
             trade_idx = pd.DatetimeIndex(sorted(set(trade_idx)))
@@ -132,9 +144,7 @@ def compute_news_features(
 
         # Rolling event count
         daily["news_event_count"] = (
-            daily["event_count"]
-            .rolling(lookback_days, min_periods=1)
-            .sum()
+            daily["event_count"].rolling(lookback_days, min_periods=1).sum()
         )
 
         # Velocity: short / long window ratio
@@ -146,21 +156,34 @@ def compute_news_features(
 
         # Smoothed confidence
         daily["news_confidence"] = (
-            daily["mean_confidence"]
-            .rolling(lookback_days, min_periods=1)
-            .mean()
+            daily["mean_confidence"].rolling(lookback_days, min_periods=1).mean()
         )
 
-        sym_df = daily[
-            ["news_sentiment", "news_event_count", "news_velocity", "news_confidence"]
-        ].reset_index().rename(columns={"event_date": "timestamp"})
+        sym_df = (
+            daily[
+                [
+                    "news_sentiment",
+                    "news_event_count",
+                    "news_velocity",
+                    "news_confidence",
+                ]
+            ]
+            .reset_index()
+            .rename(columns={"event_date": "timestamp"})
+        )
         sym_df["symbol"] = symbol
         all_rows.append(sym_df)
 
     if not all_rows:
         return pd.DataFrame(
-            columns=["timestamp", "symbol", "news_sentiment",
-                     "news_event_count", "news_velocity", "news_confidence"]
+            columns=[
+                "timestamp",
+                "symbol",
+                "news_sentiment",
+                "news_event_count",
+                "news_velocity",
+                "news_confidence",
+            ]
         )
 
     result = pd.concat(all_rows, ignore_index=True)
@@ -168,7 +191,8 @@ def compute_news_features(
 
     logger.debug(
         "[news_features] computed %d rows for %d symbols",
-        len(result), result["symbol"].nunique(),
+        len(result),
+        result["symbol"].nunique(),
     )
 
     return result
@@ -212,10 +236,13 @@ def add_news_features(
     # Normalise events to classified format
     if "sentiment_score" in events.columns and "direction" not in events.columns:
         evts = events.copy()
-        evts["event_date"] = pd.to_datetime(evts.get("timestamp", evts.get("event_date")), utc=True)
+        evts["event_date"] = pd.to_datetime(
+            evts.get("timestamp", evts.get("event_date")), utc=True
+        )
         evts["direction"] = np.where(
-            evts["sentiment_score"] > 0.1, "bullish",
-            np.where(evts["sentiment_score"] < -0.1, "bearish", "neutral")
+            evts["sentiment_score"] > 0.1,
+            "bullish",
+            np.where(evts["sentiment_score"] < -0.1, "bearish", "neutral"),
         )
         evts["confidence"] = evts["sentiment_score"].abs().clip(0.0, 1.0)
     else:
@@ -225,16 +252,23 @@ def add_news_features(
 
     prices_ts = pd.to_datetime(prices["timestamp"], utc=True)
 
-    short_feats = compute_news_features(evts, prices_dates=prices_ts, lookback_days=short_window)
-    long_feats = compute_news_features(evts, prices_dates=prices_ts, lookback_days=long_window)
+    short_feats = compute_news_features(
+        evts, prices_dates=prices_ts, lookback_days=short_window
+    )
+    long_feats = compute_news_features(
+        evts, prices_dates=prices_ts, lookback_days=long_window
+    )
 
     prices["_ts_key"] = pd.to_datetime(prices["timestamp"], utc=True).dt.normalize()
 
     def _merge_feature(df: pd.DataFrame, feat_col: str, out_col: str) -> None:
         feat = df[["timestamp", "symbol", feat_col]].copy()
         feat["timestamp"] = pd.to_datetime(feat["timestamp"], utc=True).dt.normalize()
-        merged = prices.merge(feat.rename(columns={"timestamp": "_ts_key"}),
-                              on=["_ts_key", "symbol"], how="left")
+        merged = prices.merge(
+            feat.rename(columns={"timestamp": "_ts_key"}),
+            on=["_ts_key", "symbol"],
+            how="left",
+        )
         prices[out_col] = merged[feat_col].fillna(0.0).values
 
     _merge_feature(short_feats, "news_sentiment", f"news_sentiment_{short_window}d")
@@ -268,12 +302,18 @@ def compute_sector_rotation_signal(
     prior_td = pd.Timedelta(hours=window_hours * 2)
 
     current = df[df["timestamp"] >= now - window_td]
-    prior = df[(df["timestamp"] >= now - prior_td) & (df["timestamp"] < now - window_td)]
+    prior = df[
+        (df["timestamp"] >= now - prior_td) & (df["timestamp"] < now - window_td)
+    ]
 
     def _sector_scores(frame: pd.DataFrame) -> dict[str, dict]:
         if frame.empty or "affected_sectors" not in frame.columns:
             return {}
-        tmp = frame[["affected_sectors", "severity", "market_direction"]].copy() if "severity" in frame.columns and "market_direction" in frame.columns else frame[["affected_sectors"]].copy()
+        tmp = (
+            frame[["affected_sectors", "severity", "market_direction"]].copy()
+            if "severity" in frame.columns and "market_direction" in frame.columns
+            else frame[["affected_sectors"]].copy()
+        )
         tmp["affected_sectors"] = tmp["affected_sectors"].apply(
             lambda x: [x] if isinstance(x, str) else (x if isinstance(x, list) else [])
         )
@@ -281,13 +321,23 @@ def compute_sector_rotation_signal(
         tmp = tmp[tmp["affected_sectors"].notna() & (tmp["affected_sectors"] != "")]
         if tmp.empty:
             return {}
-        sev = pd.to_numeric(tmp.get("severity", 1.0), errors="coerce").fillna(1.0) if "severity" in tmp.columns else pd.Series(1.0, index=tmp.index)
-        dir_raw = tmp["market_direction"].str.lower() if "market_direction" in tmp.columns else pd.Series("neutral", index=tmp.index)
+        sev = (
+            pd.to_numeric(tmp.get("severity", 1.0), errors="coerce").fillna(1.0)
+            if "severity" in tmp.columns
+            else pd.Series(1.0, index=tmp.index)
+        )
+        dir_raw = (
+            tmp["market_direction"].str.lower()
+            if "market_direction" in tmp.columns
+            else pd.Series("neutral", index=tmp.index)
+        )
         dir_sign = dir_raw.map({"bullish": 1.0, "bearish": -1.0}).fillna(0.0)
         tmp = tmp.copy()
         tmp["_sev"] = sev.values
         tmp["_w"] = (sev * dir_sign.where(dir_sign != 0, 1.0)).values
-        agg = tmp.groupby("affected_sectors").agg(count=("_sev", "count"), weighted=("_w", "sum"))
+        agg = tmp.groupby("affected_sectors").agg(
+            count=("_sev", "count"), weighted=("_w", "sum")
+        )
         return agg.rename_axis(None).to_dict("index")
 
     curr_scores = _sector_scores(current)

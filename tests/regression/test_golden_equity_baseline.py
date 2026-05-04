@@ -74,9 +74,7 @@ def test_reference_backtest_is_bit_identical_to_baseline() -> None:
         f"a B-phase change altered the reference equity curve. If this is "
         f"intentional, regenerate the baseline."
     )
-    assert max_rel <= 1e-12, (
-        f"B0 REGRESSION: max_rel_diff={max_rel:.3e} > 1e-12"
-    )
+    assert max_rel <= 1e-12, f"B0 REGRESSION: max_rel_diff={max_rel:.3e} > 1e-12"
 
 
 def test_reference_timestamps_match_baseline() -> None:

@@ -32,10 +32,12 @@ class PairsSignal:
 def _try_pykalman():
     try:
         from pykalman import KalmanFilter
+
         return KalmanFilter
     except ImportError:
         try:
             from filterpy.kalman import KalmanFilter as FilterPyKF
+
             return FilterPyKF
         except ImportError:
             logger.warning(
@@ -190,6 +192,7 @@ def cointegration_score(y: pd.Series, x: pd.Series) -> float:
     """
     try:
         from statsmodels.tsa.stattools import coint
+
         common = y.index.intersection(x.index)
         _, pval, _ = coint(y.loc[common].dropna(), x.loc[common].dropna())
         return float(pval)
@@ -236,18 +239,28 @@ def generate_pairs_signals_from_panel(
         # Auto-discover: score all n*(n-1)/2 pairs, keep best coint p-value ones
         scored: list[tuple[float, str, str]] = []
         for i, sym_a in enumerate(symbols):
-            for sym_b in symbols[i + 1:]:
+            for sym_b in symbols[i + 1 :]:
                 try:
-                    pval = cointegration_score(prices[sym_a].dropna(), prices[sym_b].dropna())
+                    pval = cointegration_score(
+                        prices[sym_a].dropna(), prices[sym_b].dropna()
+                    )
                     scored.append((pval, sym_a, sym_b))
                 except Exception as _exc:
-                    logger.debug("[pairs] cointegration_score failed for %s/%s: %s", sym_a, sym_b, _exc)
+                    logger.debug(
+                        "[pairs] cointegration_score failed for %s/%s: %s",
+                        sym_a,
+                        sym_b,
+                        _exc,
+                    )
         scored.sort(key=lambda t: t[0])
         pairs = [
-            (a, b) for pval, a, b in scored[:max_pairs]
-            if pval <= coint_pval_threshold
+            (a, b) for pval, a, b in scored[:max_pairs] if pval <= coint_pval_threshold
         ]
-        logger.debug("[pairs] auto-discovered %d cointegrated pairs (p<%.2f)", len(pairs), coint_pval_threshold)
+        logger.debug(
+            "[pairs] auto-discovered %d cointegrated pairs (p<%.2f)",
+            len(pairs),
+            coint_pval_threshold,
+        )
 
     for sym_a, sym_b in pairs:
         if sym_a not in prices.columns or sym_b not in prices.columns:
@@ -259,9 +272,13 @@ def generate_pairs_signals_from_panel(
             continue
         try:
             sig = generate_pairs_signals(
-                y.loc[common_idx], x.loc[common_idx],
-                entry_z=entry_z, exit_z=exit_z, stop_z=stop_z,
-                window=window, delta=delta,
+                y.loc[common_idx],
+                x.loc[common_idx],
+                entry_z=entry_z,
+                exit_z=exit_z,
+                stop_z=stop_z,
+                window=window,
+                delta=delta,
             )
             # Current bar signal
             if sig.entry_long.empty or sig.entry_short.empty or sig.exit_signal.empty:
@@ -274,19 +291,33 @@ def generate_pairs_signals_from_panel(
                 direction = "EXIT"
             else:
                 direction = "HOLD"
-            results.append({
-                "symbol_a": sym_a,
-                "symbol_b": sym_b,
-                "direction": direction,
-                "z_score": float(sig.z_score.iloc[-1]) if not sig.z_score.empty else float("nan"),
-                "spread": float(sig.spread.iloc[-1]) if not sig.spread.empty else float("nan"),
-                "beta": float(sig.beta.iloc[-1]) if not sig.beta.empty else float("nan"),
-            })
+            results.append(
+                {
+                    "symbol_a": sym_a,
+                    "symbol_b": sym_b,
+                    "direction": direction,
+                    "z_score": (
+                        float(sig.z_score.iloc[-1])
+                        if not sig.z_score.empty
+                        else float("nan")
+                    ),
+                    "spread": (
+                        float(sig.spread.iloc[-1])
+                        if not sig.spread.empty
+                        else float("nan")
+                    ),
+                    "beta": (
+                        float(sig.beta.iloc[-1]) if not sig.beta.empty else float("nan")
+                    ),
+                }
+            )
         except Exception as e:
             logger.debug("[pairs] %s/%s skipped: %s", sym_a, sym_b, e)
 
     if not results:
-        return pd.DataFrame(columns=["symbol_a", "symbol_b", "direction", "z_score", "spread", "beta"])
+        return pd.DataFrame(
+            columns=["symbol_a", "symbol_b", "direction", "z_score", "spread", "beta"]
+        )
     return pd.DataFrame(results)
 
 

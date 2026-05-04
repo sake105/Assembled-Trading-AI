@@ -145,7 +145,9 @@ def align_higher_tf_to_daily(
         daily_prices with additional higher-tf columns forward-filled.
     """
     if feature_cols is None:
-        feature_cols = [c for c in higher_tf.columns if c not in [symbol_col, timestamp_col]]
+        feature_cols = [
+            c for c in higher_tf.columns if c not in [symbol_col, timestamp_col]
+        ]
 
     rename_map = {c: f"{c}{suffix}" for c in feature_cols if suffix}
     htf = higher_tf[[symbol_col, timestamp_col] + feature_cols].copy()
@@ -207,8 +209,16 @@ def _resample_group(
         # the last period, that period is incomplete — remove it
         try:
             # Normalise both to UTC-naive for comparison to avoid TZ TypeError
-            _cutoff = pd.Timestamp(pit_cutoff).tz_localize(None) if pd.Timestamp(pit_cutoff).tzinfo else pd.Timestamp(pit_cutoff)
-            _last = pd.Timestamp(last_period_end).tz_localize(None) if pd.Timestamp(last_period_end).tzinfo else pd.Timestamp(last_period_end)
+            _cutoff = (
+                pd.Timestamp(pit_cutoff).tz_localize(None)
+                if pd.Timestamp(pit_cutoff).tzinfo
+                else pd.Timestamp(pit_cutoff)
+            )
+            _last = (
+                pd.Timestamp(last_period_end).tz_localize(None)
+                if pd.Timestamp(last_period_end).tzinfo
+                else pd.Timestamp(last_period_end)
+            )
             if _cutoff < _last:
                 resampled = resampled.iloc[:-1]
         except Exception as _exc:

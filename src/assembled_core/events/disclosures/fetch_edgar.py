@@ -92,7 +92,9 @@ def fetch_edgar_form4(
                 stats["duration_ms"] = 0
                 return list(_cached_entries), None, stats
         except Exception as exc:
-            logger.warning("[FetchEdgar] failed to parse cached state for %s: %s", source_id, exc)
+            logger.warning(
+                "[FetchEdgar] failed to parse cached state for %s: %s", source_id, exc
+            )
 
     if not feed_url:
         failure = {"source": source_id, "reason": "missing_feed_url"}
@@ -118,7 +120,8 @@ def fetch_edgar_form4(
             if _cached_entries is not None and _cached_utc:
                 logger.warning(
                     "[WARN] fetch_edgar using stale cache (from=%s) after http_%s",
-                    _cached_utc, resp.status_code,
+                    _cached_utc,
+                    resp.status_code,
                 )
                 stats["ok"] = True
                 stats["items"] = len(_cached_entries)
@@ -199,7 +202,8 @@ def fetch_edgar_form4(
         if _cached_entries is not None and _cached_utc:
             logger.warning(
                 "[WARN] fetch_edgar using stale cache (from=%s) after request_error: %s",
-                _cached_utc, e,
+                _cached_utc,
+                e,
             )
             stats["ok"] = True
             stats["items"] = len(_cached_entries)

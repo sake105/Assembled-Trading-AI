@@ -59,11 +59,15 @@ class TestRouteOrder:
         result_bull = route_order(order_size=1000, regime="bull", seed=42)
         result_crisis = route_order(order_size=1000, regime="crisis", seed=42)
         # Crisis spreads should be wider
-        assert result_crisis.total_expected_cost_bps >= result_bull.total_expected_cost_bps
+        assert (
+            result_crisis.total_expected_cost_bps >= result_bull.total_expected_cost_bps
+        )
 
     def test_no_dark_pools_flag(self):
         result = route_order(
-            order_size=1000, allow_dark_pools=False, seed=42,
+            order_size=1000,
+            allow_dark_pools=False,
+            seed=42,
         )
         for alloc in result.allocations:
             assert alloc.is_dark is False
@@ -88,7 +92,10 @@ class TestRouteOrder:
     def test_large_order_splits(self):
         """Large order relative to ADV should split across venues."""
         result = route_order(
-            order_size=100_000, adv=500_000, seed=42, max_venues=3,
+            order_size=100_000,
+            adv=500_000,
+            seed=42,
+            max_venues=3,
         )
         # With 5% participation limit per venue, should use multiple
         assert len(result.allocations) >= 1

@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/ops/incident_tracker.py."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -11,10 +12,10 @@ from assembled_core.ops.incident_tracker import (
     Severity,
 )
 
-
 # ---------------------------------------------------------------------------
 # IncidentRecord
 # ---------------------------------------------------------------------------
+
 
 class TestIncidentRecord:
     def test_defaults(self):
@@ -36,6 +37,7 @@ class TestIncidentRecord:
 
     def test_duration_minutes_computed(self):
         from datetime import timedelta
+
         record = IncidentRecord(title="t", severity=Severity.SEV1)
         record.resolved_at = record.started_at + timedelta(minutes=30)
         assert abs(record.duration_minutes - 30.0) < 0.1
@@ -63,6 +65,7 @@ class TestIncidentRecord:
 # ---------------------------------------------------------------------------
 # IncidentTracker
 # ---------------------------------------------------------------------------
+
 
 class TestIncidentTracker:
     def test_open_incident_creates_file(self, tmp_path):

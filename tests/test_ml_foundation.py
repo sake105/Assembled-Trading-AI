@@ -4,12 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 # ── Helpers ────────────────────────────────────────────────────────────
+
 
 def _arch_available() -> bool:
     try:
         import arch  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -18,6 +19,7 @@ def _arch_available() -> bool:
 def _scipy_available() -> bool:
     try:
         import scipy  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -25,16 +27,22 @@ def _scipy_available() -> bool:
 
 # ── Purged CV ──────────────────────────────────────────────────────────
 
+
 class TestPurgedKFold:
     """Tests for PurgedKFold cross-validator."""
 
     def test_import(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import PurgedKFold
+
         assert PurgedKFold is not None
 
     def test_basic_split(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import PurgedKFold
 
         # 500 daily timestamps
@@ -52,7 +60,9 @@ class TestPurgedKFold:
             assert len(set(train_idx) & set(test_idx)) == 0
 
     def test_purge_removes_contaminated_samples(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import PurgedKFold
 
         dates = pd.date_range("2020-01-01", periods=500, freq="B")
@@ -70,7 +80,9 @@ class TestPurgedKFold:
             assert gap >= 10, f"Gap={gap} < label_horizon=10"
 
     def test_embargo_shrinks_training(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import PurgedKFold
 
         dates = pd.date_range("2020-01-01", periods=500, freq="B")
@@ -87,7 +99,9 @@ class TestPurgedKFold:
             assert len(splits_no[0][0]) >= len(splits_with[0][0])
 
     def test_insufficient_data_raises(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import PurgedKFold
 
         dates = pd.date_range("2020-01-01", periods=10, freq="B")
@@ -98,7 +112,9 @@ class TestPurgedKFold:
             kf.split(timestamps)
 
     def test_expanding_vs_rolling(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import PurgedKFold
 
         dates = pd.date_range("2020-01-01", periods=500, freq="B")
@@ -117,12 +133,17 @@ class TestPurgedWalkForward:
     """Tests for purged_walk_forward_split."""
 
     def test_import_v2(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import purged_walk_forward_split
+
         assert purged_walk_forward_split is not None
 
     def test_basic_walk_forward(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import purged_walk_forward_split
 
         dates = pd.date_range("2018-01-01", periods=1000, freq="B")
@@ -144,7 +165,9 @@ class TestPurgedWalkForward:
             assert len(set(train_idx) & set(test_idx)) == 0
 
     def test_max_splits_respected(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.purged_cv")
         from src.assembled_core.ml.purged_cv import purged_walk_forward_split
 
         dates = pd.date_range("2015-01-01", periods=2500, freq="B")
@@ -161,32 +184,42 @@ class TestPurgedWalkForward:
 
 # ── GARCH Models ───────────────────────────────────────────────────────
 
+
 class TestGARCHModels:
     """Tests for GARCH family models."""
 
     def test_import_v3(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.garch_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.garch_models")
         from src.assembled_core.ml.garch_models import fit_garch, GARCHResult
+
         assert fit_garch is not None
         assert GARCHResult is not None
 
     def test_garch_result_dataclass(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.garch_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.garch_models")
         from src.assembled_core.ml.garch_models import GARCHResult
 
         r = GARCHResult(
-            symbol="TEST", model_type="garch",
-            vol_1d=0.2, vol_5d=0.2, persistence=0.95,
-            asymmetry=0.0, bic=100.0,
+            symbol="TEST",
+            model_type="garch",
+            vol_1d=0.2,
+            vol_5d=0.2,
+            persistence=0.95,
+            asymmetry=0.0,
+            bic=100.0,
         )
         assert r.symbol == "TEST"
         assert r.persistence == 0.95
 
-    @pytest.mark.skipif(
-        not _arch_available(), reason="arch package not installed"
-    )
+    @pytest.mark.skipif(not _arch_available(), reason="arch package not installed")
     def test_fit_garch_basic(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.garch_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.garch_models")
         from src.assembled_core.ml.garch_models import fit_garch
 
         np.random.seed(42)
@@ -199,11 +232,11 @@ class TestGARCHModels:
         assert 0 <= result.persistence <= 1.5
         assert result.model_type == "garch"
 
-    @pytest.mark.skipif(
-        not _arch_available(), reason="arch package not installed"
-    )
+    @pytest.mark.skipif(not _arch_available(), reason="arch package not installed")
     def test_fit_best_garch_selects_by_bic(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.garch_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.garch_models")
         from src.assembled_core.ml.garch_models import fit_best_garch
 
         np.random.seed(42)
@@ -214,11 +247,11 @@ class TestGARCHModels:
         assert result.model_type in ("garch", "egarch", "gjr")
         assert result.bic < 0 or result.bic > 0  # just not NaN
 
-    @pytest.mark.skipif(
-        not _arch_available(), reason="arch package not installed"
-    )
+    @pytest.mark.skipif(not _arch_available(), reason="arch package not installed")
     def test_fit_panel_garch(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.garch_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.garch_models")
         from src.assembled_core.ml.garch_models import fit_panel_garch
 
         np.random.seed(42)
@@ -234,7 +267,9 @@ class TestGARCHModels:
         assert len(results) > 0
 
     def test_insufficient_data_returns_none(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.garch_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.garch_models")
         from src.assembled_core.ml.garch_models import fit_garch
 
         returns = np.random.normal(0, 0.02, 10)
@@ -244,19 +279,23 @@ class TestGARCHModels:
 
 # ── EVT Models ─────────────────────────────────────────────────────────
 
+
 class TestEVTModels:
     """Tests for Extreme Value Theory models."""
 
     def test_import_v4(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.evt_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.evt_models")
         from src.assembled_core.ml.evt_models import fit_evt_pot
+
         assert fit_evt_pot is not None
 
-    @pytest.mark.skipif(
-        not _scipy_available(), reason="scipy not installed"
-    )
+    @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_fit_evt_basic(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.evt_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.evt_models")
         from src.assembled_core.ml.evt_models import fit_evt_pot
 
         np.random.seed(42)
@@ -271,11 +310,11 @@ class TestEVTModels:
         assert result.n_exceedances > 0
         assert result.shape_xi != 0  # t-distribution should show fat tails
 
-    @pytest.mark.skipif(
-        not _scipy_available(), reason="scipy not installed"
-    )
+    @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_evt_var_ordering(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.evt_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.evt_models")
         from src.assembled_core.ml.evt_models import fit_evt_pot
 
         np.random.seed(42)
@@ -286,11 +325,11 @@ class TestEVTModels:
         # VaR should increase with confidence level
         assert result.var_999 >= result.var_99 >= result.var_95
 
-    @pytest.mark.skipif(
-        not _scipy_available(), reason="scipy not installed"
-    )
+    @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_evt_convenience_wrapper(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.evt_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.evt_models")
         from src.assembled_core.ml.evt_models import compute_evt_risk_metrics
 
         np.random.seed(42)
@@ -302,7 +341,9 @@ class TestEVTModels:
         assert "evt_shape_xi" in metrics
 
     def test_evt_insufficient_data(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.evt_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.evt_models")
         from src.assembled_core.ml.evt_models import fit_evt_pot
 
         returns = np.random.normal(0, 0.02, 20)
@@ -310,7 +351,9 @@ class TestEVTModels:
         assert result is None
 
     def test_evt_fallback_on_failure(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.evt_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.evt_models")
         from src.assembled_core.ml.evt_models import compute_evt_risk_metrics
 
         # Very short series → should return zeros
@@ -320,19 +363,23 @@ class TestEVTModels:
 
 # ── Copula Models ──────────────────────────────────────────────────────
 
+
 class TestCopulaModels:
     """Tests for copula-based tail dependence."""
 
     def test_import_v5(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.copula_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.copula_models")
         from src.assembled_core.ml.copula_models import fit_copula_pair
+
         assert fit_copula_pair is not None
 
-    @pytest.mark.skipif(
-        not _scipy_available(), reason="scipy not installed"
-    )
+    @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_fit_copula_basic(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.copula_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.copula_models")
         from src.assembled_core.ml.copula_models import fit_copula_pair
 
         np.random.seed(42)
@@ -348,11 +395,11 @@ class TestCopulaModels:
         assert result.best_copula in ("clayton", "gumbel", "gaussian")
         assert result.n_obs == n
 
-    @pytest.mark.skipif(
-        not _scipy_available(), reason="scipy not installed"
-    )
+    @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_copula_tail_dependence_positive(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.copula_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.copula_models")
         from src.assembled_core.ml.copula_models import fit_copula_pair
 
         np.random.seed(42)
@@ -368,21 +415,23 @@ class TestCopulaModels:
         # At least one of the tail deps should be > 0
         assert result.lower_tail_dep >= 0 or result.upper_tail_dep >= 0
 
-    @pytest.mark.skipif(
-        not _scipy_available(), reason="scipy not installed"
-    )
+    @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_portfolio_tail_risk(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.copula_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.copula_models")
         from src.assembled_core.ml.copula_models import compute_portfolio_tail_risk
 
         np.random.seed(42)
         n = 500
         z = np.random.normal(0, 1, n)
-        returns_df = pd.DataFrame({
-            "A": z * 0.02 + np.random.normal(0, 0.005, n),
-            "B": z * 0.02 + np.random.normal(0, 0.005, n),
-            "C": np.random.normal(0, 0.02, n),  # independent
-        })
+        returns_df = pd.DataFrame(
+            {
+                "A": z * 0.02 + np.random.normal(0, 0.005, n),
+                "B": z * 0.02 + np.random.normal(0, 0.005, n),
+                "C": np.random.normal(0, 0.02, n),  # independent
+            }
+        )
 
         result = compute_portfolio_tail_risk(returns_df)
         assert "avg_lower_tail_dep" in result
@@ -390,7 +439,9 @@ class TestCopulaModels:
         assert result["n_pairs"] == 3  # C(3,2) = 3
 
     def test_copula_insufficient_data(self):
-        import pytest; pytest.importorskip('src.assembled_core.ml.copula_models')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.ml.copula_models")
         from src.assembled_core.ml.copula_models import fit_copula_pair
 
         ra = np.random.normal(0, 0.02, 10)

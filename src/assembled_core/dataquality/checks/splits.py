@@ -1,4 +1,5 @@
 """Unadjusted split detection heuristic. From 37_DATA_QUALITY_GATE.md §3.4."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -29,13 +30,15 @@ def detect_unadjusted_splits(
             recovery = (max_post - drop_close) / (drop_close + 1e-9)
 
             if recovery < 0.10:
-                suspects.append({
-                    "ticker": ticker,
-                    "timestamp": group.iloc[pos][timestamp_col],
-                    "close": drop_close,
-                    "ret_1bar": round(float(ret.iloc[pos]), 4),
-                    "recovery_pct": round(float(recovery), 4),
-                    "reason": "possible_unadjusted_split",
-                })
+                suspects.append(
+                    {
+                        "ticker": ticker,
+                        "timestamp": group.iloc[pos][timestamp_col],
+                        "close": drop_close,
+                        "ret_1bar": round(float(ret.iloc[pos]), 4),
+                        "recovery_pct": round(float(recovery), 4),
+                        "reason": "possible_unadjusted_split",
+                    }
+                )
 
     return pd.DataFrame(suspects)

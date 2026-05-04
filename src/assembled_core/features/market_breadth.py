@@ -454,12 +454,14 @@ def compute_mcclellan_oscillator(
     ema_slow = na.ewm(span=slow_period, adjust=False).mean()
     oscillator = ema_fast - ema_slow
 
-    result = pd.DataFrame({
-        timestamp_col: df[timestamp_col],
-        "mcclellan_oscillator": oscillator.values,
-        "ema_fast": ema_fast.values,
-        "ema_slow": ema_slow.values,
-    })
+    result = pd.DataFrame(
+        {
+            timestamp_col: df[timestamp_col],
+            "mcclellan_oscillator": oscillator.values,
+            "ema_fast": ema_fast.values,
+            "ema_slow": ema_slow.values,
+        }
+    )
     logger.info("[Breadth] McClellan Oscillator computed for %d rows", len(result))
     return result
 
@@ -487,10 +489,12 @@ def compute_mcclellan_summation_index(
         return pd.DataFrame(columns=[timestamp_col, "mcclellan_summation_index"])
 
     summation = df[oscillator_col].cumsum()
-    result = pd.DataFrame({
-        timestamp_col: df[timestamp_col],
-        "mcclellan_summation_index": summation.values,
-    })
+    result = pd.DataFrame(
+        {
+            timestamp_col: df[timestamp_col],
+            "mcclellan_summation_index": summation.values,
+        }
+    )
     logger.info("[Breadth] McClellan Summation Index computed for %d rows", len(result))
     return result
 
@@ -537,12 +541,14 @@ def compute_zweig_breadth_thrust(
     had_low_recently = below_threshold.rolling(window, min_periods=1).max().astype(int)
     thrust_signal = (above_threshold & had_low_recently).astype(float)
 
-    result = pd.DataFrame({
-        timestamp_col: df[timestamp_col],
-        "zweig_bt_ratio": ratio.values,
-        "zweig_bt_ema": ema.values,
-        "zweig_thrust_signal": thrust_signal.values,
-    })
+    result = pd.DataFrame(
+        {
+            timestamp_col: df[timestamp_col],
+            "zweig_bt_ratio": ratio.values,
+            "zweig_bt_ema": ema.values,
+            "zweig_thrust_signal": thrust_signal.values,
+        }
+    )
     logger.info("[Breadth] Zweig Breadth Thrust computed for %d rows", len(result))
     return result
 
@@ -579,12 +585,14 @@ def compute_new_highs_minus_new_lows(
         roll_min = closes.rolling(lookback, min_periods=lookback // 4).min()
         at_high = (closes >= roll_max).astype(int)
         at_low = (closes <= roll_min).astype(int)
-        return pd.DataFrame({
-            timestamp_col: closes.index,
-            symbol_col: grp[symbol_col].iloc[0],
-            "at_52w_high": at_high.values,
-            "at_52w_low": at_low.values,
-        })
+        return pd.DataFrame(
+            {
+                timestamp_col: closes.index,
+                symbol_col: grp[symbol_col].iloc[0],
+                "at_52w_high": at_high.values,
+                "at_52w_low": at_low.values,
+            }
+        )
 
     pieces = [_at_high_low(g) for _, g in df.groupby(symbol_col)]
     if not pieces:
@@ -593,7 +601,11 @@ def compute_new_highs_minus_new_lows(
     combined = pd.concat(pieces, ignore_index=True)
     daily = (
         combined.groupby(timestamp_col)
-        .agg(new_highs=("at_52w_high", "sum"), new_lows=("at_52w_low", "sum"), total=("at_52w_high", "count"))
+        .agg(
+            new_highs=("at_52w_high", "sum"),
+            new_lows=("at_52w_low", "sum"),
+            total=("at_52w_high", "count"),
+        )
         .reset_index()
     )
     daily["nh_nl_net"] = daily["new_highs"] - daily["new_lows"]
@@ -646,16 +658,20 @@ def compute_arms_index(
         arms = ad_ratio / vol_ratio.replace(0, float("nan"))
     else:
         # Approximate: use simple breadth ratio when volume breakdown unavailable
-        logger.warning("[Breadth] Arms Index: volume columns missing — using breadth-only proxy")
+        logger.warning(
+            "[Breadth] Arms Index: volume columns missing — using breadth-only proxy"
+        )
         arms = ad_ratio
 
     arms_ma = arms.rolling(10, min_periods=5).mean()
 
-    result = pd.DataFrame({
-        timestamp_col: df[timestamp_col],
-        "arms_index": arms.values,
-        "arms_index_ma_10d": arms_ma.values,
-    })
+    result = pd.DataFrame(
+        {
+            timestamp_col: df[timestamp_col],
+            "arms_index": arms.values,
+            "arms_index_ma_10d": arms_ma.values,
+        }
+    )
     logger.info("[Breadth] Arms Index (TRIN) computed for %d rows", len(result))
     return result
 

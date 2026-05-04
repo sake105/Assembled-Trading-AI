@@ -3,6 +3,7 @@
 Estimates systemic fragility based on debt burden, inequality,
 institutional trust, and great-power rivalry indices.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -36,10 +37,10 @@ def compute_structural_cycle_score(
     Returns:
         StructuralCycleResult with composite score and risk_multiplier >= 1.0.
     """
-    debt_score = min(debt_gdp_pct / 100.0, 2.0)          # normalise; cap at 2x
-    inequality_score = gini_index                          # 0–1
-    trust_score = 1.0 - trust_index                       # invert (low trust = high risk)
-    rivalry_score = rivalry_index                          # 0–1
+    debt_score = min(debt_gdp_pct / 100.0, 2.0)  # normalise; cap at 2x
+    inequality_score = gini_index  # 0–1
+    trust_score = 1.0 - trust_index  # invert (low trust = high risk)
+    rivalry_score = rivalry_index  # 0–1
 
     composite = (
         0.35 * debt_score

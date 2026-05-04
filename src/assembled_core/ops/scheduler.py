@@ -23,13 +23,17 @@ logger = logging.getLogger(__name__)
 def _try_apscheduler():
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
         return AsyncIOScheduler
     except ImportError:
         try:
             from apscheduler.schedulers.background import BackgroundScheduler
+
             return BackgroundScheduler
         except ImportError:
-            logger.warning("apscheduler not installed — pip install apscheduler==3.10.4")
+            logger.warning(
+                "apscheduler not installed — pip install apscheduler==3.10.4"
+            )
             return None
 
 
@@ -116,8 +120,9 @@ def build_scheduler(jobs: dict[str, Callable] | None = None) -> Any:
     for job_id, config in _JOB_REGISTRY.items():
         func = jobs.get(job_id, lambda: logger.debug("Noop job: %s", job_id))
         trigger = config["trigger"]
-        kwargs = {k: v for k, v in config.items()
-                  if k not in ("trigger", "id", "description")}
+        kwargs = {
+            k: v for k, v in config.items() if k not in ("trigger", "id", "description")
+        }
         try:
             scheduler.add_job(
                 func,
@@ -126,9 +131,15 @@ def build_scheduler(jobs: dict[str, Callable] | None = None) -> Any:
                 replace_existing=True,
                 **kwargs,
             )
-            logger.debug("Registered job: %s — %s", job_id, config.get("description", ""))
+            logger.debug(
+                "Registered job: %s — %s", job_id, config.get("description", "")
+            )
         except Exception as exc:
-            logger.error("[SCHEDULER] Failed to register job %s — this job will NOT run: %s", job_id, exc)
+            logger.error(
+                "[SCHEDULER] Failed to register job %s — this job will NOT run: %s",
+                job_id,
+                exc,
+            )
 
     return scheduler
 

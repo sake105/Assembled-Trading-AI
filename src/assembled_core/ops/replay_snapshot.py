@@ -69,7 +69,9 @@ def derive_seed(run_id: str, as_of_date: str, base_seed: int | None) -> int:
     return seed64
 
 
-def make_rng(run_id: str, as_of_date: str, base_seed: int | None) -> np.random.Generator:
+def make_rng(
+    run_id: str, as_of_date: str, base_seed: int | None
+) -> np.random.Generator:
     """Return a numpy Generator seeded from ``derive_seed``."""
     return np.random.default_rng(derive_seed(run_id, as_of_date, base_seed))
 
@@ -142,14 +144,20 @@ class RunSnapshot:
         try:
             manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
         except FileNotFoundError as exc:
-            raise FileNotFoundError(f"[REPLAY] Snapshot manifest missing at {base}: {exc}") from exc
+            raise FileNotFoundError(
+                f"[REPLAY] Snapshot manifest missing at {base}: {exc}"
+            ) from exc
         except json.JSONDecodeError as exc:
-            raise ValueError(f"[REPLAY] Snapshot manifest corrupted at {base}: {exc}") from exc
+            raise ValueError(
+                f"[REPLAY] Snapshot manifest corrupted at {base}: {exc}"
+            ) from exc
 
         try:
             prices = pd.read_parquet(base / "prices.parquet")
         except FileNotFoundError as exc:
-            raise FileNotFoundError(f"[REPLAY] Snapshot prices missing at {base}: {exc}") from exc
+            raise FileNotFoundError(
+                f"[REPLAY] Snapshot prices missing at {base}: {exc}"
+            ) from exc
         signals = None
         sig_path = base / "signals.parquet"
         if sig_path.exists():
@@ -288,12 +296,19 @@ def run_paper_replay(
         )
 
         hooks = {
-            "load_prices": lambda _ctx, _w=window, _b=current_bar: (_w.copy(), _b.copy()),
+            "load_prices": lambda _ctx, _w=window, _b=current_bar: (
+                _w.copy(),
+                _b.copy(),
+            ),
             "build_features": lambda _ctx, df: df,
         }
         result = run_trading_cycle(ctx, hooks=hooks)
 
-        orders = result.orders_filtered if result.orders_filtered is not None else result.orders
+        orders = (
+            result.orders_filtered
+            if result.orders_filtered is not None
+            else result.orders
+        )
         if orders is not None and not orders.empty:
             stamped = orders.copy()
             if "timestamp" not in stamped.columns:
@@ -311,7 +326,9 @@ def run_paper_replay(
                 sym = str(row.symbol)
                 raw_side = getattr(row, "side", None)
                 raw_qty = getattr(row, "qty", None)
-                if raw_side is None or (isinstance(raw_side, float) and np.isnan(raw_side)):
+                if raw_side is None or (
+                    isinstance(raw_side, float) and np.isnan(raw_side)
+                ):
                     raise ValueError(f"replay: order row for {sym} has null side")
                 side = str(raw_side).upper()
                 if side not in {"BUY", "SELL"}:
@@ -331,6 +348,8 @@ def run_paper_replay(
             .reset_index(drop=True)
         )
     else:
-        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        orders_df = pd.DataFrame(
+            columns=["timestamp", "symbol", "side", "qty", "price"]
+        )
 
     return ReplayResult(orders_df=orders_df, n_days=len(dates), seed=seed)

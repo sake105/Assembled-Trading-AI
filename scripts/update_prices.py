@@ -47,16 +47,19 @@ def _load_watchlist() -> list[str]:
 
 def _fetch_polygon(symbols: list[str], start: str, end: str) -> pd.DataFrame:
     from src.assembled_core.data.sources.polygon_source import fetch_prices_polygon
+
     return fetch_prices_polygon(symbols, start, end)
 
 
 def _fetch_yfinance(symbols: list[str], start: str, end: str) -> pd.DataFrame:
     from src.assembled_core.data.sources.yfinance_source import fetch_prices_yfinance
+
     return fetch_prices_yfinance(symbols, start, end)
 
 
 def _get_cache_path() -> Path:
     from src.assembled_core.data.prices_ingest import get_default_price_path
+
     return get_default_price_path("1d")
 
 
@@ -80,7 +83,9 @@ def main():
 
     days = 400 if args.full else args.days
     end_date = (pd.Timestamp.now("UTC") + pd.DateOffset(days=1)).strftime("%Y-%m-%d")
-    start_date = (pd.Timestamp.now("UTC") - pd.DateOffset(days=days)).strftime("%Y-%m-%d")
+    start_date = (pd.Timestamp.now("UTC") - pd.DateOffset(days=days)).strftime(
+        "%Y-%m-%d"
+    )
 
     new_data = pd.DataFrame()
 
@@ -89,8 +94,11 @@ def main():
             logger.info("Fetching from Polygon (%s to %s)...", start_date, end_date)
             new_data = _fetch_polygon(symbols, start_date, end_date)
             if not new_data.empty:
-                logger.info("Polygon: fetched %d rows for %d symbols",
-                            len(new_data), new_data["symbol"].nunique())
+                logger.info(
+                    "Polygon: fetched %d rows for %d symbols",
+                    len(new_data),
+                    new_data["symbol"].nunique(),
+                )
         except Exception as exc:
             logger.warning("Polygon failed: %s", exc)
 
@@ -99,8 +107,11 @@ def main():
             logger.info("Fetching from yfinance (%s to %s)...", start_date, end_date)
             new_data = _fetch_yfinance(symbols, start_date, end_date)
             if not new_data.empty:
-                logger.info("yfinance: fetched %d rows for %d symbols",
-                            len(new_data), new_data["symbol"].nunique())
+                logger.info(
+                    "yfinance: fetched %d rows for %d symbols",
+                    len(new_data),
+                    new_data["symbol"].nunique(),
+                )
         except Exception as exc:
             logger.warning("yfinance failed: %s", exc)
 

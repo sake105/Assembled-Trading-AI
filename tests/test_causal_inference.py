@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytest.importorskip('src.assembled_core.ml.causal_inference')
+pytest.importorskip("src.assembled_core.ml.causal_inference")
 from src.assembled_core.ml.causal_inference import (
     CausalEffectResult,
     GrangerResult,
@@ -48,7 +48,9 @@ class TestPropensityScoreMatching:
     def test_basic_psm(self, causal_data):
         factor, returns, confounder = causal_data
         result = propensity_score_matching(
-            factor, returns, confounder.reshape(-1, 1),
+            factor,
+            returns,
+            confounder.reshape(-1, 1),
         )
         assert isinstance(result, CausalEffectResult)
         assert result.method == "propensity_score_matching"
@@ -57,7 +59,8 @@ class TestPropensityScoreMatching:
 
     def test_short_data_returns_default(self):
         result = propensity_score_matching(
-            np.array([1.0, 2.0]), np.array([0.01, 0.02]),
+            np.array([1.0, 2.0]),
+            np.array([0.01, 0.02]),
         )
         assert result.ate == 0.0
         assert result.p_value == 1.0
@@ -97,7 +100,8 @@ class TestIV2SLS:
 
     def test_short_data(self):
         result = iv_two_stage_least_squares(
-            np.array([1.0, 2.0]), np.array([0.01, 0.02]),
+            np.array([1.0, 2.0]),
+            np.array([0.01, 0.02]),
             np.array([0.5, 1.5]),
         )
         assert result.ate == 0.0
@@ -110,10 +114,12 @@ class TestDifferenceInDifferences:
         n = 100
         pre = 50
         # Treated group gets a boost after event
-        treated = np.concatenate([
-            rng.normal(0.001, 0.01, pre),
-            rng.normal(0.005, 0.01, n - pre),  # post-event boost
-        ])
+        treated = np.concatenate(
+            [
+                rng.normal(0.001, 0.01, pre),
+                rng.normal(0.005, 0.01, n - pre),  # post-event boost
+            ]
+        )
         control = rng.normal(0.001, 0.01, n)
         result = difference_in_differences(treated, control, pre)
         assert result.method == "difference_in_differences"
@@ -168,10 +174,12 @@ class TestScreenFactors:
     def test_screen_multiple_factors(self):
         rng = np.random.default_rng(42)
         n = 200
-        factors = pd.DataFrame({
-            "real_factor": rng.normal(0, 1, n),
-            "noise_factor": rng.normal(0, 1, n),
-        })
+        factors = pd.DataFrame(
+            {
+                "real_factor": rng.normal(0, 1, n),
+                "noise_factor": rng.normal(0, 1, n),
+            }
+        )
         returns = pd.Series(
             0.02 * factors["real_factor"].values + rng.normal(0, 0.05, n),
             index=factors.index,

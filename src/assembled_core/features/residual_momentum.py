@@ -22,15 +22,24 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def _try_import_ff_factors(start: str = "2000-01-01", end: str | None = None) -> pd.DataFrame | None:
+def _try_import_ff_factors(
+    start: str = "2000-01-01", end: str | None = None
+) -> pd.DataFrame | None:
     try:
         from pandas_datareader import data as pdr
-        ff5 = pdr.DataReader("F-F_Research_Data_5_Factors_2x3_daily", "famafrench", start=start, end=end)[0]
-        mom = pdr.DataReader("F-F_Momentum_Factor_daily", "famafrench", start=start, end=end)[0]
+
+        ff5 = pdr.DataReader(
+            "F-F_Research_Data_5_Factors_2x3_daily", "famafrench", start=start, end=end
+        )[0]
+        mom = pdr.DataReader(
+            "F-F_Momentum_Factor_daily", "famafrench", start=start, end=end
+        )[0]
         factors = pd.concat([ff5, mom], axis=1) / 100.0  # convert from percent
         return factors
     except Exception as exc:
-        logger.warning("FF5 factor download failed: %s — install pandas-datareader", exc)
+        logger.warning(
+            "FF5 factor download failed: %s — install pandas-datareader", exc
+        )
         return None
 
 
@@ -78,8 +87,8 @@ def compute_residual_momentum(
     indices = []
 
     for i in range(window, len(common)):
-        y = ret.iloc[i - window:i]
-        X = fac.iloc[i - window:i]
+        y = ret.iloc[i - window : i]
+        X = fac.iloc[i - window : i]
         X_with_const = sm.add_constant(X, has_constant="add")
         try:
             ols_res = sm.OLS(y, X_with_const).fit()
@@ -145,7 +154,10 @@ def cross_sectional_residual_momentum(
     zero_std_rows = (cross_std == 0).sum()
     if zero_std_rows > 0:
         log = logging.getLogger(__name__)
-        log.debug("[ResidualMomentum] %d date(s) with zero cross-sectional std — z-score will be NaN", zero_std_rows)
+        log.debug(
+            "[ResidualMomentum] %d date(s) with zero cross-sectional std — z-score will be NaN",
+            zero_std_rows,
+        )
     result_z = result.sub(result.mean(axis=1), axis=0).div(
         cross_std.replace(0, np.nan), axis=0
     )

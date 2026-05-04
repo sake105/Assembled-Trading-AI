@@ -65,7 +65,9 @@ def _compute_git_sha() -> str:
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
         if out.returncode == 0:
             return out.stdout.strip()

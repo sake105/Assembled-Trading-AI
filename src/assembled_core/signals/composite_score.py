@@ -34,27 +34,47 @@ logger = logging.getLogger(__name__)
 
 COMPOSITE_WEIGHTS_BY_REGIME: dict[str, dict[str, float]] = {
     "calm": {
-        "mtf": 0.15, "classical_ta": 0.20, "microstructure": 0.05,
-        "volume_profile": 0.15, "chart_pattern": 0.10,
-        "vol_surface": 0.05, "breadth": 0.10, "seasonality": 0.15,
+        "mtf": 0.15,
+        "classical_ta": 0.20,
+        "microstructure": 0.05,
+        "volume_profile": 0.15,
+        "chart_pattern": 0.10,
+        "vol_surface": 0.05,
+        "breadth": 0.10,
+        "seasonality": 0.15,
         "news": 0.05,
     },
     "normal": {
-        "mtf": 0.15, "classical_ta": 0.15, "microstructure": 0.05,
-        "volume_profile": 0.15, "chart_pattern": 0.10,
-        "vol_surface": 0.10, "breadth": 0.10, "seasonality": 0.10,
+        "mtf": 0.15,
+        "classical_ta": 0.15,
+        "microstructure": 0.05,
+        "volume_profile": 0.15,
+        "chart_pattern": 0.10,
+        "vol_surface": 0.10,
+        "breadth": 0.10,
+        "seasonality": 0.10,
         "news": 0.10,
     },
     "elevated": {
-        "mtf": 0.15, "classical_ta": 0.10, "microstructure": 0.05,
-        "volume_profile": 0.10, "chart_pattern": 0.10,
-        "vol_surface": 0.15, "breadth": 0.15, "seasonality": 0.05,
+        "mtf": 0.15,
+        "classical_ta": 0.10,
+        "microstructure": 0.05,
+        "volume_profile": 0.10,
+        "chart_pattern": 0.10,
+        "vol_surface": 0.15,
+        "breadth": 0.15,
+        "seasonality": 0.05,
         "news": 0.15,
     },
     "crisis": {
-        "mtf": 0.10, "classical_ta": 0.05, "microstructure": 0.05,
-        "volume_profile": 0.05, "chart_pattern": 0.10,
-        "vol_surface": 0.20, "breadth": 0.20, "seasonality": 0.05,
+        "mtf": 0.10,
+        "classical_ta": 0.05,
+        "microstructure": 0.05,
+        "volume_profile": 0.05,
+        "chart_pattern": 0.10,
+        "vol_surface": 0.20,
+        "breadth": 0.20,
+        "seasonality": 0.05,
         "news": 0.20,
     },
 }
@@ -62,12 +82,12 @@ COMPOSITE_WEIGHTS_BY_REGIME: dict[str, dict[str, float]] = {
 TA_PARAMS_BY_REGIME: dict[str, dict[str, Any]] = {
     "bull_trend": {"rsi_ob": 75, "rsi_os": 35, "bb_std": 2.0, "use_bb_mr": False},
     "bear_trend": {"rsi_ob": 65, "rsi_os": 25, "bb_std": 2.0, "use_bb_mr": False},
-    "ranging":    {"rsi_ob": 70, "rsi_os": 30, "bb_std": 1.5, "use_bb_mr": True},
-    "high_vol":   {"rsi_ob": 80, "rsi_os": 20, "bb_std": 2.5, "use_bb_mr": True},
-    "normal":     {"rsi_ob": 70, "rsi_os": 30, "bb_std": 2.0, "use_bb_mr": True},
-    "calm":       {"rsi_ob": 70, "rsi_os": 30, "bb_std": 2.0, "use_bb_mr": True},
-    "elevated":   {"rsi_ob": 72, "rsi_os": 28, "bb_std": 2.0, "use_bb_mr": True},
-    "crisis":     {"rsi_ob": 80, "rsi_os": 20, "bb_std": 2.5, "use_bb_mr": False},
+    "ranging": {"rsi_ob": 70, "rsi_os": 30, "bb_std": 1.5, "use_bb_mr": True},
+    "high_vol": {"rsi_ob": 80, "rsi_os": 20, "bb_std": 2.5, "use_bb_mr": True},
+    "normal": {"rsi_ob": 70, "rsi_os": 30, "bb_std": 2.0, "use_bb_mr": True},
+    "calm": {"rsi_ob": 70, "rsi_os": 30, "bb_std": 2.0, "use_bb_mr": True},
+    "elevated": {"rsi_ob": 72, "rsi_os": 28, "bb_std": 2.0, "use_bb_mr": True},
+    "crisis": {"rsi_ob": 80, "rsi_os": 20, "bb_std": 2.5, "use_bb_mr": False},
 }
 
 
@@ -89,7 +109,9 @@ def mtf_alignment_score(
     if len(close_daily) < 200:
         return 0.0
 
-    sma50 = close_daily.iloc[-50:].mean() if len(close_daily) >= 50 else close_daily.mean()
+    sma50 = (
+        close_daily.iloc[-50:].mean() if len(close_daily) >= 50 else close_daily.mean()
+    )
     sma200 = close_daily.mean()
     d_trend = np.sign(sma50 - sma200)
     d_strength = min(adx_daily / 25.0, 2.0)
@@ -174,7 +196,9 @@ def microstructure_score(
     total_vol = up_vol + down_vol + 1e-6
     ofi_proxy = float((up_vol - down_vol) / total_vol)
 
-    return float(np.clip(0.3 * illiquidity_penalty + 0.5 * ofi_proxy + 0.2 * vp_corr, -1.0, 1.0))
+    return float(
+        np.clip(0.3 * illiquidity_penalty + 0.5 * ofi_proxy + 0.2 * vp_corr, -1.0, 1.0)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +220,9 @@ def volume_profile_score(close: pd.Series, volume: pd.Series) -> float:
         vol_arr = (
             volume.to_numpy(dtype=float)
             if len(volume) >= len(close)
-            else np.concatenate([volume.to_numpy(dtype=float), np.ones(len(close) - len(volume))])
+            else np.concatenate(
+                [volume.to_numpy(dtype=float), np.ones(len(close) - len(volume))]
+            )
         )
         idx_arr = np.clip(np.searchsorted(price_bins, close_arr), 0, 48)
         profile = np.bincount(idx_arr, weights=vol_arr, minlength=49).astype(float)
@@ -206,7 +232,9 @@ def volume_profile_score(close: pd.Series, volume: pd.Series) -> float:
         mr_score = float(-np.tanh(dist_pct * 10.0))
 
         vwap = (close * volume).cumsum() / volume.cumsum().clip(lower=1e-10)
-        avwap_dev = (float(close.iloc[-1]) - float(vwap.iloc[-1])) / max(float(vwap.iloc[-1]), 1e-6)
+        avwap_dev = (float(close.iloc[-1]) - float(vwap.iloc[-1])) / max(
+            float(vwap.iloc[-1]), 1e-6
+        )
         avwap_score = float(-np.tanh(avwap_dev * 10.0))
 
         return float(np.clip(0.6 * mr_score + 0.4 * avwap_score, -1.0, 1.0))
@@ -256,10 +284,16 @@ def vol_surface_score(
     vix_term_score = float(-np.sign(vix_9d - vix_30d))
     vrp_score = float(np.tanh(-vrp * 5.0))
 
-    return float(np.clip(
-        0.4 * iv_rank_score + 0.2 * skew_score + 0.2 * vix_term_score + 0.2 * vrp_score,
-        -1.0, 1.0,
-    ))
+    return float(
+        np.clip(
+            0.4 * iv_rank_score
+            + 0.2 * skew_score
+            + 0.2 * vix_term_score
+            + 0.2 * vrp_score,
+            -1.0,
+            1.0,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -285,10 +319,13 @@ def breadth_intermarket_score(
     credit_score = float(np.tanh((hyg_tlt_change - 1.0) * 5.0))
     dxy_score = float(-np.tanh(dxy_change_20d * 10.0))  # strong $ = equity headwind
 
-    return float(np.clip(
-        0.3 * mc_score + 0.3 * risk_on_score + 0.2 * credit_score + 0.2 * dxy_score,
-        -1.0, 1.0,
-    ))
+    return float(
+        np.clip(
+            0.3 * mc_score + 0.3 * risk_on_score + 0.2 * credit_score + 0.2 * dxy_score,
+            -1.0,
+            1.0,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -310,8 +347,10 @@ def seasonality_score(
     gap_z = (overnight_gap - gap_30d_mean) / max(gap_30d_std, 1e-6)
     gap_score = float(-np.tanh(gap_z * 2.0))  # gap-fade hypothesis
 
-    days_in_month = (date(today.year + (today.month // 12), today.month % 12 + 1, 1) -
-                     date(today.year, today.month, 1)).days
+    days_in_month = (
+        date(today.year + (today.month // 12), today.month % 12 + 1, 1)
+        - date(today.year, today.month, 1)
+    ).days
     is_turn = today.day <= 2 or today.day >= (days_in_month - 1)
     tom_score = 0.3 if is_turn else 0.0
 
@@ -329,6 +368,7 @@ def seasonality_score(
 def news_score(news_features: dict[str, float]) -> float:
     """Thin wrapper around news_fusion.news_score_normalized."""
     from src.assembled_core.signals.news_fusion import news_score_normalized
+
     return news_score_normalized(news_features)
 
 
@@ -360,6 +400,7 @@ def compute_news_dim_with_edcl(
         return base_news_score
     try:
         from src.assembled_core.intel.trigger_basket import compute_basket_score
+
         edcl_score = compute_basket_score(edcl_basket)
         # Map [0,1] geo-risk score to [-1,0]: 0 risk → neutral, max risk → fully bearish
         edcl_news = -(edcl_score)
@@ -408,15 +449,18 @@ def compute_edcl_conviction_multiplier(
     iv_spike = options_iv_skew_z > 2.0
 
     if crisis_regime and iv_spike:
-        multiplier = min(2.0, max_mult)   # triple confirmation
+        multiplier = min(2.0, max_mult)  # triple confirmation
     elif crisis_regime:
-        multiplier = 1.5                  # double: EDCL + regime
+        multiplier = 1.5  # double: EDCL + regime
     else:
-        multiplier = 1.2                  # EDCL only
+        multiplier = 1.2  # EDCL only
 
     logger.debug(
         "[EDCL-H] triple_confirm: conviction=%.3f regime=%s iv_z=%.2f → mult=%.2f",
-        edcl_conviction, composite_regime, options_iv_skew_z, multiplier,
+        edcl_conviction,
+        composite_regime,
+        options_iv_skew_z,
+        multiplier,
     )
     return multiplier
 
@@ -446,7 +490,9 @@ def composite_score(
     Returns:
         (composite_score in [-1, +1], per-dimension dict for attribution).
     """
-    weights = COMPOSITE_WEIGHTS_BY_REGIME.get(regime, COMPOSITE_WEIGHTS_BY_REGIME["normal"])
+    weights = COMPOSITE_WEIGHTS_BY_REGIME.get(
+        regime, COMPOSITE_WEIGHTS_BY_REGIME["normal"]
+    )
     # Enrich news dimension with EDCL basket if provided
     if edcl_basket is not None and edcl_conviction > 0.0:
         news = compute_news_dim_with_edcl(news, edcl_basket, edcl_conviction)
@@ -507,8 +553,10 @@ def generate_composite_score_signals(
 
     # Map pipeline regime labels to composite weight regime labels
     _regime_map = {
-        "bull": "normal", "sideways": "elevated",
-        "bear": "elevated", "crisis": "crisis",
+        "bull": "normal",
+        "sideways": "elevated",
+        "bear": "elevated",
+        "crisis": "crisis",
     }
     composite_regime = _regime_map.get(regime, regime)
     if composite_regime not in COMPOSITE_WEIGHTS_BY_REGIME:
@@ -516,7 +564,11 @@ def generate_composite_score_signals(
 
     df = panel.copy()
     if as_of_date is not None:
-        cutoff = pd.Timestamp(as_of_date, tz="UTC") if pd.Timestamp(as_of_date).tzinfo is None else pd.Timestamp(as_of_date)
+        cutoff = (
+            pd.Timestamp(as_of_date, tz="UTC")
+            if pd.Timestamp(as_of_date).tzinfo is None
+            else pd.Timestamp(as_of_date)
+        )
         if "timestamp" in df.columns:
             ts = pd.to_datetime(df["timestamp"], utc=True)
             df = df[ts <= cutoff]
@@ -525,12 +577,12 @@ def generate_composite_score_signals(
         return pd.DataFrame(columns=["symbol", "direction", "score"])
 
     # Column aliases
-    rsi_col   = _col(df, "ta_rsi_14_v1", "rsi_14", "rsi")
-    macd_col  = _col(df, "ta_macd_hist_v1", "macd_hist")
-    bb_col    = _col(df, "ta_bb_pctb_v1", "bb_pos", "bb_pctb")
-    adx_col   = _col(df, "ta_adx_v1", "adx_14", "adx")
-    ret_col   = _col(df, "ta_log_return_v1", "log_return")
-    ma20_col  = _col(df, "ta_ma_20_v1", "ma_20")
+    rsi_col = _col(df, "ta_rsi_14_v1", "rsi_14", "rsi")
+    macd_col = _col(df, "ta_macd_hist_v1", "macd_hist")
+    bb_col = _col(df, "ta_bb_pctb_v1", "bb_pos", "bb_pctb")
+    adx_col = _col(df, "ta_adx_v1", "adx_14", "adx")
+    ret_col = _col(df, "ta_log_return_v1", "log_return")
+    ma20_col = _col(df, "ta_ma_20_v1", "ma_20")
 
     # Cross-sectional breadth: % of symbols trading above their MA20
     breadth_ratio = 0.0
@@ -552,16 +604,22 @@ def generate_composite_score_signals(
             continue
 
         close = grp["close"]
-        volume = grp["volume"] if "volume" in grp.columns else pd.Series(1.0, index=grp.index)
+        volume = (
+            grp["volume"]
+            if "volume" in grp.columns
+            else pd.Series(1.0, index=grp.index)
+        )
 
         # Dim 1: MTF alignment (use daily close + ADX; intraday signals = 0)
         adx_val = float(grp[adx_col].iloc[-1]) if adx_col else 20.0
-        dim1 = mtf_alignment_score(close, macd_hist_15m=0.0, rsi_5m=50.0, adx_daily=adx_val)
+        dim1 = mtf_alignment_score(
+            close, macd_hist_15m=0.0, rsi_5m=50.0, adx_daily=adx_val
+        )
 
         # Dim 2: Classical TA
-        rsi_val  = float(grp[rsi_col].iloc[-1])  if rsi_col  else 50.0
+        rsi_val = float(grp[rsi_col].iloc[-1]) if rsi_col else 50.0
         macd_val = float(grp[macd_col].iloc[-1]) if macd_col else 0.0
-        bb_val   = float(grp[bb_col].iloc[-1])   if bb_col   else 0.5
+        bb_val = float(grp[bb_col].iloc[-1]) if bb_col else 0.5
         dim2 = classical_ta_score(rsi_val, macd_val, bb_val, composite_regime)
 
         # Dim 3: Microstructure (returns + dollar volume)
@@ -593,7 +651,11 @@ def generate_composite_score_signals(
         # Dim 8: Seasonality
         if "timestamp" in grp.columns:
             _ts = pd.Timestamp(grp["timestamp"].iloc[-1])
-            _d = _ts.date() if not isinstance(_ts, type(None)) else (as_of_date or date.today())
+            _d = (
+                _ts.date()
+                if not isinstance(_ts, type(None))
+                else (as_of_date or date.today())
+            )
         else:
             _d = as_of_date or date.today()
         dim8 = seasonality_score(_d)

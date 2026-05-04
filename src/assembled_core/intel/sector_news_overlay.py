@@ -71,19 +71,27 @@ class SectorNewsOverlay:
         # --- Contribution from EvidenceClusters ---
         cluster_scores = self._from_clusters(clusters, now)
         for sector, score in cluster_scores.items():
-            sector_scores[sector] = sector_scores.get(sector, 0.0) + score * self._max_cluster
+            sector_scores[sector] = (
+                sector_scores.get(sector, 0.0) + score * self._max_cluster
+            )
 
         # --- Contribution from EventStore ---
         if event_store is not None:
-            store_scores = self._from_event_store(event_store, hours=store_lookback_hours, now=now)
+            store_scores = self._from_event_store(
+                event_store, hours=store_lookback_hours, now=now
+            )
             for sector, score in store_scores.items():
-                sector_scores[sector] = sector_scores.get(sector, 0.0) + score * self._max_store
+                sector_scores[sector] = (
+                    sector_scores.get(sector, 0.0) + score * self._max_store
+                )
 
         # Normalise to [-1, +1]
         if sector_scores:
             max_abs = max(abs(v) for v in sector_scores.values())
             if max_abs > 0:
-                sector_scores = {k: round(v / max_abs, 4) for k, v in sector_scores.items()}
+                sector_scores = {
+                    k: round(v / max_abs, 4) for k, v in sector_scores.items()
+                }
 
         if sector_scores:
             logger.debug(
@@ -103,7 +111,11 @@ class SectorNewsOverlay:
             "war_escalation": {"defense": +0.8, "energy": -0.4, "consumer": -0.3},
             "military_strike": {"defense": +0.6, "energy": -0.3},
             "sanctions": {"financials": -0.5, "energy": -0.4, "industrials": -0.3},
-            "energy_disruption": {"energy": -0.7, "utilities": -0.3, "industrials": -0.2},
+            "energy_disruption": {
+                "energy": -0.7,
+                "utilities": -0.3,
+                "industrials": -0.2,
+            },
             "central_bank": {"financials": -0.3, "tech": -0.2, "utilities": +0.1},
             "trade_policy": {"industrials": -0.4, "consumer": -0.2, "tech": -0.2},
             "political_crisis": {"financials": -0.3},
@@ -148,7 +160,9 @@ class SectorNewsOverlay:
         try:
             recent_events = event_store.query_by_time(hours=hours)  # type: ignore[attr-defined]
         except Exception as exc:
-            logger.warning("[WARN] SectorNewsOverlay: event_store.query_by_time failed: %s", exc)
+            logger.warning(
+                "[WARN] SectorNewsOverlay: event_store.query_by_time failed: %s", exc
+            )
             return {}
 
         for evt in recent_events:
@@ -157,7 +171,11 @@ class SectorNewsOverlay:
             severity = float(getattr(evt, "severity", 0.0) or 0.0)
             confidence = float(getattr(evt, "news_confidence", 0.0) or 0.0)
 
-            direction_sign = -1.0 if market_dir == "bearish" else (1.0 if market_dir == "bullish" else 0.0)
+            direction_sign = (
+                -1.0
+                if market_dir == "bearish"
+                else (1.0 if market_dir == "bullish" else 0.0)
+            )
             if direction_sign == 0.0:
                 continue
 

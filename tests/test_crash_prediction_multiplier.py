@@ -46,6 +46,7 @@ def _patched_engine(prob: float):
     class _FakeEngine:
         def predict(self, *args, **kwargs) -> _FakeSignal:
             return _FakeSignal(prob)
+
     return _FakeEngine
 
 

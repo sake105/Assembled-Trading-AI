@@ -24,7 +24,11 @@ from typing import NamedTuple
 logger = logging.getLogger(__name__)
 
 # Feature flag: set PDT_RULE_ACTIVE=false after Alpaca confirms migration
-_PDT_ACTIVE = os.environ.get("PDT_RULE_ACTIVE", "true").lower() not in ("false", "0", "no")
+_PDT_ACTIVE = os.environ.get("PDT_RULE_ACTIVE", "true").lower() not in (
+    "false",
+    "0",
+    "no",
+)
 
 # Equity threshold below which PDT rules apply
 _PDT_EQUITY_THRESHOLD = 25_000.0
@@ -33,7 +37,7 @@ _PDT_EQUITY_THRESHOLD = 25_000.0
 class DayTradeRecord(NamedTuple):
     symbol: str
     trade_date: date
-    open_side: str   # 'buy' or 'sell_short'
+    open_side: str  # 'buy' or 'sell_short'
 
 
 class PDTCounter:
@@ -45,8 +49,8 @@ class PDTCounter:
     fills and reconstruct on restart.
     """
 
-    _WINDOW_DAYS = 5      # rolling business-day window
-    _MAX_DAY_TRADES = 3   # 4th trade would trigger PDT flag → block at 3
+    _WINDOW_DAYS = 5  # rolling business-day window
+    _MAX_DAY_TRADES = 3  # 4th trade would trigger PDT flag → block at 3
 
     def __init__(self) -> None:
         self._records: deque[DayTradeRecord] = deque(maxlen=500)
@@ -55,7 +59,9 @@ class PDTCounter:
     # Recording
     # ------------------------------------------------------------------
 
-    def add_day_trade(self, symbol: str, trade_date: date | None = None, open_side: str = "buy") -> None:
+    def add_day_trade(
+        self, symbol: str, trade_date: date | None = None, open_side: str = "buy"
+    ) -> None:
         """Record a completed day-trade.
 
         Args:
@@ -64,7 +70,9 @@ class PDTCounter:
             open_side: 'buy' (long day-trade) or 'sell_short' (short day-trade).
         """
         d = trade_date or datetime.now(tz=timezone.utc).date()
-        self._records.append(DayTradeRecord(symbol=symbol, trade_date=d, open_side=open_side))
+        self._records.append(
+            DayTradeRecord(symbol=symbol, trade_date=d, open_side=open_side)
+        )
         logger.debug("Day-trade recorded: %s %s %s", symbol, d, open_side)
 
     # ------------------------------------------------------------------
@@ -109,7 +117,10 @@ class PDTCounter:
             (allowed: bool, reason: str | None).  reason is None if allowed.
         """
         if not _PDT_ACTIVE:
-            return True, None  # post-migration: intraday margin checks handled by broker
+            return (
+                True,
+                None,
+            )  # post-migration: intraday margin checks handled by broker
 
         if account_equity >= _PDT_EQUITY_THRESHOLD:
             return True, None  # above threshold, no restriction
@@ -120,7 +131,9 @@ class PDTCounter:
         if self.would_trigger_pdt(as_of):
             logger.warning(
                 "PDT block: %s %s — %d day-trades already in window",
-                symbol, side, self.count_in_window(as_of),
+                symbol,
+                side,
+                self.count_in_window(as_of),
             )
             return False, "pdt_risk"
 

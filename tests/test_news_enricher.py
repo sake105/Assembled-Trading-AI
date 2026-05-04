@@ -44,7 +44,9 @@ class TestNewsEventEnricher:
         from src.assembled_core.intel.news_enricher import NewsEventEnricher
 
         enricher = NewsEventEnricher()
-        evt = _make_event("ev2", title="Missile attack on energy pipeline causes explosion")
+        evt = _make_event(
+            "ev2", title="Missile attack on energy pipeline causes explosion"
+        )
         result = enricher.enrich([evt])
         assert result[0].severity > 0
 
@@ -52,7 +54,9 @@ class TestNewsEventEnricher:
         from src.assembled_core.intel.news_enricher import NewsEventEnricher
 
         enricher = NewsEventEnricher()
-        evt = _make_event("ev3", title="War escalation crisis collapse of ceasefire talks")
+        evt = _make_event(
+            "ev3", title="War escalation crisis collapse of ceasefire talks"
+        )
         result = enricher.enrich([evt])
         assert result[0].market_direction in ("bearish", "bullish", "neutral", "mixed")
 
@@ -76,7 +80,9 @@ class TestNewsEventEnricher:
         title = "Russia sanctions on energy sector announced by EU"
         # Simulate 8 reports of same story
         for i in range(8):
-            dedupe.record_story_count(_make_event(f"bg{i}", title=title, source_id=f"src{i}"))
+            dedupe.record_story_count(
+                _make_event(f"bg{i}", title=title, source_id=f"src{i}")
+            )
 
         enricher = NewsEventEnricher(dedupe_index=dedupe)
         evt = _make_event("ev_fatigued", title=title)
@@ -133,11 +139,18 @@ class TestNewsEventEnricher:
         # Pre-seed tracker with 4 sources reporting the same story (→ high score)
         title = "Russia bombs energy grid, Europe responds with sanctions"
         for i in range(4):
-            e = _make_event(f"bg_corr{i}", title=title, source_id=f"reuters{i}", source_tier=SourceTier.T1)
+            e = _make_event(
+                f"bg_corr{i}",
+                title=title,
+                source_id=f"reuters{i}",
+                source_tier=SourceTier.T1,
+            )
             tracker.ingest([e])
 
         enricher = NewsEventEnricher(corroboration_tracker=tracker)
-        evt = _make_event("ev_corr", title=title, source_id="ap", source_tier=SourceTier.T1)
+        evt = _make_event(
+            "ev_corr", title=title, source_id="ap", source_tier=SourceTier.T1
+        )
         evt.news_confidence = 0.5
         result = enricher.enrich([evt])
         # Corroboration should boost confidence above the initial 0.5
@@ -163,10 +176,17 @@ class TestNewsEventEnricher:
         # Majority: bearish (3 events from different T1 sources)
         # Minority: bullish (1 event from a T3 source)
         evts = [
-            _make_event(f"ev_vote_{i}", title=title, source_id=f"reuters{i}", source_tier=SourceTier.T1)
+            _make_event(
+                f"ev_vote_{i}",
+                title=title,
+                source_id=f"reuters{i}",
+                source_tier=SourceTier.T1,
+            )
             for i in range(3)
         ]
-        minority = _make_event("ev_vote_min", title=title, source_id="blog1", source_tier=SourceTier.T3)
+        minority = _make_event(
+            "ev_vote_min", title=title, source_id="blog1", source_tier=SourceTier.T3
+        )
         # Pre-classify so directions are set
         for e in evts:
             e.event_types = ["sanctions"]

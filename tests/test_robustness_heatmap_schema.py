@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-pytest.importorskip('src.assembled_core.qa.robustness')
+pytest.importorskip("src.assembled_core.qa.robustness")
 from src.assembled_core.qa.robustness import (
     build_heatmap_table,
     export_robustness_sweep_results,

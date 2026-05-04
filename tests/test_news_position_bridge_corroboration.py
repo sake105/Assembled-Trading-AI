@@ -70,6 +70,10 @@ class TestRequireCorroboration:
 
     def test_custom_threshold(self):
         sig = _signal()
-        evs = [_evt("reuters", SourceTier.T1), _evt("ap", SourceTier.T1), _evt("bbc", SourceTier.T1)]
+        evs = [
+            _evt("reuters", SourceTier.T1),
+            _evt("ap", SourceTier.T1),
+            _evt("bbc", SourceTier.T1),
+        ]
         assert require_corroboration(sig, evs, min_independent_high_tier=3) is sig
         assert require_corroboration(sig, evs, min_independent_high_tier=4) is None

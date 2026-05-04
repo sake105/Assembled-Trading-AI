@@ -6,13 +6,13 @@ import pytest
 import pandas as pd
 
 from src.assembled_core.strategies.base import Strategy, StrategySignal
-pytest.importorskip('src.assembled_core.portfolio.strategy_allocator')
+
+pytest.importorskip("src.assembled_core.portfolio.strategy_allocator")
 from src.assembled_core.portfolio.strategy_allocator import (
     AllocationConfig,
     EnsembleResult,
     StrategyAllocator,
 )
-
 
 # -- Test strategies ---------------------------------------------------------
 
@@ -23,12 +23,16 @@ class BullStrategy(Strategy):
         return "bull_strat"
 
     def generate_signals(self, prices, **kwargs):
-        return StrategySignal(signals=pd.DataFrame({
-            "timestamp": pd.Timestamp("2024-01-01"),
-            "symbol": ["AAPL", "MSFT", "GOOG"],
-            "direction": ["LONG", "LONG", "LONG"],
-            "score": [0.9, 0.7, 0.5],
-        }))
+        return StrategySignal(
+            signals=pd.DataFrame(
+                {
+                    "timestamp": pd.Timestamp("2024-01-01"),
+                    "symbol": ["AAPL", "MSFT", "GOOG"],
+                    "direction": ["LONG", "LONG", "LONG"],
+                    "score": [0.9, 0.7, 0.5],
+                }
+            )
+        )
 
 
 class BearStrategy(Strategy):
@@ -37,12 +41,16 @@ class BearStrategy(Strategy):
         return "bear_strat"
 
     def generate_signals(self, prices, **kwargs):
-        return StrategySignal(signals=pd.DataFrame({
-            "timestamp": pd.Timestamp("2024-01-01"),
-            "symbol": ["AAPL", "MSFT", "TSLA"],
-            "direction": ["SHORT", "LONG", "SHORT"],
-            "score": [0.8, 0.3, 0.6],
-        }))
+        return StrategySignal(
+            signals=pd.DataFrame(
+                {
+                    "timestamp": pd.Timestamp("2024-01-01"),
+                    "symbol": ["AAPL", "MSFT", "TSLA"],
+                    "direction": ["SHORT", "LONG", "SHORT"],
+                    "score": [0.8, 0.3, 0.6],
+                }
+            )
+        )
 
 
 class EmptyStrategy(Strategy):
@@ -91,7 +99,8 @@ class TestStrategyAllocatorInit:
     def test_custom_weights_normalized(self):
         cfg = AllocationConfig(weights={"a": 3.0, "b": 1.0})
         alloc = StrategyAllocator(
-            {"a": BullStrategy(), "b": BearStrategy()}, config=cfg,
+            {"a": BullStrategy(), "b": BearStrategy()},
+            config=cfg,
         )
         assert alloc._config.weights["a"] == pytest.approx(0.75)
         assert alloc._config.weights["b"] == pytest.approx(0.25)
@@ -149,9 +158,7 @@ class TestMajorityVote:
         result = alloc.generate_combined_signals(PRICES)
         assert not result.combined_signals.empty
         # MSFT: both say LONG -> LONG
-        msft = result.combined_signals[
-            result.combined_signals["symbol"] == "MSFT"
-        ]
+        msft = result.combined_signals[result.combined_signals["symbol"] == "MSFT"]
         if not msft.empty:
             assert msft.iloc[0]["direction"] == "LONG"
 
@@ -168,7 +175,8 @@ class TestRegimeConditional:
             },
         )
         alloc = StrategyAllocator(
-            {"bull": BullStrategy(), "bear": BearStrategy()}, config=cfg,
+            {"bull": BullStrategy(), "bear": BearStrategy()},
+            config=cfg,
         )
         result_bull = alloc.generate_combined_signals(PRICES, regime="bull")
         result_crisis = alloc.generate_combined_signals(PRICES, regime="crisis")

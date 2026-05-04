@@ -247,7 +247,10 @@ def generate_walk_forward_splits(
         raise ValueError(f"test_window_days must be > 0, got {config.test_window_days}")
 
     # A9: Validate purge_days >= max_label_horizon
-    if config.max_label_horizon is not None and config.purge_days < config.max_label_horizon:
+    if (
+        config.max_label_horizon is not None
+        and config.purge_days < config.max_label_horizon
+    ):
         raise ValueError(
             f"purge_days ({config.purge_days}) must be >= max_label_horizon "
             f"({config.max_label_horizon}) to prevent label leakage between train and test."
@@ -1138,7 +1141,10 @@ def walk_forward_param_optimization(
         train_dates = dates[start:train_end]
         test_dates = dates[train_end:test_end]
 
-        if len(train_dates) < config.min_train_periods or len(test_dates) < config.min_test_periods:
+        if (
+            len(train_dates) < config.min_train_periods
+            or len(test_dates) < config.min_test_periods
+        ):
             start += config.step_size_days
             continue
 
@@ -1158,11 +1164,11 @@ def walk_forward_param_optimization(
                 sig_fn = signal_fn_factory(params)
                 signals = sig_fn(train_prices)
 
-                if signals is None or (hasattr(signals, 'empty') and signals.empty):
+                if signals is None or (hasattr(signals, "empty") and signals.empty):
                     continue
 
                 # Simple return-based metric on train
-                if hasattr(signals, 'mean'):
+                if hasattr(signals, "mean"):
                     train_score = float(signals.mean()) if metric == "return" else 0.0
                 else:
                     train_score = 0.0
@@ -1179,17 +1185,23 @@ def walk_forward_param_optimization(
             try:
                 sig_fn = signal_fn_factory(best_params)
                 test_signals = sig_fn(test_prices)
-                if test_signals is not None and hasattr(test_signals, 'mean'):
+                if test_signals is not None and hasattr(test_signals, "mean"):
                     oos_metric = float(test_signals.mean())
             except Exception as exc:
-                logger.warning("[WalkForward] OOS signal evaluation failed for window %s: %s", window_idx, exc)
+                logger.warning(
+                    "[WalkForward] OOS signal evaluation failed for window %s: %s",
+                    window_idx,
+                    exc,
+                )
 
-        results.append({
-            "window": window_idx,
-            "best_params": best_params,
-            "train_score": round(best_score, 6),
-            "oos_metric": round(oos_metric, 6),
-        })
+        results.append(
+            {
+                "window": window_idx,
+                "best_params": best_params,
+                "train_score": round(best_score, 6),
+                "oos_metric": round(oos_metric, 6),
+            }
+        )
 
         window_idx += 1
         start += config.step_size_days
@@ -1262,7 +1274,10 @@ def compute_is_oos_gap(
 
     logger.info(
         "[WF] IS/OOS gap: IS_Sharpe=%.2f, OOS_Sharpe=%.2f, gap=%.2f -> %s",
-        is_sharpe, oos_sharpe, gap, verdict,
+        is_sharpe,
+        oos_sharpe,
+        gap,
+        verdict,
     )
     return ISOOSGapResult(
         is_sharpe=round(is_sharpe, 4),

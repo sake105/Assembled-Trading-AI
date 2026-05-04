@@ -95,8 +95,20 @@ def _make_engine(tmp_path, *, enable_cost_tiers: bool) -> UnifiedPaperEngine:
 def _orders_frame() -> pd.DataFrame:
     return pd.DataFrame(
         [
-            {"symbol": "AAPL", "side": "BUY", "qty": 100, "price": 180.0, "order_id": "o1"},
-            {"symbol": "XYZ", "side": "BUY", "qty": 100, "price": 5.0, "order_id": "o2"},
+            {
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 100,
+                "price": 180.0,
+                "order_id": "o1",
+            },
+            {
+                "symbol": "XYZ",
+                "side": "BUY",
+                "qty": 100,
+                "price": 5.0,
+                "order_id": "o2",
+            },
         ]
     )
 
@@ -142,7 +154,9 @@ def test_tier_disabled_preserves_flat_cost(tmp_path) -> None:
     # Both symbols should observe the same half-spread cost
     # (impact is zero because impact_coefficient=0).
     spreads = set(round(x, 6) for x in fills["spread_cost_bps"])
-    assert len(spreads) == 1, f"legacy path should produce flat half-spread, got {spreads}"
+    assert (
+        len(spreads) == 1
+    ), f"legacy path should produce flat half-spread, got {spreads}"
 
 
 def test_reject_unknown_adv(tmp_path) -> None:

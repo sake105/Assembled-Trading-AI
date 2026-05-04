@@ -14,6 +14,7 @@ Environments:
 ATA_ENVIRONMENT env-var selects the environment (default: dev).
 Per-environment .env files live in config/env/.env.{dev,staging,prod}.
 """
+
 from __future__ import annotations
 
 import os
@@ -29,6 +30,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class Env(str, Enum):
     DEV = "dev"
     STAGING = "staging"
@@ -36,17 +38,19 @@ class Env(str, Enum):
 
 
 class TradingMode(str, Enum):
-    MOCK = "mock"      # no external API calls; fixture responses
-    PAPER = "paper"    # Alpaca Paper
-    LIVE = "live"      # Alpaca Live (real money)
+    MOCK = "mock"  # no external API calls; fixture responses
+    PAPER = "paper"  # Alpaca Paper
+    LIVE = "live"  # Alpaca Live (real money)
 
 
 # ---------------------------------------------------------------------------
 # Nested settings blocks
 # ---------------------------------------------------------------------------
 
+
 class AlpacaConfig(BaseSettings):
     """Alpaca credentials. Optional in MOCK mode."""
+
     api_key: SecretStr = Field(default=SecretStr(""))
     secret_key: SecretStr = Field(default=SecretStr(""))
     base_url: str = Field(default="https://paper-api.alpaca.markets/")
@@ -60,6 +64,7 @@ class RiskLimits(BaseSettings):
 
     kill_switch_loss must exceed max_daily_loss (enforced by validator).
     """
+
     max_position_usd: float = Field(default=1_000.0, gt=0)
     max_daily_loss_usd: float = Field(default=500.0, gt=0)
     max_open_positions: int = Field(default=10, ge=1, le=100)
@@ -86,6 +91,7 @@ class RiskLimits(BaseSettings):
 # Top-level settings
 # ---------------------------------------------------------------------------
 
+
 class EnvSettings(BaseSettings):
     """Environment-aware settings. Load via get_env_settings().
 
@@ -99,6 +105,7 @@ class EnvSettings(BaseSettings):
       ATA_ENABLE_NEWS_FEATURES (default: true)
       ATA_ENABLE_SHADOW_MODE   (default: false)
     """
+
     environment: Env = Field(default=Env.DEV)
     trading_mode: TradingMode = Field(default=TradingMode.MOCK)
     log_level: str = Field(default="INFO")
@@ -144,7 +151,9 @@ def get_env_settings(env_override: str | None = None) -> EnvSettings:
     Looks for config/env/.env.{env} file. If the file does not exist,
     settings are loaded from process environment only (useful in CI).
     """
-    env_name = (env_override or os.environ.get("ATA_ENVIRONMENT", "dev")).strip().lower()
+    env_name = (
+        (env_override or os.environ.get("ATA_ENVIRONMENT", "dev")).strip().lower()
+    )
 
     if env_name not in {e.value for e in Env}:
         raise RuntimeError(

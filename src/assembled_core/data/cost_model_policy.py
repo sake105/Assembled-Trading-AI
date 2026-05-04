@@ -152,11 +152,36 @@ def get_effective_cost_params(
 # ---------------------------------------------------------------------------
 
 _DEFAULT_TIERS = {
-    "mega_cap":  {"adv_min_usd": 100_000_000, "commission_bps": 0.2, "half_spread_bps": 1.0, "slippage_bps": 1.5},
-    "large_cap": {"adv_min_usd": 20_000_000,  "commission_bps": 0.5, "half_spread_bps": 2.0, "slippage_bps": 2.5},
-    "mid_cap":   {"adv_min_usd": 5_000_000,   "commission_bps": 0.8, "half_spread_bps": 3.5, "slippage_bps": 5.0},
-    "small_cap": {"adv_min_usd": 1_000_000,   "commission_bps": 1.0, "half_spread_bps": 5.0, "slippage_bps": 8.0},
-    "micro_cap": {"adv_min_usd": 0,           "commission_bps": 1.5, "half_spread_bps": 8.0, "slippage_bps": 12.0},
+    "mega_cap": {
+        "adv_min_usd": 100_000_000,
+        "commission_bps": 0.2,
+        "half_spread_bps": 1.0,
+        "slippage_bps": 1.5,
+    },
+    "large_cap": {
+        "adv_min_usd": 20_000_000,
+        "commission_bps": 0.5,
+        "half_spread_bps": 2.0,
+        "slippage_bps": 2.5,
+    },
+    "mid_cap": {
+        "adv_min_usd": 5_000_000,
+        "commission_bps": 0.8,
+        "half_spread_bps": 3.5,
+        "slippage_bps": 5.0,
+    },
+    "small_cap": {
+        "adv_min_usd": 1_000_000,
+        "commission_bps": 1.0,
+        "half_spread_bps": 5.0,
+        "slippage_bps": 8.0,
+    },
+    "micro_cap": {
+        "adv_min_usd": 0,
+        "commission_bps": 1.5,
+        "half_spread_bps": 8.0,
+        "slippage_bps": 12.0,
+    },
 }
 
 
@@ -174,11 +199,14 @@ def load_cost_tiers(yaml_path: str | Path | None = None) -> dict[str, dict]:
         if yaml_path.exists():
             try:
                 import yaml
+
                 with open(yaml_path, encoding="utf-8") as f:
                     cfg = yaml.safe_load(f)
                 return cfg.get("tiers", _DEFAULT_TIERS)
             except Exception as exc:
-                logger.warning("[CostModelPolicy] failed to load tiers from %s: %s", yaml_path, exc)
+                logger.warning(
+                    "[CostModelPolicy] failed to load tiers from %s: %s", yaml_path, exc
+                )
     return _DEFAULT_TIERS
 
 
@@ -234,7 +262,9 @@ def classify_symbol_tier(
     """
     tiers = tiers or _DEFAULT_TIERS
     # Sort tiers by adv_min_usd descending so we match highest tier first
-    sorted_tiers = sorted(tiers.items(), key=lambda x: x[1].get("adv_min_usd", 0), reverse=True)
+    sorted_tiers = sorted(
+        tiers.items(), key=lambda x: x[1].get("adv_min_usd", 0), reverse=True
+    )
     for name, t in sorted_tiers:
         if adv_usd >= t.get("adv_min_usd", 0):
             return name
@@ -267,19 +297,32 @@ def get_per_symbol_costs(
         c = tier["commission_bps"]
         s = tier["half_spread_bps"]
         sl = tier["slippage_bps"]
-        rows.append({
-            "symbol": sym,
-            "tier": tier_name,
-            "commission_bps": c,
-            "half_spread_bps": s,
-            "slippage_bps": sl,
-            "one_way_cost_bps": c + s + sl,
-            "adv_usd": float(adv),
-        })
+        rows.append(
+            {
+                "symbol": sym,
+                "tier": tier_name,
+                "commission_bps": c,
+                "half_spread_bps": s,
+                "slippage_bps": sl,
+                "one_way_cost_bps": c + s + sl,
+                "adv_usd": float(adv),
+            }
+        )
 
-    return pd.DataFrame(rows) if rows else pd.DataFrame(
-        columns=["symbol", "tier", "commission_bps", "half_spread_bps",
-                 "slippage_bps", "one_way_cost_bps", "adv_usd"]
+    return (
+        pd.DataFrame(rows)
+        if rows
+        else pd.DataFrame(
+            columns=[
+                "symbol",
+                "tier",
+                "commission_bps",
+                "half_spread_bps",
+                "slippage_bps",
+                "one_way_cost_bps",
+                "adv_usd",
+            ]
+        )
     )
 
 

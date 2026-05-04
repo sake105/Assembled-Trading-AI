@@ -17,6 +17,7 @@ Butterfly no-arbitrage constraint (Lee 2005):
     g(k) = (1 - k*d_w/(2*w))**2 - (d_w**2/4)*(1/w + 1/4) + d2_w/2 >= 0
     for all k.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ log = logging.getLogger(__name__)
 
 try:
     from scipy import optimize as sp_opt
+
     _SCIPY = True
 except ImportError:
     _SCIPY = False
@@ -41,15 +43,17 @@ except ImportError:
 # Parameter container
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SVIParams:
     """Fitted SVI parameters for one expiry slice."""
+
     a: float
     b: float
     rho: float
     m: float
     sigma: float
-    expiry_T: float        # time to expiry in years
+    expiry_T: float  # time to expiry in years
     fit_rmse: float = 0.0  # root-mean-squared error of the fit (total var units)
 
     def is_valid(self) -> bool:
@@ -58,7 +62,7 @@ class SVIParams:
             self.b >= 0
             and -1.0 < self.rho < 1.0
             and self.sigma > 0
-            and (self.a + self.b * self.sigma * np.sqrt(1.0 - self.rho ** 2)) >= -1e-8
+            and (self.a + self.b * self.sigma * np.sqrt(1.0 - self.rho**2)) >= -1e-8
         )
 
 
@@ -66,10 +70,11 @@ class SVIParams:
 # SVI evaluation
 # ---------------------------------------------------------------------------
 
+
 def svi_total_variance(k: np.ndarray, params: SVIParams) -> np.ndarray:
     """Evaluate w(k) = total implied variance for log-moneyness array k."""
     d = k - params.m
-    return params.a + params.b * (params.rho * d + np.sqrt(d ** 2 + params.sigma ** 2))
+    return params.a + params.b * (params.rho * d + np.sqrt(d**2 + params.sigma**2))
 
 
 def svi_implied_vol(
@@ -88,6 +93,7 @@ def svi_implied_vol(
 # ---------------------------------------------------------------------------
 # Fitting
 # ---------------------------------------------------------------------------
+
 
 def fit_svi(
     log_moneyness: np.ndarray,
@@ -128,11 +134,11 @@ def fit_svi(
 
     # Bounds: a unconstrained, b>=0, -1<rho<1, m unconstrained, sigma>0
     bounds = [
-        (None, None),       # a
-        (1e-6, None),       # b
-        (-0.999, 0.999),    # rho
-        (None, None),       # m
-        (1e-6, None),       # sigma
+        (None, None),  # a
+        (1e-6, None),  # b
+        (-0.999, 0.999),  # rho
+        (None, None),  # m
+        (1e-6, None),  # sigma
     ]
 
     def objective(x: np.ndarray) -> float:
@@ -140,16 +146,24 @@ def fit_svi(
         p = SVIParams(a=a, b=b, rho=rho, m=m, sigma=sigma, expiry_T=expiry_T)
         w_hat = svi_total_variance(k, p)
         # Extra penalty for constraint violation
-        penalty = max(0.0, -(a + b * sigma * np.sqrt(1 - rho ** 2))) * 1e4
+        penalty = max(0.0, -(a + b * sigma * np.sqrt(1 - rho**2))) * 1e4
         return float(np.mean((w_hat - w) ** 2)) + penalty
 
     try:
-        res = sp_opt.minimize(objective, x0, method=method, bounds=bounds,
-                              options={"maxiter": 2000, "ftol": 1e-12})
+        res = sp_opt.minimize(
+            objective,
+            x0,
+            method=method,
+            bounds=bounds,
+            options={"maxiter": 2000, "ftol": 1e-12},
+        )
         a, b, rho, m, sigma = res.x
         params = SVIParams(
-            a=float(a), b=float(b), rho=float(rho),
-            m=float(m), sigma=float(sigma),
+            a=float(a),
+            b=float(b),
+            rho=float(rho),
+            m=float(m),
+            sigma=float(sigma),
             expiry_T=expiry_T,
             fit_rmse=float(np.sqrt(res.fun)),
         )
@@ -165,12 +179,13 @@ def fit_svi(
 # Arbitrage checks
 # ---------------------------------------------------------------------------
 
+
 def _svi_derivatives(k: np.ndarray, params: SVIParams) -> tuple[np.ndarray, np.ndarray]:
     """Return (dw/dk, d²w/dk²) evaluated at k."""
     d = k - params.m
-    sq = np.sqrt(d ** 2 + params.sigma ** 2)
+    sq = np.sqrt(d**2 + params.sigma**2)
     dw = params.b * (params.rho + d / sq)
-    d2w = params.b * params.sigma ** 2 / sq ** 3
+    d2w = params.b * params.sigma**2 / sq**3
     return dw, d2w
 
 
@@ -190,7 +205,11 @@ def butterfly_arbitrage_free(
     w = svi_total_variance(k_grid, params)
     dw, d2w = _svi_derivatives(k_grid, params)
     w = np.maximum(w, 1e-12)
-    g = (1.0 - k_grid * dw / (2.0 * w)) ** 2 - (dw ** 2 / 4.0) * (1.0 / w + 0.25) + d2w / 2.0
+    g = (
+        (1.0 - k_grid * dw / (2.0 * w)) ** 2
+        - (dw**2 / 4.0) * (1.0 / w + 0.25)
+        + d2w / 2.0
+    )
 
     n_violations = int(np.sum(g < -1e-6))
     return {

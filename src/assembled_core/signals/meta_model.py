@@ -142,7 +142,8 @@ class MetaModel:
             return scaled
         except Exception as exc:
             logger.warning(
-                "[MetaModel] Meta-Labeling fehlgeschlagen: %s — Primary-Scores unverändert", exc
+                "[MetaModel] Meta-Labeling fehlgeschlagen: %s — Primary-Scores unverändert",
+                exc,
             )
             return primary_scores
 
@@ -191,7 +192,9 @@ class MetaModel:
 
             preds_vals = primary.values
             result = ConformalResult(
-                point_predictions=pd.Series(preds_vals, index=X.index, name="prediction"),
+                point_predictions=pd.Series(
+                    preds_vals, index=X.index, name="prediction"
+                ),
                 lower_bounds=pd.Series(preds_vals - q, index=X.index, name="lower"),
                 upper_bounds=pd.Series(preds_vals + q, index=X.index, name="upper"),
                 half_width=q,
@@ -205,7 +208,9 @@ class MetaModel:
                 "half_width": result.half_width,
             }
         except Exception as exc:
-            logger.warning("[MetaModel] Conformal failed: %s — returning point predictions", exc)
+            logger.warning(
+                "[MetaModel] Conformal failed: %s — returning point predictions", exc
+            )
             return {
                 "predictions": primary,
                 "lower": primary.copy(),
@@ -240,7 +245,11 @@ class MetaModel:
                 model=self.model,
                 feature_names=list(self.feature_names),
                 training_data=training_data,
-                mode="classification" if hasattr(self.model, "predict_proba") else "regression",
+                mode=(
+                    "classification"
+                    if hasattr(self.model, "predict_proba")
+                    else "regression"
+                ),
             )
             expl = wrapper.explain(X_row, num_features=num_features)
             return {
@@ -365,15 +374,24 @@ def train_meta_model(
                 val_model_type = model_type  # same type for quick val run
                 if val_model_type == "gradient_boosting":
                     from sklearn.ensemble import GradientBoostingClassifier as _GBC
+
                     _vm = _GBC(n_estimators=50, max_depth=3, random_state=random_state)
                 else:
                     from sklearn.ensemble import RandomForestClassifier as _RFC
-                    _vm = _RFC(n_estimators=50, max_depth=5, random_state=random_state, n_jobs=-1)
+
+                    _vm = _RFC(
+                        n_estimators=50,
+                        max_depth=5,
+                        random_state=random_state,
+                        n_jobs=-1,
+                    )
                 _vm.fit(X_tr, y_tr)
                 val_acc = float((_vm.predict(X_val) == y_val).mean())
                 logger.info(
                     "[MetaModel] OOS validation: n_train=%d n_val=%d accuracy=%.4f",
-                    len(X_tr), len(X_val), val_acc,
+                    len(X_tr),
+                    len(X_val),
+                    val_acc,
                 )
             except Exception as exc:
                 logger.warning("[MetaModel] Validation split failed: %s", exc)
@@ -468,7 +486,9 @@ def load_meta_model(path: str | pathlib.Path) -> MetaModel:
     try:
         meta_model = joblib.load(path)
     except (EOFError, Exception) as exc:
-        raise RuntimeError(f"[meta_model] Failed to load model from {path}: {exc}") from exc
+        raise RuntimeError(
+            f"[meta_model] Failed to load model from {path}: {exc}"
+        ) from exc
 
     logger.info(f"Loaded meta-model from {path}")
 

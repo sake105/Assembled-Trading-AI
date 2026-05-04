@@ -41,7 +41,11 @@ TOPIC_TO_SHOCKS: dict[str, list[str]] = {
     "geopolitical_conflict": ["defense_demand_surge", "global_risk_off"],
     "sanctions_trade": ["global_risk_off", "inflation_spike"],
     "shipping_disruption": ["shipping_cost_risk", "oil_supply_risk"],
-    "taiwan_strait": ["semiconductor_supply_risk", "defense_demand_surge", "global_risk_off"],
+    "taiwan_strait": [
+        "semiconductor_supply_risk",
+        "defense_demand_surge",
+        "global_risk_off",
+    ],
     "energy_crisis": ["oil_supply_risk", "energy_price_spike"],
     "market_crash": ["global_risk_off"],
     "central_bank": ["rate_shock"],
@@ -96,7 +100,9 @@ def active_shocks_from_triggers(
     return sorted(shocks)
 
 
-def _populate_active_shocks(ctx: Any, root: Path, news_triggers_path: str | None) -> None:
+def _populate_active_shocks(
+    ctx: Any, root: Path, news_triggers_path: str | None
+) -> None:
     triggers_path = (
         Path(news_triggers_path)
         if news_triggers_path
@@ -158,7 +164,8 @@ def _populate_sector_rotation_scores(ctx: Any) -> None:
     if len(available) < 3 or "SPY" not in universe:
         log.debug(
             "[INTEL-CTX] sector_rotation_scores: insufficient ETF coverage (%d ETFs, SPY=%s)",
-            len(available), "SPY" in universe,
+            len(available),
+            "SPY" in universe,
         )
         return
 
@@ -177,7 +184,8 @@ def _populate_sector_rotation_scores(ctx: Any) -> None:
     if counts.max() < MIN_SECTOR_HISTORY_DAYS:
         log.debug(
             "[INTEL-CTX] sector_rotation_scores: insufficient history (max %d < %d)",
-            int(counts.max()), MIN_SECTOR_HISTORY_DAYS,
+            int(counts.max()),
+            MIN_SECTOR_HISTORY_DAYS,
         )
         return
 
@@ -288,7 +296,9 @@ def _populate_historical_scores(
     try:
         series = pd.Series(
             [float(r["mean"]) for r in rows if "mean" in r],
-            index=pd.to_datetime([r.get("ts") for r in rows if "mean" in r], utc=True, errors="coerce"),
+            index=pd.to_datetime(
+                [r.get("ts") for r in rows if "mean" in r], utc=True, errors="coerce"
+            ),
         ).dropna()
     except Exception as exc:
         log.warning("[INTEL-CTX] historical_scores parse failed: %s", exc)

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import pytest; pytest.importorskip("src.assembled_core.ml.stacking")
+import pytest
+
+pytest.importorskip("src.assembled_core.ml.stacking")
 import pytest
 import numpy as np
 import pandas as pd
@@ -26,7 +28,9 @@ def _synthetic_panel(n: int = 500, k: int = 5, seed: int = 42) -> pd.DataFrame:
         for i, d in enumerate(dates):
             features = {f"f{j}": rng.normal(0, 1) for j in range(k)}
             target = 0.02 * features["f0"] + 0.01 * features["f1"] + rng.normal(0, 0.05)
-            rows.append({"timestamp": d, "symbol": sym, "fwd_return_5d": target, **features})
+            rows.append(
+                {"timestamp": d, "symbol": sym, "fwd_return_5d": target, **features}
+            )
     return pd.DataFrame(rows)
 
 
@@ -56,7 +60,9 @@ class TestStackedEnsemble:
 
     def test_not_fitted_raises(self):
         stack = StackedEnsemble(
-            base_configs=[MLModelConfig(name="ridge", model_type="ridge", params={"alpha": 1.0})],
+            base_configs=[
+                MLModelConfig(name="ridge", model_type="ridge", params={"alpha": 1.0})
+            ],
         )
         with pytest.raises(RuntimeError, match="fitted"):
             stack.predict(np.zeros((5, 3)))

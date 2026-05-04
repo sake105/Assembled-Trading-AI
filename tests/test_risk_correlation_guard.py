@@ -20,7 +20,6 @@ from src.assembled_core.risk.correlation_guard import (
     detect_correlated_clusters,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

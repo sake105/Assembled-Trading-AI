@@ -92,7 +92,9 @@ def _write_manifest_json(manifest_path: Path, manifest: dict[str, Any]) -> None:
                 if tmp_path != manifest_path:
                     tmp_path.unlink(missing_ok=True)
             except OSError as _unlink_exc:
-                logger.debug("[_write_manifest_json] tmp cleanup failed: %s", _unlink_exc)
+                logger.debug(
+                    "[_write_manifest_json] tmp cleanup failed: %s", _unlink_exc
+                )
 
 
 def _backfill_evidence_index_manifest_path(
@@ -367,9 +369,10 @@ def _enrich_signals_post_generation(
 
     # --- Earnings integration ---
     try:
-        earnings_cfg = (policy.get("earnings_guard") or {})
+        earnings_cfg = policy.get("earnings_guard") or {}
         if earnings_cfg.get("enabled", False):
             from src.assembled_core.features.event_features import apply_earnings_guard
+
             apply_earnings_guard(signals, policy=earnings_cfg)
             logger.debug("[ORCHESTRATOR] earnings_guard applied")
     except Exception as exc:
@@ -377,11 +380,12 @@ def _enrich_signals_post_generation(
 
     # --- Bayesian signal confidence ---
     try:
-        bayes_cfg = (policy.get("bayesian_confidence") or {})
+        bayes_cfg = policy.get("bayesian_confidence") or {}
         if bayes_cfg.get("enabled", False):
             from src.assembled_core.signals.signal_confidence import (
                 apply_bayesian_confidence,
             )
+
             apply_bayesian_confidence(signals, prices=prices, config=bayes_cfg)
             logger.debug("[ORCHESTRATOR] bayesian_confidence applied")
     except Exception as exc:
@@ -389,9 +393,10 @@ def _enrich_signals_post_generation(
 
     # --- Signal diagnostics ---
     try:
-        diag_cfg = (policy.get("signal_diagnostics") or {})
+        diag_cfg = policy.get("signal_diagnostics") or {}
         if diag_cfg.get("enabled", False):
             from src.assembled_core.qa.signal_diagnostics import run_signal_diagnostics
+
             run_signal_diagnostics(signals, prices=prices, config=diag_cfg)
             logger.debug("[ORCHESTRATOR] signal_diagnostics applied")
     except Exception as exc:
@@ -414,10 +419,22 @@ def _normalize_signals_schema(
 
     if "sig" not in df.columns:
         if "direction" in df.columns:
-            mapping = {"LONG": 1, "BUY": 1, "SHORT": -1, "SELL": -1,
-                       "FLAT": 0, "NEUTRAL": 0, "HOLD": 0}
+            mapping = {
+                "LONG": 1,
+                "BUY": 1,
+                "SHORT": -1,
+                "SELL": -1,
+                "FLAT": 0,
+                "NEUTRAL": 0,
+                "HOLD": 0,
+            }
             df["sig"] = (
-                df["direction"].astype(str).str.upper().map(mapping).fillna(0).astype(int)
+                df["direction"]
+                .astype(str)
+                .str.upper()
+                .map(mapping)
+                .fillna(0)
+                .astype(int)
             )
         else:
             df["sig"] = 0
@@ -442,9 +459,7 @@ def _normalize_signals_schema(
                     .groupby("symbol")["close"]
                     .last()
                 )
-                df.loc[missing, "price"] = (
-                    df.loc[missing, "symbol"].map(latest_close)
-                )
+                df.loc[missing, "price"] = df.loc[missing, "symbol"].map(latest_close)
         else:
             df["price"] = float("nan")
 
@@ -480,6 +495,7 @@ def run_execute_step(
     _policy: dict = {}
     try:
         import yaml
+
         _policy_path = Path("configs/policy.yaml")
         if _policy_path.exists():
             with open(_policy_path, "r", encoding="utf-8") as _pf:
@@ -489,6 +505,7 @@ def run_execute_step(
 
     # Compute signals via shared canonical dispatch (B5: single source of truth).
     from src.assembled_core.pipeline._shared_eod import compute_signals_by_mode
+
     signals = compute_signals_by_mode(prices, _policy, freq=freq)
 
     # Post-signal enrichment (earnings guard, Bayesian confidence, diagnostics).
@@ -511,8 +528,11 @@ def run_execute_step(
         from src.assembled_core.execution.transaction_costs import (
             add_cost_columns_to_trades,
         )
+
         cost_model = get_default_cost_model()
-        orders = add_cost_columns_to_trades(orders, prices=prices, cost_model=cost_model)
+        orders = add_cost_columns_to_trades(
+            orders, prices=prices, cost_model=cost_model
+        )
     except Exception as _e:  # noqa: BLE001
         logger.debug("[orchestrator] Cost annotation skipped: %s", _e)
 
@@ -623,6 +643,7 @@ def run_portfolio_step(
 # run_eod_pipeline helpers (_eo_*)
 # ---------------------------------------------------------------------------
 
+
 def _eo_load_prices(
     freq: str,
     symbols: list[str] | None,
@@ -652,7 +673,8 @@ def _eo_load_prices(
                 except (IOError, OSError) as exc:
                     logger.warning(
                         "Failed to read watchlist file %s: %s. Using default universe.",
-                        settings.watchlist_file, exc,
+                        settings.watchlist_file,
+                        exc,
                     )
                     symbols = settings.default_universe
                 if not symbols:
@@ -669,7 +691,9 @@ def _eo_load_prices(
         logger.info("Loading prices from %s source...", source_type)
         logger.info(
             "Symbols: %s%s (%d total)",
-            symbols[:10], "..." if len(symbols) > 10 else "", len(symbols),
+            symbols[:10],
+            "..." if len(symbols) > 10 else "",
+            len(symbols),
         )
         logger.info("Date range: %s to %s", _start, _end)
 
@@ -677,7 +701,9 @@ def _eo_load_prices(
             symbols=symbols, start_date=_start, end_date=_end, freq=freq
         )
         logger.info(
-            "Price data OK: %d rows, %d symbols", len(prices), prices["symbol"].nunique()
+            "Price data OK: %d rows, %d symbols",
+            len(prices),
+            prices["symbol"].nunique(),
         )
 
         if source_type == "yahoo" and len(prices) > 0:
@@ -711,7 +737,9 @@ def _eo_step_ledger(
 ) -> dict[str, Any]:
     """Run Step 4b ledger/accounting. Returns {ledger_result, completed, failed}."""
     run_id = f"run_{started_at.strftime('%Y%m%d_%H%M%S')}"
-    snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+    snapshot_run_id = (
+        broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+    )
 
     try:
         from src.assembled_core.accounting.ledger_integration import (
@@ -728,7 +756,9 @@ def _eo_step_ledger(
 
         if broker_snapshot_file:
             try:
-                logger.info("Importing external broker snapshot from: %s", broker_snapshot_file)
+                logger.info(
+                    "Importing external broker snapshot from: %s", broker_snapshot_file
+                )
                 from src.assembled_core.accounting.broker_snapshot_importer import (
                     import_broker_snapshot,
                 )
@@ -755,7 +785,8 @@ def _eo_step_ledger(
                 )
                 logger.info(
                     "Imported broker snapshot: %s, cash=%s",
-                    import_result["broker_snapshot_path"], import_result["cash"],
+                    import_result["broker_snapshot_path"],
+                    import_result["cash"],
                 )
             except Exception as e:
                 logger.error("Failed to import broker snapshot: %s", e, exc_info=True)
@@ -779,7 +810,8 @@ def _eo_step_ledger(
         )
         logger.info(
             "Ledger built: pack_path=%s, reconciliation_ok=%s",
-            ledger_result["ledger_pack_path"], ledger_result["reconciliation_ok"],
+            ledger_result["ledger_pack_path"],
+            ledger_result["reconciliation_ok"],
         )
         return {"ledger_result": ledger_result, "completed": True, "failed": False}
     except ValueError:
@@ -820,12 +852,20 @@ def _eo_step_qa(
             backtest_equity_file = base / f"equity_curve_{freq}.csv"
 
             if portfolio_equity_file.exists():
-                equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
-                equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                equity_df = pd.read_csv(
+                    portfolio_equity_file, dtype={"timestamp": "string"}
+                )
+                equity_df["timestamp"] = pd.to_datetime(
+                    equity_df["timestamp"], utc=True
+                )
                 logger.info("Using portfolio equity: %d rows", len(equity_df))
             elif backtest_equity_file.exists():
-                equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": "string"})
-                equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                equity_df = pd.read_csv(
+                    backtest_equity_file, dtype={"timestamp": "string"}
+                )
+                equity_df["timestamp"] = pd.to_datetime(
+                    equity_df["timestamp"], utc=True
+                )
                 logger.info("Using backtest equity: %d rows", len(equity_df))
             else:
                 logger.warning("No equity file found for metrics computation")
@@ -850,21 +890,36 @@ def _eo_step_qa(
                 out["qa_metrics"] = qa_metrics
                 logger.info(
                     "Performance metrics computed: PF=%.4f, Sharpe=%s, CAGR=%s",
-                    qa_metrics.final_pf, qa_metrics.sharpe_ratio, qa_metrics.cagr,
+                    qa_metrics.final_pf,
+                    qa_metrics.sharpe_ratio,
+                    qa_metrics.cagr,
                 )
 
                 qa_gate_result = evaluate_all_gates(qa_metrics)
                 out["qa_gate_result"] = qa_gate_result
                 gate_status = qa_gate_result.overall_result.value
-                passed = sum(1 for r in qa_gate_result.gate_results if r.result.value == "ok")
-                warnings = sum(1 for r in qa_gate_result.gate_results if r.result.value == "warning")
-                blocked = sum(1 for r in qa_gate_result.gate_results if r.result.value == "block")
+                passed = sum(
+                    1 for r in qa_gate_result.gate_results if r.result.value == "ok"
+                )
+                warnings = sum(
+                    1
+                    for r in qa_gate_result.gate_results
+                    if r.result.value == "warning"
+                )
+                blocked = sum(
+                    1 for r in qa_gate_result.gate_results if r.result.value == "block"
+                )
                 logger.info(
                     "QA gates: overall=%s (passed=%d, warnings=%d, blocked=%d)",
-                    gate_status, passed, warnings, blocked,
+                    gate_status,
+                    passed,
+                    warnings,
+                    blocked,
                 )
                 if qa_gate_result.overall_result == QAResult.BLOCK:
-                    logger.error("QA gates BLOCKED - strategy does not meet quality thresholds")
+                    logger.error(
+                        "QA gates BLOCKED - strategy does not meet quality thresholds"
+                    )
                 elif qa_gate_result.overall_result == QAResult.WARNING:
                     logger.warning("QA gates WARNING - some quality thresholds not met")
 
@@ -876,13 +931,26 @@ def _eo_step_qa(
                         "start_capital": start_capital,
                         "ema_fast": get_default_ema_config(freq).fast,
                         "ema_slow": get_default_ema_config(freq).slow,
-                        "commission_bps": commission_bps if commission_bps is not None else cost_model.commission_bps,
-                        "spread_w": spread_w if spread_w is not None else cost_model.spread_w,
-                        "impact_w": impact_w if impact_w is not None else cost_model.impact_w,
+                        "commission_bps": (
+                            commission_bps
+                            if commission_bps is not None
+                            else cost_model.commission_bps
+                        ),
+                        "spread_w": (
+                            spread_w if spread_w is not None else cost_model.spread_w
+                        ),
+                        "impact_w": (
+                            impact_w if impact_w is not None else cost_model.impact_w
+                        ),
                     }
                     equity_curve_path = (
-                        portfolio_equity_file if portfolio_equity_file.exists()
-                        else (backtest_equity_file if backtest_equity_file.exists() else None)
+                        portfolio_equity_file
+                        if portfolio_equity_file.exists()
+                        else (
+                            backtest_equity_file
+                            if backtest_equity_file.exists()
+                            else None
+                        )
                     )
                     qa_report_path = generate_qa_report(
                         metrics=qa_metrics,
@@ -967,9 +1035,13 @@ def _eo_build_manifest(
         "qa_overall_status": qa_result["overall_status"] if qa_result else None,
         "qa_checks": qa_result["checks"] if qa_result else [],
         "qa_metrics": _metrics_to_dict(qa_metrics) if qa_metrics else None,
-        "qa_gate_result": _gate_result_to_dict(qa_gate_result) if qa_gate_result else None,
+        "qa_gate_result": (
+            _gate_result_to_dict(qa_gate_result) if qa_gate_result else None
+        ),
         "qa_report_path": (
-            _manifest_path_str(qa_report_path_rel, base_dir=base) if qa_report_path_rel else None
+            _manifest_path_str(qa_report_path_rel, base_dir=base)
+            if qa_report_path_rel
+            else None
         ),
         "robustness_pack_path": None,
         "wf_oos_metrics": None,
@@ -981,31 +1053,44 @@ def _eo_build_manifest(
         "robustness_ok": None,
         "ledger_pack_path": (
             _manifest_path_str(ledger_result.get("ledger_pack_path"), base_dir=base)
-            if ledger_result else None
+            if ledger_result
+            else None
         ),
         "reconcile_report_path": (
-            _manifest_path_str(ledger_result.get("reconcile_report_path"), base_dir=base)
-            if ledger_result else None
+            _manifest_path_str(
+                ledger_result.get("reconcile_report_path"), base_dir=base
+            )
+            if ledger_result
+            else None
         ),
         "accounting_report_path": (
-            _manifest_path_str(ledger_result.get("accounting_report_path"), base_dir=base)
-            if ledger_result else None
+            _manifest_path_str(
+                ledger_result.get("accounting_report_path"), base_dir=base
+            )
+            if ledger_result
+            else None
         ),
         "evidence_index_path": (
             _manifest_path_str(ledger_result.get("evidence_index_path"), base_dir=base)
-            if ledger_result else None
+            if ledger_result
+            else None
         ),
         "evidence_pack_path": (
             _manifest_path_str(ledger_result.get("evidence_pack_path"), base_dir=base)
-            if ledger_result else None
+            if ledger_result
+            else None
         ),
         "evidence_pack_manifest_path": (
-            _manifest_path_str(ledger_result.get("evidence_pack_manifest_path"), base_dir=base)
-            if ledger_result else None
+            _manifest_path_str(
+                ledger_result.get("evidence_pack_manifest_path"), base_dir=base
+            )
+            if ledger_result
+            else None
         ),
         "broker_snapshot_path": (
             _manifest_path_str(ledger_result.get("broker_snapshot_path"), base_dir=base)
-            if ledger_result else None
+            if ledger_result
+            else None
         ),
         "reconciliation_ok": (
             ledger_result["reconciliation_ok"] if ledger_result else None
@@ -1053,7 +1138,9 @@ def _eo_post_steps(base: Path) -> None:
                 learning_store_path=_ls_path,
                 news_events_path=_news_path,
             )
-            logger.info("[EOD][NewsAttr] enriched %d Trade-Records mit news_links", _n_enriched)
+            logger.info(
+                "[EOD][NewsAttr] enriched %d Trade-Records mit news_links", _n_enriched
+            )
     except Exception as _na_exc:
         logger.warning("[EOD][NewsAttr] Non-blocking Fehler: %s", _na_exc)
 
@@ -1078,7 +1165,11 @@ def _eo_post_steps(base: Path) -> None:
                             _rec = _json.loads(_line)
                         except Exception:
                             continue
-                        _t = _rec.get("timestamp") or _rec.get("execution_time") or _rec.get("closed_at")
+                        _t = (
+                            _rec.get("timestamp")
+                            or _rec.get("execution_time")
+                            or _rec.get("closed_at")
+                        )
                         if _t is None:
                             continue
                         _ts = pd.to_datetime(_t, utc=True, errors="coerce")
@@ -1111,7 +1202,10 @@ def _eo_post_steps(base: Path) -> None:
                 from src.assembled_core.ops.report_retention import (
                     purge_old_dated_reports,
                 )
-                purge_old_dated_reports(_tca_out.parent, "tca_report_", ".json", keep_last_n=60)
+
+                purge_old_dated_reports(
+                    _tca_out.parent, "tca_report_", ".json", keep_last_n=60
+                )
             except OSError as _ret_exc:
                 logger.debug("[EOD][TCA] Retention-Purge IO-Fehler: %s", _ret_exc)
     except Exception as _tca_exc:
@@ -1185,7 +1279,9 @@ def run_eod_pipeline(
     # Step 2: Execute
     try:
         logger.info("Step 2: Execute")
-        orders_path, orders = run_execute_step(freq, output_dir=base, price_file=price_file)
+        orders_path, orders = run_execute_step(
+            freq, output_dir=base, price_file=price_file
+        )
         logger.info("Orders written: %s | rows=%d", orders_path, len(orders))
         completed_steps.append("execute")
     except Exception as e:
@@ -1213,8 +1309,11 @@ def run_eod_pipeline(
         try:
             logger.info("Step 4: Portfolio")
             eq_path, rep_path, portfolio_trades_df = run_portfolio_step(
-                freq, start_capital,
-                commission_bps=commission_bps, spread_w=spread_w, impact_w=impact_w,
+                freq,
+                start_capital,
+                commission_bps=commission_bps,
+                spread_w=spread_w,
+                impact_w=impact_w,
                 output_dir=base,
             )
             logger.info("Portfolio written: %s, %s", eq_path, rep_path)
@@ -1227,10 +1326,17 @@ def run_eod_pipeline(
 
     # Step 4b: Ledger/Accounting
     ledger_result = None
-    if not skip_portfolio and portfolio_trades_df is not None and not portfolio_trades_df.empty:
+    if (
+        not skip_portfolio
+        and portfolio_trades_df is not None
+        and not portfolio_trades_df.empty
+    ):
         logger.info("Step 4b: Ledger/Accounting")
         _ledger = _eo_step_ledger(
-            freq=freq, base=base, started_at=started_at, start_capital=start_capital,
+            freq=freq,
+            base=base,
+            started_at=started_at,
+            start_capital=start_capital,
             portfolio_trades_df=portfolio_trades_df,
             broker_snapshot_policy=broker_snapshot_policy,
             broker_snapshot_file=broker_snapshot_file,
@@ -1264,9 +1370,16 @@ def run_eod_pipeline(
     data_snapshot_id = _eo_snapshot_id(prices, freq, price_file, data_source)
 
     manifest = _eo_build_manifest(
-        freq=freq, start_capital=start_capital, data_snapshot_id=data_snapshot_id,
-        completed_steps=completed_steps, qa=_qa, ledger_result=ledger_result,
-        started_at=started_at, finished_at=finished_at, failure_flag=failure_flag, base=base,
+        freq=freq,
+        start_capital=start_capital,
+        data_snapshot_id=data_snapshot_id,
+        completed_steps=completed_steps,
+        qa=_qa,
+        ledger_result=ledger_result,
+        started_at=started_at,
+        finished_at=finished_at,
+        failure_flag=failure_flag,
+        base=base,
     )
 
     manifest_path = base / f"run_manifest_{freq}.json"
@@ -1274,15 +1387,21 @@ def run_eod_pipeline(
         _write_manifest_json(manifest_path, manifest)
         if ledger_result and ledger_result.get("evidence_index_path"):
             _backfill_evidence_index_manifest_path(
-                base_dir=base, ledger_result=ledger_result, manifest_path=manifest_path,
+                base_dir=base,
+                ledger_result=ledger_result,
+                manifest_path=manifest_path,
             )
-            _backfill_evidence_index_accounting_path(base_dir=base, ledger_result=ledger_result)
+            _backfill_evidence_index_accounting_path(
+                base_dir=base, ledger_result=ledger_result
+            )
     except (IOError, OSError) as exc:
         logger.error("Failed to write manifest to %s: %s", manifest_path, exc)
         raise RuntimeError(f"Failed to write manifest to {manifest_path}") from exc
     except (TypeError, ValueError) as exc:
         logger.error("Failed to serialize manifest to JSON: %s", exc)
-        raise ValueError(f"Failed to serialize manifest to JSON: {manifest_path}") from exc
+        raise ValueError(
+            f"Failed to serialize manifest to JSON: {manifest_path}"
+        ) from exc
 
     logger.info("Manifest written: %s", manifest_path)
 

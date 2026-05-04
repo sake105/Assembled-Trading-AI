@@ -18,7 +18,6 @@ from src.assembled_core.ops.paper_ledger import (
     write_ledger_snapshot,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

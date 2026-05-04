@@ -14,7 +14,10 @@ class TestLanguageDetection:
         assert is_english("Fed raises rates by 25 bps")
 
     def test_german(self):
-        assert detect_language("Die Zentralbank erhöht die Zinsen um 25 Basispunkte") == "de"
+        assert (
+            detect_language("Die Zentralbank erhöht die Zinsen um 25 Basispunkte")
+            == "de"
+        )
 
     def test_french(self):
         assert detect_language("La banque centrale augmente les taux d'intérêt") == "fr"

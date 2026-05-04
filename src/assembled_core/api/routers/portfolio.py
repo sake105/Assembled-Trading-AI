@@ -71,9 +71,12 @@ def _calculate_positions_from_orders(orders: pd.DataFrame) -> dict[str, float]:
         return {}
 
     import numpy as np
+
     qty_signed = pd.to_numeric(orders["qty"], errors="coerce").fillna(0.0)
     qty_signed = np.where(orders["side"].str.upper() == "BUY", qty_signed, -qty_signed)
-    net = orders.assign(_sq=qty_signed).groupby(orders["symbol"].astype(str))["_sq"].sum()
+    net = (
+        orders.assign(_sq=qty_signed).groupby(orders["symbol"].astype(str))["_sq"].sum()
+    )
     return {str(k): float(v) for k, v in net.items() if v != 0.0}
 
 

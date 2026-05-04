@@ -22,7 +22,9 @@ FACTOR_COLS = [
 ]
 
 
-def _make_prices(close: np.ndarray, symbol: str = "AAA", start: str = "2020-01-01") -> pd.DataFrame:
+def _make_prices(
+    close: np.ndarray, symbol: str = "AAA", start: str = "2020-01-01"
+) -> pd.DataFrame:
     ts = pd.date_range(start=start, periods=len(close), freq="D")
     return pd.DataFrame(
         {"timestamp": ts, "symbol": symbol, "close": close.astype(float)}
@@ -206,9 +208,7 @@ def test_output_schema_and_timestamps_preserved():
 # ---------------------------------------------------------------------------
 def test_all_nan_close_no_raise():
     ts = pd.date_range(start="2020-01-01", periods=80, freq="D")
-    df = pd.DataFrame(
-        {"timestamp": ts, "symbol": "AAA", "close": np.full(80, np.nan)}
-    )
+    df = pd.DataFrame({"timestamp": ts, "symbol": "AAA", "close": np.full(80, np.nan)})
     out = compute_mean_reversion_factors(df)
     assert len(out) == 80
     for col in FACTOR_COLS:

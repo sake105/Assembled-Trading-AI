@@ -50,10 +50,22 @@ def sample_prices_df(rising_prices):
 
     rows = []
     for i in range(n):
-        rows.append({"timestamp": i, "symbol": "AAPL", "close": rising_prices[i],
-                      "volume": 1_000_000 + rng.integers(-200_000, 200_000)})
-        rows.append({"timestamp": i, "symbol": "MSFT", "close": falling[i],
-                      "volume": 800_000 + rng.integers(-100_000, 100_000)})
+        rows.append(
+            {
+                "timestamp": i,
+                "symbol": "AAPL",
+                "close": rising_prices[i],
+                "volume": 1_000_000 + rng.integers(-200_000, 200_000),
+            }
+        )
+        rows.append(
+            {
+                "timestamp": i,
+                "symbol": "MSFT",
+                "close": falling[i],
+                "volume": 800_000 + rng.integers(-100_000, 100_000),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -198,28 +210,34 @@ class TestGenerateBehavioralSignals:
             disposition_lookback=30,
             overreaction_threshold=0.10,
             blend_weights={
-                "disposition": 1.0, "anchoring": 0.0,
-                "herding": 0.0, "overreaction": 0.0,
+                "disposition": 1.0,
+                "anchoring": 0.0,
+                "herding": 0.0,
+                "overreaction": 0.0,
             },
         )
         signals = generate_behavioral_signals(sample_prices_df, config=cfg)
         assert len(signals) == 2
 
     def test_without_volume_column(self):
-        df = pd.DataFrame({
-            "timestamp": list(range(60)) * 2,
-            "symbol": ["A"] * 60 + ["B"] * 60,
-            "close": list(np.linspace(50, 80, 60)) + list(np.linspace(80, 50, 60)),
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": list(range(60)) * 2,
+                "symbol": ["A"] * 60 + ["B"] * 60,
+                "close": list(np.linspace(50, 80, 60)) + list(np.linspace(80, 50, 60)),
+            }
+        )
         signals = generate_behavioral_signals(df)
         assert len(signals) == 2
 
     def test_short_symbol_excluded(self):
-        df = pd.DataFrame({
-            "timestamp": list(range(5)),
-            "symbol": ["X"] * 5,
-            "close": [100, 101, 102, 101, 100],
-            "volume": [1000] * 5,
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": list(range(5)),
+                "symbol": ["X"] * 5,
+                "close": [100, 101, 102, 101, 100],
+                "volume": [1000] * 5,
+            }
+        )
         signals = generate_behavioral_signals(df)
         assert len(signals) == 0  # too short

@@ -67,14 +67,32 @@ def test_zero_arrival_price_yields_zero() -> None:
 def test_merge_arrival_prices_by_symbol() -> None:
     fills = pd.DataFrame(
         [
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "AAA", "side": "BUY", "fill_price": 101.0},
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "BBB", "side": "SELL", "fill_price": 49.5},
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "AAA",
+                "side": "BUY",
+                "fill_price": 101.0,
+            },
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "BBB",
+                "side": "SELL",
+                "fill_price": 49.5,
+            },
         ]
     )
     arrival = pd.DataFrame(
         [
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "AAA", "arrival_price": 100.0},
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "BBB", "arrival_price": 50.0},
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "AAA",
+                "arrival_price": 100.0,
+            },
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "BBB",
+                "arrival_price": 50.0,
+            },
         ]
     )
     out = compute_implementation_shortfall(fills, arrival)

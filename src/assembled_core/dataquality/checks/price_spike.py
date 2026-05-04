@@ -1,4 +1,5 @@
 """Adaptive price-spike detection. From 37_DATA_QUALITY_GATE.md §3.1."""
+
 from __future__ import annotations
 
 import numpy as np

@@ -1,4 +1,5 @@
 """Tests for RejectionCollector."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -8,11 +9,13 @@ from assembled_core.ops.rejection_collector import RejectionCollector
 
 def _fills_df(statuses, reject_reasons=None):
     n = len(statuses)
-    df = pd.DataFrame({
-        "fill_price": [100.0] * n,
-        "mid_price": [100.0] * n,
-        "status": statuses,
-    })
+    df = pd.DataFrame(
+        {
+            "fill_price": [100.0] * n,
+            "mid_price": [100.0] * n,
+            "status": statuses,
+        }
+    )
     if reject_reasons is not None:
         df["reject_reason"] = reject_reasons
     return df
@@ -97,6 +100,7 @@ def test_total_and_len():
 
 def test_thread_safety():
     import threading
+
     rc = RejectionCollector()
     threads = [threading.Thread(target=rc.record, args=("REASON",)) for _ in range(50)]
     for t in threads:

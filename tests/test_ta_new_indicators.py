@@ -50,9 +50,7 @@ def multi_symbol_ohlcv() -> pd.DataFrame:
         close = 150 + np.random.randn(n).cumsum()
         df = pd.DataFrame(
             {
-                "timestamp": pd.date_range(
-                    "2025-01-01", periods=n, freq="D", tz="UTC"
-                ),
+                "timestamp": pd.date_range("2025-01-01", periods=n, freq="D", tz="UTC"),
                 "symbol": sym,
                 "open": close,
                 "high": close + 2,
@@ -105,13 +103,17 @@ class TestBollingerBands:
     def test_bb_upper_gt_lower(self, sample_ohlcv: pd.DataFrame) -> None:
         result = add_bollinger_bands(sample_ohlcv)
         valid = result["ta_bb_upper_v1"].notna() & result["ta_bb_lower_v1"].notna()
-        assert (result.loc[valid, "ta_bb_upper_v1"] >= result.loc[valid, "ta_bb_lower_v1"]).all()
+        assert (
+            result.loc[valid, "ta_bb_upper_v1"] >= result.loc[valid, "ta_bb_lower_v1"]
+        ).all()
 
     def test_bb_pctb_at_upper_is_one(self) -> None:
         """When close equals upper band, %B should be ~1.0."""
         df = pd.DataFrame(
             {
-                "timestamp": pd.date_range("2025-01-01", periods=30, freq="D", tz="UTC"),
+                "timestamp": pd.date_range(
+                    "2025-01-01", periods=30, freq="D", tz="UTC"
+                ),
                 "symbol": "X",
                 "close": [100.0] * 20 + [105.0] * 10,  # Jump to trigger bands
             }
@@ -190,9 +192,7 @@ class TestOBV:
         """OBV increases on up days, decreases on down days."""
         df = pd.DataFrame(
             {
-                "timestamp": pd.date_range(
-                    "2025-01-01", periods=5, freq="D", tz="UTC"
-                ),
+                "timestamp": pd.date_range("2025-01-01", periods=5, freq="D", tz="UTC"),
                 "symbol": "X",
                 "close": [100.0, 102.0, 101.0, 103.0, 102.0],
                 "volume": [1000, 2000, 1500, 3000, 1000],

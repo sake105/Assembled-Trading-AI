@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 # ── Correlation Features ──────────────────────────────────────────────
+
 
 class TestCorrelationFeatures:
 
@@ -13,19 +13,25 @@ class TestCorrelationFeatures:
         from src.assembled_core.features.correlation_features import (
             compute_avg_pairwise_correlation,
         )
+
         assert compute_avg_pairwise_correlation is not None
 
     def test_avg_pairwise_correlation(self):
-        from src.assembled_core.features.correlation_features import compute_avg_pairwise_correlation
+        from src.assembled_core.features.correlation_features import (
+            compute_avg_pairwise_correlation,
+        )
 
         np.random.seed(42)
         n = 100
         z = np.random.normal(0, 1, n)
-        returns = pd.DataFrame({
-            "A": z * 0.02 + np.random.normal(0, 0.005, n),
-            "B": z * 0.02 + np.random.normal(0, 0.005, n),
-            "C": np.random.normal(0, 0.02, n),
-        }, index=pd.date_range("2020-01-01", periods=n, freq="B"))
+        returns = pd.DataFrame(
+            {
+                "A": z * 0.02 + np.random.normal(0, 0.005, n),
+                "B": z * 0.02 + np.random.normal(0, 0.005, n),
+                "C": np.random.normal(0, 0.02, n),
+            },
+            index=pd.date_range("2020-01-01", periods=n, freq="B"),
+        )
 
         result = compute_avg_pairwise_correlation(returns, windows=(20,))
         assert "avg_pairwise_corr_20d" in result.columns
@@ -34,13 +40,17 @@ class TestCorrelationFeatures:
         assert last_val > 0
 
     def test_return_dispersion(self):
-        from src.assembled_core.features.correlation_features import compute_return_dispersion
+        from src.assembled_core.features.correlation_features import (
+            compute_return_dispersion,
+        )
 
-        returns = pd.DataFrame({
-            "A": [0.01, -0.02, 0.03],
-            "B": [0.01, -0.02, 0.03],  # same as A
-            "C": [-0.01, 0.02, -0.03],  # opposite
-        })
+        returns = pd.DataFrame(
+            {
+                "A": [0.01, -0.02, 0.03],
+                "B": [0.01, -0.02, 0.03],  # same as A
+                "C": [-0.01, 0.02, -0.03],  # opposite
+            }
+        )
 
         disp = compute_return_dispersion(returns)
         assert len(disp) == 3
@@ -48,15 +58,20 @@ class TestCorrelationFeatures:
         assert disp.iloc[0] > 0
 
     def test_correlation_regime_features(self):
-        from src.assembled_core.features.correlation_features import compute_correlation_regime_features
+        from src.assembled_core.features.correlation_features import (
+            compute_correlation_regime_features,
+        )
 
         np.random.seed(42)
         n = 300
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.02, n),
-            "B": np.random.normal(0, 0.02, n),
-            "C": np.random.normal(0, 0.02, n),
-        }, index=pd.date_range("2020-01-01", periods=n, freq="B"))
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.02, n),
+                "B": np.random.normal(0, 0.02, n),
+                "C": np.random.normal(0, 0.02, n),
+            },
+            index=pd.date_range("2020-01-01", periods=n, freq="B"),
+        )
 
         result = compute_correlation_regime_features(returns)
         assert "avg_corr_short" in result.columns
@@ -64,15 +79,20 @@ class TestCorrelationFeatures:
         assert "corr_momentum" in result.columns
 
     def test_sector_dispersion(self):
-        from src.assembled_core.features.correlation_features import compute_sector_dispersion
+        from src.assembled_core.features.correlation_features import (
+            compute_sector_dispersion,
+        )
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "AAPL": np.random.normal(0, 0.02, 50),
-            "MSFT": np.random.normal(0, 0.02, 50),
-            "XOM": np.random.normal(0, 0.03, 50),
-            "CVX": np.random.normal(0, 0.03, 50),
-        }, index=pd.date_range("2020-01-01", periods=50, freq="B"))
+        returns = pd.DataFrame(
+            {
+                "AAPL": np.random.normal(0, 0.02, 50),
+                "MSFT": np.random.normal(0, 0.02, 50),
+                "XOM": np.random.normal(0, 0.03, 50),
+                "CVX": np.random.normal(0, 0.03, 50),
+            },
+            index=pd.date_range("2020-01-01", periods=50, freq="B"),
+        )
 
         sector_map = {"AAPL": "Tech", "MSFT": "Tech", "XOM": "Energy", "CVX": "Energy"}
         result = compute_sector_dispersion(returns, sector_map)
@@ -82,14 +102,20 @@ class TestCorrelationFeatures:
 
 # ── Supply Chain Features ─────────────────────────────────────────────
 
+
 class TestSupplyChainFeatures:
 
     def test_import_v2(self):
-        from src.assembled_core.features.supply_chain_features import build_supply_chain_features
+        from src.assembled_core.features.supply_chain_features import (
+            build_supply_chain_features,
+        )
+
         assert build_supply_chain_features is not None
 
     def test_supply_chain_depth(self):
-        from src.assembled_core.features.supply_chain_features import compute_supply_chain_depth
+        from src.assembled_core.features.supply_chain_features import (
+            compute_supply_chain_depth,
+        )
 
         edges = [("A", "B", 1.0), ("B", "C", 1.0), ("C", "D", 1.0)]
         result = compute_supply_chain_depth(edges, ["A", "B", "C", "D"])
@@ -97,14 +123,18 @@ class TestSupplyChainFeatures:
         assert result["D"] == 0  # leaf
 
     def test_single_source_dependency(self):
-        from src.assembled_core.features.supply_chain_features import compute_single_source_dependency
+        from src.assembled_core.features.supply_chain_features import (
+            compute_single_source_dependency,
+        )
 
         edges = [("S1", "TARGET", 0.9), ("S2", "TARGET", 0.1)]
         result = compute_single_source_dependency(edges, ["TARGET"])
         assert result["TARGET"] == pytest.approx(0.9, abs=0.01)
 
     def test_network_centrality(self):
-        from src.assembled_core.features.supply_chain_features import compute_network_centrality
+        from src.assembled_core.features.supply_chain_features import (
+            compute_network_centrality,
+        )
 
         edges = [("A", "B", 1.0), ("B", "C", 1.0), ("A", "C", 1.0)]
         result = compute_network_centrality(edges, ["A", "B", "C"])
@@ -112,7 +142,9 @@ class TestSupplyChainFeatures:
         assert all(v > 0 for v in result.values())
 
     def test_build_supply_chain_features(self):
-        from src.assembled_core.features.supply_chain_features import build_supply_chain_features
+        from src.assembled_core.features.supply_chain_features import (
+            build_supply_chain_features,
+        )
 
         edges = [("A", "B", 1.0), ("B", "C", 1.0)]
         result = build_supply_chain_features(
@@ -126,10 +158,12 @@ class TestSupplyChainFeatures:
 
 # ── GPR Features ──────────────────────────────────────────────────────
 
+
 class TestGPRFeatures:
 
     def test_import_v3(self):
         from src.assembled_core.features.geopolitical_features import compute_gpr_proxy
+
         assert compute_gpr_proxy is not None
 
     def test_gpr_proxy_basic(self):
@@ -146,7 +180,9 @@ class TestGPRFeatures:
         assert "gpr_momentum" in result.columns
 
     def test_gpr_from_fred(self):
-        from src.assembled_core.features.geopolitical_features import compute_gpr_from_fred
+        from src.assembled_core.features.geopolitical_features import (
+            compute_gpr_from_fred,
+        )
 
         dates = pd.date_range("2010-01-01", periods=500, freq="ME")
         gpr = pd.Series(100 + np.random.normal(0, 20, 500), index=dates)
@@ -163,17 +199,23 @@ class TestGPRFeatures:
 
 # ── Weaponized Interdependence ────────────────────────────────────────
 
+
 class TestWeaponizedInterdependence:
 
     def test_import_v4(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.weaponized_interdependence')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.weaponized_interdependence")
         from src.assembled_core.intel.weaponized_interdependence import (
             compute_wi_score,
         )
+
         assert compute_wi_score is not None
 
     def test_wi_score_basic(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.weaponized_interdependence')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.weaponized_interdependence")
         from src.assembled_core.intel.weaponized_interdependence import compute_wi_score
 
         result = compute_wi_score(
@@ -188,8 +230,12 @@ class TestWeaponizedInterdependence:
         assert result.is_chokepoint
 
     def test_known_wi_pairs(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.weaponized_interdependence')
-        from src.assembled_core.intel.weaponized_interdependence import get_known_wi_pairs
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.weaponized_interdependence")
+        from src.assembled_core.intel.weaponized_interdependence import (
+            get_known_wi_pairs,
+        )
 
         pairs = get_known_wi_pairs()
         assert len(pairs) >= 5
@@ -198,8 +244,12 @@ class TestWeaponizedInterdependence:
         assert "dollar_system" in domains
 
     def test_panoptikon_scores(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.weaponized_interdependence')
-        from src.assembled_core.intel.weaponized_interdependence import compute_panoptikon_scores
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.weaponized_interdependence")
+        from src.assembled_core.intel.weaponized_interdependence import (
+            compute_panoptikon_scores,
+        )
 
         adjacency = {
             "US": {"CN": 5.0, "EU": 8.0, "JP": 3.0},
@@ -213,8 +263,12 @@ class TestWeaponizedInterdependence:
         assert result[0].node == "US" or result[0].betweenness_centrality > 0
 
     def test_symbol_wi_exposure(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.weaponized_interdependence')
-        from src.assembled_core.intel.weaponized_interdependence import score_symbol_wi_exposure
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.weaponized_interdependence")
+        from src.assembled_core.intel.weaponized_interdependence import (
+            score_symbol_wi_exposure,
+        )
 
         result = score_symbol_wi_exposure(
             "NVDA",
@@ -227,15 +281,21 @@ class TestWeaponizedInterdependence:
 
 # ── Scenario Trees ────────────────────────────────────────────────────
 
+
 class TestScenarioTrees:
 
     def test_import_v5(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.scenario_trees')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.scenario_trees")
         from src.assembled_core.intel.scenario_trees import build_scenario_tree
+
         assert build_scenario_tree is not None
 
     def test_build_basic_tree(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.scenario_trees')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.scenario_trees")
         from src.assembled_core.intel.scenario_trees import build_scenario_tree
 
         tree = build_scenario_tree("SANCTIONS_NEW", "New sanctions on country X")
@@ -245,14 +305,18 @@ class TestScenarioTrees:
         assert tree.tail_impact < tree.expected_impact  # tail is worse
 
     def test_impact_skew(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.scenario_trees')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.scenario_trees")
         from src.assembled_core.intel.scenario_trees import build_scenario_tree
 
         tree = build_scenario_tree("NUCLEAR_THREAT")
         assert tree.impact_skew > 1.0  # tail is much worse than expected
 
     def test_custom_escalation_probability(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.scenario_trees')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.scenario_trees")
         from src.assembled_core.intel.scenario_trees import build_scenario_tree
 
         tree_low = build_scenario_tree("TRADE_WAR", escalation_probability=0.1)
@@ -262,9 +326,12 @@ class TestScenarioTrees:
         assert tree_high.expected_impact < tree_low.expected_impact
 
     def test_portfolio_scenario_risk(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.scenario_trees')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.scenario_trees")
         from src.assembled_core.intel.scenario_trees import (
-            build_scenario_tree, evaluate_portfolio_scenario_risk,
+            build_scenario_tree,
+            evaluate_portfolio_scenario_risk,
         )
 
         trees = [
@@ -280,9 +347,11 @@ class TestScenarioTrees:
 
 # ── HRP ───────────────────────────────────────────────────────────────
 
+
 def _scipy_available():
     try:
         import scipy  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -291,19 +360,27 @@ def _scipy_available():
 class TestHRP:
 
     def test_import_v6(self):
-        from src.assembled_core.portfolio.hierarchical_risk_parity import compute_hrp_weights
+        from src.assembled_core.portfolio.hierarchical_risk_parity import (
+            compute_hrp_weights,
+        )
+
         assert compute_hrp_weights is not None
 
     @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_hrp_basic(self):
-        from src.assembled_core.portfolio.hierarchical_risk_parity import compute_hrp_weights
+        from src.assembled_core.portfolio.hierarchical_risk_parity import (
+            compute_hrp_weights,
+        )
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.02, 200),
-            "B": np.random.normal(0, 0.03, 200),
-            "C": np.random.normal(0, 0.01, 200),
-        }, index=pd.date_range("2020-01-01", periods=200, freq="B"))
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.02, 200),
+                "B": np.random.normal(0, 0.03, 200),
+                "C": np.random.normal(0, 0.01, 200),
+            },
+            index=pd.date_range("2020-01-01", periods=200, freq="B"),
+        )
 
         weights = compute_hrp_weights(returns)
         assert len(weights) == 3
@@ -313,20 +390,27 @@ class TestHRP:
 
     @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_hrp_weight_constraints(self):
-        from src.assembled_core.portfolio.hierarchical_risk_parity import compute_hrp_weights
+        from src.assembled_core.portfolio.hierarchical_risk_parity import (
+            compute_hrp_weights,
+        )
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.02, 200),
-            "B": np.random.normal(0, 0.03, 200),
-        }, index=pd.date_range("2020-01-01", periods=200, freq="B"))
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.02, 200),
+                "B": np.random.normal(0, 0.03, 200),
+            },
+            index=pd.date_range("2020-01-01", periods=200, freq="B"),
+        )
 
         weights = compute_hrp_weights(returns, max_weight=0.8)
         assert all(w <= 0.8 + 0.01 for w in weights.values())
 
     @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_hrp_single_asset(self):
-        from src.assembled_core.portfolio.hierarchical_risk_parity import compute_hrp_weights
+        from src.assembled_core.portfolio.hierarchical_risk_parity import (
+            compute_hrp_weights,
+        )
 
         returns = pd.DataFrame({"A": np.random.normal(0, 0.02, 100)})
         weights = compute_hrp_weights(returns)
@@ -335,41 +419,60 @@ class TestHRP:
 
 # ── Barbell Strategy ──────────────────────────────────────────────────
 
+
 class TestBarbellStrategy:
 
     def test_import_v7(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.barbell_strategy')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.barbell_strategy")
         from src.assembled_core.portfolio.barbell_strategy import (
             compute_tail_risk_score,
         )
+
         assert compute_tail_risk_score is not None
 
     def test_tail_risk_score_low(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.barbell_strategy')
-        from src.assembled_core.portfolio.barbell_strategy import compute_tail_risk_score
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.barbell_strategy")
+        from src.assembled_core.portfolio.barbell_strategy import (
+            compute_tail_risk_score,
+        )
 
         score, reasons = compute_tail_risk_score(
-            vix_current=15.0, hmm_crisis_prob=0.05,
+            vix_current=15.0,
+            hmm_crisis_prob=0.05,
         )
         assert score < 0.3
         assert len(reasons) == 0
 
     def test_tail_risk_score_high(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.barbell_strategy')
-        from src.assembled_core.portfolio.barbell_strategy import compute_tail_risk_score
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.barbell_strategy")
+        from src.assembled_core.portfolio.barbell_strategy import (
+            compute_tail_risk_score,
+        )
 
         score, reasons = compute_tail_risk_score(
-            evt_var_99=0.08, evt_var_99_historical_avg=0.03,
+            evt_var_99=0.08,
+            evt_var_99_historical_avg=0.03,
             hmm_crisis_prob=0.6,
-            vix_current=40.0, vix_5d_change=10.0,
+            vix_current=40.0,
+            vix_5d_change=10.0,
             avg_copula_tail_dep=0.7,
         )
         assert score > 0.5
         assert len(reasons) >= 3
 
     def test_barbell_activation(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.barbell_strategy')
-        from src.assembled_core.portfolio.barbell_strategy import build_barbell_allocation
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.barbell_strategy")
+        from src.assembled_core.portfolio.barbell_strategy import (
+            build_barbell_allocation,
+        )
 
         result = build_barbell_allocation(
             tail_risk_score=0.7,
@@ -382,8 +485,12 @@ class TestBarbellStrategy:
         assert len(result.safe_symbols) > 0
 
     def test_barbell_not_triggered(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.barbell_strategy')
-        from src.assembled_core.portfolio.barbell_strategy import build_barbell_allocation
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.barbell_strategy")
+        from src.assembled_core.portfolio.barbell_strategy import (
+            build_barbell_allocation,
+        )
 
         result = build_barbell_allocation(
             tail_risk_score=0.1,
@@ -395,20 +502,24 @@ class TestBarbellStrategy:
 
 # ── Monte Carlo VaR ───────────────────────────────────────────────────
 
+
 class TestMonteCarloVaR:
 
     def test_import_v8(self):
         from src.assembled_core.risk.risk_metrics import compute_monte_carlo_var
+
         assert compute_monte_carlo_var is not None
 
     def test_mc_var_basic(self):
         from src.assembled_core.risk.risk_metrics import compute_monte_carlo_var
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.02, 500),
-            "B": np.random.normal(0, 0.03, 500),
-        })
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.02, 500),
+                "B": np.random.normal(0, 0.03, 500),
+            }
+        )
 
         result = compute_monte_carlo_var(returns)
         assert "mc_var_99" in result
@@ -420,10 +531,12 @@ class TestMonteCarloVaR:
         from src.assembled_core.risk.risk_metrics import compute_monte_carlo_var
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.01, 500),
-            "B": np.random.normal(0, 0.04, 500),
-        })
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.01, 500),
+                "B": np.random.normal(0, 0.04, 500),
+            }
+        )
 
         # All weight in low-vol asset → lower VaR
         var_safe = compute_monte_carlo_var(returns, weights=np.array([1.0, 0.0]))
@@ -443,14 +556,20 @@ class TestMonteCarloVaR:
 
 # ── Brinson-Fachler Attribution ───────────────────────────────────────
 
+
 class TestBrinsonFachler:
 
     def test_import_v9(self):
-        from src.assembled_core.risk.risk_metrics import compute_brinson_fachler_attribution
+        from src.assembled_core.risk.risk_metrics import (
+            compute_brinson_fachler_attribution,
+        )
+
         assert compute_brinson_fachler_attribution is not None
 
     def test_basic_attribution(self):
-        from src.assembled_core.risk.risk_metrics import compute_brinson_fachler_attribution
+        from src.assembled_core.risk.risk_metrics import (
+            compute_brinson_fachler_attribution,
+        )
 
         port_w = {"AAPL": 0.3, "MSFT": 0.2, "XOM": 0.3, "CVX": 0.2}
         bench_w = {"AAPL": 0.25, "MSFT": 0.25, "XOM": 0.25, "CVX": 0.25}
@@ -459,7 +578,11 @@ class TestBrinsonFachler:
         sectors = {"AAPL": "Tech", "MSFT": "Tech", "XOM": "Energy", "CVX": "Energy"}
 
         result = compute_brinson_fachler_attribution(
-            port_w, bench_w, port_r, bench_r, sectors,
+            port_w,
+            bench_w,
+            port_r,
+            bench_r,
+            sectors,
         )
         assert "sector" in result.columns
         assert "allocation_effect" in result.columns
@@ -467,7 +590,9 @@ class TestBrinsonFachler:
         assert "TOTAL" in result["sector"].values
 
     def test_attribution_sums(self):
-        from src.assembled_core.risk.risk_metrics import compute_brinson_fachler_attribution
+        from src.assembled_core.risk.risk_metrics import (
+            compute_brinson_fachler_attribution,
+        )
 
         port_w = {"A": 0.6, "B": 0.4}
         bench_w = {"A": 0.5, "B": 0.5}
@@ -476,7 +601,11 @@ class TestBrinsonFachler:
         sectors = {"A": "S1", "B": "S2"}
 
         result = compute_brinson_fachler_attribution(
-            port_w, bench_w, port_r, bench_r, sectors,
+            port_w,
+            bench_w,
+            port_r,
+            bench_r,
+            sectors,
         )
         total = result[result["sector"] == "TOTAL"].iloc[0]
         # Total effect should be close to active return
@@ -488,39 +617,52 @@ class TestBrinsonFachler:
 
 # ── Volatility Features (GARCH) ──────────────────────────────────────
 
+
 class TestVolatilityFeatures:
 
     def test_import_v10(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.volatility_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.volatility_features")
         from src.assembled_core.features.volatility_features import (
             compute_garch_features,
         )
+
         assert compute_garch_features is not None
 
     def test_snapshot_no_arch(self):
         """Without arch package, should return empty dict."""
-        import pytest; pytest.importorskip('src.assembled_core.features.volatility_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.volatility_features")
         from src.assembled_core.features.volatility_features import ARCH_AVAILABLE
+
         if ARCH_AVAILABLE:
             pytest.skip("arch is installed")
-        from src.assembled_core.features.volatility_features import compute_garch_features_snapshot
+        from src.assembled_core.features.volatility_features import (
+            compute_garch_features_snapshot,
+        )
+
         result = compute_garch_features_snapshot(pd.DataFrame())
         assert result == {}
 
 
 # ── IC Weights and Neutralization ─────────────────────────────────────
 
+
 class TestICWeightsAndNeutralization:
 
     def test_neutralize_by_group(self):
         from src.assembled_core.signals.multifactor_signal import neutralize_by_group
 
-        df = pd.DataFrame({
-            "timestamp": ["2020-01-01"] * 4,
-            "symbol": ["A", "B", "C", "D"],
-            "sector": ["Tech", "Tech", "Energy", "Energy"],
-            "factor_x": [10, 20, 100, 200],
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": ["2020-01-01"] * 4,
+                "symbol": ["A", "B", "C", "D"],
+                "sector": ["Tech", "Tech", "Energy", "Energy"],
+                "factor_x": [10, 20, 100, 200],
+            }
+        )
 
         result = neutralize_by_group(df, "factor_x", "sector")
         # Within Tech: A=10, B=20 → z-scores should be symmetric
@@ -530,4 +672,5 @@ class TestICWeightsAndNeutralization:
 
     def test_ic_weights_import(self):
         from src.assembled_core.signals.multifactor_signal import compute_ic_weights
+
         assert compute_ic_weights is not None

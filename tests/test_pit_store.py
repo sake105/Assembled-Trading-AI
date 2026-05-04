@@ -69,6 +69,7 @@ class TestPITStore:
 
     def test_load_as_of(self, tmp_path):
         from datetime import datetime, timezone
+
         store = PITStore(tmp_path / "pit")
         t1 = datetime(2024, 1, 10, tzinfo=timezone.utc)
         t2 = datetime(2024, 1, 20, tzinfo=timezone.utc)
@@ -80,6 +81,7 @@ class TestPITStore:
 
     def test_load_as_of_returns_none_if_all_after(self, tmp_path):
         from datetime import datetime, timezone
+
         store = PITStore(tmp_path / "pit")
         t1 = datetime(2024, 6, 1, tzinfo=timezone.utc)
         store.archive("news", "run_001", "triggers", {"v": 1}, archived_utc=t1)
@@ -96,6 +98,7 @@ class TestPITStore:
 
     def test_iter_chronological(self, tmp_path):
         from datetime import datetime, timezone
+
         store = PITStore(tmp_path / "pit")
         t1 = datetime(2024, 1, 1, tzinfo=timezone.utc)
         t2 = datetime(2024, 1, 2, tzinfo=timezone.utc)
@@ -111,10 +114,13 @@ class TestPITStore:
 class TestNewsReplayer:
     def _build_store(self, tmp_path):
         from datetime import datetime
+
         store = PITStore(tmp_path / "pit")
         for i, day in enumerate(["2024-01-10", "2024-01-20", "2024-01-30"]):
             dt = datetime.fromisoformat(day + "T12:00:00+00:00")
-            store.archive("news", f"run_{i:03d}", "triggers", {"day": day}, archived_utc=dt)
+            store.archive(
+                "news", f"run_{i:03d}", "triggers", {"day": day}, archived_utc=dt
+            )
         return store
 
     def test_replay_yields_steps(self, tmp_path):
@@ -138,11 +144,16 @@ class TestNewsReplayer:
 
     def test_replay_with_prices(self, tmp_path):
         import pandas as pd
+
         store = self._build_store(tmp_path)
-        prices = pd.DataFrame({
-            "timestamp": pd.date_range("2024-01-01", periods=30, freq="D", tz="UTC"),
-            "close": range(30),
-        })
+        prices = pd.DataFrame(
+            {
+                "timestamp": pd.date_range(
+                    "2024-01-01", periods=30, freq="D", tz="UTC"
+                ),
+                "close": range(30),
+            }
+        )
         replayer = NewsReplayer(store, prices)
         steps = list(replayer.replay("news", "triggers"))
         for step in steps:

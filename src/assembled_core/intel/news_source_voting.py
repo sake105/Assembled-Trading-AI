@@ -44,7 +44,9 @@ class VoteResult:
 
 def _weight_for_event(evt, *, state_media_discount: float = 0.5) -> float:
     tier_obj = getattr(evt, "source_tier", None)
-    tier_val = getattr(tier_obj, "value", str(tier_obj) if tier_obj is not None else "T3")
+    tier_val = getattr(
+        tier_obj, "value", str(tier_obj) if tier_obj is not None else "T3"
+    )
     base = _TIER_WEIGHTS.get(tier_val, 0.4)
     src = (getattr(evt, "source_id", "") or "").lower().strip()
     if is_state_media(src):
@@ -58,8 +60,9 @@ def _weight_for_event(evt, *, state_media_discount: float = 0.5) -> float:
 
 def vote_direction(events: list, *, state_media_discount: float = 0.5) -> VoteResult:
     """Return the tier-weighted majority `market_direction` across events."""
-    return _vote_field(events, "market_direction", "neutral",
-                       state_media_discount=state_media_discount)
+    return _vote_field(
+        events, "market_direction", "neutral", state_media_discount=state_media_discount
+    )
 
 
 def vote_event_type(events: list, *, state_media_discount: float = 0.5) -> VoteResult:

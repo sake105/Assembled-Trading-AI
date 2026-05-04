@@ -24,6 +24,7 @@ def _try_py_vollib():
     try:
         import py_vollib.black_scholes as bs
         import py_vollib.black_scholes.implied_volatility as bsiv
+
         return bsiv, bs
     except ImportError:
         logger.warning("py_vollib not installed — pip install py_vollib==1.0.1")
@@ -33,6 +34,7 @@ def _try_py_vollib():
 def _try_py_vollib_vectorized():
     try:
         import py_vollib_vectorized as pyvv
+
         return pyvv
     except ImportError:
         return None
@@ -91,6 +93,7 @@ def compute_greeks(
 
     try:
         from py_vollib.black_scholes.greeks import analytical
+
         return {
             "delta": float(analytical.delta(flag, S, K, t, r, sigma)),
             "gamma": float(analytical.gamma(flag, S, K, t, r, sigma)),

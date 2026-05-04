@@ -325,13 +325,22 @@ def main() -> None:
     # Universe definitions
     universes = [
         ("AI Tech", Path("configs/universes/universe_ai_tech_tickers.txt")),
-        ("Healthcare Biotech", Path("configs/universes/healthcare_biotech_tickers.txt")),
+        (
+            "Healthcare Biotech",
+            Path("configs/universes/healthcare_biotech_tickers.txt"),
+        ),
         (
             "Energy Resources Cyclicals",
             Path("configs/universes/energy_resources_cyclicals_tickers.txt"),
         ),
-        ("Defense Security Aero", Path("configs/universes/defense_security_aero_tickers.txt")),
-        ("Consumer Financial Misc", Path("configs/universes/consumer_financial_misc_tickers.txt")),
+        (
+            "Defense Security Aero",
+            Path("configs/universes/defense_security_aero_tickers.txt"),
+        ),
+        (
+            "Consumer Financial Misc",
+            Path("configs/universes/consumer_financial_misc_tickers.txt"),
+        ),
     ]
 
     logger.info("=" * 60)

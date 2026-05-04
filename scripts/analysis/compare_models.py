@@ -37,10 +37,13 @@ logger = logging.getLogger(__name__)
 
 def _load_model(path: Path):
     import joblib
+
     try:
         return joblib.load(path)
     except (EOFError, Exception) as exc:
-        raise RuntimeError(f"[compare_models] Failed to load model from {path}: {exc}") from exc
+        raise RuntimeError(
+            f"[compare_models] Failed to load model from {path}: {exc}"
+        ) from exc
 
 
 def _predict(model, X: pd.DataFrame, feature_cols: list[str]) -> pd.Series:
@@ -77,7 +80,11 @@ def _compute_metrics(preds: pd.Series, actuals: pd.Series) -> dict:
             "ic": 0.0,
             "hit_rate": 0.0,
             "sharpe": 0.0,
-            "mse": float(np.mean((preds.values - actuals.values) ** 2)) if len(preds) else 0.0,
+            "mse": (
+                float(np.mean((preds.values - actuals.values) ** 2))
+                if len(preds)
+                else 0.0
+            ),
             "n_obs": len(preds),
         }
 
@@ -116,7 +123,7 @@ def _diebold_mariano_test(
     H_1: Modell A hat andere Fehler als Modell B
     Positive DM → B besser, negative → A besser.
     """
-    d = errors_a ** 2 - errors_b ** 2
+    d = errors_a**2 - errors_b**2
     n = len(d)
     if n < 10 or d.std() < 1e-12:
         return {"statistic": 0.0, "p_value": 1.0, "n_obs": n}
@@ -129,9 +136,10 @@ def _diebold_mariano_test(
     # 2-sided p-value approximation via normal distribution
     try:
         from scipy.stats import norm
+
         p_val = 2.0 * (1.0 - norm.cdf(abs(dm_stat)))
     except ImportError:
-        p_val = 2.0 * np.exp(-0.5 * dm_stat ** 2) / np.sqrt(2 * np.pi)
+        p_val = 2.0 * np.exp(-0.5 * dm_stat**2) / np.sqrt(2 * np.pi)
         p_val = float(min(1.0, max(0.0, p_val)))
 
     return {
@@ -171,7 +179,11 @@ def compare(
     candidate = _load_model(candidate_path)
 
     # Panel laden + recent window
-    panel = pd.read_parquet(panel_path) if panel_path.suffix == ".parquet" else pd.read_csv(panel_path)
+    panel = (
+        pd.read_parquet(panel_path)
+        if panel_path.suffix == ".parquet"
+        else pd.read_csv(panel_path)
+    )
     if timestamp_col in panel.columns:
         panel = panel.sort_values(timestamp_col).reset_index(drop=True)
         recent_cutoff = panel[timestamp_col].max() - pd.Timedelta(days=n_days * 2)
@@ -184,14 +196,19 @@ def compare(
     feats = feature_cols
     if feats is None:
         for model in (deployed, candidate):
-            candidate_feats = getattr(model, "feature_names", None) or getattr(model, "feature_cols", None)
+            candidate_feats = getattr(model, "feature_names", None) or getattr(
+                model, "feature_cols", None
+            )
             if candidate_feats:
                 feats = list(candidate_feats)
                 break
     if feats is None:
         feats = [
-            c for c in panel.select_dtypes(include="number").columns
-            if c != label and not c.startswith("fwd_return") and not c.startswith("tb_")
+            c
+            for c in panel.select_dtypes(include="number").columns
+            if c != label
+            and not c.startswith("fwd_return")
+            and not c.startswith("tb_")
             and c != timestamp_col
         ]
     logger.info("Using %d features", len(feats))
@@ -206,7 +223,9 @@ def compare(
     cand_metrics = _compute_metrics(cand_preds, actuals)
 
     # DM-Test
-    common_idx = dep_preds.index.intersection(cand_preds.index).intersection(actuals.index)
+    common_idx = dep_preds.index.intersection(cand_preds.index).intersection(
+        actuals.index
+    )
     dm = _diebold_mariano_test(
         dep_preds.loc[common_idx].values - actuals.loc[common_idx].values,
         cand_preds.loc[common_idx].values - actuals.loc[common_idx].values,
@@ -214,8 +233,16 @@ def compare(
 
     # Prediction-Korrelation
     corr = 0.0
-    if len(common_idx) > 10 and dep_preds.loc[common_idx].std() > 1e-9 and cand_preds.loc[common_idx].std() > 1e-9:
-        corr = float(np.corrcoef(dep_preds.loc[common_idx].values, cand_preds.loc[common_idx].values)[0, 1])
+    if (
+        len(common_idx) > 10
+        and dep_preds.loc[common_idx].std() > 1e-9
+        and cand_preds.loc[common_idx].std() > 1e-9
+    ):
+        corr = float(
+            np.corrcoef(
+                dep_preds.loc[common_idx].values, cand_preds.loc[common_idx].values
+            )[0, 1]
+        )
         if np.isnan(corr):
             corr = 0.0
 
@@ -252,7 +279,9 @@ def _decision_explanation(decision: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Model Comparison: Candidate vs Deployed")
+    parser = argparse.ArgumentParser(
+        description="Model Comparison: Candidate vs Deployed"
+    )
     parser.add_argument("--deployed", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--panel", type=Path, required=True)
@@ -261,7 +290,9 @@ def main() -> int:
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path(f"output/ops/model_comparison_{pd.Timestamp.now().strftime('%Y%m%d')}.json"),
+        default=Path(
+            f"output/ops/model_comparison_{pd.Timestamp.now().strftime('%Y%m%d')}.json"
+        ),
     )
     args = parser.parse_args()
 

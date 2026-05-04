@@ -5,6 +5,7 @@ From 41_PDT_REGEL_INTRADAY_MARGIN.md §3.1.
 Tracks day-trades over a rolling 5-business-day window per FINRA Rule 4210.
 Set enabled=False after Alpaca migrates to intraday-margin (expected 4 June 2026+).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -76,7 +77,8 @@ class PDTTracker:
         if reference_date is None:
             reference_date = date.today()
         recent = [
-            t for t in self.day_trades
+            t
+            for t in self.day_trades
             if t.trade_date > self._business_days_ago(reference_date, 5)
         ]
         if not recent:

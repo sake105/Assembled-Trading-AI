@@ -150,8 +150,14 @@ def write_targets_artifact(
     if isinstance(target_positions, pd.DataFrame) and not target_positions.empty:
         has_weight = "target_weight" in target_positions.columns
         has_qty = "target_qty" in target_positions.columns
-        _cols = ["symbol"] + (["target_weight"] if has_weight else []) + (["target_qty"] if has_qty else [])
-        _tmp = target_positions[[c for c in _cols if c in target_positions.columns]].copy()
+        _cols = (
+            ["symbol"]
+            + (["target_weight"] if has_weight else [])
+            + (["target_qty"] if has_qty else [])
+        )
+        _tmp = target_positions[
+            [c for c in _cols if c in target_positions.columns]
+        ].copy()
         if has_weight:
             _tmp["target_weight"] = _tmp["target_weight"].apply(_safe_float)
         if has_qty:
@@ -392,16 +398,22 @@ def build_exposure_report(
     else:
         hhi = 0.0
 
-    _exp_cols = [c for c in ("symbol", "target_qty", "price", "notional", "weight") if c in exposures_df.columns]
+    _exp_cols = [
+        c
+        for c in ("symbol", "target_qty", "price", "notional", "weight")
+        if c in exposures_df.columns
+    ]
     _exp_tmp = exposures_df[_exp_cols].copy()
     for _c in ("target_qty", "price", "notional", "weight"):
         if _c in _exp_tmp.columns:
             _exp_tmp[_c] = _exp_tmp[_c].apply(_safe_float)
     positions_list: list[Dict[str, Any]] = _exp_tmp.to_dict("records")
 
-    top_df = exposures_df.assign(abs_weight=abs_weights).sort_values(
-        "abs_weight", ascending=False
-    ).head(int(top_n))
+    top_df = (
+        exposures_df.assign(abs_weight=abs_weights)
+        .sort_values("abs_weight", ascending=False)
+        .head(int(top_n))
+    )
     top_list: list[Dict[str, Any]] = [
         {
             "symbol": row.symbol,

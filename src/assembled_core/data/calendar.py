@@ -164,8 +164,10 @@ def filter_prices_to_trading_days(
             )
         except Exception as _cal_exc:
             import logging as _logging
+
             _logging.getLogger(__name__).warning(
-                "[calendar] vectorized trading-day filter failed (%s) — falling back to per-row O(n) check", _cal_exc
+                "[calendar] vectorized trading-day filter failed (%s) — falling back to per-row O(n) check",
+                _cal_exc,
             )
             mask = ts.apply(
                 lambda t: is_trading_day_safe(t) if not pd.isna(t) else False
@@ -202,7 +204,12 @@ def validate_dates_against_calendar(
     """
     dates = pd.DatetimeIndex(dates)
     if dates.empty:
-        return {"n_dates": 0, "valid": True, "n_non_trading": 0, "n_missing_sessions": 0}
+        return {
+            "n_dates": 0,
+            "valid": True,
+            "n_non_trading": 0,
+            "n_missing_sessions": 0,
+        }
 
     date_set = set(dates.normalize().date)
 

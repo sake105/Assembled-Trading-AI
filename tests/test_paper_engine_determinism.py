@@ -28,7 +28,6 @@ from src.assembled_core.ops.replay_snapshot import (
     make_rng,
 )
 
-
 # --- derive_seed / make_rng --------------------------------------------------
 
 
@@ -75,9 +74,7 @@ def test_make_rng_differs_for_different_seeds() -> None:
 
 
 def test_run_snapshot_round_trip_preserves_fields(tmp_path: Path) -> None:
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     signals = pd.DataFrame([{"symbol": "AAA", "signal": 1.0}])
     snap = RunSnapshot(
         run_id="paper",

@@ -15,7 +15,9 @@ sys.path.insert(0, str(ROOT))
 # HRP uses scipy linkage; skip when missing.
 pytest.importorskip("scipy")
 
-import pytest; pytest.importorskip('src.assembled_core.portfolio.hrp_sizing')
+import pytest
+
+pytest.importorskip("src.assembled_core.portfolio.hrp_sizing")
 from src.assembled_core.portfolio.hrp_sizing import (  # noqa: E402
     apply_hrp_sizing,
     apply_hrp_sizing_from_policy,
@@ -34,11 +36,13 @@ def _panel(symbols: list[str], n_bars: int = 120, seed: int = 5) -> pd.DataFrame
         rets = driver + idio
         px = 100.0 * np.cumprod(1.0 + rets)
         for b in range(n_bars):
-            rows.append({
-                "timestamp": base + pd.Timedelta(days=b),
-                "symbol": sym,
-                "close": float(px[b]),
-            })
+            rows.append(
+                {
+                    "timestamp": base + pd.Timedelta(days=b),
+                    "symbol": sym,
+                    "close": float(px[b]),
+                }
+            )
     return pd.DataFrame(rows)
 
 

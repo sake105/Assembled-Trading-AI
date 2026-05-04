@@ -94,7 +94,10 @@ class RegimeHMM:
         logger.info(
             "[RegimeHMM] Fitted %d-state HMM. Regime means: %s",
             self.n_regimes,
-            {self._label_map[i]: float(model.means_[i, 0]) for i in range(self.n_regimes)},
+            {
+                self._label_map[i]: float(model.means_[i, 0])
+                for i in range(self.n_regimes)
+            },
         )
         return self
 
@@ -117,7 +120,9 @@ class RegimeHMM:
                 # Graceful fallback: vol-threshold labels when hmmlearn is not installed
                 vol = returns.rolling(20, min_periods=5).std()
                 vol_pct = vol.rank(pct=True).fillna(0.5)
-                labels = vol_pct.map(lambda v: "bear" if v > 0.7 else ("bull" if v < 0.3 else "sideways"))
+                labels = vol_pct.map(
+                    lambda v: "bear" if v > 0.7 else ("bull" if v < 0.3 else "sideways")
+                )
                 return labels.rename("regime")
             raise RuntimeError("RegimeHMM must be fitted before calling predict_regime")
         arr = self._prepare(returns)
@@ -208,14 +213,16 @@ class RegimeHMM:
         if len(new_returns.dropna()) < min_samples:
             logger.debug(
                 "[RegimeHMM] partial_update skipped — only %d new samples (min %d)",
-                len(new_returns.dropna()), min_samples,
+                len(new_returns.dropna()),
+                min_samples,
             )
             return self
         arr = self._prepare(new_returns)
         if len(arr) < min_samples:
             logger.debug(
                 "[RegimeHMM] partial_update skipped — only %d new samples (min %d)",
-                len(arr), min_samples,
+                len(arr),
+                min_samples,
             )
             return self
 
@@ -237,10 +244,14 @@ class RegimeHMM:
             self._model = warm_model
             self._label_map = self._build_label_map(warm_model)
             logger.info(
-                "[RegimeHMM] partial_update applied (%d new obs, %d EM iters)", len(arr), n_iter
+                "[RegimeHMM] partial_update applied (%d new obs, %d EM iters)",
+                len(arr),
+                n_iter,
             )
         except Exception as exc:
-            logger.warning("[RegimeHMM] partial_update failed, keeping old model: %s", exc)
+            logger.warning(
+                "[RegimeHMM] partial_update failed, keeping old model: %s", exc
+            )
 
         return self
 
@@ -272,13 +283,17 @@ class RegimeHMM:
         try:
             data = joblib.load(path)
         except (FileNotFoundError, EOFError, Exception) as exc:
-            raise RuntimeError(f"[RegimeHMM] Failed to load model from {path}: {exc}") from exc
+            raise RuntimeError(
+                f"[RegimeHMM] Failed to load model from {path}: {exc}"
+            ) from exc
         try:
             obj = cls(n_regimes=data["n_regimes"])
             obj._model = data["model"]
             obj._label_map = data["label_map"]
         except KeyError as exc:
-            raise RuntimeError(f"[RegimeHMM] Model file {path} is missing required key: {exc}") from exc
+            raise RuntimeError(
+                f"[RegimeHMM] Model file {path} is missing required key: {exc}"
+            ) from exc
         obj._is_fitted = True
         return obj
 
@@ -428,7 +443,11 @@ class MultiFeatureRegimeHMM:
         logger.info(
             "[MultiHMM] Fitted %d-regime model with %d features on %d obs "
             "(score=%.2f, covariance=%s)",
-            self.n_regimes, n_features, len(clean), best_score, self.covariance_type,
+            self.n_regimes,
+            n_features,
+            len(clean),
+            best_score,
+            self.covariance_type,
         )
         return True
 
@@ -488,6 +507,7 @@ class MultiFeatureRegimeHMM:
         """Persist the fitted model to disk."""
         import joblib
         from pathlib import Path as _Path
+
         _path = _Path(path)
         _path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(
@@ -510,10 +530,13 @@ class MultiFeatureRegimeHMM:
         """Load a previously saved MultiFeatureRegimeHMM."""
         import joblib
         from pathlib import Path as _Path
+
         try:
             data = joblib.load(_Path(path))
         except (FileNotFoundError, EOFError, Exception) as exc:
-            raise RuntimeError(f"[MultiHMM] Failed to load model from {path}: {exc}") from exc
+            raise RuntimeError(
+                f"[MultiHMM] Failed to load model from {path}: {exc}"
+            ) from exc
         try:
             obj = cls(
                 n_regimes=data.get("n_regimes", 3),
@@ -525,7 +548,9 @@ class MultiFeatureRegimeHMM:
             obj._scaler = data.get("scaler")
             obj._label_map = data["label_map"]
         except KeyError as exc:
-            raise RuntimeError(f"[MultiHMM] Model file {path} is missing required key: {exc}") from exc
+            raise RuntimeError(
+                f"[MultiHMM] Model file {path} is missing required key: {exc}"
+            ) from exc
         obj._fitted = True
         return obj
 

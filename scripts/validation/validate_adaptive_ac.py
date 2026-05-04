@@ -12,6 +12,7 @@ Market-impact literature benchmarks (Almgren-Chriss 2001, Barra):
   - SPX-level liquidity (very high ADV): lower end, ~0.05 – 0.10
   - Mid-cap / lower ADV: 0.10 – 0.25
 """
+
 from __future__ import annotations
 
 import sys
@@ -33,18 +34,18 @@ from assembled_core.execution.execution_router import (
 # ---------------------------------------------------------------------------
 rng = np.random.default_rng(2024)
 
-ETA_TRUE      = 0.12     # true market-impact η we're trying to discover
-SIGMA_DAILY   = 0.013    # daily vol ~ 1.3% (SPX-ish)
-PRICE         = 100.0    # reference price
-N_DAYS        = 20       # trading days in 1 month
-ORDERS_PER_DAY = 5       # parent orders per day
-QTY_PER_ORDER = 5000     # shares per parent order
-N_CHILD       = 5        # AC slices per parent
-NOISE_SCALE   = 0.3      # fractional noise on fills (realistic fill randomness)
-EWMA_ALPHA    = 0.12     # learning rate for eta_hat
+ETA_TRUE = 0.12  # true market-impact η we're trying to discover
+SIGMA_DAILY = 0.013  # daily vol ~ 1.3% (SPX-ish)
+PRICE = 100.0  # reference price
+N_DAYS = 20  # trading days in 1 month
+ORDERS_PER_DAY = 5  # parent orders per day
+QTY_PER_ORDER = 5000  # shares per parent order
+N_CHILD = 5  # AC slices per parent
+NOISE_SCALE = 0.3  # fractional noise on fills (realistic fill randomness)
+EWMA_ALPHA = 0.12  # learning rate for eta_hat
 
 # Config: start with a prior that is deliberately off (tests adaptation)
-ETA_PRIOR     = 0.08     # deliberately low prior
+ETA_PRIOR = 0.08  # deliberately low prior
 
 cfg = ExecutionConfig(
     twap_slices=N_CHILD,
@@ -57,13 +58,15 @@ state = AdaptiveACState.from_config(cfg, ewma_alpha=EWMA_ALPHA)
 # ---------------------------------------------------------------------------
 # Simulation loop
 # ---------------------------------------------------------------------------
-eta_history: list[tuple[int, int, float]] = []   # (day, order, eta_hat)
+eta_history: list[tuple[int, int, float]] = []  # (day, order, eta_hat)
 fill_count = 0
 
 print("Adaptive AC convergence simulation")
 print(f"  eta_true={ETA_TRUE:.3f}  eta_prior={ETA_PRIOR:.3f}  alpha={EWMA_ALPHA}")
-print(f"  {N_DAYS} days × {ORDERS_PER_DAY} orders × {N_CHILD} slices = "
-      f"{N_DAYS * ORDERS_PER_DAY * N_CHILD} fills total")
+print(
+    f"  {N_DAYS} days × {ORDERS_PER_DAY} orders × {N_CHILD} slices = "
+    f"{N_DAYS * ORDERS_PER_DAY * N_CHILD} fills total"
+)
 print()
 
 for day in range(1, N_DAYS + 1):
@@ -86,8 +89,8 @@ for day in range(1, N_DAYS + 1):
             # Impact model consistent with update() formula:
             #   slippage_frac = eta * qty * sigma_daily^2 / price
             # => implied_eta = slippage * price / (qty * sigma^2) recovers eta_true
-            impact_frac = ETA_TRUE * sl.quantity * SIGMA_DAILY ** 2 / price
-            noise_frac  = rng.normal(0, NOISE_SCALE * impact_frac)
+            impact_frac = ETA_TRUE * sl.quantity * SIGMA_DAILY**2 / price
+            noise_frac = rng.normal(0, NOISE_SCALE * impact_frac)
             actual_price = price * (1 + impact_frac + noise_frac)
 
             # Update adaptive state
@@ -105,9 +108,9 @@ for day in range(1, N_DAYS + 1):
 # ---------------------------------------------------------------------------
 # Analysis
 # ---------------------------------------------------------------------------
-eta_final    = state.eta_hat
-eta_day_end  = [eta_history[(d * ORDERS_PER_DAY) - 1][2] for d in range(1, N_DAYS + 1)]
-convergence  = abs(eta_final - ETA_TRUE) / ETA_TRUE   # fractional error
+eta_final = state.eta_hat
+eta_day_end = [eta_history[(d * ORDERS_PER_DAY) - 1][2] for d in range(1, N_DAYS + 1)]
+convergence = abs(eta_final - ETA_TRUE) / ETA_TRUE  # fractional error
 
 # ---------------------------------------------------------------------------
 # Report
@@ -136,22 +139,33 @@ print(f"  Within 20%:        {'YES' if convergence <= 0.20 else 'NO'}")
 
 # Convergence speed: how many days to get within 40%?
 days_to_40pct = next(
-    (d for d, eta_d in enumerate(eta_day_end, 1)
-     if abs(eta_d - ETA_TRUE) / ETA_TRUE < 0.40),
-    None
+    (
+        d
+        for d, eta_d in enumerate(eta_day_end, 1)
+        if abs(eta_d - ETA_TRUE) / ETA_TRUE < 0.40
+    ),
+    None,
 )
-print(f"  Days to <40% err:  "
-      f"{'day ' + str(days_to_40pct) if days_to_40pct else '>20 (no convergence)'}")
+print(
+    f"  Days to <40% err:  "
+    f"{'day ' + str(days_to_40pct) if days_to_40pct else '>20 (no convergence)'}"
+)
 
 # Literature plausibility check
 print("\nLiterature range for large-cap US equities: eta in [0.05, 0.20]")
-print(f"  eta_true ({ETA_TRUE:.3f}) in range:  "
-      f"{'YES' if 0.05 <= ETA_TRUE <= 0.20 else 'NO (out of range)'}")
-print(f"  eta_hat ({eta_final:.3f}) in range:   "
-      f"{'YES' if 0.05 <= eta_final <= 0.20 else 'NO (diverged)'}")
+print(
+    f"  eta_true ({ETA_TRUE:.3f}) in range:  "
+    f"{'YES' if 0.05 <= ETA_TRUE <= 0.20 else 'NO (out of range)'}"
+)
+print(
+    f"  eta_hat ({eta_final:.3f}) in range:   "
+    f"{'YES' if 0.05 <= eta_final <= 0.20 else 'NO (diverged)'}"
+)
 
 if convergence <= 0.30:
-    print(f"\nVerdict: CONVERGES. eta_hat tracks eta_true within {convergence*100:.0f}% after {N_DAYS} days.")
+    print(
+        f"\nVerdict: CONVERGES. eta_hat tracks eta_true within {convergence*100:.0f}% after {N_DAYS} days."
+    )
 else:
     print(f"\nVerdict: SLOW CONVERGENCE. Fractional error = {convergence*100:.0f}%.")
     print("         Consider increasing EWMA alpha or reducing fill noise.")

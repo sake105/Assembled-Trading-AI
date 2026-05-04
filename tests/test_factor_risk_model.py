@@ -20,8 +20,14 @@ def _synthetic_factor_data(n_assets: int = 30, n_days: int = 200, seed: int = 42
     dates = pd.bdate_range("2022-01-01", periods=n_days)
 
     # Factor exposures — panel format with symbol/timestamp/factor columns
-    factor_col_names = ["beta_market", "log_market_cap", "book_to_market",
-                        "momentum_12m_excl_1m", "roe", "rv_20"]
+    factor_col_names = [
+        "beta_market",
+        "log_market_cap",
+        "book_to_market",
+        "momentum_12m_excl_1m",
+        "roe",
+        "rv_20",
+    ]
     exp_rows = []
     for ts in dates:
         for sym in symbols:
@@ -35,10 +41,13 @@ def _synthetic_factor_data(n_assets: int = 30, n_days: int = 200, seed: int = 42
     ret_rows = []
     for ts in dates:
         for sym in symbols:
-            ret_rows.append({
-                "symbol": sym, "timestamp": ts,
-                "return": rng.normal(0, 0.02),
-            })
+            ret_rows.append(
+                {
+                    "symbol": sym,
+                    "timestamp": ts,
+                    "return": rng.normal(0, 0.02),
+                }
+            )
     returns = pd.DataFrame(ret_rows)
 
     return returns, exposures, symbols
@@ -84,9 +93,12 @@ class TestCheckFactorExposureLimits:
         weights = pd.Series([0.4, 0.3, 0.3], index=symbols)
         exposures = pd.DataFrame(
             [[0.5, -0.2], [0.3, 0.1], [0.2, 0.4]],
-            index=symbols, columns=["f1", "f2"],
+            index=symbols,
+            columns=["f1", "f2"],
         )
-        result = check_factor_exposure_limits(weights, exposures, max_factor_exposure=1.0)
+        result = check_factor_exposure_limits(
+            weights, exposures, max_factor_exposure=1.0
+        )
         assert isinstance(result, list)
         assert len(result) == 0  # no violations
 
@@ -95,9 +107,12 @@ class TestCheckFactorExposureLimits:
         weights = pd.Series([0.8, 0.2], index=symbols)
         exposures = pd.DataFrame(
             [[2.0, 0.1], [0.5, 0.1]],
-            index=symbols, columns=["f1", "f2"],
+            index=symbols,
+            columns=["f1", "f2"],
         )
-        result = check_factor_exposure_limits(weights, exposures, max_factor_exposure=0.5)
+        result = check_factor_exposure_limits(
+            weights, exposures, max_factor_exposure=0.5
+        )
         assert isinstance(result, list)
         assert len(result) > 0
         assert any("f1" in v["factor"] for v in result)

@@ -26,7 +26,7 @@ class TailHuntSignal:
     """A matched and activated tail-hunt trade plan."""
 
     event_name: str
-    direction: str                       # "long" or "short"
+    direction: str  # "long" or "short"
     primary_assets: list[str]
     hedge_assets: list[str]
     max_position_size: float
@@ -37,8 +37,15 @@ class TailHuntSignal:
 
     def size_fraction(self) -> float:
         """Linear scale from activation_conviction → 1.0 maps to 0 → max_position_size."""
-        denom = 1.0 - self.activation_conviction if self.activation_conviction < 1.0 else 1.0
-        scale = max(0.0, min(1.0, (self.current_conviction - self.activation_conviction) / denom))
+        denom = (
+            1.0 - self.activation_conviction
+            if self.activation_conviction < 1.0
+            else 1.0
+        )
+        scale = max(
+            0.0,
+            min(1.0, (self.current_conviction - self.activation_conviction) / denom),
+        )
         return self.max_position_size * scale
 
     def as_dict(self) -> dict[str, Any]:
@@ -64,6 +71,7 @@ def load_tail_plans(config_path: str | Path | None = None) -> dict[str, dict[str
     path = Path(config_path) if config_path else _DEFAULT_CONFIG_PATH
     try:
         import yaml
+
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return data.get("tail_events", {})
@@ -99,10 +107,7 @@ def match_tail_plans(
         return []
 
     # Build set of fired trigger type names (upper-cased for case-insensitive match)
-    fired_names = {
-        ttype.name.upper()
-        for ttype, _ in (basket.fired_triggers or [])
-    }
+    fired_names = {ttype.name.upper() for ttype, _ in (basket.fired_triggers or [])}
 
     signals: list[TailHuntSignal] = []
     for event_name, plan in plans.items():
@@ -121,7 +126,9 @@ def match_tail_plans(
         if conviction < activation_threshold:
             log.debug(
                 "[TAIL-G] %s: conviction %.3f < threshold %.3f — skip",
-                event_name, conviction, activation_threshold,
+                event_name,
+                conviction,
+                activation_threshold,
             )
             continue
 
@@ -139,7 +146,11 @@ def match_tail_plans(
         signals.append(sig)
         log.info(
             "[TAIL-G] %s ACTIVATED: conviction=%.3f direction=%s primary=%s size=%.2f",
-            event_name, conviction, sig.direction, sig.primary_assets, sig.size_fraction(),
+            event_name,
+            conviction,
+            sig.direction,
+            sig.primary_assets,
+            sig.size_fraction(),
         )
 
     return signals

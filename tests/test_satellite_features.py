@@ -19,11 +19,13 @@ from src.assembled_core.data.altdata.satellite_features import (
 class TestParkingLotData:
     def test_basic(self):
         rng = np.random.default_rng(42)
-        data = pd.DataFrame({
-            "symbol": ["WMT"] * 30,
-            "observation_date": pd.date_range("2024-01-01", periods=30, freq="D"),
-            "occupancy_rate": rng.uniform(0.4, 0.9, 30),
-        })
+        data = pd.DataFrame(
+            {
+                "symbol": ["WMT"] * 30,
+                "observation_date": pd.date_range("2024-01-01", periods=30, freq="D"),
+                "occupancy_rate": rng.uniform(0.4, 0.9, 30),
+            }
+        )
         result = process_parking_lot_data(data, as_of="2024-02-15")
         assert len(result) == 1
         assert "parking_lot_occupancy" in result.columns
@@ -32,11 +34,13 @@ class TestParkingLotData:
 
     def test_pit_lag(self):
         """Data within processing lag should be excluded."""
-        data = pd.DataFrame({
-            "symbol": ["WMT"] * 5,
-            "observation_date": pd.date_range("2024-01-13", periods=5, freq="D"),
-            "occupancy_rate": [0.7] * 5,
-        })
+        data = pd.DataFrame(
+            {
+                "symbol": ["WMT"] * 5,
+                "observation_date": pd.date_range("2024-01-13", periods=5, freq="D"),
+                "occupancy_rate": [0.7] * 5,
+            }
+        )
         cfg = SatelliteConfig(processing_lag_days=5, min_observations=3)
         result = process_parking_lot_data(data, as_of="2024-01-15", config=cfg)
         assert len(result) == 0  # all data within lag window
@@ -48,11 +52,13 @@ class TestParkingLotData:
     def test_multiple_symbols(self):
         rng = np.random.default_rng(42)
         dates = pd.date_range("2024-01-01", periods=20, freq="D")
-        data = pd.DataFrame({
-            "symbol": ["WMT"] * 20 + ["TGT"] * 20,
-            "observation_date": list(dates) * 2,
-            "occupancy_rate": rng.uniform(0.3, 0.9, 40),
-        })
+        data = pd.DataFrame(
+            {
+                "symbol": ["WMT"] * 20 + ["TGT"] * 20,
+                "observation_date": list(dates) * 2,
+                "occupancy_rate": rng.uniform(0.3, 0.9, 40),
+            }
+        )
         result = process_parking_lot_data(data, as_of="2024-02-01")
         assert len(result) == 2
 
@@ -61,11 +67,13 @@ class TestParkingLotData:
 class TestShippingData:
     def test_basic_v2(self):
         rng = np.random.default_rng(42)
-        data = pd.DataFrame({
-            "region": ["Shanghai"] * 20,
-            "observation_date": pd.date_range("2024-01-01", periods=20, freq="D"),
-            "vessel_count": rng.poisson(100, 20),
-        })
+        data = pd.DataFrame(
+            {
+                "region": ["Shanghai"] * 20,
+                "observation_date": pd.date_range("2024-01-01", periods=20, freq="D"),
+                "vessel_count": rng.poisson(100, 20),
+            }
+        )
         result = process_shipping_data(data, as_of="2024-02-01")
         assert len(result) == 1
         assert "shipping_volume_index" in result.columns
@@ -79,11 +87,16 @@ class TestShippingData:
 @pytest.mark.phase12
 class TestNightlightFeatures:
     def test_basic_v3(self):
-        data = pd.DataFrame({
-            "region": ["US_NE"] * 400 + ["US_NE"] * 30,
-            "observation_date": list(pd.date_range("2022-01-01", periods=400, freq="D")) + list(pd.date_range("2024-01-01", periods=30, freq="D")),
-            "light_intensity": [50.0] * 400 + [55.0] * 30,
-        })
+        data = pd.DataFrame(
+            {
+                "region": ["US_NE"] * 400 + ["US_NE"] * 30,
+                "observation_date": list(
+                    pd.date_range("2022-01-01", periods=400, freq="D")
+                )
+                + list(pd.date_range("2024-01-01", periods=30, freq="D")),
+                "light_intensity": [50.0] * 400 + [55.0] * 30,
+            }
+        )
         result = compute_nightlight_features(data, as_of="2024-02-15")
         assert len(result) == 1
         assert "nightlight_intensity" in result.columns
@@ -95,11 +108,13 @@ class TestNightlightFeatures:
         assert len(result) == 0
 
     def test_no_yoy_data(self):
-        data = pd.DataFrame({
-            "region": ["EU_W"] * 10,
-            "observation_date": pd.date_range("2024-01-01", periods=10, freq="D"),
-            "light_intensity": [42.0] * 10,
-        })
+        data = pd.DataFrame(
+            {
+                "region": ["EU_W"] * 10,
+                "observation_date": pd.date_range("2024-01-01", periods=10, freq="D"),
+                "light_intensity": [42.0] * 10,
+            }
+        )
         result = compute_nightlight_features(data, as_of="2024-02-01")
         if len(result) > 0:
             assert result["nightlight_yoy_change"].iloc[0] == 0.0

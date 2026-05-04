@@ -67,7 +67,10 @@ def _parse_float_like(value: Any) -> float | None:
             return float(value)
     except Exception as exc:
         # Fall through to string parsing
-        logger.warning("[BrokerSnapshotImporter] numeric parse failed, falling through to string: %s", exc)
+        logger.warning(
+            "[BrokerSnapshotImporter] numeric parse failed, falling through to string: %s",
+            exc,
+        )
 
     # Work with string representation
     s = str(value).strip()

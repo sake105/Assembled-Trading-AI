@@ -9,6 +9,7 @@ import pandas as pd
 class TestEnsembleDiversity:
     def test_diverse_preds(self):
         import pytest
+
         pytest.importorskip("src.assembled_core.ml.stacking")
         from src.assembled_core.ml.stacking import enforce_ensemble_diversity
 
@@ -20,6 +21,7 @@ class TestEnsembleDiversity:
 
     def test_non_diverse(self):
         import pytest
+
         pytest.importorskip("src.assembled_core.ml.stacking")
         from src.assembled_core.ml.stacking import enforce_ensemble_diversity
 
@@ -47,28 +49,35 @@ class TestACLED:
     def test_parse(self):
         from src.assembled_core.events.news.fetch_acled import parse_acled_events
 
-        df = pd.DataFrame({
-            "event_date": ["2024-01-01", "2024-01-02"],
-            "event_type": ["Battles", "Protests"],
-            "country": ["Ukraine", "France"],
-            "fatalities": [10, 0],
-            "notes": ["clash", "protest"],
-        })
+        df = pd.DataFrame(
+            {
+                "event_date": ["2024-01-01", "2024-01-02"],
+                "event_type": ["Battles", "Protests"],
+                "country": ["Ukraine", "France"],
+                "fatalities": [10, 0],
+                "notes": ["clash", "protest"],
+            }
+        )
         events = parse_acled_events(df)
         assert len(events) == 2
         assert events[0].trigger_type == "MILITARY_BUILDUP"
         assert events[1].trigger_type == "REGIME_CHANGE_RISK"
 
     def test_aggregate(self):
-        from src.assembled_core.events.news.fetch_acled import parse_acled_events, aggregate_acled_by_country
+        from src.assembled_core.events.news.fetch_acled import (
+            parse_acled_events,
+            aggregate_acled_by_country,
+        )
 
-        df = pd.DataFrame({
-            "event_date": ["2024-01-01", "2024-01-02"],
-            "event_type": ["Battles", "Battles"],
-            "country": ["Ukraine", "Ukraine"],
-            "fatalities": [5, 3],
-            "notes": ["a", "b"],
-        })
+        df = pd.DataFrame(
+            {
+                "event_date": ["2024-01-01", "2024-01-02"],
+                "event_type": ["Battles", "Battles"],
+                "country": ["Ukraine", "Ukraine"],
+                "fatalities": [5, 3],
+                "notes": ["a", "b"],
+            }
+        )
         events = parse_acled_events(df)
         agg = aggregate_acled_by_country(events)
         assert "Ukraine" in agg
@@ -77,10 +86,14 @@ class TestACLED:
 
 class TestFeedbackLoopTracker:
     def test_partial_activation(self):
-        from src.assembled_core.intel.feedback_loops import FeedbackLoop, track_loop_activation
+        from src.assembled_core.intel.feedback_loops import (
+            FeedbackLoop,
+            track_loop_activation,
+        )
 
         loop = FeedbackLoop(
-            loop_id="test", name="Test",
+            loop_id="test",
+            name="Test",
             chain=["a", "b", "c", "d", "e"],
         )
         history = [["a", "b"], ["a", "c"]]
@@ -92,7 +105,9 @@ class TestFeedbackLoopTracker:
 
 class TestMaxDiversification:
     def test_weights_sum_to_one(self):
-        from src.assembled_core.portfolio.position_sizing import compute_max_diversification_weights
+        from src.assembled_core.portfolio.position_sizing import (
+            compute_max_diversification_weights,
+        )
 
         np.random.seed(42)
         n = 5
@@ -115,13 +130,17 @@ class TestRobustBL:
 
 class TestTailRiskParity:
     def test_basic_v2(self):
-        from src.assembled_core.portfolio.position_sizing import compute_tail_risk_parity_weights
+        from src.assembled_core.portfolio.position_sizing import (
+            compute_tail_risk_parity_weights,
+        )
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.01, 200),
-            "B": np.random.normal(0, 0.02, 200),
-        })
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.01, 200),
+                "B": np.random.normal(0, 0.02, 200),
+            }
+        )
         w = compute_tail_risk_parity_weights(returns)
         assert abs(sum(w.values()) - 1.0) < 1e-6
         # Higher vol asset should get less weight
@@ -130,7 +149,9 @@ class TestTailRiskParity:
 
 class TestMVOCardinality:
     def test_max_positions(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.mvo_optimizer')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.mvo_optimizer")
         from src.assembled_core.portfolio.mvo_optimizer import mvo_with_cardinality
 
         np.random.seed(42)
@@ -146,11 +167,13 @@ class TestTCAFeedback:
     def test_flagging(self):
         from src.assembled_core.execution.transaction_costs import compute_tca_feedback
 
-        df = pd.DataFrame({
-            "symbol": ["AAPL"] * 30 + ["MSFT"] * 30,
-            "slippage_bps": [20.0] * 30 + [3.0] * 30,
-            "date": list(range(30)) * 2,
-        })
+        df = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 30 + ["MSFT"] * 30,
+                "slippage_bps": [20.0] * 30 + [3.0] * 30,
+                "date": list(range(30)) * 2,
+            }
+        )
         result = compute_tca_feedback(df, model_slippage_bps=5.0)
         assert result["AAPL"]["high_slippage_flag"] is True
         assert result["MSFT"]["high_slippage_flag"] is False
@@ -158,26 +181,38 @@ class TestTCAFeedback:
 
 class TestPortfolioExecution:
     def test_batching(self):
-        import pytest; pytest.importorskip('src.assembled_core.execution.portfolio_execution')
-        from src.assembled_core.execution.portfolio_execution import optimize_execution_sequence
+        import pytest
 
-        orders = pd.DataFrame({
-            "symbol": ["A", "B", "C"],
-            "qty": [100, -50, 200],
-            "direction": ["BUY", "SELL", "BUY"],
-        })
+        pytest.importorskip("src.assembled_core.execution.portfolio_execution")
+        from src.assembled_core.execution.portfolio_execution import (
+            optimize_execution_sequence,
+        )
+
+        orders = pd.DataFrame(
+            {
+                "symbol": ["A", "B", "C"],
+                "qty": [100, -50, 200],
+                "direction": ["BUY", "SELL", "BUY"],
+            }
+        )
         result = optimize_execution_sequence(orders)
         assert "execution_batch" in result.columns
 
 
 class TestFactorExposureLimits:
     def test_breach(self):
-        import pytest; pytest.importorskip('src.assembled_core.risk.factor_risk_model')
-        from src.assembled_core.risk.factor_risk_model import check_factor_exposure_limits
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.factor_risk_model")
+        from src.assembled_core.risk.factor_risk_model import (
+            check_factor_exposure_limits,
+        )
 
         weights = pd.Series({"A": 0.8, "B": 0.2})
         exposures = pd.DataFrame({"momentum": [1.5, 0.2]}, index=["A", "B"])
-        violations = check_factor_exposure_limits(weights, exposures, max_factor_exposure=0.5)
+        violations = check_factor_exposure_limits(
+            weights, exposures, max_factor_exposure=0.5
+        )
         assert len(violations) >= 1
         assert violations[0]["factor"] == "momentum"
 
@@ -196,7 +231,8 @@ class TestInterestAccrual:
         from src.assembled_core.accounting.ledger import compute_daily_interest_accrual
 
         result = compute_daily_interest_accrual(
-            {"AAPL": -100_000}, margin_balance=50_000,
+            {"AAPL": -100_000},
+            margin_balance=50_000,
         )
         assert result["borrow_fees"] > 0
         assert result["margin_interest"] > 0
@@ -247,10 +283,12 @@ class TestCorrelatedStress:
         from src.assembled_core.qa.scenario_engine import run_correlated_stress_test
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.01, 200),
-            "B": np.random.normal(0, 0.01, 200),
-        })
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.01, 200),
+                "B": np.random.normal(0, 0.01, 200),
+            }
+        )
         result = run_correlated_stress_test({"A": 0.5, "B": 0.5}, returns)
         assert result["var_95"] < 0
         assert result["cvar_95"] <= result["var_95"]
@@ -275,18 +313,22 @@ class TestDelistedDetection:
     def test_stale_symbol(self):
         from src.assembled_core.data.universe import detect_delisted_symbols
 
-        prices = pd.DataFrame({
-            "timestamp": pd.date_range("2023-01-01", periods=100, tz="UTC"),
-            "symbol": ["A"] * 100,
-            "close": range(100, 200),
-        })
+        prices = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2023-01-01", periods=100, tz="UTC"),
+                "symbol": ["A"] * 100,
+                "close": range(100, 200),
+            }
+        )
         result = detect_delisted_symbols(prices, "2024-01-01")
         assert "A" in result["delisted"]
 
 
 class TestRunMetadata:
     def test_collect(self):
-        import pytest; pytest.importorskip('src.assembled_core.pipeline.run_metadata')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.pipeline.run_metadata")
         from src.assembled_core.pipeline.run_metadata import collect_run_metadata
 
         meta = collect_run_metadata(config={"test": True})
@@ -297,7 +339,9 @@ class TestRunMetadata:
 
 class TestPipelineTimer:
     def test_timing(self):
-        import pytest; pytest.importorskip('src.assembled_core.pipeline.pipeline_timing')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.pipeline.pipeline_timing")
         from src.assembled_core.pipeline.pipeline_timing import PipelineTimer
         import time
 
@@ -318,7 +362,9 @@ class TestJSONLogging:
         import logging
 
         formatter = JSONFormatter()
-        record = logging.LogRecord("test", logging.INFO, "", 0, "test message", (), None)
+        record = logging.LogRecord(
+            "test", logging.INFO, "", 0, "test message", (), None
+        )
         output = formatter.format(record)
         parsed = json.loads(output)
         assert parsed["level"] == "INFO"
@@ -327,7 +373,9 @@ class TestJSONLogging:
 
 class TestSignalPlugin:
     def test_no_plugins_dir(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.plugin_loader')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.plugin_loader")
         from src.assembled_core.signals.plugin_loader import discover_signal_plugins
 
         result = discover_signal_plugins("nonexistent_dir")
@@ -336,7 +384,9 @@ class TestSignalPlugin:
 
 class TestFeatureFlagAudit:
     def test_audit(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.feature_flag_audit')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.feature_flag_audit")
         from src.assembled_core.features.feature_flag_audit import audit_feature_flags
 
         policy = {"features": {"ta": {"enabled": True}, "macro": {"enabled": False}}}

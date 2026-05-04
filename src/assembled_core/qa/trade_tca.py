@@ -90,18 +90,26 @@ def compute_trade_tca(
     """
     if arrival_price <= 0:
         return TradeTCA(
-            trade_id=trade_id, symbol=symbol, side=side, quantity=quantity,
-            arrival_price=arrival_price, execution_price=execution_price,
+            trade_id=trade_id,
+            symbol=symbol,
+            side=side,
+            quantity=quantity,
+            arrival_price=arrival_price,
+            execution_price=execution_price,
         )
 
     side_multiplier = 1.0 if side.lower() == "buy" else -1.0
 
     # IS: (exec - arrival) × sign; buy paid more than arrival → positive cost
-    is_bps = float(side_multiplier * (execution_price - arrival_price) / arrival_price * 10000.0)
+    is_bps = float(
+        side_multiplier * (execution_price - arrival_price) / arrival_price * 10000.0
+    )
 
     vwap_slip_bps = 0.0
     if vwap_price is not None and vwap_price > 0:
-        vwap_slip_bps = float(side_multiplier * (execution_price - vwap_price) / vwap_price * 10000.0)
+        vwap_slip_bps = float(
+            side_multiplier * (execution_price - vwap_price) / vwap_price * 10000.0
+        )
 
     total_cost = is_bps  # einfach, könnte erweitert werden
 
@@ -129,7 +137,9 @@ def aggregate_tca(tcas: list[TradeTCA]) -> TCAAggregateReport:
 
     per_symbol: dict[str, dict] = {}
     for t in tcas:
-        per_symbol.setdefault(t.symbol, {"n": 0, "mean_is_bps": 0.0, "total_cost_bps": 0.0})
+        per_symbol.setdefault(
+            t.symbol, {"n": 0, "mean_is_bps": 0.0, "total_cost_bps": 0.0}
+        )
         per_symbol[t.symbol]["n"] += 1
         per_symbol[t.symbol]["mean_is_bps"] += t.implementation_shortfall_bps
         per_symbol[t.symbol]["total_cost_bps"] += t.total_cost_bps
@@ -175,18 +185,28 @@ def run_tca_from_learning_store(
             try:
                 rec = json.loads(line)
                 exec_price = rec.get("execution_price") or rec.get("exec_price")
-                arrival = rec.get("arrival_price") or rec.get("open_price") or rec.get("decision_price")
+                arrival = (
+                    rec.get("arrival_price")
+                    or rec.get("open_price")
+                    or rec.get("decision_price")
+                )
                 if not exec_price or not arrival:
                     continue
-                tcas.append(compute_trade_tca(
-                    trade_id=str(rec.get("trade_id", rec.get("id", ""))),
-                    symbol=str(rec.get("symbol", "")),
-                    side=str(rec.get("side", "buy")),
-                    quantity=float(rec.get("quantity", 0.0)),
-                    execution_price=float(exec_price),
-                    arrival_price=float(arrival),
-                    vwap_price=float(rec.get("vwap_price")) if rec.get("vwap_price") else None,
-                ))
+                tcas.append(
+                    compute_trade_tca(
+                        trade_id=str(rec.get("trade_id", rec.get("id", ""))),
+                        symbol=str(rec.get("symbol", "")),
+                        side=str(rec.get("side", "buy")),
+                        quantity=float(rec.get("quantity", 0.0)),
+                        execution_price=float(exec_price),
+                        arrival_price=float(arrival),
+                        vwap_price=(
+                            float(rec.get("vwap_price"))
+                            if rec.get("vwap_price")
+                            else None
+                        ),
+                    )
+                )
             except Exception:
                 continue
 

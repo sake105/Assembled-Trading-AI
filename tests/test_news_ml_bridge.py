@@ -15,6 +15,7 @@ pytestmark = pytest.mark.phase12
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_random_embeddings(n: int = 50, dim: int = 768) -> np.ndarray:
     rng = np.random.default_rng(42)
     return rng.standard_normal((n, dim)).astype(np.float32)
@@ -24,9 +25,12 @@ def _make_random_embeddings(n: int = 50, dim: int = 768) -> np.ndarray:
 # Komponente A: Embeddings + PCA
 # ---------------------------------------------------------------------------
 
+
 def test_extract_embeddings_zero_array_without_transformers(monkeypatch):
     """extract_finbert_embeddings gibt Zero-Array zurück wenn transformers fehlt."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
     import src.assembled_core.ml.news_ml_bridge as bridge
 
     original = bridge._get_embedding_model
@@ -38,6 +42,7 @@ def test_extract_embeddings_zero_array_without_transformers(monkeypatch):
     # Patch: make sure ImportError is triggered in the right place
     # We can also patch torch import directly
     import unittest.mock as mock
+
     with mock.patch.dict("sys.modules", {"torch": None}):
         result = bridge.extract_finbert_embeddings(["hello", "world"])
 
@@ -46,16 +51,24 @@ def test_extract_embeddings_zero_array_without_transformers(monkeypatch):
 
 
 def test_extract_embeddings_empty_list():
-    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
     from src.assembled_core.ml.news_ml_bridge import extract_finbert_embeddings
+
     result = extract_finbert_embeddings([])
     assert result.shape == (0, 768)
 
 
 def test_pca_roundtrip():
     """Fit PCA auf Zufalls-Embeddings → transform neuer Embeddings → Shape korrekt."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
-    from src.assembled_core.ml.news_ml_bridge import fit_embedding_pca, transform_embeddings_pca
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
+    from src.assembled_core.ml.news_ml_bridge import (
+        fit_embedding_pca,
+        transform_embeddings_pca,
+    )
 
     pytest.importorskip("sklearn")
 
@@ -70,8 +83,14 @@ def test_pca_roundtrip():
 
 
 def test_pca_save_load(tmp_path):
-    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
-    from src.assembled_core.ml.news_ml_bridge import fit_embedding_pca, load_pca, transform_embeddings_pca
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
+    from src.assembled_core.ml.news_ml_bridge import (
+        fit_embedding_pca,
+        load_pca,
+        transform_embeddings_pca,
+    )
 
     pytest.importorskip("sklearn")
     pytest.importorskip("joblib")
@@ -93,18 +112,25 @@ def test_pca_save_load(tmp_path):
 # Komponente B: IC-Gewichte
 # ---------------------------------------------------------------------------
 
+
 def test_ic_weights_missing_file():
     """Fehlende ic_loop.json → leeres Dict."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
     from src.assembled_core.ml.news_ml_bridge import get_event_type_ic_weights
 
-    result = get_event_type_ic_weights(ic_loop_path=Path("/nonexistent/path/ic_loop.json"))
+    result = get_event_type_ic_weights(
+        ic_loop_path=Path("/nonexistent/path/ic_loop.json")
+    )
     assert result == {}
 
 
 def test_ic_weights_normalization(tmp_path):
     """IC-Werte -0.1 bis 0.2 → Gewichte in [0.5, 1.5]."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
     import json
 
     pytest.importorskip("src.assembled_core.intel.ic_loop")
@@ -128,7 +154,9 @@ def test_ic_weights_normalization(tmp_path):
     if not weights:
         pytest.skip("ICTracker format mismatch — unit test needs live integration")
 
-    assert all(0.5 <= w <= 1.5 for w in weights.values()), f"Weights out of range: {weights}"
+    assert all(
+        0.5 <= w <= 1.5 for w in weights.values()
+    ), f"Weights out of range: {weights}"
     # Höchstes IC (EARNINGS=0.2) → höchstes Gewicht
     if "EARNINGS" in weights and "GEOPOLITICAL" in weights:
         assert weights["EARNINGS"] > weights["GEOPOLITICAL"]
@@ -138,14 +166,17 @@ def test_ic_weights_normalization(tmp_path):
 # Komponente C: NewsRegimeClassifier
 # ---------------------------------------------------------------------------
 
+
 def _make_sentiment_history(n: int = 120, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
-    return pd.DataFrame({
-        "mean_sentiment": rng.uniform(-0.5, 0.5, n),
-        "sentiment_std": rng.uniform(0.0, 0.3, n),
-        "news_velocity": rng.uniform(0.5, 2.0, n),
-        "negative_fraction": rng.uniform(0.0, 0.6, n),
-    })
+    return pd.DataFrame(
+        {
+            "mean_sentiment": rng.uniform(-0.5, 0.5, n),
+            "sentiment_std": rng.uniform(0.0, 0.3, n),
+            "news_velocity": rng.uniform(0.5, 2.0, n),
+            "negative_fraction": rng.uniform(0.0, 0.6, n),
+        }
+    )
 
 
 def test_regime_classifier_four_states():
@@ -160,12 +191,16 @@ def test_regime_classifier_four_states():
     dfs = []
     for sentiment, vel in [(-0.6, 1.5), (-0.1, 1.8), (0.1, 0.8), (0.6, 0.9)]:
         n = 40
-        dfs.append(pd.DataFrame({
-            "mean_sentiment": rng.normal(sentiment, 0.05, n),
-            "sentiment_std": rng.uniform(0.05, 0.15, n),
-            "news_velocity": rng.normal(vel, 0.1, n),
-            "negative_fraction": rng.uniform(0.0, 0.3, n),
-        }))
+        dfs.append(
+            pd.DataFrame(
+                {
+                    "mean_sentiment": rng.normal(sentiment, 0.05, n),
+                    "sentiment_std": rng.uniform(0.05, 0.15, n),
+                    "news_velocity": rng.normal(vel, 0.1, n),
+                    "negative_fraction": rng.uniform(0.0, 0.3, n),
+                }
+            )
+        )
     history = pd.concat(dfs, ignore_index=True)
 
     clf = NewsRegimeClassifier()
@@ -202,16 +237,20 @@ def test_regime_random_state_reproducible():
 
 
 def test_regime_predict_before_fit_returns_neutral():
-    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
     from src.assembled_core.ml.news_ml_bridge import NewsRegimeClassifier
 
     clf = NewsRegimeClassifier()
-    df = pd.DataFrame({
-        "mean_sentiment": [0.0],
-        "sentiment_std": [0.1],
-        "news_velocity": [1.0],
-        "negative_fraction": [0.2],
-    })
+    df = pd.DataFrame(
+        {
+            "mean_sentiment": [0.0],
+            "sentiment_std": [0.1],
+            "news_velocity": [1.0],
+            "negative_fraction": [0.2],
+        }
+    )
     assert clf.predict(df) == "NEUTRAL"
 
 

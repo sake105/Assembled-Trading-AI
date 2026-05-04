@@ -6,6 +6,7 @@ Run after adding new modules, scripts, tests, or workflows.
 Usage:
     python scripts/regenerate_agents_stats.py [--dry-run]
 """
+
 from __future__ import annotations
 
 import re

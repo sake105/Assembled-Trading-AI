@@ -77,15 +77,17 @@ class TestParsePTRCsv:
         return str(path)
 
     def test_basic_parse(self, tmp_path):
-        rows = [{
-            "MemberName": "Smith, Jane",
-            "Ticker": "AAPL",
-            "AssetName": "Apple",
-            "Type": "Purchase",
-            "Amount": "$1,001 - $15,000",
-            "TransactionDate": "03/15/2024",
-            "Filed": "04/20/2024",
-        }]
+        rows = [
+            {
+                "MemberName": "Smith, Jane",
+                "Ticker": "AAPL",
+                "AssetName": "Apple",
+                "Type": "Purchase",
+                "Amount": "$1,001 - $15,000",
+                "TransactionDate": "03/15/2024",
+                "Filed": "04/20/2024",
+            }
+        ]
         path = self._make_csv(tmp_path, rows)
         df = parse_house_ptr_csv(path)
         assert not df.empty
@@ -105,16 +107,36 @@ class TestParsePTRCsv:
 @pytest.mark.phase12
 class TestFilterAndConvert:
     def _make_df(self) -> pd.DataFrame:
-        return pd.DataFrame([
-            {"symbol": "AAPL", "value_usd_low": 1001, "event_type": "house_ptr_purchase",
-             "value_usd_high": 15000, "filer_name": "A", "event_date": "2024-01-10",
-             "disclosure_date": "2024-02-20", "source_tier": "T2",
-             "transaction_type": "Purchase", "asset_description": "Apple", "amount_range": "$1,001 - $15,000"},
-            {"symbol": "", "value_usd_low": 500, "event_type": "house_ptr_other",
-             "value_usd_high": 1000, "filer_name": "B", "event_date": "2024-01-11",
-             "disclosure_date": "2024-02-21", "source_tier": "T2",
-             "transaction_type": "Exchange", "asset_description": "Bond", "amount_range": "Unknown"},
-        ])
+        return pd.DataFrame(
+            [
+                {
+                    "symbol": "AAPL",
+                    "value_usd_low": 1001,
+                    "event_type": "house_ptr_purchase",
+                    "value_usd_high": 15000,
+                    "filer_name": "A",
+                    "event_date": "2024-01-10",
+                    "disclosure_date": "2024-02-20",
+                    "source_tier": "T2",
+                    "transaction_type": "Purchase",
+                    "asset_description": "Apple",
+                    "amount_range": "$1,001 - $15,000",
+                },
+                {
+                    "symbol": "",
+                    "value_usd_low": 500,
+                    "event_type": "house_ptr_other",
+                    "value_usd_high": 1000,
+                    "filer_name": "B",
+                    "event_date": "2024-01-11",
+                    "disclosure_date": "2024-02-21",
+                    "source_tier": "T2",
+                    "transaction_type": "Exchange",
+                    "asset_description": "Bond",
+                    "amount_range": "Unknown",
+                },
+            ]
+        )
 
     def test_filter_removes_no_ticker(self):
         df = self._make_df()
@@ -131,12 +153,22 @@ class TestFilterAndConvert:
         df = self._make_df().iloc[:1]
         events = to_altdata_events(df)
         assert not events.empty
-        expected_cols = {"event_id", "symbol", "event_date", "disclosure_date",
-                         "event_type", "source_tier", "value_usd", "filer_name"}
+        expected_cols = {
+            "event_id",
+            "symbol",
+            "event_date",
+            "disclosure_date",
+            "event_type",
+            "source_tier",
+            "value_usd",
+            "filer_name",
+        }
         assert expected_cols.issubset(set(events.columns))
 
     def test_event_id_unique(self):
-        df = pd.concat([self._make_df().iloc[:1], self._make_df().iloc[:1]], ignore_index=True)
+        df = pd.concat(
+            [self._make_df().iloc[:1], self._make_df().iloc[:1]], ignore_index=True
+        )
         events = to_altdata_events(df)
         # Same row duplicated → same hash
         assert events["event_id"].nunique() == 1

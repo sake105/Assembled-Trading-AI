@@ -102,9 +102,9 @@ def test_load_factors_returns_full_range_without_as_of(tmp_path: Path) -> None:
         factors_root=tmp_path,
     )
     assert loaded is not None
-    assert len(loaded) == len(df), (
-        "without as_of the loader must return the full cached range"
-    )
+    assert len(loaded) == len(
+        df
+    ), "without as_of the loader must return the full cached range"
 
 
 def test_build_or_load_factors_reapplies_as_of_on_cache_hit(
@@ -147,9 +147,9 @@ def test_build_or_load_factors_reapplies_as_of_on_cache_hit(
         factors_root=tmp_path,
     )
     assert not out.empty
-    assert out["timestamp"].max() <= cutoff, (
-        f"PIT leak at integration layer: max={out['timestamp'].max()} > as_of={cutoff}"
-    )
+    assert (
+        out["timestamp"].max() <= cutoff
+    ), f"PIT leak at integration layer: max={out['timestamp'].max()} > as_of={cutoff}"
 
 
 def test_warm_cache_skips_builder_fn(tmp_path: Path) -> None:
@@ -216,8 +216,10 @@ def test_build_or_load_factors_source_reapplies_as_of() -> None:
     # Defense-in-depth line: the integration layer re-applies the filter on
     # cache hit. Removing it re-opens a PIT leak if ``end_date`` ever masks
     # the store-level cutoff.
-    assert "cached_factors[\n                        cached_factors[\"timestamp\"] <= as_of" in src or (
-        "cached_factors" in src and '["timestamp"] <= as_of' in src
+    assert (
+        'cached_factors[\n                        cached_factors["timestamp"] <= as_of'
+        in src
+        or ("cached_factors" in src and '["timestamp"] <= as_of' in src)
     ), (
         "B5 regression: build_or_load_factors no longer re-applies the as_of "
         "filter on cache hit — relying solely on the store layer is a single "

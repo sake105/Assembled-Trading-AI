@@ -7,6 +7,7 @@ Usage:
     python scripts/run_stress_test.py [--policy configs/policy.yaml]
     python scripts/run_stress_test.py --windows COVID_2020 Inflation_2022
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,11 +20,15 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
-def _run_window(window: dict, policy: str, out_dir: Path, price_file: str | None = None) -> dict | None:
+def _run_window(
+    window: dict, policy: str, out_dir: Path, price_file: str | None = None
+) -> dict | None:
     name = window["name"]
     out_path = out_dir / name
     out_path.mkdir(parents=True, exist_ok=True)
@@ -31,11 +36,16 @@ def _run_window(window: dict, policy: str, out_dir: Path, price_file: str | None
     cmd = [
         sys.executable,
         "scripts/run_backtest_strategy.py",
-        "--start-date", window["start"],
-        "--end-date", window["end"],
-        "--out", str(out_path),
-        "--policy", policy,
-        "--freq", "1d",
+        "--start-date",
+        window["start"],
+        "--end-date",
+        window["end"],
+        "--out",
+        str(out_path),
+        "--policy",
+        policy,
+        "--freq",
+        "1d",
     ]
     if price_file:
         cmd += ["--price-file", price_file]
@@ -70,9 +80,10 @@ def _run_window(window: dict, policy: str, out_dir: Path, price_file: str | None
         # Annualize total_return for short windows where cagr is null
         try:
             import datetime as _dt
+
             s = _dt.date.fromisoformat(window["start"])
             e = _dt.date.fromisoformat(window["end"])
-            n_years = max((e - s).days / 365.25, 1/365.25)
+            n_years = max((e - s).days / 365.25, 1 / 365.25)
             tr = metrics.get("total_return", 0.0) or 0.0
             cagr = float((1 + tr) ** (1 / n_years) - 1)
         except Exception:
@@ -86,23 +97,30 @@ def _run_window(window: dict, policy: str, out_dir: Path, price_file: str | None
         "cagr": cagr,
         "sharpe": metrics.get("sharpe_ratio", metrics.get("sharpe", 0.0)),
         "mdd": mdd,
-        "n_trades": metrics.get("n_trades", metrics.get("total_trades", metrics.get("trades", 0))),
+        "n_trades": metrics.get(
+            "n_trades", metrics.get("total_trades", metrics.get("trades", 0))
+        ),
         "total_return": metrics.get("total_return", 0.0),
-        "worst_day": metrics.get("worst_day_return", metrics.get("min_daily_return", None)),
+        "worst_day": metrics.get(
+            "worst_day_return", metrics.get("min_daily_return", None)
+        ),
     }
 
 
 def _check_thresholds(results: list[dict], thresholds: dict) -> dict:
     checks: dict[str, bool] = {}
     mdds = [r["mdd"] for r in results if r["mdd"] is not None]
-    worst_days = [r["worst_day"] for r in results
-                  if r.get("worst_day") is not None]
+    worst_days = [r["worst_day"] for r in results if r.get("worst_day") is not None]
 
     checks["stress_score_cagr"] = True  # computed below after stress_score
-    checks["worst_mdd"] = (min(mdds) >= thresholds.get("worst_mdd_max", -0.25)) if mdds else True
+    checks["worst_mdd"] = (
+        (min(mdds) >= thresholds.get("worst_mdd_max", -0.25)) if mdds else True
+    )
     checks["worst_single_day"] = (
-        min(worst_days) >= thresholds.get("worst_single_day_max", -0.08)
-    ) if worst_days else True
+        (min(worst_days) >= thresholds.get("worst_single_day_max", -0.08))
+        if worst_days
+        else True
+    )
 
     gfc = next((r for r in results if r["window"] == "GFC_2008"), None)
     if gfc:
@@ -112,19 +130,23 @@ def _check_thresholds(results: list[dict], thresholds: dict) -> dict:
 
     inflation = next((r for r in results if r["window"] == "Inflation_2022"), None)
     if inflation:
-        checks["inflation_2022_mdd"] = (
-            inflation["mdd"] >= thresholds.get("inflation_2022_mdd_max", -0.20)
+        checks["inflation_2022_mdd"] = inflation["mdd"] >= thresholds.get(
+            "inflation_2022_mdd_max", -0.20
         )
 
     return checks
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run stress tests across crisis windows")
+    parser = argparse.ArgumentParser(
+        description="Run stress tests across crisis windows"
+    )
     parser.add_argument("--policy", default="configs/policy.yaml")
     parser.add_argument("--stress-config", default="configs/stress_windows.yaml")
     parser.add_argument("--out-dir", default="output/stress")
-    parser.add_argument("--price-file", default="", help="Explicit price parquet to pass to backtest")
+    parser.add_argument(
+        "--price-file", default="", help="Explicit price parquet to pass to backtest"
+    )
     parser.add_argument("--windows", nargs="*", help="Subset of window names to run")
     args = parser.parse_args()
 
@@ -167,15 +189,20 @@ def main() -> int:
 
     # Aggregate
     valid_cagrs = [r["cagr"] for r in results if r["cagr"] is not None]
-    stress_score = float(np.exp(np.mean([np.log(1 + c) for c in valid_cagrs])) - 1) \
-        if valid_cagrs else 0.0
+    stress_score = (
+        float(np.exp(np.mean([np.log(1 + c) for c in valid_cagrs])) - 1)
+        if valid_cagrs
+        else 0.0
+    )
     worst_mdd = min((r["mdd"] for r in results if r["mdd"] is not None), default=0.0)
-    worst_day = min((r["worst_day"] for r in results if r.get("worst_day") is not None),
-                    default=None)
+    worst_day = min(
+        (r["worst_day"] for r in results if r.get("worst_day") is not None),
+        default=None,
+    )
 
     threshold_checks = _check_thresholds(results, thresholds)
-    threshold_checks["stress_score_cagr"] = (
-        stress_score >= thresholds.get("stress_score_cagr_min", 0.0)
+    threshold_checks["stress_score_cagr"] = stress_score >= thresholds.get(
+        "stress_score_cagr_min", 0.0
     )
     all_pass = all(threshold_checks.values())
 

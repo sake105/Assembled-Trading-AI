@@ -113,9 +113,7 @@ def test_1d_only_close_accepted() -> None:
         # Order 2 hours before session close — also accepted for 1d (trading day is sufficient)
         orders_mid_day = pd.DataFrame(
             {
-                "timestamp": [
-                    session_close - pd.Timedelta(hours=2)
-                ],
+                "timestamp": [session_close - pd.Timedelta(hours=2)],
                 "symbol": ["AAPL"],
                 "side": ["BUY"],
                 "qty": [100.0],
@@ -123,9 +121,7 @@ def test_1d_only_close_accepted() -> None:
             }
         )
 
-        fills_mid_day = apply_session_gate(
-            orders_mid_day, freq="1d", strict=True
-        )
+        fills_mid_day = apply_session_gate(orders_mid_day, freq="1d", strict=True)
 
         # For 1d, any trading-day order is accepted (session-close proximity not checked)
         assert (

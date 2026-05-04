@@ -6,6 +6,7 @@ book_fills A8b) for Phase 11 slippage histograms instead. This module is
 retained for potential future use where a run-persistent singleton accumulator
 is needed (e.g. multi-bar intraday contexts).
 """
+
 from __future__ import annotations
 
 import threading

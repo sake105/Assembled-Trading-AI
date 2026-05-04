@@ -33,7 +33,9 @@ class TestICTracker:
     def test_record_and_ic(self):
         tracker = ICTracker()
         for i in range(10):
-            tracker.record("TRADE_WAR", signal=float(i), realized_return=float(i) * 0.01)
+            tracker.record(
+                "TRADE_WAR", signal=float(i), realized_return=float(i) * 0.01
+            )
         ic = tracker.ic("TRADE_WAR")
         assert ic is not None
         assert abs(ic - 1.0) < 1e-6  # perfect positive correlation
@@ -56,7 +58,9 @@ class TestICTracker:
     def test_compute_report_structure(self):
         tracker = ICTracker()
         for i in range(5):
-            tracker.record("GEO_CONFLICT", signal=float(i), realized_return=float(i) * 0.01)
+            tracker.record(
+                "GEO_CONFLICT", signal=float(i), realized_return=float(i) * 0.01
+            )
         report = tracker.compute_report()
         assert "generated_utc" in report
         assert "results" in report
@@ -69,7 +73,9 @@ class TestICTracker:
         tracker = ICTracker(ic_threshold=0.5)
         # Near-zero IC: signal and return are anti-correlated slightly
         for i in range(10):
-            tracker.record("WEAK_TYPE", signal=float(i % 3), realized_return=float(i % 2) * 0.01)
+            tracker.record(
+                "WEAK_TYPE", signal=float(i % 3), realized_return=float(i % 2) * 0.01
+            )
         report = tracker.compute_report()
         # May or may not be flagged depending on correlation, just check structure
         assert "flagged_weak" in report["results"]["WEAK_TYPE"]

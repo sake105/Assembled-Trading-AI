@@ -299,7 +299,9 @@ def label_daily_records(
 
     # Compute labels: 1 if forward_return >= threshold, else 0
     fwd_ok = valid & ~np.isnan(prices_arr) & (prices_arr > 0) & ~np.isnan(future_prices)
-    forward_returns = np.where(fwd_ok, (future_prices - prices_arr) / prices_arr, np.nan)
+    forward_returns = np.where(
+        fwd_ok, (future_prices - prices_arr) / prices_arr, np.nan
+    )
     labels_arr = np.where(
         np.isfinite(forward_returns) & (forward_returns >= success_threshold), 1, 0
     )
@@ -653,7 +655,8 @@ def generate_triple_barrier_labels(
 
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     prices_by_symbol: dict[str, pd.DataFrame] = {
-        sym: grp.reset_index(drop=True) for sym, grp in prices.groupby("symbol", sort=False)
+        sym: grp.reset_index(drop=True)
+        for sym, grp in prices.groupby("symbol", sort=False)
     }
 
     results: list[dict] = []
@@ -739,5 +742,7 @@ def generate_triple_barrier_labels(
 
     result_df = pd.DataFrame(results)
     if "timestamp" in result_df.columns and "symbol" in result_df.columns:
-        result_df = result_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+        result_df = result_df.sort_values(["timestamp", "symbol"]).reset_index(
+            drop=True
+        )
     return result_df

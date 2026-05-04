@@ -3,6 +3,7 @@
 Verifies that volatility used to set barriers is NOT bfilled,
 so the first <20 events are skipped rather than receiving future vol.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,10 +15,11 @@ import pytest
 def test_no_bfill_in_source():
     """grep-level check: no fillna(method=bfill/backfill) in triple_barrier.py."""
     import pathlib
+
     src = pathlib.Path("src/assembled_core/features/triple_barrier.py").read_text()
     assert "bfill" not in src
     assert "backfill" not in src
-    assert 'fillna(method=' not in src
+    assert "fillna(method=" not in src
 
 
 @pytest.mark.fast
@@ -34,14 +36,16 @@ def test_early_events_skipped_not_leaked():
     events_early = pd.DatetimeIndex(dates[:15])  # within warm-up window
     events_late = pd.DatetimeIndex(dates[25:35])  # after warm-up
 
-    result = _triple_barrier_numpy(prices, events_early.append(events_late), (2.0, 1.0), None, 20)
+    result = _triple_barrier_numpy(
+        prices, events_early.append(events_late), (2.0, 1.0), None, 20
+    )
 
     # Early events (within 20-bar warm-up) must NOT appear as labeled rows
     labeled_ts = set(result.index)
     for early_ts in events_early:
-        assert early_ts not in labeled_ts, (
-            f"Event at {early_ts} (bar <20) was labeled — look-ahead leakage detected"
-        )
+        assert (
+            early_ts not in labeled_ts
+        ), f"Event at {early_ts} (bar <20) was labeled — look-ahead leakage detected"
 
     # Later events must appear
     assert len(result) > 0, "No labels generated for late events"

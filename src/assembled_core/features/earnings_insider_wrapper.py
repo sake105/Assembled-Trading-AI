@@ -112,8 +112,11 @@ def _earnings_surprise_raw(
         np.where(
             df["_days_old"] >= EARNINGS_DECAY_END_DAYS,
             0.0,
-            (1.0 - (df["_days_old"] - EARNINGS_DECAY_START_DAYS)
-             / (EARNINGS_DECAY_END_DAYS - EARNINGS_DECAY_START_DAYS)).clip(lower=0.0),
+            (
+                1.0
+                - (df["_days_old"] - EARNINGS_DECAY_START_DAYS)
+                / (EARNINGS_DECAY_END_DAYS - EARNINGS_DECAY_START_DAYS)
+            ).clip(lower=0.0),
         ),
     )
     scaled = df.set_index("symbol")["_surprise"] * df.set_index("symbol")["_scale"]
@@ -219,9 +222,7 @@ def compute_earnings_insider_factors(
     symbols = list(symbols)
 
     raw_earnings = _earnings_surprise_raw(as_of_date, symbols, earnings_df)
-    raw_insider = _insider_activity_raw(
-        as_of_date, symbols, insider_df, market_cap_df
-    )
+    raw_insider = _insider_activity_raw(as_of_date, symbols, insider_df, market_cap_df)
 
     earnings_z = _zscore_clip(raw_earnings)
     earnings_z.name = "earnings_surprise_z"

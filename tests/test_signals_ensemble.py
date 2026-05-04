@@ -8,7 +8,6 @@ import pytest
 
 from src.assembled_core.signals.ensemble import apply_meta_filter, apply_meta_scaling
 
-
 # Check if sklearn and joblib are available
 try:
     import sklearn  # noqa: F401

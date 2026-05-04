@@ -30,7 +30,9 @@ class SignalOutput:
     horizon_days: int = 5
     required_data: list[str] = field(default_factory=list)
 
-    def is_actionable(self, min_confidence: float = 0.0, min_abs_score: float = 0.0) -> bool:
+    def is_actionable(
+        self, min_confidence: float = 0.0, min_abs_score: float = 0.0
+    ) -> bool:
         return abs(self.score) >= min_abs_score and self.confidence >= min_confidence
 
 
@@ -44,7 +46,7 @@ class BaseSignal(ABC):
     name: str = "base"
     version: str = "0.0.0"
     required_features: list[str] = []
-    required_data: list[str] = []   # e.g. ['bars_daily', 'news']
+    required_data: list[str] = []  # e.g. ['bars_daily', 'news']
     horizon_days: int = 5
 
     @abstractmethod

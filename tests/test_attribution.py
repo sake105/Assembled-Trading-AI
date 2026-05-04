@@ -29,7 +29,6 @@ from src.assembled_core.execution.unified_paper_engine import (
     UnifiedPaperEngine,
 )
 
-
 # --- unit: compute_cost_attribution ----------------------------------------
 
 
@@ -138,8 +137,13 @@ def test_regime_attribution_maps_dates() -> None:
 def test_regime_attribution_unknown_falls_back() -> None:
     fills = pd.DataFrame(
         [
-            {"date": "2025-01-15", "symbol": "AAA", "fill_qty": 10,
-             "fill_price": 100, "total_cost_bps": 5.0},
+            {
+                "date": "2025-01-15",
+                "symbol": "AAA",
+                "fill_qty": 10,
+                "fill_price": 100,
+                "total_cost_bps": 5.0,
+            },
         ]
     )
     out = compute_regime_attribution(fills, [])  # no mappings
@@ -174,7 +178,9 @@ def test_factor_attribution_groups_by_dominant_factor() -> None:
 # --- engine integration ----------------------------------------------------
 
 
-def _make_engine(tmp_path: Path, *, enable_attribution: bool = True) -> UnifiedPaperEngine:
+def _make_engine(
+    tmp_path: Path, *, enable_attribution: bool = True
+) -> UnifiedPaperEngine:
     cfg = UnifiedPaperConfig(
         seed_capital=1_000_000.0,
         state_dir=tmp_path / "state",

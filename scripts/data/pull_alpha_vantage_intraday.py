@@ -30,18 +30,22 @@ def pull_one(symbol: str, interval: str, api_key: str) -> pd.DataFrame:
     meta_key = "Meta Data"  # noqa: F841
     ts_key = next((k for k in js.keys() if k.startswith("Time Series")), None)
     if not ts_key:
-        raise RuntimeError(f"No time series in response for {symbol}: {list(js.keys())}")
+        raise RuntimeError(
+            f"No time series in response for {symbol}: {list(js.keys())}"
+        )
     ts = js[ts_key]
     rows = []
     for ts_str, v in ts.items():
-        rows.append({
-            "timestamp": ts_str,
-            "open": float(v.get("1. open")),
-            "high": float(v.get("2. high")),
-            "low": float(v.get("3. low")),
-            "close": float(v.get("4. close")),
-            "volume": float(v.get("5. volume", 0.0)),
-        })
+        rows.append(
+            {
+                "timestamp": ts_str,
+                "open": float(v.get("1. open")),
+                "high": float(v.get("2. high")),
+                "low": float(v.get("3. low")),
+                "close": float(v.get("4. close")),
+                "volume": float(v.get("5. volume", 0.0)),
+            }
+        )
     df = pd.DataFrame(rows)
     df = normalize_ohlc(df, symbol, provider="alphavantage")
     return df
@@ -49,9 +53,11 @@ def pull_one(symbol: str, interval: str, api_key: str) -> pd.DataFrame:
 
 def main():
     if len(sys.argv) < 5:
-        print("Usage: python pull_alpha_vantage_intraday.py <symbols_csv> <interval> <api_key> <out_dir>")
+        print(
+            "Usage: python pull_alpha_vantage_intraday.py <symbols_csv> <interval> <api_key> <out_dir>"
+        )
         sys.exit(2)
-    symbols = sys.argv[1].split(',')
+    symbols = sys.argv[1].split(",")
     interval = sys.argv[2]
     api_key = sys.argv[3] or os.environ.get("ALPHAVANTAGE_API_KEY", "")
     out_dir = Path(sys.argv[4])

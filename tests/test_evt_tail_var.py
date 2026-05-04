@@ -141,7 +141,7 @@ def test_evt_es_infinite_shape_raises():
     # Construct a very heavy tail: Pareto with small alpha → xi ~ 1/alpha > 1.
     rng = np.random.default_rng(13)
     # Pareto with shape 0.8 → extremely heavy tailed; xi estimate likely ≥ 1.
-    samples = (rng.pareto(0.8, size=5000) + 1.0)
+    samples = rng.pareto(0.8, size=5000) + 1.0
     try:
         fit = fit_pot_gpd(samples, threshold_pct=0.90)
     except ValueError:

@@ -120,11 +120,15 @@ class ClusterManager:
                 self.active_clusters[cluster_id] = cluster
                 logger.debug(
                     "[OK] ClusterManager: new cluster %s (%s, %d events)",
-                    cluster_id, trigger_type.value, len(group_events),
+                    cluster_id,
+                    trigger_type.value,
+                    len(group_events),
                 )
 
         # --- Expire old clusters ---
-        expired = [cid for cid, cl in self.active_clusters.items() if cl.expires_at < now]
+        expired = [
+            cid for cid, cl in self.active_clusters.items() if cl.expires_at < now
+        ]
         for cid in expired:
             logger.debug("[SKIP] ClusterManager: expired cluster %s", cid)
             del self.active_clusters[cid]
@@ -151,27 +155,36 @@ class ClusterManager:
         from src.assembled_core.intel.bayesian_confidence import (
             compute_cluster_confidence,
         )
+
         source_tiers = [evt.source_tier.value for evt in new_events]
         n_independent = max(1, len(set(evt.source_id for evt in new_events)))
         cluster.confidence = compute_cluster_confidence(
             trigger_type=cluster.trigger_type.value,
-            source_tiers=source_tiers if source_tiers else [current_max.value] * total_events,
+            source_tiers=(
+                source_tiers if source_tiers else [current_max.value] * total_events
+            ),
             n_independent_sources=n_independent,
             keyword_match_strength=0.7,
         )
         # Step 3: urgency boost — Breaking/Flash events raise confidence up to +0.1
-        urgency_boost = max((getattr(evt, "urgency", 0.0) for evt in new_events), default=0.0) * 0.1
+        urgency_boost = (
+            max((getattr(evt, "urgency", 0.0) for evt in new_events), default=0.0) * 0.1
+        )
         if urgency_boost > 0:
             cluster.confidence = min(cluster.confidence + urgency_boost, 0.99)
 
         # Step 4: State media discount — if all events are T3, cap confidence at 35%
-        all_t3 = all(getattr(evt, "source_tier", None) == SourceTier.T3 for evt in new_events)
+        all_t3 = all(
+            getattr(evt, "source_tier", None) == SourceTier.T3 for evt in new_events
+        )
         if all_t3 and cluster.max_tier == SourceTier.T3:
             cluster.confidence = min(cluster.confidence, 0.35)
 
         # Step 5: Freshness decay — confidence decays for old clusters with no new events
         try:
-            age_min = (datetime.now(tz=timezone.utc) - cluster.created_at).total_seconds() / 60
+            age_min = (
+                datetime.now(tz=timezone.utc) - cluster.created_at
+            ).total_seconds() / 60
         except Exception:
             age_min = 0.0
         decay = math.exp(-age_min / max(self._ttl_minutes * 0.5, 1.0))
@@ -179,7 +192,10 @@ class ClusterManager:
 
         logger.debug(
             "[OK] T2.8 Bayesian confidence: cluster=%s conf=%.3f (urgency_boost=%.3f, decay=%.3f)",
-            cluster.cluster_id, cluster.confidence, urgency_boost, decay,
+            cluster.cluster_id,
+            cluster.confidence,
+            urgency_boost,
+            decay,
         )
 
     def get_active_clusters(self) -> list[EvidenceCluster]:

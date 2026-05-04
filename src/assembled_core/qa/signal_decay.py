@@ -52,7 +52,10 @@ def compute_ic_series(
     Returns:
         Series indexed by timestamp with IC values.
     """
-    if factor_col not in factor_panel.columns or forward_return_col not in factor_panel.columns:
+    if (
+        factor_col not in factor_panel.columns
+        or forward_return_col not in factor_panel.columns
+    ):
         return pd.Series(dtype=float)
 
     ic = (
@@ -123,6 +126,7 @@ def compute_ic_half_life(ic_series: pd.Series) -> float | None:
         # undecayed signal and a numpy fit bomb looked the same. Emit a
         # WARN so the distinction is observable in logs.
         import logging
+
         logging.getLogger(__name__).warning(
             "[SignalDecay] ic_half_life polyfit failed: %s — returning None",
             exc,
@@ -231,8 +235,7 @@ def compute_signal_autocorrelation(
     result: dict[int, float] = {}
     for lag in lags:
         per_sym = (
-            sorted_panel
-            .groupby("symbol")[factor_col]
+            sorted_panel.groupby("symbol")[factor_col]
             .apply(lambda s: s.autocorr(lag=lag) if len(s) > lag + 5 else np.nan)
             .dropna()
         )
@@ -260,7 +263,10 @@ def compute_rank_stability(
     Returns:
         Average overlap fraction (0-1). Higher = more stable rankings.
     """
-    if factor_col not in factor_panel.columns or "timestamp" not in factor_panel.columns:
+    if (
+        factor_col not in factor_panel.columns
+        or "timestamp" not in factor_panel.columns
+    ):
         return 0.0
 
     timestamps = sorted(factor_panel["timestamp"].unique())
@@ -338,9 +344,14 @@ def analyze_signal_decay(
     _log.info(
         "Signal decay [%s]: IC=%.3f, IC_IR=%.2f, IC_HL=%.1f days, "
         "FWD_HL=%.1f days, AC1d=%.2f, rank_stab_5d=%.2f, stale=%s",
-        factor_col, ic_mean, ic_ir,
-        ic_hl or -1, fwd_hl or -1,
-        ac_1d, rank_5d, is_stale,
+        factor_col,
+        ic_mean,
+        ic_ir,
+        ic_hl or -1,
+        fwd_hl or -1,
+        ac_1d,
+        rank_5d,
+        is_stale,
     )
     return profile
 

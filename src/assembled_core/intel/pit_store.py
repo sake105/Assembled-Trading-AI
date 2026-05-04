@@ -63,6 +63,7 @@ class PITStore:
             return dest
 
         from src.assembled_core.utils.atomic_io import atomic_write_json
+
         atomic_write_json(dest, data)
 
         now_utc = (archived_utc or datetime.now(tz=timezone.utc)).isoformat()
@@ -70,7 +71,10 @@ class PITStore:
 
         logger.info(
             "[OK] PITStore.archive: source=%s run_id=%s type=%s → %s",
-            source, run_id, artifact_type, dest,
+            source,
+            run_id,
+            artifact_type,
+            dest,
         )
         return dest
 
@@ -93,7 +97,9 @@ class PITStore:
         try:
             data = json.loads(file_path.read_text(encoding="utf-8"))
         except Exception as exc:
-            logger.warning("[WARN] PITStore.archive_file: JSON parse error %s: %s", file_path, exc)
+            logger.warning(
+                "[WARN] PITStore.archive_file: JSON parse error %s: %s", file_path, exc
+            )
             return None
         return self.archive(source, run_id, artifact_type, data, overwrite=overwrite)
 
@@ -226,11 +232,14 @@ class PITStore:
     # Internals
     # ------------------------------------------------------------------
 
-    def _update_manifest(self, run_dir: Path, artifact_type: str, archived_utc: str) -> None:
+    def _update_manifest(
+        self, run_dir: Path, artifact_type: str, archived_utc: str
+    ) -> None:
         manifest = self._load_manifest(run_dir)
         manifest[artifact_type] = {"archived_utc": archived_utc}
         manifest_path = run_dir / _MANIFEST_FILE
         from src.assembled_core.utils.atomic_io import atomic_write_json
+
         atomic_write_json(manifest_path, manifest)
 
     def _load_manifest(self, run_dir: Path) -> dict[str, dict]:

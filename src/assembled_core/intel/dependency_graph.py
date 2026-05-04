@@ -298,6 +298,7 @@ def _parse_edge(raw: dict[str, Any]) -> DependencyEdge:
 def load_graph(path: str | Path) -> DependencyGraph:
     """Load a DependencyGraph from a YAML file."""
     import logging as _logging
+
     _log = _logging.getLogger(__name__)
 
     path = Path(path)
@@ -313,12 +314,21 @@ def load_graph(path: str | Path) -> DependencyGraph:
         try:
             graph.add_node(_parse_node(raw_node))
         except (KeyError, ValueError, TypeError) as exc:
-            _log.warning("[DependencyGraph] Skipping malformed node %s: %s", raw_node.get("node_id", "?"), exc)
+            _log.warning(
+                "[DependencyGraph] Skipping malformed node %s: %s",
+                raw_node.get("node_id", "?"),
+                exc,
+            )
 
     for raw_edge in data.get("edges", []):
         try:
             graph.add_edge(_parse_edge(raw_edge))
         except (KeyError, ValueError, TypeError) as exc:
-            _log.warning("[DependencyGraph] Skipping malformed edge %s→%s: %s", raw_edge.get("from_node", "?"), raw_edge.get("to_node", "?"), exc)
+            _log.warning(
+                "[DependencyGraph] Skipping malformed edge %s→%s: %s",
+                raw_edge.get("from_node", "?"),
+                raw_edge.get("to_node", "?"),
+                exc,
+            )
 
     return graph

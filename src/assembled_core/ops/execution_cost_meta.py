@@ -41,14 +41,14 @@ def _safe_price_map(prices: pd.DataFrame) -> dict[str, float]:
     if price_col not in prices.columns:
         return {}
     try:
-        return (
-            prices.groupby("symbol")[price_col].last().astype(float).to_dict()
-        )
+        return prices.groupby("symbol")[price_col].last().astype(float).to_dict()
     except Exception:
         return {}
 
 
-def _safe_adv_map(prices: pd.DataFrame, default_adv: float = 1_000_000.0) -> dict[str, float]:
+def _safe_adv_map(
+    prices: pd.DataFrame, default_adv: float = 1_000_000.0
+) -> dict[str, float]:
     """Estimate ADV from trailing N days of volume per symbol if available."""
     if prices is None or prices.empty or "symbol" not in prices.columns:
         return {}
@@ -80,7 +80,7 @@ def annotate_execution_cost(
     copy when ``enforce=true`` removes high-impact orders; otherwise it is
     the input unchanged.
     """
-    exec_cfg = (policy.get("execution") or {})
+    exec_cfg = policy.get("execution") or {}
     cm_cfg = exec_cfg.get("cost_meta") or {}
     sor_cfg = exec_cfg.get("smart_order_router") or {}
 

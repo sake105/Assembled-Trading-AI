@@ -25,10 +25,10 @@ from src.assembled_core.signals.intel_signal_adapter import (
 from src.assembled_core.signals.news_signal_bridge import blend_with_news
 from src.assembled_core.features.news_features import compute_news_features
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_intel_signal(
     net_direction: str = "bearish",
@@ -45,18 +45,23 @@ def _make_intel_signal(
     return sig
 
 
-def _make_trend_signals(symbols: list[str], direction: str = "LONG", score: float = 0.8) -> pd.DataFrame:
-    return pd.DataFrame({
-        "timestamp": [pd.Timestamp("2020-02-24", tz="UTC")] * len(symbols),
-        "symbol": symbols,
-        "direction": [direction] * len(symbols),
-        "score": [score] * len(symbols),
-    })
+def _make_trend_signals(
+    symbols: list[str], direction: str = "LONG", score: float = 0.8
+) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2020-02-24", tz="UTC")] * len(symbols),
+            "symbol": symbols,
+            "direction": [direction] * len(symbols),
+            "score": [score] * len(symbols),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # intel_signal_adapter tests
 # ---------------------------------------------------------------------------
+
 
 class TestAdaptIntelSignal:
     def test_none_returns_neutral(self):
@@ -72,14 +77,18 @@ class TestAdaptIntelSignal:
         assert overlay.macro_score == 0.0
 
     def test_bearish_high_risk_macro_score(self):
-        sig = _make_intel_signal(net_direction="bearish", risk_level="HIGH", is_actionable=True)
+        sig = _make_intel_signal(
+            net_direction="bearish", risk_level="HIGH", is_actionable=True
+        )
         overlay = adapt_intel_signal(sig)
         assert overlay.is_actionable is True
         # bearish + HIGH: -1.0 * 0.7 = -0.7
         assert overlay.macro_score == pytest.approx(-0.7, abs=0.01)
 
     def test_bullish_critical_macro_score(self):
-        sig = _make_intel_signal(net_direction="bullish", risk_level="CRITICAL", is_actionable=True)
+        sig = _make_intel_signal(
+            net_direction="bullish", risk_level="CRITICAL", is_actionable=True
+        )
         overlay = adapt_intel_signal(sig)
         assert overlay.macro_score == pytest.approx(1.0, abs=0.01)
 
@@ -96,7 +105,9 @@ class TestAdaptIntelSignal:
         assert overlay.ticker_scores["MSFT"] == pytest.approx(0.5, abs=0.01)
 
     def test_neutral_direction_gives_zero_macro(self):
-        sig = _make_intel_signal(net_direction="neutral", risk_level="HIGH", is_actionable=True)
+        sig = _make_intel_signal(
+            net_direction="neutral", risk_level="HIGH", is_actionable=True
+        )
         overlay = adapt_intel_signal(sig)
         assert overlay.macro_score == pytest.approx(0.0, abs=0.01)
 
@@ -127,6 +138,7 @@ class TestOverlayToDataframe:
 # ---------------------------------------------------------------------------
 # news_signal_bridge tests
 # ---------------------------------------------------------------------------
+
 
 class TestBlendWithNews:
     def test_none_overlay_passthrough(self):
@@ -172,7 +184,7 @@ class TestBlendWithNews:
         signals = _make_trend_signals(["AAPL", "MSFT"], score=0.6)
         overlay = IntelOverlay(
             ticker_scores={"AAPL": 0.4},  # AAPL is bullish
-            macro_score=-0.3,              # macro is bearish
+            macro_score=-0.3,  # macro is bearish
             risk_level="MODERATE",
             is_actionable=True,
         )
@@ -195,23 +207,38 @@ class TestBlendWithNews:
 # news_features tests
 # ---------------------------------------------------------------------------
 
+
 class TestComputeNewsFeatures:
     def _make_events(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "event_date": pd.to_datetime([
-                "2020-02-20", "2020-02-21", "2020-02-24",
-                "2020-02-24", "2020-02-25",
-            ], utc=True),
-            "symbol": ["AAPL", "AAPL", "AAPL", "MSFT", "AAPL"],
-            "direction": ["bearish", "bearish", "bearish", "bearish", "bearish"],
-            "confidence": [0.8, 0.7, 0.9, 0.6, 0.85],
-        })
+        return pd.DataFrame(
+            {
+                "event_date": pd.to_datetime(
+                    [
+                        "2020-02-20",
+                        "2020-02-21",
+                        "2020-02-24",
+                        "2020-02-24",
+                        "2020-02-25",
+                    ],
+                    utc=True,
+                ),
+                "symbol": ["AAPL", "AAPL", "AAPL", "MSFT", "AAPL"],
+                "direction": ["bearish", "bearish", "bearish", "bearish", "bearish"],
+                "confidence": [0.8, 0.7, 0.9, 0.6, 0.85],
+            }
+        )
 
     def test_output_columns(self):
         events = self._make_events()
         result = compute_news_features(events)
-        expected_cols = {"timestamp", "symbol", "news_sentiment",
-                         "news_event_count", "news_velocity", "news_confidence"}
+        expected_cols = {
+            "timestamp",
+            "symbol",
+            "news_sentiment",
+            "news_event_count",
+            "news_velocity",
+            "news_confidence",
+        }
         assert expected_cols <= set(result.columns)
 
     def test_sentiment_is_negative_for_all_bearish_events(self):
@@ -226,8 +253,12 @@ class TestComputeNewsFeatures:
         result = compute_news_features(events)
         aapl = result[(result["symbol"] == "AAPL")].sort_values("timestamp")
         # Event count on Feb 25 (4 AAPL events by then) > on Feb 20 (1 event)
-        count_feb25 = aapl[aapl["timestamp"].dt.date.astype(str) == "2020-02-25"]["news_event_count"].iloc[0]
-        count_feb20 = aapl[aapl["timestamp"].dt.date.astype(str) == "2020-02-20"]["news_event_count"].iloc[0]
+        count_feb25 = aapl[aapl["timestamp"].dt.date.astype(str) == "2020-02-25"][
+            "news_event_count"
+        ].iloc[0]
+        count_feb20 = aapl[aapl["timestamp"].dt.date.astype(str) == "2020-02-20"][
+            "news_event_count"
+        ].iloc[0]
         assert count_feb25 >= count_feb20
 
     def test_confidence_between_zero_and_one(self):
@@ -246,18 +277,22 @@ class TestComputeNewsFeatures:
         assert aapl["news_event_count"].max() <= 2.0
 
     def test_empty_events_returns_empty_dataframe(self):
-        events = pd.DataFrame(columns=["event_date", "symbol", "direction", "confidence"])
+        events = pd.DataFrame(
+            columns=["event_date", "symbol", "direction", "confidence"]
+        )
         result = compute_news_features(events)
         assert result.empty
         assert "news_sentiment" in result.columns
 
     def test_mixed_directions_reduce_absolute_sentiment(self):
-        events = pd.DataFrame({
-            "event_date": pd.to_datetime(["2020-02-20", "2020-02-20"], utc=True),
-            "symbol": ["AAPL", "AAPL"],
-            "direction": ["bullish", "bearish"],
-            "confidence": [0.8, 0.8],
-        })
+        events = pd.DataFrame(
+            {
+                "event_date": pd.to_datetime(["2020-02-20", "2020-02-20"], utc=True),
+                "symbol": ["AAPL", "AAPL"],
+                "direction": ["bullish", "bearish"],
+                "confidence": [0.8, 0.8],
+            }
+        )
         result = compute_news_features(events)
         aapl = result[result["symbol"] == "AAPL"]
         # Net = 0 (one bullish, one bearish with equal confidence)
@@ -268,39 +303,52 @@ class TestComputeNewsFeatures:
 # Integration: rules_trend with intel_overlay parameter
 # ---------------------------------------------------------------------------
 
+
 class TestRulesTrendIntelIntegration:
     def _make_prices(self) -> pd.DataFrame:
         import numpy as np
+
         dates = pd.date_range("2020-01-01", periods=60, freq="D", tz="UTC")
         prices = []
         for sym in ["AAPL", "MSFT"]:
-            close = 100.0 * np.cumprod(1 + np.random.default_rng(42).normal(0.001, 0.02, len(dates)))
+            close = 100.0 * np.cumprod(
+                1 + np.random.default_rng(42).normal(0.001, 0.02, len(dates))
+            )
             for i, d in enumerate(dates):
-                prices.append({
-                    "timestamp": d,
-                    "symbol": sym,
-                    "close": close[i],
-                    "volume": 1_000_000,
-                })
+                prices.append(
+                    {
+                        "timestamp": d,
+                        "symbol": sym,
+                        "close": close[i],
+                        "volume": 1_000_000,
+                    }
+                )
         return pd.DataFrame(prices)
 
     def test_no_overlay_same_as_baseline(self):
         from src.assembled_core.signals.rules_trend import generate_trend_signals
+
         prices = self._make_prices()
         baseline = generate_trend_signals(prices, ma_fast=5, ma_slow=10)
-        with_none = generate_trend_signals(prices, ma_fast=5, ma_slow=10, intel_overlay=None)
+        with_none = generate_trend_signals(
+            prices, ma_fast=5, ma_slow=10, intel_overlay=None
+        )
         pd.testing.assert_frame_equal(baseline, with_none)
 
     def test_neutral_overlay_same_as_baseline(self):
         from src.assembled_core.signals.rules_trend import generate_trend_signals
+
         prices = self._make_prices()
         baseline = generate_trend_signals(prices, ma_fast=5, ma_slow=10)
         neutral = IntelOverlay.neutral()
-        with_neutral = generate_trend_signals(prices, ma_fast=5, ma_slow=10, intel_overlay=neutral)
+        with_neutral = generate_trend_signals(
+            prices, ma_fast=5, ma_slow=10, intel_overlay=neutral
+        )
         pd.testing.assert_frame_equal(baseline, with_neutral)
 
     def test_bearish_overlay_reduces_average_score(self):
         from src.assembled_core.signals.rules_trend import generate_trend_signals
+
         prices = self._make_prices()
         baseline = generate_trend_signals(prices, ma_fast=5, ma_slow=10)
         bearish_overlay = IntelOverlay(
@@ -310,7 +358,11 @@ class TestRulesTrendIntelIntegration:
             is_actionable=True,
         )
         blended = generate_trend_signals(
-            prices, ma_fast=5, ma_slow=10, intel_overlay=bearish_overlay, news_alpha=0.20
+            prices,
+            ma_fast=5,
+            ma_slow=10,
+            intel_overlay=bearish_overlay,
+            news_alpha=0.20,
         )
         # Average LONG score should be lower with bearish overlay
         baseline_long_mean = baseline[baseline["direction"] == "LONG"]["score"].mean()

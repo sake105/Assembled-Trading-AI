@@ -11,7 +11,9 @@ from typing import Any
 
 import pandas as pd
 
-import pytest; pytest.importorskip('src.assembled_core.qa.robustness')
+import pytest
+
+pytest.importorskip("src.assembled_core.qa.robustness")
 from src.assembled_core.qa.robustness import build_robustness_pack
 
 

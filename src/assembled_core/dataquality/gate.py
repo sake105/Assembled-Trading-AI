@@ -1,4 +1,5 @@
 """DataQualityGate — central validation entry-point. From 37_DATA_QUALITY_GATE.md §2.2."""
+
 from __future__ import annotations
 
 import json
@@ -57,6 +58,7 @@ class DataQualityGate:
         """
         try:
             from pandera.errors import SchemaErrors
+
             clean_df = OHLCVSchema.validate(df, lazy=True)
             meta: dict[str, Any] = {
                 "status": "pass",
@@ -66,13 +68,16 @@ class DataQualityGate:
                 "batch_id": batch_id,
                 "error_count": 0,
             }
-            logger.debug("[OK] DQ schema %s/%s: %d rows", source, batch_id, len(clean_df))
+            logger.debug(
+                "[OK] DQ schema %s/%s: %d rows", source, batch_id, len(clean_df)
+            )
             return clean_df, meta
         except Exception as exc:
             # Catch both SchemaErrors and SchemaError
             failures: pd.DataFrame
             try:
                 from pandera.errors import SchemaErrors
+
                 if isinstance(exc, SchemaErrors):
                     failures = exc.failure_cases
                 else:
@@ -90,7 +95,12 @@ class DataQualityGate:
                 "error_count": len(failures),
                 "failures_sample": failures.head(5).to_dict("records"),
             }
-            logger.warning("[WARN] DQ schema FAIL %s/%s: %d errors", source, batch_id, len(failures))
+            logger.warning(
+                "[WARN] DQ schema FAIL %s/%s: %d errors",
+                source,
+                batch_id,
+                len(failures),
+            )
             if self.raise_on_schema_error:
                 raise DataQualityError(
                     f"Batch {batch_id!r} from {source!r} failed validation "

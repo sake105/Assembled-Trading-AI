@@ -59,13 +59,15 @@ class TestBuildShortInterestFeatures:
     def test_basic_v3(self):
         rng = np.random.default_rng(42)
         dates = pd.bdate_range("2024-01-01", periods=10)
-        df = pd.DataFrame({
-            "symbol": ["AAPL"] * 10 + ["MSFT"] * 10,
-            "settlement_date": list(dates) * 2,
-            "short_interest": rng.integers(500_000, 5_000_000, 20),
-            "shares_float": [10_000_000] * 20,
-            "avg_volume": rng.integers(500_000, 2_000_000, 20),
-        })
+        df = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 10 + ["MSFT"] * 10,
+                "settlement_date": list(dates) * 2,
+                "short_interest": rng.integers(500_000, 5_000_000, 20),
+                "shares_float": [10_000_000] * 20,
+                "avg_volume": rng.integers(500_000, 2_000_000, 20),
+            }
+        )
         result = build_short_interest_features(df)
         assert "si_pct_float" in result.columns
         assert "si_days_to_cover" in result.columns

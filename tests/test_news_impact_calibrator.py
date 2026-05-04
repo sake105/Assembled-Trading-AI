@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import pytest; pytest.importorskip("src.assembled_core.intel.news_impact_calibrator")
+import pytest
+
+pytest.importorskip("src.assembled_core.intel.news_impact_calibrator")
 
 import pytest
 
@@ -45,7 +47,9 @@ class TestImpactCalibrator:
         for _ in range(5):
             cal.observe("sanctions", -50.0, -100.0)
         entry = cal.report()["sanctions"]
-        assert entry.bias_bps < 0  # we over-predicted (pred=-50, real=-100 means real more negative)
+        assert (
+            entry.bias_bps < 0
+        )  # we over-predicted (pred=-50, real=-100 means real more negative)
 
     def test_recommend_prior_adjustment_gated(self):
         cal = ImpactCalibrator(min_samples_for_report=5)

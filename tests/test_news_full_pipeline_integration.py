@@ -49,10 +49,18 @@ from src.assembled_core.intel.news_source_voting import vote_direction
 from src.assembled_core.intel.news_ticker_velocity import TickerVelocityTracker
 
 
-def _evt(eid: str, title: str, src: str, tier: SourceTier, ts: datetime,
-         tickers: list[str] | None = None, sectors: list[str] | None = None,
-         direction: str = "bearish", severity: float = 7.0,
-         sentiment: float = -0.4) -> NewsEvent:
+def _evt(
+    eid: str,
+    title: str,
+    src: str,
+    tier: SourceTier,
+    ts: datetime,
+    tickers: list[str] | None = None,
+    sectors: list[str] | None = None,
+    direction: str = "bearish",
+    severity: float = 7.0,
+    sentiment: float = -0.4,
+) -> NewsEvent:
     return NewsEvent(
         event_id=eid,
         source_id=src,
@@ -76,20 +84,46 @@ class TestFullNewsPipeline:
         now = datetime.now(tz=timezone.utc)
         title = "Russia escalates sanctions enforcement against energy sector"
         events = [
-            _evt("e1", title, "reuters", SourceTier.T1,
-                 now - timedelta(minutes=20),
-                 tickers=["XOM", "CVX"], sectors=["energy"]),
-            _evt("e2", title, "ap", SourceTier.T1,
-                 now - timedelta(minutes=10),
-                 tickers=["XOM"], sectors=["energy"]),
-            _evt("e3", title, "bbc", SourceTier.T1,
-                 now - timedelta(minutes=5),
-                 tickers=["XOM", "CVX"], sectors=["energy"]),
+            _evt(
+                "e1",
+                title,
+                "reuters",
+                SourceTier.T1,
+                now - timedelta(minutes=20),
+                tickers=["XOM", "CVX"],
+                sectors=["energy"],
+            ),
+            _evt(
+                "e2",
+                title,
+                "ap",
+                SourceTier.T1,
+                now - timedelta(minutes=10),
+                tickers=["XOM"],
+                sectors=["energy"],
+            ),
+            _evt(
+                "e3",
+                title,
+                "bbc",
+                SourceTier.T1,
+                now - timedelta(minutes=5),
+                tickers=["XOM", "CVX"],
+                sectors=["energy"],
+            ),
             # one outlier with opposite framing → contradiction signal
-            _evt("e4", title, "rt", SourceTier.T3,
-                 now,
-                 tickers=["XOM"], sectors=["energy"],
-                 direction="bullish", severity=4.0, sentiment=0.2),
+            _evt(
+                "e4",
+                title,
+                "rt",
+                SourceTier.T3,
+                now,
+                tickers=["XOM"],
+                sectors=["energy"],
+                direction="bullish",
+                severity=4.0,
+                sentiment=0.2,
+            ),
         ]
 
         # 1) language detection
@@ -130,14 +164,19 @@ class TestFullNewsPipeline:
         assert vote.winner == "bearish"
 
         # 6) ticker velocity: 4 events in <30 min → likely surge
-        vt = TickerVelocityTracker(short_window_min=30, long_window_min=120,
-                                   surge_threshold=2.0, min_short_events=3)
+        vt = TickerVelocityTracker(
+            short_window_min=30,
+            long_window_min=120,
+            surge_threshold=2.0,
+            min_short_events=3,
+        )
         signals = vt.update(enriched, now=now)
         assert any(s.ticker == "XOM" for s in signals)
 
         # 7) sentiment drift on the energy sector — direction should be coherent
-        drift = SentimentDriftTracker(window_min=60, min_events=3,
-                                       slope_threshold=0.0001)
+        drift = SentimentDriftTracker(
+            window_min=60, min_events=3, slope_threshold=0.0001
+        )
         drift.update(enriched, now=now)
         rep2 = drift.report(now=now)
         assert any(e.key == "SECTOR:energy" for e in rep2)

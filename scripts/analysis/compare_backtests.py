@@ -99,12 +99,18 @@ def main() -> int:
         marker = "***" if pc.bonferroni_pvalue < 0.05 else "   "
         logger.info(
             "  %s %s vs %s: ΔSharpe=%+.2f DM p=%.4f (corr %.4f)",
-            marker, pc.strategy_a, pc.strategy_b,
-            pc.sharpe_diff, pc.dm_pvalue, pc.bonferroni_pvalue,
+            marker,
+            pc.strategy_a,
+            pc.strategy_b,
+            pc.sharpe_diff,
+            pc.dm_pvalue,
+            pc.bonferroni_pvalue,
         )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report.to_dict(), indent=2, default=str), encoding="utf-8")
+    args.out.write_text(
+        json.dumps(report.to_dict(), indent=2, default=str), encoding="utf-8"
+    )
     logger.info("[OK] Saved: %s", args.out)
     return 0
 

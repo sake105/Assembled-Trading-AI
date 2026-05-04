@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/dataquality/. Covers schema + anomaly checks."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -16,10 +17,10 @@ from assembled_core.dataquality import (
     detect_unadjusted_splits,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_ohlcv(n=30, ticker="AAPL", base_price=150.0, volume=1_000_000):
     """Generate synthetic OHLCV DataFrame."""
@@ -29,20 +30,23 @@ def _make_ohlcv(n=30, ticker="AAPL", base_price=150.0, volume=1_000_000):
     close = np.clip(close, 1, 999999)
     high = close * 1.005
     low = close * 0.995
-    return pd.DataFrame({
-        "ticker": ticker,
-        "timestamp": dates,
-        "open": close * 0.999,
-        "high": high,
-        "low": low,
-        "close": close,
-        "volume": volume,
-    })
+    return pd.DataFrame(
+        {
+            "ticker": ticker,
+            "timestamp": dates,
+            "open": close * 0.999,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # OHLCVSchema
 # ---------------------------------------------------------------------------
+
 
 class TestOHLCVSchema:
     def test_valid_data_passes(self):
@@ -79,6 +83,7 @@ class TestOHLCVSchema:
 # DataQualityGate — schema validation
 # ---------------------------------------------------------------------------
 
+
 class TestDataQualityGateSchema:
     def test_valid_batch_passes(self, tmp_path):
         gate = DataQualityGate(quarantine_path=tmp_path, raise_on_schema_error=True)
@@ -110,6 +115,7 @@ class TestDataQualityGateSchema:
 # Price spike detection
 # ---------------------------------------------------------------------------
 
+
 class TestPriceSpikeDetection:
     def test_no_spikes_clean_data(self):
         df = _make_ohlcv(n=50)
@@ -128,7 +134,7 @@ class TestPriceSpikeDetection:
         df = _make_ohlcv(n=60, base_price=200.0)
         # Tiny normal moves, then one huge outlier
         df["close"] = 200.0
-        df.loc[40, "close"] = 200.0 * 1.35   # +35% in one bar
+        df.loc[40, "close"] = 200.0 * 1.35  # +35% in one bar
         result = detect_price_spikes(df, max_abs_return_1bar=0.30)
         assert not result.empty
 
@@ -156,6 +162,7 @@ class TestPriceSpikeDetection:
 # Volume anomaly detection
 # ---------------------------------------------------------------------------
 
+
 class TestVolumeAnomalyDetection:
     def test_clean_volume_no_flags(self):
         df = _make_ohlcv(n=50)
@@ -164,21 +171,21 @@ class TestVolumeAnomalyDetection:
 
     def test_volume_spike_detected(self):
         df = _make_ohlcv(n=50, volume=1_000_000)
-        df.loc[30, "volume"] = 50_000_000   # 50× normal
+        df.loc[30, "volume"] = 50_000_000  # 50× normal
         result = detect_volume_anomalies(df, spike_multiple=20.0)
         assert not result.empty
         assert "volume_spike" in result["reason"].values
 
     def test_zero_volume_run_detected(self):
         df = _make_ohlcv(n=50, volume=1_000_000)
-        df.loc[10:15, "volume"] = 0   # 6 consecutive zeros
+        df.loc[10:15, "volume"] = 0  # 6 consecutive zeros
         result = detect_volume_anomalies(df, zero_volume_tolerance=5)
         assert not result.empty
         assert "zero_volume_run" in result["reason"].values
 
     def test_single_zero_not_flagged(self):
         df = _make_ohlcv(n=50, volume=1_000_000)
-        df.loc[25, "volume"] = 0   # single zero — not a run of 5
+        df.loc[25, "volume"] = 0  # single zero — not a run of 5
         result = detect_volume_anomalies(df, zero_volume_tolerance=5)
         # Single zero should not trigger zero_volume_run
         if not result.empty:
@@ -188,6 +195,7 @@ class TestVolumeAnomalyDetection:
 # ---------------------------------------------------------------------------
 # Split detection
 # ---------------------------------------------------------------------------
+
 
 class TestSplitDetection:
     def test_no_splits_clean_data(self):
@@ -207,8 +215,8 @@ class TestSplitDetection:
         df = _make_ohlcv(n=30)
         # 50% drop followed by recovery → NOT a split
         pre_close = df.loc[14, "close"]
-        df.loc[15, "close"] = pre_close * 0.45   # 55% drop
-        df.loc[16:, "close"] = pre_close * 0.90   # rapid recovery above 10%
+        df.loc[15, "close"] = pre_close * 0.45  # 55% drop
+        df.loc[16:, "close"] = pre_close * 0.90  # rapid recovery above 10%
         result = detect_unadjusted_splits(df, drop_threshold=0.40)
         # Recovery > 10% so should not flag
         assert result.empty
@@ -217,6 +225,7 @@ class TestSplitDetection:
 # ---------------------------------------------------------------------------
 # Gate anomaly pipeline integration
 # ---------------------------------------------------------------------------
+
 
 class TestGateAnomalyPipeline:
     def test_run_anomaly_checks_returns_all_keys(self, tmp_path):
@@ -230,7 +239,7 @@ class TestGateAnomalyPipeline:
     def test_summary_counts(self, tmp_path):
         gate = DataQualityGate(quarantine_path=tmp_path)
         df = _make_ohlcv(n=40)
-        df.loc[20, "close"] = df.loc[19, "close"] * 2.0   # big spike
+        df.loc[20, "close"] = df.loc[19, "close"] * 2.0  # big spike
         anomalies = gate.run_anomaly_checks(df, calendar="NYSE")
         summary = gate.summary(anomalies)
         assert isinstance(summary, dict)

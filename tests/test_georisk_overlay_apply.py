@@ -10,7 +10,6 @@ from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
 from src.assembled_core.risk.georisk_overlay import apply_exposure_multiplier_to_targets
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 
@@ -128,6 +127,7 @@ def test_georisk_overlay_applied_in_trading_cycle(monkeypatch: Any) -> None:
         return 0.5
 
     import src.assembled_core.pipeline._tc_sizing as _tc_sz
+
     monkeypatch.setattr(tc, "load_policy", fake_load_policy)
     monkeypatch.setattr(_tc_sz, "load_policy", fake_load_policy)
     monkeypatch.setattr(

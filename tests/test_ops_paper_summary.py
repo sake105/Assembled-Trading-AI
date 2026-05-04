@@ -13,7 +13,6 @@ from src.assembled_core.ops.paper_summary import (
     write_paper_summary,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

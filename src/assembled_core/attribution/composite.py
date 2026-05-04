@@ -5,6 +5,7 @@ From 38_FEATURE_ATTRIBUTION_DASHBOARD.md §2.2.
 Bridges the composite_score module output (score + per-dimension dict)
 into a structured CompositeAttribution that can be stored and analysed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -107,4 +108,8 @@ def compute_composite_with_attribution(
     return composite_score, attr
 
 
-__all__ = ["build_attribution", "attribution_to_dict", "compute_composite_with_attribution"]
+__all__ = [
+    "build_attribution",
+    "attribution_to_dict",
+    "compute_composite_with_attribution",
+]

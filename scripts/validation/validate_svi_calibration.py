@@ -11,6 +11,7 @@ Expected SVI outputs for a typical SPX 30-day smile:
   m  ~ -0.05 – 0.05  (ATM shift, usually close to 0)
   sigma ~ 0.05 – 0.15 (ATM smoothness)
 """
+
 from __future__ import annotations
 
 import sys
@@ -30,22 +31,24 @@ import numpy as np
 # Implied vols constructed from a skewed surface typical of SPX.
 # Source: consistent with CBOE SPX term structure data and Gatheral 2011.
 
-T = 30 / 252        # ~1 month
+T = 30 / 252  # ~1 month
 S = 5900.0
 r = 0.053
 F = S * np.exp(r * T)  # forward ≈ 5931
 
 # Log-moneyness: k = log(K/F)
-k = np.array([-0.15, -0.12, -0.09, -0.06, -0.04, -0.02,
-              0.00,  0.02,  0.04,  0.06,  0.08,  0.10])
+k = np.array(
+    [-0.15, -0.12, -0.09, -0.06, -0.04, -0.02, 0.00, 0.02, 0.04, 0.06, 0.08, 0.10]
+)
 
 # Representative SPX implied vols (annualised) for each strike
 # Reflects strong left skew: put wings elevated, call wings compressed
-iv_market = np.array([0.265, 0.240, 0.218, 0.195, 0.182, 0.172,
-                       0.162, 0.155, 0.150, 0.147, 0.145, 0.144])
+iv_market = np.array(
+    [0.265, 0.240, 0.218, 0.195, 0.182, 0.172, 0.162, 0.155, 0.150, 0.147, 0.145, 0.144]
+)
 
 # Total implied variance
-w_market = iv_market ** 2 * T
+w_market = iv_market**2 * T
 
 # ---------------------------------------------------------------------------
 # Step 2: Fit SVI
@@ -80,18 +83,18 @@ summary = surface_summary(params)
 # ---------------------------------------------------------------------------
 checks = {
     # Hard SVI constraints (model correctness)
-    "b >= 0":                    params.b >= 0,
-    "-1 < rho < 1":              -1 < params.rho < 1,
-    "sigma > 0":                 params.sigma > 0,
-    "butterfly arb-free":        arb["arbitrage_free"],
+    "b >= 0": params.b >= 0,
+    "-1 < rho < 1": -1 < params.rho < 1,
+    "sigma > 0": params.sigma > 0,
+    "butterfly arb-free": arb["arbitrage_free"],
     # Note: a < 0 is valid in SVI when b*sigma compensates; checked via butterfly.
     # Note: small b with large sigma is the model's ATM-dominated parametrisation.
     # Smile quality checks (fit accuracy)
-    "RMSE < 0.5 vol pts":        rmse_vol < 0.005,
-    "max err < 1.0 vol pts":     max_err < 0.010,
+    "RMSE < 0.5 vol pts": rmse_vol < 0.005,
+    "max err < 1.0 vol pts": max_err < 0.010,
     # Economic plausibility for SPX
     "rho negative (SPX left-skew)": params.rho < -0.10,
-    "ATM IV in [10%, 30%]":      0.10 <= summary["atm_iv"] <= 0.30,
+    "ATM IV in [10%, 30%]": 0.10 <= summary["atm_iv"] <= 0.30,
 }
 
 passed = sum(checks.values())
@@ -112,7 +115,9 @@ print(f"  sigma = {params.sigma:+.5f}  (ATM smoothness)")
 print("\nFit Quality:")
 print(f"  RMSE (vol):    {rmse_vol*100:.3f} vol pts")
 print(f"  Max |error|:   {max_err*100:.3f} vol pts")
-print(f"  Butterfly arb: {'OK' if arb['arbitrage_free'] else 'VIOLATION'} (min_g={arb['min_g']:.4f})")
+print(
+    f"  Butterfly arb: {'OK' if arb['arbitrage_free'] else 'VIOLATION'} (min_g={arb['min_g']:.4f})"
+)
 print("\nSmile Diagnostics:")
 print(f"  ATM IV:        {summary['atm_iv']*100:.2f}%")
 print(f"  Skew (dw/dk):  {summary['skew_dw_dk']:.4f}")

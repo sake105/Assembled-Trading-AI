@@ -35,7 +35,10 @@ def _next_trade_id(date_str: str, journal_path: Path) -> str:
                     continue
         except Exception as exc:
             import logging as _logging
-            _logging.getLogger(__name__).warning("[TradeJournal] Could not read journal for ID sequencing: %s", exc)
+
+            _logging.getLogger(__name__).warning(
+                "[TradeJournal] Could not read journal for ID sequencing: %s", exc
+            )
     return f"{prefix}{count + 1:03d}"
 
 
@@ -185,7 +188,9 @@ def write_daily_summary(
         for p in positions.values()
     )
     invested_pct = invested / equity * 100 if equity > 0 else 0
-    total_return = (equity - start_capital) / start_capital * 100 if start_capital > 0 else 0
+    total_return = (
+        (equity - start_capital) / start_capital * 100 if start_capital > 0 else 0
+    )
 
     lines = [
         f"{'=' * 55}",
@@ -211,7 +216,9 @@ def write_daily_summary(
                 qty = float(f.get("qty", 0))
                 px = float(f.get("price", 0))
                 notional = qty * px
-                lines.append(f"    {sym:<6} BUY  {qty:>8.2f} @ ${px:>8.2f}  (${notional:>10,.2f})")
+                lines.append(
+                    f"    {sym:<6} BUY  {qty:>8.2f} @ ${px:>8.2f}  (${notional:>10,.2f})"
+                )
             lines.append("")
 
         if sells:
@@ -221,7 +228,9 @@ def write_daily_summary(
                 qty = float(f.get("qty", 0))
                 px = float(f.get("price", 0))
                 notional = qty * px
-                lines.append(f"    {sym:<6} SELL {qty:>8.2f} @ ${px:>8.2f}  (${notional:>10,.2f})")
+                lines.append(
+                    f"    {sym:<6} SELL {qty:>8.2f} @ ${px:>8.2f}  (${notional:>10,.2f})"
+                )
             lines.append("")
 
     # Open positions

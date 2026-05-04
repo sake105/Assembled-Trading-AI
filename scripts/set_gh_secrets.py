@@ -28,7 +28,9 @@ def _get_token() -> str:
     proc = subprocess.run(
         ["git", "credential", "fill"],
         input="url=https://github.com\n\n",
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     for line in proc.stdout.splitlines():
         if line.startswith("password="):
@@ -50,7 +52,9 @@ def _api(method: str, path: str, token: str, body: dict | None = None) -> dict:
         try:
             return json.loads(raw) if raw else {}
         except json.JSONDecodeError as exc:
-            raise ValueError(f"GitHub API returned non-JSON response: {raw[:200]}") from exc
+            raise ValueError(
+                f"GitHub API returned non-JSON response: {raw[:200]}"
+            ) from exc
 
 
 def _encrypt(public_key_b64: str, secret: str) -> str:

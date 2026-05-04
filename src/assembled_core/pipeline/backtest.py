@@ -144,7 +144,10 @@ def _simulate_fills_per_order(
                 return updated_cash, updated_positions
         except (ImportError, AttributeError, KeyError) as exc:
             # Fall through to pure NumPy implementation
-            logger.error("[Backtest] numba fill simulation failed, falling back to NumPy: %s", exc)
+            logger.error(
+                "[Backtest] numba fill simulation failed, falling back to NumPy: %s",
+                exc,
+            )
 
     # Pure NumPy implementation (fallback or if use_numba=False)
     # Extract numpy arrays from DataFrame columns (fillna + to_numpy for pyarrow compat)
@@ -299,7 +302,9 @@ def _update_equity_mark_to_market(
                 return equity
         except (ImportError, AttributeError) as exc:
             # Fall through to pure NumPy implementation
-            logger.error("[Backtest] numba mark-to-market failed, falling back to NumPy: %s", exc)
+            logger.error(
+                "[Backtest] numba mark-to-market failed, falling back to NumPy: %s", exc
+            )
 
     # Pure NumPy implementation (fallback or if use_numba=False)
     # Vectorized mark-to-market: sum(position_shares * price)
@@ -383,7 +388,12 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
     if equity.empty or "equity" not in equity.columns:
         return {"final_pf": 1.0, "sharpe": 0.0, "rows": 0, "first": None, "last": None}
     pf = float(equity["equity"].iloc[-1] / max(equity["equity"].iloc[0], 1e-12))
-    ret = equity["equity"].pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan).dropna()
+    ret = (
+        equity["equity"]
+        .pct_change(fill_method=None)
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna()
+    )
     if ret.empty or ret.isna().all():
         logger.warning("[BACKTEST] No valid returns for Sharpe — defaulting to 0.0")
         sharpe = 0.0

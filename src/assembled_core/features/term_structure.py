@@ -1,4 +1,5 @@
 """VIX curve and yield-curve shape features."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -35,15 +36,20 @@ class TermStructureFeatures:
             try:
                 from sklearn.decomposition import PCA  # noqa: PLC0415
 
-                cols = [c for c in ["vix_spot", "vix_1m", "vix_2m", "vix_3m", "vix_6m"]
-                        if c in vix_quotes.columns]
+                cols = [
+                    c
+                    for c in ["vix_spot", "vix_1m", "vix_2m", "vix_3m", "vix_6m"]
+                    if c in vix_quotes.columns
+                ]
                 if len(cols) >= 3:
                     X = vix_quotes[cols].dropna()
                     pca = PCA(n_components=min(3, len(cols)))
                     pca.fit(X)
                     components = pca.transform(X)
                     for i in range(components.shape[1]):
-                        pc = pd.Series(components[:, i], index=X.index, name=f"vix_pc{i+1}")
+                        pc = pd.Series(
+                            components[:, i], index=X.index, name=f"vix_pc{i+1}"
+                        )
                         out[f"vix_pc{i+1}"] = pc
             except ImportError:
                 pass
@@ -70,9 +76,9 @@ class TermStructureFeatures:
             out["yc_3m10y"] = y10 - y3m
 
         if "yc_2y10y" in out.columns and "yc_3m10y" in out.columns:
-            out["yc_inverted"] = (
-                (out["yc_2y10y"] < 0) | (out["yc_3m10y"] < 0)
-            ).astype(int)
+            out["yc_inverted"] = ((out["yc_2y10y"] < 0) | (out["yc_3m10y"] < 0)).astype(
+                int
+            )
         elif "yc_2y10y" in out.columns:
             out["yc_inverted"] = (out["yc_2y10y"] < 0).astype(int)
         elif "yc_3m10y" in out.columns:

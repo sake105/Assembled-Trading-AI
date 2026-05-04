@@ -28,8 +28,10 @@ class TestAlmgrenChrissParams:
 class TestComputeOptimalTrajectory:
     def test_basic_buy_trajectory(self):
         traj = compute_optimal_trajectory(
-            total_shares=10_000, price=100.0,
-            n_intervals=10, horizon_days=1.0,
+            total_shares=10_000,
+            price=100.0,
+            n_intervals=10,
+            horizon_days=1.0,
         )
         assert isinstance(traj, ExecutionTrajectory)
         assert len(traj.time_steps) == 11  # n+1 points
@@ -41,8 +43,10 @@ class TestComputeOptimalTrajectory:
 
     def test_sell_trajectory_negative(self):
         traj = compute_optimal_trajectory(
-            total_shares=-5_000, price=50.0,
-            n_intervals=5, horizon_days=0.5,
+            total_shares=-5_000,
+            price=50.0,
+            n_intervals=5,
+            horizon_days=0.5,
         )
         # Holdings should go from -5000 to 0
         assert traj.holdings[0] == pytest.approx(-5_000, rel=1e-3)
@@ -52,8 +56,10 @@ class TestComputeOptimalTrajectory:
 
     def test_trade_list_sums_to_total(self):
         traj = compute_optimal_trajectory(
-            total_shares=20_000, price=75.0,
-            n_intervals=20, horizon_days=2.0,
+            total_shares=20_000,
+            price=75.0,
+            n_intervals=20,
+            horizon_days=2.0,
         )
         assert sum(traj.trade_list) == pytest.approx(20_000, rel=1e-3)
 
@@ -63,10 +69,18 @@ class TestComputeOptimalTrajectory:
         params_urgent = AlmgrenChrissParams(risk_aversion=1e-3)
 
         traj_patient = compute_optimal_trajectory(
-            10_000, 100.0, 10, 1.0, params=params_patient,
+            10_000,
+            100.0,
+            10,
+            1.0,
+            params=params_patient,
         )
         traj_urgent = compute_optimal_trajectory(
-            10_000, 100.0, 10, 1.0, params=params_urgent,
+            10_000,
+            100.0,
+            10,
+            1.0,
+            params=params_urgent,
         )
 
         # Urgent trader should execute more in the first interval
@@ -74,16 +88,20 @@ class TestComputeOptimalTrajectory:
 
     def test_participation_rates_computed(self):
         traj = compute_optimal_trajectory(
-            total_shares=50_000, price=100.0,
-            n_intervals=10, horizon_days=1.0,
+            total_shares=50_000,
+            price=100.0,
+            n_intervals=10,
+            horizon_days=1.0,
         )
         assert len(traj.participation_rates) == 10
         assert all(r >= 0 for r in traj.participation_rates)
 
     def test_cost_breakdown_positive(self):
         traj = compute_optimal_trajectory(
-            total_shares=10_000, price=100.0,
-            n_intervals=10, horizon_days=1.0,
+            total_shares=10_000,
+            price=100.0,
+            n_intervals=10,
+            horizon_days=1.0,
         )
         assert traj.permanent_impact_bps >= 0
         assert traj.temporary_impact_bps >= 0
@@ -91,8 +109,10 @@ class TestComputeOptimalTrajectory:
 
     def test_single_interval(self):
         traj = compute_optimal_trajectory(
-            total_shares=100, price=50.0,
-            n_intervals=1, horizon_days=0.1,
+            total_shares=100,
+            price=50.0,
+            n_intervals=1,
+            horizon_days=0.1,
         )
         assert len(traj.trade_list) == 1
         assert traj.trade_list[0] == pytest.approx(100, rel=1e-3)
@@ -102,8 +122,10 @@ class TestComputeOptimalTrajectory:
 class TestEstimateImpactCost:
     def test_basic_estimate(self):
         result = estimate_impact_cost(
-            total_shares=10_000, price=100.0,
-            adv=1_000_000, sigma=0.02,
+            total_shares=10_000,
+            price=100.0,
+            adv=1_000_000,
+            sigma=0.02,
         )
         assert "permanent_bps" in result
         assert "temporary_bps" in result
@@ -125,7 +147,9 @@ class TestEstimateImpactCost:
 class TestComputeFrontier:
     def test_frontier_returns_points(self):
         frontier = compute_frontier(
-            total_shares=10_000, price=100.0, n_points=5,
+            total_shares=10_000,
+            price=100.0,
+            n_points=5,
         )
         assert len(frontier) == 5
         assert all("horizon_days" in p for p in frontier)
@@ -134,7 +158,9 @@ class TestComputeFrontier:
     def test_frontier_cost_decreases_then_increases(self):
         """Temporary impact decreases with horizon, risk increases."""
         frontier = compute_frontier(
-            total_shares=50_000, price=100.0, n_points=10,
+            total_shares=50_000,
+            price=100.0,
+            n_points=10,
         )
         costs = [p["expected_cost_bps"] for p in frontier]
         # There should be a minimum somewhere (not necessarily monotone)

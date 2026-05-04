@@ -1,4 +1,5 @@
 """1-Year Backtest Analysis using V1-V20 Improvements (Phase 6)."""
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,9 @@ def main():
     n_long = len(signals[signals["direction"] == "LONG"])
     n_short = len(signals[signals["direction"] == "SHORT"])
     n_flat = len(signals[signals["direction"] == "FLAT"])
-    print(f"Signals: {len(signals)} rows, LONG={n_long}, SHORT={n_short}, FLAT={n_flat}")
+    print(
+        f"Signals: {len(signals)} rows, LONG={n_long}, SHORT={n_short}, FLAT={n_flat}"
+    )
 
     # Build SPY benchmark
     has_spy = False
@@ -105,7 +108,11 @@ def main():
     print(f"Total Return:     {(equity[-1] / equity[0] - 1) * 100:.2f}%")
 
     # Key metrics
-    sharpe = float(np.mean(returns) / np.std(returns) * np.sqrt(252)) if np.std(returns) > 0 else 0
+    sharpe = (
+        float(np.mean(returns) / np.std(returns) * np.sqrt(252))
+        if np.std(returns) > 0
+        else 0
+    )
     sortino_down = returns[returns < 0]
     sortino = (
         float(np.mean(returns) / np.std(sortino_down) * np.sqrt(252))
@@ -117,7 +124,11 @@ def main():
     dd = (cum - running_max) / running_max
     max_dd = float(dd.min())
     vol = float(np.std(returns) * np.sqrt(252))
-    cagr = float((equity[-1] / equity[0]) ** (252 / len(returns)) - 1) if len(returns) > 0 else 0
+    cagr = (
+        float((equity[-1] / equity[0]) ** (252 / len(returns)) - 1)
+        if len(returns) > 0
+        else 0
+    )
     calmar = float(cagr / abs(max_dd)) if abs(max_dd) > 0 else 0
 
     print("\nRisk-Adjusted Metrics:")
@@ -222,7 +233,9 @@ def main():
             }
             print(f"  Symbols with costs: {len(costs)}")
             print(f"  Avg one-way cost:  {costs['one_way_cost_bps'].mean():.1f} bps")
-            print(f"  Cost range:        {costs['one_way_cost_bps'].min():.1f} - {costs['one_way_cost_bps'].max():.1f} bps")
+            print(
+                f"  Cost range:        {costs['one_way_cost_bps'].min():.1f} - {costs['one_way_cost_bps'].max():.1f} bps"
+            )
     except Exception as e:
         print(f"  Cost model: {e}")
 

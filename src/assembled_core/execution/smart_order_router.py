@@ -56,31 +56,57 @@ class VenueConfig:
 
 DEFAULT_VENUES = [
     VenueConfig(
-        "NYSE", spread_bps=3.0, fill_probability=0.95,
-        latency_ms=0.5, fee_bps=0.30, rebate_bps=0.20,
+        "NYSE",
+        spread_bps=3.0,
+        fill_probability=0.95,
+        latency_ms=0.5,
+        fee_bps=0.30,
+        rebate_bps=0.20,
     ),
     VenueConfig(
-        "NASDAQ", spread_bps=3.5, fill_probability=0.93,
-        latency_ms=0.3, fee_bps=0.30, rebate_bps=0.25,
+        "NASDAQ",
+        spread_bps=3.5,
+        fill_probability=0.93,
+        latency_ms=0.3,
+        fee_bps=0.30,
+        rebate_bps=0.25,
     ),
     VenueConfig(
-        "ARCA", spread_bps=4.0, fill_probability=0.90,
-        latency_ms=0.8, fee_bps=0.25, rebate_bps=0.15,
+        "ARCA",
+        spread_bps=4.0,
+        fill_probability=0.90,
+        latency_ms=0.8,
+        fee_bps=0.25,
+        rebate_bps=0.15,
     ),
     VenueConfig(
-        "IEX", spread_bps=3.0, fill_probability=0.85,
-        latency_ms=1.5, fee_bps=0.09, rebate_bps=0.0,
+        "IEX",
+        spread_bps=3.0,
+        fill_probability=0.85,
+        latency_ms=1.5,
+        fee_bps=0.09,
+        rebate_bps=0.0,
         min_order_size=100.0,
     ),
     VenueConfig(
-        "dark_pool_1", spread_bps=0.5, fill_probability=0.35,
-        latency_ms=5.0, fee_bps=0.10, rebate_bps=0.0,
-        dark_pool=True, max_participation_pct=0.02,
+        "dark_pool_1",
+        spread_bps=0.5,
+        fill_probability=0.35,
+        latency_ms=5.0,
+        fee_bps=0.10,
+        rebate_bps=0.0,
+        dark_pool=True,
+        max_participation_pct=0.02,
     ),
     VenueConfig(
-        "dark_pool_2", spread_bps=1.0, fill_probability=0.45,
-        latency_ms=3.0, fee_bps=0.15, rebate_bps=0.0,
-        dark_pool=True, max_participation_pct=0.03,
+        "dark_pool_2",
+        spread_bps=1.0,
+        fill_probability=0.45,
+        latency_ms=3.0,
+        fee_bps=0.15,
+        rebate_bps=0.0,
+        dark_pool=True,
+        max_participation_pct=0.03,
     ),
 ]
 
@@ -237,13 +263,20 @@ def route_order(
         # Fallback: use first venue with full allocation
         v0 = (venues or DEFAULT_VENUES)[0]
         return RoutingResult(
-            allocations=[VenueAllocation(
-                venue=v0.name, quantity=order_size,
-                expected_spread_bps=v0.spread_bps * spread_mult,
-                expected_fill_prob=v0.fill_probability * fill_mult,
-                expected_cost_bps=v0.spread_bps * spread_mult + v0.fee_bps - v0.rebate_bps,
-            )],
-            total_expected_cost_bps=v0.spread_bps * spread_mult + v0.fee_bps - v0.rebate_bps,
+            allocations=[
+                VenueAllocation(
+                    venue=v0.name,
+                    quantity=order_size,
+                    expected_spread_bps=v0.spread_bps * spread_mult,
+                    expected_fill_prob=v0.fill_probability * fill_mult,
+                    expected_cost_bps=v0.spread_bps * spread_mult
+                    + v0.fee_bps
+                    - v0.rebate_bps,
+                )
+            ],
+            total_expected_cost_bps=v0.spread_bps * spread_mult
+            + v0.fee_bps
+            - v0.rebate_bps,
             total_expected_fill_pct=v0.fill_probability * fill_mult * 100,
             regime=regime,
         )
@@ -267,15 +300,17 @@ def route_order(
         net_cost = adj_spread + v.fee_bps - v.rebate_bps
         participation = qty / max(adv, 1.0)
 
-        allocations.append(VenueAllocation(
-            venue=v.name,
-            quantity=round(qty, 2),
-            expected_spread_bps=round(adj_spread, 2),
-            expected_fill_prob=round(adj_fill, 3),
-            expected_cost_bps=round(net_cost, 2),
-            is_dark=v.dark_pool,
-            participation_pct=round(participation * 100, 3),
-        ))
+        allocations.append(
+            VenueAllocation(
+                venue=v.name,
+                quantity=round(qty, 2),
+                expected_spread_bps=round(adj_spread, 2),
+                expected_fill_prob=round(adj_fill, 3),
+                expected_cost_bps=round(net_cost, 2),
+                is_dark=v.dark_pool,
+                participation_pct=round(participation * 100, 3),
+            )
+        )
 
         remaining -= qty
         used_venues += 1
@@ -290,8 +325,14 @@ def route_order(
     # Compute weighted averages
     total_qty = sum(a.quantity for a in allocations)
     if total_qty > 0:
-        total_cost = sum(a.expected_cost_bps * a.quantity for a in allocations) / total_qty
-        total_fill = sum(a.expected_fill_prob * a.quantity for a in allocations) / total_qty * 100
+        total_cost = (
+            sum(a.expected_cost_bps * a.quantity for a in allocations) / total_qty
+        )
+        total_fill = (
+            sum(a.expected_fill_prob * a.quantity for a in allocations)
+            / total_qty
+            * 100
+        )
     else:
         total_cost = 0.0
         total_fill = 0.0
@@ -305,7 +346,11 @@ def route_order(
 
     logger.info(
         "[SOR] %.0f shares -> %d venues, cost=%.1f bps, fill=%.1f%%, regime=%s",
-        order_size, len(allocations), total_cost, total_fill, regime,
+        order_size,
+        len(allocations),
+        total_cost,
+        total_fill,
+        regime,
     )
 
     return result
@@ -334,12 +379,14 @@ def simulate_fills(
         fill_qty = alloc.quantity if filled else 0.0
         cost = fill_qty * alloc.expected_cost_bps if filled else 0.0
 
-        venue_fills.append({
-            "venue": alloc.venue,
-            "ordered": alloc.quantity,
-            "filled": fill_qty,
-            "cost_bps": alloc.expected_cost_bps if filled else 0.0,
-        })
+        venue_fills.append(
+            {
+                "venue": alloc.venue,
+                "ordered": alloc.quantity,
+                "filled": fill_qty,
+                "cost_bps": alloc.expected_cost_bps if filled else 0.0,
+            }
+        )
         total_filled += fill_qty
         total_cost += cost
 
@@ -349,7 +396,9 @@ def simulate_fills(
     return {
         "filled_qty": total_filled,
         "unfilled_qty": total_ordered - total_filled,
-        "fill_pct": round(total_filled / total_ordered * 100, 1) if total_ordered > 0 else 0.0,
+        "fill_pct": (
+            round(total_filled / total_ordered * 100, 1) if total_ordered > 0 else 0.0
+        ),
         "total_cost_bps": round(avg_cost, 2),
         "venue_fills": venue_fills,
     }

@@ -86,7 +86,10 @@ def news_veto(news_z: float, primary_side: float, tau_veto: float = 1.5) -> bool
     """
     if primary_side == 0:
         return False
-    return float(np.sign(news_z)) != float(np.sign(primary_side)) and abs(news_z) > tau_veto
+    return (
+        float(np.sign(news_z)) != float(np.sign(primary_side))
+        and abs(news_z) > tau_veto
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -223,14 +226,29 @@ def decide_trade(
 # ---------------------------------------------------------------------------
 
 META_FEATURES = [
-    "sentiment_z", "novelty_z", "surprise_z", "event_vol_z",
-    "velocity_z", "dispersion_z",
-    "event_earnings", "event_m_and_a", "event_mgmt",
-    "event_regulatory", "event_analyst", "event_product",
-    "event_legal", "event_macro",
-    "days_since_earnings", "days_to_next_earnings",
-    "macro_shock_flag", "vix_level", "vix_regime_ord", "hy_oas",
-    "corroboration_count", "primary_strength", "news_vs_primary_agree",
+    "sentiment_z",
+    "novelty_z",
+    "surprise_z",
+    "event_vol_z",
+    "velocity_z",
+    "dispersion_z",
+    "event_earnings",
+    "event_m_and_a",
+    "event_mgmt",
+    "event_regulatory",
+    "event_analyst",
+    "event_product",
+    "event_legal",
+    "event_macro",
+    "days_since_earnings",
+    "days_to_next_earnings",
+    "macro_shock_flag",
+    "vix_level",
+    "vix_regime_ord",
+    "hy_oas",
+    "corroboration_count",
+    "primary_strength",
+    "news_vs_primary_agree",
 ]
 
 

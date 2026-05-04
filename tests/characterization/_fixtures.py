@@ -4,6 +4,7 @@ All generators are deterministic given the same seed.
 Generates OHLCV data with realistic price dynamics for a fixed set of tickers
 and date ranges, without requiring any external data files.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -35,6 +36,7 @@ def make_ohlcv(
     rows = []
     for ticker in tickers:
         import hashlib
+
         _h = int(hashlib.sha1(ticker.encode()).hexdigest(), 16)
         price = initial_price * (1 + 0.01 * (_h % 10))
         for ts in dates:
@@ -45,15 +47,17 @@ def make_ohlcv(
             low = close - abs(rng.normal(0, spread))
             open_ = low + rng.random() * (high - low)
             volume = int(rng.lognormal(15, 1))
-            rows.append({
-                "Date": ts,
-                "ticker": ticker,
-                "Open": round(open_, 4),
-                "High": round(high, 4),
-                "Low": round(low, 4),
-                "Close": round(close, 4),
-                "Volume": volume,
-            })
+            rows.append(
+                {
+                    "Date": ts,
+                    "ticker": ticker,
+                    "Open": round(open_, 4),
+                    "High": round(high, 4),
+                    "Low": round(low, 4),
+                    "Close": round(close, 4),
+                    "Volume": volume,
+                }
+            )
             price = close
 
     return pd.DataFrame(rows)
@@ -71,10 +75,10 @@ def make_crisis_scenario(
     name : "gfc_2008" | "covid_2020" | "rates_2022" | "calm_2017"
     """
     scenarios = {
-        "gfc_2008":    ("2008-09-01", "2009-03-31", 0.60, -0.001),
-        "covid_2020":  ("2020-02-01", "2020-05-31", 0.80, -0.0008),
-        "rates_2022":  ("2022-01-01", "2022-12-31", 0.30, -0.0004),
-        "calm_2017":   ("2017-01-01", "2017-12-31", 0.10,  0.0005),
+        "gfc_2008": ("2008-09-01", "2009-03-31", 0.60, -0.001),
+        "covid_2020": ("2020-02-01", "2020-05-31", 0.80, -0.0008),
+        "rates_2022": ("2022-01-01", "2022-12-31", 0.30, -0.0004),
+        "calm_2017": ("2017-01-01", "2017-12-31", 0.10, 0.0005),
     }
     if name not in scenarios:
         raise ValueError(f"Unknown scenario {name!r}. Choose from {list(scenarios)}")
@@ -92,14 +96,16 @@ def make_crisis_scenario(
             low = close * (1 - abs(rng.normal(0, 0.003)))
             open_ = low + rng.random() * (high - low)
             volume = int(rng.lognormal(15, 0.5))
-            rows.append({
-                "Date": ts,
-                "ticker": ticker,
-                "Open": round(open_, 4),
-                "High": round(high, 4),
-                "Low": round(low, 4),
-                "Close": round(close, 4),
-                "Volume": volume,
-            })
+            rows.append(
+                {
+                    "Date": ts,
+                    "ticker": ticker,
+                    "Open": round(open_, 4),
+                    "High": round(high, 4),
+                    "Low": round(low, 4),
+                    "Close": round(close, 4),
+                    "Volume": volume,
+                }
+            )
             price = close
     return pd.DataFrame(rows)

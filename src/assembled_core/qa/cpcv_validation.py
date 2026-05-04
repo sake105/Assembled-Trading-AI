@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CPCVResult:
     """Results from CPCV cross-validation."""
+
     n_splits: int
     scores: np.ndarray
     mean_score: float
@@ -32,11 +33,13 @@ class CPCVResult:
 def _try_skfolio():
     try:
         from skfolio.model_selection import CombinatorialPurgedCV
+
         return CombinatorialPurgedCV
     except ImportError:
         try:
             # Try alternative import path
             from skfolio.model_selection._combinatorial import CombinatorialPurgedCV
+
             return CombinatorialPurgedCV
         except ImportError:
             logger.warning("skfolio not installed — pip install skfolio")
@@ -47,6 +50,7 @@ def _try_sklearn_walk_forward():
     """Walk-forward CV as fallback if skfolio unavailable."""
     try:
         from sklearn.model_selection import TimeSeriesSplit
+
         return TimeSeriesSplit
     except ImportError:
         return None
@@ -82,6 +86,7 @@ def combinatorial_purged_cv(
     if CPCV is not None:
         try:
             from sklearn.model_selection import cross_val_score
+
             cv = CPCV(
                 n_splits=n_splits,
                 n_test_splits=n_test_splits,
@@ -117,6 +122,7 @@ def _walk_forward_cv(
         return CPCVResult(0, np.array([]), 0.0, 0.0, None)
 
     from sklearn.model_selection import cross_val_score
+
     cv = TSCV(n_splits=n_splits)
     scores = cross_val_score(estimator, X, y, cv=cv, scoring=scoring)
     return CPCVResult(
@@ -213,7 +219,9 @@ def meta_labeling_pipeline(
     y_meta = meta_labels.loc[common_idx]
 
     return combinatorial_purged_cv(
-        meta_estimator, X_meta, y_meta,
+        meta_estimator,
+        X_meta,
+        y_meta,
         n_splits=n_splits,
         scoring="roc_auc",
     )

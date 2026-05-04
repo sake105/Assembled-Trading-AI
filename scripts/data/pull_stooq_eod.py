@@ -22,7 +22,16 @@ def fetch(symbol: str) -> pd.DataFrame:
     txt = http_get_text(url)
     df = pd.read_csv(StringIO(txt))
     # stooq columns: Date,Open,High,Low,Close,Volume
-    df = df.rename(columns={"Date": "timestamp", "Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"})
+    df = df.rename(
+        columns={
+            "Date": "timestamp",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume",
+        }
+    )
     return df
 
 
@@ -31,7 +40,7 @@ def main():
         print("Usage: python pull_stooq_eod.py <symbols_csv> <out_dir> <suffix>")
         print("Example: python pull_stooq_eod.py AAPL,MSFT data/raw/eod/stooq .us")
         sys.exit(2)
-    symbols = sys.argv[1].split(',')
+    symbols = sys.argv[1].split(",")
     out_dir = Path(sys.argv[2])
     suffix = sys.argv[3]
     out_dir.mkdir(parents=True, exist_ok=True)

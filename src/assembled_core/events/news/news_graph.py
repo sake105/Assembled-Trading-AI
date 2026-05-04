@@ -20,6 +20,7 @@ When the ``neo4j`` Python package is not installed (or no bolt URI is
 configured) the graph falls back to an in-memory adjacency dict so that
 offline runs, tests, and CI work without a running database.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ log = logging.getLogger(__name__)
 
 try:
     from neo4j import GraphDatabase as _GDB
+
     _NEO4J_AVAILABLE = True
 except ImportError:
     _GDB = None  # type: ignore[assignment]
@@ -41,14 +43,15 @@ except ImportError:
 # Domain objects
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class NewsNode:
     event_id: str
     headline: str
     source: str
     published_at: datetime
-    sentiment: float = 0.0      # [-1, 1] — negative to positive
-    ticker: str = ""             # primary equity ticker if known
+    sentiment: float = 0.0  # [-1, 1] — negative to positive
+    ticker: str = ""  # primary equity ticker if known
     entities: list[str] = field(default_factory=list)
 
 
@@ -64,6 +67,7 @@ class GraphStats:
 # ---------------------------------------------------------------------------
 # In-memory fallback
 # ---------------------------------------------------------------------------
+
 
 class _MemoryGraph:
     """Minimal in-process adjacency graph used when Neo4j is unavailable."""
@@ -86,23 +90,19 @@ class _MemoryGraph:
     def add_entity(self, name: str, entity_type: str = "unknown") -> None:
         self._entities.setdefault(name, {"name": name, "entity_type": entity_type})
 
-    def add_related(self, event_id_a: str, event_id_b: str, weight: float = 1.0) -> None:
+    def add_related(
+        self, event_id_a: str, event_id_b: str, weight: float = 1.0
+    ) -> None:
         self._related.setdefault(event_id_a, {})[event_id_b] = weight
         self._related.setdefault(event_id_b, {})[event_id_a] = weight
 
     def entity_neighbors(self, entity_name: str) -> list[str]:
         """Return event IDs that mention *entity_name*."""
-        return [
-            eid for eid, ents in self._mentions.items()
-            if entity_name in ents
-        ]
+        return [eid for eid, ents in self._mentions.items() if entity_name in ents]
 
     def related_symbols(self, ticker: str, max_hops: int = 2) -> list[str]:
         """Return tickers co-mentioned with *ticker* within *max_hops*."""
-        seed_ids = [
-            eid for eid, node in self._events.items()
-            if node.ticker == ticker
-        ]
+        seed_ids = [eid for eid, node in self._events.items() if node.ticker == ticker]
         visited_ids: set[str] = set(seed_ids)
         for _ in range(max_hops - 1):
             next_ids: set[str] = set()
@@ -132,6 +132,7 @@ class _MemoryGraph:
 # ---------------------------------------------------------------------------
 # NewsGraph — unified interface
 # ---------------------------------------------------------------------------
+
 
 class NewsGraph:
     """Property graph for news events and entity relationships.
@@ -165,7 +166,10 @@ class NewsGraph:
                 self._ensure_indexes()
                 log.info("[NewsGraph] Connected to Neo4j at %s", bolt_uri)
             except Exception as exc:
-                log.warning("[NewsGraph] Neo4j connection failed (%s) — using memory fallback", exc)
+                log.warning(
+                    "[NewsGraph] Neo4j connection failed (%s) — using memory fallback",
+                    exc,
+                )
                 self._driver = None
 
         if self._driver is None:
@@ -183,7 +187,9 @@ class NewsGraph:
             self._neo4j_add_event(node)
         else:
             if self._mem is None:
-                raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
+                raise RuntimeError(
+                    "NewsGraph: no backend — both _driver and _mem are None"
+                )
             self._mem.add_event(node)
 
     def add_entity(self, name: str, entity_type: str = "unknown") -> None:
@@ -192,11 +198,14 @@ class NewsGraph:
             with self._driver.session() as session:
                 session.run(
                     "MERGE (e:Entity {name: $name}) SET e.entity_type = $etype",
-                    name=name, etype=entity_type,
+                    name=name,
+                    etype=entity_type,
                 )
         else:
             if self._mem is None:
-                raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
+                raise RuntimeError(
+                    "NewsGraph: no backend — both _driver and _mem are None"
+                )
             self._mem.add_entity(name, entity_type)
 
     def add_related(
@@ -212,11 +221,15 @@ class NewsGraph:
                     MERGE (a)-[r:RELATED_TO]->(b)
                     SET r.weight = $w
                     """,
-                    id_a=event_id_a, id_b=event_id_b, w=weight,
+                    id_a=event_id_a,
+                    id_b=event_id_b,
+                    w=weight,
                 )
         else:
             if self._mem is None:
-                raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
+                raise RuntimeError(
+                    "NewsGraph: no backend — both _driver and _mem are None"
+                )
             self._mem.add_related(event_id_a, event_id_b, weight)
 
     def entity_neighbors(self, entity_name: str) -> list[str]:
@@ -272,13 +285,21 @@ class NewsGraph:
         """Return graph statistics."""
         if self._driver:
             with self._driver.session() as session:
-                ev = session.run("MATCH (n:NewsEvent) RETURN count(n) AS c").single()["c"]
+                ev = session.run("MATCH (n:NewsEvent) RETURN count(n) AS c").single()[
+                    "c"
+                ]
                 ent = session.run("MATCH (n:Entity) RETURN count(n) AS c").single()["c"]
-                men = session.run("MATCH ()-[r:MENTIONS]->() RETURN count(r) AS c").single()["c"]
-                rel = session.run("MATCH ()-[r:RELATED_TO]->() RETURN count(r) AS c").single()["c"]
+                men = session.run(
+                    "MATCH ()-[r:MENTIONS]->() RETURN count(r) AS c"
+                ).single()["c"]
+                rel = session.run(
+                    "MATCH ()-[r:RELATED_TO]->() RETURN count(r) AS c"
+                ).single()["c"]
             return GraphStats(
-                n_events=ev, n_entities=ent,
-                n_mentions=men, n_related=rel,
+                n_events=ev,
+                n_entities=ent,
+                n_mentions=men,
+                n_related=rel,
                 backend="neo4j",
             )
         if self._mem is None:
@@ -330,7 +351,8 @@ class NewsGraph:
                     MATCH (ev:NewsEvent {event_id: $eid})
                     MERGE (ev)-[:MENTIONS]->(e)
                     """,
-                    name=ent, eid=node.event_id,
+                    name=ent,
+                    eid=node.event_id,
                 )
 
 

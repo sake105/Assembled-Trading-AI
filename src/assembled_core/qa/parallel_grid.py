@@ -125,16 +125,12 @@ def run_grid_parallel(
 
     # Fast path: serial — avoids joblib fork overhead for tiny grids
     if effective_jobs == 1 or backend == "sequential":
-        return [
-            _run_point(i, p, master_seed, run_one)
-            for i, p in enumerate(points)
-        ]
+        return [_run_point(i, p, master_seed, run_one) for i, p in enumerate(points)]
 
     from joblib import Parallel, delayed  # imported lazily — heavy optional dep
 
     results = Parallel(n_jobs=effective_jobs, backend=backend)(
-        delayed(_run_point)(i, p, master_seed, run_one)
-        for i, p in enumerate(points)
+        delayed(_run_point)(i, p, master_seed, run_one) for i, p in enumerate(points)
     )
     # Joblib preserves order, but sort defensively on index for belt+braces.
     results_sorted: list[GridPoint] = sorted(results, key=lambda g: g.index)

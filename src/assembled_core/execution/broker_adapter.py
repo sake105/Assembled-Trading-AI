@@ -182,7 +182,11 @@ class BrokerAdapter(ABC):
             BrokerOrder with order_id and initial status.
         """
         return self.submit_market_order(
-            symbol, qty, side, time_in_force="cls", comment=comment or "MOC",
+            symbol,
+            qty,
+            side,
+            time_in_force="cls",
+            comment=comment or "MOC",
         )
 
     def submit_loc_order(
@@ -210,7 +214,12 @@ class BrokerAdapter(ABC):
             BrokerOrder with order_id and initial status.
         """
         return self.submit_limit_order(
-            symbol, qty, side, limit_price, time_in_force="cls", comment=comment or "LOC",
+            symbol,
+            qty,
+            side,
+            limit_price,
+            time_in_force="cls",
+            comment=comment or "LOC",
         )
 
     @abstractmethod
@@ -432,6 +441,7 @@ class AlpacaAdapter(BrokerAdapter):
             # Use proper US/Eastern timezone (handles EST/EDT automatically)
             try:
                 from zoneinfo import ZoneInfo
+
                 et_tz = ZoneInfo("America/New_York")
             except ImportError:
                 # Python < 3.9 fallback or missing tzdata
@@ -491,9 +501,7 @@ class AlpacaAdapter(BrokerAdapter):
         try:
             api = self._get_api()
         except Exception as exc:
-            raise PriceLookupError(
-                symbol, f"Cannot get API client: {exc}"
-            ) from exc
+            raise PriceLookupError(symbol, f"Cannot get API client: {exc}") from exc
 
         # Try alpaca-py style
         try:
@@ -576,8 +584,12 @@ class AlpacaAdapter(BrokerAdapter):
                 order = api.submit_order(order_data=request)
             except Exception as _broker_err:
                 from src.assembled_core.execution.idempotency import is_duplicate_error
+
                 if is_duplicate_error(str(_broker_err)):
-                    logger.warning("[AlpacaAdapter] duplicate client_order_id detected — skipping retry: %s", _broker_err)
+                    logger.warning(
+                        "[AlpacaAdapter] duplicate client_order_id detected — skipping retry: %s",
+                        _broker_err,
+                    )
                     raise
                 raise
         except ImportError:
@@ -640,18 +652,28 @@ class AlpacaAdapter(BrokerAdapter):
             )
 
             order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
-            tif_map = {"day": TimeInForce.DAY, "gtc": TimeInForce.GTC, "cls": TimeInForce.CLS}
+            tif_map = {
+                "day": TimeInForce.DAY,
+                "gtc": TimeInForce.GTC,
+                "cls": TimeInForce.CLS,
+            }
             tif = tif_map.get(time_in_force.lower(), TimeInForce.DAY)
 
             request = LimitOrderRequest(
-                symbol=symbol, qty=qty, side=order_side,
-                time_in_force=tif, limit_price=limit_price,
+                symbol=symbol,
+                qty=qty,
+                side=order_side,
+                time_in_force=tif,
+                limit_price=limit_price,
             )
             order = api.submit_order(order_data=request)
         except ImportError:
             order = api.submit_order(
-                symbol=symbol, qty=qty, side=side_lower,
-                type="limit", time_in_force=time_in_force,
+                symbol=symbol,
+                qty=qty,
+                side=side_lower,
+                type="limit",
+                time_in_force=time_in_force,
                 limit_price=str(limit_price),
             )
 
@@ -660,7 +682,11 @@ class AlpacaAdapter(BrokerAdapter):
         self._cycle_notional_total += qty * limit_price
         logger.info(
             "[AlpacaAdapter] submitted LIMIT %s %s qty=%.2f limit=$%.2f order_id=%s",
-            side_lower.upper(), symbol, qty, limit_price, normalized.order_id,
+            side_lower.upper(),
+            symbol,
+            qty,
+            limit_price,
+            normalized.order_id,
         )
         return normalized
 
@@ -701,26 +727,39 @@ class AlpacaAdapter(BrokerAdapter):
             )
 
             order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
-            tif_map = {"day": TimeInForce.DAY, "gtc": TimeInForce.GTC, "cls": TimeInForce.CLS}
+            tif_map = {
+                "day": TimeInForce.DAY,
+                "gtc": TimeInForce.GTC,
+                "cls": TimeInForce.CLS,
+            }
             tif = tif_map.get(time_in_force.lower(), TimeInForce.DAY)
 
             if is_stop_limit:
                 request = StopLimitOrderRequest(
-                    symbol=symbol, qty=qty, side=order_side,
-                    time_in_force=tif, stop_price=stop_price,
+                    symbol=symbol,
+                    qty=qty,
+                    side=order_side,
+                    time_in_force=tif,
+                    stop_price=stop_price,
                     limit_price=limit_price,
                 )
             else:
                 request = StopOrderRequest(
-                    symbol=symbol, qty=qty, side=order_side,
-                    time_in_force=tif, stop_price=stop_price,
+                    symbol=symbol,
+                    qty=qty,
+                    side=order_side,
+                    time_in_force=tif,
+                    stop_price=stop_price,
                 )
             order = api.submit_order(order_data=request)
         except ImportError:
             order_type = "stop_limit" if is_stop_limit else "stop"
             kwargs: dict[str, Any] = {
-                "symbol": symbol, "qty": qty, "side": side_lower,
-                "type": order_type, "time_in_force": time_in_force,
+                "symbol": symbol,
+                "qty": qty,
+                "side": side_lower,
+                "type": order_type,
+                "time_in_force": time_in_force,
                 "stop_price": str(stop_price),
             }
             if is_stop_limit:
@@ -733,7 +772,11 @@ class AlpacaAdapter(BrokerAdapter):
         order_desc = "STOP_LIMIT" if is_stop_limit else "STOP"
         logger.info(
             "[AlpacaAdapter] submitted %s %s %s qty=%.2f stop=$%.2f%s order_id=%s",
-            order_desc, side_lower.upper(), symbol, qty, stop_price,
+            order_desc,
+            side_lower.upper(),
+            symbol,
+            qty,
+            stop_price,
             f" limit=${limit_price:.2f}" if is_stop_limit else "",
             normalized.order_id,
         )
@@ -761,7 +804,8 @@ class AlpacaAdapter(BrokerAdapter):
                     # does not report a false-positive full-cancel count.
                     logger.warning(
                         "[AlpacaAdapter] cancel_order_by_id(%s) failed: %s",
-                        o.order_id, per_exc,
+                        o.order_id,
+                        per_exc,
                     )
         logger.info("[AlpacaAdapter] cancelled %d orders", count)
         return count

@@ -164,9 +164,12 @@ def get_tier_for_symbol(symbol: str, adv_usd: float | None) -> str:
         # a loud flood — callers who want a hard-fail should guard ADV
         # upstream.
         import logging
+
         logging.getLogger(__name__).debug(
             "[Costs] get_tier_for_symbol(%s): adv_usd=%s — using default_tier=%s",
-            symbol, adv_usd, default_tier,
+            symbol,
+            adv_usd,
+            default_tier,
         )
         return default_tier
 

@@ -142,7 +142,9 @@ class LedgerStore:
             con.executescript(_SCHEMA_SQL)
             con.executescript(_INDEXES_SQL)
             # Initialize cash if not set
-            row = con.execute("SELECT value FROM ledger_meta WHERE key='cash'").fetchone()
+            row = con.execute(
+                "SELECT value FROM ledger_meta WHERE key='cash'"
+            ).fetchone()
             if row is None:
                 con.execute(
                     "INSERT INTO ledger_meta(key, value) VALUES('cash', ?)",
@@ -156,7 +158,9 @@ class LedgerStore:
 
     def get_cash(self) -> float:
         with self._conn() as con:
-            row = con.execute("SELECT value FROM ledger_meta WHERE key='cash'").fetchone()
+            row = con.execute(
+                "SELECT value FROM ledger_meta WHERE key='cash'"
+            ).fetchone()
             return float(row["value"]) if row else self._initial_cash
 
     def set_cash(self, cash: float) -> None:
@@ -171,16 +175,31 @@ class LedgerStore:
         with self._conn() as con:
             rows = con.execute("SELECT * FROM positions WHERE quantity != 0").fetchall()
         if not rows:
-            return pd.DataFrame(columns=["symbol", "quantity", "avg_cost", "unrealized_pnl", "realized_pnl"])
+            return pd.DataFrame(
+                columns=[
+                    "symbol",
+                    "quantity",
+                    "avg_cost",
+                    "unrealized_pnl",
+                    "realized_pnl",
+                ]
+            )
         return pd.DataFrame([dict(r) for r in rows])
 
     def get_position(self, symbol: str) -> dict:
         """Return position dict for a single symbol."""
         with self._conn() as con:
-            row = con.execute("SELECT * FROM positions WHERE symbol=?", (symbol,)).fetchone()
+            row = con.execute(
+                "SELECT * FROM positions WHERE symbol=?", (symbol,)
+            ).fetchone()
         if row is None:
-            return {"symbol": symbol, "quantity": 0.0, "avg_cost": 0.0,
-                    "unrealized_pnl": 0.0, "realized_pnl": 0.0}
+            return {
+                "symbol": symbol,
+                "quantity": 0.0,
+                "avg_cost": 0.0,
+                "unrealized_pnl": 0.0,
+                "realized_pnl": 0.0,
+            }
         return dict(row)
 
     # ------------------------------------------------------------------
@@ -200,7 +219,9 @@ class LedgerStore:
         quantity = float(fill["quantity"])
         price = float(fill["price"])
         commission = float(fill.get("commission", 0.0))
-        filled_at = fill.get("filled_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f"))
+        filled_at = fill.get(
+            "filled_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")
+        )
         fill_id = fill.get("fill_id", f"{symbol}_{filled_at}")
         order_id = fill.get("order_id")
         strategy = fill.get("strategy")
@@ -212,14 +233,27 @@ class LedgerStore:
                 """INSERT OR IGNORE INTO fills
                    (fill_id, symbol, side, quantity, price, commission, filled_at, order_id, strategy, extra_json)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (fill_id, symbol, side, quantity, price, commission, filled_at,
-                 order_id, strategy, json.dumps(extra) if extra else None),
+                (
+                    fill_id,
+                    symbol,
+                    side,
+                    quantity,
+                    price,
+                    commission,
+                    filled_at,
+                    order_id,
+                    strategy,
+                    json.dumps(extra) if extra else None,
+                ),
             )
 
             # Update position
-            pos = dict(con.execute(
-                "SELECT * FROM positions WHERE symbol=?", (symbol,)
-            ).fetchone() or {})
+            pos = dict(
+                con.execute(
+                    "SELECT * FROM positions WHERE symbol=?", (symbol,)
+                ).fetchone()
+                or {}
+            )
 
             current_qty = float(pos.get("quantity", 0.0))
             current_avg = float(pos.get("avg_cost", 0.0))
@@ -236,7 +270,9 @@ class LedgerStore:
                     new_avg = total_cost / new_qty if new_qty != 0 else price
                 else:
                     # Covering short
-                    realized = -current_qty * (current_avg - price) if current_qty < 0 else 0.0
+                    realized = (
+                        -current_qty * (current_avg - price) if current_qty < 0 else 0.0
+                    )
                     current_realized += realized
                     new_avg = price if new_qty > 0 else 0.0
             else:  # SELL
@@ -261,18 +297,27 @@ class LedgerStore:
             )
 
             # Update cash: BUY reduces cash, SELL increases cash
-            cash_row = con.execute("SELECT value FROM ledger_meta WHERE key='cash'").fetchone()
+            cash_row = con.execute(
+                "SELECT value FROM ledger_meta WHERE key='cash'"
+            ).fetchone()
             cash = float(cash_row["value"]) if cash_row else self._initial_cash
             if side == "BUY":
                 cash -= quantity * price + commission
             else:
                 cash += quantity * price - commission
             con.execute(
-                "INSERT OR REPLACE INTO ledger_meta(key, value) VALUES('cash', ?)", (str(cash),)
+                "INSERT OR REPLACE INTO ledger_meta(key, value) VALUES('cash', ?)",
+                (str(cash),),
             )
 
-        logger.debug("[LedgerStore] Fill applied: %s %s %s qty=%.2f price=%.4f",
-                     side, symbol, fill_id, quantity, price)
+        logger.debug(
+            "[LedgerStore] Fill applied: %s %s %s qty=%.2f price=%.4f",
+            side,
+            symbol,
+            fill_id,
+            quantity,
+            price,
+        )
 
     # ------------------------------------------------------------------
     # Mark to market
@@ -304,7 +349,9 @@ class LedgerStore:
             price_map = dict(prices)
 
         with self._conn() as con:
-            positions = con.execute("SELECT * FROM positions WHERE quantity != 0").fetchall()
+            positions = con.execute(
+                "SELECT * FROM positions WHERE quantity != 0"
+            ).fetchall()
             positions_value = 0.0
 
             for pos in positions:
@@ -320,7 +367,9 @@ class LedgerStore:
                     (unrealized, as_of, sym),
                 )
 
-            cash_row = con.execute("SELECT value FROM ledger_meta WHERE key='cash'").fetchone()
+            cash_row = con.execute(
+                "SELECT value FROM ledger_meta WHERE key='cash'"
+            ).fetchone()
             cash = float(cash_row["value"]) if cash_row else self._initial_cash
             equity = cash + positions_value
 

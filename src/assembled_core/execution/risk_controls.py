@@ -107,21 +107,25 @@ def check_crisis_alpha_kill_switch(ctx: Any) -> tuple[bool, str]:
         if isinstance(policy, dict):
             try:
                 policy_path = (
-                    policy.get("intel", {})
-                    .get("crisis_alpha", {})
-                    .get("state_path")
+                    policy.get("intel", {}).get("crisis_alpha", {}).get("state_path")
                 )
             except Exception as _policy_err:
-                logger.debug("[risk_controls] policy.intel.crisis_alpha.state_path lookup failed: %s", _policy_err)
+                logger.debug(
+                    "[risk_controls] policy.intel.crisis_alpha.state_path lookup failed: %s",
+                    _policy_err,
+                )
         resolved_path = Path(policy_path) if policy_path else _state_file
         if resolved_path.exists():
             try:
                 import json
+
                 data = json.loads(resolved_path.read_text(encoding="utf-8"))
                 state = str(data.get("state", ""))
             except Exception as exc:
                 logger.warning(
-                    "[crisis_alpha] Could not read state file %s: %s", resolved_path, exc
+                    "[crisis_alpha] Could not read state file %s: %s",
+                    resolved_path,
+                    exc,
                 )
 
     if state is None or state == "":
@@ -219,9 +223,7 @@ def filter_orders_with_risk_controls(
     if policy is not None:
         try:
             _crisis_alpha_enabled = bool(
-                policy.get("intel", {})
-                .get("crisis_alpha", {})
-                .get("enabled", False)
+                policy.get("intel", {}).get("crisis_alpha", {}).get("enabled", False)
             )
         except Exception:
             _crisis_alpha_enabled = False
@@ -256,7 +258,11 @@ def filter_orders_with_risk_controls(
         except ImportError:
             risk_level, exposure_cap = "NORMAL", 1.0
 
-        if exposure_cap < 1.0 and not filtered_orders.empty and "qty" in filtered_orders.columns:
+        if (
+            exposure_cap < 1.0
+            and not filtered_orders.empty
+            and "qty" in filtered_orders.columns
+        ):
             logger.warning(
                 "[RiskControls] Drawdown %.1f%% -> risk_level=%s, exposure_cap=%.2f. "
                 "Scaling all order quantities by %.0f%%.",
@@ -268,7 +274,9 @@ def filter_orders_with_risk_controls(
             filtered_orders = filtered_orders.copy()
             filtered_orders["qty"] = filtered_orders["qty"] * exposure_cap
             # Drop orders that became negligible after scaling
-            filtered_orders = filtered_orders[filtered_orders["qty"].abs() >= 1e-10].copy()
+            filtered_orders = filtered_orders[
+                filtered_orders["qty"].abs() >= 1e-10
+            ].copy()
 
     # Step 1: Pre-trade checks
     if enable_pre_trade_checks:

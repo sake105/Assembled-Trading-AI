@@ -158,9 +158,7 @@ def generate_orders_from_targets_fast(
     )
 
     # Ensure columns are in correct order
-    result = result[
-        ["timestamp", "symbol", "side", "qty", "price", "arrival_price"]
-    ]
+    result = result[["timestamp", "symbol", "side", "qty", "price", "arrival_price"]]
     result.attrs["qty_unit"] = "shares"
     return result
 
@@ -287,7 +285,10 @@ def generate_orders_from_targets(
                     )
                 except (ValueError, KeyError) as exc:
                     # Fallback to merge-based path if fast-path fails
-                    logger.error("[OrderGeneration] fast-path order gen failed, falling back to merge: %s", exc)
+                    logger.error(
+                        "[OrderGeneration] fast-path order gen failed, falling back to merge: %s",
+                        exc,
+                    )
 
     # Fallback to merge-based path (handles misaligned or missing symbols)
     # Ensure both DataFrames are sorted by symbol for stable alignment
@@ -453,9 +454,9 @@ def net_orders(
 
     if has_side:
         # Sign the qty via side so netting truly offsets opposing orders.
-        side_sign = work[side_col].astype(str).str.upper().map(
-            {"BUY": 1, "SELL": -1}
-        ).fillna(1)
+        side_sign = (
+            work[side_col].astype(str).str.upper().map({"BUY": 1, "SELL": -1}).fillna(1)
+        )
         work["__signed_qty__"] = work[qty_col].astype(float) * side_sign
         netted = work.groupby(symbol_col, as_index=False)["__signed_qty__"].sum()
         netted = netted[netted["__signed_qty__"].abs() > 1e-10].reset_index(drop=True)

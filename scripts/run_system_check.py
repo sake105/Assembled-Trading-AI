@@ -76,10 +76,14 @@ def _build_run_dir(override: Path | None, git_sha: str) -> Path:
 
 def _git_sha() -> str:
     import subprocess
+
     try:
         res = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5, check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         )
         if res.returncode == 0:
             return res.stdout.strip()
@@ -92,20 +96,44 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Run an adversarial system-check tournament.",
     )
-    p.add_argument("--config", type=Path, default=DEFAULT_CONFIG,
-                   help="Tournament config YAML.")
-    p.add_argument("--defenders-yaml", type=Path, default=DEFAULT_DEFENDERS,
-                   help="Defender persona YAML.")
-    p.add_argument("--critics-yaml", type=Path, default=DEFAULT_CRITICS,
-                   help="Critic persona YAML.")
-    p.add_argument("--critics", type=int, default=None,
-                   help="Cap number of critics used (applied in order).")
-    p.add_argument("--defenders", type=int, default=None,
-                   help="Cap number of defenders used (applied in order).")
-    p.add_argument("--output", type=Path, default=None,
-                   help="Alternative parent dir for the run (default: system_check/runs/).")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Skip all API calls; produce placeholder transcript.")
+    p.add_argument(
+        "--config", type=Path, default=DEFAULT_CONFIG, help="Tournament config YAML."
+    )
+    p.add_argument(
+        "--defenders-yaml",
+        type=Path,
+        default=DEFAULT_DEFENDERS,
+        help="Defender persona YAML.",
+    )
+    p.add_argument(
+        "--critics-yaml",
+        type=Path,
+        default=DEFAULT_CRITICS,
+        help="Critic persona YAML.",
+    )
+    p.add_argument(
+        "--critics",
+        type=int,
+        default=None,
+        help="Cap number of critics used (applied in order).",
+    )
+    p.add_argument(
+        "--defenders",
+        type=int,
+        default=None,
+        help="Cap number of defenders used (applied in order).",
+    )
+    p.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Alternative parent dir for the run (default: system_check/runs/).",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip all API calls; produce placeholder transcript.",
+    )
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args(argv)
 
@@ -118,8 +146,11 @@ async def _run_async(args: argparse.Namespace) -> int:
         log.error("config not found: %s", args.config)
         return 2
     if not args.defenders_yaml.exists() or not args.critics_yaml.exists():
-        log.error("persona YAMLs missing (defenders=%s critics=%s)",
-                  args.defenders_yaml, args.critics_yaml)
+        log.error(
+            "persona YAMLs missing (defenders=%s critics=%s)",
+            args.defenders_yaml,
+            args.critics_yaml,
+        )
         return 2
 
     try:
@@ -145,16 +176,18 @@ async def _run_async(args: argparse.Namespace) -> int:
     run_dir = _build_run_dir(args.output, git_sha)
     log.info("run_dir=%s", run_dir)
 
-    client = ClaudeClient(ClaudeClientConfig(
-        dry_run=args.dry_run,
-        retry=RetryConfig(
-            max_attempts=cfg["retry"]["max_attempts"],
-            initial_backoff_seconds=cfg["retry"]["initial_backoff_seconds"],
-            backoff_multiplier=cfg["retry"]["backoff_multiplier"],
-            retry_on_status=tuple(cfg["retry"]["retry_on_status"]),
-            per_call_timeout_seconds=cfg["rounds"]["per_call_timeout_seconds"],
-        ),
-    ))
+    client = ClaudeClient(
+        ClaudeClientConfig(
+            dry_run=args.dry_run,
+            retry=RetryConfig(
+                max_attempts=cfg["retry"]["max_attempts"],
+                initial_backoff_seconds=cfg["retry"]["initial_backoff_seconds"],
+                backoff_multiplier=cfg["retry"]["backoff_multiplier"],
+                retry_on_status=tuple(cfg["retry"]["retry_on_status"]),
+                per_call_timeout_seconds=cfg["rounds"]["per_call_timeout_seconds"],
+            ),
+        )
+    )
 
     result = await run_tournament(
         project_root=REPO_ROOT,

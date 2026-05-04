@@ -86,7 +86,9 @@ def main() -> int:
         "abs_tol": args.abs_tol,
         "rel_tol": args.rel_tol,
         "worst_index": worst_idx,
-        "worst_timestamp": str(base["timestamp"].iloc[worst_idx]) if len(base) else None,
+        "worst_timestamp": (
+            str(base["timestamp"].iloc[worst_idx]) if len(base) else None
+        ),
         "worst_baseline_equity": float(base_eq[worst_idx]) if len(base) else None,
         "worst_candidate_equity": float(cand_eq[worst_idx]) if len(base) else None,
         "final_baseline_equity": float(base_eq[-1]) if len(base) else None,

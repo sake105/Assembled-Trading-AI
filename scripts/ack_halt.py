@@ -28,7 +28,9 @@ ACK_LEDGER_PATH = Path("output/ops/halt_ack_ledger.jsonl")
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Acknowledge and clear a paper-cycle halt flag.")
+    parser = argparse.ArgumentParser(
+        description="Acknowledge and clear a paper-cycle halt flag."
+    )
     parser.add_argument(
         "--reason",
         required=True,
@@ -47,13 +49,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if not HALT_FLAG_PATH.exists():
-        logger.info("[ACK_HALT] no halt flag present at %s — nothing to clear", HALT_FLAG_PATH)
+        logger.info(
+            "[ACK_HALT] no halt flag present at %s — nothing to clear", HALT_FLAG_PATH
+        )
         return 0
 
     try:
         flag_payload = json.loads(HALT_FLAG_PATH.read_text(encoding="utf-8"))
     except Exception as exc:
-        logger.warning("[ACK_HALT] could not parse existing flag (%s); will still clear", exc)
+        logger.warning(
+            "[ACK_HALT] could not parse existing flag (%s); will still clear", exc
+        )
         flag_payload = {"parse_error": str(exc)}
 
     ACK_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -72,7 +78,9 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("[ACK_HALT] could not remove %s: %s", HALT_FLAG_PATH, exc)
         return 1
 
-    logger.info("[ACK_HALT] cleared halt flag — ledger entry written to %s", ACK_LEDGER_PATH)
+    logger.info(
+        "[ACK_HALT] cleared halt flag — ledger entry written to %s", ACK_LEDGER_PATH
+    )
     return 0
 
 

@@ -1,5 +1,6 @@
 # scripts/commands/paper.py
 """Paper trading subcommands."""
+
 from __future__ import annotations
 
 import argparse

@@ -7,6 +7,7 @@ Exit codes:
   0 = mindestens eine Symbol-Datei geschrieben
   2 = alles fehlgeschlagen/leer
 """
+
 from __future__ import annotations
 
 import argparse

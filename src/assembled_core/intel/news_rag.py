@@ -23,6 +23,7 @@ Usage::
     print(result.reasoning)
     print(result.predicted_direction)  # "bullish" / "bearish" / "neutral"
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -42,6 +43,7 @@ _ANTHROPIC = False
 
 try:
     from sentence_transformers import SentenceTransformer  # type: ignore[import]
+
     _SENTENCE_TRANSFORMERS = True
 except ImportError:
     pass
@@ -53,12 +55,14 @@ try:
         PointStruct,
         VectorParams,
     )
+
     _QDRANT = True
 except ImportError:
     pass
 
 try:
     import anthropic  # type: ignore[import]  # noqa: F401
+
     _ANTHROPIC = True
 except ImportError:
     pass
@@ -68,32 +72,36 @@ except ImportError:
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class NewsRecord:
     """A stored news event with its embedding and observed market outcome."""
+
     record_id: str
     headline: str
     ticker: str
     date: str
-    outcome_return: float        # observed next-day return after this news
+    outcome_return: float  # observed next-day return after this news
     embedding: list[float] = field(default_factory=list)
 
 
 @dataclass
 class RAGResult:
     """Result of a RAG query for a new news headline."""
+
     query_headline: str
     retrieved: list[NewsRecord]  # top-k similar historical events
     similarity_scores: list[float]
-    predicted_direction: str     # "bullish" / "bearish" / "neutral"
-    confidence: float            # 0-1
-    reasoning: str               # LLM-generated or rule-based
-    backend: str                 # "llm" / "embedding_only"
+    predicted_direction: str  # "bullish" / "bearish" / "neutral"
+    confidence: float  # 0-1
+    reasoning: str  # LLM-generated or rule-based
+    backend: str  # "llm" / "embedding_only"
 
 
 # ---------------------------------------------------------------------------
 # Embedder
 # ---------------------------------------------------------------------------
+
 
 class _TFIDFEmbedder:
     """Minimal TF-IDF fallback embedder when sentence-transformers is absent."""
@@ -106,7 +114,10 @@ class _TFIDFEmbedder:
         return text.lower().split()
 
     def _hash_token(self, tok: str) -> int:
-        return int(hashlib.md5(tok.encode(), usedforsecurity=False).hexdigest(), 16) % self._dim
+        return (
+            int(hashlib.md5(tok.encode(), usedforsecurity=False).hexdigest(), 16)
+            % self._dim
+        )
 
     def encode(self, texts: list[str]) -> np.ndarray:
         result = np.zeros((len(texts), self._dim), dtype=float)
@@ -123,6 +134,7 @@ class _TFIDFEmbedder:
 # In-memory vector store
 # ---------------------------------------------------------------------------
 
+
 class _MemoryVectorStore:
     """Cosine-similarity in-memory store for when Qdrant is unavailable."""
 
@@ -134,7 +146,9 @@ class _MemoryVectorStore:
         self._records.append(record)
         self._embeddings.append(embedding / max(float(np.linalg.norm(embedding)), 1e-9))
 
-    def search(self, query_emb: np.ndarray, top_k: int = 5) -> list[tuple[NewsRecord, float]]:
+    def search(
+        self, query_emb: np.ndarray, top_k: int = 5
+    ) -> list[tuple[NewsRecord, float]]:
         if not self._records:
             return []
         q = query_emb / max(float(np.linalg.norm(query_emb)), 1e-9)
@@ -149,6 +163,7 @@ class _MemoryVectorStore:
 # ---------------------------------------------------------------------------
 # NewsRAG
 # ---------------------------------------------------------------------------
+
 
 class NewsRAG:
     """Retrieval-Augmented Generation for news impact analysis.
@@ -182,7 +197,9 @@ class NewsRAG:
                 self._embed_dim = self._embedder.get_sentence_embedding_dimension()
                 self._embed_backend = "sentence_transformers"
             except Exception as exc:
-                logger.warning("[NewsRAG] SentenceTransformer failed (%s), using TF-IDF", exc)
+                logger.warning(
+                    "[NewsRAG] SentenceTransformer failed (%s), using TF-IDF", exc
+                )
                 self._embedder = _TFIDFEmbedder()  # type: ignore[assignment]
                 self._embed_dim = 128
                 self._embed_backend = "tfidf"
@@ -198,11 +215,15 @@ class NewsRAG:
                 self._qdrant_client = QdrantClient(host=qdrant_host, port=qdrant_port)
                 self._qdrant_client.recreate_collection(
                     collection_name=collection_name,
-                    vectors_config=VectorParams(size=self._embed_dim, distance=Distance.COSINE),
+                    vectors_config=VectorParams(
+                        size=self._embed_dim, distance=Distance.COSINE
+                    ),
                 )
                 self._store_backend = "qdrant"
             except Exception as exc:
-                logger.warning("[NewsRAG] Qdrant unavailable (%s), using in-memory store", exc)
+                logger.warning(
+                    "[NewsRAG] Qdrant unavailable (%s), using in-memory store", exc
+                )
                 self._qdrant_client = None
                 self._store_backend = "memory"
         else:
@@ -216,6 +237,7 @@ class NewsRAG:
         if _ANTHROPIC:
             try:
                 import anthropic
+
                 self._anthropic_client = anthropic.Anthropic()
             except Exception:
                 pass
@@ -243,7 +265,9 @@ class NewsRAG:
             record_id: Unique ID; auto-generated from content if None.
         """
         if record_id is None:
-            record_id = hashlib.md5(f"{date}:{ticker}:{headline}".encode(), usedforsecurity=False).hexdigest()[:16]
+            record_id = hashlib.md5(
+                f"{date}:{ticker}:{headline}".encode(), usedforsecurity=False
+            ).hexdigest()[:16]
 
         emb = self._embed([headline])[0]
 
@@ -259,18 +283,22 @@ class NewsRAG:
         if self._qdrant_client is not None:
             try:
                 payload = {
-                    "headline": headline, "ticker": ticker,
-                    "date": date, "outcome_return": outcome_return,
+                    "headline": headline,
+                    "ticker": ticker,
+                    "date": date,
+                    "outcome_return": outcome_return,
                     "record_id": record_id,
                 }
                 self._qdrant_point_counter += 1
                 self._qdrant_client.upsert(
                     collection_name=self._collection,
-                    points=[PointStruct(
-                        id=self._qdrant_point_counter,
-                        vector=emb.tolist(),
-                        payload=payload,
-                    )],
+                    points=[
+                        PointStruct(
+                            id=self._qdrant_point_counter,
+                            vector=emb.tolist(),
+                            payload=payload,
+                        )
+                    ],
                 )
             except Exception as exc:
                 logger.debug("[NewsRAG] Qdrant upsert failed: %s", exc)
@@ -350,13 +378,15 @@ class NewsRAG:
             scores = []
             for hit in hits:
                 p = hit.payload
-                records.append(NewsRecord(
-                    record_id=p.get("record_id", ""),
-                    headline=p.get("headline", ""),
-                    ticker=p.get("ticker", ""),
-                    date=p.get("date", ""),
-                    outcome_return=float(p.get("outcome_return", 0.0)),
-                ))
+                records.append(
+                    NewsRecord(
+                        record_id=p.get("record_id", ""),
+                        headline=p.get("headline", ""),
+                        ticker=p.get("ticker", ""),
+                        date=p.get("date", ""),
+                        outcome_return=float(p.get("outcome_return", 0.0)),
+                    )
+                )
                 scores.append(float(hit.score))
             return records, scores
         except Exception as exc:
@@ -372,14 +402,14 @@ class NewsRAG:
     ) -> str:
         """Ask Claude to reason about this news given historical precedents."""
         context_lines = [
-            f"- [{r.date}] \"{r.headline}\" (similarity {s:.2f}) → outcome: {r.outcome_return:+.2%}"
+            f'- [{r.date}] "{r.headline}" (similarity {s:.2f}) → outcome: {r.outcome_return:+.2%}'
             for r, s in zip(retrieved, scores)
         ]
         context = "\n".join(context_lines)
 
         prompt = (
             f"You are a quantitative analyst. A new news headline has arrived:\n\n"
-            f"Headline: \"{headline}\"\n"
+            f'Headline: "{headline}"\n'
             f"Ticker: {ticker or 'unspecified'}\n\n"
             f"Most similar historical events (retrieved by embedding similarity):\n{context}\n\n"
             f"Based on the historical precedents, briefly assess:\n"

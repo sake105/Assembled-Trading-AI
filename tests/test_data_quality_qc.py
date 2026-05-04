@@ -147,7 +147,13 @@ def test_outlier_return_flagged() -> None:
         {
             "timestamp": pd.date_range("2024-01-01", periods=5, freq="1d", tz="UTC"),
             "symbol": ["AAPL"] * 5,
-            "close": [100.0, 135.0, 100.0, 175.0, 100.0],  # +35% WARN, -26% WARN, +75% FAIL, -43% WARN
+            "close": [
+                100.0,
+                135.0,
+                100.0,
+                175.0,
+                100.0,
+            ],  # +35% WARN, -26% WARN, +75% FAIL, -43% WARN
         }
     )
 

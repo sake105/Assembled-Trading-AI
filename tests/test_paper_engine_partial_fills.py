@@ -54,9 +54,7 @@ def test_default_legacy_full_fill_has_status_filled(tmp_path: Path) -> None:
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 100.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     fills = eng._simulate_fills(orders, prices)
     assert len(fills) == 1
     assert fills.loc[0, "fill_qty"] == 100.0
@@ -66,16 +64,12 @@ def test_default_legacy_full_fill_has_status_filled(tmp_path: Path) -> None:
 
 def test_enable_partial_caps_fill_at_participation(tmp_path: Path) -> None:
     """Order qty above participation * adv must become partial."""
-    eng = _make_engine(
-        tmp_path, enable_partial_fills=True, max_participation=0.10
-    )
+    eng = _make_engine(tmp_path, enable_partial_fills=True, max_participation=0.10)
     # ADV (via volume) = 1000. Cap = 0.10 * 1000 = 100 shares.
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 500.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     fills = eng._simulate_fills(orders, prices)
 
     assert len(fills) == 1
@@ -88,15 +82,11 @@ def test_enable_partial_caps_fill_at_participation(tmp_path: Path) -> None:
 
 def test_partial_fill_small_order_fully_fills(tmp_path: Path) -> None:
     """Order below the cap must fill completely with status=filled."""
-    eng = _make_engine(
-        tmp_path, enable_partial_fills=True, max_participation=0.10
-    )
+    eng = _make_engine(tmp_path, enable_partial_fills=True, max_participation=0.10)
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 50.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     fills = eng._simulate_fills(orders, prices)
     assert fills.loc[0, "fill_qty"] == pytest.approx(50.0)
     assert fills.loc[0, "status"] == "filled"
@@ -114,9 +104,7 @@ def test_min_fill_qty_rejects_order(tmp_path: Path) -> None:
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 500.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     fills = eng._simulate_fills(orders, prices)
 
     assert fills.loc[0, "status"] == "rejected"
@@ -127,15 +115,11 @@ def test_min_fill_qty_rejects_order(tmp_path: Path) -> None:
 
 def test_partial_fill_updates_positions_by_fill_qty(tmp_path: Path) -> None:
     """Sizing feedback: position after fill == fill_qty, not intended qty."""
-    eng = _make_engine(
-        tmp_path, enable_partial_fills=True, max_participation=0.10
-    )
+    eng = _make_engine(tmp_path, enable_partial_fills=True, max_participation=0.10)
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 500.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     fills, _ = eng._simulate_fills_with_cost(orders, prices)
     eng._update_positions(fills)
 
@@ -148,16 +132,12 @@ def test_partial_fill_updates_positions_by_fill_qty(tmp_path: Path) -> None:
 
 def test_partial_fill_impact_uses_executed_qty_not_intended(tmp_path: Path) -> None:
     """Market impact must be computed on fill_qty, not intended qty."""
-    eng = _make_engine(
-        tmp_path, enable_partial_fills=True, max_participation=0.10
-    )
+    eng = _make_engine(tmp_path, enable_partial_fills=True, max_participation=0.10)
     # qty >> cap, cap = 100 shares, adv = 1000
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 10_000.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     fills = eng._simulate_fills(orders, prices)
     # fill_qty=100, participation = 0.10 → impact ~ 0.10 * sqrt(0.10) * 100
     # ~ 3.16 price units (with coeff=0.10). If it were computed on qty=10_000,
@@ -173,9 +153,7 @@ def test_disabled_partial_matches_legacy_math(tmp_path: Path) -> None:
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 500.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1000.0}])
     fills = eng_off._simulate_fills(orders, prices)
     # fill_qty == qty, status == filled — sanity
     assert fills.loc[0, "fill_qty"] == 500.0

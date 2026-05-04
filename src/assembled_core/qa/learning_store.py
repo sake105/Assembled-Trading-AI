@@ -137,7 +137,9 @@ def load_learning_records_as_dataframe(
     """
     path = Path(store_path)
     if not path.exists():
-        logger.info("[LEARNING] store not found at %s — returning empty DataFrame", path)
+        logger.info(
+            "[LEARNING] store not found at %s — returning empty DataFrame", path
+        )
         return pd.DataFrame()
 
     records = load_learning_records(store_path)
@@ -182,7 +184,9 @@ def compute_factor_attribution(
         present.
     """
     if records_df is None or records_df.empty:
-        logger.info("[LEARNING] compute_factor_attribution: empty records_df, returning empty")
+        logger.info(
+            "[LEARNING] compute_factor_attribution: empty records_df, returning empty"
+        )
         return pd.DataFrame(
             columns=[
                 "factor_name",
@@ -290,7 +294,9 @@ def compute_factor_attribution(
             stats["strength_sum"] += abs(dominant_strength)
 
         except Exception as exc:
-            logger.debug("[LEARNING] compute_factor_attribution: skipping row due to %s", exc)
+            logger.debug(
+                "[LEARNING] compute_factor_attribution: skipping row due to %s", exc
+            )
             continue
 
     # Build output DataFrame
@@ -310,7 +316,9 @@ def compute_factor_attribution(
         )
 
     if not rows:
-        logger.info("[LEARNING] compute_factor_attribution: no dominant-factor trades found")
+        logger.info(
+            "[LEARNING] compute_factor_attribution: no dominant-factor trades found"
+        )
         return pd.DataFrame(
             columns=[
                 "factor_name",
@@ -321,7 +329,11 @@ def compute_factor_attribution(
             ]
         )
 
-    result = pd.DataFrame(rows).sort_values("attribution_pnl", ascending=False).reset_index(drop=True)
+    result = (
+        pd.DataFrame(rows)
+        .sort_values("attribution_pnl", ascending=False)
+        .reset_index(drop=True)
+    )
     logger.info(
         "[LEARNING] compute_factor_attribution: %d factors with dominant trades",
         len(result),

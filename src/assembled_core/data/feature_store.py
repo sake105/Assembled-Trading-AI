@@ -31,7 +31,9 @@ _SAFE_TICKER_RE = re.compile(r"^[A-Z0-9.\-]{1,16}$")
 
 def _validate_view(view: str) -> str:
     if not _SAFE_VIEW_RE.match(view):
-        raise ValueError(f"Invalid feature view name: {view!r} — must match [a-zA-Z][a-zA-Z0-9_]{{0,63}}")
+        raise ValueError(
+            f"Invalid feature view name: {view!r} — must match [a-zA-Z][a-zA-Z0-9_]{{0,63}}"
+        )
     return view
 
 
@@ -40,6 +42,7 @@ def _sanitize_tickers(tickers: list[str]) -> list[str]:
     if bad:
         raise ValueError(f"Invalid ticker(s): {bad!r} — must match [A-Z0-9.-]{{1,16}}")
     return tickers
+
 
 import pandas as pd
 
@@ -53,6 +56,7 @@ FEATURE_STORE_PATH = Path(os.environ.get("FEATURE_STORE_PATH", str(_DEFAULT_ROOT
 def _try_duckdb():
     try:
         import duckdb
+
         return duckdb
     except ImportError:
         logger.warning("duckdb not installed — pip install duckdb==1.1.3")
@@ -62,6 +66,7 @@ def _try_duckdb():
 def _try_pyarrow():
     try:
         import pyarrow
+
         return pyarrow
     except ImportError:
         logger.warning("pyarrow not installed — pip install pyarrow==17.0.0")
@@ -93,7 +98,11 @@ def write_features(
         Path to written Parquet file, or None on failure.
     """
     if df.empty:
-        logger.warning("write_features: empty DataFrame for view=%s ticker=%s — skipping", view, ticker)
+        logger.warning(
+            "write_features: empty DataFrame for view=%s ticker=%s — skipping",
+            view,
+            ticker,
+        )
         return None
 
     pa = _try_pyarrow()
@@ -103,12 +112,18 @@ def write_features(
     store_root = Path(root) if root else FEATURE_STORE_PATH
 
     if available_at_col not in df.columns:
-        logger.warning("write_features: '%s' column missing — adding as now()", available_at_col)
+        logger.warning(
+            "write_features: '%s' column missing — adding as now()", available_at_col
+        )
         df = df.copy()
         df[available_at_col] = datetime.now(tz=timezone.utc)
 
     if df.empty:
-        logger.warning("write_features: empty DataFrame passed for view=%s ticker=%s — skipping", view, ticker)
+        logger.warning(
+            "write_features: empty DataFrame passed for view=%s ticker=%s — skipping",
+            view,
+            ticker,
+        )
         return None
 
     # Determine partition key from first available_at timestamp
@@ -123,6 +138,7 @@ def write_features(
 
     try:
         import pyarrow.parquet as pq
+
         table = pa.Table.from_pandas(df, preserve_index=True)
         pq.write_table(table, str(file_path), compression="snappy")
         logger.debug("Feature store write: %s → %s", view, file_path)
@@ -265,8 +281,14 @@ def feature_store_stats(root: Path | str | None = None) -> dict[str, Any]:
     """Return summary stats about the feature store."""
     store_root = Path(root) if root else FEATURE_STORE_PATH
     views = list_views(store_root)
-    total_files = sum(1 for _ in store_root.rglob("*.parquet")) if store_root.exists() else 0
-    total_bytes = sum(f.stat().st_size for f in store_root.rglob("*.parquet")) if store_root.exists() else 0
+    total_files = (
+        sum(1 for _ in store_root.rglob("*.parquet")) if store_root.exists() else 0
+    )
+    total_bytes = (
+        sum(f.stat().st_size for f in store_root.rglob("*.parquet"))
+        if store_root.exists()
+        else 0
+    )
 
     return {
         "root": str(store_root),

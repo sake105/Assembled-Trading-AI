@@ -28,7 +28,6 @@ from src.assembled_core.ops.run_manifest import (
     write_run_manifest,
 )
 
-
 # --- run_manifest ------------------------------------------------------------
 
 
@@ -75,18 +74,34 @@ def test_compute_config_hash_deterministic() -> None:
 def test_append_run_index_appends_and_sorts(tmp_path: Path) -> None:
     idx = tmp_path / "index.csv"
     append_run_index(
-        run_id="r1", date="2025-01-16", status="success",
-        metrics={"final_equity": 1_010_000.0, "total_return": 0.01, "n_fills": 3,
-                 "avg_cost_bps": 5.0},
-        git_sha="abc", config_hash="c1",
-        manifest_path=tmp_path / "m1.json", index_path=idx,
+        run_id="r1",
+        date="2025-01-16",
+        status="success",
+        metrics={
+            "final_equity": 1_010_000.0,
+            "total_return": 0.01,
+            "n_fills": 3,
+            "avg_cost_bps": 5.0,
+        },
+        git_sha="abc",
+        config_hash="c1",
+        manifest_path=tmp_path / "m1.json",
+        index_path=idx,
     )
     append_run_index(
-        run_id="r1", date="2025-01-15", status="success",
-        metrics={"final_equity": 1_000_000.0, "total_return": 0.0, "n_fills": 0,
-                 "avg_cost_bps": 0.0},
-        git_sha="abc", config_hash="c1",
-        manifest_path=tmp_path / "m2.json", index_path=idx,
+        run_id="r1",
+        date="2025-01-15",
+        status="success",
+        metrics={
+            "final_equity": 1_000_000.0,
+            "total_return": 0.0,
+            "n_fills": 0,
+            "avg_cost_bps": 0.0,
+        },
+        git_sha="abc",
+        config_hash="c1",
+        manifest_path=tmp_path / "m2.json",
+        index_path=idx,
     )
     with open(idx, encoding="utf-8", newline="") as fh:
         rows = list(csv.DictReader(fh))
@@ -97,14 +112,24 @@ def test_append_run_index_appends_and_sorts(tmp_path: Path) -> None:
 def test_append_run_index_replaces_same_run_date(tmp_path: Path) -> None:
     idx = tmp_path / "index.csv"
     append_run_index(
-        run_id="r1", date="2025-01-15", status="success",
-        metrics={"final_equity": 1_000_000.0}, git_sha="", config_hash="",
-        manifest_path=tmp_path / "m.json", index_path=idx,
+        run_id="r1",
+        date="2025-01-15",
+        status="success",
+        metrics={"final_equity": 1_000_000.0},
+        git_sha="",
+        config_hash="",
+        manifest_path=tmp_path / "m.json",
+        index_path=idx,
     )
     append_run_index(
-        run_id="r1", date="2025-01-15", status="error",
-        metrics={"final_equity": 999_000.0}, git_sha="", config_hash="",
-        manifest_path=tmp_path / "m.json", index_path=idx,
+        run_id="r1",
+        date="2025-01-15",
+        status="error",
+        metrics={"final_equity": 999_000.0},
+        git_sha="",
+        config_hash="",
+        manifest_path=tmp_path / "m.json",
+        index_path=idx,
     )
     with open(idx, encoding="utf-8", newline="") as fh:
         rows = list(csv.DictReader(fh))
@@ -162,9 +187,7 @@ def test_engine_writes_manifest_and_index(tmp_path: Path) -> None:
 def test_engine_run_paper_day_writes_manifest(tmp_path: Path) -> None:
     eng = _make_engine(tmp_path)
     # Minimal, orderless run_paper_day: default _generate_orders returns empty.
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000_000.0}])
     eng.run_paper_day("2025-01-15", prices=prices)
     manifest = tmp_path / "manifests" / "manifest_test" / "manifest_2025-01-15.json"
     assert manifest.exists()

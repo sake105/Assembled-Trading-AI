@@ -92,7 +92,9 @@ def load_experiment_run(run_dir: Path) -> Optional[dict]:
                 # Extract scalar metrics (latest value for time-series metrics)
                 if len(metrics_df) > 0:
                     # Get latest values for each metric
-                    for metric_name, metric_rows in metrics_df.groupby("metric_name", sort=False):
+                    for metric_name, metric_rows in metrics_df.groupby(
+                        "metric_name", sort=False
+                    ):
                         # Use last value
                         latest_row = metric_rows.iloc[-1]
                         try:

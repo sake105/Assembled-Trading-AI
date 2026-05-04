@@ -11,8 +11,13 @@ from src.assembled_core.intel.models import NewsEvent, SourceTier
 from src.assembled_core.intel.news_alerts import AlertEngine, NewsAlert
 
 
-def _evt(eid: str, severity: float = 0.0, event_types: list[str] | None = None,
-         corr_score: float = 0.0, corr_n: int = 0) -> NewsEvent:
+def _evt(
+    eid: str,
+    severity: float = 0.0,
+    event_types: list[str] | None = None,
+    corr_score: float = 0.0,
+    corr_n: int = 0,
+) -> NewsEvent:
     ts = datetime.now(tz=timezone.utc)
     return NewsEvent(
         event_id=eid,
@@ -49,7 +54,7 @@ class TestAlertEngine:
 
     def test_corroborated_alert(self):
         eng = AlertEngine(
-            min_severity=99.0,    # disable critical channel
+            min_severity=99.0,  # disable critical channel
             min_corroboration_score=0.7,
             min_corroboration_sources=3,
             include_default_log_handler=False,

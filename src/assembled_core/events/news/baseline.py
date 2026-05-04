@@ -52,7 +52,9 @@ def update_baseline(
         try:
             state = json.loads(state_path.read_text(encoding="utf-8"))
         except Exception as _exc:
-            _logger.warning("[NEWS] Failed to load baseline_state from %s: %s", state_path, _exc)
+            _logger.warning(
+                "[NEWS] Failed to load baseline_state from %s: %s", state_path, _exc
+            )
             state = {}
 
     if (

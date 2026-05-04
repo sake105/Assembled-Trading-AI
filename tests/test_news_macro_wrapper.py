@@ -42,10 +42,16 @@ def test_pit_gate_drops_future_news() -> None:
     as_of = pd.Timestamp("2026-05-31")
     news = pd.DataFrame(
         [
-            {"symbol": "AAPL", "timestamp": pd.Timestamp("2026-06-01"),
-             "sentiment_score": 0.9},
-            {"symbol": "MSFT", "timestamp": pd.Timestamp("2026-05-28"),
-             "sentiment_score": 0.5},
+            {
+                "symbol": "AAPL",
+                "timestamp": pd.Timestamp("2026-06-01"),
+                "sentiment_score": 0.9,
+            },
+            {
+                "symbol": "MSFT",
+                "timestamp": pd.Timestamp("2026-05-28"),
+                "sentiment_score": 0.5,
+            },
         ]
     )
     raw = _news_sentiment_raw(as_of, ["AAPL", "MSFT"], news)
@@ -57,8 +63,12 @@ def test_pit_gate_drops_future_macro() -> None:
     as_of = pd.Timestamp("2026-05-31")
     macro = pd.DataFrame(
         [
-            {"timestamp": pd.Timestamp("2026-06-15"), "macro_code": "GDP_GROWTH",
-             "value": 2.5, "country": "US"},
+            {
+                "timestamp": pd.Timestamp("2026-06-15"),
+                "macro_code": "GDP_GROWTH",
+                "value": 2.5,
+                "country": "US",
+            },
         ]
     )
     raw = _macro_regime_raw(as_of, ["AAPL"], macro, "GDP_GROWTH")
@@ -81,7 +91,9 @@ def test_sentiment_directionality() -> None:
             {"symbol": "NVDA", "timestamp": recent, "sentiment_score": 0.0},
         ]
     )
-    out = compute_news_macro_factors(as_of, ["AAPL", "MSFT", "NVDA"], news, _empty_macro())
+    out = compute_news_macro_factors(
+        as_of, ["AAPL", "MSFT", "NVDA"], news, _empty_macro()
+    )
     z = out["news_sentiment_7d_z"]
     assert z["AAPL"] > z["NVDA"] > z["MSFT"]
 
@@ -91,10 +103,16 @@ def test_sentiment_window_boundary() -> None:
     as_of = pd.Timestamp("2026-05-31")
     news = pd.DataFrame(
         [
-            {"symbol": "AAPL", "timestamp": as_of - pd.Timedelta(days=3),
-             "sentiment_score": 0.5},
-            {"symbol": "MSFT", "timestamp": as_of - pd.Timedelta(days=10),
-             "sentiment_score": 0.8},
+            {
+                "symbol": "AAPL",
+                "timestamp": as_of - pd.Timedelta(days=3),
+                "sentiment_score": 0.5,
+            },
+            {
+                "symbol": "MSFT",
+                "timestamp": as_of - pd.Timedelta(days=10),
+                "sentiment_score": 0.8,
+            },
         ]
     )
     raw = _news_sentiment_raw(as_of, ["AAPL", "MSFT"], news)
@@ -113,18 +131,33 @@ def test_volume_spike_detection() -> None:
     rows = []
     # AAPL: low baseline, then high recent
     for d in range(30, 7, -1):
-        rows.append({"symbol": "AAPL",
-                      "timestamp": as_of - pd.Timedelta(days=d),
-                      "sentiment_score": 0.0, "sentiment_volume": 10})
+        rows.append(
+            {
+                "symbol": "AAPL",
+                "timestamp": as_of - pd.Timedelta(days=d),
+                "sentiment_score": 0.0,
+                "sentiment_volume": 10,
+            }
+        )
     for d in range(7, 0, -1):
-        rows.append({"symbol": "AAPL",
-                      "timestamp": as_of - pd.Timedelta(days=d),
-                      "sentiment_score": 0.0, "sentiment_volume": 100})
+        rows.append(
+            {
+                "symbol": "AAPL",
+                "timestamp": as_of - pd.Timedelta(days=d),
+                "sentiment_score": 0.0,
+                "sentiment_volume": 100,
+            }
+        )
     # MSFT: steady
     for d in range(30, 0, -1):
-        rows.append({"symbol": "MSFT",
-                      "timestamp": as_of - pd.Timedelta(days=d),
-                      "sentiment_score": 0.0, "sentiment_volume": 50})
+        rows.append(
+            {
+                "symbol": "MSFT",
+                "timestamp": as_of - pd.Timedelta(days=d),
+                "sentiment_score": 0.0,
+                "sentiment_volume": 50,
+            }
+        )
     news = pd.DataFrame(rows)
     raw = _news_volume_spike_raw(as_of, ["AAPL", "MSFT"], news)
     assert raw["AAPL"] > raw["MSFT"]  # AAPL has a spike
@@ -134,8 +167,13 @@ def test_volume_spike_no_volume_col() -> None:
     """If sentiment_volume column is missing, returns all NaN."""
     as_of = pd.Timestamp("2026-05-31")
     news = pd.DataFrame(
-        [{"symbol": "AAPL", "timestamp": as_of - pd.Timedelta(days=1),
-          "sentiment_score": 0.5}]
+        [
+            {
+                "symbol": "AAPL",
+                "timestamp": as_of - pd.Timedelta(days=1),
+                "sentiment_score": 0.5,
+            }
+        ]
     )
     raw = _news_volume_spike_raw(as_of, ["AAPL"], news)
     assert pd.isna(raw["AAPL"])
@@ -150,8 +188,14 @@ def test_macro_broadcast_to_all_symbols() -> None:
     """Macro value is the same for all symbols (market-wide)."""
     as_of = pd.Timestamp("2026-05-31")
     macro = pd.DataFrame(
-        [{"timestamp": pd.Timestamp("2026-05-15"), "macro_code": "GDP_GROWTH",
-          "value": 2.0, "country": "US"}]
+        [
+            {
+                "timestamp": pd.Timestamp("2026-05-15"),
+                "macro_code": "GDP_GROWTH",
+                "value": 2.0,
+                "country": "US",
+            }
+        ]
     )
     raw = _macro_regime_raw(as_of, ["AAPL", "MSFT", "NVDA"], macro, "GDP_GROWTH")
     assert raw["AAPL"] == raw["MSFT"] == raw["NVDA"] == 2.0
@@ -162,10 +206,18 @@ def test_macro_country_filter() -> None:
     as_of = pd.Timestamp("2026-05-31")
     macro = pd.DataFrame(
         [
-            {"timestamp": pd.Timestamp("2026-05-15"), "macro_code": "GDP_GROWTH",
-             "value": 3.0, "country": "EU"},
-            {"timestamp": pd.Timestamp("2026-05-15"), "macro_code": "GDP_GROWTH",
-             "value": 2.0, "country": "US"},
+            {
+                "timestamp": pd.Timestamp("2026-05-15"),
+                "macro_code": "GDP_GROWTH",
+                "value": 3.0,
+                "country": "EU",
+            },
+            {
+                "timestamp": pd.Timestamp("2026-05-15"),
+                "macro_code": "GDP_GROWTH",
+                "value": 2.0,
+                "country": "US",
+            },
         ]
     )
     raw = _macro_regime_raw(as_of, ["AAPL"], macro, "GDP_GROWTH", country="EU")
@@ -177,10 +229,18 @@ def test_macro_uses_latest_filing() -> None:
     as_of = pd.Timestamp("2026-05-31")
     macro = pd.DataFrame(
         [
-            {"timestamp": pd.Timestamp("2026-04-01"), "macro_code": "GDP_GROWTH",
-             "value": 1.0, "country": "US"},
-            {"timestamp": pd.Timestamp("2026-05-15"), "macro_code": "GDP_GROWTH",
-             "value": 2.5, "country": "US"},
+            {
+                "timestamp": pd.Timestamp("2026-04-01"),
+                "macro_code": "GDP_GROWTH",
+                "value": 1.0,
+                "country": "US",
+            },
+            {
+                "timestamp": pd.Timestamp("2026-05-15"),
+                "macro_code": "GDP_GROWTH",
+                "value": 2.5,
+                "country": "US",
+            },
         ]
     )
     raw = _macro_regime_raw(as_of, ["AAPL"], macro, "GDP_GROWTH")
@@ -198,7 +258,9 @@ def test_clipping_bounds() -> None:
     recent = as_of - pd.Timedelta(days=2)
     rows = []
     for i in range(11):
-        rows.append({"symbol": f"S{i}", "timestamp": recent, "sentiment_score": 0.01 * i})
+        rows.append(
+            {"symbol": f"S{i}", "timestamp": recent, "sentiment_score": 0.01 * i}
+        )
     rows.append({"symbol": "OUT", "timestamp": recent, "sentiment_score": 100.0})
     news = pd.DataFrame(rows)
     syms = [f"S{i}" for i in range(11)] + ["OUT"]
@@ -210,8 +272,13 @@ def test_single_observation_returns_nan() -> None:
     """One valid observation can't be z-scored."""
     as_of = pd.Timestamp("2026-05-31")
     news = pd.DataFrame(
-        [{"symbol": "AAPL", "timestamp": as_of - pd.Timedelta(days=1),
-          "sentiment_score": 0.5}]
+        [
+            {
+                "symbol": "AAPL",
+                "timestamp": as_of - pd.Timedelta(days=1),
+                "sentiment_score": 0.5,
+            }
+        ]
     )
     out = compute_news_macro_factors(as_of, ["AAPL"], news, _empty_macro())
     assert pd.isna(out.loc["AAPL", "news_sentiment_7d_z"])
@@ -221,8 +288,14 @@ def test_identical_macro_zscore_is_zero() -> None:
     """When all symbols have same macro value, z-score = 0.0 (degenerate)."""
     as_of = pd.Timestamp("2026-05-31")
     macro = pd.DataFrame(
-        [{"timestamp": pd.Timestamp("2026-05-15"), "macro_code": "GDP_GROWTH",
-          "value": 2.0, "country": "US"}]
+        [
+            {
+                "timestamp": pd.Timestamp("2026-05-15"),
+                "macro_code": "GDP_GROWTH",
+                "value": 2.0,
+                "country": "US",
+            }
+        ]
     )
     out = compute_news_macro_factors(
         as_of, ["AAPL", "MSFT", "NVDA"], _empty_news(), macro
@@ -253,7 +326,9 @@ def test_missing_macro_column_raises() -> None:
 
 def test_non_timestamp_raises() -> None:
     with pytest.raises(ValueError, match="as_of_date"):
-        compute_news_macro_factors("2026-05-31", ["AAPL"], _empty_news(), _empty_macro())
+        compute_news_macro_factors(
+            "2026-05-31", ["AAPL"], _empty_news(), _empty_macro()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +338,8 @@ def test_non_timestamp_raises() -> None:
 
 def test_empty_news_and_macro_returns_all_nan() -> None:
     as_of = pd.Timestamp("2026-05-31")
-    out = compute_news_macro_factors(as_of, ["AAPL", "MSFT"], _empty_news(), _empty_macro())
+    out = compute_news_macro_factors(
+        as_of, ["AAPL", "MSFT"], _empty_news(), _empty_macro()
+    )
     assert out.shape == (2, 4)
     assert out.isna().all().all()

@@ -29,7 +29,9 @@ class TestComputeHedgeRatio:
 
     def test_at_full_hedge_returns_max(self):
         cfg = TailHedgeConfig(
-            vix_hedge_trigger=25.0, vix_full_hedge_level=35.0, max_hedge_ratio=0.30,
+            vix_hedge_trigger=25.0,
+            vix_full_hedge_level=35.0,
+            max_hedge_ratio=0.30,
         )
         ratio = compute_hedge_ratio(current_vix=35.0, portfolio_vol=0.12, config=cfg)
         assert ratio == pytest.approx(0.30, abs=0.01)
@@ -41,16 +43,22 @@ class TestComputeHedgeRatio:
 
     def test_midpoint_interpolation(self):
         cfg = TailHedgeConfig(
-            vix_hedge_trigger=25.0, vix_full_hedge_level=35.0,
-            min_hedge_ratio=0.05, max_hedge_ratio=0.30,
+            vix_hedge_trigger=25.0,
+            vix_full_hedge_level=35.0,
+            min_hedge_ratio=0.05,
+            max_hedge_ratio=0.30,
         )
         ratio = compute_hedge_ratio(current_vix=30.0, portfolio_vol=0.10, config=cfg)
         assert 0.05 < ratio < 0.30
 
     def test_dynamic_sizing_high_vol(self):
         cfg = TailHedgeConfig(use_dynamic_sizing=True)
-        ratio_low = compute_hedge_ratio(current_vix=30.0, portfolio_vol=0.10, config=cfg)
-        ratio_high = compute_hedge_ratio(current_vix=30.0, portfolio_vol=0.25, config=cfg)
+        ratio_low = compute_hedge_ratio(
+            current_vix=30.0, portfolio_vol=0.10, config=cfg
+        )
+        ratio_high = compute_hedge_ratio(
+            current_vix=30.0, portfolio_vol=0.25, config=cfg
+        )
         assert ratio_high >= ratio_low
 
     def test_dynamic_sizing_disabled(self):
@@ -60,7 +68,9 @@ class TestComputeHedgeRatio:
 
     def test_equal_trigger_and_full_returns_max(self):
         cfg = TailHedgeConfig(
-            vix_hedge_trigger=30.0, vix_full_hedge_level=30.0, max_hedge_ratio=0.25,
+            vix_hedge_trigger=30.0,
+            vix_full_hedge_level=30.0,
+            max_hedge_ratio=0.25,
         )
         ratio = compute_hedge_ratio(current_vix=30.0, portfolio_vol=0.15, config=cfg)
         assert ratio == pytest.approx(0.25, abs=0.01)
@@ -74,7 +84,9 @@ class TestPutCostEstimate:
 
     def test_positive_cost(self):
         cost = compute_put_cost_estimate(
-            1_000_000, hedge_ratio=0.10, current_vol=0.20,
+            1_000_000,
+            hedge_ratio=0.10,
+            current_vol=0.20,
         )
         assert cost > 0
 
@@ -92,7 +104,9 @@ class TestPutCostEstimate:
 class TestRecommendHedge:
     def test_no_trigger_active(self):
         rec = recommend_hedge(
-            portfolio_value=1_000_000, current_vix=18.0, portfolio_vol=0.10,
+            portfolio_value=1_000_000,
+            current_vix=18.0,
+            portfolio_vol=0.10,
         )
         assert isinstance(rec, HedgeRecommendation)
         assert rec.hedge_ratio == 0.0
@@ -100,20 +114,26 @@ class TestRecommendHedge:
 
     def test_vix_trigger(self):
         rec = recommend_hedge(
-            portfolio_value=1_000_000, current_vix=30.0, portfolio_vol=0.12,
+            portfolio_value=1_000_000,
+            current_vix=30.0,
+            portfolio_vol=0.12,
         )
         assert rec.hedge_ratio > 0
         assert "VIX=" in rec.trigger_reason
 
     def test_full_hedge_urgency(self):
         rec = recommend_hedge(
-            portfolio_value=1_000_000, current_vix=40.0, portfolio_vol=0.20,
+            portfolio_value=1_000_000,
+            current_vix=40.0,
+            portfolio_vol=0.20,
         )
         assert rec.urgency == 1.0
 
     def test_drawdown_trigger(self):
         rec = recommend_hedge(
-            portfolio_value=1_000_000, current_vix=20.0, portfolio_vol=0.12,
+            portfolio_value=1_000_000,
+            current_vix=20.0,
+            portfolio_vol=0.12,
             recent_max_drawdown=-0.15,
         )
         assert rec.hedge_ratio > 0
@@ -121,16 +141,21 @@ class TestRecommendHedge:
 
     def test_elevated_vol_trigger(self):
         rec = recommend_hedge(
-            portfolio_value=1_000_000, current_vix=20.0, portfolio_vol=0.30,
+            portfolio_value=1_000_000,
+            current_vix=20.0,
+            portfolio_vol=0.30,
         )
         assert "elevated" in rec.trigger_reason.lower()
 
     def test_notional_calculation(self):
         rec = recommend_hedge(
-            portfolio_value=2_000_000, current_vix=30.0, portfolio_vol=0.15,
+            portfolio_value=2_000_000,
+            current_vix=30.0,
+            portfolio_vol=0.15,
         )
         assert rec.notional_to_hedge == pytest.approx(
-            2_000_000 * rec.hedge_ratio, abs=1.0,
+            2_000_000 * rec.hedge_ratio,
+            abs=1.0,
         )
 
     def test_put_strike_pct(self):

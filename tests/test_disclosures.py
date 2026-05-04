@@ -25,7 +25,6 @@ from src.assembled_core.events.disclosures.triggers import (
     apply_qc_caps,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 # Minimal Atom XML with two entries (no real network)
@@ -917,7 +916,9 @@ def test_context_sets_degraded_flag(tmp_path: Path) -> None:
 
 # --- Disclosures confirm boost (DISCL-4.2) archived — section removed ---
 pytest.importorskip("src.assembled_core.risk.disclosures_confirm")
-from src.assembled_core.risk.disclosures_confirm import apply_disclosures_confirm  # noqa: E402
+from src.assembled_core.risk.disclosures_confirm import (
+    apply_disclosures_confirm,
+)  # noqa: E402
 
 
 def test_disclosures_boost_applies_when_sev_ge_1() -> None:

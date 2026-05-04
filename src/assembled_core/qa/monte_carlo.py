@@ -300,9 +300,7 @@ def summarize_forward_sim(result: ForwardSimulationResult) -> str:
         f"95% CI: [${result.ci_lower_terminal:,.0f}, ${result.ci_upper_terminal:,.0f}]"
     )
     lines.append(f"P(loss): {result.prob_loss:.2%}")
-    lines.append(
-        f"P(MaxDD > {result.dd_threshold:.0%}): {result.prob_dd_exceed:.2%}"
-    )
+    lines.append(f"P(MaxDD > {result.dd_threshold:.0%}): {result.prob_dd_exceed:.2%}")
     lines.append(f"Paths: {len(result.terminal_values)}")
 
     return "\n".join(lines)

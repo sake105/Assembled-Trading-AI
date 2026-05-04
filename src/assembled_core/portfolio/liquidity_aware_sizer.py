@@ -1,4 +1,5 @@
 """Liquidity-aware position sizer — ADV, market-cap, and time-to-liquidate caps."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -33,7 +34,9 @@ class LiquidityAwareSizer:
         self.max_days_to_liquidate = max_days_to_liquidate
         self.target_pov_pct = target_pov_pct
 
-    def size_position(self, signal_target_qty: int, symbol_data: dict[str, Any]) -> SizeResult:
+    def size_position(
+        self, signal_target_qty: int, symbol_data: dict[str, Any]
+    ) -> SizeResult:
         """Return the liquidity-capped position size.
 
         Parameters

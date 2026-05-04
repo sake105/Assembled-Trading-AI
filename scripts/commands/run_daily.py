@@ -1,5 +1,6 @@
 # scripts/commands/run_daily.py
 """run_daily subcommand: daily EOD pipeline."""
+
 from __future__ import annotations
 
 import argparse

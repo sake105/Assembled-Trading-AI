@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
-pytest.importorskip('src.assembled_core.ml.calibration')
+pytest.importorskip("src.assembled_core.ml.calibration")
 from src.assembled_core.ml.calibration import (
     compute_calibration_error,
     IsotonicCalibrator,

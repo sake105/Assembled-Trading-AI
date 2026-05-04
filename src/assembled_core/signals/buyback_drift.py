@@ -44,6 +44,7 @@ def _parse_usd_amount(text: str) -> float:
 def _try_edgartools():
     try:
         import edgar
+
         return edgar
     except ImportError:
         logger.warning("edgartools not installed — pip install edgartools")
@@ -72,13 +73,17 @@ def detect_buyback_announcement(
 
     try:
         from datetime import date, timedelta
+
         edgar.set_identity("AssembledTradingAI research@example.com")
 
         entity = edgar.Company(ticker)
-        filings = entity.get_filings(form="8-K", date_range=(
-            str(date.today() - timedelta(days=days)),
-            str(date.today()),
-        ))
+        filings = entity.get_filings(
+            form="8-K",
+            date_range=(
+                str(date.today() - timedelta(days=days)),
+                str(date.today()),
+            ),
+        )
 
         if filings is None or len(filings) == 0:
             return None
@@ -87,7 +92,9 @@ def detect_buyback_announcement(
             try:
                 # Check item codes — 8.01 = Other Events where buybacks often appear
                 items = getattr(filing, "items", []) or []
-                if not any("8.01" in str(item) or "7.01" in str(item) for item in items):
+                if not any(
+                    "8.01" in str(item) or "7.01" in str(item) for item in items
+                ):
                     # Try reading full text
                     text = ""
                 else:
@@ -99,7 +106,15 @@ def detect_buyback_announcement(
                     text = str(doc)
 
                 text_lower = text.lower()
-                if not any(kw in text_lower for kw in ["repurchase", "buyback", "share repurchase", "stock repurchase"]):
+                if not any(
+                    kw in text_lower
+                    for kw in [
+                        "repurchase",
+                        "buyback",
+                        "share repurchase",
+                        "stock repurchase",
+                    ]
+                ):
                     continue
 
                 amount = _parse_usd_amount(text)

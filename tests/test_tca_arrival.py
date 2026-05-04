@@ -18,12 +18,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-pytest.importorskip('src.assembled_core.qa.tca_arrival')
+pytest.importorskip("src.assembled_core.qa.tca_arrival")
 from src.assembled_core.qa.tca_arrival import (  # noqa: E402
     compute_implementation_shortfall,
     summarize_implementation_shortfall,
 )
-
 
 TS = pd.Timestamp("2026-04-11 14:30:00", tz="UTC")
 TS2 = pd.Timestamp("2026-04-11 14:31:00", tz="UTC")
@@ -128,9 +127,9 @@ def test_zero_arrival_price_is_nan_not_crash():
 def test_mixed_batch_summary_and_per_symbol():
     fills = _fills(
         [
-            (TS, "AAA", "BUY", 100, 100.1),    # +10 bps
-            (TS, "AAA", "SELL", 100, 99.95),   # +5 bps (below arrival on sell)
-            (TS2, "BBB", "BUY", 50, 200.4),    # +20 bps
+            (TS, "AAA", "BUY", 100, 100.1),  # +10 bps
+            (TS, "AAA", "SELL", 100, 99.95),  # +5 bps (below arrival on sell)
+            (TS2, "BBB", "BUY", 50, 200.4),  # +20 bps
         ]
     )
     arr = _arrivals(

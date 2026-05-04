@@ -16,17 +16,17 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Proxy tickers for each signal
-_OIL_TICKER = "CL=F"      # WTI Crude futures
-_GOLD_TICKER = "GC=F"     # Gold futures
-_VIX_TICKER = "^VIX"      # CBOE VIX
+_OIL_TICKER = "CL=F"  # WTI Crude futures
+_GOLD_TICKER = "GC=F"  # Gold futures
+_VIX_TICKER = "^VIX"  # CBOE VIX
 
 # Fallback ETF tickers if futures fail
 _OIL_FALLBACK = "USO"
 _GOLD_FALLBACK = "GLD"
 
 # Thresholds (used for VIX spike detection)
-_VIX_SPIKE_LEVEL = 25.0          # absolute level
-_VIX_SPIKE_CHANGE_PCT = 15.0     # 1-day % change
+_VIX_SPIKE_LEVEL = 25.0  # absolute level
+_VIX_SPIKE_CHANGE_PCT = 15.0  # 1-day % change
 
 
 def compute_market_confirmation(
@@ -84,14 +84,15 @@ def compute_market_confirmation(
         vix_level, vix_1d_change = vix_data
         result["vix_level"] = round(vix_level, 2)
         result["vix_spike"] = (
-            vix_level > _VIX_SPIKE_LEVEL
-            or abs(vix_1d_change) > _VIX_SPIKE_CHANGE_PCT
+            vix_level > _VIX_SPIKE_LEVEL or abs(vix_1d_change) > _VIX_SPIKE_CHANGE_PCT
         )
 
     logger.info(
         "[MarketConfirm] oil=%.2f%% gold=%.2f%% vix=%.1f spike=%s",
-        result["oil_move"], result["gold_move"],
-        result["vix_level"], result["vix_spike"],
+        result["oil_move"],
+        result["gold_move"],
+        result["vix_level"],
+        result["vix_spike"],
     )
     return result
 
@@ -115,8 +116,16 @@ def _fetch_pct_change(
         closes = data["Close"].dropna()
         if len(closes) < 2:
             return None
-        _last = float(closes.iloc[-1].iloc[0]) if hasattr(closes.iloc[-1], "iloc") else float(closes.iloc[-1])
-        _first = float(closes.iloc[0].iloc[0]) if hasattr(closes.iloc[0], "iloc") else float(closes.iloc[0])
+        _last = (
+            float(closes.iloc[-1].iloc[0])
+            if hasattr(closes.iloc[-1], "iloc")
+            else float(closes.iloc[-1])
+        )
+        _first = (
+            float(closes.iloc[0].iloc[0])
+            if hasattr(closes.iloc[0], "iloc")
+            else float(closes.iloc[0])
+        )
         if _first == 0.0:
             return None
         pct = (_last - _first) / _first * 100
@@ -145,8 +154,16 @@ def _fetch_vix(
         closes = data["Close"].dropna()
         if len(closes) < 2:
             return None
-        _v_last = float(closes.iloc[-1].iloc[0]) if hasattr(closes.iloc[-1], "iloc") else float(closes.iloc[-1])
-        _v_prev = float(closes.iloc[-2].iloc[0]) if hasattr(closes.iloc[-2], "iloc") else float(closes.iloc[-2])
+        _v_last = (
+            float(closes.iloc[-1].iloc[0])
+            if hasattr(closes.iloc[-1], "iloc")
+            else float(closes.iloc[-1])
+        )
+        _v_prev = (
+            float(closes.iloc[-2].iloc[0])
+            if hasattr(closes.iloc[-2], "iloc")
+            else float(closes.iloc[-2])
+        )
         level = _v_last
         if _v_prev == 0.0:
             return None

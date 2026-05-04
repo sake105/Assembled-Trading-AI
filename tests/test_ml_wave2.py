@@ -10,21 +10,31 @@ import pandas as pd
 
 class TestMeanReversion:
     def test_bull_regime_generates_signals(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.mean_reversion')
-        from src.assembled_core.signals.mean_reversion import compute_mean_reversion_signals
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.mean_reversion")
+        from src.assembled_core.signals.mean_reversion import (
+            compute_mean_reversion_signals,
+        )
 
         np.random.seed(42)
         n = 100
-        prices = pd.DataFrame({
-            "symbol": ["A"] * n,
-            "close": np.cumsum(np.random.normal(0, 1, n)) + 100,
-        })
+        prices = pd.DataFrame(
+            {
+                "symbol": ["A"] * n,
+                "close": np.cumsum(np.random.normal(0, 1, n)) + 100,
+            }
+        )
         result = compute_mean_reversion_signals(prices, regime="bull")
         assert isinstance(result, pd.DataFrame)
 
     def test_bear_regime_inactive(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.mean_reversion')
-        from src.assembled_core.signals.mean_reversion import compute_mean_reversion_signals
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.mean_reversion")
+        from src.assembled_core.signals.mean_reversion import (
+            compute_mean_reversion_signals,
+        )
 
         prices = pd.DataFrame({"symbol": ["A"] * 50, "close": range(50)})
         result = compute_mean_reversion_signals(prices, regime="bear")
@@ -33,19 +43,23 @@ class TestMeanReversion:
 
 class TestSignalDiagnostics:
     def test_compute_health(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.signal_diagnostics')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.signal_diagnostics")
         from src.assembled_core.signals.signal_diagnostics import compute_signal_health
 
         np.random.seed(42)
         n_ts = 20
         n_sym = 10  # need >=5 symbols per timestamp for IC
         total = n_ts * n_sym
-        df = pd.DataFrame({
-            "timestamp": list(range(n_ts)) * n_sym,
-            "symbol": sum([[f"S{i}"] * n_ts for i in range(n_sym)], []),
-            "factor1": np.random.normal(0, 1, total),
-            "fwd_ret": np.random.normal(0, 0.01, total),
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": list(range(n_ts)) * n_sym,
+                "symbol": sum([[f"S{i}"] * n_ts for i in range(n_sym)], []),
+                "factor1": np.random.normal(0, 1, total),
+                "fwd_ret": np.random.normal(0, 0.01, total),
+            }
+        )
         result = compute_signal_health(df, "fwd_ret", ["factor1"])
         assert not result.empty
         assert "ic" in result.columns
@@ -53,7 +67,9 @@ class TestSignalDiagnostics:
 
 class TestCrashPredictionThresholds:
     def test_rolling_percentiles(self):
-        from src.assembled_core.signals.crash_prediction import compute_rolling_percentile_thresholds
+        from src.assembled_core.signals.crash_prediction import (
+            compute_rolling_percentile_thresholds,
+        )
 
         series = pd.Series(np.random.normal(20, 5, 300))
         result = compute_rolling_percentile_thresholds(series, window=100)
@@ -64,6 +80,7 @@ class TestCrashPredictionThresholds:
 class TestFeatureDrift:
     def test_no_drift(self):
         import pytest
+
         pytest.importorskip("scipy")
         pytest.importorskip("src.assembled_core.ml.model_monitoring")
         from src.assembled_core.ml.model_monitoring import detect_feature_drift
@@ -77,8 +94,12 @@ class TestFeatureDrift:
 
 class TestSatelliteFeatures:
     def test_copper_gold(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.satellite_proxy_features')
-        from src.assembled_core.features.satellite_proxy_features import compute_copper_gold_ratio
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.satellite_proxy_features")
+        from src.assembled_core.features.satellite_proxy_features import (
+            compute_copper_gold_ratio,
+        )
 
         copper = pd.Series([4.0, 4.1, 4.2])
         gold = pd.Series([1800, 1810, 1790])
@@ -89,16 +110,24 @@ class TestSatelliteFeatures:
 
 class TestDisclosureFeatures:
     def test_fog_index(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.disclosure_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.disclosure_features")
         from src.assembled_core.features.disclosure_features import compute_fog_index
 
-        text = "The company faces significant risks. Market conditions are challenging. " * 10
+        text = (
+            "The company faces significant risks. Market conditions are challenging. "
+            * 10
+        )
         fog = compute_fog_index(text)
         assert fog > 0
 
     def test_empty_text(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.disclosure_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.disclosure_features")
         from src.assembled_core.features.disclosure_features import compute_fog_index
+
         assert compute_fog_index("") == 0.0
 
 
@@ -123,7 +152,9 @@ class TestWildCardDetector:
 
 class TestWargaming:
     def test_prisoners_dilemma(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.wargaming')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.wargaming")
         from src.assembled_core.intel.wargaming import find_nash_2x2
 
         # Classic prisoner's dilemma
@@ -136,10 +167,15 @@ class TestWargaming:
 
 class TestStructuralCycles:
     def test_normal_environment(self):
-        from src.assembled_core.intel.structural_cycles import compute_structural_cycle_score
+        from src.assembled_core.intel.structural_cycles import (
+            compute_structural_cycle_score,
+        )
 
         result = compute_structural_cycle_score(
-            debt_gdp_pct=80, gini_index=0.35, trust_index=0.60, rivalry_index=0.30,
+            debt_gdp_pct=80,
+            gini_index=0.35,
+            trust_index=0.60,
+            rivalry_index=0.30,
         )
         assert result.risk_multiplier >= 1.0
         assert result.composite >= 0
@@ -147,7 +183,9 @@ class TestStructuralCycles:
 
 class TestRegimePortfolio:
     def test_blend_templates(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.regime_portfolio')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.regime_portfolio")
         from src.assembled_core.portfolio.regime_portfolio import blend_regime_templates
 
         result = blend_regime_templates({"bull": 0.7, "bear": 0.3})
@@ -171,22 +209,30 @@ class TestSmartOrderRouter:
 
 class TestSystemicRisk:
     def test_centrality(self):
-        import pytest; pytest.importorskip('src.assembled_core.risk.systemic_risk')
-        from src.assembled_core.risk.systemic_risk import compute_return_network_centrality
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.systemic_risk")
+        from src.assembled_core.risk.systemic_risk import (
+            compute_return_network_centrality,
+        )
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.01, 100),
-            "B": np.random.normal(0, 0.01, 100),
-            "C": np.random.normal(0, 0.01, 100),
-        })
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.01, 100),
+                "B": np.random.normal(0, 0.01, 100),
+                "C": np.random.normal(0, 0.01, 100),
+            }
+        )
         result = compute_return_network_centrality(returns)
         assert all(0 <= v <= 1 for v in result.values())
 
 
 class TestAntifragility:
     def test_score(self):
-        import pytest; pytest.importorskip('src.assembled_core.risk.antifragility')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.antifragility")
         from src.assembled_core.risk.antifragility import compute_antifragility_score
 
         np.random.seed(42)
@@ -198,7 +244,9 @@ class TestAntifragility:
 
 class TestTaxLots:
     def test_fifo_pnl(self):
-        import pytest; pytest.importorskip('src.assembled_core.accounting.tax_lots')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.accounting.tax_lots")
         from src.assembled_core.accounting.tax_lots import TaxLotTracker
 
         tracker = TaxLotTracker()
@@ -210,17 +258,24 @@ class TestTaxLots:
 
 class TestRoundTrips:
     def test_basic(self):
-        import pytest; pytest.importorskip('src.assembled_core.accounting.round_trips')
-        from src.assembled_core.accounting.round_trips import compute_round_trips, round_trip_summary
+        import pytest
 
-        trades = pd.DataFrame({
-            "symbol": ["AAPL", "AAPL"],
-            "date": ["2024-01-01", "2024-01-10"],
-            "side": ["BUY", "SELL"],
-            "price": [150.0, 160.0],
-            "quantity": [100, 100],
-            "commission": [1.0, 1.0],
-        })
+        pytest.importorskip("src.assembled_core.accounting.round_trips")
+        from src.assembled_core.accounting.round_trips import (
+            compute_round_trips,
+            round_trip_summary,
+        )
+
+        trades = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "AAPL"],
+                "date": ["2024-01-01", "2024-01-10"],
+                "side": ["BUY", "SELL"],
+                "price": [150.0, 160.0],
+                "quantity": [100, 100],
+                "commission": [1.0, 1.0],
+            }
+        )
         trips = compute_round_trips(trades)
         assert len(trips) == 1
         summary = round_trip_summary(trips)
@@ -230,14 +285,24 @@ class TestRoundTrips:
 
 class TestDecisionAudit:
     def test_record_and_summary(self):
-        import pytest; pytest.importorskip('src.assembled_core.accounting.decision_audit')
-        from src.assembled_core.accounting.decision_audit import DecisionAuditTrail, DecisionRecord
+        import pytest
+
+        pytest.importorskip("src.assembled_core.accounting.decision_audit")
+        from src.assembled_core.accounting.decision_audit import (
+            DecisionAuditTrail,
+            DecisionRecord,
+        )
 
         audit = DecisionAuditTrail()
-        audit.record(DecisionRecord(
-            timestamp="2024-01-01", symbol="AAPL", direction="LONG",
-            signal_score=0.8, regime="bull",
-        ))
+        audit.record(
+            DecisionRecord(
+                timestamp="2024-01-01",
+                symbol="AAPL",
+                direction="LONG",
+                signal_score=0.8,
+                regime="bull",
+            )
+        )
         assert audit.summary()["n_records"] == 1
 
 
@@ -294,13 +359,17 @@ class TestCDaR:
 
 class TestImplementationShortfall:
     def test_buy_is(self):
-        from src.assembled_core.execution.algo_execution import compute_implementation_shortfall
+        from src.assembled_core.execution.algo_execution import (
+            compute_implementation_shortfall,
+        )
 
         is_bps = compute_implementation_shortfall(100.0, 100.5, "BUY")
         assert is_bps == 50.0  # 50 bps
 
     def test_sell_is(self):
-        from src.assembled_core.execution.algo_execution import compute_implementation_shortfall
+        from src.assembled_core.execution.algo_execution import (
+            compute_implementation_shortfall,
+        )
 
         is_bps = compute_implementation_shortfall(100.0, 99.5, "SELL")
         assert is_bps == 50.0
@@ -310,10 +379,12 @@ class TestOrderNetting:
     def test_net_opposing(self):
         from src.assembled_core.execution.order_generation import net_orders
 
-        orders = pd.DataFrame({
-            "symbol": ["AAPL", "AAPL", "MSFT"],
-            "qty": [100, -60, 50],
-        })
+        orders = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "AAPL", "MSFT"],
+                "qty": [100, -60, 50],
+            }
+        )
         result = net_orders(orders)
         assert len(result) == 2  # AAPL net=40, MSFT=50
         aapl_net = result[result["symbol"] == "AAPL"]["qty"].iloc[0]
@@ -324,11 +395,13 @@ class TestOrderNetting:
         must net to 0 for fully offsetting BUY+SELL, not sum to 2× qty."""
         from src.assembled_core.execution.order_generation import net_orders
 
-        orders = pd.DataFrame({
-            "symbol": ["AAPL", "AAPL", "MSFT"],
-            "side": ["BUY", "SELL", "BUY"],
-            "qty": [100, 100, 50],
-        })
+        orders = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "AAPL", "MSFT"],
+                "side": ["BUY", "SELL", "BUY"],
+                "qty": [100, 100, 50],
+            }
+        )
         result = net_orders(orders)
         assert len(result) == 1  # AAPL nets to zero, MSFT survives
         assert result["symbol"].iloc[0] == "MSFT"
@@ -339,11 +412,13 @@ class TestOrderNetting:
         """BUY 100 + SELL 40 → net BUY 60 (not BUY 140)."""
         from src.assembled_core.execution.order_generation import net_orders
 
-        orders = pd.DataFrame({
-            "symbol": ["AAPL", "AAPL"],
-            "side": ["BUY", "SELL"],
-            "qty": [100, 40],
-        })
+        orders = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "AAPL"],
+                "side": ["BUY", "SELL"],
+                "qty": [100, 40],
+            }
+        )
         result = net_orders(orders)
         assert len(result) == 1
         assert result["side"].iloc[0] == "BUY"

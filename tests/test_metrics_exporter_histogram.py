@@ -1,4 +1,5 @@
 """Tests for HistogramSnapshot + slippage_histogram + render_prometheus_text histogram path."""
+
 from __future__ import annotations
 
 import math
@@ -74,6 +75,7 @@ def test_render_prometheus_text_histogram_sum_count_values():
 def test_render_prometheus_text_histogram_invalid_name_skipped(caplog):
     h = slippage_histogram([0])
     import logging
+
     with caplog.at_level(logging.WARNING):
         text = render_prometheus_text(metrics={}, histograms={"123-bad-name": h})
     assert "123-bad-name" not in text

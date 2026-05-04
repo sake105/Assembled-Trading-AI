@@ -5,6 +5,7 @@ From 39_HYPERPARAMETER_GOVERNANCE.md §5.2.
 Validates strategy YAML configs (composite weights, thresholds, risk params).
 Works with or without PyYAML installed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,12 +67,16 @@ class StrategyConfig(BaseModel):
         """Load and validate a strategy config YAML file."""
         try:
             import yaml
+
             with open(path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
         except yaml.YAMLError as exc:
-            raise ValueError(f"[StrategyConfig] Malformed YAML in {path}: {exc}") from exc
+            raise ValueError(
+                f"[StrategyConfig] Malformed YAML in {path}: {exc}"
+            ) from exc
         except ImportError:
             import json as _json
+
             with open(path, encoding="utf-8") as f:
                 data = _json.load(f)
         return cls.model_validate(data)

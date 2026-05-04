@@ -102,7 +102,10 @@ def log_basket_event(
 
         log.debug(
             "[GEO-LOG] appended %d trigger rows at %s → %s (%d total)",
-            len(rows), ts.isoformat(), path, len(combined),
+            len(rows),
+            ts.isoformat(),
+            path,
+            len(combined),
         )
         return True
     except Exception as exc:
@@ -117,10 +120,19 @@ def read_geo_event_log(
     """Read the historical geo-event log. Returns empty DataFrame on any error."""
     try:
         import pandas as pd
+
         _path = Path(path) if path else _DEFAULT_PATH
         if not _path.exists():
-            return pd.DataFrame(columns=["event_date", "trigger_type", "conviction",
-                                         "source_tier", "geo_tags", "n_events"])
+            return pd.DataFrame(
+                columns=[
+                    "event_date",
+                    "trigger_type",
+                    "conviction",
+                    "source_tier",
+                    "geo_tags",
+                    "n_events",
+                ]
+            )
         df = pd.read_parquet(_path)
         if min_conviction > 0.0:
             df = df[df["conviction"] >= min_conviction]
@@ -128,6 +140,7 @@ def read_geo_event_log(
     except Exception as exc:
         log.warning("geo_event_logger read failed: %s", exc)
         import pandas as pd
+
         return pd.DataFrame()
 
 

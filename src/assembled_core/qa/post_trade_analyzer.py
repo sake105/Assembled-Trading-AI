@@ -55,7 +55,9 @@ def compute_forward_returns(
         # Binary search: O(n log n) instead of O(n²) filter per row
         idxs = np.searchsorted(ts_arr, future_arr, side="left")
         valid = idxs < len(close_arr)
-        fwd_closes = np.where(valid, close_arr[np.minimum(idxs, len(close_arr) - 1)], np.nan)
+        fwd_closes = np.where(
+            valid, close_arr[np.minimum(idxs, len(close_arr) - 1)], np.nan
+        )
         fwd_returns = np.where(valid, fwd_closes / close_arr - 1.0, np.nan)
 
         sub = grp[["timestamp", "close"]].copy()
@@ -65,7 +67,9 @@ def compute_forward_returns(
 
     if not chunks:
         return pd.DataFrame(columns=["timestamp", "symbol", "close", "forward_return"])
-    return pd.concat(chunks, ignore_index=True)[["timestamp", "symbol", "close", "forward_return"]]
+    return pd.concat(chunks, ignore_index=True)[
+        ["timestamp", "symbol", "close", "forward_return"]
+    ]
 
 
 def compute_signal_hit_rate(
@@ -130,7 +134,10 @@ def compute_signal_hit_rate(
             closest_pos = int(locs[0])
             if closest_pos == -1:
                 continue
-            if abs((sym_idx[closest_pos] - ts).total_seconds()) > tolerance_days * 86400:
+            if (
+                abs((sym_idx[closest_pos] - ts).total_seconds())
+                > tolerance_days * 86400
+            ):
                 continue
 
             fwd_ret = float(sym_fwd.iloc[closest_pos])
@@ -149,7 +156,9 @@ def compute_signal_hit_rate(
                     "total_trades": total,
                     "hits": hits,
                     "hit_rate": hits / total,
-                    "avg_forward_return": sum(fwd_returns) / len(fwd_returns) if fwd_returns else None,
+                    "avg_forward_return": (
+                        sum(fwd_returns) / len(fwd_returns) if fwd_returns else None
+                    ),
                 }
             )
 
@@ -247,7 +256,10 @@ def analyze_and_learn(
     """
     from pathlib import Path as _Path
 
-    logger.info("[POST-TRADE] analyze_and_learn called with %d trades", len(trades_df) if trades_df is not None else 0)
+    logger.info(
+        "[POST-TRADE] analyze_and_learn called with %d trades",
+        len(trades_df) if trades_df is not None else 0,
+    )
 
     result: dict[str, Any] = {
         "hit_rate_summary": {},
@@ -288,8 +300,10 @@ def analyze_and_learn(
     enriched = trades_df.copy()
 
     # Normalise timestamp column name
-    ts_col = "event_ts" if "event_ts" in enriched.columns else (
-        "timestamp" if "timestamp" in enriched.columns else None
+    ts_col = (
+        "event_ts"
+        if "event_ts" in enriched.columns
+        else ("timestamp" if "timestamp" in enriched.columns else None)
     )
 
     # Attach factor values at entry
@@ -302,7 +316,9 @@ def analyze_and_learn(
             if factor_cols:
                 fp_ts = "timestamp" if "timestamp" in fp.columns else fp.columns[0]
                 fp["_merge_ts"] = pd.to_datetime(fp[fp_ts], errors="coerce")
-                enriched["_merge_ts"] = pd.to_datetime(enriched[ts_col], errors="coerce")
+                enriched["_merge_ts"] = pd.to_datetime(
+                    enriched[ts_col], errors="coerce"
+                )
 
                 # Merge on nearest timestamp + symbol if possible
                 sym_col_fp = "symbol" if "symbol" in fp.columns else None
@@ -311,14 +327,18 @@ def analyze_and_learn(
                 if sym_col_fp and sym_col_tr:
                     merged = pd.merge_asof(
                         enriched.sort_values("_merge_ts"),
-                        fp[["_merge_ts", sym_col_fp] + factor_cols].sort_values("_merge_ts"),
+                        fp[["_merge_ts", sym_col_fp] + factor_cols].sort_values(
+                            "_merge_ts"
+                        ),
                         on="_merge_ts",
                         by=sym_col_fp,
                         direction="backward",
                         tolerance=pd.Timedelta(days=5),
                     )
                     enriched = merged
-                logger.info("[POST-TRADE] factor_panel merged, %d factor cols", len(factor_cols))
+                logger.info(
+                    "[POST-TRADE] factor_panel merged, %d factor cols", len(factor_cols)
+                )
         except Exception as exc:
             logger.warning("[POST-TRADE] factor_panel merge failed: %s", exc)
             factor_cols = []
@@ -329,14 +349,20 @@ def analyze_and_learn(
     if regime_state_df is not None and not regime_state_df.empty and ts_col is not None:
         try:
             rdf = regime_state_df.copy()
-            regime_ts_col = "timestamp" if "timestamp" in rdf.columns else rdf.columns[0]
+            regime_ts_col = (
+                "timestamp" if "timestamp" in rdf.columns else rdf.columns[0]
+            )
             regime_label_col = next(
                 (c for c in rdf.columns if "regime" in c.lower()), None
             )
             if regime_label_col:
                 rdf["_regime_ts"] = pd.to_datetime(rdf[regime_ts_col], errors="coerce")
-                enriched["_regime_ts"] = pd.to_datetime(enriched[ts_col], errors="coerce")
-                rdf_slim = rdf[["_regime_ts", regime_label_col]].sort_values("_regime_ts")
+                enriched["_regime_ts"] = pd.to_datetime(
+                    enriched[ts_col], errors="coerce"
+                )
+                rdf_slim = rdf[["_regime_ts", regime_label_col]].sort_values(
+                    "_regime_ts"
+                )
                 merged_r = pd.merge_asof(
                     enriched.sort_values("_regime_ts"),
                     rdf_slim,
@@ -353,6 +379,7 @@ def analyze_and_learn(
     if factor_cols:
         try:
             from src.assembled_core.qa.learning_store import compute_factor_attribution
+
             attr_df = compute_factor_attribution(enriched, factor_cols)
             result["factor_attribution"] = attr_df.to_dict(orient="records")
         except Exception as exc:
@@ -361,7 +388,11 @@ def analyze_and_learn(
     # --- Step 4: Regime breakdown ---
     try:
         regime_col = next(
-            (c for c in enriched.columns if "regime" in c.lower() and c != "_regime_ts"),
+            (
+                c
+                for c in enriched.columns
+                if "regime" in c.lower() and c != "_regime_ts"
+            ),
             None,
         )
         if regime_col:
@@ -370,7 +401,13 @@ def analyze_and_learn(
                 rbreakdown = (
                     enriched.groupby(regime_col)[pnl_col]
                     .agg(["mean", "count", "sum"])
-                    .rename(columns={"mean": "avg_pnl", "count": "n_trades", "sum": "total_pnl"})
+                    .rename(
+                        columns={
+                            "mean": "avg_pnl",
+                            "count": "n_trades",
+                            "sum": "total_pnl",
+                        }
+                    )
                 )
                 result["regime_breakdown"] = rbreakdown.to_dict(orient="index")
     except Exception as exc:
@@ -416,7 +453,12 @@ def analyze_and_learn(
             DEFAULT_LEARNING_STORE_PATH,
             append_learning_record,
         )
-        store_path = _Path(learning_store_path) if learning_store_path else DEFAULT_LEARNING_STORE_PATH
+
+        store_path = (
+            _Path(learning_store_path)
+            if learning_store_path
+            else DEFAULT_LEARNING_STORE_PATH
+        )
 
         import uuid
         from datetime import date

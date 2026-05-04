@@ -32,7 +32,9 @@ def ensure_dir(p: Path):
 
 
 # --- HTTP (stdlib, ohne requests) ---
-def http_get_json(url: str, headers: dict | None = None, retries: int = 3, backoff: float = 0.8):
+def http_get_json(
+    url: str, headers: dict | None = None, retries: int = 3, backoff: float = 0.8
+):
     h = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"}
     if headers:
         h.update(headers)
@@ -62,7 +64,16 @@ def http_get_text(url: str, headers: dict | None = None):
 
 
 # --- Parquet/CSV helpers ---
-SCHEMA_EQ = ["timestamp", "symbol", "open", "high", "low", "close", "volume", "provider"]
+SCHEMA_EQ = [
+    "timestamp",
+    "symbol",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "provider",
+]
 
 
 def to_parquet(df: pd.DataFrame, out_path: Path):
@@ -73,7 +84,9 @@ def to_parquet(df: pd.DataFrame, out_path: Path):
 # Harmonisierung für OHLC Frames
 
 
-def normalize_ohlc(df: pd.DataFrame, symbol: str, provider: str, tz="UTC") -> pd.DataFrame:
+def normalize_ohlc(
+    df: pd.DataFrame, symbol: str, provider: str, tz="UTC"
+) -> pd.DataFrame:
     cols = {c.lower(): c for c in df.columns}  # noqa: F841
     rename = {}
     for k in ["open", "high", "low", "close", "volume"]:

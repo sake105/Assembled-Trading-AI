@@ -3,6 +3,7 @@
 Parses ACLED CSV/DataFrame exports into structured conflict events
 and aggregates them by country for geo-risk scoring.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,7 +52,11 @@ def aggregate_acled_by_country(events: list[ACLEDEvent]) -> dict[str, dict[str, 
     agg: dict[str, dict[str, Any]] = {}
     for evt in events:
         if evt.country not in agg:
-            agg[evt.country] = {"total_fatalities": 0, "event_count": 0, "trigger_types": set()}
+            agg[evt.country] = {
+                "total_fatalities": 0,
+                "event_count": 0,
+                "trigger_types": set(),
+            }
         agg[evt.country]["total_fatalities"] += evt.fatalities
         agg[evt.country]["event_count"] += 1
         agg[evt.country]["trigger_types"].add(evt.trigger_type)

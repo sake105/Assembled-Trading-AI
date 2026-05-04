@@ -15,7 +15,6 @@ from src.assembled_core.qa.scenario_engine import (
     compare_crisis_scenarios,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -74,7 +73,9 @@ def test_oil_spike_raises_energy():
             & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
             & (shocked["timestamp"] <= pd.Timestamp(SHOCK_END))
         ]["close"].mean()
-        assert new > orig, f"{sym}: expected shock to raise price, got orig={orig:.2f} new={new:.2f}"
+        assert (
+            new > orig
+        ), f"{sym}: expected shock to raise price, got orig={orig:.2f} new={new:.2f}"
 
 
 def test_oil_spike_drags_non_energy():
@@ -103,7 +104,9 @@ def test_oil_spike_drags_non_energy():
             & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
             & (shocked["timestamp"] <= pd.Timestamp(SHOCK_END))
         ]["close"].mean()
-        assert new < orig, f"{sym}: expected drag to lower price, got orig={orig:.2f} new={new:.2f}"
+        assert (
+            new < orig
+        ), f"{sym}: expected drag to lower price, got orig={orig:.2f} new={new:.2f}"
 
 
 def test_oil_spike_custom_affected_symbols():
@@ -124,7 +127,8 @@ def test_oil_spike_custom_affected_symbols():
         (prices["symbol"] == "AAA") & (prices["timestamp"] >= pd.Timestamp(SHOCK_DATE))
     ]["close"].mean()
     new_aaa = shocked[
-        (shocked["symbol"] == "AAA") & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
+        (shocked["symbol"] == "AAA")
+        & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
     ]["close"].mean()
     assert new_aaa > orig_aaa
 
@@ -160,7 +164,9 @@ def test_gold_flight_raises_gold():
             & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
             & (shocked["timestamp"] <= pd.Timestamp(SHOCK_END))
         ]["close"].mean()
-        assert new > orig, f"{sym}: expected gold to rise, got orig={orig:.2f} new={new:.2f}"
+        assert (
+            new > orig
+        ), f"{sym}: expected gold to rise, got orig={orig:.2f} new={new:.2f}"
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +265,12 @@ def test_geopolitical_shock_returns_multiple():
 def test_run_crisis_scenarios_all_types():
     """All four crisis types should run without error."""
     prices = make_prices(["XLE", "GLD", "LMT", "AAPL", "SPY"], n_days=30)
-    for crisis in ["geopolitical_escalation", "energy_shock", "cyber_attack", "financial_stress"]:
+    for crisis in [
+        "geopolitical_escalation",
+        "energy_shock",
+        "cyber_attack",
+        "financial_stress",
+    ]:
         results = run_crisis_scenarios(prices, crisis, SHOCK_DATE)
         assert isinstance(results, dict)
         assert len(results) > 0, f"{crisis} returned empty results"
@@ -298,7 +309,12 @@ def test_compare_crisis_scenarios_shape():
 
     comparison = compare_crisis_scenarios(baseline_equity, shocked_scenarios, prices)
     assert isinstance(comparison, pd.DataFrame)
-    assert set(comparison.columns) == {"scenario_name", "total_return", "max_drawdown", "sharpe"}
+    assert set(comparison.columns) == {
+        "scenario_name",
+        "total_return",
+        "max_drawdown",
+        "sharpe",
+    }
     assert len(comparison) == len(shocked_scenarios)
 
 

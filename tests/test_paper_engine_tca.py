@@ -48,10 +48,22 @@ def test_tca_disabled_writes_nothing(tmp_path: Path) -> None:
     eng = _make_engine(tmp_path, enable_tca=False)
     orders = pd.DataFrame([{"symbol": "AAA", "side": "BUY", "qty": 100.0}])
     fills = pd.DataFrame(
-        [{"symbol": "AAA", "side": "BUY", "qty": 100.0, "fill_qty": 100.0,
-          "fill_price": 100.5, "arrival_price": 100.0, "total_cost_bps": 5.0,
-          "spread_cost_bps": 2.0, "impact_cost_bps": 1.0,
-          "adversarial_cost_bps": 1.0, "sor_cost_bps": 1.0, "status": "filled"}]
+        [
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 100.0,
+                "fill_qty": 100.0,
+                "fill_price": 100.5,
+                "arrival_price": 100.0,
+                "total_cost_bps": 5.0,
+                "spread_cost_bps": 2.0,
+                "impact_cost_bps": 1.0,
+                "adversarial_cost_bps": 1.0,
+                "sor_cost_bps": 1.0,
+                "status": "filled",
+            }
+        ]
     )
     out = eng._write_tca_artifacts("2025-01-15", orders, fills)
     assert out is None
@@ -77,19 +89,31 @@ def test_tca_writes_per_order_and_aggregate(tmp_path: Path) -> None:
     fills = pd.DataFrame(
         [
             {
-                "symbol": "AAA", "side": "BUY", "qty": 100.0, "fill_qty": 100.0,
-                "fill_price": 100.5, "arrival_price": 100.0,
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 100.0,
+                "fill_qty": 100.0,
+                "fill_price": 100.5,
+                "arrival_price": 100.0,
                 "total_cost_bps": 5.0,
-                "spread_cost_bps": 2.0, "impact_cost_bps": 1.0,
-                "adversarial_cost_bps": 1.0, "sor_cost_bps": 1.0,
+                "spread_cost_bps": 2.0,
+                "impact_cost_bps": 1.0,
+                "adversarial_cost_bps": 1.0,
+                "sor_cost_bps": 1.0,
                 "status": "filled",
             },
             {
-                "symbol": "BBB", "side": "SELL", "qty": 50.0, "fill_qty": 50.0,
-                "fill_price": 49.75, "arrival_price": 50.0,
+                "symbol": "BBB",
+                "side": "SELL",
+                "qty": 50.0,
+                "fill_qty": 50.0,
+                "fill_price": 49.75,
+                "arrival_price": 50.0,
                 "total_cost_bps": 5.0,
-                "spread_cost_bps": 2.0, "impact_cost_bps": 1.0,
-                "adversarial_cost_bps": 1.0, "sor_cost_bps": 1.0,
+                "spread_cost_bps": 2.0,
+                "impact_cost_bps": 1.0,
+                "adversarial_cost_bps": 1.0,
+                "sor_cost_bps": 1.0,
                 "status": "filled",
             },
         ]
@@ -128,18 +152,32 @@ def test_tca_partial_fill_and_reject(tmp_path: Path) -> None:
     fills = pd.DataFrame(
         [
             {
-                "symbol": "AAA", "side": "BUY", "qty": 100.0, "fill_qty": 60.0,
-                "fill_price": 100.2, "arrival_price": 100.0,
-                "total_cost_bps": 3.0, "spread_cost_bps": 2.0,
-                "impact_cost_bps": 0.5, "adversarial_cost_bps": 0.3,
-                "sor_cost_bps": 0.2, "status": "partial",
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 100.0,
+                "fill_qty": 60.0,
+                "fill_price": 100.2,
+                "arrival_price": 100.0,
+                "total_cost_bps": 3.0,
+                "spread_cost_bps": 2.0,
+                "impact_cost_bps": 0.5,
+                "adversarial_cost_bps": 0.3,
+                "sor_cost_bps": 0.2,
+                "status": "partial",
             },
             {
-                "symbol": "BBB", "side": "SELL", "qty": 100.0, "fill_qty": 0.0,
-                "fill_price": 0.0, "arrival_price": 50.0,
-                "total_cost_bps": 0.0, "spread_cost_bps": 0.0,
-                "impact_cost_bps": 0.0, "adversarial_cost_bps": 0.0,
-                "sor_cost_bps": 0.0, "status": "rejected",
+                "symbol": "BBB",
+                "side": "SELL",
+                "qty": 100.0,
+                "fill_qty": 0.0,
+                "fill_price": 0.0,
+                "arrival_price": 50.0,
+                "total_cost_bps": 0.0,
+                "spread_cost_bps": 0.0,
+                "impact_cost_bps": 0.0,
+                "adversarial_cost_bps": 0.0,
+                "sor_cost_bps": 0.0,
+                "status": "rejected",
             },
         ]
     )

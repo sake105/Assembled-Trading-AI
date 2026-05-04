@@ -1,4 +1,5 @@
 """Missing trading-day detection. From 37_DATA_QUALITY_GATE.md §3.2."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -19,6 +20,7 @@ def detect_missing_trading_days(
     """
     try:
         import pandas_market_calendars as mcal  # optional dep
+
         _use_mcal = True
     except ImportError:
         _use_mcal = False
@@ -55,11 +57,13 @@ def detect_missing_trading_days(
         missing_frac = len(missing) / max(len(expected_days), 1)
         if missing_frac > max_missing_frac:
             for d in sorted(missing):
-                missing_events.append({
-                    "ticker": ticker,
-                    "missing_date": d,
-                    "reason": "missing_trading_day",
-                    "missing_frac": round(missing_frac, 4),
-                })
+                missing_events.append(
+                    {
+                        "ticker": ticker,
+                        "missing_date": d,
+                        "reason": "missing_trading_day",
+                        "missing_frac": round(missing_frac, 4),
+                    }
+                )
 
     return pd.DataFrame(missing_events)

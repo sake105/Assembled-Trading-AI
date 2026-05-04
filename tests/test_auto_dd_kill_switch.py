@@ -84,9 +84,7 @@ def test_disabled_policy_returns_none() -> None:
 
 def test_falls_back_to_meta_drawdown_when_equity_missing() -> None:
     ctx = _mk_ctx(current=None, peak=None)
-    d = _evaluate_auto_dd_kill_switch(
-        ctx, _mk_result(dd_meta=-0.15), POLICY_DEFAULT
-    )
+    d = _evaluate_auto_dd_kill_switch(ctx, _mk_result(dd_meta=-0.15), POLICY_DEFAULT)
     assert d is not None
     assert d["level"] == "hard"
 

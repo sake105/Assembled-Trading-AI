@@ -53,10 +53,7 @@ def test_loaded_scenario_can_be_applied_to_prices() -> None:
     # Synthetic price series that straddles the covid window
     dates = pd.date_range("2020-01-01", "2020-04-30", freq="D", tz="UTC")
     prices = pd.DataFrame(
-        [
-            {"timestamp": d, "symbol": "SPY", "close": 300.0}
-            for d in dates
-        ]
+        [{"timestamp": d, "symbol": "SPY", "close": 300.0} for d in dates]
     )
 
     shocked = apply_scenario_to_prices(prices, covid)
@@ -97,4 +94,6 @@ def test_dates_are_timezone_aware() -> None:
         if s.shock_start is not None:
             assert isinstance(s.shock_start, datetime)
             assert s.shock_start.tzinfo is not None
-            assert s.shock_start.tzinfo.utcoffset(s.shock_start) == timezone.utc.utcoffset(s.shock_start)
+            assert s.shock_start.tzinfo.utcoffset(
+                s.shock_start
+            ) == timezone.utc.utcoffset(s.shock_start)

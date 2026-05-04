@@ -65,6 +65,7 @@ class FillModel:
         """
         if cost_model is None:
             from src.assembled_core.costs import get_default_cost_model
+
             cost_model = get_default_cost_model()
 
         spread_w = getattr(cost_model, "spread_w", 0.25)
@@ -97,7 +98,9 @@ class FillModel:
 
         # Market impact: Almgren-Chriss square-root model
         participation = quantity / adv if adv > 0 else 0.01
-        impact_cost = self.impact_coefficient * sigma * order_price * math.sqrt(participation)
+        impact_cost = (
+            self.impact_coefficient * sigma * order_price * math.sqrt(participation)
+        )
 
         total_cost = spread_cost + impact_cost
         total_cost_bps = (total_cost / order_price * 10_000) if order_price > 0 else 0.0
@@ -174,7 +177,9 @@ class PaperTradingEngine:
         _positions: Dictionary mapping symbol -> net quantity
     """
 
-    def __init__(self, fill_model: FillModel | None = None, initial_cash: float = 100_000.0) -> None:
+    def __init__(
+        self, fill_model: FillModel | None = None, initial_cash: float = 100_000.0
+    ) -> None:
         """Initialize paper trading engine with empty state.
 
         Args:
@@ -187,8 +192,11 @@ class PaperTradingEngine:
         self._fill_model = fill_model
         self._cash: float = initial_cash
         self._lock = threading.RLock()
-        logger.debug("Paper trading engine initialized (fill_model=%s, cash=%.2f)",
-                      "enabled" if fill_model else "off", initial_cash)
+        logger.debug(
+            "Paper trading engine initialized (fill_model=%s, cash=%.2f)",
+            "enabled" if fill_model else "off",
+            initial_cash,
+        )
 
     def submit_orders(self, orders: list[PaperOrder]) -> list[PaperOrder]:
         """Submit orders for execution.
@@ -234,7 +242,9 @@ class PaperTradingEngine:
                         order.reason = "Insufficient cash"
                         logger.warning(
                             "Order %s rejected: Insufficient cash (need=%.2f, have=%.2f)",
-                            order.order_id, cost, self._cash,
+                            order.order_id,
+                            cost,
+                            self._cash,
                         )
                         filled_orders.append(order)
                         continue
@@ -351,17 +361,22 @@ class PaperTradingEngine:
         )
 
         if algo.upper() == "VWAP":
-            scheduler = VWAPScheduler(n_slices=n_slices, participation_rate=participation_rate)
+            scheduler = VWAPScheduler(
+                n_slices=n_slices, participation_rate=participation_rate
+            )
         else:
             scheduler = TWAPScheduler(n_slices=n_slices)
 
-        slices = scheduler.schedule(total_quantity=total_quantity, reference_price=price or 0.0)
+        slices = scheduler.schedule(
+            total_quantity=total_quantity, reference_price=price or 0.0
+        )
         slice_orders: list[PaperOrder] = []
 
         from src.assembled_core.execution.idempotency import (
             build_client_order_id,
             compute_intent_hash,
         )
+
         # Deterministic base hash for this algo order (symbol+side+qty+type)
         _base_hash = compute_intent_hash(
             symbol=symbol,
@@ -371,7 +386,9 @@ class PaperTradingEngine:
             limit_price=price,
         )
         for i, sl in enumerate(slices):
-            qty = sl.quantity if hasattr(sl, "quantity") else (total_quantity / n_slices)
+            qty = (
+                sl.quantity if hasattr(sl, "quantity") else (total_quantity / n_slices)
+            )
             slice_price = sl.price if hasattr(sl, "price") else price
             # Use slice index as signal_id so each slice gets a unique but deterministic ID
             _client_id = build_client_order_id(
@@ -396,7 +413,12 @@ class PaperTradingEngine:
         filled = self.submit_orders(slice_orders)
         logger.info(
             "ALGO_ORDER: %s %s %s qty=%.0f via %s (%d slices filled)",
-            side, symbol, algo, total_quantity, algo, len(filled),
+            side,
+            symbol,
+            algo,
+            total_quantity,
+            algo,
+            len(filled),
         )
         return filled
 

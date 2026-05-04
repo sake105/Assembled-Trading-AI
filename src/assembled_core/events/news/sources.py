@@ -43,9 +43,7 @@ def load_sources_registry(config_path: str | Path) -> List[NewsSource]:
         # sources" state, which downstream NewsHealth reports as ERROR without
         # anyone seeing *why*. Narrow to the two classes that can realistically
         # surface here and log so operators have a breadcrumb.
-        logger.warning(
-            "[NEWS] Failed to load sources registry from %s: %s", path, exc
-        )
+        logger.warning("[NEWS] Failed to load sources registry from %s: %s", path, exc)
         return []
 
     sources_cfg = data.get("sources") or []

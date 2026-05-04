@@ -57,13 +57,18 @@ def compute_cost_attribution(fills: pd.DataFrame) -> dict:
     Bps are computed as a notional-weighted average so they are comparable
     across symbols.
     """
-    cols = ["symbol", "notional"] + list(_COST_COMPONENTS) + [
-        c.replace("_bps", "_cash") for c in _COST_COMPONENTS
-    ] + ["total_cost_bps", "total_cost_cash", "n_fills"]
+    cols = (
+        ["symbol", "notional"]
+        + list(_COST_COMPONENTS)
+        + [c.replace("_bps", "_cash") for c in _COST_COMPONENTS]
+        + ["total_cost_bps", "total_cost_cash", "n_fills"]
+    )
 
     if fills is None or fills.empty:
-        return {"per_symbol": pd.DataFrame(columns=cols),
-                "total": {"notional": 0.0, "n_fills": 0}}
+        return {
+            "per_symbol": pd.DataFrame(columns=cols),
+            "total": {"notional": 0.0, "n_fills": 0},
+        }
 
     frame = fills.copy()
     frame["notional"] = _per_fill_notional(frame)
@@ -90,17 +95,23 @@ def compute_cost_attribution(fills: pd.DataFrame) -> dict:
             per_symbol[cash_col] / per_symbol["notional"].replace(0, pd.NA) * 10_000.0
         ).fillna(0.0)
     per_symbol["total_cost_bps"] = (
-        per_symbol["total_cost_cash"] / per_symbol["notional"].replace(0, pd.NA)
+        per_symbol["total_cost_cash"]
+        / per_symbol["notional"].replace(0, pd.NA)
         * 10_000.0
     ).fillna(0.0)
     per_symbol["n_fills"] = (
         frame.groupby("symbol")["symbol"].count().reindex(per_symbol["symbol"]).values
     )
 
-    per_symbol = per_symbol.sort_values("symbol", kind="mergesort").reset_index(drop=True)
+    per_symbol = per_symbol.sort_values("symbol", kind="mergesort").reset_index(
+        drop=True
+    )
 
     total_notional = float(per_symbol["notional"].sum())
-    total: dict = {"notional": total_notional, "n_fills": int(per_symbol["n_fills"].sum())}
+    total: dict = {
+        "notional": total_notional,
+        "n_fills": int(per_symbol["n_fills"].sum()),
+    }
     for component in _COST_COMPONENTS:
         cash_col = component.replace("_bps", "_cash")
         total[cash_col] = float(per_symbol[cash_col].sum())
@@ -110,7 +121,8 @@ def compute_cost_attribution(fills: pd.DataFrame) -> dict:
     total["total_cost_cash"] = float(per_symbol["total_cost_cash"].sum())
     total["total_cost_bps"] = (
         total["total_cost_cash"] / total_notional * 10_000.0
-        if total_notional > 0 else 0.0
+        if total_notional > 0
+        else 0.0
     )
 
     return {"per_symbol": per_symbol, "total": total}
@@ -146,6 +158,7 @@ def compute_regime_attribution(
             continue
     if n_skipped > 0:
         import logging
+
         log = logging.getLogger(__name__)
         if not regime_map:
             # Every entry malformed → downstream maps every fill to
@@ -162,7 +175,8 @@ def compute_regime_attribution(
             log.warning(
                 "[Attribution] %d regime_history entries dropped due to "
                 "schema errors (%d parsed cleanly)",
-                n_skipped, len(regime_map),
+                n_skipped,
+                len(regime_map),
             )
 
     frame = fills.copy()
@@ -173,11 +187,10 @@ def compute_regime_attribution(
         _safe_col(frame, "total_cost_bps") / 10_000.0 * frame["notional"]
     )
 
-    agg = (
-        frame.groupby("regime", as_index=False)
-        .agg(notional=("notional", "sum"),
-             n_fills=("regime", "count"),
-             total_cost_cash=("total_cost_cash", "sum"))
+    agg = frame.groupby("regime", as_index=False).agg(
+        notional=("notional", "sum"),
+        n_fills=("regime", "count"),
+        total_cost_cash=("total_cost_cash", "sum"),
     )
     agg["total_cost_bps"] = (
         agg["total_cost_cash"] / agg["notional"].replace(0, pd.NA) * 10_000.0
@@ -204,11 +217,10 @@ def compute_factor_attribution(
     frame["total_cost_cash"] = (
         _safe_col(frame, "total_cost_bps") / 10_000.0 * frame["notional"]
     )
-    agg = (
-        frame.groupby("factor", as_index=False)
-        .agg(notional=("notional", "sum"),
-             n_fills=("factor", "count"),
-             total_cost_cash=("total_cost_cash", "sum"))
+    agg = frame.groupby("factor", as_index=False).agg(
+        notional=("notional", "sum"),
+        n_fills=("factor", "count"),
+        total_cost_cash=("total_cost_cash", "sum"),
     )
     agg["total_cost_bps"] = (
         agg["total_cost_cash"] / agg["notional"].replace(0, pd.NA) * 10_000.0
@@ -225,7 +237,13 @@ def compute_event_signal_attribution(
     Buckets are free-form strings like ``"news_geo_conflict"`` or ``"disclosure_form4"``.
     Missing column → empty frame; callers should treat that as unavailable.
     """
-    cols = ["event_signal_bucket", "notional", "n_fills", "total_cost_cash", "total_cost_bps"]
+    cols = [
+        "event_signal_bucket",
+        "notional",
+        "n_fills",
+        "total_cost_cash",
+        "total_cost_bps",
+    ]
     if fills is None or fills.empty or bucket_column not in fills.columns:
         return pd.DataFrame(columns=cols)
 
@@ -235,16 +253,17 @@ def compute_event_signal_attribution(
     frame["total_cost_cash"] = (
         _safe_col(frame, "total_cost_bps") / 10_000.0 * frame["notional"]
     )
-    agg = (
-        frame.groupby("event_signal_bucket", as_index=False)
-        .agg(notional=("notional", "sum"),
-             n_fills=("event_signal_bucket", "count"),
-             total_cost_cash=("total_cost_cash", "sum"))
+    agg = frame.groupby("event_signal_bucket", as_index=False).agg(
+        notional=("notional", "sum"),
+        n_fills=("event_signal_bucket", "count"),
+        total_cost_cash=("total_cost_cash", "sum"),
     )
     agg["total_cost_bps"] = (
         agg["total_cost_cash"] / agg["notional"].replace(0, pd.NA) * 10_000.0
     ).fillna(0.0)
-    return agg.sort_values("event_signal_bucket", kind="mergesort").reset_index(drop=True)
+    return agg.sort_values("event_signal_bucket", kind="mergesort").reset_index(
+        drop=True
+    )
 
 
 __all__ = [

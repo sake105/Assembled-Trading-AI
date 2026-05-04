@@ -10,7 +10,6 @@ from src.assembled_core.risk.turnover_budget import (
     estimate_turnover,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

@@ -43,9 +43,9 @@ def test_snapshot_is_single_line(tmp_path: Path) -> None:
         shadow_root=tmp_path,
     )
     raw = path.read_text(encoding="utf-8")
-    assert raw.count("\n") <= 1, (
-        "Shadow snapshots must be single-line to keep per-cycle writes cheap"
-    )
+    assert (
+        raw.count("\n") <= 1
+    ), "Shadow snapshots must be single-line to keep per-cycle writes cheap"
 
 
 def test_run_id_suffix_disambiguates(tmp_path: Path) -> None:

@@ -151,9 +151,16 @@ def parse_eod_args() -> argparse.Namespace:
     # Validate arguments
     if args.start_capital is not None and args.start_capital <= 0:
         p.error(f"--start-capital must be positive, got {args.start_capital}")
-    if args.start_date and args.end_date and args.start_date != "today" and args.end_date != "today":
+    if (
+        args.start_date
+        and args.end_date
+        and args.start_date != "today"
+        and args.end_date != "today"
+    ):
         if args.start_date > args.end_date:
-            p.error(f"--start-date ({args.start_date}) must be <= --end-date ({args.end_date})")
+            p.error(
+                f"--start-date ({args.start_date}) must be <= --end-date ({args.end_date})"
+            )
     if args.commission_bps is not None and args.commission_bps < 0:
         p.error(f"--commission-bps must be non-negative, got {args.commission_bps}")
     if args.spread_w is not None and args.spread_w < 0:
@@ -271,7 +278,9 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
         # A step that swallowed its exception and forgot to flip the flag would
         # produce a green EOD cron with silently broken accounting. Raising
         # here makes the failure visible to every caller (CLI, CI, imports).
-        failed_steps = manifest.get("failed_steps") or manifest.get("failure_reason") or "unknown"
+        failed_steps = (
+            manifest.get("failed_steps") or manifest.get("failure_reason") or "unknown"
+        )
         logger.error("Some pipeline steps failed: %s", failed_steps)
         raise RuntimeError(f"EOD pipeline failed: {failed_steps}")
 

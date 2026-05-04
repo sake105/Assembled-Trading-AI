@@ -69,32 +69,42 @@ def compute_signals_by_mode(
             from src.assembled_core.strategies.multifactor_v2 import (
                 compute_signals as mf_compute_signals,
             )
+
             signals = mf_compute_signals(prices)
             logger.info("[EOD] Signal mode: multifactor_v2 (%d signals)", len(signals))
         except Exception as exc:
             logger.error(
                 "[EOD] multifactor signal generation failed, falling back to EMA: %s",
-                exc, exc_info=True,
+                exc,
+                exc_info=True,
             )
             ema_config = get_default_ema_config(freq)
             signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
     elif signal_mode == "ml_enhanced":
-        logger.info("[EOD] Signal mode: ml_enhanced (not yet trained, using multifactor)")
+        logger.info(
+            "[EOD] Signal mode: ml_enhanced (not yet trained, using multifactor)"
+        )
         try:
             from src.assembled_core.strategies.multifactor_v2 import (
                 compute_signals as mf_compute_signals,
             )
+
             signals = mf_compute_signals(prices)
         except Exception as exc:
             logger.error(
                 "[EOD] ml_enhanced → multifactor fallback failed: %s",
-                exc, exc_info=True,
+                exc,
+                exc_info=True,
             )
             ema_config = get_default_ema_config(freq)
             signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
     else:
         ema_config = get_default_ema_config(freq)
         signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
-        logger.info("[EOD] Signal mode: ema (fast=%d, slow=%d)", ema_config.fast, ema_config.slow)
+        logger.info(
+            "[EOD] Signal mode: ema (fast=%d, slow=%d)",
+            ema_config.fast,
+            ema_config.slow,
+        )
 
     return signals

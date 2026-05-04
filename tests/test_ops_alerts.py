@@ -10,7 +10,6 @@ import pytest
 
 from src.assembled_core.ops.alerts import compute_alerts, write_alerts_artifact
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 # Default config with alerts enabled

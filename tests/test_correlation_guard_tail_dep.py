@@ -19,8 +19,9 @@ from src.assembled_core.risk.correlation_guard import apply_correlation_guard
 scipy = pytest.importorskip("scipy")
 
 
-def _build_prices(symbols: list[str], n_bars: int = 120, seed: int = 11,
-                  tight: bool = True) -> pd.DataFrame:
+def _build_prices(
+    symbols: list[str], n_bars: int = 120, seed: int = 11, tight: bool = True
+) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     base = pd.Timestamp("2025-01-01", tz="UTC")
     rows = []
@@ -32,15 +33,25 @@ def _build_prices(symbols: list[str], n_bars: int = 120, seed: int = 11,
             rets = driver + idio
             px = 100.0 * np.cumprod(1.0 + rets)
             for b in range(n_bars):
-                rows.append({"timestamp": base + pd.Timedelta(days=b),
-                             "symbol": sym, "close": float(px[b])})
+                rows.append(
+                    {
+                        "timestamp": base + pd.Timedelta(days=b),
+                        "symbol": sym,
+                        "close": float(px[b]),
+                    }
+                )
     else:
         for sym in symbols:
             rets = rng.normal(0, 0.01, size=n_bars)
             px = 100.0 * np.cumprod(1.0 + rets)
             for b in range(n_bars):
-                rows.append({"timestamp": base + pd.Timedelta(days=b),
-                             "symbol": sym, "close": float(px[b])})
+                rows.append(
+                    {
+                        "timestamp": base + pd.Timedelta(days=b),
+                        "symbol": sym,
+                        "close": float(px[b]),
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -48,8 +59,14 @@ def test_tail_dep_disabled_by_default() -> None:
     syms = ["AAA", "BBB", "CCC"]
     prices = _build_prices(syms, tight=True)
     weights = {s: 0.33 for s in syms}
-    policy = {"correlation_guard": {"enabled": True, "threshold": 0.70,
-                                    "max_cluster_weight": 0.4, "lookback_days": 60}}
+    policy = {
+        "correlation_guard": {
+            "enabled": True,
+            "threshold": 0.70,
+            "max_cluster_weight": 0.4,
+            "lookback_days": 60,
+        }
+    }
     adjusted, reasons = apply_correlation_guard(weights, prices, policy)
     # No tail_dependence block → reasons should not mention tail_dep
     assert not any("tail_dep" in r for r in reasons)
@@ -113,7 +130,11 @@ def test_tail_dep_respects_disabled_guard() -> None:
     policy = {
         "correlation_guard": {
             "enabled": False,
-            "tail_dependence": {"enabled": True, "trigger": 0.0, "tightening_factor": 2.0},
+            "tail_dependence": {
+                "enabled": True,
+                "trigger": 0.0,
+                "tightening_factor": 2.0,
+            },
         }
     }
     adjusted, reasons = apply_correlation_guard(weights, prices, policy)

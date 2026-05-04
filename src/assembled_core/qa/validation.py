@@ -478,6 +478,7 @@ def run_full_model_validation(
 # 9.7  Backtest Realism Score (0-100)
 # ---------------------------------------------------------------------------
 
+
 def compute_backtest_realism_score(
     has_transaction_costs: bool = False,
     has_slippage: bool = False,
@@ -524,7 +525,9 @@ def compute_backtest_realism_score(
     return {
         "score": score,
         "max_score": 100,
-        "grade": "A" if score >= 80 else "B" if score >= 60 else "C" if score >= 40 else "D",
+        "grade": (
+            "A" if score >= 80 else "B" if score >= 60 else "C" if score >= 40 else "D"
+        ),
         "passed": passed,
         "missing": missing,
     }

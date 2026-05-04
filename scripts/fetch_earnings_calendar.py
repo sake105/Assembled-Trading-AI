@@ -33,8 +33,18 @@ def _load_universe(path: Path) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Refresh earnings calendar cache")
-    parser.add_argument("--universe", type=Path, default=None, help="Path to universe file (one symbol per line)")
-    parser.add_argument("--symbols", type=str, default=None, help="Comma-separated symbols (alternative to --universe)")
+    parser.add_argument(
+        "--universe",
+        type=Path,
+        default=None,
+        help="Path to universe file (one symbol per line)",
+    )
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        default=None,
+        help="Comma-separated symbols (alternative to --universe)",
+    )
     parser.add_argument("--days-ahead", type=int, default=90)
     parser.add_argument(
         "--output",
@@ -47,14 +57,18 @@ def main(argv: list[str] | None = None) -> int:
     log = logging.getLogger("fetch_earnings")
 
     if args.symbols:
-        symbols = sorted({s.strip().upper() for s in args.symbols.split(",") if s.strip()})
+        symbols = sorted(
+            {s.strip().upper() for s in args.symbols.split(",") if s.strip()}
+        )
     elif args.universe and args.universe.exists():
         symbols = _load_universe(args.universe)
     else:
         log.error("Must provide --symbols or --universe")
         return 2
 
-    log.info("Fetching earnings for %d symbols, days_ahead=%d", len(symbols), args.days_ahead)
+    log.info(
+        "Fetching earnings for %d symbols, days_ahead=%d", len(symbols), args.days_ahead
+    )
 
     from src.assembled_core.data.sources.earnings_calendar_source import (
         EarningsCalendarSource,

@@ -6,6 +6,7 @@ Free intraday via yfinance (keine API Keys). Writes one Parquet per symbol.
 Usage:
   python pull_alpha_intraday.py --symbols "AAPL,MSFT" --interval 5m --days 5 --out data/raw/intraday/alphavantage/5min
 """
+
 from __future__ import annotations
 
 import argparse

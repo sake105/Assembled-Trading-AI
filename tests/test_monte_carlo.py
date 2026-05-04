@@ -97,7 +97,11 @@ class TestForwardSimulateGBM:
         result = forward_simulate_gbm(
             sample_returns, n_paths=100, horizon_days=100, seed=42
         )
-        assert result.ci_lower_terminal <= result.median_terminal <= result.ci_upper_terminal
+        assert (
+            result.ci_lower_terminal
+            <= result.median_terminal
+            <= result.ci_upper_terminal
+        )
 
     def test_negative_drift_mostly_losses(self, negative_returns: np.ndarray) -> None:
         result = forward_simulate_gbm(

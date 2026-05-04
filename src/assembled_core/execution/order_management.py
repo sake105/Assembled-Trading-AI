@@ -7,6 +7,7 @@ and the execution cost model for backtest-vs-live parity.
 Async broker helpers (ExitManager.check_exits, eod_reconciliation) are
 stubs that require a live broker client to function.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Idempotent submit wrapper
 # ---------------------------------------------------------------------------
+
 
 def submit_with_idempotency(client: Any, intent: Any) -> Tuple[str, Any, Optional[str]]:
     """Submit an order via alpaca client, handling duplicate client_order_id gracefully.
@@ -68,13 +70,16 @@ def submit_with_idempotency(client: Any, intent: Any) -> Tuple[str, Any, Optiona
         elif "pattern day trading" in msg or "403" in msg:
             return ("rejected", None, "pdt_protection")
         else:
-            logger.error("submit_order failed for %s: %s", getattr(intent, "symbol", "?"), e)
+            logger.error(
+                "submit_order failed for %s: %s", getattr(intent, "symbol", "?"), e
+            )
             return ("error", None, str(e))
 
 
 # ---------------------------------------------------------------------------
 # Partial-fill policy
 # ---------------------------------------------------------------------------
+
 
 class PartialFillPolicy:
     """Policy constants for handling partial fills.
@@ -143,6 +148,7 @@ def position_reconcile_before_signal(
 # ---------------------------------------------------------------------------
 # Execution cost model (backtest use)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class BarSnapshot:
@@ -240,6 +246,7 @@ def handle_rejection(reason: str, symbol: str) -> dict:
 # Wash-sale precheck helper (33.4)
 # ---------------------------------------------------------------------------
 
+
 def has_recent_loss_close(
     symbol: str,
     closed_positions: list[dict],
@@ -263,8 +270,13 @@ def has_recent_loss_close(
     """
     if reference_date is None:
         reference_date = datetime.now(timezone.utc)
-    cutoff = reference_date.replace(tzinfo=timezone.utc) if reference_date.tzinfo is None else reference_date
+    cutoff = (
+        reference_date.replace(tzinfo=timezone.utc)
+        if reference_date.tzinfo is None
+        else reference_date
+    )
     from datetime import timedelta
+
     cutoff = reference_date - timedelta(days=days)
 
     for row in closed_positions:
@@ -285,9 +297,9 @@ def has_recent_loss_close(
 # ---------------------------------------------------------------------------
 
 RECONCILE_SCHEDULE: dict[str, int] = {
-    "fast": 30,       # seconds — during trading hours
-    "normal": 300,    # 5 min — trading hours, idle
-    "slow": 3600,     # 1 hour — outside trading hours
+    "fast": 30,  # seconds — during trading hours
+    "normal": 300,  # 5 min — trading hours, idle
+    "slow": 3600,  # 1 hour — outside trading hours
 }
 
 
@@ -317,12 +329,14 @@ def reconcile_positions(
         b_qty = broker_map.get(sym, 0.0)
         i_qty = internal_map.get(sym, 0.0)
         if abs(b_qty - i_qty) > 1e-6:
-            drifts.append({
-                "symbol": sym,
-                "broker_qty": b_qty,
-                "internal_qty": i_qty,
-                "delta": b_qty - i_qty,
-            })
+            drifts.append(
+                {
+                    "symbol": sym,
+                    "broker_qty": b_qty,
+                    "internal_qty": i_qty,
+                    "delta": b_qty - i_qty,
+                }
+            )
     if drifts:
         logger.warning("Position drift detected: %d symbols", len(drifts))
     return drifts
@@ -346,15 +360,24 @@ def reconcile_cash(
     """
     delta = broker_cash - internal_cash
     if abs(delta) > tolerance_usd:
-        logger.warning("Cash drift detected: broker=%.2f internal=%.2f delta=%.2f",
-                       broker_cash, internal_cash, delta)
-        return {"broker_cash": broker_cash, "internal_cash": internal_cash, "delta": delta}
+        logger.warning(
+            "Cash drift detected: broker=%.2f internal=%.2f delta=%.2f",
+            broker_cash,
+            internal_cash,
+            delta,
+        )
+        return {
+            "broker_cash": broker_cash,
+            "internal_cash": internal_cash,
+            "delta": delta,
+        }
     return None
 
 
 # ---------------------------------------------------------------------------
 # ExitManager (33.11 — Stop/PT/Vertical-Barrier exit logic)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PositionRecord:
@@ -421,10 +444,16 @@ class ExitManager:
                 continue
 
             if p.max_holding_days is not None and p.opened_at is not None:
-                opened = p.opened_at if p.opened_at.tzinfo else p.opened_at.replace(tzinfo=timezone.utc)
+                opened = (
+                    p.opened_at
+                    if p.opened_at.tzinfo
+                    else p.opened_at.replace(tzinfo=timezone.utc)
+                )
                 days_held = (reference_dt - opened).days
                 if days_held >= p.max_holding_days:
-                    signals.append(ExitSignal(p.symbol, "vertical_barrier", price, p.side))
+                    signals.append(
+                        ExitSignal(p.symbol, "vertical_barrier", price, p.side)
+                    )
 
         return signals
 
@@ -444,6 +473,7 @@ class ExitManager:
 # ---------------------------------------------------------------------------
 # OrderStatusStream stub (33.9 — WS + polling architecture description)
 # ---------------------------------------------------------------------------
+
 
 class OrderStatusStream:
     """Order status stream stub — architecture from 33.9.
@@ -480,7 +510,9 @@ class OrderStatusStream:
         order = event.get("order", {})
         symbol = order.get("symbol", "?")
         status = order.get("status", "")
-        logger.debug("OrderStatusStream.apply_event: %s %s %s", event_type, symbol, status)
+        logger.debug(
+            "OrderStatusStream.apply_event: %s %s %s", event_type, symbol, status
+        )
         known = {"fill", "partial_fill", "canceled", "expired", "replaced", "rejected"}
         return event_type if event_type in known else None
 

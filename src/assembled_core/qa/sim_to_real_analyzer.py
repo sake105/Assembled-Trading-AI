@@ -3,6 +3,7 @@
 Quantifies the gap between backtest (modeled) and paper-live (real broker).
 Compares: slippage, fill rate, Sharpe, daily P&L variance.
 """
+
 from __future__ import annotations
 
 import json
@@ -65,7 +66,11 @@ def analyze_sim_to_real_gap(
 
     logger.info(
         "[sim_to_real] Sharpe: bt=%.2f pa=%.2f drop=%.2f | slip gap=%.1f bps | %s",
-        bt_sharpe, pa_sharpe, sharpe_drop, slip_gap_bps, classification,
+        bt_sharpe,
+        pa_sharpe,
+        sharpe_drop,
+        slip_gap_bps,
+        classification,
     )
     return result
 

@@ -91,7 +91,9 @@ class HealthMonitor:
             result[name] = {
                 "component_name": name,
                 "status": health.status,
-                "last_updated": health.last_updated.isoformat() if health.last_updated else None,
+                "last_updated": (
+                    health.last_updated.isoformat() if health.last_updated else None
+                ),
                 "stale_threshold_minutes": health.stale_threshold_minutes,
                 "is_stale": stale,
             }
@@ -106,10 +108,7 @@ class HealthMonitor:
             now = datetime.now(tz=timezone.utc)
         if not self._components:
             return False  # No components registered → not safe to proceed
-        return all(
-            not health.is_stale(now)
-            for health in self._components.values()
-        )
+        return all(not health.is_stale(now) for health in self._components.values())
 
     def can_go_active(self, now: datetime | None = None) -> bool:
         """
@@ -168,10 +167,14 @@ class HealthMonitor:
                 "source_id": stats.source_id,
                 "total_events": stats.total_events,
                 "events_last_24h": stats.events_last_24h,
-                "last_event_time": stats.last_event_time.isoformat() if stats.last_event_time else None,
+                "last_event_time": (
+                    stats.last_event_time.isoformat() if stats.last_event_time else None
+                ),
                 "error_count": stats.error_count,
                 "avg_severity": round(stats.avg_severity, 3),
-                "last_fetch_time": stats.last_fetch_time.isoformat() if stats.last_fetch_time else None,
+                "last_fetch_time": (
+                    stats.last_fetch_time.isoformat() if stats.last_fetch_time else None
+                ),
             }
         return result
 
@@ -237,7 +240,7 @@ class SourceUptimeTracker:
         if latency_ms is not None:
             s["latency_history"].append(latency_ms)
             if len(s["latency_history"]) > self._window:
-                s["latency_history"] = s["latency_history"][-self._window:]
+                s["latency_history"] = s["latency_history"][-self._window :]
         if queue_depth is not None:
             s["queue_depth"] = queue_depth
         if success:

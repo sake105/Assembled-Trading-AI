@@ -38,9 +38,15 @@ def compute_basic_features(data: pd.DataFrame) -> dict[str, float]:
     returns = close.pct_change(fill_method=None).dropna()
     features: dict[str, float] = {
         "ret_1d": float(returns.iloc[-1]) if len(returns) > 0 else 0.0,
-        "ret_5d": float(close.iloc[-1] / close.iloc[-5] - 1) if len(close) >= 5 else 0.0,
-        "ret_20d": float(close.iloc[-1] / close.iloc[-20] - 1) if len(close) >= 20 else 0.0,
-        "vol_20d": float(returns.tail(20).std() * (252 ** 0.5)) if len(returns) >= 20 else 0.0,
+        "ret_5d": (
+            float(close.iloc[-1] / close.iloc[-5] - 1) if len(close) >= 5 else 0.0
+        ),
+        "ret_20d": (
+            float(close.iloc[-1] / close.iloc[-20] - 1) if len(close) >= 20 else 0.0
+        ),
+        "vol_20d": (
+            float(returns.tail(20).std() * (252**0.5)) if len(returns) >= 20 else 0.0
+        ),
         "price": float(close.iloc[-1]),
     }
 
@@ -101,6 +107,7 @@ async def on_demand_analysis(
             cached = await redis_client.get(cache_key)
             if cached:
                 import json
+
                 return json.loads(cached)
         except Exception as _exc:
             logger.debug("[tier_processor] Redis cache GET failed: %s", _exc)
@@ -108,6 +115,7 @@ async def on_demand_analysis(
     # Fetch data
     try:
         import yfinance as yf
+
         data = await asyncio.get_running_loop().run_in_executor(
             None,
             lambda: yf.Ticker(ticker).history(period=f"{lookback_days}d"),
@@ -132,6 +140,7 @@ async def on_demand_analysis(
     if redis_client is not None:
         try:
             import json
+
             await redis_client.setex(cache_key, ttl_seconds, json.dumps(result))
         except Exception as _exc:
             logger.debug("[tier_processor] Redis cache SET failed: %s", _exc)
@@ -184,7 +193,9 @@ class TierProcessor:
             async with self._tier1_sem:
                 if asyncio.iscoroutinefunction(fn):
                     return await fn(ticker)
-                return await asyncio.get_running_loop().run_in_executor(None, fn, ticker)
+                return await asyncio.get_running_loop().run_in_executor(
+                    None, fn, ticker
+                )
 
         return await asyncio.gather(*[_bounded(t) for t in tickers])
 
@@ -200,7 +211,9 @@ class TierProcessor:
             async with self._tier2_sem:
                 if asyncio.iscoroutinefunction(fn):
                     return await fn(ticker)
-                return await asyncio.get_running_loop().run_in_executor(None, fn, ticker)
+                return await asyncio.get_running_loop().run_in_executor(
+                    None, fn, ticker
+                )
 
         return await asyncio.gather(*[_bounded(t) for t in tickers])
 
@@ -224,7 +237,7 @@ class TierProcessor:
         3 requests for 585 Tier-1 tickers = 1.5% of 200 req/min limit.
         """
         n = self._alpaca_batch
-        return [tickers[i: i + n] for i in range(0, len(tickers), n)]
+        return [tickers[i : i + n] for i in range(0, len(tickers), n)]
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +269,7 @@ def should_trigger_on_demand(
         return True
     if news_velocity > 3.0:  # >3 articles/hour
         return True
-    if volume_ratio > 3.0:   # >3× average volume
+    if volume_ratio > 3.0:  # >3× average volume
         return True
     if abs(gap_pct) > 0.03:  # >3% gap open
         return True

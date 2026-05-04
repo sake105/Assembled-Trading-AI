@@ -225,7 +225,10 @@ def _update_positions_vectorized(
                 return updated_positions
         except (ImportError, AttributeError) as exc:
             # Fall through to pandas implementation
-            logger.warning("[BacktestEngine] numba fill simulation failed, falling back to pandas: %s", exc)
+            logger.warning(
+                "[BacktestEngine] numba fill simulation failed, falling back to pandas: %s",
+                exc,
+            )
 
     # Pure pandas implementation (fallback or if use_numba=False)
     # Use vectorized numpy operations instead of apply
@@ -504,7 +507,9 @@ def _pb_compute_features(
     has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
 
     if use_factor_store:
-        logger.info("Using factor store: group=%s, root=%s", factor_group, factor_store_root)
+        logger.info(
+            "Using factor store: group=%s, root=%s", factor_group, factor_store_root
+        )
         universe_symbols = sorted(prices["symbol"].unique().tolist())
         universe_key = compute_universe_key(symbols=universe_symbols)
         start_date = prices["timestamp"].min()
@@ -542,7 +547,9 @@ def _pb_compute_features(
             include_rsi=config.get("include_rsi", True),
         )
     prices_wf = add_log_returns(prices.copy())
-    return add_moving_averages(prices_wf, windows=config.get("ma_windows", (20, 50, 200)))
+    return add_moving_averages(
+        prices_wf, windows=config.get("ma_windows", (20, 50, 200))
+    )
 
 
 def _pb_generate_signals(
@@ -581,22 +588,31 @@ def _pb_generate_signals(
     if _mm is None and meta_model_path is not None:
         try:
             from src.assembled_core.signals.meta_model import load_meta_model
+
             _mm = load_meta_model(meta_model_path)
             logger.info("Loaded meta-model from %s", meta_model_path)
         except Exception as e:
             raise ValueError(f"Failed to load meta-model: {e}") from e
     if _mm is None:
-        raise ValueError("use_meta_model=True but no meta_model or meta_model_path provided")
+        raise ValueError(
+            "use_meta_model=True but no meta_model or meta_model_path provided"
+        )
 
     feature_cols = _mm.feature_names
     available_features = [f for f in feature_cols if f in prices_with_features.columns]
-    missing_features = [f for f in feature_cols if f not in prices_with_features.columns]
+    missing_features = [
+        f for f in feature_cols if f not in prices_with_features.columns
+    ]
 
     if missing_features:
         logger.warning(
-            "Missing %d features for meta-model: %s...", len(missing_features), missing_features[:5]
+            "Missing %d features for meta-model: %s...",
+            len(missing_features),
+            missing_features[:5],
         )
-        logger.warning("Meta-model ensemble may not work correctly. Continuing anyway...")
+        logger.warning(
+            "Meta-model ensemble may not work correctly. Continuing anyway..."
+        )
 
     if not available_features:
         logger.error("No features available for meta-model. Disabling ensemble.")
@@ -608,7 +624,9 @@ def _pb_generate_signals(
         how="inner",
     )
     if signals_with_features.empty:
-        logger.warning("No signals matched with features. Disabling meta-model ensemble.")
+        logger.warning(
+            "No signals matched with features. Disabling meta-model ensemble."
+        )
         return signals
 
     features_subset = signals_with_features[available_features].copy()
@@ -627,14 +645,21 @@ def _pb_generate_signals(
 
     if meta_ensemble_mode == "filter":
         signals_with_features = apply_meta_filter(
-            signals=signals_with_features, meta_model=_mm, features=features_subset,
-            min_confidence=meta_min_confidence, join_keys=["timestamp", "symbol"],
+            signals=signals_with_features,
+            meta_model=_mm,
+            features=features_subset,
+            min_confidence=meta_min_confidence,
+            join_keys=["timestamp", "symbol"],
         )
     elif meta_ensemble_mode == "scaling":
         signals_with_features = apply_meta_scaling(
-            signals=signals_with_features, meta_model=_mm, features=features_subset,
-            min_confidence=meta_min_confidence, max_scaling=1.0,
-            join_keys=["timestamp", "symbol"], scale_score=True,
+            signals=signals_with_features,
+            meta_model=_mm,
+            features=features_subset,
+            min_confidence=meta_min_confidence,
+            max_scaling=1.0,
+            join_keys=["timestamp", "symbol"],
+            scale_score=True,
         )
     else:
         raise ValueError(
@@ -645,8 +670,10 @@ def _pb_generate_signals(
     if "final_score" in signals_with_features.columns:
         meta_cols.append("final_score")
     signals = signals.merge(
-        signals_with_features[meta_cols], on=["timestamp", "symbol"],
-        how="left", suffixes=("", "_meta"),
+        signals_with_features[meta_cols],
+        on=["timestamp", "symbol"],
+        how="left",
+        suffixes=("", "_meta"),
     )
     if "direction_meta" in signals.columns:
         signals["direction"] = signals["direction_meta"].fillna(signals["direction"])
@@ -661,10 +688,16 @@ def _pb_generate_signals(
     filtered_long_count = (signals_with_features["direction"] == "LONG").sum()
     dropped_count = original_long_count - filtered_long_count
     logger.info("Meta-model ensemble applied:")
-    logger.info("  Original signals: %d (LONG: %d)", original_signal_count, original_long_count)
-    logger.info("  After filtering: %d (LONG: %d)", filtered_signal_count, filtered_long_count)
+    logger.info(
+        "  Original signals: %d (LONG: %d)", original_signal_count, original_long_count
+    )
+    logger.info(
+        "  After filtering: %d (LONG: %d)", filtered_signal_count, filtered_long_count
+    )
     logger.info("  Dropped signals: %d", dropped_count)
-    logger.info("  Mode: %s, Min confidence: %s", meta_ensemble_mode, meta_min_confidence)
+    logger.info(
+        "  Mode: %s, Min confidence: %s", meta_ensemble_mode, meta_min_confidence
+    )
     return signals
 
 
@@ -690,7 +723,9 @@ def _pb_run_cycle_fn_loop(
     cash = start_capital
     profit_lock_state: dict[str, Any] | None = None
     current_positions = pd.DataFrame(columns=["symbol", "qty"])
-    _px_cache: dict[str, float] = {}  # last-known price per symbol (prevents fillna(0) gaps)
+    _px_cache: dict[str, float] = (
+        {}
+    )  # last-known price per symbol (prevents fillna(0) gaps)
 
     for timestamp in timeline:
         if timestamp not in rebalance_timestamps_set:
@@ -711,7 +746,8 @@ def _pb_run_cycle_fn_loop(
         if cycle_result.status != "success":
             logger.warning(
                 "Trading cycle failed for timestamp %s: %s",
-                timestamp, cycle_result.error_message,
+                timestamp,
+                cycle_result.error_message,
             )
             continue
 
@@ -723,7 +759,11 @@ def _pb_run_cycle_fn_loop(
 
         if not orders.empty:
             _sign = np.where(orders["side"] == "BUY", -1.0, 1.0)
-            cash += float((orders["qty"].fillna(0).abs() * orders["price"].fillna(0) * _sign).sum())
+            cash += float(
+                (
+                    orders["qty"].fillna(0).abs() * orders["price"].fillna(0) * _sign
+                ).sum()
+            )
 
         if not orders.empty:
             with timed_step(f"position_update_{timestamp}", timings, logger):
@@ -741,7 +781,9 @@ def _pb_run_cycle_fn_loop(
             _px_cache.update(prices_at_ts.set_index("symbol")["close"].to_dict())
         if not current_positions.empty:
             qty_series = current_positions.set_index("symbol")["qty"]
-            filled_px = pd.Series({sym: _px_cache.get(sym, 0.0) for sym in qty_series.index})
+            filled_px = pd.Series(
+                {sym: _px_cache.get(sym, 0.0) for sym in qty_series.index}
+            )
             mtm = float((qty_series * filled_px).sum())
         else:
             mtm = 0.0
@@ -763,7 +805,8 @@ def _pb_run_cycle_fn_loop(
     if position_update_timings:
         timings["position_update"] = {
             "total_duration_ms": sum(position_update_timings),
-            "avg_duration_ms": sum(position_update_timings) / len(position_update_timings),
+            "avg_duration_ms": sum(position_update_timings)
+            / len(position_update_timings),
             "count": len(position_update_timings),
         }
     return all_orders, all_targets, all_signals_list, timings
@@ -803,10 +846,14 @@ def _pb_run_legacy_loop(
             if not prices_at_ts.empty and not current_positions.empty:
                 px = prices_at_ts.set_index("symbol")["close"]
                 qty_series = current_positions.set_index("symbol")["qty"]
-                mtm = float((qty_series * px.reindex(qty_series.index).fillna(0.0)).sum())
+                mtm = float(
+                    (qty_series * px.reindex(qty_series.index).fillna(0.0)).sum()
+                )
                 _current_equity = _legacy_cash + mtm
         except Exception as _exc:
-            logger.warning("[backtest] MTM equity calc failed at %s: %s", timestamp, _exc)
+            logger.warning(
+                "[backtest] MTM equity calc failed at %s: %s", timestamp, _exc
+            )
 
         with timed_step(f"order_generation_{timestamp}", timings, logger):
             orders, updated_positions, targets = _process_rebalancing_timestamp(
@@ -827,10 +874,16 @@ def _pb_run_legacy_loop(
             if not orders.empty:
                 _sign = np.where(orders["side"] == "BUY", -1.0, 1.0)
                 _legacy_cash += float(
-                    (orders["qty"].fillna(0).abs() * orders["price"].fillna(0) * _sign).sum()
+                    (
+                        orders["qty"].fillna(0).abs()
+                        * orders["price"].fillna(0)
+                        * _sign
+                    ).sum()
                 )
         except Exception as _exc:
-            logger.warning("[backtest] cash accounting failed at %s: %s", timestamp, _exc)
+            logger.warning(
+                "[backtest] cash accounting failed at %s: %s", timestamp, _exc
+            )
 
         current_positions = updated_positions
         if include_targets and not targets.empty:
@@ -841,7 +894,8 @@ def _pb_run_legacy_loop(
     if order_generation_timings:
         timings["order_generation"] = {
             "total_duration_ms": sum(order_generation_timings),
-            "avg_duration_ms": sum(order_generation_timings) / len(order_generation_timings),
+            "avg_duration_ms": sum(order_generation_timings)
+            / len(order_generation_timings),
             "count": len(order_generation_timings),
         }
     return all_orders, all_targets, timings
@@ -868,12 +922,20 @@ def _pb_simulate_equity(
     """
     with timed_step("fill_sim", timings, logger):
         if cost_model is not None:
-            commission_bps = commission_bps if commission_bps is not None else cost_model.commission_bps
+            commission_bps = (
+                commission_bps
+                if commission_bps is not None
+                else cost_model.commission_bps
+            )
             spread_w = spread_w if spread_w is not None else cost_model.spread_w
             impact_w = impact_w if impact_w is not None else cost_model.impact_w
         else:
             default_costs = get_default_cost_model()
-            commission_bps = commission_bps if commission_bps is not None else default_costs.commission_bps
+            commission_bps = (
+                commission_bps
+                if commission_bps is not None
+                else default_costs.commission_bps
+            )
             spread_w = spread_w if spread_w is not None else default_costs.spread_w
             impact_w = impact_w if impact_w is not None else default_costs.impact_w
 
@@ -909,6 +971,7 @@ def _pb_simulate_equity(
         from src.assembled_core.execution.fill_model_pipeline import (
             apply_fill_model_pipeline,
         )
+
         orders_df = apply_fill_model_pipeline(
             orders_df,
             prices=prices,
@@ -965,13 +1028,17 @@ def _pb_normalize_equity(equity: pd.DataFrame) -> pd.DataFrame:
     if "timestamp" in equity.columns:
         equity = equity.copy()
         equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
-        equity["daily_return"] = equity["equity"].pct_change(fill_method=None).fillna(0.0)
+        equity["daily_return"] = (
+            equity["equity"].pct_change(fill_method=None).fillna(0.0)
+        )
         base_cols = ["date", "timestamp", "equity", "daily_return"]
         extra = [c for c in ["cash"] if c in equity.columns]
         return equity[base_cols + extra].copy()
     if "date" in equity.columns:
         equity = equity.copy()
-        equity["daily_return"] = equity["equity"].pct_change(fill_method=None).fillna(0.0)
+        equity["daily_return"] = (
+            equity["equity"].pct_change(fill_method=None).fillna(0.0)
+        )
         base = ["date", "equity", "daily_return"]
         if "timestamp" in equity.columns:
             base = ["date", "timestamp", "equity", "daily_return"]
@@ -985,7 +1052,9 @@ def _pb_normalize_equity(equity: pd.DataFrame) -> pd.DataFrame:
         if "timestamp" in equity.columns:
             equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
         else:
-            equity["date"] = pd.date_range(start="2000-01-01", periods=len(equity), freq="D").date
+            equity["date"] = pd.date_range(
+                start="2000-01-01", periods=len(equity), freq="D"
+            ).date
             equity["timestamp"] = pd.to_datetime(equity["date"])
     equity["daily_return"] = equity["equity"].pct_change(fill_method=None).fillna(0.0)
     base_cols = ["date", "timestamp", "equity", "daily_return"]
@@ -1017,19 +1086,28 @@ def _pb_build_ledger(
         from src.assembled_core.accounting.ledger_integration import (
             build_ledger_from_trades,
         )
+
         trades_for_ledger = orders_df.copy()
         if include_costs and not trades_df.empty:
             trades_for_ledger = trades_df.copy()
-        snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+        snapshot_run_id = (
+            broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+        )
         if broker_snapshot_file:
             try:
-                logger.info("Importing external broker snapshot from: %s", broker_snapshot_file)
+                logger.info(
+                    "Importing external broker snapshot from: %s", broker_snapshot_file
+                )
                 from src.assembled_core.accounting.broker_snapshot_importer import (
                     import_broker_snapshot,
                 )
+
                 snapshot_date = broker_snapshot_date
                 if snapshot_date is None:
-                    if not trades_for_ledger.empty and "timestamp" in trades_for_ledger.columns:
+                    if (
+                        not trades_for_ledger.empty
+                        and "timestamp" in trades_for_ledger.columns
+                    ):
                         snapshot_date = pd.to_datetime(
                             trades_for_ledger["timestamp"].max(), utc=True
                         )
@@ -1047,7 +1125,8 @@ def _pb_build_ledger(
                 )
                 logger.info(
                     "Imported broker snapshot: %s, cash=%s",
-                    import_result["broker_snapshot_path"], import_result["cash"],
+                    import_result["broker_snapshot_path"],
+                    import_result["cash"],
                 )
             except Exception as e:
                 logger.error("Failed to import broker snapshot: %s", e, exc_info=True)
@@ -1240,11 +1319,16 @@ def run_portfolio_backtest(
             from src.assembled_core.data.corporate_actions import (
                 adjust_prices_for_splits,
             )
+
             splits = _pd_ca.read_csv(corporate_actions_path)
             prices = adjust_prices_for_splits(prices, splits)
-            logger.info("[BACKTEST] Corporate actions applied from %s", corporate_actions_path)
+            logger.info(
+                "[BACKTEST] Corporate actions applied from %s", corporate_actions_path
+            )
         except Exception as _ca_err:
-            logger.warning("[BACKTEST] Corporate actions adjustment failed: %s", _ca_err)
+            logger.warning(
+                "[BACKTEST] Corporate actions adjustment failed: %s", _ca_err
+            )
     else:
         logger.debug(
             "[BACKTEST] enable_corporate_actions=True but no corporate_actions_path provided"
@@ -1253,13 +1337,21 @@ def run_portfolio_backtest(
 
     # Step 1: Feature computation
     prices_with_features = _pb_compute_features(
-        prices, compute_features, cycle_fn, feature_config,
-        use_factor_store, factor_store_root, factor_group, rebalance_freq,
+        prices,
+        compute_features,
+        cycle_fn,
+        feature_config,
+        use_factor_store,
+        factor_store_root,
+        factor_group,
+        rebalance_freq,
     )
 
     # Step 2: Signal generation + meta-model ensemble
     signals = _pb_generate_signals(
-        prices_with_features, signal_fn, cycle_fn,
+        prices_with_features,
+        signal_fn,
+        cycle_fn,
         use_meta_model=use_meta_model,
         meta_model=meta_model,
         meta_model_path=meta_model_path,
@@ -1333,7 +1425,9 @@ def run_portfolio_backtest(
         orders_df = pd.concat(all_orders, ignore_index=True)
         orders_df = orders_df.sort_values("timestamp").reset_index(drop=True)
     else:
-        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        orders_df = pd.DataFrame(
+            columns=["timestamp", "symbol", "side", "qty", "price"]
+        )
     _validate_order_notional_guard(orders_df, start_capital)
     if not orders_df.empty:
         orders_df.attrs["qty_unit"] = "shares"
@@ -1416,7 +1510,9 @@ def run_portfolio_backtest(
         trades=trades_for_result,
         signals=signals_result,
         target_positions=(
-            pd.concat(all_targets, ignore_index=True) if include_targets and all_targets else None
+            pd.concat(all_targets, ignore_index=True)
+            if include_targets and all_targets
+            else None
         ),
         meta=meta_dict if meta_dict else None,
     )

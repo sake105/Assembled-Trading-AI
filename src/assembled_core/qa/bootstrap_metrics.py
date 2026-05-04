@@ -1,4 +1,5 @@
 """Bootstrap confidence intervals for performance metrics."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -70,8 +71,12 @@ def compute_sortino_with_ci(
     hi = 100 - lo
     return {
         "sortino": _sortino(arr),
-        "sortino_ci_lower": float(np.percentile(finite, lo)) if finite else float("nan"),
-        "sortino_ci_upper": float(np.percentile(finite, hi)) if finite else float("nan"),
+        "sortino_ci_lower": (
+            float(np.percentile(finite, lo)) if finite else float("nan")
+        ),
+        "sortino_ci_upper": (
+            float(np.percentile(finite, hi)) if finite else float("nan")
+        ),
         "n_obs": len(arr),
         "n_bootstrap": n_bootstrap,
     }

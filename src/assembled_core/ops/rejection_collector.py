@@ -6,6 +6,7 @@ path. The trading cycle writes rejection counts into result.meta["rejection_coun
 retained for potential future use in multi-process or long-running contexts
 where a persistent singleton accumulator across trading bars is needed.
 """
+
 from __future__ import annotations
 
 import threading

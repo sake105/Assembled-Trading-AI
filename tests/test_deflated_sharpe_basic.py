@@ -14,7 +14,9 @@ import pytest
 
 pytest.importorskip("scipy")
 
-import pytest; pytest.importorskip('src.assembled_core.qa.robustness')
+import pytest
+
+pytest.importorskip("src.assembled_core.qa.robustness")
 from src.assembled_core.qa.robustness import compute_deflated_sharpe
 
 

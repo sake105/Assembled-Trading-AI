@@ -10,6 +10,7 @@ This is intentionally a skeleton: the environment dynamics are simplified
 and the agent is not production-ready. Wire into the full backtesting
 pipeline after thorough simulation validation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ _SB3_AVAILABLE = False
 try:
     from stable_baselines3 import PPO  # type: ignore[import]
     from stable_baselines3.common.env_checker import check_env  # type: ignore[import]  # noqa: F401
+
     _SB3_AVAILABLE = True
 except ImportError:
     pass
@@ -39,6 +41,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # PPO-based executor
 # ---------------------------------------------------------------------------
+
 
 class RLExecutor:
     """Train and run a PPO agent for order execution.
@@ -72,7 +75,8 @@ class RLExecutor:
 
         env = OrderExecutionEnv(self.config)
         self._model = PPO(
-            "MlpPolicy", env,
+            "MlpPolicy",
+            env,
             verbose=0,
             n_steps=256,
             batch_size=64,
@@ -147,8 +151,11 @@ class RLExecutor:
 
         total_executed = sum(s["shares_executed"] for s in slices)
         if slices:
-            avg_price = float(np.mean([s["execution_price"] for s in slices
-                                       if s["shares_executed"] > 0]))
+            avg_price = float(
+                np.mean(
+                    [s["execution_price"] for s in slices if s["shares_executed"] > 0]
+                )
+            )
         else:
             avg_price = cfg_override.arrival_price
 
@@ -158,7 +165,12 @@ class RLExecutor:
             "avg_execution_price": round(avg_price, 4),
             "arrival_price": cfg_override.arrival_price,
             "implementation_shortfall": round(shortfall, 2),
-            "shortfall_bps": round(shortfall / (cfg_override.arrival_price * cfg_override.total_shares) * 10_000, 2),
+            "shortfall_bps": round(
+                shortfall
+                / (cfg_override.arrival_price * cfg_override.total_shares)
+                * 10_000,
+                2,
+            ),
             "total_reward": round(float(total_reward), 6),
             "shares_executed": total_executed,
             "n_slices": len(slices),
@@ -170,6 +182,7 @@ class RLExecutor:
 # Rule-based fallback (TWAP)
 # ---------------------------------------------------------------------------
 
+
 class RuleBasedExecutor:
     """TWAP-like executor with the same interface as RLExecutor."""
 
@@ -180,7 +193,9 @@ class RuleBasedExecutor:
     def train(self) -> None:
         pass  # no training needed
 
-    def execute(self, n_steps: int | None = None, seed: int | None = None) -> dict[str, Any]:
+    def execute(
+        self, n_steps: int | None = None, seed: int | None = None
+    ) -> dict[str, Any]:
         cfg = self.config
         n = n_steps or cfg.n_steps
         slice_qty = cfg.total_shares // n
@@ -190,8 +205,10 @@ class RuleBasedExecutor:
         prices = []
         for i in range(n):
             qty = slice_qty + (1 if i < remainder else 0)
-            temp_impact = cfg.eta * qty * cfg.sigma_daily ** 2 / cfg.arrival_price
-            exec_price = cfg.arrival_price * (1.0 + temp_impact + rng.normal(0, cfg.sigma_daily / math.sqrt(n)))
+            temp_impact = cfg.eta * qty * cfg.sigma_daily**2 / cfg.arrival_price
+            exec_price = cfg.arrival_price * (
+                1.0 + temp_impact + rng.normal(0, cfg.sigma_daily / math.sqrt(n))
+            )
             prices.append(exec_price)
 
         avg_price = float(np.mean(prices))
@@ -200,7 +217,9 @@ class RuleBasedExecutor:
             "avg_execution_price": round(avg_price, 4),
             "arrival_price": cfg.arrival_price,
             "implementation_shortfall": round(shortfall, 2),
-            "shortfall_bps": round(shortfall / (cfg.arrival_price * cfg.total_shares) * 10_000, 2),
+            "shortfall_bps": round(
+                shortfall / (cfg.arrival_price * cfg.total_shares) * 10_000, 2
+            ),
             "total_reward": 0.0,
             "shares_executed": cfg.total_shares,
             "n_slices": n,

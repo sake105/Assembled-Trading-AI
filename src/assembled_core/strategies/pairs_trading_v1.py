@@ -4,6 +4,7 @@ Wraps signals/pairs_trading.py for potential ensemble integration.
 NOT wired into the live pipeline yet — requires isolated backtest
 validation first (A/B: Sharpe > 0.8, MDD < 15%, Trades > 50).
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,7 +50,7 @@ class PairsTradingStrategy:
 
         date_col = next((c for c in prices.columns if c in ("date", "timestamp")), None)
         for i, s1 in enumerate(symbols):
-            for s2 in symbols[i + 1:]:
+            for s2 in symbols[i + 1 :]:
                 sub1 = prices[prices["symbol"] == s1]
                 sub2 = prices[prices["symbol"] == s2]
                 if date_col:
@@ -58,7 +59,9 @@ class PairsTradingStrategy:
                 else:
                     c1 = sub1["close"]
                     c2 = sub2["close"]
-                if len(c1) < max(30, self.lookback_days // 4) or len(c2) < max(30, self.lookback_days // 4):
+                if len(c1) < max(30, self.lookback_days // 4) or len(c2) < max(
+                    30, self.lookback_days // 4
+                ):
                     continue
                 try:
                     # Use full available history for cointegration (more data = more power)
@@ -83,7 +86,9 @@ class PairsTradingStrategy:
         prices: long-format DataFrame with columns [date/timestamp, symbol, close, ...]
         Returns: DataFrame with columns [symbol, direction, score] for backtest loop.
         """
-        from src.assembled_core.signals.pairs_trading import generate_pairs_signals_from_panel
+        from src.assembled_core.signals.pairs_trading import (
+            generate_pairs_signals_from_panel,
+        )
 
         if pairs is None:
             pairs = self.discover_pairs(prices)
@@ -117,7 +122,11 @@ class PairsTradingStrategy:
             return pd.DataFrame(columns=["symbol", "direction", "score"])
 
         # Translate direction to LONG/SHORT/EXIT for backtest loop
-        last_row = result[result.index == result.index.max()] if isinstance(result.index, pd.DatetimeIndex) else result.tail(1)
+        last_row = (
+            result[result.index == result.index.max()]
+            if isinstance(result.index, pd.DatetimeIndex)
+            else result.tail(1)
+        )
 
         rows = []
         for _, row in last_row.iterrows():
@@ -127,11 +136,35 @@ class PairsTradingStrategy:
             sym_a = row.get("symbol_a", "")
             sym_b = row.get("symbol_b", "")
             if direction == "LONG_A":
-                rows.append({"symbol": sym_a, "direction": "LONG", "score": float(abs(row.get("z_score", 0)))})
-                rows.append({"symbol": sym_b, "direction": "SHORT", "score": float(abs(row.get("z_score", 0)))})
+                rows.append(
+                    {
+                        "symbol": sym_a,
+                        "direction": "LONG",
+                        "score": float(abs(row.get("z_score", 0))),
+                    }
+                )
+                rows.append(
+                    {
+                        "symbol": sym_b,
+                        "direction": "SHORT",
+                        "score": float(abs(row.get("z_score", 0))),
+                    }
+                )
             elif direction == "SHORT_A":
-                rows.append({"symbol": sym_a, "direction": "SHORT", "score": float(abs(row.get("z_score", 0)))})
-                rows.append({"symbol": sym_b, "direction": "LONG", "score": float(abs(row.get("z_score", 0)))})
+                rows.append(
+                    {
+                        "symbol": sym_a,
+                        "direction": "SHORT",
+                        "score": float(abs(row.get("z_score", 0))),
+                    }
+                )
+                rows.append(
+                    {
+                        "symbol": sym_b,
+                        "direction": "LONG",
+                        "score": float(abs(row.get("z_score", 0))),
+                    }
+                )
             elif direction == "EXIT":
                 rows.append({"symbol": sym_a, "direction": "EXIT", "score": 0.0})
                 rows.append({"symbol": sym_b, "direction": "EXIT", "score": 0.0})

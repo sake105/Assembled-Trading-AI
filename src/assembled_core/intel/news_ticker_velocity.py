@@ -42,8 +42,8 @@ def _resolve_tier_weight(evt: object) -> float:
 class TickerSignal:
     ticker: str
     short_count: float  # weighted count in short window (tier-weighted)
-    long_count: float   # weighted count in long window
-    velocity: float     # ratio of short-window rate to prior rate
+    long_count: float  # weighted count in long window
+    velocity: float  # ratio of short-window rate to prior rate
     is_surge: bool
 
 
@@ -131,21 +131,27 @@ class TickerVelocityTracker:
             long_count = sum(w for _, _, w in buf)
             prior_count = long_count - short_count
             short_rate = short_count / max(self._short_td.total_seconds() / 60, 1)
-            prior_rate = prior_count / max((self._long_td - self._short_td).total_seconds() / 60, 1)
+            prior_rate = prior_count / max(
+                (self._long_td - self._short_td).total_seconds() / 60, 1
+            )
             if prior_rate > 0:
                 velocity = round(short_rate / prior_rate, 3)
             elif short_rate > 0:
                 velocity = float(self._surge_threshold + 1)
             else:
                 velocity = 1.0
-            is_surge = velocity >= self._surge_threshold and short_count >= self._min_short
-            signals.append(TickerSignal(
-                ticker=ticker,
-                short_count=round(short_count, 3),
-                long_count=round(long_count, 3),
-                velocity=velocity,
-                is_surge=is_surge,
-            ))
+            is_surge = (
+                velocity >= self._surge_threshold and short_count >= self._min_short
+            )
+            signals.append(
+                TickerSignal(
+                    ticker=ticker,
+                    short_count=round(short_count, 3),
+                    long_count=round(long_count, 3),
+                    velocity=velocity,
+                    is_surge=is_surge,
+                )
+            )
             # H10: prune seen_hashes older than short window to bound memory.
             seen = self._seen_hashes.get(ticker)
             if seen:

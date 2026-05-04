@@ -1,4 +1,5 @@
 """Volume-Synchronized PIN (VPIN) — toxic order-flow detector."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -41,9 +42,7 @@ class VPINCalculator:
 
         imbalances = self._bucket_imbalances(df, bucket_size)
         if len(imbalances) < self.n_buckets:
-            return pd.Series(
-                np.full(len(df), np.nan), index=df.index, name="vpin"
-            )
+            return pd.Series(np.full(len(df), np.nan), index=df.index, name="vpin")
 
         rolling_vpin = (
             pd.Series(imbalances)

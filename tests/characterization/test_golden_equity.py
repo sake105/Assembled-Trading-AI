@@ -11,6 +11,7 @@ The tests use synthetic deterministic fixtures so they run without any
 external data files.  approvaltests is NOT required; the lightweight
 _snapshot helper is used instead.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,7 +20,6 @@ import pytest
 
 from tests.characterization._fixtures import make_ohlcv
 from tests.characterization._snapshot import verify_snapshot
-
 
 # ---------------------------------------------------------------------------
 # Simple deterministic "pipeline" for golden testing
@@ -59,7 +59,9 @@ def _run_minimal_backtest(
                 position = new_pos
             daily_pnl = position * (row["Close"] - row["Open"])
             equity += daily_pnl
-            results.append({"date": row["Date"], "ticker": ticker, "equity": round(equity, 2)})
+            results.append(
+                {"date": row["Date"], "ticker": ticker, "equity": round(equity, 2)}
+            )
 
     eq_df = (
         pd.DataFrame(results)
@@ -133,6 +135,6 @@ def test_sanity_ema_param_change_shifts_equity(approved_dir):
     result_v1 = _run_minimal_backtest(bars, ema_short=20, ema_long=50)
     result_v2 = _run_minimal_backtest(bars, ema_short=10, ema_long=30)
     # They should differ (different EMA periods → different signals → different P&L)
-    assert not result_v1["equity"].equals(result_v2["equity"]), (
-        "Different EMA params produced identical equity — snapshot would miss param changes"
-    )
+    assert not result_v1["equity"].equals(
+        result_v2["equity"]
+    ), "Different EMA params produced identical equity — snapshot would miss param changes"

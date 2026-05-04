@@ -64,7 +64,8 @@ def smooth_posterior(
     alpha = _alpha_for_half_life(half_life_days)
     keys = set(new_norm) | set(prev_smoothed)
     blended = {
-        k: alpha * new_norm.get(k, 0.0) + (1.0 - alpha) * float(prev_smoothed.get(k, 0.0))
+        k: alpha * new_norm.get(k, 0.0)
+        + (1.0 - alpha) * float(prev_smoothed.get(k, 0.0))
         for k in keys
     }
     total = sum(blended.values())

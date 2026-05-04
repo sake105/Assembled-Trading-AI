@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/compliance/."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
@@ -25,10 +26,10 @@ from assembled_core.compliance.tax_report import (
     summarize_closed_lots,
 )
 
-
 # ---------------------------------------------------------------------------
 # GDPR helpers
 # ---------------------------------------------------------------------------
+
 
 class TestPseudonymizeUser:
     def test_deterministic(self):
@@ -85,6 +86,7 @@ class TestAnonymizeHeadline:
 # ---------------------------------------------------------------------------
 # PDT rule
 # ---------------------------------------------------------------------------
+
 
 def _make_trade(d: date, symbol: str, side: str) -> dict:
     return {"date": d, "symbol": symbol, "side": side}
@@ -166,6 +168,7 @@ class TestCanDayTrade:
 # Rate limits
 # ---------------------------------------------------------------------------
 
+
 class TestRateLimits:
     def test_yfinance_in_allowed(self):
         assert "yfinance" in ALLOWED_PERSONAL_USE
@@ -188,6 +191,7 @@ class TestRateLimits:
 # ---------------------------------------------------------------------------
 # Tax report
 # ---------------------------------------------------------------------------
+
 
 class TestTaxReportSummary:
     def _make_lot(self, pnl_eur: float, year: int = 2025) -> dict:

@@ -9,6 +9,7 @@ examples: multiple partial closes of one original position = one day-trade.
 Known limitation: FINRA Example D (mixed add-then-close) may record differently
 than FINRA's exact count. Acceptable for simple buy-then-sell strategies.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -45,9 +46,8 @@ class RoundTripDetector:
             return None
 
         open_ts, open_qty, open_price, open_side = self.open_positions[ticker]
-        is_closing = (
-            (open_side == "long" and side == "sell")
-            or (open_side == "short" and side == "buy")
+        is_closing = (open_side == "long" and side == "sell") or (
+            open_side == "short" and side == "buy"
         )
 
         if not is_closing:
@@ -78,7 +78,12 @@ class RoundTripDetector:
                 del self.open_positions[ticker]
                 self._day_trade_recorded.discard(ticker)
             else:
-                self.open_positions[ticker] = (open_ts, open_qty - qty, open_price, open_side)
+                self.open_positions[ticker] = (
+                    open_ts,
+                    open_qty - qty,
+                    open_price,
+                    open_side,
+                )
             return trade
 
         # Closing at a different day → swing trade
@@ -86,7 +91,12 @@ class RoundTripDetector:
             del self.open_positions[ticker]
             self._day_trade_recorded.discard(ticker)
         else:
-            self.open_positions[ticker] = (open_ts, open_qty - qty, open_price, open_side)
+            self.open_positions[ticker] = (
+                open_ts,
+                open_qty - qty,
+                open_price,
+                open_side,
+            )
         return None
 
 

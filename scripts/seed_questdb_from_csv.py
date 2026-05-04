@@ -14,6 +14,7 @@ Parquet files are auto-detected by extension.
 Requires QuestDB running on localhost:8812 (default) or the URL specified.
 Falls back to a dry-run count when QuestDB is not reachable.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,13 +32,19 @@ if _REPO_ROOT not in sys.path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed QuestDB from CSV/Parquet price data")
+    parser = argparse.ArgumentParser(
+        description="Seed QuestDB from CSV/Parquet price data"
+    )
     parser.add_argument("--file", required=True, help="Path to CSV or Parquet file")
-    parser.add_argument("--url", default="postgresql://localhost:8812/qdb", help="QuestDB PG-wire URL")
+    parser.add_argument(
+        "--url", default="postgresql://localhost:8812/qdb", help="QuestDB PG-wire URL"
+    )
     parser.add_argument("--symbol-col", default="symbol")
     parser.add_argument("--date-col", default="timestamp")
     parser.add_argument("--batch-size", type=int, default=1000)
-    parser.add_argument("--dry-run", action="store_true", help="Parse only, do not write to QuestDB")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Parse only, do not write to QuestDB"
+    )
     args = parser.parse_args()
 
     try:
@@ -80,7 +87,9 @@ def main() -> None:
     )
 
     if not QUESTDB_DRIVER_AVAILABLE:
-        log.warning("QuestDB driver not installed (psycopg2/pg8000). Install one to connect.")
+        log.warning(
+            "QuestDB driver not installed (psycopg2/pg8000). Install one to connect."
+        )
 
     store = TickStore(url=args.url)
     reachable = store.ping()
@@ -112,7 +121,11 @@ def main() -> None:
         if len(batch) >= args.batch_size:
             if args.dry_run:
                 total_written += len(batch)
-                log.info("[DRY-RUN] would write batch of %d ticks (total so far: %d)", len(batch), total_written)
+                log.info(
+                    "[DRY-RUN] would write batch of %d ticks (total so far: %d)",
+                    len(batch),
+                    total_written,
+                )
             else:
                 n = store.write_ticks(batch)
                 total_written += n

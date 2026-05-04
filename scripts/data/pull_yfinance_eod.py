@@ -22,20 +22,63 @@ REPO = Path(__file__).resolve().parents[2]
 # Default universe: liquid US equities + macro ETFs
 DEFAULT_SYMBOLS = [
     # Top US equities (diversified sectors)
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B",
-    "JPM", "JNJ", "V", "UNH", "XOM", "PG", "MA", "HD", "CVX", "MRK",
-    "ABBV", "LLY", "PEP", "KO", "COST", "AVGO", "WMT", "MCD", "CRM",
-    "TMO", "ADBE", "NFLX",
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "NVDA",
+    "META",
+    "TSLA",
+    "BRK-B",
+    "JPM",
+    "JNJ",
+    "V",
+    "UNH",
+    "XOM",
+    "PG",
+    "MA",
+    "HD",
+    "CVX",
+    "MRK",
+    "ABBV",
+    "LLY",
+    "PEP",
+    "KO",
+    "COST",
+    "AVGO",
+    "WMT",
+    "MCD",
+    "CRM",
+    "TMO",
+    "ADBE",
+    "NFLX",
     # Broad market ETFs
-    "SPY", "QQQ", "IWM", "DIA",
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
     # Sector ETFs
-    "XLF", "XLK", "XLE", "XLV", "XLI", "XLU", "XLP", "XLY",
+    "XLF",
+    "XLK",
+    "XLE",
+    "XLV",
+    "XLI",
+    "XLU",
+    "XLP",
+    "XLY",
     # International / EM
-    "EFA", "EEM", "VWO",
+    "EFA",
+    "EEM",
+    "VWO",
     # Bonds / rates
-    "TLT", "IEF", "SHY", "HYG",
+    "TLT",
+    "IEF",
+    "SHY",
+    "HYG",
     # Commodities / alternatives
-    "GLD", "SLV", "USO",
+    "GLD",
+    "SLV",
+    "USO",
 ]
 
 
@@ -49,14 +92,16 @@ def fetch_symbol(symbol: str, period: str = "5y") -> pd.DataFrame | None:
             return None
 
         df = df.reset_index()
-        df = df.rename(columns={
-            "Date": "timestamp",
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Close": "close",
-            "Volume": "volume",
-        })
+        df = df.rename(
+            columns={
+                "Date": "timestamp",
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "volume",
+            }
+        )
 
         # Ensure UTC timezone
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
@@ -114,7 +159,9 @@ def main() -> None:
         if df is not None and not df.empty:
             out_path = out_dir / f"{symbol}.parquet"
             df.to_parquet(out_path, index=False)
-            print(f"OK ({len(df)} rows, {df['timestamp'].min().date()} to {df['timestamp'].max().date()})")
+            print(
+                f"OK ({len(df)} rows, {df['timestamp'].min().date()} to {df['timestamp'].max().date()})"
+            )
             success += 1
         else:
             print("FAILED")
@@ -134,7 +181,9 @@ def main() -> None:
         )
         combined_path = out_dir / "_combined.parquet"
         combined.to_parquet(combined_path, index=False)
-        print(f"[yfinance] Combined: {combined_path} ({len(combined)} rows, {combined['symbol'].nunique()} symbols)")
+        print(
+            f"[yfinance] Combined: {combined_path} ({len(combined)} rows, {combined['symbol'].nunique()} symbols)"
+        )
 
 
 if __name__ == "__main__":

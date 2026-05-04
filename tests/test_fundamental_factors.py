@@ -16,7 +16,6 @@ from src.assembled_core.features.fundamental_factors import (
     clear_cache,
 )
 
-
 # -- Synthetic info dicts (no yfinance needed) --------------------------------
 
 AAPL_INFO = {
@@ -59,9 +58,7 @@ class TestComputeSingleSymbol:
         factors = compute_single_symbol_factors("AAPL", AAPL_INFO)
         assert factors["carry_dividend_yield"] == pytest.approx(0.005)
         assert factors["value_book_to_market"] == pytest.approx(4.0 / 180.0, rel=0.01)
-        assert factors["quality_gross_profit"] == pytest.approx(
-            170e9 / 352e9, rel=0.01
-        )
+        assert factors["quality_gross_profit"] == pytest.approx(170e9 / 352e9, rel=0.01)
         assert factors["quality_roe"] == pytest.approx(1.56)
         assert factors["size_log_market_cap"] == pytest.approx(
             np.log10(2.8e12), rel=0.01
@@ -76,7 +73,9 @@ class TestComputeSingleSymbol:
 
     def test_empty_info_all_nan(self):
         factors = compute_single_symbol_factors("XYZ", EMPTY_INFO)
-        nan_count = sum(1 for v in factors.values() if isinstance(v, float) and np.isnan(v))
+        nan_count = sum(
+            1 for v in factors.values() if isinstance(v, float) and np.isnan(v)
+        )
         assert nan_count >= 4
 
     def test_high_dividend_yield_normalized(self):
@@ -115,29 +114,37 @@ class TestBuildFundamentalFactors:
 @pytest.mark.phase12
 class TestCrossSectionalZscore:
     def test_basic_zscore(self):
-        df = pd.DataFrame({
-            "symbol": ["A", "B", "C", "D"],
-            "carry_dividend_yield": [0.01, 0.02, 0.03, 0.04],
-            "value_book_to_market": [0.5, 1.0, 1.5, 2.0],
-        })
-        result = cross_sectional_zscore(df, columns=["carry_dividend_yield", "value_book_to_market"])
+        df = pd.DataFrame(
+            {
+                "symbol": ["A", "B", "C", "D"],
+                "carry_dividend_yield": [0.01, 0.02, 0.03, 0.04],
+                "value_book_to_market": [0.5, 1.0, 1.5, 2.0],
+            }
+        )
+        result = cross_sectional_zscore(
+            df, columns=["carry_dividend_yield", "value_book_to_market"]
+        )
         # Mean should be ~0, std ~1 after z-scoring
         assert result["carry_dividend_yield"].mean() == pytest.approx(0.0, abs=0.1)
         assert result["carry_dividend_yield"].std() == pytest.approx(1.0, abs=0.1)
 
     def test_preserves_symbol_column(self):
-        df = pd.DataFrame({
-            "symbol": ["A", "B", "C"],
-            "carry_dividend_yield": [0.01, 0.02, 0.03],
-        })
+        df = pd.DataFrame(
+            {
+                "symbol": ["A", "B", "C"],
+                "carry_dividend_yield": [0.01, 0.02, 0.03],
+            }
+        )
         result = cross_sectional_zscore(df)
         assert list(result["symbol"]) == ["A", "B", "C"]
 
     def test_nan_handling(self):
-        df = pd.DataFrame({
-            "symbol": ["A", "B", "C", "D"],
-            "carry_dividend_yield": [0.01, np.nan, 0.03, 0.04],
-        })
+        df = pd.DataFrame(
+            {
+                "symbol": ["A", "B", "C", "D"],
+                "carry_dividend_yield": [0.01, np.nan, 0.03, 0.04],
+            }
+        )
         result = cross_sectional_zscore(df)
         assert result["carry_dividend_yield"].notna().sum() >= 2
 

@@ -13,7 +13,11 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from src.assembled_core.intel.models import NewsEvent, SourceTier
-from src.assembled_core.intel.news_dedupe import NewsDedupeIndex, canonical_url, content_fingerprint
+from src.assembled_core.intel.news_dedupe import (
+    NewsDedupeIndex,
+    canonical_url,
+    content_fingerprint,
+)
 from src.assembled_core.intel.news_ingest import (
     GdeltBatchRecord,
     GdeltFetcher,
@@ -21,7 +25,6 @@ from src.assembled_core.intel.news_ingest import (
     records_to_news_events,
 )
 from src.assembled_core.intel.news_cluster import ClusterManager
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -234,9 +237,15 @@ def test_dedupe_fingerprint_blocks_similar():
 
 def test_dedupe_filter_new_returns_only_novel():
     idx = NewsDedupeIndex()
-    evt1 = _make_news_event(event_id="ne_x001", title="Event Alpha", url="https://a.com/1")
-    evt2 = _make_news_event(event_id="ne_x002", title="Event Beta", url="https://b.com/2")
-    evt3 = _make_news_event(event_id="ne_x001", title="Event Alpha", url="https://a.com/1")  # duplicate of evt1
+    evt1 = _make_news_event(
+        event_id="ne_x001", title="Event Alpha", url="https://a.com/1"
+    )
+    evt2 = _make_news_event(
+        event_id="ne_x002", title="Event Beta", url="https://b.com/2"
+    )
+    evt3 = _make_news_event(
+        event_id="ne_x001", title="Event Alpha", url="https://a.com/1"
+    )  # duplicate of evt1
 
     result = idx.filter_new([evt1, evt2, evt3])
     assert len(result) == 2
@@ -347,12 +356,14 @@ def test_gdelt_fetcher_skips_already_seen_batch(tmp_path):
 
     # Pre-seed state with the URL
     state_path.write_text(
-        json.dumps({
-            "last_batch_url": gkg_url,
-            "last_fetch_ts": "2026-04-02T12:30:00+00:00",
-            "total_events_ingested": 10,
-            "consecutive_failures": 0,
-        })
+        json.dumps(
+            {
+                "last_batch_url": gkg_url,
+                "last_fetch_ts": "2026-04-02T12:30:00+00:00",
+                "total_events_ingested": 10,
+                "consecutive_failures": 0,
+            }
+        )
     )
 
     fetcher = GdeltFetcher(state_path)
@@ -381,6 +392,7 @@ def test_gdelt_fetcher_handles_network_failure_gracefully(tmp_path):
 
     with patch("src.assembled_core.intel.news_ingest.requests.get") as mock_get:
         import requests as req_lib
+
         mock_get.side_effect = req_lib.ConnectionError("Network unreachable")
 
         events, is_new = fetcher.fetch_new_events()

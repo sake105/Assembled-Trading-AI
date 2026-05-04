@@ -20,14 +20,11 @@ from src.assembled_core.features.earnings_insider_wrapper import (  # noqa: E402
     compute_earnings_insider_factors,
 )
 
-
 pytestmark = pytest.mark.phase12
 
 
 def _empty_earnings() -> pd.DataFrame:
-    return pd.DataFrame(
-        columns=["symbol", "filing_date", "eps_actual", "eps_estimate"]
-    )
+    return pd.DataFrame(columns=["symbol", "filing_date", "eps_actual", "eps_estimate"])
 
 
 def _empty_insider() -> pd.DataFrame:
@@ -342,9 +339,10 @@ def test_insider_market_cap_normalization() -> None:
         as_of, ["AAPL", "MSFT"], _empty_earnings(), insider, market_cap_df=mcap
     )
     # AAPL has same raw flow but smaller cap → bigger normalized flow → higher z.
-    assert out.loc["AAPL", "insider_activity_score"] > out.loc[
-        "MSFT", "insider_activity_score"
-    ]
+    assert (
+        out.loc["AAPL", "insider_activity_score"]
+        > out.loc["MSFT", "insider_activity_score"]
+    )
 
 
 def test_insider_missing_market_cap_falls_back() -> None:
@@ -422,9 +420,7 @@ def test_single_valid_observation_returns_nan() -> None:
             }
         ]
     )
-    out = compute_earnings_insider_factors(
-        as_of, ["AAPL"], earnings, _empty_insider()
-    )
+    out = compute_earnings_insider_factors(as_of, ["AAPL"], earnings, _empty_insider())
     assert pd.isna(out.loc["AAPL", "earnings_surprise_z"])
 
 
@@ -437,18 +433,14 @@ def test_missing_required_column_in_earnings_raises() -> None:
     as_of = pd.Timestamp("2026-05-31")
     earnings = pd.DataFrame([{"symbol": "AAPL", "filing_date": as_of}])
     with pytest.raises(ValueError, match="earnings_df"):
-        compute_earnings_insider_factors(
-            as_of, ["AAPL"], earnings, _empty_insider()
-        )
+        compute_earnings_insider_factors(as_of, ["AAPL"], earnings, _empty_insider())
 
 
 def test_missing_required_column_in_insider_raises() -> None:
     as_of = pd.Timestamp("2026-05-31")
     insider = pd.DataFrame([{"symbol": "AAPL", "filing_date": as_of}])
     with pytest.raises(ValueError, match="insider_df"):
-        compute_earnings_insider_factors(
-            as_of, ["AAPL"], _empty_earnings(), insider
-        )
+        compute_earnings_insider_factors(as_of, ["AAPL"], _empty_earnings(), insider)
 
 
 def test_non_timestamp_as_of_raises() -> None:

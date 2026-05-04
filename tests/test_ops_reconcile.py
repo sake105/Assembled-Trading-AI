@@ -15,7 +15,6 @@ from src.assembled_core.ops.reconcile import (
     write_reconcile_artifact,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

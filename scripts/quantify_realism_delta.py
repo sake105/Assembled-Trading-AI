@@ -93,23 +93,35 @@ def _engine_call(
 
 def _make_pre_e0_fn(prices: pd.DataFrame):
     """Pre-E0: costs OFF (zero commissions, zero impact)."""
+
     def fn(train_start, train_end, test_start, test_end):
         return _engine_call(
-            prices, test_start, test_end,
+            prices,
+            test_start,
+            test_end,
             include_costs=False,
-            commission_bps=0.0, spread_w=0.0, impact_w=0.0,
+            commission_bps=0.0,
+            spread_w=0.0,
+            impact_w=0.0,
         )
+
     return fn
 
 
 def _make_post_e0_fn(prices: pd.DataFrame):
     """Post-E0: realism ON (tier-aware cost model, borrow accrual)."""
+
     def fn(train_start, train_end, test_start, test_end):
         return _engine_call(
-            prices, test_start, test_end,
+            prices,
+            test_start,
+            test_end,
             include_costs=True,
-            commission_bps=None, spread_w=None, impact_w=None,
+            commission_bps=None,
+            spread_w=None,
+            impact_w=None,
         )
+
     return fn
 
 
@@ -153,9 +165,7 @@ def build_delta_report(
         "post_e0": post_agg,
         "delta_post_minus_pre": delta,
         "expected_sharpe_drop_range_bp": [-0.8, -0.3],
-        "sharpe_drop_in_expected_range": (
-            -0.8 <= delta["oos_mean_sharpe"] <= -0.3
-        ),
+        "sharpe_drop_in_expected_range": (-0.8 <= delta["oos_mean_sharpe"] <= -0.3),
     }
 
 

@@ -70,7 +70,9 @@ class NewsArchiver:
                     if hasattr(evt, "model_dump"):
                         record = evt.model_dump(mode="json")
                     elif hasattr(evt, "__dict__"):
-                        record = {k: v for k, v in vars(evt).items() if not k.startswith("_")}
+                        record = {
+                            k: v for k, v in vars(evt).items() if not k.startswith("_")
+                        }
                     else:
                         continue
                     fh.write(json.dumps(record, default=str) + "\n")

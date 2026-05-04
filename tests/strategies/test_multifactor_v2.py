@@ -60,27 +60,29 @@ def _synth_panel(
         dates = pd.date_range("2024-01-01", periods=n_days, freq="B")
         for i, d in enumerate(dates):
             p = prices[i]
-            rows.append({
-                "timestamp": d,
-                "symbol": sym,
-                "close": p,
-                "high": p * (1 + abs(rng.normal(0, 0.01))),
-                "low": p * (1 - abs(rng.normal(0, 0.01))),
-                "volume": int(rng.uniform(1e6, 5e6)),
-                "ta_rsi_14_v1": rng.uniform(30, 70),
-                "ta_adx_v1": rng.uniform(15, 40),
-                "ta_macd_hist_v1": rng.normal(0, 0.5),
-                "ta_ma_200_v1": p * (1 + rng.normal(0, 0.05)),
-                "ta_ma_50_v1": p * (1 + rng.normal(0, 0.02)),
-                "ta_bb_pctb_v1": rng.uniform(0.1, 0.9),
-                "ta_stoch_k_v1": rng.uniform(20, 80),
-                "ta_obv_v1": rng.uniform(1e7, 5e7),
-                "ta_vol_weighted_mom_20d_v1": rng.normal(0, 0.02),
-                "tick_imbalance_20d": rng.uniform(0.3, 0.7),
-                "abnormal_vol_20d": rng.uniform(0.5, 2.0),
-                "rv_20": rng.uniform(0.10, 0.30),
-                "vov_20_60": rng.uniform(0.0, 0.05),
-            })
+            rows.append(
+                {
+                    "timestamp": d,
+                    "symbol": sym,
+                    "close": p,
+                    "high": p * (1 + abs(rng.normal(0, 0.01))),
+                    "low": p * (1 - abs(rng.normal(0, 0.01))),
+                    "volume": int(rng.uniform(1e6, 5e6)),
+                    "ta_rsi_14_v1": rng.uniform(30, 70),
+                    "ta_adx_v1": rng.uniform(15, 40),
+                    "ta_macd_hist_v1": rng.normal(0, 0.5),
+                    "ta_ma_200_v1": p * (1 + rng.normal(0, 0.05)),
+                    "ta_ma_50_v1": p * (1 + rng.normal(0, 0.02)),
+                    "ta_bb_pctb_v1": rng.uniform(0.1, 0.9),
+                    "ta_stoch_k_v1": rng.uniform(20, 80),
+                    "ta_obv_v1": rng.uniform(1e7, 5e7),
+                    "ta_vol_weighted_mom_20d_v1": rng.normal(0, 0.02),
+                    "tick_imbalance_20d": rng.uniform(0.3, 0.7),
+                    "abnormal_vol_20d": rng.uniform(0.5, 2.0),
+                    "rv_20": rng.uniform(0.10, 0.30),
+                    "vov_20_60": rng.uniform(0.0, 0.05),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -183,9 +185,12 @@ def test_get_weights_known_regime_with_file(tmp_path: Path) -> None:
 
     # Clear cache
     import src.assembled_core.strategies.multifactor_v2 as v2mod
+
     v2mod._REGIME_WEIGHTS_CACHE = None
 
-    result = _get_weights_for_regime("test_regime", {"regime_weights_path": str(weights_file)})
+    result = _get_weights_for_regime(
+        "test_regime", {"regime_weights_path": str(weights_file)}
+    )
     assert result["trend_ema_spread"] == 0.5
 
     # Cleanup cache
@@ -198,11 +203,13 @@ def test_get_weights_known_regime_with_file(tmp_path: Path) -> None:
 
 
 def test_compute_target_positions_from_signals() -> None:
-    signals = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "NVDA"],
-        "score": [2.0, 1.5, 1.0],
-        "direction": ["LONG", "LONG", "LONG"],
-    })
+    signals = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "NVDA"],
+            "score": [2.0, 1.5, 1.0],
+            "direction": ["LONG", "LONG", "LONG"],
+        }
+    )
     result = compute_target_positions(signals, total_capital=100_000)
     assert not result.empty
     assert "target_weight" in result.columns
@@ -237,13 +244,15 @@ def test_compute_atr_short_history() -> None:
 
 def test_exit_signals_stop_loss() -> None:
     """Price well below avg_price triggers ATR stop."""
-    prices = pd.DataFrame({
-        "timestamp": [pd.Timestamp("2024-06-01")] * 20,
-        "symbol": ["AAPL"] * 20,
-        "close": [80.0] * 20,  # price crashed
-        "high": [82.0] * 20,
-        "low": [78.0] * 20,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2024-06-01")] * 20,
+            "symbol": ["AAPL"] * 20,
+            "close": [80.0] * 20,  # price crashed
+            "high": [82.0] * 20,
+            "low": [78.0] * 20,
+        }
+    )
     positions = {"AAPL": {"qty": 100, "avg_price": 100.0, "hwm": 105.0, "days_held": 5}}
     result = check_exit_signals(positions, prices, {"exits": {"mode": "atr_regime"}})
     assert not result.empty
@@ -254,30 +263,38 @@ def test_exit_signals_stop_loss() -> None:
 def test_exit_signals_trailing_stop() -> None:
     """Price drops from HWM by more than trail_mult * ATR."""
     n = 30
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-05-01", periods=n, freq="B"),
-        "symbol": ["AAPL"] * n,
-        "close": [110.0] * (n - 1) + [95.0],
-        "high": [112.0] * (n - 1) + [96.0],
-        "low": [108.0] * (n - 1) + [94.0],
-    })
-    positions = {"AAPL": {"qty": 100, "avg_price": 100.0, "hwm": 115.0, "days_held": 20}}
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-05-01", periods=n, freq="B"),
+            "symbol": ["AAPL"] * n,
+            "close": [110.0] * (n - 1) + [95.0],
+            "high": [112.0] * (n - 1) + [96.0],
+            "low": [108.0] * (n - 1) + [94.0],
+        }
+    )
+    positions = {
+        "AAPL": {"qty": 100, "avg_price": 100.0, "hwm": 115.0, "days_held": 20}
+    }
     result = check_exit_signals(positions, prices, {"exits": {"mode": "atr_regime"}})
     if not result.empty:
-        assert any("trailing_atr" in str(r) or "stop_atr" in str(r)
-                    for r in result["exit_reason"])
+        assert any(
+            "trailing_atr" in str(r) or "stop_atr" in str(r)
+            for r in result["exit_reason"]
+        )
 
 
 def test_exit_signals_take_profit() -> None:
     """Price exceeds avg_price + tp_mult * ATR → partial exit."""
     n = 30
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-05-01", periods=n, freq="B"),
-        "symbol": ["AAPL"] * n,
-        "close": [100.0] * (n - 1) + [150.0],
-        "high": [102.0] * (n - 1) + [152.0],
-        "low": [98.0] * (n - 1) + [148.0],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-05-01", periods=n, freq="B"),
+            "symbol": ["AAPL"] * n,
+            "close": [100.0] * (n - 1) + [150.0],
+            "high": [102.0] * (n - 1) + [152.0],
+            "low": [98.0] * (n - 1) + [148.0],
+        }
+    )
     positions = {"AAPL": {"qty": 100, "avg_price": 100.0, "hwm": 150.0, "days_held": 5}}
     result = check_exit_signals(positions, prices, {"exits": {"mode": "atr_regime"}})
     if not result.empty:
@@ -289,17 +306,29 @@ def test_exit_signals_take_profit() -> None:
 def test_exit_signals_time_stop() -> None:
     """Position held > 30 days with < 3% return triggers time stop."""
     n = 30
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-05-01", periods=n, freq="B"),
-        "symbol": ["AAPL"] * n,
-        "close": [101.0] * n,
-        "high": [102.0] * n,
-        "low": [100.0] * n,
-    })
-    positions = {"AAPL": {"qty": 100, "avg_price": 100.0, "hwm": 102.0, "days_held": 35}}
-    result = check_exit_signals(positions, prices, {
-        "exits": {"mode": "atr_regime", "time_stop_days": 30, "time_stop_min_return": 0.03}
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-05-01", periods=n, freq="B"),
+            "symbol": ["AAPL"] * n,
+            "close": [101.0] * n,
+            "high": [102.0] * n,
+            "low": [100.0] * n,
+        }
+    )
+    positions = {
+        "AAPL": {"qty": 100, "avg_price": 100.0, "hwm": 102.0, "days_held": 35}
+    }
+    result = check_exit_signals(
+        positions,
+        prices,
+        {
+            "exits": {
+                "mode": "atr_regime",
+                "time_stop_days": 30,
+                "time_stop_min_return": 0.03,
+            }
+        },
+    )
     if not result.empty:
         time_exits = result[result["exit_reason"].str.contains("time_stop")]
         assert not time_exits.empty
@@ -307,11 +336,13 @@ def test_exit_signals_time_stop() -> None:
 
 def test_exit_signals_static_mode_fallback() -> None:
     """mode=static delegates to v1 exits."""
-    prices = pd.DataFrame({
-        "timestamp": [pd.Timestamp("2024-06-01")],
-        "symbol": ["AAPL"],
-        "close": [85.0],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2024-06-01")],
+            "symbol": ["AAPL"],
+            "close": [85.0],
+        }
+    )
     positions = {"AAPL": {"qty": 100, "avg_price": 100.0, "hwm": 105.0, "days_held": 5}}
     result = check_exit_signals(positions, prices, {"exits": {"mode": "static"}})
     assert isinstance(result, pd.DataFrame)
@@ -355,11 +386,13 @@ def test_signal_to_position_pipeline() -> None:
 
 def test_signals_with_minimal_features() -> None:
     """Even without TA features, v2 should not crash."""
-    panel = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=50, freq="B").tolist() * 3,
-        "symbol": ["AAPL"] * 50 + ["MSFT"] * 50 + ["NVDA"] * 50,
-        "close": list(np.random.default_rng(42).uniform(90, 110, 150)),
-    })
+    panel = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=50, freq="B").tolist() * 3,
+            "symbol": ["AAPL"] * 50 + ["MSFT"] * 50 + ["NVDA"] * 50,
+            "close": list(np.random.default_rng(42).uniform(90, 110, 150)),
+        }
+    )
     result = compute_signals(panel)
     assert isinstance(result, pd.DataFrame)
 
@@ -367,10 +400,12 @@ def test_signals_with_minimal_features() -> None:
 def test_signals_two_symbols_minimum() -> None:
     """Minimum viable: 2 symbols with basic columns."""
     dates = pd.date_range("2024-01-01", periods=100, freq="B")
-    panel = pd.DataFrame({
-        "timestamp": list(dates) * 2,
-        "symbol": ["A"] * 100 + ["B"] * 100,
-        "close": list(np.linspace(100, 120, 100)) + list(np.linspace(50, 45, 100)),
-    })
+    panel = pd.DataFrame(
+        {
+            "timestamp": list(dates) * 2,
+            "symbol": ["A"] * 100 + ["B"] * 100,
+            "close": list(np.linspace(100, 120, 100)) + list(np.linspace(50, 45, 100)),
+        }
+    )
     result = compute_signals(panel)
     assert isinstance(result, pd.DataFrame)

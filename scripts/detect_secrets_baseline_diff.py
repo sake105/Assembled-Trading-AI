@@ -30,10 +30,14 @@ def main() -> int:
 
     try:
         current = _norm(
-            json.loads(Path(args.current).read_text(encoding="utf-8")).get("results", {})
+            json.loads(Path(args.current).read_text(encoding="utf-8")).get(
+                "results", {}
+            )
         )
         baseline = _norm(
-            json.loads(Path(args.baseline).read_text(encoding="utf-8")).get("results", {})
+            json.loads(Path(args.baseline).read_text(encoding="utf-8")).get(
+                "results", {}
+            )
         )
     except json.JSONDecodeError as exc:
         ap.error(f"Malformed JSON in secrets baseline file: {exc}")

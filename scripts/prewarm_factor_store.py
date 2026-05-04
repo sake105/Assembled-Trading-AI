@@ -91,7 +91,9 @@ def _resolve_universe(name_or_path: str) -> list[str]:
     path = Path(name_or_path)
     if path.exists():
         text = path.read_text(encoding="utf-8")
-        return [s.strip() for s in text.splitlines() if s.strip() and not s.startswith("#")]
+        return [
+            s.strip() for s in text.splitlines() if s.strip() and not s.startswith("#")
+        ]
     raise ValueError(
         f"Universe '{name_or_path}' is neither a known preset "
         f"{sorted(_BUILTIN_UNIVERSES)} nor an existing file path"

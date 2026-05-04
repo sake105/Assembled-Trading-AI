@@ -12,6 +12,7 @@ References:
   - Bayes Sharpe: Fernandez-Perez et al. (2019)
   - Hierarchical partial pooling: Gelman et al. "ARM" ch. 12
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import pymc as pm  # type: ignore[import]  # noqa: F401
+
     _PYMC_AVAILABLE = True
 except ImportError:
     _PYMC_AVAILABLE = False
@@ -33,19 +35,21 @@ except ImportError:
 @dataclass
 class SharpePosterior:
     """Posterior summary for a single strategy's Sharpe ratio."""
+
     strategy: str
-    mean: float          # posterior mean Sharpe
-    std: float           # posterior std
-    hdi_lower: float     # 94% HDI lower bound
-    hdi_upper: float     # 94% HDI upper bound
-    p_positive: float    # P(Sharpe > 0)
+    mean: float  # posterior mean Sharpe
+    std: float  # posterior std
+    hdi_lower: float  # 94% HDI lower bound
+    hdi_upper: float  # 94% HDI upper bound
+    p_positive: float  # P(Sharpe > 0)
     n_obs: int
-    backend: str         # "pymc" or "analytic"
+    backend: str  # "pymc" or "analytic"
 
 
 @dataclass
 class StrategyComparison:
     """Result of hierarchical comparison across strategies."""
+
     strategies: list[str]
     posteriors: list[SharpePosterior]
     # P(strategy_i best) for each strategy
@@ -74,17 +78,22 @@ def _analytic_sharpe_posterior(
     n = len(returns)
     if n < 2:
         return SharpePosterior(
-            strategy="", mean=0.0, std=1.0,
-            hdi_lower=-2.0, hdi_upper=2.0,
-            p_positive=0.5, n_obs=n, backend="analytic",
+            strategy="",
+            mean=0.0,
+            std=1.0,
+            hdi_lower=-2.0,
+            hdi_upper=2.0,
+            p_positive=0.5,
+            n_obs=n,
+            backend="analytic",
         )
 
     obs_mean = float(np.mean(returns))
     obs_std = float(np.std(returns, ddof=1))
-    obs_var = obs_std ** 2
+    obs_var = obs_std**2
 
     # Prior precision
-    prior_prec = 1.0 / (prior_std ** 2)
+    prior_prec = 1.0 / (prior_std**2)
     data_prec = n / max(obs_var, 1e-12)
 
     # Posterior precision and mean
@@ -103,6 +112,7 @@ def _analytic_sharpe_posterior(
 
     # P(Sharpe > 0)
     from scipy.stats import norm  # type: ignore[import]
+
     p_pos = float(norm.sf(0.0, loc=sharpe_mean, scale=max(sharpe_std, 1e-9)))
 
     return SharpePosterior(
@@ -173,8 +183,12 @@ def _pymc_sharpe_posterior(
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             trace = pm.sample(
-                n_samples, tune=500, chains=2, progressbar=False,
-                return_inferencedata=True, target_accept=0.90,
+                n_samples,
+                tune=500,
+                chains=2,
+                progressbar=False,
+                return_inferencedata=True,
+                target_accept=0.90,
             )
 
     mu_samples = trace.posterior["mu"].values.flatten()
@@ -232,15 +246,11 @@ def hierarchical_strategy_comparison(
     # Monte Carlo estimate of P(best) from analytic posteriors
     n_mc = 5000
     rng = np.random.default_rng(0)
-    sharpe_mc = np.column_stack([
-        rng.normal(p.mean, max(p.std, 1e-6), n_mc)
-        for p in posteriors
-    ])
+    sharpe_mc = np.column_stack(
+        [rng.normal(p.mean, max(p.std, 1e-6), n_mc) for p in posteriors]
+    )
     best_idx = np.argmax(sharpe_mc, axis=1)
-    p_best = {
-        name: float(np.mean(best_idx == i))
-        for i, name in enumerate(names)
-    }
+    p_best = {name: float(np.mean(best_idx == i)) for i, name in enumerate(names)}
 
     pop_means = [p.mean for p in posteriors]
     pop_mean = float(np.mean(pop_means)) if pop_means else 0.0
@@ -273,9 +283,7 @@ def _pymc_hierarchical_comparison(
         sigma_pop = pm.HalfNormal("sigma_pop", sigma=0.005)
 
         # Per-strategy means drawn from population
-        mu_strat = pm.Normal(
-            "mu_strat", mu=mu_pop, sigma=sigma_pop, shape=n_strats
-        )
+        mu_strat = pm.Normal("mu_strat", mu=mu_pop, sigma=sigma_pop, shape=n_strats)
 
         # Per-strategy observation noise (half-normal around observed std)
         sigma_strat = pm.HalfNormal(
@@ -289,8 +297,12 @@ def _pymc_hierarchical_comparison(
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             trace = pm.sample(
-                n_samples, tune=500, chains=2, progressbar=False,
-                return_inferencedata=True, target_accept=0.90,
+                n_samples,
+                tune=500,
+                chains=2,
+                progressbar=False,
+                return_inferencedata=True,
+                target_accept=0.90,
             )
 
     mu_samples = trace.posterior["mu_strat"].values.reshape(-1, n_strats)
@@ -301,26 +313,31 @@ def _pymc_hierarchical_comparison(
     for i, name in enumerate(names):
         s = sharpe_samples[:, i]
         hdi = pm.hdi(s, hdi_prob=0.94)
-        posteriors.append(SharpePosterior(
-            strategy=name,
-            mean=round(float(np.mean(s)), 4),
-            std=round(float(np.std(s)), 4),
-            hdi_lower=round(float(hdi[0]), 4),
-            hdi_upper=round(float(hdi[1]), 4),
-            p_positive=round(float(np.mean(s > 0)), 4),
-            n_obs=len(arrays[i]),
-            backend="pymc",
-        ))
+        posteriors.append(
+            SharpePosterior(
+                strategy=name,
+                mean=round(float(np.mean(s)), 4),
+                std=round(float(np.std(s)), 4),
+                hdi_lower=round(float(hdi[0]), 4),
+                hdi_upper=round(float(hdi[1]), 4),
+                p_positive=round(float(np.mean(s > 0)), 4),
+                n_obs=len(arrays[i]),
+                backend="pymc",
+            )
+        )
 
     # P(strategy i is best)
     best_idx = np.argmax(sharpe_samples, axis=1)
     p_best = {
-        name: round(float(np.mean(best_idx == i)), 4)
-        for i, name in enumerate(names)
+        name: round(float(np.mean(best_idx == i)), 4) for i, name in enumerate(names)
     }
 
     mu_pop_samples = trace.posterior["mu_pop"].values.flatten()
-    _sharpe_pop_mean = float(np.mean(mu_pop_samples)) / max(float(np.mean(sig_samples)), 1e-9) * math.sqrt(252)
+    _sharpe_pop_mean = (
+        float(np.mean(mu_pop_samples))
+        / max(float(np.mean(sig_samples)), 1e-9)
+        * math.sqrt(252)
+    )
 
     return StrategyComparison(
         strategies=names,

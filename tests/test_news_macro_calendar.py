@@ -41,7 +41,7 @@ class TestMacroCalendar:
 
     def test_naive_ts_auto_tz(self):
         cal = MacroCalendar()
-        naive = datetime(2026, 12, 31, 18, 0)   # no tzinfo
+        naive = datetime(2026, 12, 31, 18, 0)  # no tzinfo
         cal.add(MacroEvent("E", "cpi", naive))
         assert cal._events[0].ts.tzinfo is timezone.utc
 

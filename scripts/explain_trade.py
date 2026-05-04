@@ -7,6 +7,7 @@ Usage:
     python scripts/explain_trade.py --order-id alpaca_xyz789
     python scripts/explain_trade.py --symbol AAPL  # last trade for symbol
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,7 +27,9 @@ def _load_journal(journal_dir: Path) -> list[dict]:
     return entries
 
 
-def _match(entry: dict, symbol: str | None, date: str | None, order_id: str | None) -> bool:
+def _match(
+    entry: dict, symbol: str | None, date: str | None, order_id: str | None
+) -> bool:
     if order_id and entry.get("order_id") != order_id:
         return False
     if symbol and entry.get("symbol", "").upper() != symbol.upper():
@@ -50,7 +53,11 @@ def _render(entry: dict) -> str:
     if comps:
         lines.append("Signal components:")
         for name, val in comps.items():
-            lines.append(f"  {name:<20} {val:+.4f}" if isinstance(val, float) else f"  {name:<20} {val}")
+            lines.append(
+                f"  {name:<20} {val:+.4f}"
+                if isinstance(val, float)
+                else f"  {name:<20} {val}"
+            )
         score = entry.get("signal_score")
         if score is not None:
             lines.append(f"  {'COMPOSITE':<20} {score:+.4f}")
@@ -91,7 +98,9 @@ def main() -> int:
     parser.add_argument("--date", default=None, help="ISO date prefix, e.g. 2026-05-03")
     parser.add_argument("--order-id", default=None)
     parser.add_argument("--journal-dir", default="output/trade_journal")
-    parser.add_argument("--last", type=int, default=1, help="Show last N matching trades")
+    parser.add_argument(
+        "--last", type=int, default=1, help="Show last N matching trades"
+    )
     args = parser.parse_args()
 
     if not (args.symbol or args.order_id):
@@ -100,18 +109,22 @@ def main() -> int:
     journal_dir = Path(args.journal_dir)
     if not journal_dir.exists():
         print(f"Journal directory not found: {journal_dir}", file=sys.stderr)
-        print("Trade journal is written when the system runs in paper/live mode.", file=sys.stderr)
+        print(
+            "Trade journal is written when the system runs in paper/live mode.",
+            file=sys.stderr,
+        )
         return 1
 
     entries = _load_journal(journal_dir)
-    matches = [e for e in entries
-               if _match(e, args.symbol, args.date, args.order_id)]
+    matches = [e for e in entries if _match(e, args.symbol, args.date, args.order_id)]
 
     if not matches:
-        print(f"No trades found for symbol={args.symbol} date={args.date} order_id={args.order_id}")
+        print(
+            f"No trades found for symbol={args.symbol} date={args.date} order_id={args.order_id}"
+        )
         return 1
 
-    for entry in matches[-args.last:]:
+    for entry in matches[-args.last :]:
         print(_render(entry))
         print()
 

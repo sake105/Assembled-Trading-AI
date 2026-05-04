@@ -34,6 +34,7 @@ _OFFICER_TITLES = re.compile(
 def _try_edgartools():
     try:
         import edgar
+
         return edgar
     except ImportError:
         logger.warning("edgartools not installed — pip install edgartools")
@@ -96,22 +97,30 @@ def _extract_transactions(filing) -> list[dict]:
 
             shares = float(getattr(txn, "shares", 0) or 0)
             price = float(getattr(txn, "price", 0) or 0)
-            reporter = str(getattr(filing, "reporting_name", "") or
-                           getattr(filing, "reporter_name", "") or "")
-            title = str(getattr(filing, "reporting_title", "") or
-                        getattr(filing, "reporter_title", "") or "")
+            reporter = str(
+                getattr(filing, "reporting_name", "")
+                or getattr(filing, "reporter_name", "")
+                or ""
+            )
+            title = str(
+                getattr(filing, "reporting_title", "")
+                or getattr(filing, "reporter_title", "")
+                or ""
+            )
             is_officer = bool(_OFFICER_TITLES.search(title))
 
-            transactions.append({
-                "code": code,
-                "shares": shares,
-                "price": price,
-                "value": shares * price,
-                "reporter": reporter,
-                "title": title,
-                "is_officer": is_officer,
-                "filing_date": str(getattr(filing, "filing_date", "")),
-            })
+            transactions.append(
+                {
+                    "code": code,
+                    "shares": shares,
+                    "price": price,
+                    "value": shares * price,
+                    "reporter": reporter,
+                    "title": title,
+                    "is_officer": is_officer,
+                    "filing_date": str(getattr(filing, "filing_date", "")),
+                }
+            )
 
         return transactions
     except Exception as exc:
@@ -233,20 +242,24 @@ def batch_insider_signals(
             buyers = cluster_buy_score(ticker, lookback_days=days)
             net_usd = net_officer_usd(ticker, lookback_days=days * 3)
             score = insider_cluster_signal(ticker, days=days)
-            rows.append({
-                "ticker": ticker,
-                "cluster_buyers": buyers,
-                "net_officer_usd": net_usd,
-                "signal_score": score,
-            })
+            rows.append(
+                {
+                    "ticker": ticker,
+                    "cluster_buyers": buyers,
+                    "net_officer_usd": net_usd,
+                    "signal_score": score,
+                }
+            )
         except Exception as exc:
             logger.debug("Insider signal failed for %s: %s", ticker, exc)
-            rows.append({
-                "ticker": ticker,
-                "cluster_buyers": 0,
-                "net_officer_usd": 0.0,
-                "signal_score": 0.0,
-            })
+            rows.append(
+                {
+                    "ticker": ticker,
+                    "cluster_buyers": 0,
+                    "net_officer_usd": 0.0,
+                    "signal_score": 0.0,
+                }
+            )
 
     return pd.DataFrame(rows)
 

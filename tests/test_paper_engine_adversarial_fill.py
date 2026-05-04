@@ -62,9 +62,7 @@ def test_disabled_adversarial_is_zero_and_legacy_price(tmp_path: Path) -> None:
             }
         ]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}])
     fills = eng._simulate_fills(orders, prices)
     assert "adversarial_cost_bps" in fills.columns
     assert fills.loc[0, "adversarial_cost_bps"] == pytest.approx(0.0)
@@ -88,9 +86,7 @@ def test_enabled_adversarial_raises_buy_price(tmp_path: Path) -> None:
             }
         ]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}])
 
     f_off = eng_off._simulate_fills(orders, prices)
     f_on = eng_on._simulate_fills(orders, prices)
@@ -124,9 +120,7 @@ def test_enabled_adversarial_lowers_sell_price(tmp_path: Path) -> None:
             }
         ]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}])
 
     f_off = eng_off._simulate_fills(orders, prices)
     f_on = eng_on._simulate_fills(orders, prices)
@@ -149,9 +143,7 @@ def test_zero_signal_strength_no_adversarial_cost(tmp_path: Path) -> None:
             }
         ]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}])
     fills = eng._simulate_fills(orders, prices)
     assert fills.loc[0, "adversarial_cost_bps"] == pytest.approx(0.0)
 
@@ -188,8 +180,6 @@ def test_missing_signal_strength_defaults_to_zero(tmp_path: Path) -> None:
     orders = pd.DataFrame(
         [{"symbol": "AAA", "side": "BUY", "qty": 50.0, "price": 100.0}]
     )
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "close": 100.0, "volume": 1_000.0}])
     fills = eng._simulate_fills(orders, prices)
     assert fills.loc[0, "adversarial_cost_bps"] == pytest.approx(0.0)

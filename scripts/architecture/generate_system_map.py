@@ -14,6 +14,7 @@ Options:
 
 Exit codes: 0 OK, 1 schema error, 2 generator error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,36 +30,39 @@ from typing import Any
 
 try:
     import yaml
+
     HAS_YAML = True
 except ImportError:
     HAS_YAML = False
 
 # ── Root detection ──────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT   = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent
 
-DEFAULT_OUTPUT    = REPO_ROOT / "docs/architecture/system_map/data/system_map.json"
-DEFAULT_OVERRIDES = REPO_ROOT / "docs/architecture/system_map/data/system_map_overrides.yaml"
+DEFAULT_OUTPUT = REPO_ROOT / "docs/architecture/system_map/data/system_map.json"
+DEFAULT_OVERRIDES = (
+    REPO_ROOT / "docs/architecture/system_map/data/system_map_overrides.yaml"
+)
 DEFAULT_CHANGELOG = REPO_ROOT / "docs/architecture/system_map/data/changelog.json"
 
 # ── Known external API markers ──────────────────────────────────────────────
 API_MARKERS: dict[str, str] = {
-    "yfinance":              "api:yfinance",
-    "fredapi":               "api:fredapi",
-    "alpaca_trade_api":      "api:alpaca",
-    "alpaca":                "api:alpaca",
-    "ib_insync":             "api:ibkr",
-    "finnhub":               "api:finnhub",
-    "sec_edgar_downloader":  "api:sec_edgar",
-    "edgar":                 "api:sec_edgar",
-    "feedparser":            "api:rss_feeds",
-    "gdelt":                 "api:gdelt",
-    "newsapi":               "api:newsapi",
-    "polygon":               "api:polygon",
-    "alpha_vantage":         "api:alpha_vantage",
-    "bls":                   "api:bls",
-    "worldbank":             "api:worldbank",
-    "websocket":             "api:websocket",
+    "yfinance": "api:yfinance",
+    "fredapi": "api:fredapi",
+    "alpaca_trade_api": "api:alpaca",
+    "alpaca": "api:alpaca",
+    "ib_insync": "api:ibkr",
+    "finnhub": "api:finnhub",
+    "sec_edgar_downloader": "api:sec_edgar",
+    "edgar": "api:sec_edgar",
+    "feedparser": "api:rss_feeds",
+    "gdelt": "api:gdelt",
+    "newsapi": "api:newsapi",
+    "polygon": "api:polygon",
+    "alpha_vantage": "api:alpha_vantage",
+    "bls": "api:bls",
+    "worldbank": "api:worldbank",
+    "websocket": "api:websocket",
 }
 
 API_URL_PATTERN = re.compile(r'requests\.(get|post|put|delete)\s*\(\s*["\']https?://')
@@ -66,11 +70,14 @@ API_URL_PATTERN = re.compile(r'requests\.(get|post|put|delete)\s*\(\s*["\']https
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
+
 def get_git_commit() -> str:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, cwd=REPO_ROOT
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
         )
         return result.stdout.strip() or "unknown"
     except Exception:
@@ -78,7 +85,11 @@ def get_git_commit() -> str:
 
 
 def loc_count(source: str) -> int:
-    return sum(1 for line in source.splitlines() if line.strip() and not line.strip().startswith('#'))
+    return sum(
+        1
+        for line in source.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    )
 
 
 def module_id(path: Path) -> str:
@@ -123,19 +134,21 @@ def build_galaxy_map(overrides: dict) -> tuple[list[dict], dict[str, str]]:
     nodes: list[dict] = []
     domain_to_galaxy: dict[str, str] = {}
     for g in galaxies:
-        nodes.append({
-            "id": g["id"],
-            "type": "galaxy",
-            "label": g.get("label", g["id"]),
-            "parent": None,
-            "purpose": g.get("purpose", ""),
-            "status": "gray",
-            "tests_count": 0,
-            "loc": 0,
-            "orphan": False,
-            "in_cycle": False,
-            "duplicate_group": None,
-        })
+        nodes.append(
+            {
+                "id": g["id"],
+                "type": "galaxy",
+                "label": g.get("label", g["id"]),
+                "parent": None,
+                "purpose": g.get("purpose", ""),
+                "status": "gray",
+                "tests_count": 0,
+                "loc": 0,
+                "orphan": False,
+                "in_cycle": False,
+                "duplicate_group": None,
+            }
+        )
         for d in g.get("domains", []):
             domain_to_galaxy[d] = g["id"]
     return nodes, domain_to_galaxy
@@ -151,8 +164,8 @@ def parse_module(path: Path) -> dict[str, Any]:
     node_data: dict[str, Any] = {
         "loc": loc_count(source),
         "functions": [],
-        "imports": [],          # internal: list of module_ids
-        "api_calls": [],        # internal: list of api_ids
+        "imports": [],  # internal: list of module_ids
+        "api_calls": [],  # internal: list of api_ids
         "in_cycle": False,
         "raises_not_implemented": False,
     }
@@ -206,7 +219,9 @@ def parse_module(path: Path) -> dict[str, Any]:
                         anchor: list[str] = []
                     else:
                         anchor = self_pkg_parts[: len(self_pkg_parts) - level + 1]
-                    resolved = ".".join([p for p in anchor if p] + ([base] if base else []))
+                    resolved = ".".join(
+                        [p for p in anchor if p] + ([base] if base else [])
+                    )
                     if resolved:
                         # Emit one import per imported symbol so we can resolve
                         # either to a sub-module (.models → events.news.models)
@@ -238,7 +253,9 @@ def parse_module(path: Path) -> dict[str, Any]:
                     api = API_MARKERS[top]
                     if api not in node_data["api_calls"]:
                         node_data["api_calls"].append(api)
-                elif name.startswith("assembled_core.") or name.startswith("src.assembled_core."):
+                elif name.startswith("assembled_core.") or name.startswith(
+                    "src.assembled_core."
+                ):
                     node_data["imports"].append(name)
 
         # NotImplementedError detection
@@ -257,7 +274,9 @@ def parse_module(path: Path) -> dict[str, Any]:
             node_data["api_calls"].append("api:http_generic")
 
     node_data["type_annotation_ratio"] = round(annotated_args / max(total_args, 1), 2)
-    node_data["complexity_score"] = min(5, max(1, math.ceil(len(node_data["functions"]) / 10)))
+    node_data["complexity_score"] = min(
+        5, max(1, math.ceil(len(node_data["functions"]) / 10))
+    )
     return node_data
 
 
@@ -312,6 +331,7 @@ def count_tests(py_path: Path, tests_root: Path) -> int:
 
 
 # ── Cycle Detection ─────────────────────────────────────────────────────────
+
 
 def detect_cycles(edges: list[dict]) -> set[str]:
     """DFS-based cycle detection. Returns set of node IDs involved in cycles."""
@@ -369,6 +389,7 @@ def detect_cycles(edges: list[dict]) -> set[str]:
 
 # ── Overrides ───────────────────────────────────────────────────────────────
 
+
 def load_overrides(path: Path) -> dict:
     if not path.exists() or not HAS_YAML:
         return {}
@@ -400,7 +421,10 @@ def apply_overrides(nodes: list[dict], overrides: dict) -> None:
 
 # ── Diff / Changelog ────────────────────────────────────────────────────────
 
-def build_changelog_entry(prev_path: Path | None, new_nodes: list[dict], new_edges: list[dict]) -> dict | None:
+
+def build_changelog_entry(
+    prev_path: Path | None, new_nodes: list[dict], new_edges: list[dict]
+) -> dict | None:
     if not prev_path or not prev_path.exists():
         return None
     try:
@@ -409,15 +433,14 @@ def build_changelog_entry(prev_path: Path | None, new_nodes: list[dict], new_edg
         return None
 
     prev_ids = {n["id"] for n in prev.get("nodes", [])}
-    new_ids  = {n["id"] for n in new_nodes}
+    new_ids = {n["id"] for n in new_nodes}
     prev_status = {n["id"]: n.get("status") for n in prev.get("nodes", [])}
-    new_status  = {n["id"]: n.get("status") for n in new_nodes}
+    new_status = {n["id"]: n.get("status") for n in new_nodes}
 
-    added   = sorted(new_ids - prev_ids)
+    added = sorted(new_ids - prev_ids)
     removed = sorted(prev_ids - new_ids)
     changed = sorted(
-        nid for nid in new_ids & prev_ids
-        if prev_status.get(nid) != new_status.get(nid)
+        nid for nid in new_ids & prev_ids if prev_status.get(nid) != new_status.get(nid)
     )
 
     return {
@@ -433,7 +456,11 @@ def build_changelog_entry(prev_path: Path | None, new_nodes: list[dict], new_edg
 
 def update_changelog(entry: dict, changelog_path: Path) -> None:
     try:
-        data = json.loads(changelog_path.read_text(encoding="utf-8")) if changelog_path.exists() else {"entries": []}
+        data = (
+            json.loads(changelog_path.read_text(encoding="utf-8"))
+            if changelog_path.exists()
+            else {"entries": []}
+        )
         data["entries"].insert(0, entry)
         data["entries"] = data["entries"][:50]  # keep last 50
         changelog_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -443,11 +470,12 @@ def update_changelog(entry: dict, changelog_path: Path) -> None:
 
 # ── Main Generator ───────────────────────────────────────────────────────────
 
+
 def generate(args: argparse.Namespace) -> int:
-    core_root   = REPO_ROOT / "src" / "assembled_core"
+    core_root = REPO_ROOT / "src" / "assembled_core"
     scripts_dir = REPO_ROOT / "scripts"
-    wf_dir      = REPO_ROOT / ".github" / "workflows"
-    tests_root  = REPO_ROOT / "tests"
+    wf_dir = REPO_ROOT / ".github" / "workflows"
+    tests_root = REPO_ROOT / "tests"
 
     if not core_root.exists():
         print(f"[ERROR] src/assembled_core not found at {core_root}", file=sys.stderr)
@@ -475,21 +503,26 @@ def generate(args: argparse.Namespace) -> int:
             parent = domain_to_galaxy.get(item.name)
             if domain_to_galaxy and parent is None:
                 unmapped_domains.append(item.name)
-            nodes.append({
-                "id": domain_id(item.name),
-                "type": "domain",
-                "label": item.name,
-                "parent": parent,
-                "status": "gray",
-                "tests_count": 0,
-                "loc": 0,
-                "orphan": False,
-                "in_cycle": False,
-                "duplicate_group": None,
-            })
+            nodes.append(
+                {
+                    "id": domain_id(item.name),
+                    "type": "domain",
+                    "label": item.name,
+                    "parent": parent,
+                    "status": "gray",
+                    "tests_count": 0,
+                    "loc": 0,
+                    "orphan": False,
+                    "in_cycle": False,
+                    "duplicate_group": None,
+                }
+            )
     if unmapped_domains:
-        print(f"[WARN] {len(unmapped_domains)} domain(s) not mapped to a galaxy: "
-              f"{', '.join(unmapped_domains)}", file=sys.stderr)
+        print(
+            f"[WARN] {len(unmapped_domains)} domain(s) not mapped to a galaxy: "
+            f"{', '.join(unmapped_domains)}",
+            file=sys.stderr,
+        )
 
     # ── 2. Scan Python modules ───────────────────────────────
     py_files = sorted(core_root.rglob("*.py"))
@@ -545,23 +578,96 @@ def generate(args: argparse.Namespace) -> int:
             target_id = resolve_import_to_id(imp)
             if target_id and target_id != mid:
                 edge_counter += 1
-                edges.append({
-                    "id": f"e{edge_counter}:{mid}→{target_id}",
-                    "source": mid,
-                    "target": target_id,
-                    "kind": "import",
-                    "weight": 1,
-                    "circular": False,
-                })
+                edges.append(
+                    {
+                        "id": f"e{edge_counter}:{mid}→{target_id}",
+                        "source": mid,
+                        "target": target_id,
+                        "kind": "import",
+                        "weight": 1,
+                        "circular": False,
+                    }
+                )
 
         # API-call edges
         for api_id in parsed.get("api_calls", []):
             if api_id not in api_nodes_seen:
                 api_nodes_seen.add(api_id)
-                nodes.append({
-                    "id": api_id,
-                    "type": "external_api",
-                    "label": api_id.replace("api:", ""),
+                nodes.append(
+                    {
+                        "id": api_id,
+                        "type": "external_api",
+                        "label": api_id.replace("api:", ""),
+                        "parent": None,
+                        "status": "gray",
+                        "tests_count": 0,
+                        "loc": 0,
+                        "orphan": False,
+                        "in_cycle": False,
+                        "duplicate_group": None,
+                    }
+                )
+            edge_counter += 1
+            edges.append(
+                {
+                    "id": f"e{edge_counter}:{mid}→{api_id}",
+                    "source": mid,
+                    "target": api_id,
+                    "kind": "api_call",
+                    "weight": 1,
+                    "circular": False,
+                }
+            )
+
+    # ── 3. Scripts (entry points) ────────────────────────────
+    for py_path in sorted(scripts_dir.glob("run_*.py")):
+        eid = f"entry_point:{py_path.stem}"
+        rel = py_path.as_posix().replace(REPO_ROOT.as_posix() + "/", "")
+        nodes.append(
+            {
+                "id": eid,
+                "type": "entry_point",
+                "label": py_path.name,
+                "parent": None,
+                "status": "gray",
+                "tests_count": 0,
+                "loc": (
+                    loc_count(py_path.read_text(encoding="utf-8", errors="replace"))
+                    if py_path.exists()
+                    else 0
+                ),
+                "orphan": False,
+                "in_cycle": False,
+                "duplicate_group": None,
+                "path": rel,
+            }
+        )
+        # Scan entry-point imports so connected modules are not orphaned.
+        parsed_ep = parse_module(py_path)
+        for imp in parsed_ep.get("imports", []):
+            target_id = resolve_import_to_id(imp)
+            if target_id and target_id != eid:
+                edge_counter += 1
+                edges.append(
+                    {
+                        "id": f"e{edge_counter}:{eid}→{target_id}",
+                        "source": eid,
+                        "target": target_id,
+                        "kind": "import",
+                        "weight": 1,
+                        "circular": False,
+                    }
+                )
+
+    # ── 4. Workflows ─────────────────────────────────────────
+    if wf_dir.exists():
+        for wf in sorted(wf_dir.glob("*.yml")):
+            wid = f"workflow:{wf.stem}"
+            nodes.append(
+                {
+                    "id": wid,
+                    "type": "workflow",
+                    "label": wf.name,
                     "parent": None,
                     "status": "gray",
                     "tests_count": 0,
@@ -569,75 +675,22 @@ def generate(args: argparse.Namespace) -> int:
                     "orphan": False,
                     "in_cycle": False,
                     "duplicate_group": None,
-                })
-            edge_counter += 1
-            edges.append({
-                "id": f"e{edge_counter}:{mid}→{api_id}",
-                "source": mid,
-                "target": api_id,
-                "kind": "api_call",
-                "weight": 1,
-                "circular": False,
-            })
-
-    # ── 3. Scripts (entry points) ────────────────────────────
-    for py_path in sorted(scripts_dir.glob("run_*.py")):
-        eid = f"entry_point:{py_path.stem}"
-        rel = py_path.as_posix().replace(REPO_ROOT.as_posix() + "/", "")
-        nodes.append({
-            "id": eid,
-            "type": "entry_point",
-            "label": py_path.name,
-            "parent": None,
-            "status": "gray",
-            "tests_count": 0,
-            "loc": loc_count(py_path.read_text(encoding="utf-8", errors="replace")) if py_path.exists() else 0,
-            "orphan": False,
-            "in_cycle": False,
-            "duplicate_group": None,
-            "path": rel,
-        })
-        # Scan entry-point imports so connected modules are not orphaned.
-        parsed_ep = parse_module(py_path)
-        for imp in parsed_ep.get("imports", []):
-            target_id = resolve_import_to_id(imp)
-            if target_id and target_id != eid:
-                edge_counter += 1
-                edges.append({
-                    "id": f"e{edge_counter}:{eid}→{target_id}",
-                    "source": eid,
-                    "target": target_id,
-                    "kind": "import",
-                    "weight": 1,
-                    "circular": False,
-                })
-
-    # ── 4. Workflows ─────────────────────────────────────────
-    if wf_dir.exists():
-        for wf in sorted(wf_dir.glob("*.yml")):
-            wid = f"workflow:{wf.stem}"
-            nodes.append({
-                "id": wid,
-                "type": "workflow",
-                "label": wf.name,
-                "parent": None,
-                "status": "gray",
-                "tests_count": 0,
-                "loc": 0,
-                "orphan": False,
-                "in_cycle": False,
-                "duplicate_group": None,
-                "path": wf.as_posix().replace(REPO_ROOT.as_posix() + "/", ""),
-            })
+                    "path": wf.as_posix().replace(REPO_ROOT.as_posix() + "/", ""),
+                }
+            )
 
     # ── 5. Fan-in / fan-out ───────────────────────────────────
     node_map = {n["id"]: n for n in nodes}
     for e in edges:
         if e["kind"] == "import":
             if e["source"] in node_map:
-                node_map[e["source"]]["fan_out"] = node_map[e["source"]].get("fan_out", 0) + 1
+                node_map[e["source"]]["fan_out"] = (
+                    node_map[e["source"]].get("fan_out", 0) + 1
+                )
             if e["target"] in node_map:
-                node_map[e["target"]]["fan_in"] = node_map[e["target"]].get("fan_in", 0) + 1
+                node_map[e["target"]]["fan_in"] = (
+                    node_map[e["target"]].get("fan_in", 0) + 1
+                )
 
     # ── 6. Orphan detection ───────────────────────────────────
     has_connection: set[str] = set()
@@ -673,7 +726,8 @@ def generate(args: argparse.Namespace) -> int:
             node_map[did]["status"] = worst
             node_map[did]["tests_count"] = sum(
                 node_map.get(n["id"], {}).get("tests_count", 0)
-                for n in nodes if n.get("parent") == did and n["type"] == "module"
+                for n in nodes
+                if n.get("parent") == did and n["type"] == "module"
             )
 
     # ── 9a. Galaxy status rollup (worst-of-domains) ──────────
@@ -688,7 +742,9 @@ def generate(args: argparse.Namespace) -> int:
             node_map[gid]["tests_count"] = sum(
                 node_map[n["id"]]["tests_count"]
                 for n in nodes
-                if n.get("parent") == gid and n["type"] == "domain" and n["id"] in node_map
+                if n.get("parent") == gid
+                and n["type"] == "domain"
+                and n["id"] in node_map
             )
 
     # ── 9b. Deduplicate nodes (keep first occurrence) ────────
@@ -721,14 +777,24 @@ def generate(args: argparse.Namespace) -> int:
             reparented += 1
 
     if dropped_edges or reparented:
-        print(f"[CLEAN] Dropped {dropped_edges} dangling edges, "
-              f"reparented {reparented} nodes with missing parent")
+        print(
+            f"[CLEAN] Dropped {dropped_edges} dangling edges, "
+            f"reparented {reparented} nodes with missing parent"
+        )
 
     # ── 10. Meta ──────────────────────────────────────────────
-    status_summary: dict[str, int] = {"green": 0, "yellow": 0, "orange": 0, "red": 0, "gray": 0}
+    status_summary: dict[str, int] = {
+        "green": 0,
+        "yellow": 0,
+        "orange": 0,
+        "red": 0,
+        "gray": 0,
+    }
     for n in nodes:
         if n["type"] == "module":
-            status_summary[n.get("status", "gray")] = status_summary.get(n.get("status", "gray"), 0) + 1
+            status_summary[n.get("status", "gray")] = (
+                status_summary.get(n.get("status", "gray"), 0) + 1
+            )
 
     meta = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -757,7 +823,8 @@ def generate(args: argparse.Namespace) -> int:
             print("         " + ", ".join(sorted(cyclic)[:10]))
         god_modules = sorted(
             [n for n in nodes if n["type"] == "module"],
-            key=lambda n: n.get("fan_in", 0), reverse=True
+            key=lambda n: n.get("fan_in", 0),
+            reverse=True,
         )[:5]
         print("[REPORT] Top fan-in (god modules):")
         for gm in god_modules:
@@ -784,19 +851,22 @@ def generate(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate system_map.json from codebase AST")
-    parser.add_argument("--output",    default=None, help="Output JSON path")
+    parser = argparse.ArgumentParser(
+        description="Generate system_map.json from codebase AST"
+    )
+    parser.add_argument("--output", default=None, help="Output JSON path")
     parser.add_argument("--overrides", default=None, help="Overrides YAML path")
-    parser.add_argument("--prev",      default=None, help="Previous JSON for changelog")
-    parser.add_argument("--no-diff",   action="store_true", help="Skip changelog update")
-    parser.add_argument("--report",    action="store_true", help="Print summary report")
-    parser.add_argument("--dry-run",   action="store_true", help="Print JSON to stdout")
+    parser.add_argument("--prev", default=None, help="Previous JSON for changelog")
+    parser.add_argument("--no-diff", action="store_true", help="Skip changelog update")
+    parser.add_argument("--report", action="store_true", help="Print summary report")
+    parser.add_argument("--dry-run", action="store_true", help="Print JSON to stdout")
     args = parser.parse_args()
     try:
         return generate(args)
     except Exception as e:
         print(f"[ERROR] {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         return 2
 

@@ -228,8 +228,12 @@ def main() -> int:
         for rank, row in enumerate(top_10.itertuples(index=False), start=1):
             ic_ir = getattr(row, "ic_ir", None)
             ls_dsr = getattr(row, "ls_deflated_sharpe", None)
-            ic_ir_str = f"{ic_ir:.4f}" if ic_ir is not None and pd.notna(ic_ir) else "N/A"
-            ls_dsr_str = f"{ls_dsr:.4f}" if ls_dsr is not None and pd.notna(ls_dsr) else "N/A"
+            ic_ir_str = (
+                f"{ic_ir:.4f}" if ic_ir is not None and pd.notna(ic_ir) else "N/A"
+            )
+            ls_dsr_str = (
+                f"{ls_dsr:.4f}" if ls_dsr is not None and pd.notna(ls_dsr) else "N/A"
+            )
             logger.info(
                 f"  {rank:2d}. {row.factor_name:40s} "
                 f"Score: {row.combined_score:.4f} "

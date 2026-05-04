@@ -24,7 +24,10 @@ pytestmark = pytest.mark.phase12
 # Triple Barrier
 # ---------------------------------------------------------------------------
 
-def _make_trending_prices(n: int = 50, trend: float = 0.002, seed: int = 0) -> pd.Series:
+
+def _make_trending_prices(
+    n: int = 50, trend: float = 0.002, seed: int = 0
+) -> pd.Series:
     rng = np.random.default_rng(seed)
     returns = rng.normal(trend, 0.015, n)
     prices = 100.0 * np.exp(np.cumsum(returns))
@@ -32,7 +35,9 @@ def _make_trending_prices(n: int = 50, trend: float = 0.002, seed: int = 0) -> p
 
 
 def test_triple_barrier_labels_basic():
-    import pytest; pytest.importorskip('src.assembled_core.ml.triple_barrier')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.triple_barrier")
     from src.assembled_core.ml.triple_barrier import (
         apply_triple_barrier,
         compute_daily_volatility,
@@ -40,7 +45,9 @@ def test_triple_barrier_labels_basic():
 
     prices = _make_trending_prices(n=100, trend=0.005)  # starker Trend
     vol = compute_daily_volatility(prices, lookback=20)
-    result = apply_triple_barrier(prices, vol, horizon_days=5, upper_mult=1.5, lower_mult=1.5)
+    result = apply_triple_barrier(
+        prices, vol, horizon_days=5, upper_mult=1.5, lower_mult=1.5
+    )
 
     assert {"t1", "label", "ret", "barrier_type"}.issubset(result.columns)
     assert result["label"].notna().sum() > 30  # mindestens einige Labels
@@ -50,35 +57,45 @@ def test_triple_barrier_labels_basic():
 
 def test_triple_barrier_upper_hit_on_trend():
     """Starker positiver Trend → viele UPPER-Treffer."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.triple_barrier')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.triple_barrier")
     from src.assembled_core.ml.triple_barrier import (
         apply_triple_barrier,
         compute_daily_volatility,
     )
 
     # Deterministischer Uptrend
-    prices = pd.Series([100 * (1.01 ** i) for i in range(30)])
+    prices = pd.Series([100 * (1.01**i) for i in range(30)])
     vol = compute_daily_volatility(prices, lookback=10, min_periods=3)
-    result = apply_triple_barrier(prices, vol, horizon_days=5, upper_mult=1.0, lower_mult=3.0)
+    result = apply_triple_barrier(
+        prices, vol, horizon_days=5, upper_mult=1.0, lower_mult=3.0
+    )
 
     barrier_counts = result["barrier_type"].value_counts()
     assert barrier_counts.get("UPPER", 0) > barrier_counts.get("LOWER", 0)
 
 
 def test_triple_barrier_build_panel():
-    import pytest; pytest.importorskip('src.assembled_core.ml.triple_barrier')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.triple_barrier")
     from src.assembled_core.ml.triple_barrier import build_triple_barrier_labels
 
     rng = np.random.default_rng(42)
     n = 60
-    panel = pd.DataFrame({
-        "symbol": ["A"] * n + ["B"] * n,
-        "timestamp": list(pd.date_range("2025-01-01", periods=n)) * 2,
-        "close": np.concatenate([
-            100.0 * np.exp(np.cumsum(rng.normal(0.001, 0.01, n))),
-            200.0 * np.exp(np.cumsum(rng.normal(0.001, 0.01, n))),
-        ]),
-    })
+    panel = pd.DataFrame(
+        {
+            "symbol": ["A"] * n + ["B"] * n,
+            "timestamp": list(pd.date_range("2025-01-01", periods=n)) * 2,
+            "close": np.concatenate(
+                [
+                    100.0 * np.exp(np.cumsum(rng.normal(0.001, 0.01, n))),
+                    200.0 * np.exp(np.cumsum(rng.normal(0.001, 0.01, n))),
+                ]
+            ),
+        }
+    )
     result = build_triple_barrier_labels(panel, horizon_days=5, vol_lookback=15)
     assert "tb_label_5d" in result.columns
     assert "tb_ret_5d" in result.columns
@@ -89,9 +106,13 @@ def test_triple_barrier_build_panel():
 # Fractional Differentiation
 # ---------------------------------------------------------------------------
 
+
 def test_frac_diff_weights():
-    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.features.fractional_diff")
     from src.assembled_core.features.fractional_diff import frac_diff_weights
+
     w = frac_diff_weights(d=0.5, threshold=1e-4)
     assert len(w) > 5
     assert w[0] == 1.0
@@ -102,7 +123,9 @@ def test_frac_diff_weights():
 
 def test_frac_diff_d_zero_equals_identity():
     """d=0 → series bleibt unverändert."""
-    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.features.fractional_diff")
     from src.assembled_core.features.fractional_diff import frac_diff_ffd
 
     s = pd.Series(np.arange(50, dtype=float))
@@ -113,7 +136,9 @@ def test_frac_diff_d_zero_equals_identity():
 
 def test_frac_diff_ffd_reduces_integration():
     """Fractional diff auf kumulativer Reihe → stationär ohne Memory-Loss."""
-    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.features.fractional_diff")
     from src.assembled_core.features.fractional_diff import frac_diff_ffd
 
     rng = np.random.default_rng(0)
@@ -129,14 +154,18 @@ def test_frac_diff_ffd_reduces_integration():
 
 
 def test_apply_ffd_to_panel():
-    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.features.fractional_diff")
     from src.assembled_core.features.fractional_diff import apply_ffd_to_panel
 
-    panel = pd.DataFrame({
-        "symbol": ["A"] * 30 + ["B"] * 30,
-        "timestamp": list(pd.date_range("2025-01-01", periods=30)) * 2,
-        "close": list(np.arange(1.0, 31.0)) + list(np.arange(50.0, 80.0)),
-    })
+    panel = pd.DataFrame(
+        {
+            "symbol": ["A"] * 30 + ["B"] * 30,
+            "timestamp": list(pd.date_range("2025-01-01", periods=30)) * 2,
+            "close": list(np.arange(1.0, 31.0)) + list(np.arange(50.0, 80.0)),
+        }
+    )
     result = apply_ffd_to_panel(panel, price_cols=["close"], d=0.3)
     assert "close_ffd_0.30" in result.columns
 
@@ -145,6 +174,7 @@ def test_apply_ffd_to_panel():
 # Stacking Ensemble
 # ---------------------------------------------------------------------------
 
+
 def test_stacking_cv_basic():
     pytest.importorskip("sklearn")
     pytest.importorskip("src.assembled_core.ml.stacking_ensemble")
@@ -152,11 +182,13 @@ def test_stacking_cv_basic():
 
     rng = np.random.default_rng(42)
     n = 300
-    X = pd.DataFrame({
-        "f1": rng.standard_normal(n),
-        "f2": rng.standard_normal(n),
-        "f3": rng.standard_normal(n),
-    })
+    X = pd.DataFrame(
+        {
+            "f1": rng.standard_normal(n),
+            "f2": rng.standard_normal(n),
+            "f3": rng.standard_normal(n),
+        }
+    )
     y = pd.Series(0.5 * X["f1"] + 0.3 * X["f2"] + rng.normal(0, 0.5, n))
 
     cfg = StackingConfig(
@@ -201,6 +233,7 @@ def test_stacking_predict():
 # Conformal Prediction
 # ---------------------------------------------------------------------------
 
+
 def test_conformal_coverage():
     """90%-Intervall sollte ca. 90% der echten Werte abdecken."""
     pytest.importorskip("sklearn")
@@ -222,8 +255,7 @@ def test_conformal_coverage():
     result = pred.predict(X_test)
 
     coverage = (
-        (y_test >= result.lower_bounds.values)
-        & (y_test <= result.upper_bounds.values)
+        (y_test >= result.lower_bounds.values) & (y_test <= result.upper_bounds.values)
     ).mean()
     # Finite-sample: erlaube kleine Abweichung, aber >=85%
     assert 0.82 < coverage < 0.98
@@ -234,7 +266,10 @@ def test_conformal_position_sizing():
     pytest.importorskip("src.assembled_core.ml.conformal")
     from sklearn.linear_model import Ridge
 
-    from src.assembled_core.ml.conformal import SplitConformalPredictor, conformal_position_size
+    from src.assembled_core.ml.conformal import (
+        SplitConformalPredictor,
+        conformal_position_size,
+    )
 
     rng = np.random.default_rng(2)
     n = 200
@@ -254,15 +289,20 @@ def test_conformal_position_sizing():
 # Cross-Sectional Features
 # ---------------------------------------------------------------------------
 
+
 def test_rank_cross_sectional_percentile():
-    import pytest; pytest.importorskip('src.assembled_core.features.cross_sectional')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.features.cross_sectional")
     from src.assembled_core.features.cross_sectional import rank_cross_sectional
 
-    panel = pd.DataFrame({
-        "timestamp": ["2025-01-01"] * 4 + ["2025-01-02"] * 4,
-        "symbol": ["A", "B", "C", "D"] * 2,
-        "f1": [1.0, 2.0, 3.0, 4.0, 10.0, 20.0, 30.0, 40.0],
-    })
+    panel = pd.DataFrame(
+        {
+            "timestamp": ["2025-01-01"] * 4 + ["2025-01-02"] * 4,
+            "symbol": ["A", "B", "C", "D"] * 2,
+            "f1": [1.0, 2.0, 3.0, 4.0, 10.0, 20.0, 30.0, 40.0],
+        }
+    )
     result = rank_cross_sectional(panel, feature_cols=["f1"], normalize_to="percentile")
     assert "f1_xrank" in result.columns
     # Pro Tag: Ranks müssen in [0, 1] liegen
@@ -274,14 +314,18 @@ def test_rank_cross_sectional_percentile():
 
 
 def test_zscore_cross_sectional():
-    import pytest; pytest.importorskip('src.assembled_core.features.cross_sectional')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.features.cross_sectional")
     from src.assembled_core.features.cross_sectional import zscore_cross_sectional
 
-    panel = pd.DataFrame({
-        "timestamp": ["2025-01-01"] * 5,
-        "symbol": ["A", "B", "C", "D", "E"],
-        "f1": [1.0, 2.0, 3.0, 4.0, 5.0],
-    })
+    panel = pd.DataFrame(
+        {
+            "timestamp": ["2025-01-01"] * 5,
+            "symbol": ["A", "B", "C", "D", "E"],
+            "f1": [1.0, 2.0, 3.0, 4.0, 5.0],
+        }
+    )
     result = zscore_cross_sectional(panel, feature_cols=["f1"], winsorize_std=None)
     # Mittelwert pro Tag = 0; sample-std (ddof=1) = 1.0 (production uses pandas default)
     assert abs(result["f1_xz"].mean()) < 1e-9
@@ -292,9 +336,12 @@ def test_zscore_cross_sectional():
 # PBO
 # ---------------------------------------------------------------------------
 
+
 def test_pbo_perfect_strategy_low_pbo():
     """Echte gute Strategie → niedrige PBO."""
-    import pytest; pytest.importorskip('src.assembled_core.qa.backtest_overfit')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.qa.backtest_overfit")
     from src.assembled_core.qa.backtest_overfit import compute_pbo
 
     rng = np.random.default_rng(5)
@@ -314,7 +361,9 @@ def test_pbo_perfect_strategy_low_pbo():
 
 def test_pbo_random_strategies_high_pbo():
     """Alle Strategien reines Rauschen → PBO sollte hoch sein (~0.5)."""
-    import pytest; pytest.importorskip('src.assembled_core.qa.backtest_overfit')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.qa.backtest_overfit")
     from src.assembled_core.qa.backtest_overfit import compute_pbo
 
     rng = np.random.default_rng(9)
@@ -330,30 +379,56 @@ def test_pbo_random_strategies_high_pbo():
 
 
 def test_pbo_interpret():
-    import pytest; pytest.importorskip('src.assembled_core.qa.backtest_overfit')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.qa.backtest_overfit")
     from src.assembled_core.qa.backtest_overfit import PBOResult
-    assert "ROBUST" in PBOResult(pbo=0.05, n_strategies=5, n_periods=20, n_splits=50, median_logit=1.0).interpret()
-    assert "STARK OVERFITTET" in PBOResult(pbo=0.7, n_strategies=5, n_periods=20, n_splits=50, median_logit=-0.5).interpret()
+
+    assert (
+        "ROBUST"
+        in PBOResult(
+            pbo=0.05, n_strategies=5, n_periods=20, n_splits=50, median_logit=1.0
+        ).interpret()
+    )
+    assert (
+        "STARK OVERFITTET"
+        in PBOResult(
+            pbo=0.7, n_strategies=5, n_periods=20, n_splits=50, median_logit=-0.5
+        ).interpret()
+    )
 
 
 # ---------------------------------------------------------------------------
 # Regime Model Router
 # ---------------------------------------------------------------------------
 
+
 def test_regime_router_fit_predict():
-    import pytest; pytest.importorskip('src.assembled_core.ml.regime_model_router')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.regime_model_router")
     pytest.importorskip("sklearn")
-    from src.assembled_core.ml.regime_model_router import RegimeModelRouter, RegimeRouterConfig
+    from src.assembled_core.ml.regime_model_router import (
+        RegimeModelRouter,
+        RegimeRouterConfig,
+    )
 
     rng = np.random.default_rng(11)
     n = 800  # 200 per regime
-    regimes = (["RISK_ON"] * 200) + (["NEUTRAL"] * 200) + (["RISK_OFF"] * 200) + (["CRISIS"] * 200)
-    panel = pd.DataFrame({
-        "regime": regimes,
-        "f1": rng.standard_normal(n),
-        "f2": rng.standard_normal(n),
-        "fwd_return_5d": rng.normal(0, 0.02, n),
-    })
+    regimes = (
+        (["RISK_ON"] * 200)
+        + (["NEUTRAL"] * 200)
+        + (["RISK_OFF"] * 200)
+        + (["CRISIS"] * 200)
+    )
+    panel = pd.DataFrame(
+        {
+            "regime": regimes,
+            "f1": rng.standard_normal(n),
+            "f2": rng.standard_normal(n),
+            "fwd_return_5d": rng.normal(0, 0.02, n),
+        }
+    )
 
     router = RegimeModelRouter(RegimeRouterConfig(min_samples_per_regime=50))
     router.fit(
@@ -370,24 +445,35 @@ def test_regime_router_fit_predict():
 
 
 def test_regime_router_crisis_no_trade():
-    import pytest; pytest.importorskip('src.assembled_core.ml.regime_model_router')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.regime_model_router")
     pytest.importorskip("sklearn")
-    from src.assembled_core.ml.regime_model_router import RegimeModelRouter, RegimeRouterConfig
+    from src.assembled_core.ml.regime_model_router import (
+        RegimeModelRouter,
+        RegimeRouterConfig,
+    )
 
     rng = np.random.default_rng(13)
     n = 600
     regimes = (["RISK_ON"] * 200) + (["NEUTRAL"] * 200) + (["CRISIS"] * 200)
-    panel = pd.DataFrame({
-        "regime": regimes,
-        "f1": rng.standard_normal(n),
-        "fwd_return_5d": rng.normal(0, 0.02, n),
-    })
+    panel = pd.DataFrame(
+        {
+            "regime": regimes,
+            "f1": rng.standard_normal(n),
+            "fwd_return_5d": rng.normal(0, 0.02, n),
+        }
+    )
 
-    router = RegimeModelRouter(RegimeRouterConfig(
-        min_samples_per_regime=50,
-        crisis_policy="no_trade",
-    ))
-    router.fit(panel, regime_col="regime", label_col="fwd_return_5d", feature_cols=["f1"])
+    router = RegimeModelRouter(
+        RegimeRouterConfig(
+            min_samples_per_regime=50,
+            crisis_policy="no_trade",
+        )
+    )
+    router.fit(
+        panel, regime_col="regime", label_col="fwd_return_5d", feature_cols=["f1"]
+    )
 
     X_test = pd.DataFrame({"f1": [0.5, -0.3]})
     preds = router.predict(X_test, regime="CRISIS")
@@ -398,19 +484,26 @@ def test_regime_router_crisis_no_trade():
 # Feature Importance Tracker
 # ---------------------------------------------------------------------------
 
+
 def test_importance_tracker_record_and_prune(tmp_path):
-    import pytest; pytest.importorskip('src.assembled_core.ml.feature_importance_tracker')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.feature_importance_tracker")
     pytest.importorskip("sklearn")
     from sklearn.linear_model import Ridge
 
-    from src.assembled_core.ml.feature_importance_tracker import FeatureImportanceTracker
+    from src.assembled_core.ml.feature_importance_tracker import (
+        FeatureImportanceTracker,
+    )
 
     rng = np.random.default_rng(17)
     n = 200
-    X = pd.DataFrame({
-        "useful": rng.standard_normal(n),
-        "noise": rng.standard_normal(n),
-    })
+    X = pd.DataFrame(
+        {
+            "useful": rng.standard_normal(n),
+            "noise": rng.standard_normal(n),
+        }
+    )
     y = pd.Series(1.5 * X["useful"] + rng.normal(0, 0.3, n))
 
     model = Ridge()
@@ -421,7 +514,9 @@ def test_importance_tracker_record_and_prune(tmp_path):
     # 3 Snapshots → genug für trend
     for i in range(3):
         tracker.record_snapshot(
-            model=model, X=X, y=y,
+            model=model,
+            X=X,
+            y=y,
             feature_cols=["useful", "noise"],
             as_of=f"2025-01-{i+1:02d}",
             n_repeats=3,

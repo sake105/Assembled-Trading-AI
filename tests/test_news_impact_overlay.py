@@ -191,6 +191,7 @@ class TestSectorNewsOverlay:
     def _make_cluster(self, trigger_val: str, confidence: float):
         class FakeCluster:
             created_at = datetime.now(tz=timezone.utc)
+
         cl = FakeCluster()
         cl.trigger_type = type("TT", (), {"value": trigger_val})()
         cl.confidence = confidence
@@ -248,16 +249,20 @@ class TestSectorNewsOverlay:
 
         store = NewsEventStore()
         for i in range(5):
-            store.add(_make_event(
-                f"ev{i}",
-                affected_sectors=["energy"],
-                market_direction="bearish",
-                severity=7.0,
-                news_confidence=0.7,
-            ))
+            store.add(
+                _make_event(
+                    f"ev{i}",
+                    affected_sectors=["energy"],
+                    market_direction="bearish",
+                    severity=7.0,
+                    news_confidence=0.7,
+                )
+            )
 
         overlay = SectorNewsOverlay()
-        result = overlay.compute(clusters=[], event_store=store, store_lookback_hours=24.0)
+        result = overlay.compute(
+            clusters=[], event_store=store, store_lookback_hours=24.0
+        )
         assert "energy" in result
         assert result["energy"] < 0  # bearish energy news
 

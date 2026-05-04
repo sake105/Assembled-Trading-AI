@@ -26,6 +26,7 @@ _sentry_initialized = False
 def _try_sentry():
     try:
         import sentry_sdk
+
         return sentry_sdk
     except ImportError:
         logger.debug("sentry-sdk not installed — pip install sentry-sdk[fastapi]")
@@ -71,7 +72,11 @@ def init_sentry(
         send_default_pii=False,
     )
     _sentry_initialized = True
-    logger.info("Sentry initialized (env=%s, traces=%.0f%%)", environment, traces_sample_rate * 100)
+    logger.info(
+        "Sentry initialized (env=%s, traces=%.0f%%)",
+        environment,
+        traces_sample_rate * 100,
+    )
     return True
 
 
@@ -94,7 +99,9 @@ def capture_exception(exc: Exception, context: dict[str, Any] | None = None) -> 
         sentry_sdk.capture_exception(exc)
 
 
-def capture_message(message: str, level: str = "warning", context: dict[str, Any] | None = None) -> None:
+def capture_message(
+    message: str, level: str = "warning", context: dict[str, Any] | None = None
+) -> None:
     """Capture a message to Sentry.
 
     Args:
@@ -105,7 +112,9 @@ def capture_message(message: str, level: str = "warning", context: dict[str, Any
     sentry_sdk = _try_sentry()
     if sentry_sdk is None or not _sentry_initialized:
         logger.log(
-            {"debug": 10, "info": 20, "warning": 30, "error": 40, "fatal": 50}.get(level, 30),
+            {"debug": 10, "info": 20, "warning": 30, "error": 40, "fatal": 50}.get(
+                level, 30
+            ),
             "Sentry msg (not active): %s",
             message,
         )
@@ -156,6 +165,7 @@ def init_sentry_fastapi(app: Any) -> bool:
     try:
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.starlette import StarletteIntegration
+
         sentry_sdk = _try_sentry()
         if sentry_sdk is None:
             return False

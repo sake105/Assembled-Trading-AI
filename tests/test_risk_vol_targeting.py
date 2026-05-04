@@ -23,7 +23,6 @@ from src.assembled_core.risk.vol_targeting import (
     compute_vol_targeting_result,
 )
 
-
 # ---------------------------------------------------------------------------
 # compute_realized_vol
 # ---------------------------------------------------------------------------

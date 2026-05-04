@@ -10,6 +10,7 @@ Provides three operating modes:
 The mode is per-dispatcher instance (not global), so individual signal
 types can be migrated independently.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,14 +23,16 @@ logger = logging.getLogger(__name__)
 
 class Pipeline(str, Enum):
     """Operating mode for the signal dispatcher."""
+
     LEGACY = "legacy"
     MODERN = "modern"
-    SHADOW = "shadow"   # runs both, returns LEGACY, records diff
+    SHADOW = "shadow"  # runs both, returns LEGACY, records diff
 
 
 @dataclass
 class DispatchRecord:
     """A single dispatch event with optional diff data."""
+
     mode: str
     inputs_repr: str
     legacy_result: Any = None
@@ -101,21 +104,24 @@ class SignalDispatcher:
             if diff_keys:
                 logger.debug(
                     "SHADOW diff: %d divergent keys: %s",
-                    len(diff_keys), diff_keys[:10],
+                    len(diff_keys),
+                    diff_keys[:10],
                 )
         except Exception as exc:
             modern_error = str(exc)
             logger.warning("Modern pipeline failed in shadow mode: %s", exc)
 
         if self.record_diffs:
-            self._records.append(DispatchRecord(
-                mode="shadow",
-                inputs_repr=repr(inputs)[:200],
-                legacy_result=legacy_result,
-                modern_result=modern_result,
-                diff_keys=diff_keys,
-                modern_error=modern_error,
-            ))
+            self._records.append(
+                DispatchRecord(
+                    mode="shadow",
+                    inputs_repr=repr(inputs)[:200],
+                    legacy_result=legacy_result,
+                    modern_result=modern_result,
+                    diff_keys=diff_keys,
+                    modern_error=modern_error,
+                )
+            )
 
         return legacy_result  # LEGACY wins until explicit cutover
 

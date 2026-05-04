@@ -69,7 +69,11 @@ def load_universe_history(
     for fmt in ("parquet", "csv"):
         path = _universe_path(universe_name, base, fmt)
         if path.exists():
-            return pd.read_csv(path, dtype={"symbol": "string"}) if fmt == "csv" else pd.read_parquet(path)
+            return (
+                pd.read_csv(path, dtype={"symbol": "string"})
+                if fmt == "csv"
+                else pd.read_parquet(path)
+            )
 
     return empty
 
@@ -105,6 +109,7 @@ def get_universe_members(
         # `get_universe_members_pit`; surface this fallback so the risk is
         # observable in logs.
         import logging
+
         logging.getLogger(__name__).warning(
             "[Universe] get_universe_members called with as_of=None — "
             "falling back to watchlist.txt; this is NOT PIT-safe and hides "
@@ -141,7 +146,9 @@ def get_universe_members(
         # This prevents survivorship bias from delistings without end_date
         null_end = history["end_date"].isna()
         explicitly_active = history["status"].str.lower().eq("active")
-        not_ended = (null_end & explicitly_active) | (~null_end & (history["end_date"] > as_of))
+        not_ended = (null_end & explicitly_active) | (
+            ~null_end & (history["end_date"] > as_of)
+        )
 
     active = history.loc[started & not_ended, "symbol"]
 
@@ -234,9 +241,9 @@ def build_universe_history_from_prices(
     # For delisted symbols, advance end_date by 1 business day (exclusive boundary)
     delisted_mask = ~still_active
     if delisted_mask.any():
-        agg.loc[delisted_mask, "end_date"] = (
-            agg.loc[delisted_mask, "last_ts"] + pd.offsets.BDay(1)
-        )
+        agg.loc[delisted_mask, "end_date"] = agg.loc[
+            delisted_mask, "last_ts"
+        ] + pd.offsets.BDay(1)
 
     agg["status"] = status
     agg = agg.drop(columns=["last_ts"]).reset_index()
@@ -260,7 +267,9 @@ def _pit_members_from_history(
     if "status" in hist.columns:
         null_end = hist["end_date"].isna()
         active_status = hist["status"].str.lower().eq("active")
-        not_ended = (null_end & active_status) | (~null_end & (hist["end_date"] > as_of))
+        not_ended = (null_end & active_status) | (
+            ~null_end & (hist["end_date"] > as_of)
+        )
     return set(hist.loc[started & not_ended, "symbol"].str.strip().str.upper())
 
 
@@ -308,7 +317,11 @@ def wrap_signal_fn_with_pit_filter(
         filtered = signals[signals["symbol"].str.strip().str.upper().isin(valid)]
         dropped = before - len(filtered)
         if dropped:
-            logger.debug("[PIT] Filtered %d signal(s) not in universe at %s", dropped, as_of.date())
+            logger.debug(
+                "[PIT] Filtered %d signal(s) not in universe at %s",
+                dropped,
+                as_of.date(),
+            )
         return filtered
 
     return _wrapped
@@ -348,7 +361,9 @@ def build_monthly_snapshots(
         if "status" in hist.columns:
             null_end = hist["end_date"].isna()
             active_status = hist["status"].str.lower().eq("active")
-            not_ended = (null_end & active_status) | (~null_end & (hist["end_date"] > month_start))
+            not_ended = (null_end & active_status) | (
+                ~null_end & (hist["end_date"] > month_start)
+            )
         active = hist.loc[started & not_ended, "symbol"]
         snapshots[key] = sorted(str(s).strip().upper() for s in active)
 
@@ -375,6 +390,7 @@ def get_pit_members_for_date(
 # ---------------------------------------------------------------------------
 # 10.7  Survivorship-Bias-Free Delisting Detection
 # ---------------------------------------------------------------------------
+
 
 def detect_delisted_symbols(
     prices: pd.DataFrame,
@@ -415,7 +431,8 @@ def detect_delisted_symbols(
         .sort_values("timestamp")
         .groupby("symbol")["close"]
         .last()
-        if len(stale_syms) > 0 else pd.Series(dtype=float)
+        if len(stale_syms) > 0
+        else pd.Series(dtype=float)
     )
 
     delisted = []

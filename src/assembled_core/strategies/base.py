@@ -50,9 +50,7 @@ class StrategySignal:
         if not self.signals.empty:
             missing = required - set(self.signals.columns)
             if missing:
-                raise ValueError(
-                    f"StrategySignal missing required columns: {missing}"
-                )
+                raise ValueError(f"StrategySignal missing required columns: {missing}")
 
 
 class Strategy(ABC):
@@ -163,6 +161,7 @@ class StrategyRegistry:
             @StrategyRegistry.register("my_strat")
             class MyStrategy(Strategy): ...
         """
+
         def decorator(strategy_cls):
             reg_name = name or getattr(strategy_cls, "name", strategy_cls.__name__)
             if isinstance(reg_name, property):
@@ -174,6 +173,7 @@ class StrategyRegistry:
                 cls._strategies[reg_name] = strategy_cls()
             logger.debug("[StrategyRegistry] registered: %s", reg_name)
             return strategy_cls
+
         return decorator
 
     @classmethod

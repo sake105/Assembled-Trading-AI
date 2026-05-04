@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
-pytest.importorskip('src.assembled_core.ml.gaussian_process')
+pytest.importorskip("src.assembled_core.ml.gaussian_process")
 from src.assembled_core.ml.gaussian_process import (
     GPRResult,
     FactorGPR,
@@ -77,9 +77,7 @@ class TestFactorGPR:
 
         # Confidence should be inversely related to std
         for i in range(len(result.mean)):
-            assert result.confidence[i] == pytest.approx(
-                1.0 / result.std[i], rel=1e-5
-            )
+            assert result.confidence[i] == pytest.approx(1.0 / result.std[i], rel=1e-5)
 
     def test_credible_intervals_95(self, train_data, test_data):
         X_train, y_train = train_data
@@ -91,14 +89,19 @@ class TestFactorGPR:
 
         # 95% CI should be mean +/- 1.96*std
         np.testing.assert_allclose(
-            result.lower_95, result.mean - 1.96 * result.std, rtol=1e-5,
+            result.lower_95,
+            result.mean - 1.96 * result.std,
+            rtol=1e-5,
         )
         np.testing.assert_allclose(
-            result.upper_95, result.mean + 1.96 * result.std, rtol=1e-5,
+            result.upper_95,
+            result.mean + 1.96 * result.std,
+            rtol=1e-5,
         )
 
     def test_pandas_input(self, train_data, test_data):
         import pandas as pd
+
         X_train, y_train = train_data
         X_test, _ = test_data
 

@@ -201,8 +201,14 @@ def compute_optimal_trajectory(
         "cost=%.1f bps (perm=%.1f + temp=%.1f + risk=%.1f), "
         "max participation=%.1f%%",
         "BUY" if total_shares >= 0 else "SELL",
-        abs(total_shares), price, horizon_days, n_intervals,
-        total_bps, perm_bps, temp_bps, risk_bps,
+        abs(total_shares),
+        price,
+        horizon_days,
+        n_intervals,
+        total_bps,
+        perm_bps,
+        temp_bps,
+        risk_bps,
         float(participation_rates.max()) * 100 if len(participation_rates) > 0 else 0,
     )
 
@@ -322,18 +328,26 @@ def compute_frontier(
 
     for T in horizons:
         traj = compute_optimal_trajectory(
-            total_shares, price, n_intervals=max(int(T * 10), 5),
-            horizon_days=float(T), params=params,
+            total_shares,
+            price,
+            n_intervals=max(int(T * 10), 5),
+            horizon_days=float(T),
+            params=params,
         )
-        frontier.append({
-            "horizon_days": round(float(T), 2),
-            "expected_cost_bps": traj.expected_cost_bps,
-            "permanent_impact_bps": traj.permanent_impact_bps,
-            "temporary_impact_bps": traj.temporary_impact_bps,
-            "risk_penalty_bps": traj.risk_penalty_bps,
-            "max_participation_pct": round(float(traj.participation_rates.max()) * 100, 1)
-            if len(traj.participation_rates) > 0 else 0.0,
-        })
+        frontier.append(
+            {
+                "horizon_days": round(float(T), 2),
+                "expected_cost_bps": traj.expected_cost_bps,
+                "permanent_impact_bps": traj.permanent_impact_bps,
+                "temporary_impact_bps": traj.temporary_impact_bps,
+                "risk_penalty_bps": traj.risk_penalty_bps,
+                "max_participation_pct": (
+                    round(float(traj.participation_rates.max()) * 100, 1)
+                    if len(traj.participation_rates) > 0
+                    else 0.0
+                ),
+            }
+        )
 
     return frontier
 

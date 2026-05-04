@@ -31,7 +31,9 @@ _FRED_VIX_SERIES = "VIXCLS"
 _FRED_VIX3M_SERIES = "VXVCLS"
 
 # CBOE public equity put/call ratio CSV endpoint (daily data)
-_CBOE_PCR_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/PCALL_History.csv"
+_CBOE_PCR_URL = (
+    "https://cdn.cboe.com/api/global/us_indices/daily_prices/PCALL_History.csv"
+)
 
 
 class CBOESource:
@@ -73,7 +75,9 @@ class CBOESource:
         try:
             import pandas_datareader.data as web  # type: ignore
         except ImportError:
-            logger.warning("[CBOE] pandas_datareader not installed — cannot fetch VIX from FRED")
+            logger.warning(
+                "[CBOE] pandas_datareader not installed — cannot fetch VIX from FRED"
+            )
             return pd.DataFrame(columns=["timestamp", "vix", "vix3m"])
 
         start = start_date or "2015-01-01"
@@ -98,7 +102,9 @@ class CBOESource:
 
         df = pd.concat([vix, vix3m], axis=1).dropna(how="all")
         df.index = pd.to_datetime(df.index)
-        df = df.reset_index().rename(columns={"DATE": "timestamp", "index": "timestamp"})
+        df = df.reset_index().rename(
+            columns={"DATE": "timestamp", "index": "timestamp"}
+        )
         if "DATE" not in df.columns and df.columns[0] != "timestamp":
             df = df.rename(columns={df.columns[0]: "timestamp"})
         df["timestamp"] = pd.to_datetime(df["timestamp"])

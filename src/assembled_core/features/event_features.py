@@ -104,10 +104,12 @@ def build_event_feature_panel(
         # normalization failure is observable without changing the zero
         # fallback semantics (callers already depend on numeric-filled cols).
         import logging
+
         logging.getLogger(__name__).warning(
             "[event_features] normalize_alt_events failed for prefix=%s: %s "
             "— emitting zero-fallback (may mask a broken events feed)",
-            feature_prefix, exc,
+            feature_prefix,
+            exc,
         )
         result[f"{feature_prefix}_count_{lookback_days}d"] = 0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
@@ -265,7 +267,9 @@ def add_disclosure_count_feature(
         events_normalized = filter_events_pit(events_normalized, as_of, latency_days=0)
 
     # Pre-group events_normalized by symbol to avoid O(N*M) per-symbol filter
-    _events_norm_by_sym = {sym: grp for sym, grp in events_normalized.groupby("symbol", sort=False)}
+    _events_norm_by_sym = {
+        sym: grp for sym, grp in events_normalized.groupby("symbol", sort=False)
+    }
 
     # Group by symbol for efficient processing
     for symbol, symbol_prices in result.groupby("symbol", sort=False):

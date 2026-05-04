@@ -16,6 +16,7 @@ Model architecture: three LightGBM quantile regressors (q05, q50, q95) predictin
 Usage:
     python scripts/training/train_conformal_v3.py
 """
+
 import sys
 import warnings
 from pathlib import Path
@@ -29,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 PANEL_FILE = ROOT / "output" / "factor_panels" / "full_panel_7y.parquet"
-MODEL_OUT  = ROOT / "models" / "conformal_position_v3.joblib"
+MODEL_OUT = ROOT / "models" / "conformal_position_v3.joblib"
 
 # Panel-native feature names — match _tc_features output exactly.
 # These are guaranteed to be present in prices_with_features at inference time.
@@ -51,8 +52,8 @@ FEATURE_COLS = [
 
 TARGET_COL = "fwd_return_20d"
 TRAIN_CUTOFF = "2025-01-01"
-ALPHA_LOW  = 0.05   # q05
-ALPHA_HIGH = 0.95   # q95
+ALPHA_LOW = 0.05  # q05
+ALPHA_HIGH = 0.95  # q95
 
 
 def main() -> None:
@@ -115,8 +116,8 @@ def main() -> None:
         models[f"{label}_model"] = m
 
     # Compute empirical coverage on val set
-    q_lo  = models["q05_model"].predict(X_val)
-    q_hi  = models["q95_model"].predict(X_val)
+    q_lo = models["q05_model"].predict(X_val)
+    q_hi = models["q95_model"].predict(X_val)
     widths = (q_hi - q_lo).clip(1e-8)
 
     coverage = float(((y_val.values >= q_lo) & (y_val.values <= q_hi)).mean())
@@ -130,10 +131,12 @@ def main() -> None:
     _q50_pred = models["q50_model"].predict(X_val)
     med_w = np.median(widths)
     multipliers = np.clip(med_w / widths, 0.25, 2.0)
-    print(f"[v3] Multiplier — mean: {multipliers.mean():.3f}, "
-          f"p25: {np.percentile(multipliers, 25):.3f}, "
-          f"p75: {np.percentile(multipliers, 75):.3f}, "
-          f"at-floor (0.25): {(multipliers == 0.25).mean():.2%}")
+    print(
+        f"[v3] Multiplier — mean: {multipliers.mean():.3f}, "
+        f"p25: {np.percentile(multipliers, 25):.3f}, "
+        f"p75: {np.percentile(multipliers, 75):.3f}, "
+        f"at-floor (0.25): {(multipliers == 0.25).mean():.2%}"
+    )
 
     artifact = {
         **models,
@@ -153,15 +156,20 @@ def main() -> None:
     }
 
     import joblib
+
     MODEL_OUT.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(artifact, MODEL_OUT)
     print(f"[v3] Saved -> {MODEL_OUT}")
 
     if coverage >= 0.85:
         print("[v3] Coverage >= 0.85 -- model ready for deployment.")
-        print("[v3] Next: set policy.yaml conformal_sizing.model_path = models/conformal_position_v3.joblib")
+        print(
+            "[v3] Next: set policy.yaml conformal_sizing.model_path = models/conformal_position_v3.joblib"
+        )
     else:
-        print(f"[WARN][v3] Coverage {coverage:.3f} < 0.85 -- increase n_estimators or widen alpha.")
+        print(
+            f"[WARN][v3] Coverage {coverage:.3f} < 0.85 -- increase n_estimators or widen alpha."
+        )
 
 
 if __name__ == "__main__":

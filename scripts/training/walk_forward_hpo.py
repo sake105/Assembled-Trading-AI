@@ -82,7 +82,10 @@ def _evaluate_params(
 ) -> float:
     """Evaluiert Params via walk-forward → mean IC."""
     splits = _make_walk_forward_splits(
-        timestamps, n_splits=n_splits, val_window=val_window, embargo_days=embargo_days,
+        timestamps,
+        n_splits=n_splits,
+        val_window=val_window,
+        embargo_days=embargo_days,
     )
     X_vals = X[feature_cols].fillna(0.0).values
     y_vals = y.values
@@ -110,6 +113,7 @@ def _make_model(model_type: str, params: dict) -> object:
     if model_type == "lightgbm":
         try:
             from lightgbm import LGBMRegressor  # type: ignore
+
             return LGBMRegressor(
                 n_estimators=params.get("n_estimators", 200),
                 learning_rate=params.get("learning_rate", 0.05),
@@ -123,6 +127,7 @@ def _make_model(model_type: str, params: dict) -> object:
         except ImportError:
             pass
     from sklearn.ensemble import GradientBoostingRegressor
+
     return GradientBoostingRegressor(
         n_estimators=params.get("n_estimators", 100),
         learning_rate=params.get("learning_rate", 0.1),
@@ -145,7 +150,9 @@ def run_hpo_optuna(
         import optuna  # type: ignore
     except ImportError:
         logger.warning("[WF-HPO] optuna fehlt — Fallback auf Grid-Search")
-        return run_hpo_grid(X, y, timestamps, feature_cols, n_splits=n_splits, val_window=val_window)
+        return run_hpo_grid(
+            X, y, timestamps, feature_cols, n_splits=n_splits, val_window=val_window
+        )
 
     def objective(trial: "optuna.Trial") -> float:
         params = {
@@ -157,8 +164,13 @@ def run_hpo_optuna(
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-6, 10.0, log=True),
         }
         return _evaluate_params(
-            params, X, y, timestamps, feature_cols,
-            n_splits=n_splits, val_window=val_window,
+            params,
+            X,
+            y,
+            timestamps,
+            feature_cols,
+            n_splits=n_splits,
+            val_window=val_window,
         )
 
     sampler = optuna.samplers.TPESampler(seed=42)
@@ -185,17 +197,24 @@ def run_hpo_grid(
     for n_est in [100, 200, 400]:
         for lr in [0.03, 0.05, 0.1]:
             for depth in [4, 6, 8]:
-                grid.append({
-                    "n_estimators": n_est,
-                    "learning_rate": lr,
-                    "max_depth": depth,
-                })
+                grid.append(
+                    {
+                        "n_estimators": n_est,
+                        "learning_rate": lr,
+                        "max_depth": depth,
+                    }
+                )
     best_params = None
     best_score = -np.inf
     for params in grid:
         score = _evaluate_params(
-            params, X, y, timestamps, feature_cols,
-            n_splits=n_splits, val_window=val_window,
+            params,
+            X,
+            y,
+            timestamps,
+            feature_cols,
+            n_splits=n_splits,
+            val_window=val_window,
         )
         if score > best_score:
             best_score = score
@@ -209,14 +228,18 @@ def run_hpo_grid(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Walk-Forward HPO via Optuna")
-    parser.add_argument("--panel", type=Path, required=True, help="Parquet factor_panel")
+    parser.add_argument(
+        "--panel", type=Path, required=True, help="Parquet factor_panel"
+    )
     parser.add_argument("--label", default="fwd_return_5d", help="Target column")
     parser.add_argument("--n-trials", type=int, default=50)
     parser.add_argument("--n-splits", type=int, default=5)
     parser.add_argument("--val-window", type=int, default=60)
     parser.add_argument("--out", type=Path, default=Path("models/best_params.json"))
     parser.add_argument("--timestamp-col", default="timestamp")
-    parser.add_argument("--grid-only", action="store_true", help="Skip optuna, use grid search")
+    parser.add_argument(
+        "--grid-only", action="store_true", help="Skip optuna, use grid search"
+    )
     args = parser.parse_args()
 
     if not args.panel.exists():
@@ -227,24 +250,37 @@ def main() -> int:
     panel = panel.dropna(subset=[args.label])
 
     feature_cols = [
-        c for c in panel.select_dtypes(include="number").columns
-        if c != args.label and not c.startswith("fwd_return") and c != args.timestamp_col
+        c
+        for c in panel.select_dtypes(include="number").columns
+        if c != args.label
+        and not c.startswith("fwd_return")
+        and c != args.timestamp_col
     ]
     logger.info(
         "[WF-HPO] Panel %d rows, %d features, target=%s",
-        len(panel), len(feature_cols), args.label,
+        len(panel),
+        len(feature_cols),
+        args.label,
     )
 
     if args.grid_only:
         result = run_hpo_grid(
-            panel[feature_cols], panel[args.label], panel[args.timestamp_col],
-            feature_cols, n_splits=args.n_splits, val_window=args.val_window,
+            panel[feature_cols],
+            panel[args.label],
+            panel[args.timestamp_col],
+            feature_cols,
+            n_splits=args.n_splits,
+            val_window=args.val_window,
         )
     else:
         result = run_hpo_optuna(
-            panel[feature_cols], panel[args.label], panel[args.timestamp_col],
-            feature_cols, n_trials=args.n_trials,
-            n_splits=args.n_splits, val_window=args.val_window,
+            panel[feature_cols],
+            panel[args.label],
+            panel[args.timestamp_col],
+            feature_cols,
+            n_trials=args.n_trials,
+            n_splits=args.n_splits,
+            val_window=args.val_window,
         )
 
     logger.info("[WF-HPO] Best score: %.4f", result["best_value"])

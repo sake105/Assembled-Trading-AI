@@ -9,12 +9,16 @@ is NOT yet available in production. These tests use tmp_path fixtures.
 
 See KNOWN_ISSUES.md §0.1 for the open A10 work item.
 """
+
 from __future__ import annotations
 
 import pandas as pd
 import pytest
 
-from src.assembled_core.data.universe import get_universe_members, get_universe_members_pit
+from src.assembled_core.data.universe import (
+    get_universe_members,
+    get_universe_members_pit,
+)
 from src.assembled_core.errors import UniverseLookupError
 
 
@@ -34,10 +38,23 @@ def _write_history(tmp_path, rows: list[dict]):
 class TestGetUniverseMembersPIT:
     def test_symbol_not_yet_listed_is_excluded(self, tmp_path):
         """A symbol with start_date after as_of must not appear."""
-        root = _write_history(tmp_path, [
-            {"symbol": "AAPL", "start_date": "2000-01-01", "end_date": pd.NaT, "status": "active"},
-            {"symbol": "TSLA", "start_date": "2020-12-21", "end_date": pd.NaT, "status": "active"},
-        ])
+        root = _write_history(
+            tmp_path,
+            [
+                {
+                    "symbol": "AAPL",
+                    "start_date": "2000-01-01",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+                {
+                    "symbol": "TSLA",
+                    "start_date": "2020-12-21",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+            ],
+        )
         members = get_universe_members(
             as_of="2020-12-20",
             universe_name="default",
@@ -48,9 +65,17 @@ class TestGetUniverseMembersPIT:
 
     def test_symbol_active_on_exact_start_date_is_included(self, tmp_path):
         """A symbol becomes active on its start_date (inclusive)."""
-        root = _write_history(tmp_path, [
-            {"symbol": "TSLA", "start_date": "2020-12-21", "end_date": pd.NaT, "status": "active"},
-        ])
+        root = _write_history(
+            tmp_path,
+            [
+                {
+                    "symbol": "TSLA",
+                    "start_date": "2020-12-21",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+            ],
+        )
         members = get_universe_members(
             as_of="2020-12-21",
             universe_name="default",
@@ -60,10 +85,23 @@ class TestGetUniverseMembersPIT:
 
     def test_delisted_symbol_is_excluded(self, tmp_path):
         """A symbol with end_date <= as_of must not appear."""
-        root = _write_history(tmp_path, [
-            {"symbol": "ENRN", "start_date": "1990-01-01", "end_date": "2001-12-01", "status": "delisted"},
-            {"symbol": "AAPL", "start_date": "1980-01-01", "end_date": pd.NaT, "status": "active"},
-        ])
+        root = _write_history(
+            tmp_path,
+            [
+                {
+                    "symbol": "ENRN",
+                    "start_date": "1990-01-01",
+                    "end_date": "2001-12-01",
+                    "status": "delisted",
+                },
+                {
+                    "symbol": "AAPL",
+                    "start_date": "1980-01-01",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+            ],
+        )
         members = get_universe_members(
             as_of="2002-01-01",
             universe_name="default",
@@ -79,9 +117,17 @@ class TestGetUniverseMembersPIT:
 
     def test_pit_raises_on_empty_universe(self, tmp_path):
         """get_universe_members_pit raises UniverseLookupError when no members match."""
-        root = _write_history(tmp_path, [
-            {"symbol": "TSLA", "start_date": "2025-01-01", "end_date": pd.NaT, "status": "active"},
-        ])
+        root = _write_history(
+            tmp_path,
+            [
+                {
+                    "symbol": "TSLA",
+                    "start_date": "2025-01-01",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+            ],
+        )
         with pytest.raises(UniverseLookupError):
             get_universe_members_pit(
                 as_of="2000-01-01",
@@ -91,11 +137,29 @@ class TestGetUniverseMembersPIT:
 
     def test_pit_returns_members_when_available(self, tmp_path):
         """get_universe_members_pit returns correct members for a valid as_of."""
-        root = _write_history(tmp_path, [
-            {"symbol": "AAPL", "start_date": "2000-01-01", "end_date": pd.NaT, "status": "active"},
-            {"symbol": "MSFT", "start_date": "1990-01-01", "end_date": pd.NaT, "status": "active"},
-            {"symbol": "NEW_CO", "start_date": "2030-01-01", "end_date": pd.NaT, "status": "active"},
-        ])
+        root = _write_history(
+            tmp_path,
+            [
+                {
+                    "symbol": "AAPL",
+                    "start_date": "2000-01-01",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+                {
+                    "symbol": "MSFT",
+                    "start_date": "1990-01-01",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+                {
+                    "symbol": "NEW_CO",
+                    "start_date": "2030-01-01",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+            ],
+        )
         members = get_universe_members_pit(
             as_of="2024-01-01",
             universe_name="default",
@@ -107,10 +171,23 @@ class TestGetUniverseMembersPIT:
 
     def test_require_active_status_excludes_implicit_delistings(self, tmp_path):
         """Symbols with end_date=NaT but status != active are excluded when require_active_status=True."""
-        root = _write_history(tmp_path, [
-            {"symbol": "HALTED", "start_date": "2000-01-01", "end_date": pd.NaT, "status": "suspended"},
-            {"symbol": "AAPL", "start_date": "2000-01-01", "end_date": pd.NaT, "status": "active"},
-        ])
+        root = _write_history(
+            tmp_path,
+            [
+                {
+                    "symbol": "HALTED",
+                    "start_date": "2000-01-01",
+                    "end_date": pd.NaT,
+                    "status": "suspended",
+                },
+                {
+                    "symbol": "AAPL",
+                    "start_date": "2000-01-01",
+                    "end_date": pd.NaT,
+                    "status": "active",
+                },
+            ],
+        )
         members = get_universe_members(
             as_of="2024-01-01",
             universe_name="default",

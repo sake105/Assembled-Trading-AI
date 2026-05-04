@@ -16,12 +16,12 @@ import pandas as pd
 import pytest
 
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
-pytest.importorskip('src.assembled_core.pipeline.backtest_legacy')
+
+pytest.importorskip("src.assembled_core.pipeline.backtest_legacy")
 from src.assembled_core.pipeline.backtest_legacy import (
     _legacy_simulate_equity,
 )
 from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
-
 
 # Tolerances for regression tests
 EQUITY_RTOL = 1e-9  # Relative tolerance for equity curve

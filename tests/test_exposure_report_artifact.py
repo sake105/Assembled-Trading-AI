@@ -18,9 +18,7 @@ from src.assembled_core.ops.kpi_artifacts import (
 
 
 def _mk_targets(rows: list[tuple[str, float]]) -> pd.DataFrame:
-    return pd.DataFrame(
-        [{"symbol": s, "target_qty": q} for s, q in rows]
-    )
+    return pd.DataFrame([{"symbol": s, "target_qty": q} for s, q in rows])
 
 
 def _mk_prices(rows: list[tuple[str, float]]) -> pd.DataFrame:
@@ -66,7 +64,9 @@ def test_hhi_is_maximal_for_single_position() -> None:
 
 def test_hhi_is_1_over_n_for_equal_weights() -> None:
     targets = _mk_targets([("AAA", 10.0), ("BBB", 10.0), ("CCC", 10.0), ("DDD", 10.0)])
-    prices = _mk_prices([("AAA", 100.0), ("BBB", 100.0), ("CCC", 100.0), ("DDD", 100.0)])
+    prices = _mk_prices(
+        [("AAA", 100.0), ("BBB", 100.0), ("CCC", 100.0), ("DDD", 100.0)]
+    )
     payload = build_exposure_report(targets, prices, equity=10_000.0)
     assert abs(payload["summary"]["hhi"] - 0.25) < 1e-9
 
@@ -84,9 +84,10 @@ def test_top_concentration_is_sorted_descending() -> None:
 def test_missing_equity_returns_empty_payload() -> None:
     targets = _mk_targets([("AAA", 10.0)])
     prices = _mk_prices([("AAA", 100.0)])
-    assert build_exposure_report(targets, prices, equity=0.0)["summary"][
-        "n_positions"
-    ] == 0
+    assert (
+        build_exposure_report(targets, prices, equity=0.0)["summary"]["n_positions"]
+        == 0
+    )
 
 
 def test_missing_prices_handled_gracefully() -> None:

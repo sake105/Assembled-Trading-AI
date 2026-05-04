@@ -75,6 +75,7 @@ GATE_MAX_TE_ANNUALISED: float = 0.05  # 5 %
 # Equity curve loading
 # ---------------------------------------------------------------------------
 
+
 def _try_load_equity(path: Path, label: str) -> pd.DataFrame | None:
     """Load a parquet or CSV equity curve.  Returns None on failure."""
     if not path.exists():
@@ -131,7 +132,9 @@ def _load_backtest_equity_from_accounting(bt_root: Path) -> pd.DataFrame | None:
             try:
                 with open(json_file, encoding="utf-8") as fh:
                     data = json.load(fh)
-                as_of = pd.to_datetime(data.get("as_of_date"), utc=True, errors="coerce")
+                as_of = pd.to_datetime(
+                    data.get("as_of_date"), utc=True, errors="coerce"
+                )
                 cash_end = float(data.get("cash", {}).get("end", np.nan))
                 unreal = float(data.get("pnl", {}).get("total_unrealized", 0.0) or 0.0)
                 if pd.isna(as_of) or np.isnan(cash_end):
@@ -160,7 +163,9 @@ def _load_paper_equity_from_track(paper_track_root: Path) -> pd.DataFrame | None
     for strategy_dir in sorted(paper_track_root.iterdir()):
         if not strategy_dir.is_dir():
             continue
-        for pq in sorted(strategy_dir.glob("*.parquet")) + sorted(strategy_dir.glob("*.csv")):
+        for pq in sorted(strategy_dir.glob("*.parquet")) + sorted(
+            strategy_dir.glob("*.csv")
+        ):
             result = _try_load_equity(pq, f"paper/{strategy_dir.name}/{pq.name}")
             if result is not None:
                 frames.append(result)
@@ -178,6 +183,7 @@ def _load_paper_equity_from_track(paper_track_root: Path) -> pd.DataFrame | None
 # ---------------------------------------------------------------------------
 # Divergence metrics
 # ---------------------------------------------------------------------------
+
 
 def _compute_divergence_metrics(
     paper_eq: pd.DataFrame,
@@ -205,7 +211,9 @@ def _compute_divergence_metrics(
     merged = merged.sort_values("date").reset_index(drop=True)
 
     # Daily returns
-    merged["paper_ret"] = merged["paper_equity"].pct_change(fill_method=None).fillna(0.0)
+    merged["paper_ret"] = (
+        merged["paper_equity"].pct_change(fill_method=None).fillna(0.0)
+    )
     merged["bt_ret"] = merged["bt_equity"].pct_change(fill_method=None).fillna(0.0)
     merged["ret_diff"] = merged["paper_ret"] - merged["bt_ret"]
 
@@ -250,14 +258,24 @@ def _compute_divergence_metrics(
         "n_common_dates": n,
         "date_range_start": str(merged["date"].iloc[0].date()) if n > 0 else None,
         "date_range_end": str(merged["date"].iloc[-1].date()) if n > 0 else None,
-        "return_correlation": round(correlation, 4) if not np.isnan(correlation) else None,
+        "return_correlation": (
+            round(correlation, 4) if not np.isnan(correlation) else None
+        ),
         "tracking_error_daily": round(te_daily, 6) if not np.isnan(te_daily) else None,
-        "tracking_error_annualised": round(te_annualised, 6) if not np.isnan(te_annualised) else None,
+        "tracking_error_annualised": (
+            round(te_annualised, 6) if not np.isnan(te_annualised) else None
+        ),
         "systematic_bias_daily": round(systematic_bias, 6),
         "systematic_bias_annualised": round(bias_annualised, 4),
-        "paper_total_return": round(paper_total_ret, 4) if not np.isnan(paper_total_ret) else None,
-        "bt_total_return": round(bt_total_ret, 4) if not np.isnan(bt_total_ret) else None,
-        "paper_final_equity": round(paper_final, 2) if not np.isnan(paper_final) else None,
+        "paper_total_return": (
+            round(paper_total_ret, 4) if not np.isnan(paper_total_ret) else None
+        ),
+        "bt_total_return": (
+            round(bt_total_ret, 4) if not np.isnan(bt_total_ret) else None
+        ),
+        "paper_final_equity": (
+            round(paper_final, 2) if not np.isnan(paper_final) else None
+        ),
         "bt_final_equity": round(bt_final, 2) if not np.isnan(bt_final) else None,
     }
 
@@ -298,6 +316,7 @@ def _cost_attribution(
 # ---------------------------------------------------------------------------
 # Gate checks
 # ---------------------------------------------------------------------------
+
 
 def _check_gates(metrics: dict[str, Any]) -> dict[str, Any]:
     """Evaluate gate thresholds and return gate status."""
@@ -357,6 +376,7 @@ def _check_gates(metrics: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
+
 
 def compute_divergence(
     paper_equity_path: Path | None,
@@ -440,6 +460,7 @@ def compute_divergence(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compare paper vs backtest equity curves.",
@@ -481,7 +502,9 @@ def main(argv: list[str] | None = None) -> int:
         paper_equity_path=args.paper_equity,
         bt_equity_path=args.bt_equity,
         bt_root=args.bt_root.resolve(),
-        paper_track_root=args.paper_track_root if args.paper_track_root.exists() else None,
+        paper_track_root=(
+            args.paper_track_root if args.paper_track_root.exists() else None
+        ),
         output_path=args.output_path.resolve(),
     )
     return 0

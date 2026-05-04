@@ -1,10 +1,14 @@
 """A9: Walk-Forward purge/embargo gaps prevent train-test label leakage."""
+
 from __future__ import annotations
 
 import pandas as pd
 import pytest
 
-from src.assembled_core.qa.walk_forward import WalkForwardConfig, generate_walk_forward_splits
+from src.assembled_core.qa.walk_forward import (
+    WalkForwardConfig,
+    generate_walk_forward_splits,
+)
 
 
 @pytest.mark.fast
@@ -107,19 +111,22 @@ def test_no_purge_embargo_backward_compatible():
     assert len(splits) > 0
     for s in splits:
         # With purge=0, test_start should equal train_end (no gap)
-        assert s.test_start == s.train_end, (
-            f"Split {s.split_index}: with purge_days=0, test_start must equal train_end"
-        )
+        assert (
+            s.test_start == s.train_end
+        ), f"Split {s.split_index}: with purge_days=0, test_start must equal train_end"
 
 
 @pytest.mark.fast
 def test_walkforward_config_has_embargo_and_purge_fields():
     """WalkForwardConfig must have purge_days and embargo_days fields."""
     import dataclasses
+
     fields = {f.name for f in dataclasses.fields(WalkForwardConfig)}
     assert "purge_days" in fields, "WalkForwardConfig must have purge_days"
     assert "embargo_days" in fields, "WalkForwardConfig must have embargo_days"
-    assert "max_label_horizon" in fields, "WalkForwardConfig must have max_label_horizon"
+    assert (
+        "max_label_horizon" in fields
+    ), "WalkForwardConfig must have max_label_horizon"
 
     # Defaults must be 0 (backward compatible)
     cfg = WalkForwardConfig(

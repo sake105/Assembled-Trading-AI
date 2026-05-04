@@ -32,20 +32,108 @@ OUTPUT.mkdir(exist_ok=True)
 
 UNIVERSE_FILE = Path("configs/universes/universe_ai_tech_tickers.txt")
 QUALITY_TICKERS = [
-    "JPM","BAC","WFC","GS","MS","BLK","SCHW","AXP","CB","TRV",
-    "JNJ","UNH","LLY","ABBV","MRK","PFE","TMO","ABT","BMY","AMGN",
-    "PG","KO","PEP","WMT","COST","MCD","NKE","SBUX","CL","GIS",
-    "AMZN","HD","LOW","TGT","BKNG","MAR","DG","ORLY","AZO","ROST",
-    "CAT","HON","UPS","RTX","BA","GE","MMM","DE","EMR","ETN",
-    "XOM","CVX","COP","EOG","SLB","VLO","MPC","PSX","OXY",
-    "LIN","APD","ECL","SHW","NEM","FCX","ALB","NUE","VMC","MLM",
-    "NEE","DUK","SO","AEP","EXC","XEL","ES","ED","FE",
-    "AMT","PLD","CCI","EQIX","SPG","PSA","O","WELL","AVB","EQR",
-    "GOOGL","META","NFLX","DIS","CMCSA","VZ","T","TMUS","CHTR","OMC",
+    "JPM",
+    "BAC",
+    "WFC",
+    "GS",
+    "MS",
+    "BLK",
+    "SCHW",
+    "AXP",
+    "CB",
+    "TRV",
+    "JNJ",
+    "UNH",
+    "LLY",
+    "ABBV",
+    "MRK",
+    "PFE",
+    "TMO",
+    "ABT",
+    "BMY",
+    "AMGN",
+    "PG",
+    "KO",
+    "PEP",
+    "WMT",
+    "COST",
+    "MCD",
+    "NKE",
+    "SBUX",
+    "CL",
+    "GIS",
+    "AMZN",
+    "HD",
+    "LOW",
+    "TGT",
+    "BKNG",
+    "MAR",
+    "DG",
+    "ORLY",
+    "AZO",
+    "ROST",
+    "CAT",
+    "HON",
+    "UPS",
+    "RTX",
+    "BA",
+    "GE",
+    "MMM",
+    "DE",
+    "EMR",
+    "ETN",
+    "XOM",
+    "CVX",
+    "COP",
+    "EOG",
+    "SLB",
+    "VLO",
+    "MPC",
+    "PSX",
+    "OXY",
+    "LIN",
+    "APD",
+    "ECL",
+    "SHW",
+    "NEM",
+    "FCX",
+    "ALB",
+    "NUE",
+    "VMC",
+    "MLM",
+    "NEE",
+    "DUK",
+    "SO",
+    "AEP",
+    "EXC",
+    "XEL",
+    "ES",
+    "ED",
+    "FE",
+    "AMT",
+    "PLD",
+    "CCI",
+    "EQIX",
+    "SPG",
+    "PSA",
+    "O",
+    "WELL",
+    "AVB",
+    "EQR",
+    "GOOGL",
+    "META",
+    "NFLX",
+    "DIS",
+    "CMCSA",
+    "VZ",
+    "T",
+    "TMUS",
+    "CHTR",
+    "OMC",
 ]
 
 START_DATE = "2018-01-01"
-END_DATE   = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+END_DATE = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 def load_universe() -> list[str]:
@@ -68,21 +156,21 @@ def load_universe() -> list[str]:
 # ---------------------------------------------------------------------------
 
 FRED_SERIES = {
-    "DGS10":   "treasury_10y",       # 10-year Treasury yield
-    "DGS2":    "treasury_2y",        # 2-year Treasury yield
-    "T10Y2Y":  "yield_curve_spread", # 10y-2y spread (recession indicator)
-    "VIXCLS":  "vix",                # CBOE VIX
-    "BAMLH0A0HYM2": "hy_spread",     # High-yield credit spread (OAS)
-    "DPCREDIT": "fed_discount_rate", # Federal discount rate
-    "FEDFUNDS": "fed_funds_rate",    # Effective fed funds rate
-    "CPIAUCSL": "cpi_yoy",           # CPI all-urban (SA)
-    "UNRATE":   "unemployment_rate", # Unemployment rate
-    "ICSA":     "initial_claims",    # Initial jobless claims
-    "INDPRO":   "industrial_prod",   # Industrial production index
-    "M2SL":     "m2_money_supply",   # M2 money supply
-    "DTWEXBGS": "usd_index",         # USD broad index (trade-weighted)
-    "DCOILWTICO": "wti_crude_oil",   # WTI crude oil price
-    "GOLDAMGBD228NLBM": "gold_price",# Gold price (London fixing)
+    "DGS10": "treasury_10y",  # 10-year Treasury yield
+    "DGS2": "treasury_2y",  # 2-year Treasury yield
+    "T10Y2Y": "yield_curve_spread",  # 10y-2y spread (recession indicator)
+    "VIXCLS": "vix",  # CBOE VIX
+    "BAMLH0A0HYM2": "hy_spread",  # High-yield credit spread (OAS)
+    "DPCREDIT": "fed_discount_rate",  # Federal discount rate
+    "FEDFUNDS": "fed_funds_rate",  # Effective fed funds rate
+    "CPIAUCSL": "cpi_yoy",  # CPI all-urban (SA)
+    "UNRATE": "unemployment_rate",  # Unemployment rate
+    "ICSA": "initial_claims",  # Initial jobless claims
+    "INDPRO": "industrial_prod",  # Industrial production index
+    "M2SL": "m2_money_supply",  # M2 money supply
+    "DTWEXBGS": "usd_index",  # USD broad index (trade-weighted)
+    "DCOILWTICO": "wti_crude_oil",  # WTI crude oil price
+    "GOLDAMGBD228NLBM": "gold_price",  # Gold price (London fixing)
 }
 
 FRED_BASE = "https://fred.stlouisfed.org/graph/fredgraph.csv?id="
@@ -96,8 +184,10 @@ def download_fred_macro() -> pd.DataFrame:
             url = f"{FRED_BASE}{series_id}"
             df = pd.read_csv(url)
             # FRED uses 'observation_date' as date column, value column = series_id
-            date_col = next((c for c in df.columns if "date" in c.lower()), df.columns[0])
-            val_col  = next((c for c in df.columns if c != date_col), df.columns[1])
+            date_col = next(
+                (c for c in df.columns if "date" in c.lower()), df.columns[0]
+            )
+            val_col = next((c for c in df.columns if c != date_col), df.columns[1])
             df = df.rename(columns={date_col: "date", val_col: label})
             df["date"] = pd.to_datetime(df["date"], utc=True)
             df = df[df[label] != "."].copy()
@@ -127,14 +217,34 @@ def download_fred_macro() -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 FUNDAMENTAL_FIELDS = [
-    "symbol", "timestamp",
-    "market_cap", "enterprise_value", "pe_ratio", "forward_pe",
-    "pb_ratio", "ps_ratio", "peg_ratio", "ev_ebitda",
-    "eps_trailing", "eps_forward", "revenue_ttm", "gross_margins",
-    "operating_margins", "profit_margins", "roe", "roa",
-    "debt_to_equity", "current_ratio", "quick_ratio",
-    "dividend_yield", "payout_ratio", "beta", "float_shares",
-    "short_ratio", "52w_high", "52w_low",
+    "symbol",
+    "timestamp",
+    "market_cap",
+    "enterprise_value",
+    "pe_ratio",
+    "forward_pe",
+    "pb_ratio",
+    "ps_ratio",
+    "peg_ratio",
+    "ev_ebitda",
+    "eps_trailing",
+    "eps_forward",
+    "revenue_ttm",
+    "gross_margins",
+    "operating_margins",
+    "profit_margins",
+    "roe",
+    "roa",
+    "debt_to_equity",
+    "current_ratio",
+    "quick_ratio",
+    "dividend_yield",
+    "payout_ratio",
+    "beta",
+    "float_shares",
+    "short_ratio",
+    "52w_high",
+    "52w_low",
 ]
 
 INFO_FIELD_MAP = {
@@ -197,6 +307,7 @@ def download_fundamentals(tickers: list[str]) -> pd.DataFrame:
 # 3. Earnings history from yfinance
 # ---------------------------------------------------------------------------
 
+
 def download_earnings(tickers: list[str]) -> pd.DataFrame:
     log.info("[EARNINGS] Downloading earnings history for %d symbols...", len(tickers))
     rows: list[dict] = []
@@ -207,28 +318,35 @@ def download_earnings(tickers: list[str]) -> pd.DataFrame:
             qe = ticker.quarterly_earnings
             if qe is not None and not qe.empty:
                 for date, row_data in qe.iterrows():
-                    ts = pd.Timestamp(date, tz="UTC") if not isinstance(date, pd.Timestamp) else date
+                    ts = (
+                        pd.Timestamp(date, tz="UTC")
+                        if not isinstance(date, pd.Timestamp)
+                        else date
+                    )
                     if ts.tzinfo is None:
                         ts = ts.tz_localize("UTC")
                     eps_act = row_data.get("Earnings")
                     eps_est = row_data.get("Estimate")
                     revenue = row_data.get("Revenue")
-                    rows.append({
-                        "timestamp": ts,
-                        "symbol": sym,
-                        "event_type": "earnings",
-                        "event_id": f"{sym}_earnings_{ts.date()}",
-                        "event_date": ts,
-                        "disclosure_date": ts,
-                        "eps_actual": eps_act,
-                        "eps_estimate": eps_est,
-                        "eps_surprise_pct": (
-                            (eps_act - eps_est) / abs(eps_est) * 100
-                            if eps_est and eps_act and eps_est != 0 else None
-                        ),
-                        "revenue_actual": revenue,
-                        "revenue_estimate": None,
-                    })
+                    rows.append(
+                        {
+                            "timestamp": ts,
+                            "symbol": sym,
+                            "event_type": "earnings",
+                            "event_id": f"{sym}_earnings_{ts.date()}",
+                            "event_date": ts,
+                            "disclosure_date": ts,
+                            "eps_actual": eps_act,
+                            "eps_estimate": eps_est,
+                            "eps_surprise_pct": (
+                                (eps_act - eps_est) / abs(eps_est) * 100
+                                if eps_est and eps_act and eps_est != 0
+                                else None
+                            ),
+                            "revenue_actual": revenue,
+                            "revenue_estimate": None,
+                        }
+                    )
             time.sleep(0.15)
         except Exception as exc:
             log.warning("  [WARN] %s earnings: %s", sym, exc)
@@ -240,13 +358,16 @@ def download_earnings(tickers: list[str]) -> pd.DataFrame:
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     df.to_parquet(OUTPUT / "events_earnings.parquet", index=False)
-    log.info("[EARNINGS] Saved: %d events across %d symbols", len(df), df["symbol"].nunique())
+    log.info(
+        "[EARNINGS] Saved: %d events across %d symbols", len(df), df["symbol"].nunique()
+    )
     return df
 
 
 # ---------------------------------------------------------------------------
 # 4. Dividend history
 # ---------------------------------------------------------------------------
+
 
 def download_dividends(tickers: list[str]) -> pd.DataFrame:
     log.info("[DIVIDENDS] Downloading dividend history for %d symbols...", len(tickers))
@@ -259,12 +380,14 @@ def download_dividends(tickers: list[str]) -> pd.DataFrame:
                     ts = pd.Timestamp(date)
                     if ts.tzinfo is None:
                         ts = ts.tz_localize("UTC")
-                    rows.append({
-                        "timestamp": ts,
-                        "symbol": sym,
-                        "dividend_amount": float(amount),
-                        "event_type": "dividend",
-                    })
+                    rows.append(
+                        {
+                            "timestamp": ts,
+                            "symbol": sym,
+                            "dividend_amount": float(amount),
+                            "event_type": "dividend",
+                        }
+                    )
             time.sleep(0.1)
         except Exception as exc:
             log.warning("  [WARN] %s dividends: %s", sym, exc)
@@ -274,7 +397,11 @@ def download_dividends(tickers: list[str]) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = df[df["timestamp"] >= START_DATE].sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    df = (
+        df[df["timestamp"] >= START_DATE]
+        .sort_values(["symbol", "timestamp"])
+        .reset_index(drop=True)
+    )
     df.to_parquet(OUTPUT / "dividends.parquet", index=False)
     log.info("[DIVIDENDS] Saved: %d dividend events", len(df))
     return df
@@ -286,14 +413,48 @@ def download_dividends(tickers: list[str]) -> pd.DataFrame:
 
 SENTIMENT_KEYWORDS = {
     "positive": [
-        "beat", "record", "surge", "growth", "profit", "strong", "expand",
-        "upgrade", "outperform", "bull", "rally", "gain", "rise", "soar",
-        "boost", "win", "success", "breakthrough", "partnership", "contract",
+        "beat",
+        "record",
+        "surge",
+        "growth",
+        "profit",
+        "strong",
+        "expand",
+        "upgrade",
+        "outperform",
+        "bull",
+        "rally",
+        "gain",
+        "rise",
+        "soar",
+        "boost",
+        "win",
+        "success",
+        "breakthrough",
+        "partnership",
+        "contract",
     ],
     "negative": [
-        "miss", "loss", "fall", "decline", "cut", "layoff", "downgrade",
-        "underperform", "bear", "drop", "plunge", "crash", "risk", "warning",
-        "investigation", "lawsuit", "fine", "recall", "halt", "bankruptcy",
+        "miss",
+        "loss",
+        "fall",
+        "decline",
+        "cut",
+        "layoff",
+        "downgrade",
+        "underperform",
+        "bear",
+        "drop",
+        "plunge",
+        "crash",
+        "risk",
+        "warning",
+        "investigation",
+        "lawsuit",
+        "fine",
+        "recall",
+        "halt",
+        "bankruptcy",
     ],
 }
 
@@ -324,15 +485,17 @@ def download_news_sentiment(tickers: list[str]) -> pd.DataFrame:
                 ts = pd.Timestamp(pub_ts, unit="s", tz="UTC")
                 title = item.get("title", "")
                 score = _score_headline(title)
-                rows.append({
-                    "timestamp": ts,
-                    "symbol": sym,
-                    "title": title[:200],
-                    "source": item.get("publisher", ""),
-                    "url": item.get("link", "")[:300],
-                    "sentiment_score": score,
-                    "sentiment_volume": 1,
-                })
+                rows.append(
+                    {
+                        "timestamp": ts,
+                        "symbol": sym,
+                        "title": title[:200],
+                        "source": item.get("publisher", ""),
+                        "url": item.get("link", "")[:300],
+                        "sentiment_score": score,
+                        "sentiment_volume": 1,
+                    }
+                )
             time.sleep(0.1)
         except Exception as exc:
             log.warning("  [WARN] %s news: %s", sym, exc)
@@ -363,7 +526,9 @@ def download_news_sentiment(tickers: list[str]) -> pd.DataFrame:
 
     log.info(
         "[NEWS] Saved: %d raw articles, %d daily sentiment rows across %d symbols",
-        len(df), len(daily), daily["symbol"].nunique()
+        len(df),
+        len(daily),
+        daily["symbol"].nunique(),
     )
     return daily
 
@@ -374,7 +539,7 @@ def download_news_sentiment(tickers: list[str]) -> pd.DataFrame:
 
 EDGAR_HEADERS = {"User-Agent": "AssembledTradingAI research@example.com"}
 EDGAR_COMPANY_URL = "https://data.sec.gov/submissions/CIK{:010d}.json"
-EDGAR_SEARCH_URL  = "https://efts.sec.gov/LATEST/search-index?q=%22form+4%22&dateRange=custom&startdt={start}&enddt={end}&hits.hits.total.value=true&hits.hits._source.period_of_report=true&hits.hits._source.entity_name=true"
+EDGAR_SEARCH_URL = "https://efts.sec.gov/LATEST/search-index?q=%22form+4%22&dateRange=custom&startdt={start}&enddt={end}&hits.hits.total.value=true&hits.hits._source.period_of_report=true&hits.hits._source.entity_name=true"
 EDGAR_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 
 
@@ -407,18 +572,20 @@ def _fetch_form4_for_cik(cik: str, sym: str) -> list[dict]:
             if form != "4":
                 continue
             ts = pd.Timestamp(date_str, tz="UTC")
-            rows.append({
-                "timestamp": ts,
-                "symbol": sym,
-                "cik": cik,
-                "accession": acc,
-                "form_type": "4",
-                "filing_date": ts,
-                # transaction details need deeper parsing — use filing date as proxy
-                "transaction_type": "unknown",
-                "shares": None,
-                "price": None,
-            })
+            rows.append(
+                {
+                    "timestamp": ts,
+                    "symbol": sym,
+                    "cik": cik,
+                    "accession": acc,
+                    "form_type": "4",
+                    "filing_date": ts,
+                    # transaction details need deeper parsing — use filing date as proxy
+                    "transaction_type": "unknown",
+                    "shares": None,
+                    "price": None,
+                }
+            )
     except Exception as exc:
         log.debug("[INSIDER] CIK %s (%s): %s", cik, sym, exc)
     return rows
@@ -443,11 +610,17 @@ def download_insider_trading(tickers: list[str]) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = df[df["timestamp"] >= START_DATE].sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    df = (
+        df[df["timestamp"] >= START_DATE]
+        .sort_values(["symbol", "timestamp"])
+        .reset_index(drop=True)
+    )
     df.to_parquet(OUTPUT / "insider_trading.parquet", index=False)
     log.info(
         "[INSIDER] Saved: %d filings across %d symbols (%d found CIK)",
-        len(df), df["symbol"].nunique(), found
+        len(df),
+        df["symbol"].nunique(),
+        found,
     )
     return df
 
@@ -457,29 +630,39 @@ def download_insider_trading(tickers: list[str]) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 MACRO_ETF_PROXIES = {
-    "^VIX":  "vix_close",
-    "^TNX":  "tnx_10y_yield",
-    "^TYX":  "tyx_30y_yield",
-    "^IRX":  "irx_3m_yield",
+    "^VIX": "vix_close",
+    "^TNX": "tnx_10y_yield",
+    "^TYX": "tyx_30y_yield",
+    "^IRX": "irx_3m_yield",
     "^GSPC": "sp500_close",
-    "^NDX":  "nasdaq100_close",
-    "^RUT":  "russell2000_close",
+    "^NDX": "nasdaq100_close",
+    "^RUT": "russell2000_close",
     "DX-Y.NYB": "dollar_index",
-    "GC=F":  "gold_futures",
-    "CL=F":  "crude_oil_futures",
-    "ZB=F":  "treasury_bond_futures",
+    "GC=F": "gold_futures",
+    "CL=F": "crude_oil_futures",
+    "ZB=F": "treasury_bond_futures",
 }
 
 
 def download_macro_etf_proxies() -> pd.DataFrame:
     log.info("[MACRO-ETF] Downloading %d macro proxies...", len(MACRO_ETF_PROXIES))
     tickers_list = list(MACRO_ETF_PROXIES.keys())
-    raw = yf.download(tickers_list, start=START_DATE, end=END_DATE, auto_adjust=True, progress=False)
+    raw = yf.download(
+        tickers_list, start=START_DATE, end=END_DATE, auto_adjust=True, progress=False
+    )
     rows: list[dict] = []
     if isinstance(raw.columns, pd.MultiIndex):
-        close = raw["Close"] if "Close" in raw.columns.get_level_values(0) else raw.xs("Close", axis=1, level=0)
+        close = (
+            raw["Close"]
+            if "Close" in raw.columns.get_level_values(0)
+            else raw.xs("Close", axis=1, level=0)
+        )
         for ts, row in close.iterrows():
-            r: dict = {"timestamp": pd.Timestamp(ts).tz_localize("UTC") if ts.tzinfo is None else ts}
+            r: dict = {
+                "timestamp": (
+                    pd.Timestamp(ts).tz_localize("UTC") if ts.tzinfo is None else ts
+                )
+            }
             for ticker, label in MACRO_ETF_PROXIES.items():
                 val = row.get(ticker)
                 r[label] = float(val) if val is not None and pd.notna(val) else None
@@ -501,7 +684,9 @@ def download_macro_etf_proxies() -> pd.DataFrame:
         df = df.ffill().reset_index(drop=True)
 
     df.to_parquet(OUTPUT / "macro.parquet", index=False)
-    log.info("[MACRO-ETF] Saved: %d rows with %d macro columns", len(df), len(df.columns) - 1)
+    log.info(
+        "[MACRO-ETF] Saved: %d rows with %d macro columns", len(df), len(df.columns) - 1
+    )
     return df
 
 

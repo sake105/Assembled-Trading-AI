@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from scipy.optimize import minimize  # type: ignore
+
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
@@ -119,7 +120,9 @@ class BlackLittermanOptimizer:
 
         view_symbols = [s for s in views if s in symbols]
         if not view_symbols:
-            logger.warning("[BL] No valid view symbols found — returning equilibrium returns")
+            logger.warning(
+                "[BL] No valid view symbols found — returning equilibrium returns"
+            )
             return pi.copy()
 
         k = len(view_symbols)
@@ -154,7 +157,9 @@ class BlackLittermanOptimizer:
             M = np.linalg.inv(M_inv + np.eye(n) * 1e-8)
             mu_bl = M @ (tauS_inv @ pi_arr + P.T @ Omega_inv @ Q)
         except np.linalg.LinAlgError as exc:
-            logger.warning("[BL] Matrix inversion failed (%s) — returning equilibrium", exc)
+            logger.warning(
+                "[BL] Matrix inversion failed (%s) — returning equilibrium", exc
+            )
             return pi.copy()
 
         return pd.Series(mu_bl, index=symbols, name="bl_expected_returns")
@@ -194,7 +199,9 @@ class BlackLittermanOptimizer:
             # return due to missing-scipy from a genuinely converged BL
             # solve. Previously this path returned an untagged Series and
             # the caller had no way to detect the degraded result.
-            logger.warning("[BL] scipy not available — returning equal weights (flagged)")
+            logger.warning(
+                "[BL] scipy not available — returning equal weights (flagged)"
+            )
             n = len(symbols)
             weights = pd.Series(
                 np.ones(n) / n, index=symbols, name="bl_weights_equal_fallback"
@@ -205,9 +212,7 @@ class BlackLittermanOptimizer:
 
         n = len(symbols)
         w0 = np.ones(n) / n
-        w_old = np.array([
-            (current_weights or {}).get(s, 1.0 / n) for s in symbols
-        ])
+        w_old = np.array([(current_weights or {}).get(s, 1.0 / n) for s in symbols])
 
         def neg_sharpe(w: np.ndarray) -> float:
             port_ret = float(mu @ w)
@@ -245,17 +250,24 @@ class BlackLittermanOptimizer:
                 w_opt = np.maximum(result.x, 0.0)
                 if np.any(np.isnan(w_opt)):
                     fallback_reason = "nan_in_optimizer_result"
-                    logger.warning("[BL] NaN in optimizer result — returning equal weights")
+                    logger.warning(
+                        "[BL] NaN in optimizer result — returning equal weights"
+                    )
                     w_opt = w0
                 else:
                     w_opt /= w_opt.sum() if w_opt.sum() > 1e-8 else 1.0
             else:
                 fallback_reason = f"non_convergence:{result.message}"
-                logger.warning("[BL] Optimization did not converge: %s — returning equal weights (flagged)", result.message)
+                logger.warning(
+                    "[BL] Optimization did not converge: %s — returning equal weights (flagged)",
+                    result.message,
+                )
                 w_opt = w0
         except Exception as exc:
             fallback_reason = f"exception:{exc}"
-            logger.warning("[BL] Optimization error: %s — returning equal weights (flagged)", exc)
+            logger.warning(
+                "[BL] Optimization error: %s — returning equal weights (flagged)", exc
+            )
             w_opt = w0
 
         name = "bl_weights_equal_fallback" if fallback_reason else "bl_weights"
@@ -366,6 +378,7 @@ def intel_to_bl_views(
 # ---------------------------------------------------------------------------
 # 5.7  Robust BL (Uncertainty-Set around mu)
 # ---------------------------------------------------------------------------
+
 
 def robust_bl_shrinkage(
     mu_bl: np.ndarray,

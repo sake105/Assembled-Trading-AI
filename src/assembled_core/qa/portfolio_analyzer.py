@@ -108,7 +108,9 @@ def compute_performance_profile(
     else:
         downside_std = 0.0
     ann_downside = downside_std * np.sqrt(trading_days_per_year)
-    sortino = (mean_r * trading_days_per_year / ann_downside) if ann_downside > 0 else 0.0
+    sortino = (
+        (mean_r * trading_days_per_year / ann_downside) if ann_downside > 0 else 0.0
+    )
 
     # MaxDrawdown (negative value) and duration
     equity_curve = np.cumprod(1.0 + arr)
@@ -138,7 +140,9 @@ def compute_performance_profile(
     avg_win = float(np.mean(wins)) if len(wins) > 0 else 0.0
     avg_loss = float(np.mean(losses)) if len(losses) > 0 else 0.0
     profit_factor = (
-        float(np.sum(wins) / abs(np.sum(losses))) if len(losses) > 0 and np.sum(losses) != 0 else float("inf")
+        float(np.sum(wins) / abs(np.sum(losses)))
+        if len(losses) > 0 and np.sum(losses) != 0
+        else float("inf")
     )
     expectancy = win_rate * avg_win + (1 - win_rate) * avg_loss
 
@@ -212,7 +216,7 @@ def compute_portfolio_structure(
 
     sorted_weights = sorted(weights.values(), reverse=True)
     top_5_concentration = float(sum(sorted_weights[:5]))
-    herfindahl_index = float(sum(w ** 2 for w in weights.values()))
+    herfindahl_index = float(sum(w**2 for w in weights.values()))
 
     sector_weights: dict[str, float] = {}
     region_weights: dict[str, float] = {}
@@ -343,7 +347,9 @@ def compute_attribution(
     if symbol_metadata:
         for sym, contrib in symbol_contributions.items():
             sector = symbol_metadata.get(sym, {}).get("sector", "Unknown")
-            sector_contributions[sector] = sector_contributions.get(sector, 0.0) + contrib
+            sector_contributions[sector] = (
+                sector_contributions.get(sector, 0.0) + contrib
+            )
 
     sorted_all = sorted(symbol_contributions.items(), key=lambda x: x[1], reverse=True)
     top_contributors = sorted_all[:5]

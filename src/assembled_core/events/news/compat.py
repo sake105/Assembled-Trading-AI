@@ -7,6 +7,7 @@ Two NewsEvent classes exist with diverging schemas:
 This module provides conversion in both directions without data loss for the common fields.
 Long-term goal: unify to a single schema (see audit B3).
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -30,6 +31,7 @@ def events_to_intel(ev: "EvNewsEvent") -> "IntelNewsEvent":
             return datetime.now(timezone.utc)
         try:
             from dateutil.parser import parse as _parse
+
             dt = _parse(s)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)

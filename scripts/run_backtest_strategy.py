@@ -1169,7 +1169,9 @@ def load_price_data(
             prices=prices,
             freq=args.freq,
             calendar="NYSE",
-            thresholds={"outlier_return_fail": 2.0},  # 200%: catch data errors, not real micro-cap squeezes
+            thresholds={
+                "outlier_return_fail": 2.0
+            },  # 200%: catch data errors, not real micro-cap squeezes
         )
 
         # Write QC report to output directory
@@ -1190,7 +1192,9 @@ def load_price_data(
                 qa_block_trading = True
                 qa_block_reason = f"DATA_QC_FAIL: {qc_report.summary.get('fail_count', 0)} FAIL issues, {qc_report.summary.get('warn_count', 0)} WARN issues"
                 logger.warning(f"QC FAILED: {qa_block_reason}")
-                logger.warning("Trading will be blocked (no orders generated in backtest)")
+                logger.warning(
+                    "Trading will be blocked (no orders generated in backtest)"
+                )
         elif qc_report.summary.get("warn_count", 0) > 0:
             logger.warning(
                 f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (backtest will proceed)"
@@ -1372,7 +1376,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # (symbol, calendar-date) so the equity timeline has one row per trading day.
         if "timestamp" in prices.columns:
             prices = prices.copy()
-            prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True).dt.normalize()
+            prices["timestamp"] = pd.to_datetime(
+                prices["timestamp"], utc=True
+            ).dt.normalize()
             prices = (
                 prices.sort_values(["symbol", "timestamp"])
                 .drop_duplicates(subset=["symbol", "timestamp"], keep="last")
@@ -1909,28 +1915,43 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 logger.info(
                     f"[multifactor] Computing bundle factors (factor_set={factor_set}) on full history..."
                 )
-                base = prices.copy() if precomputed_prices_with_features is None else precomputed_prices_with_features.copy()
-                mf_features = compute_factors(base, factor_set=factor_set, output_dir=None)
+                base = (
+                    prices.copy()
+                    if precomputed_prices_with_features is None
+                    else precomputed_prices_with_features.copy()
+                )
+                mf_features = compute_factors(
+                    base, factor_set=factor_set, output_dir=None
+                )
                 # Merge newly computed factor columns back (avoid duplicates)
                 existing_cols = set(precomputed_prices_with_features.columns)
                 new_cols = [c for c in mf_features.columns if c not in existing_cols]
                 if new_cols:
                     key_cols = ["timestamp", "symbol"]
-                    precomputed_prices_with_features = precomputed_prices_with_features.merge(
-                        mf_features[key_cols + new_cols], on=key_cols, how="left"
+                    precomputed_prices_with_features = (
+                        precomputed_prices_with_features.merge(
+                            mf_features[key_cols + new_cols], on=key_cols, how="left"
+                        )
                     )
                     logger.info(f"[multifactor] Added factor columns: {new_cols}")
                 else:
                     # Factor cols already present — use mf_features directly
                     precomputed_prices_with_features = mf_features
-                    logger.info("[multifactor] Factor columns already present, used recomputed frame.")
+                    logger.info(
+                        "[multifactor] Factor columns already present, used recomputed frame."
+                    )
             except Exception as _e:
-                logger.warning(f"[multifactor] Factor pre-computation failed: {_e} — signals may degrade")
+                logger.warning(
+                    f"[multifactor] Factor pre-computation failed: {_e} — signals may degrade"
+                )
 
         # ------------------------------------------------------------------ #
         # Altdata enrichment: earnings surprise + macro regime + news sentiment
         # ------------------------------------------------------------------ #
-        if getattr(args, "with_altdata", False) and precomputed_prices_with_features is not None:
+        if (
+            getattr(args, "with_altdata", False)
+            and precomputed_prices_with_features is not None
+        ):
             try:
                 from src.assembled_core.features.altdata_earnings_insider_factors import (
                     build_earnings_surprise_factors,
@@ -1939,20 +1960,31 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     build_news_sentiment_factors,
                 )
 
-                output_base = Path(args.output_dir) if getattr(args, "output_dir", None) else Path("output")
+                output_base = (
+                    Path(args.output_dir)
+                    if getattr(args, "output_dir", None)
+                    else Path("output")
+                )
                 base_pf = precomputed_prices_with_features
 
                 # 1. Earnings surprise factors
                 earn_path = output_base / "events_earnings.parquet"
                 if earn_path.exists():
                     events_earnings = pd.read_parquet(earn_path)
-                    events_earnings["timestamp"] = pd.to_datetime(events_earnings["timestamp"], utc=True)
-                    earn_factors = build_earnings_surprise_factors(events_earnings, base_pf)
-                    new_cols = [c for c in earn_factors.columns if c not in base_pf.columns]
+                    events_earnings["timestamp"] = pd.to_datetime(
+                        events_earnings["timestamp"], utc=True
+                    )
+                    earn_factors = build_earnings_surprise_factors(
+                        events_earnings, base_pf
+                    )
+                    new_cols = [
+                        c for c in earn_factors.columns if c not in base_pf.columns
+                    ]
                     if new_cols:
                         base_pf = base_pf.merge(
                             earn_factors[["timestamp", "symbol"] + new_cols],
-                            on=["timestamp", "symbol"], how="left"
+                            on=["timestamp", "symbol"],
+                            how="left",
                         )
                         logger.info(f"[altdata] Earnings factors added: {new_cols}")
 
@@ -1960,25 +1992,36 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 macro_path = output_base / "macro.parquet"
                 if macro_path.exists():
                     macro_df = pd.read_parquet(macro_path)
-                    macro_df["timestamp"] = pd.to_datetime(macro_df["timestamp"], utc=True).dt.normalize()
+                    macro_df["timestamp"] = pd.to_datetime(
+                        macro_df["timestamp"], utc=True
+                    ).dt.normalize()
                     # Derive regime signals directly from FRED series
-                    macro_df["macro_yield_curve"] = macro_df.get("yield_curve_spread", pd.Series(dtype=float))
+                    macro_df["macro_yield_curve"] = macro_df.get(
+                        "yield_curve_spread", pd.Series(dtype=float)
+                    )
                     macro_df["macro_vix"] = macro_df.get("vix", pd.Series(dtype=float))
                     macro_df["macro_growth_regime"] = (
-                        (macro_df["macro_yield_curve"].fillna(0) > 0).astype(int)
-                        - (macro_df["macro_yield_curve"].fillna(0) < -0.2).astype(int)
+                        macro_df["macro_yield_curve"].fillna(0) > 0
+                    ).astype(int) - (
+                        macro_df["macro_yield_curve"].fillna(0) < -0.2
+                    ).astype(
+                        int
                     )  # +1 = normal/expansion, -1 = inverted (recession risk), 0 = flat
                     macro_df["macro_risk_aversion_proxy"] = (
-                        (macro_df["macro_vix"].fillna(20) > 25).astype(int) * -1
-                        + (macro_df["macro_vix"].fillna(20) < 15).astype(int)
+                        macro_df["macro_vix"].fillna(20) > 25
+                    ).astype(int) * -1 + (macro_df["macro_vix"].fillna(20) < 15).astype(
+                        int
                     )  # -1 = fear (VIX>25), +1 = calm (VIX<15), 0 = normal
                     macro_cols = ["macro_growth_regime", "macro_risk_aversion_proxy"]
                     macro_slim = macro_df[["timestamp"] + macro_cols].dropna()
                     # Broadcast macro (market-wide) to all symbols
-                    base_pf["timestamp_date"] = pd.to_datetime(base_pf["timestamp"], utc=True).dt.normalize()
+                    base_pf["timestamp_date"] = pd.to_datetime(
+                        base_pf["timestamp"], utc=True
+                    ).dt.normalize()
                     base_pf = base_pf.merge(
                         macro_slim.rename(columns={"timestamp": "timestamp_date"}),
-                        on="timestamp_date", how="left"
+                        on="timestamp_date",
+                        how="left",
                     ).drop(columns=["timestamp_date"])
                     logger.info(f"[altdata] Macro regime factors added: {macro_cols}")
 
@@ -1986,23 +2029,42 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 news_path = output_base / "news_sentiment_daily.parquet"
                 if news_path.exists():
                     news_df = pd.read_parquet(news_path)
-                    news_df["timestamp"] = pd.to_datetime(news_df["timestamp"], utc=True)
+                    news_df["timestamp"] = pd.to_datetime(
+                        news_df["timestamp"], utc=True
+                    )
                     news_factors = build_news_sentiment_factors(news_df, base_pf)
-                    new_cols = [c for c in news_factors.columns if c not in base_pf.columns]
+                    new_cols = [
+                        c for c in news_factors.columns if c not in base_pf.columns
+                    ]
                     if new_cols:
                         base_pf = base_pf.merge(
                             news_factors[["timestamp", "symbol"] + new_cols],
-                            on=["timestamp", "symbol"], how="left"
+                            on=["timestamp", "symbol"],
+                            how="left",
                         )
-                        logger.info(f"[altdata] News sentiment factors added: {new_cols}")
+                        logger.info(
+                            f"[altdata] News sentiment factors added: {new_cols}"
+                        )
 
                 precomputed_prices_with_features = base_pf
-                altdata_cols = [c for c in base_pf.columns if c.startswith(("earnings_", "macro_", "news_", "insider_", "post_"))]
-                logger.info(f"[altdata] Total altdata columns in panel: {len(altdata_cols)}")
+                altdata_cols = [
+                    c
+                    for c in base_pf.columns
+                    if c.startswith(
+                        ("earnings_", "macro_", "news_", "insider_", "post_")
+                    )
+                ]
+                logger.info(
+                    f"[altdata] Total altdata columns in panel: {len(altdata_cols)}"
+                )
 
             except Exception as _ae:
-                logger.warning(f"[altdata] Enrichment failed: {_ae} — continuing without altdata")
-                import traceback; logger.debug(traceback.format_exc())
+                logger.warning(
+                    f"[altdata] Enrichment failed: {_ae} — continuing without altdata"
+                )
+                import traceback
+
+                logger.debug(traceback.format_exc())
 
         # Load security master (if available) for sector/region/FX limits
         security_meta_df = None
@@ -2061,23 +2123,46 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 store_universe_history,
                 wrap_signal_fn_with_pit_filter,
             )
+
             _universe_root = Path("data") / "universe"
-            _price_file = getattr(args, "price_file", None) or getattr(args, "universe", None)
+            _price_file = getattr(args, "price_file", None) or getattr(
+                args, "universe", None
+            )
             _universe_name = Path(_price_file).stem if _price_file else "default"
             _universe_csv = _universe_root / f"{_universe_name}.csv"
 
             if _universe_csv.exists():
-                _pit_history = load_universe_history(universe_name=_universe_name, root=_universe_root)
-                logger.info("[PIT] Loaded universe history: %s (%d symbols)", _universe_csv, len(_pit_history))
+                _pit_history = load_universe_history(
+                    universe_name=_universe_name, root=_universe_root
+                )
+                logger.info(
+                    "[PIT] Loaded universe history: %s (%d symbols)",
+                    _universe_csv,
+                    len(_pit_history),
+                )
             else:
                 _pit_history = build_universe_history_from_prices(prices)
-                store_universe_history(_pit_history, universe_name=_universe_name, root=_universe_root, format="csv")
-                logger.info("[PIT] Built + stored universe history: %s (%d symbols)", _universe_csv, len(_pit_history))
+                store_universe_history(
+                    _pit_history,
+                    universe_name=_universe_name,
+                    root=_universe_root,
+                    format="csv",
+                )
+                logger.info(
+                    "[PIT] Built + stored universe history: %s (%d symbols)",
+                    _universe_csv,
+                    len(_pit_history),
+                )
 
             signal_fn = wrap_signal_fn_with_pit_filter(signal_fn, _pit_history)
-            logger.info("[PIT] signal_fn wrapped with PIT universe filter (%s)", _universe_name)
+            logger.info(
+                "[PIT] signal_fn wrapped with PIT universe filter (%s)", _universe_name
+            )
         except Exception as _pit_exc:
-            logger.warning("[PIT] Universe filter setup failed (%s) — proceeding without PIT filter", _pit_exc)
+            logger.warning(
+                "[PIT] Universe filter setup failed (%s) — proceeding without PIT filter",
+                _pit_exc,
+            )
 
         # Create cycle_fn using make_cycle_fn
         cycle_fn = make_cycle_fn(
@@ -2308,6 +2393,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             try:
                 import json as _json
                 from src.assembled_core.qa.bootstrap_metrics import compute_all_with_ci
+
                 daily_ret = result.equity["equity"].pct_change().dropna()
                 bci = compute_all_with_ci(daily_ret, n_bootstrap=2000, seed=42)
                 metrics.__dict__["bootstrap_ci"] = bci
@@ -2319,7 +2405,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     _json.dump(mj_data, _f, indent=2)
                 logger.info(
                     "[bootstrap] Sharpe %.3f  95%%CI [%.3f – %.3f]  p(Sharpe>0)=%.0f%%",
-                    bci["sharpe"], bci["sharpe_ci_lower"], bci["sharpe_ci_upper"],
+                    bci["sharpe"],
+                    bci["sharpe_ci_lower"],
+                    bci["sharpe_ci_upper"],
                     (1 - bci["sharpe_p_value"]) * 100,
                 )
             except Exception as _e:
@@ -2329,7 +2417,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         if result.trades is not None and len(result.trades) >= 20:
             try:
                 import json as _json
-                from src.assembled_core.qa.monte_carlo_paths import monte_carlo_trade_paths
+                from src.assembled_core.qa.monte_carlo_paths import (
+                    monte_carlo_trade_paths,
+                )
+
                 mc = monte_carlo_trade_paths(result.trades, n_paths=5000, seed=42)
                 if "error" not in mc:
                     metrics.__dict__["monte_carlo"] = mc
@@ -2341,7 +2432,8 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                         _json.dump(mj_data, _f, indent=2)
                     logger.info(
                         "[monte_carlo] Sharpe P50=%.3f P10=%.3f  MDD P99=%.2f%%",
-                        mc["sharpe"]["p50"], mc["sharpe"]["p10"],
+                        mc["sharpe"]["p50"],
+                        mc["sharpe"]["p10"],
                         mc["mdd"]["p99"] * 100,
                     )
             except Exception as _e:
@@ -2606,10 +2698,12 @@ def main() -> int:
     args = parse_args()
     if getattr(args, "policy_path", None):
         import os as _os
+
         _os.environ["ASSEMBLED_POLICY_PATH"] = args.policy_path
         # Clear policy cache so size_positions() picks up the new path.
         try:
             from src.assembled_core.config.policy_loader import _POLICY_CACHE
+
             _POLICY_CACHE.clear()
         except Exception:
             pass

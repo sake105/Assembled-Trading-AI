@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/signals/news_fusion.py (3-layer News-TA Fusion)."""
+
 from __future__ import annotations
 
 
@@ -11,7 +12,6 @@ from assembled_core.signals.news_fusion import (
     agreement_multiplier,
     decide_trade,
 )
-
 
 _NEUTRAL_FEATURES = {
     "sentiment_vw": 0.0,
@@ -26,6 +26,7 @@ _NEUTRAL_FEATURES = {
 # ---------------------------------------------------------------------------
 # Layer 1: news_z_score
 # ---------------------------------------------------------------------------
+
 
 class TestNewsZScore:
     def test_neutral_features_return_zero(self):
@@ -45,7 +46,9 @@ class TestNewsZScore:
 
     def test_dispersion_penalizes(self):
         without = news_z_score({**_NEUTRAL_FEATURES, "sentiment_vw": 1.0})
-        with_disp = news_z_score({**_NEUTRAL_FEATURES, "sentiment_vw": 1.0, "dispersion": 1.0})
+        with_disp = news_z_score(
+            {**_NEUTRAL_FEATURES, "sentiment_vw": 1.0, "dispersion": 1.0}
+        )
         assert with_disp < without
 
     def test_missing_features_default_to_zero(self):
@@ -66,6 +69,7 @@ class TestNewsScoreNormalized:
 # ---------------------------------------------------------------------------
 # Layer 2: meta-labeling helpers
 # ---------------------------------------------------------------------------
+
 
 class TestSizeFromMeta:
     def test_below_theta_returns_zero(self):
@@ -106,6 +110,7 @@ class TestNewsVeto:
 # ---------------------------------------------------------------------------
 # Layer 3: 2D Decision Matrix
 # ---------------------------------------------------------------------------
+
 
 class TestBayesianUpdate:
     def test_output_in_zero_one(self):
@@ -150,6 +155,7 @@ class TestAgreementMultiplier:
 # ---------------------------------------------------------------------------
 # Unified decide_trade
 # ---------------------------------------------------------------------------
+
 
 class TestDecideTrade:
     def _good_features(self) -> dict:
@@ -208,7 +214,15 @@ class TestDecideTrade:
             news_features=self._good_features(),
             meta_probability=0.70,
         )
-        for key in ("action", "size", "composite_score", "news_z", "p_meta", "multiplier", "reason"):
+        for key in (
+            "action",
+            "size",
+            "composite_score",
+            "news_z",
+            "p_meta",
+            "multiplier",
+            "reason",
+        ):
             assert key in result
 
     def test_sector_headwind_reduces_size(self):

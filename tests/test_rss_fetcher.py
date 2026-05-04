@@ -21,14 +21,19 @@ from src.assembled_core.intel.rss_fetcher import (
     _urgency_score,
 )
 
-_REAL_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "intel" / "rss_feeds.yaml"
+_REAL_CONFIG = (
+    Path(__file__).resolve().parents[1] / "configs" / "intel" / "rss_feeds.yaml"
+)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_cfg(tier: SourceTier = SourceTier.T1, focus: str = "geopolitical") -> FeedConfig:
+
+def _make_cfg(
+    tier: SourceTier = SourceTier.T1, focus: str = "geopolitical"
+) -> FeedConfig:
     return FeedConfig(
         id="test_feed",
         name="Test Feed",
@@ -39,7 +44,9 @@ def _make_cfg(tier: SourceTier = SourceTier.T1, focus: str = "geopolitical") -> 
     )
 
 
-def _make_entry(title: str = "War escalation in region", url: str = "http://example.com/1") -> MagicMock:
+def _make_entry(
+    title: str = "War escalation in region", url: str = "http://example.com/1"
+) -> MagicMock:
     entry = MagicMock()
     entry.title = title
     entry.link = url
@@ -63,10 +70,12 @@ def _make_feed_response(entries: list[MagicMock]) -> MagicMock:
 # Unit tests: parsing helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.phase12
 class TestParseEntryDate:
     def test_published_parsed(self):
         import time
+
         entry = MagicMock()
         entry.published_parsed = time.gmtime(0)  # epoch
         entry.updated_parsed = None
@@ -94,7 +103,11 @@ class TestEntryToNewsEvent:
         assert event is not None
         assert event.source_id == "test_feed"
         assert event.source_tier == SourceTier.T1
-        assert "war" in event.keywords or "conflict" in event.keywords or len(event.keywords) >= 0
+        assert (
+            "war" in event.keywords
+            or "conflict" in event.keywords
+            or len(event.keywords) >= 0
+        )
 
     def test_missing_title_returns_none(self):
         cfg = _make_cfg()
@@ -155,6 +168,7 @@ class TestIsRelevant:
 # Unit tests: RSSFetcher (mocked HTTP)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.phase12
 class TestRSSFetcher:
     def _make_fetcher(self, tmp_path) -> RSSFetcher:
@@ -214,6 +228,7 @@ class TestRSSFetcher:
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
     def test_http_error_returns_empty(self, mock_get):
         import requests as req
+
         mock_get.side_effect = req.RequestException("timeout")
         fetcher = RSSFetcher(config_path=_REAL_CONFIG, retries=1)
         events = fetcher.fetch_feed("reuters_world")
@@ -228,7 +243,9 @@ class TestRSSFetcher:
         mock_get.return_value = mock_resp
 
         # Entry with no geo/conflict keywords → should be filtered for T3
-        benign_entry = _make_entry(title="Celebrity birthday party weekend", url="http://z.com/1")
+        benign_entry = _make_entry(
+            title="Celebrity birthday party weekend", url="http://z.com/1"
+        )
         mock_fp.return_value = _make_feed_response([benign_entry])
 
         fetcher = RSSFetcher(config_path=_REAL_CONFIG)
@@ -250,6 +267,7 @@ class TestRSSFetcher:
 # ---------------------------------------------------------------------------
 # Config file integrity test
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.phase12
 class TestFeedConfigIntegrity:
@@ -278,6 +296,7 @@ class TestFeedConfigIntegrity:
 # ---------------------------------------------------------------------------
 # New feature tests: urgency, geo-tags, age-filter, seen_counts
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.phase12
 class TestUrgencyScore:
@@ -352,6 +371,7 @@ class TestAgeFilter:
     @patch("feedparser.parse")
     def test_old_entry_filtered_when_max_age_set(self, mock_fp, mock_get):
         import time as _time
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.content = b"<rss/>"
@@ -375,6 +395,7 @@ class TestAgeFilter:
     @patch("feedparser.parse")
     def test_recent_entry_passes_age_filter(self, mock_fp, mock_get):
         import time as _time
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.content = b"<rss/>"
@@ -420,12 +441,15 @@ class TestEntityLinker:
 class TestSeenCounts:
     def test_filter_new_with_counts_returns_count(self):
         from src.assembled_core.intel.news_dedupe import NewsDedupeIndex
+
         idx = NewsDedupeIndex()
 
         cfg = _make_cfg()
         now = datetime.now(tz=timezone.utc)
         e1 = _entry_to_news_event(_make_entry(title="War news story one"), cfg, now)
-        e2 = _entry_to_news_event(_make_entry(title="War news story one"), cfg, now)  # same
+        e2 = _entry_to_news_event(
+            _make_entry(title="War news story one"), cfg, now
+        )  # same
 
         results = idx.filter_new_with_counts([e1, e2])
         # Only one new (e2 is duplicate), count for e1 = 1
@@ -435,11 +459,14 @@ class TestSeenCounts:
 
     def test_seen_counts_increments_for_duplicate(self):
         from src.assembled_core.intel.news_dedupe import NewsDedupeIndex
+
         idx = NewsDedupeIndex()
 
         cfg = _make_cfg()
         now = datetime.now(tz=timezone.utc)
-        e1 = _entry_to_news_event(_make_entry(title="Flash: Conflict update today"), cfg, now)
+        e1 = _entry_to_news_event(
+            _make_entry(title="Flash: Conflict update today"), cfg, now
+        )
 
         # Call twice — second call should not appear in results but count increments
         idx.filter_new_with_counts([e1])

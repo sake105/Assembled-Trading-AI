@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytest.importorskip('src.assembled_core.qa.reverse_stress')
+pytest.importorskip("src.assembled_core.qa.reverse_stress")
 from src.assembled_core.qa.reverse_stress import (
     reverse_stress_test,
     run_multiple_reverse_stress,
@@ -41,22 +41,31 @@ class TestReverseStressTest:
     def test_converges_to_target(self):
         weights, cov = _simple_portfolio()
         result = reverse_stress_test(
-            weights, cov, target_loss=-0.10,
-            plausibility_bound=10.0, n_restarts=10,
+            weights,
+            cov,
+            target_loss=-0.10,
+            plausibility_bound=10.0,
+            n_restarts=10,
         )
         if result.converged:
             assert result.achieved_loss <= -0.05  # Should get close to target
 
     def test_larger_loss_needs_larger_shock(self):
         weights, cov = _simple_portfolio()
-        r1 = reverse_stress_test(weights, cov, target_loss=-0.05, plausibility_bound=10.0)
-        r2 = reverse_stress_test(weights, cov, target_loss=-0.20, plausibility_bound=10.0)
+        r1 = reverse_stress_test(
+            weights, cov, target_loss=-0.05, plausibility_bound=10.0
+        )
+        r2 = reverse_stress_test(
+            weights, cov, target_loss=-0.20, plausibility_bound=10.0
+        )
         if r1.converged and r2.converged:
             assert r2.shock_norm >= r1.shock_norm * 0.9  # Larger loss = larger shock
 
     def test_top_shocks_populated(self):
         weights, cov = _simple_portfolio()
-        result = reverse_stress_test(weights, cov, target_loss=-0.10, plausibility_bound=10.0)
+        result = reverse_stress_test(
+            weights, cov, target_loss=-0.10, plausibility_bound=10.0
+        )
         if result.converged:
             assert len(result.top_shocks) > 0
 
@@ -78,7 +87,8 @@ class TestRunMultipleReverseStress:
     def test_custom_targets(self):
         weights, cov = _simple_portfolio()
         results = run_multiple_reverse_stress(
-            weights, cov,
+            weights,
+            cov,
             target_losses=[-0.05, -0.10],
             plausibility_bound=10.0,
         )

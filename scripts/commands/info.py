@@ -1,5 +1,6 @@
 # scripts/commands/info.py
 """Info subcommand: project information display."""
+
 from __future__ import annotations
 
 import argparse

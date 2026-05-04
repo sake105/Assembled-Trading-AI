@@ -1,4 +1,5 @@
 """A3: symbol_kill_switch _write_state must be atomic (tmp+rename pattern)."""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +11,7 @@ def test_write_state_uses_atomic_helper():
     """_write_state must call atomic_write_json_with_retry, not path.write_text."""
     import inspect
     from src.assembled_core.execution import symbol_kill_switch as ks
+
     src = inspect.getsource(ks._write_state)
     assert "atomic_write_json_with_retry" in src, "_write_state must use atomic helper"
     assert "write_text" not in src, "_write_state must NOT use plain write_text"
@@ -53,6 +55,7 @@ def test_block_and_unblock_roundtrip(tmp_path):
         list_blocked_symbols,
         is_symbol_blocked,
     )
+
     state_path = tmp_path / "ks.json"
     block_symbol("TSLA", "test reason", state_path=state_path)
     assert is_symbol_blocked("TSLA", state_path=state_path)

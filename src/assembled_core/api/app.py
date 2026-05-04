@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
         # Check kill switch state is readable
         try:
             from src.assembled_core.execution.kill_switch import get_kill_switch_state
+
             get_kill_switch_state()
             checks["kill_switch"] = True
         except Exception:
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
             activate_kill_switch,
             get_kill_switch_state,
         )
+
         activate_kill_switch(throttle_pct=throttle_pct, reason=reason, actor=actor)
         return {"action": "activated", "state": get_kill_switch_state()}
 
@@ -88,6 +90,7 @@ def create_app() -> FastAPI:
             deactivate_kill_switch,
             get_kill_switch_state,
         )
+
         deactivate_kill_switch(reason=reason, actor=actor)
         return {"action": "deactivated", "state": get_kill_switch_state()}
 
@@ -95,6 +98,7 @@ def create_app() -> FastAPI:
     def get_kill_switch_state_endpoint():
         """Get current kill switch state."""
         from src.assembled_core.execution.kill_switch import get_kill_switch_state
+
         return get_kill_switch_state()
 
     # ── Existing routers ────────────────────────────────────────────

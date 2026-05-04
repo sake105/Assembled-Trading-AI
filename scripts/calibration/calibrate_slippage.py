@@ -50,6 +50,7 @@ if str(_REPO_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 try:
     from scipy.optimize import minimize as _scipy_minimize
+
     _SCIPY_AVAILABLE = True
 except ImportError:
     _SCIPY_AVAILABLE = False
@@ -78,6 +79,7 @@ def _warn(msg: str) -> None:
 # FillModel prediction
 # ---------------------------------------------------------------------------
 
+
 def _fill_model_slippage_bps(
     half_spread_bps: float,
     impact_coefficient: float,
@@ -104,6 +106,7 @@ def _fill_model_slippage_bps(
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
+
 
 def _load_ledger_fills(bt_root: Path) -> pd.DataFrame:
     """Load all ledger events that contain fill-like cost data."""
@@ -174,6 +177,7 @@ def _load_paper_fills(paper_track_root: Path) -> pd.DataFrame:
 # Slippage computation
 # ---------------------------------------------------------------------------
 
+
 def _compute_observed_slippage(df: pd.DataFrame) -> pd.DataFrame:
     """Compute observed slippage bps from ledger events.
 
@@ -194,11 +198,15 @@ def _compute_observed_slippage(df: pd.DataFrame) -> pd.DataFrame:
     if "total_cost_cash" in df.columns:
         df["total_cost_cash"] = pd.to_numeric(df["total_cost_cash"], errors="coerce")
         notional = (df["qty"] * df["price"]).replace(0, np.nan)
-        df["observed_slippage_bps"] = (df["total_cost_cash"] / notional * 10_000.0).fillna(0.0)
+        df["observed_slippage_bps"] = (
+            df["total_cost_cash"] / notional * 10_000.0
+        ).fillna(0.0)
     elif "slippage_cash" in df.columns:
         df["slippage_cash"] = pd.to_numeric(df["slippage_cash"], errors="coerce")
         notional = (df["qty"] * df["price"]).replace(0, np.nan)
-        df["observed_slippage_bps"] = (df["slippage_cash"] / notional * 10_000.0).fillna(0.0)
+        df["observed_slippage_bps"] = (
+            df["slippage_cash"] / notional * 10_000.0
+        ).fillna(0.0)
     else:
         df["observed_slippage_bps"] = 0.0
 
@@ -218,7 +226,9 @@ def _adv_bucket_analysis(df: pd.DataFrame) -> list[dict[str, Any]]:
 
     df = df.copy()
     try:
-        df["adv_bucket"] = pd.qcut(df["adv_proxy"], q=5, labels=False, duplicates="drop")
+        df["adv_bucket"] = pd.qcut(
+            df["adv_proxy"], q=5, labels=False, duplicates="drop"
+        )
     except ValueError:
         df["adv_bucket"] = 0
 
@@ -228,8 +238,12 @@ def _adv_bucket_analysis(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "adv_bucket": int(bucket_id),
                 "n_fills": len(grp),
-                "mean_slippage_bps": round(float(grp["observed_slippage_bps"].mean()), 4),
-                "median_slippage_bps": round(float(grp["observed_slippage_bps"].median()), 4),
+                "mean_slippage_bps": round(
+                    float(grp["observed_slippage_bps"].mean()), 4
+                ),
+                "median_slippage_bps": round(
+                    float(grp["observed_slippage_bps"].median()), 4
+                ),
                 "std_slippage_bps": round(float(grp["observed_slippage_bps"].std()), 4),
                 "mean_qty": round(float(grp["qty"].mean()), 2),
                 "mean_adv_proxy": round(float(grp["adv_proxy"].mean()), 2),
@@ -241,6 +255,7 @@ def _adv_bucket_analysis(df: pd.DataFrame) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Optimisation
 # ---------------------------------------------------------------------------
+
 
 def _optimise_fill_model(
     df: pd.DataFrame,
@@ -322,6 +337,7 @@ def _optimise_fill_model(
 # Main pipeline
 # ---------------------------------------------------------------------------
 
+
 def calibrate_slippage(
     bt_root: Path,
     paper_track_root: Path | None,
@@ -355,7 +371,11 @@ def calibrate_slippage(
         _warn("No fill events available -- report will have no calibration data.")
 
     # 4. Compute observed slippage
-    slippage_df = _compute_observed_slippage(all_events) if not all_events.empty else pd.DataFrame()
+    slippage_df = (
+        _compute_observed_slippage(all_events)
+        if not all_events.empty
+        else pd.DataFrame()
+    )
 
     # 5. ADV bucket analysis
     adv_buckets = _adv_bucket_analysis(slippage_df)
@@ -406,6 +426,7 @@ def calibrate_slippage(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(

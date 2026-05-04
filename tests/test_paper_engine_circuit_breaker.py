@@ -128,8 +128,6 @@ def test_benchmark_return_from_explicit_return_column(tmp_path: Path) -> None:
 def test_benchmark_missing_returns_none(tmp_path: Path) -> None:
     """Benchmark symbol absent → None (skip check, no false positive)."""
     eng = _make_engine(tmp_path)
-    prices = pd.DataFrame(
-        [{"symbol": "AAA", "open": 100.0, "close": 100.0}]
-    )
+    prices = pd.DataFrame([{"symbol": "AAA", "open": 100.0, "close": 100.0}])
     ret = eng._extract_benchmark_return(prices)
     assert ret is None

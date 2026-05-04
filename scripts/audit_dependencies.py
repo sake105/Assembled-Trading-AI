@@ -79,11 +79,13 @@ def audit_dependencies(
             if pyproject[pkg] == requirements[pkg]:
                 matching.append(pkg)
             else:
-                drifted.append({
-                    "package": pkg,
-                    "pyproject": pyproject[pkg],
-                    "requirements": requirements[pkg],
-                })
+                drifted.append(
+                    {
+                        "package": pkg,
+                        "pyproject": pyproject[pkg],
+                        "requirements": requirements[pkg],
+                    }
+                )
         elif in_pp:
             only_pyproject.append(pkg)
         else:
@@ -103,7 +105,9 @@ if __name__ == "__main__":
     print(f"Matching: {result['n_matching']}")
     print(f"Drifted: {result['n_drifted']}")
     for d in result["drifted"]:
-        print(f"  {d['package']}: pyproject={d['pyproject']} vs requirements={d['requirements']}")
+        print(
+            f"  {d['package']}: pyproject={d['pyproject']} vs requirements={d['requirements']}"
+        )
     if result["only_pyproject"]:
         print(f"Only in pyproject.toml: {result['only_pyproject']}")
     if result["only_requirements"]:

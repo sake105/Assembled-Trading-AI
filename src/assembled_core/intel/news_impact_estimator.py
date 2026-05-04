@@ -32,16 +32,16 @@ _EVENT_TYPE_BASE_BPS: dict[str, float] = {
     "natural_disaster": -35.0,
     "trade_policy": -50.0,
     "regulatory": -30.0,
-    "central_bank": -25.0,   # rate hike context
-    "diplomatic": 20.0,      # peace talks / agreement
-    "earnings": 0.0,         # direction-dependent
-    "ma_activity": 60.0,     # M&A target premium
+    "central_bank": -25.0,  # rate hike context
+    "diplomatic": 20.0,  # peace talks / agreement
+    "earnings": 0.0,  # direction-dependent
+    "ma_activity": 60.0,  # M&A target premium
 }
 
 # Time horizon → scaling factor for impact
 _HORIZON_SCALE: dict[str, float] = {
-    "intraday": 1.0,   # full immediate impact
-    "short": 0.6,      # partial realisation
+    "intraday": 1.0,  # full immediate impact
+    "short": 0.6,  # partial realisation
     "medium": 0.35,
     "long": 0.15,
 }
@@ -54,37 +54,43 @@ _HORIZON_DAYS: dict[str, int] = {
     "long": 60,
 }
 
+
 # Severity (0-10) → multiplier
 def _severity_mult(severity: float) -> float:
     return 0.5 + 0.5 * math.sqrt(min(severity, 10.0) / 10.0)
 
+
 # Source tier → confidence multiplier
 _TIER_CONF: dict[str, float] = {
-    "T0": 1.0, "T1": 0.90, "T2": 0.70, "T3": 0.50,
+    "T0": 1.0,
+    "T1": 0.90,
+    "T2": 0.70,
+    "T3": 0.50,
 }
 
 # Country → base geo-risk premium (BPS additional discount on bearish events)
 _GEO_RISK_PREMIUM: dict[str, float] = {
-    "RU": 50.0,   # Russia — high geo risk
-    "IR": 40.0,   # Iran
-    "KP": 35.0,   # North Korea
-    "CN": 20.0,   # China — systemic risk
+    "RU": 50.0,  # Russia — high geo risk
+    "IR": 40.0,  # Iran
+    "KP": 35.0,  # North Korea
+    "CN": 20.0,  # China — systemic risk
     "IL": 15.0,
     "UA": 30.0,
     "TR": 12.0,
-    "VE": 25.0,   # Venezuela
+    "VE": 25.0,  # Venezuela
 }
 
 
 @dataclass
 class ImpactEstimate:
     """Estimated news impact on affected assets."""
-    bps: float               # expected basis point impact (negative = bearish)
-    direction: str           # "bearish" / "bullish" / "neutral"
-    confidence: float        # 0-1 confidence in estimate
-    horizon_days: int        # expected days until mean-reversion
-    dominant_event_type: str # most impactful event type
-    geo_premium_bps: float   # additional geo-risk component
+
+    bps: float  # expected basis point impact (negative = bearish)
+    direction: str  # "bearish" / "bullish" / "neutral"
+    confidence: float  # 0-1 confidence in estimate
+    horizon_days: int  # expected days until mean-reversion
+    dominant_event_type: str  # most impactful event type
+    geo_premium_bps: float  # additional geo-risk component
 
 
 class NewsImpactEstimator:
@@ -140,7 +146,7 @@ class NewsImpactEstimator:
             if market_direction == "bearish":
                 base_bps = -25.0  # rate hike
             elif market_direction == "bullish":
-                base_bps = 30.0   # rate cut
+                base_bps = 30.0  # rate cut
 
         # Scale by severity, horizon, source tier, and confidence
         sev_mult = _severity_mult(severity)

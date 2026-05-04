@@ -11,6 +11,7 @@ risk/regime_models.py: integer indices or string labels like "BULL" / "BEAR".
 This module has no I/O — it accepts plain Python data structures and
 returns allocation dicts.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,10 +26,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RegimePerformance:
     """Historical performance of a strategy in a specific regime."""
+
     strategy: str
     regime: str | int
-    sharpe: float          # historical Sharpe in this regime
-    n_obs: int = 0         # number of days observed
+    sharpe: float  # historical Sharpe in this regime
+    n_obs: int = 0  # number of days observed
     avg_return: float = 0.0
     vol: float = 0.0
 
@@ -36,10 +38,11 @@ class RegimePerformance:
 @dataclass
 class RegimeAllocationResult:
     """Output of the regime-conditional allocator."""
+
     regime: str | int
-    weights: dict[str, float]           # strategy → weight (may not sum to 1 if vol-scaled)
+    weights: dict[str, float]  # strategy → weight (may not sum to 1 if vol-scaled)
     vol_scale: float
-    regime_sharpes: dict[str, float]    # strategy → regime-specific Sharpe used
+    regime_sharpes: dict[str, float]  # strategy → regime-specific Sharpe used
     n_active_strategies: int
 
 
@@ -65,7 +68,9 @@ def compute_regime_sharpes(
         if len(arr) != len(regime_series):
             logger.warning(
                 "[regime_alloc] length mismatch for %s (%d vs %d) — skipping",
-                name, len(arr), len(regime_series),
+                name,
+                len(arr),
+                len(regime_series),
             )
             continue
 
@@ -77,14 +82,19 @@ def compute_regime_sharpes(
             r_returns = arr[mask]
             if len(r_returns) < 5:
                 perf_by_regime[r] = RegimePerformance(
-                    strategy=name, regime=r, sharpe=0.0, n_obs=int(mask.sum()),
+                    strategy=name,
+                    regime=r,
+                    sharpe=0.0,
+                    n_obs=int(mask.sum()),
                 )
                 continue
             mu = float(np.mean(r_returns))
             sigma = float(np.std(r_returns, ddof=1))
             sharpe = mu / max(sigma, 1e-9) * math.sqrt(252)
             perf_by_regime[r] = RegimePerformance(
-                strategy=name, regime=r, sharpe=round(sharpe, 4),
+                strategy=name,
+                regime=r,
+                sharpe=round(sharpe, 4),
                 n_obs=int(mask.sum()),
                 avg_return=round(mu, 6),
                 vol=round(sigma, 6),
@@ -136,7 +146,10 @@ def allocate_by_regime(
                 perf = best_perf
                 logger.debug(
                     "[regime_alloc] regime %s not found for %s; using best-regime fallback (%s Sharpe=%.2f)",
-                    current_regime, strategy, best_perf.regime, best_perf.sharpe,
+                    current_regime,
+                    strategy,
+                    best_perf.regime,
+                    best_perf.sharpe,
                 )
             else:
                 continue
@@ -186,10 +199,7 @@ def allocate_by_regime(
     weights = {s: w / total for s, w in capped.items()}
 
     # Estimate blended portfolio vol
-    port_var = sum(
-        weights.get(s, 0.0) ** 2 * vols.get(s, 0.15) ** 2
-        for s in weights
-    )
+    port_var = sum(weights.get(s, 0.0) ** 2 * vols.get(s, 0.15) ** 2 for s in weights)
     port_vol = math.sqrt(max(port_var, 1e-12))
 
     vol_scale = min(target_vol / max(port_vol, 1e-9), vol_scale_cap)

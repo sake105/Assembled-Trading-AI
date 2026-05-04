@@ -19,12 +19,25 @@ from src.assembled_core.intel.models import NewsEvent
 logger = logging.getLogger(__name__)
 
 # Query parameters to strip (tracking / referral params)
-_STRIP_PARAMS = frozenset({
-    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-    "utm_id", "utm_reader", "utm_name",
-    "ref", "source", "fbclid", "gclid", "msclkid",
-    "mc_cid", "mc_eid",
-})
+_STRIP_PARAMS = frozenset(
+    {
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+        "utm_id",
+        "utm_reader",
+        "utm_name",
+        "ref",
+        "source",
+        "fbclid",
+        "gclid",
+        "msclkid",
+        "mc_cid",
+        "mc_eid",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +63,9 @@ def canonical_url(url: str) -> str:
         filtered_qs = {k: v for k, v in qs.items() if k.lower() not in _STRIP_PARAMS}
         new_query = urlencode(filtered_qs, doseq=True) if filtered_qs else ""
 
-        canonical = urlunparse((scheme, netloc, parsed.path, parsed.params, new_query, ""))
+        canonical = urlunparse(
+            (scheme, netloc, parsed.path, parsed.params, new_query, "")
+        )
         return canonical
     except Exception:
         return url.lower()
@@ -160,7 +175,9 @@ class NewsDedupeIndex:
                 self.seen_event_ids.popitem(last=False)
             while len(self.seen_fingerprints) > keep_count:
                 self.seen_fingerprints.popitem(last=False)
-            logger.debug("[SKIP] NewsDedupeIndex: size-evicted to %d entries", keep_count)
+            logger.debug(
+                "[SKIP] NewsDedupeIndex: size-evicted to %d entries", keep_count
+            )
 
         if event.event_id in self.seen_event_ids:
             self.seen_event_ids.move_to_end(event.event_id)
@@ -210,17 +227,19 @@ class NewsDedupeIndex:
         now = time.monotonic()
         try:
             from src.assembled_core.utils.atomic_io import atomic_write_json
-            atomic_write_json(self._persist_path, {
-                "event_ids": list(self.seen_event_ids.keys()),
-                "fingerprints": list(self.seen_fingerprints.keys()),
-                # store relative age so load() can re-anchor timestamps
-                "event_id_ages": [
-                    now - ts for ts in self.seen_event_ids.values()
-                ],
-                "fingerprint_ages": [
-                    now - ts for ts in self.seen_fingerprints.values()
-                ],
-            })
+
+            atomic_write_json(
+                self._persist_path,
+                {
+                    "event_ids": list(self.seen_event_ids.keys()),
+                    "fingerprints": list(self.seen_fingerprints.keys()),
+                    # store relative age so load() can re-anchor timestamps
+                    "event_id_ages": [now - ts for ts in self.seen_event_ids.values()],
+                    "fingerprint_ages": [
+                        now - ts for ts in self.seen_fingerprints.values()
+                    ],
+                },
+            )
         except Exception as exc:
             logger.warning("[WARN] NewsDedupeIndex.save: %s", exc)
 
@@ -243,7 +262,9 @@ class NewsDedupeIndex:
             )
             self.seen_fingerprints = OrderedDict(
                 (fp, now - age)
-                for fp, age in zip_longest(fingerprints, fingerprint_ages, fillvalue=0.0)
+                for fp, age in zip_longest(
+                    fingerprints, fingerprint_ages, fillvalue=0.0
+                )
                 if fp is not None
             )
             logger.debug(
@@ -318,7 +339,6 @@ def detect_contradictions(
             source_a, source_b, time_delta_minutes.
     """
 
-
     grouped: dict[str, list[NewsEvent]] = {}
     for evt in events:
         fp = content_fingerprint(evt.title, "")  # source-agnostic fingerprint
@@ -331,30 +351,32 @@ def detect_contradictions(
         if len(group) < 2:
             continue
         for a, b in combinations(group, 2):
-                dir_a = getattr(a, "market_direction", "neutral")
-                dir_b = getattr(b, "market_direction", "neutral")
-                conf_a = float(getattr(a, "news_confidence", 0.0))
-                conf_b = float(getattr(b, "news_confidence", 0.0))
+            dir_a = getattr(a, "market_direction", "neutral")
+            dir_b = getattr(b, "market_direction", "neutral")
+            conf_a = float(getattr(a, "news_confidence", 0.0))
+            conf_b = float(getattr(b, "news_confidence", 0.0))
 
-                if conf_a < min_confidence or conf_b < min_confidence:
+            if conf_a < min_confidence or conf_b < min_confidence:
+                continue
+
+            opposing = (dir_a == "bearish" and dir_b == "bullish") or (
+                dir_a == "bullish" and dir_b == "bearish"
+            )
+            if not opposing:
+                continue
+
+            ts_a = getattr(a, "published_at", None) or getattr(a, "ingested_at", None)
+            ts_b = getattr(b, "published_at", None) or getattr(b, "ingested_at", None)
+            if ts_a and ts_b:
+                delta_sec = abs((ts_a - ts_b).total_seconds())
+                if delta_sec > window_sec:
                     continue
+                time_delta_min = round(delta_sec / 60, 1)
+            else:
+                time_delta_min = 0.0
 
-                opposing = (dir_a == "bearish" and dir_b == "bullish") or \
-                           (dir_a == "bullish" and dir_b == "bearish")
-                if not opposing:
-                    continue
-
-                ts_a = getattr(a, "published_at", None) or getattr(a, "ingested_at", None)
-                ts_b = getattr(b, "published_at", None) or getattr(b, "ingested_at", None)
-                if ts_a and ts_b:
-                    delta_sec = abs((ts_a - ts_b).total_seconds())
-                    if delta_sec > window_sec:
-                        continue
-                    time_delta_min = round(delta_sec / 60, 1)
-                else:
-                    time_delta_min = 0.0
-
-                contradictions.append({
+            contradictions.append(
+                {
                     "fingerprint": fp,
                     "event_id_a": a.event_id,
                     "event_id_b": b.event_id,
@@ -363,6 +385,7 @@ def detect_contradictions(
                     "source_a": a.source_id,
                     "source_b": b.source_id,
                     "time_delta_minutes": time_delta_min,
-                })
+                }
+            )
 
     return contradictions

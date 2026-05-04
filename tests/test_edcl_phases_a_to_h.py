@@ -15,7 +15,6 @@ import pytest
 import pandas as pd
 from unittest.mock import MagicMock
 
-
 # ---------------------------------------------------------------------------
 # Phase A — georisk_overlay
 # ---------------------------------------------------------------------------
@@ -28,11 +27,13 @@ from src.assembled_core.risk.georisk_overlay import (
 
 class TestApplyExposureMultiplierUpscaling:
     def _df(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "symbol": ["AAPL", "MSFT", "CASH"],
-            "target_weight": [0.30, 0.30, 0.40],
-            "target_qty": [10.0, 8.0, 0.0],
-        })
+        return pd.DataFrame(
+            {
+                "symbol": ["AAPL", "MSFT", "CASH"],
+                "target_weight": [0.30, 0.30, 0.40],
+                "target_qty": [10.0, 8.0, 0.0],
+            }
+        )
 
     def test_noop_at_exactly_one(self):
         df = self._df()
@@ -41,7 +42,9 @@ class TestApplyExposureMultiplierUpscaling:
 
     def test_downscale_reduces_risky_boosts_cash(self):
         df = self._df()
-        result = apply_exposure_multiplier_to_targets(df, multiplier=0.5, cash_symbol="CASH")
+        result = apply_exposure_multiplier_to_targets(
+            df, multiplier=0.5, cash_symbol="CASH"
+        )
         risky = result[result["symbol"] != "CASH"]["target_weight"]
         assert (risky == 0.15).all()
         # Cash should absorb freed weight: 0.40 + (0.60 - 0.30) = 0.70
@@ -50,7 +53,9 @@ class TestApplyExposureMultiplierUpscaling:
 
     def test_upscale_increases_risky_no_cash_boost(self):
         df = self._df()
-        result = apply_exposure_multiplier_to_targets(df, multiplier=1.5, cash_symbol="CASH")
+        result = apply_exposure_multiplier_to_targets(
+            df, multiplier=1.5, cash_symbol="CASH"
+        )
         risky = result[result["symbol"] != "CASH"]["target_weight"]
         assert risky.tolist() == pytest.approx([0.45, 0.45], abs=1e-6)
         # Cash should NOT be boosted (only reduced in downscaling)
@@ -77,7 +82,9 @@ class TestApplyExposureMultiplierUpscaling:
 
     def test_qty_scaled_with_weight(self):
         df = self._df()
-        result = apply_exposure_multiplier_to_targets(df, multiplier=2.0, cash_symbol="CASH")
+        result = apply_exposure_multiplier_to_targets(
+            df, multiplier=2.0, cash_symbol="CASH"
+        )
         risky_qty = result[result["symbol"] != "CASH"]["target_qty"]
         assert list(risky_qty) == pytest.approx([20.0, 16.0], abs=1e-6)
 
@@ -96,36 +103,52 @@ class TestComputeEdclConvictionMultiplier:
 
     def test_backtest_mode_returns_one(self):
         ctx = self._ctx(mode="backtest", conviction=0.9)
-        policy = {"edcl_conviction_overlay": {"enabled": True, "conviction_threshold": 0.70}}
+        policy = {
+            "edcl_conviction_overlay": {"enabled": True, "conviction_threshold": 0.70}
+        }
         assert compute_edcl_conviction_multiplier(ctx, policy) == 1.0
 
     def test_backtest_with_allow_flag(self):
         ctx = self._ctx(mode="backtest", conviction=1.0)
-        policy = {"edcl_conviction_overlay": {
-            "enabled": True, "conviction_threshold": 0.70,
-            "allow_in_backtest": True, "max_multiplier": 2.0,
-        }}
+        policy = {
+            "edcl_conviction_overlay": {
+                "enabled": True,
+                "conviction_threshold": 0.70,
+                "allow_in_backtest": True,
+                "max_multiplier": 2.0,
+            }
+        }
         result = compute_edcl_conviction_multiplier(ctx, policy)
         assert result == pytest.approx(2.0)
 
     def test_below_threshold_returns_one(self):
         ctx = self._ctx(mode="live", conviction=0.50)
-        policy = {"edcl_conviction_overlay": {"enabled": True, "conviction_threshold": 0.70}}
+        policy = {
+            "edcl_conviction_overlay": {"enabled": True, "conviction_threshold": 0.70}
+        }
         assert compute_edcl_conviction_multiplier(ctx, policy) == 1.0
 
     def test_at_max_conviction_returns_max_multiplier(self):
         ctx = self._ctx(mode="live", conviction=1.0)
-        policy = {"edcl_conviction_overlay": {
-            "enabled": True, "conviction_threshold": 0.70, "max_multiplier": 2.0,
-        }}
+        policy = {
+            "edcl_conviction_overlay": {
+                "enabled": True,
+                "conviction_threshold": 0.70,
+                "max_multiplier": 2.0,
+            }
+        }
         result = compute_edcl_conviction_multiplier(ctx, policy)
         assert result == pytest.approx(2.0)
 
     def test_midpoint_conviction_returns_midpoint_multiplier(self):
         ctx = self._ctx(mode="live", conviction=0.85)  # midpoint of [0.70, 1.0]
-        policy = {"edcl_conviction_overlay": {
-            "enabled": True, "conviction_threshold": 0.70, "max_multiplier": 2.0,
-        }}
+        policy = {
+            "edcl_conviction_overlay": {
+                "enabled": True,
+                "conviction_threshold": 0.70,
+                "max_multiplier": 2.0,
+            }
+        }
         result = compute_edcl_conviction_multiplier(ctx, policy)
         # 0.85 is halfway between 0.70 and 1.0 → multiplier = 1.0 + 0.5 * 1.0 = 1.5
         assert result == pytest.approx(1.5, abs=0.01)
@@ -134,7 +157,9 @@ class TestComputeEdclConvictionMultiplier:
         ctx = MagicMock()
         ctx.mode = "live"
         ctx.edcl_state = None
-        policy = {"edcl_conviction_overlay": {"enabled": True, "conviction_threshold": 0.70}}
+        policy = {
+            "edcl_conviction_overlay": {"enabled": True, "conviction_threshold": 0.70}
+        }
         assert compute_edcl_conviction_multiplier(ctx, policy) == 1.0
 
 
@@ -242,7 +267,9 @@ class TestConvictionEngine:
         assert compute_conviction_score(basket) == 0.0
 
     def test_positive_conviction_basket(self):
-        basket = TriggerBasket(conviction=0.75, n_events=3, n_high_conviction=2, fired_triggers=[])
+        basket = TriggerBasket(
+            conviction=0.75, n_events=3, n_high_conviction=2, fired_triggers=[]
+        )
         score = compute_conviction_score(basket)
         assert score > 0.0
         assert score <= 1.0
@@ -254,8 +281,12 @@ class TestConvictionEngine:
 
     def test_corroboration_bonus_applied(self):
         # Multiple high-conviction events should boost score
-        single = compute_conviction_score(TriggerBasket(conviction=0.6, n_events=1, n_high_conviction=0))
-        multi = compute_conviction_score(TriggerBasket(conviction=0.6, n_events=5, n_high_conviction=3))
+        single = compute_conviction_score(
+            TriggerBasket(conviction=0.6, n_events=1, n_high_conviction=0)
+        )
+        multi = compute_conviction_score(
+            TriggerBasket(conviction=0.6, n_events=5, n_high_conviction=3)
+        )
         assert multi >= single
 
 
@@ -267,7 +298,7 @@ class TestEdclPositionSize:
                 "edcl_sizing": {
                     "max_edcl_weight": 0.30,
                     "target_coverage": 0.85,
-                }
+                },
             }
         }
         base["edcl_conviction_overlay"].update(kwargs)
@@ -275,7 +306,12 @@ class TestEdclPositionSize:
 
     def test_returns_dict_with_required_keys(self):
         result = compute_edcl_position_size(0.85, policy=self._policy())
-        assert set(result.keys()) >= {"max_weight", "stop_loss_pct", "size_factor", "conformal_factor"}
+        assert set(result.keys()) >= {
+            "max_weight",
+            "stop_loss_pct",
+            "size_factor",
+            "conformal_factor",
+        }
 
     def test_below_threshold_returns_zero_weight(self):
         result = compute_edcl_position_size(0.50, policy=self._policy())
@@ -346,15 +382,38 @@ class TestCompositeScoreEdclKwargs:
             "normal", 0.5, 0.3, 0.1, 0.0, 0.0, 0.0, 0.2, 0.0, 0.1
         )
         assert -1.0 <= score <= 1.0
-        assert set(dims.keys()) == {"mtf", "classical_ta", "microstructure", "volume_profile",
-                                     "chart_pattern", "vol_surface", "breadth", "seasonality", "news"}
+        assert set(dims.keys()) == {
+            "mtf",
+            "classical_ta",
+            "microstructure",
+            "volume_profile",
+            "chart_pattern",
+            "vol_surface",
+            "breadth",
+            "seasonality",
+            "news",
+        }
 
     def test_edcl_basket_modifies_news_dim(self):
         event = _make_event("Banking crisis triggers systemic liquidity collapse")
         basket = build_trigger_basket([event])
-        score_no_edcl, _ = composite_score("crisis", 0.5, 0.3, 0.1, 0.0, 0.0, 0.0, 0.2, 0.0, 0.5)
-        score_edcl, _ = composite_score("crisis", 0.5, 0.3, 0.1, 0.0, 0.0, 0.0, 0.2, 0.0, 0.5,
-                                        edcl_basket=basket, edcl_conviction=0.8)
+        score_no_edcl, _ = composite_score(
+            "crisis", 0.5, 0.3, 0.1, 0.0, 0.0, 0.0, 0.2, 0.0, 0.5
+        )
+        score_edcl, _ = composite_score(
+            "crisis",
+            0.5,
+            0.3,
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.2,
+            0.0,
+            0.5,
+            edcl_basket=basket,
+            edcl_conviction=0.8,
+        )
         # EDCL basket should modify the news dimension (scores may differ)
         # Both are valid composite scores
         assert -1.0 <= score_edcl <= 1.0
@@ -363,6 +422,7 @@ class TestCompositeScoreEdclKwargs:
 # ---------------------------------------------------------------------------
 # Phase H — triple confirmation
 # ---------------------------------------------------------------------------
+
 
 class TestTripleConfirmation:
     def test_below_threshold_returns_one_v2(self):
@@ -384,7 +444,12 @@ class TestTripleConfirmation:
         assert composite_edcl_mult(0.8, "calm", 5.0) == 1.2
 
     def test_respects_max_multiplier_policy(self):
-        policy = {"edcl_conviction_overlay": {"conviction_threshold": 0.70, "max_multiplier": 1.8}}
+        policy = {
+            "edcl_conviction_overlay": {
+                "conviction_threshold": 0.70,
+                "max_multiplier": 1.8,
+            }
+        }
         result = composite_edcl_mult(1.0, "crisis", 5.0, policy=policy)
         assert result == 1.8  # triple confirmation capped at max_multiplier
 
@@ -426,24 +491,38 @@ class TestTailHuntSignal:
 
     def test_size_fraction_at_activation_threshold_is_zero(self):
         sig = TailHuntSignal(
-            event_name="t", direction="long", primary_assets=["A"],
-            hedge_assets=[], max_position_size=0.20,
-            activation_conviction=0.70, current_conviction=0.70,
+            event_name="t",
+            direction="long",
+            primary_assets=["A"],
+            hedge_assets=[],
+            max_position_size=0.20,
+            activation_conviction=0.70,
+            current_conviction=0.70,
         )
         assert sig.size_fraction() == pytest.approx(0.0, abs=1e-6)
 
     def test_size_fraction_caps_at_max_position_size(self):
         sig = TailHuntSignal(
-            event_name="t", direction="long", primary_assets=["A"],
-            hedge_assets=[], max_position_size=0.20,
-            activation_conviction=0.70, current_conviction=1.0,
+            event_name="t",
+            direction="long",
+            primary_assets=["A"],
+            hedge_assets=[],
+            max_position_size=0.20,
+            activation_conviction=0.70,
+            current_conviction=1.0,
         )
         assert sig.size_fraction() == pytest.approx(0.20, abs=1e-6)
 
     def test_as_dict_has_required_keys(self):
         d = self._sig().as_dict()
-        for key in ("event_name", "direction", "primary_assets", "size_fraction",
-                    "max_position_size", "matched_triggers"):
+        for key in (
+            "event_name",
+            "direction",
+            "primary_assets",
+            "size_fraction",
+            "max_position_size",
+            "matched_triggers",
+        ):
             assert key in d
 
 
@@ -489,35 +568,49 @@ class TestMatchTailPlans:
 
     def test_below_conviction_threshold_not_matched(self, tmp_path):
         import yaml
-        config = {"tail_events": {"test_event": {
-            "enabled": True,
-            "triggers": ["CHOKEPOINT_STRESS"],
-            "primary_assets": ["USO"],
-            "hedge_assets": [],
-            "max_position_size": 0.20,
-            "activation_conviction": 0.80,
-            "direction": "long",
-        }}}
+
+        config = {
+            "tail_events": {
+                "test_event": {
+                    "enabled": True,
+                    "triggers": ["CHOKEPOINT_STRESS"],
+                    "primary_assets": ["USO"],
+                    "hedge_assets": [],
+                    "max_position_size": 0.20,
+                    "activation_conviction": 0.80,
+                    "direction": "long",
+                }
+            }
+        }
         cfg_path = tmp_path / "tail.yaml"
         cfg_path.write_text(yaml.dump(config))
-        signals = match_tail_plans(self._basket(), conviction=0.70, config_path=cfg_path)
+        signals = match_tail_plans(
+            self._basket(), conviction=0.70, config_path=cfg_path
+        )
         assert signals == []
 
     def test_enabled_plan_activates_on_match(self, tmp_path):
         import yaml
-        config = {"tail_events": {"hormuz_test": {
-            "enabled": True,
-            "triggers": ["CHOKEPOINT_STRESS"],
-            "primary_assets": ["USO", "XLE"],
-            "hedge_assets": ["IYT"],
-            "max_position_size": 0.30,
-            "activation_conviction": 0.75,
-            "direction": "long",
-            "description": "test",
-        }}}
+
+        config = {
+            "tail_events": {
+                "hormuz_test": {
+                    "enabled": True,
+                    "triggers": ["CHOKEPOINT_STRESS"],
+                    "primary_assets": ["USO", "XLE"],
+                    "hedge_assets": ["IYT"],
+                    "max_position_size": 0.30,
+                    "activation_conviction": 0.75,
+                    "direction": "long",
+                    "description": "test",
+                }
+            }
+        }
         cfg_path = tmp_path / "tail.yaml"
         cfg_path.write_text(yaml.dump(config))
-        signals = match_tail_plans(self._basket(), conviction=0.85, config_path=cfg_path)
+        signals = match_tail_plans(
+            self._basket(), conviction=0.85, config_path=cfg_path
+        )
         assert len(signals) == 1
         assert signals[0].event_name == "hormuz_test"
         assert signals[0].direction == "long"
@@ -527,9 +620,13 @@ class TestMatchTailPlans:
 class TestTailSignalsToTargets:
     def _sig(self) -> TailHuntSignal:
         return TailHuntSignal(
-            event_name="test", direction="long",
-            primary_assets=["USO", "XLE"], hedge_assets=["IYT"],
-            max_position_size=0.30, activation_conviction=0.75, current_conviction=1.0,
+            event_name="test",
+            direction="long",
+            primary_assets=["USO", "XLE"],
+            hedge_assets=["IYT"],
+            max_position_size=0.30,
+            activation_conviction=0.75,
+            current_conviction=1.0,
         )
 
     def test_long_adds_primary_subtracts_hedge(self):
@@ -540,9 +637,13 @@ class TestTailSignalsToTargets:
 
     def test_short_subtracts_primary_adds_hedge(self):
         sig = TailHuntSignal(
-            event_name="test", direction="short",
-            primary_assets=["XLF"], hedge_assets=["GLD"],
-            max_position_size=0.20, activation_conviction=0.70, current_conviction=1.0,
+            event_name="test",
+            direction="short",
+            primary_assets=["XLF"],
+            hedge_assets=["GLD"],
+            max_position_size=0.20,
+            activation_conviction=0.70,
+            current_conviction=1.0,
         )
         targets = tail_signals_to_targets([sig])
         assert targets["XLF"] < 0
@@ -564,7 +665,10 @@ class TestTailSignalsToTargets:
 # Phase C — GeoEventLogger
 # ---------------------------------------------------------------------------
 
-from src.assembled_core.intel.geo_event_logger import log_basket_event, read_geo_event_log
+from src.assembled_core.intel.geo_event_logger import (
+    log_basket_event,
+    read_geo_event_log,
+)
 
 
 class TestGeoEventLogger:
@@ -590,7 +694,12 @@ class TestGeoEventLogger:
         path = tmp_path / "events.parquet"
         log_basket_event(self._basket(), 0.85, output_path=path)
         df = read_geo_event_log(path)
-        assert set(df.columns) >= {"event_date", "trigger_type", "conviction", "source_tier"}
+        assert set(df.columns) >= {
+            "event_date",
+            "trigger_type",
+            "conviction",
+            "source_tier",
+        }
 
     def test_log_writes_one_row_per_fired_trigger(self, tmp_path):
         path = tmp_path / "events.parquet"
@@ -604,7 +713,9 @@ class TestGeoEventLogger:
         log_basket_event(self._basket(), 0.85, output_path=path)
         b2 = TriggerBasket(
             fired_triggers=[(TriggerType.BANKING_CRISIS, 0.7)],
-            conviction=0.7, n_events=1, n_high_conviction=1,
+            conviction=0.7,
+            n_events=1,
+            n_high_conviction=1,
         )
         log_basket_event(b2, 0.7, output_path=path)
         df = read_geo_event_log(path)

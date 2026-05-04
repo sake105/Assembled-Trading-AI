@@ -55,7 +55,10 @@ def test_scale_factor_bounded(turnover: float, cap: float) -> None:
     """scale_factor is always in [0, 1]."""
     targets = _make_target(["A"], [0.5])
     _, sf = apply_turnover_gate(
-        targets, None, cap=cap, estimated_turnover=turnover,
+        targets,
+        None,
+        cap=cap,
+        estimated_turnover=turnover,
     )
     assert 0.0 <= sf <= 1.0
 
@@ -66,15 +69,23 @@ def test_scale_factor_bounded(turnover: float, cap: float) -> None:
     turnover=st.floats(min_value=0.01, max_value=2.0),
 )
 @settings(max_examples=50)
-def test_monotonicity_larger_cap(cap_small: float, cap_delta: float, turnover: float) -> None:
+def test_monotonicity_larger_cap(
+    cap_small: float, cap_delta: float, turnover: float
+) -> None:
     """Larger cap → scale_factor >= smaller cap's scale_factor."""
     cap_large = cap_small + cap_delta
     targets = _make_target(["A"], [0.5])
     _, sf_small = apply_turnover_gate(
-        targets, None, cap=cap_small, estimated_turnover=turnover,
+        targets,
+        None,
+        cap=cap_small,
+        estimated_turnover=turnover,
     )
     _, sf_large = apply_turnover_gate(
-        targets, None, cap=cap_large, estimated_turnover=turnover,
+        targets,
+        None,
+        cap=cap_large,
+        estimated_turnover=turnover,
     )
     assert sf_large >= sf_small - 1e-9  # tolerance for float precision
 
@@ -83,6 +94,9 @@ def test_zero_turnover_no_scaling() -> None:
     """Zero estimated turnover → scale_factor = 1.0."""
     targets = _make_target(["A"], [0.5])
     _, sf = apply_turnover_gate(
-        targets, None, cap=0.1, estimated_turnover=0.0,
+        targets,
+        None,
+        cap=0.1,
+        estimated_turnover=0.0,
     )
     assert sf == 1.0

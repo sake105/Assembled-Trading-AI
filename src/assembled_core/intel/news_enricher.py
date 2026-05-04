@@ -86,13 +86,16 @@ class NewsEventEnricher:
         # Step 2.1: IC-basierte Severity-Gewichtung (aus ic_loop.json)
         try:
             from src.assembled_core.ml.news_ml_bridge import get_event_type_ic_weights
+
             _ic_weights = get_event_type_ic_weights()
             if _ic_weights:
                 for _evt in events:
                     for _etype in getattr(_evt, "event_types", []):
                         _w = _ic_weights.get(str(_etype), 1.0)
                         if hasattr(_evt, "severity") and _evt.severity is not None:
-                            _evt.severity = round(min(10.0, max(0.0, float(_evt.severity) * _w)), 4)
+                            _evt.severity = round(
+                                min(10.0, max(0.0, float(_evt.severity) * _w)), 4
+                            )
                 logger.debug("[OK] IC-Gewichte auf %d Events angewendet", len(events))
         except Exception as _exc:
             logger.debug("[news_enricher] IC-weights step failed: %s", _exc)
@@ -141,7 +144,9 @@ class NewsEventEnricher:
                 title = getattr(evt, "title", "") or ""
                 evt.language = detect_language(title)
             except Exception as exc:
-                logger.debug("[SKIP] LangDetect %s: %s", getattr(evt, "event_id", "?"), exc)
+                logger.debug(
+                    "[SKIP] LangDetect %s: %s", getattr(evt, "event_id", "?"), exc
+                )
         return events
 
     def _run_classification(self, events: list) -> list:
@@ -169,7 +174,11 @@ class NewsEventEnricher:
                 geo_tags = list(getattr(evt, "geo_tags", []) or [])
                 tickers = list(getattr(evt, "tickers", []) or [])
                 source_tier = getattr(evt, "source_tier", None)
-                tier_str = getattr(source_tier, "value", str(source_tier)) if source_tier else "T2"
+                tier_str = (
+                    getattr(source_tier, "value", str(source_tier))
+                    if source_tier
+                    else "T2"
+                )
                 clf = classify_news_event(
                     evt.title,
                     geo_tags=geo_tags,
@@ -183,9 +192,13 @@ class NewsEventEnricher:
                 evt.affected_sectors = clf.affected_sectors
                 evt.affected_assets = list({*clf.affected_assets, *tickers})
                 source_id = getattr(evt, "source_id", "")
-                evt.news_confidence = apply_source_bias_discount(clf.confidence, source_id)
+                evt.news_confidence = apply_source_bias_discount(
+                    clf.confidence, source_id
+                )
             except Exception as exc:
-                logger.debug("[SKIP] Classify %s: %s", getattr(evt, "event_id", "?"), exc)
+                logger.debug(
+                    "[SKIP] Classify %s: %s", getattr(evt, "event_id", "?"), exc
+                )
 
         return events
 
@@ -195,6 +208,7 @@ class NewsEventEnricher:
                 from src.assembled_core.intel.news_impact_estimator import (
                     NewsImpactEstimator,
                 )
+
                 self._impact_estimator = NewsImpactEstimator()
             except ImportError:
                 return events
@@ -203,8 +217,14 @@ class NewsEventEnricher:
             try:
                 geo_tags = list(getattr(evt, "geo_tags", []) or [])
                 source_tier = getattr(evt, "source_tier", None)
-                tier_str = getattr(source_tier, "value", str(source_tier)) if source_tier else "T2"
-                impact = self._impact_estimator.estimate(evt, geo_tags=geo_tags, source_tier=tier_str)
+                tier_str = (
+                    getattr(source_tier, "value", str(source_tier))
+                    if source_tier
+                    else "T2"
+                )
+                impact = self._impact_estimator.estimate(
+                    evt, geo_tags=geo_tags, source_tier=tier_str
+                )
                 # Persist impact on model fields so archive replay retains them
                 try:
                     evt.impact_bps = float(impact.bps)
@@ -213,9 +233,17 @@ class NewsEventEnricher:
                     evt.impact_geo_premium_bps = float(impact.geo_premium_bps)
                     evt.impact_dominant_event_type = str(impact.dominant_event_type)
                 except Exception as exc:
-                    logger.debug("[SKIP] Impact assign %s: %s", getattr(evt, "event_id", "?"), exc)
+                    logger.debug(
+                        "[SKIP] Impact assign %s: %s",
+                        getattr(evt, "event_id", "?"),
+                        exc,
+                    )
             except Exception as exc:
-                logger.debug("[SKIP] Impact estimation %s: %s", getattr(evt, "event_id", "?"), exc)
+                logger.debug(
+                    "[SKIP] Impact estimation %s: %s",
+                    getattr(evt, "event_id", "?"),
+                    exc,
+                )
 
         return events
 
@@ -225,6 +253,7 @@ class NewsEventEnricher:
                 from src.assembled_core.intel.news_corroboration import (
                     CorroborationTracker,
                 )
+
                 self._corroboration = CorroborationTracker()
             except ImportError:
                 return events
@@ -241,9 +270,15 @@ class NewsEventEnricher:
                 # Boost confidence for well-corroborated stories (complement to fatigue discount)
                 if s.score > 0.5 and hasattr(evt, "news_confidence"):
                     boost = 1.0 + 0.2 * s.score  # up to +20% at score=1.0
-                    evt.news_confidence = round(min(1.0, evt.news_confidence * boost), 4)
+                    evt.news_confidence = round(
+                        min(1.0, evt.news_confidence * boost), 4
+                    )
             except Exception as exc:
-                logger.debug("[SKIP] Corroboration score %s: %s", getattr(evt, "event_id", "?"), exc)
+                logger.debug(
+                    "[SKIP] Corroboration score %s: %s",
+                    getattr(evt, "event_id", "?"),
+                    exc,
+                )
         return events
 
     def _run_source_vote(self, events: list) -> list:
@@ -279,10 +314,15 @@ class NewsEventEnricher:
                         # Source vote disagrees — discount confidence by margin
                         discount = max(0.5, 1.0 - vote.margin * 0.3)
                         if hasattr(evt, "news_confidence"):
-                            evt.news_confidence = round(evt.news_confidence * discount, 4)
+                            evt.news_confidence = round(
+                                evt.news_confidence * discount, 4
+                            )
                         logger.debug(
                             "[OK] SourceVote divergence: event=%s dir=%s vote=%s margin=%.2f",
-                            getattr(evt, "event_id", "?"), evt_dir, vote.winner, vote.margin,
+                            getattr(evt, "event_id", "?"),
+                            evt_dir,
+                            vote.winner,
+                            vote.margin,
                         )
             except Exception as exc:
                 logger.debug("[SKIP] SourceVote group %s: %s", fp, exc)
@@ -293,6 +333,7 @@ class NewsEventEnricher:
         if self._decay is None:
             try:
                 from src.assembled_core.intel.news_decay import NewsDecay
+
                 self._decay = NewsDecay()
             except ImportError:
                 return events
@@ -305,7 +346,11 @@ class NewsEventEnricher:
                 if not dominant:
                     etypes = getattr(evt, "event_types", []) or []
                     dominant = etypes[0] if etypes else "default"
-                ts = getattr(evt, "published_at", None) or getattr(evt, "ingested_at", None) or now
+                ts = (
+                    getattr(evt, "published_at", None)
+                    or getattr(evt, "ingested_at", None)
+                    or now
+                )
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
                 minutes_since = max(0.0, (now - ts).total_seconds() / 60.0)
@@ -325,13 +370,18 @@ class NewsEventEnricher:
                 score = self._dedupe_index.get_fatigue_score(evt)
                 # Discount confidence proportionally to fatigue
                 if score > 0 and hasattr(evt, "news_confidence"):
-                    evt.news_confidence = round(evt.news_confidence * (1.0 - 0.5 * score), 4)
+                    evt.news_confidence = round(
+                        evt.news_confidence * (1.0 - 0.5 * score), 4
+                    )
                     logger.debug(
                         "[OK] Fatigue discount %.2f for %s",
-                        score, getattr(evt, "event_id", "?"),
+                        score,
+                        getattr(evt, "event_id", "?"),
                     )
             except Exception as exc:
-                logger.debug("[SKIP] Fatigue score %s: %s", getattr(evt, "event_id", "?"), exc)
+                logger.debug(
+                    "[SKIP] Fatigue score %s: %s", getattr(evt, "event_id", "?"), exc
+                )
         return events
 
 

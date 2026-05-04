@@ -58,7 +58,7 @@ def write_heartbeat(
     p = Path(path or _DEFAULT_HEARTBEAT_PATH)
     p.parent.mkdir(parents=True, exist_ok=True)
 
-    ts = (now or _now_utc())
+    ts = now or _now_utc()
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
 
@@ -76,9 +76,7 @@ def write_heartbeat(
     # Windows (Py 3.3+), and mirrors the pattern used by paper_ledger
     # save_ledger_state and the scheduler's own _write_heartbeat.
     tmp = p.with_suffix(p.suffix + ".tmp")
-    tmp.write_text(
-        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     os.replace(tmp, p)
     return p
 

@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 # run_paper_daily_one helpers (_prd_*)
 # ---------------------------------------------------------------------------
 
+
 def _prd_load_paper_state(
     mode: str,
     app_cfg: dict[str, Any],
@@ -23,7 +24,9 @@ def _prd_load_paper_state(
     as_of_ts: pd.Timestamp,
     root: Path,
     start_capital: float,
-) -> tuple[dict | None, Path | None, float, pd.DataFrame, "pd.Series | None", int | None]:
+) -> tuple[
+    dict | None, Path | None, float, pd.DataFrame, "pd.Series | None", int | None
+]:
     """Load paper ledger state when mode='paper'. Returns 6-tuple of state vars."""
     if mode != "paper":
         empty_pos = pd.DataFrame(columns=["symbol", "qty", "target_qty"])
@@ -81,7 +84,14 @@ def _prd_load_paper_state(
         equity_series = None
         equity_curve_index = None
 
-    return ledger_state, ledger_path, equity_before, current_positions_df, equity_series, equity_curve_index
+    return (
+        ledger_state,
+        ledger_path,
+        equity_before,
+        current_positions_df,
+        equity_series,
+        equity_curve_index,
+    )
 
 
 def _prd_make_strategy_fns(
@@ -121,10 +131,14 @@ def _prd_make_strategy_fns(
                 prices_latest_exit = None
                 if df is not None and not df.empty and "close" in df.columns:
                     prices_latest_exit = (
-                        df.groupby("symbol", group_keys=False)["close"].last().reset_index()
+                        df.groupby("symbol", group_keys=False)["close"]
+                        .last()
+                        .reset_index()
                     )
                 exit_signals = ema_check_exits(
-                    ledger_state.get("positions", {}), prices_latest_exit, strategy_cfg,
+                    ledger_state.get("positions", {}),
+                    prices_latest_exit,
+                    strategy_cfg,
                 )
                 if not exit_signals.empty:
                     full_exits = exit_signals[exit_signals["exit_qty_pct"] >= 1.0]
@@ -133,18 +147,28 @@ def _prd_make_strategy_fns(
                         if not signals.empty:
                             signals = signals[~signals["symbol"].isin(exit_syms)]
                         for ex in full_exits.itertuples(index=False):
-                            log.info("[EMA] EXIT signal: %s — %s", ex.symbol, ex.exit_reason)
-                    for ex in exit_signals[exit_signals["exit_qty_pct"] < 1.0].itertuples(index=False):
+                            log.info(
+                                "[EMA] EXIT signal: %s — %s", ex.symbol, ex.exit_reason
+                            )
+                    for ex in exit_signals[
+                        exit_signals["exit_qty_pct"] < 1.0
+                    ].itertuples(index=False):
                         log.info(
                             "[EMA] PARTIAL EXIT signal: %s (%.0f%%) — %s",
-                            ex.symbol, ex.exit_qty_pct * 100, ex.exit_reason,
+                            ex.symbol,
+                            ex.exit_qty_pct * 100,
+                            ex.exit_reason,
                         )
             return signals
 
         def _ema_sizing(sig: pd.DataFrame, cap: float) -> pd.DataFrame:
             return ema_compute_targets(
-                sig, cap, equal_weight=equal_weight, max_positions=max_positions,
-                min_position_weight=min_position_weight, target_invested_pct=target_invested_pct,
+                sig,
+                cap,
+                equal_weight=equal_weight,
+                max_positions=max_positions,
+                min_position_weight=min_position_weight,
+                target_invested_pct=target_invested_pct,
             )
 
         return _ema_signal_fn, _ema_sizing
@@ -160,6 +184,7 @@ def _prd_make_strategy_fns(
             from src.assembled_core.strategies.multifactor_v2 import (
                 compute_target_positions as mf_compute_targets,
             )
+
             _mf_tag = "[MF-V2]"
         else:
             from src.assembled_core.strategies.multifactor_v1 import (
@@ -171,6 +196,7 @@ def _prd_make_strategy_fns(
             from src.assembled_core.strategies.multifactor_v1 import (
                 compute_target_positions as mf_compute_targets,
             )
+
             _mf_tag = "[MF-V1]"
 
         max_positions = int(strategy_cfg.get("max_positions") or 10)
@@ -191,14 +217,18 @@ def _prd_make_strategy_fns(
                 prices_latest_exit = None
                 if df is not None and not df.empty and "close" in df.columns:
                     prices_latest_exit = (
-                        df.groupby("symbol", group_keys=False)["close"].last().reset_index()
+                        df.groupby("symbol", group_keys=False)["close"]
+                        .last()
+                        .reset_index()
                     )
                     # Store current prices for accurate hold-target computation
                     _exit_state["prices"] = dict(
                         zip(prices_latest_exit["symbol"], prices_latest_exit["close"])
                     )
                 exit_signals = mf_check_exits(
-                    ledger_state.get("positions", {}), prices_latest_exit, strategy_cfg,
+                    ledger_state.get("positions", {}),
+                    prices_latest_exit,
+                    strategy_cfg,
                 )
                 if not exit_signals.empty:
                     full_exits = exit_signals[exit_signals["exit_qty_pct"] >= 1.0]
@@ -208,30 +238,52 @@ def _prd_make_strategy_fns(
                         if not signals.empty:
                             signals = signals[~signals["symbol"].isin(exit_syms)]
                         for ex in full_exits.itertuples(index=False):
-                            log.info("%s EXIT signal: %s — %s", _mf_tag, ex.symbol, ex.exit_reason)
-                    for ex in exit_signals[exit_signals["exit_qty_pct"] < 1.0].itertuples(index=False):
+                            log.info(
+                                "%s EXIT signal: %s — %s",
+                                _mf_tag,
+                                ex.symbol,
+                                ex.exit_reason,
+                            )
+                    for ex in exit_signals[
+                        exit_signals["exit_qty_pct"] < 1.0
+                    ].itertuples(index=False):
                         _exit_state["partial"][ex.symbol] = float(ex.exit_qty_pct)
                         log.info(
                             "%s PARTIAL EXIT signal: %s (%.0f%%) — %s",
-                            _mf_tag, ex.symbol, ex.exit_qty_pct * 100, ex.exit_reason,
+                            _mf_tag,
+                            ex.symbol,
+                            ex.exit_qty_pct * 100,
+                            ex.exit_reason,
                         )
             return signals
 
         def _mf_sizing(sig: pd.DataFrame, cap: float) -> pd.DataFrame:
             targets = mf_compute_targets(
-                sig, cap, equal_weight=equal_weight, max_positions=max_positions,
-                min_position_weight=min_position_weight, target_invested_pct=target_invested_pct,
+                sig,
+                cap,
+                equal_weight=equal_weight,
+                max_positions=max_positions,
+                min_position_weight=min_position_weight,
+                target_invested_pct=target_invested_pct,
             )
             positions = (ledger_state or {}).get("positions", {})
-            syms_in_targets = set(targets["symbol"].astype(str)) if not targets.empty else set()
-            exit_syms_all = {str(s) for s in _exit_state.get("full", set())} | {str(s) for s in _exit_state.get("partial", {})}
+            syms_in_targets = (
+                set(targets["symbol"].astype(str)) if not targets.empty else set()
+            )
+            exit_syms_all = {str(s) for s in _exit_state.get("full", set())} | {
+                str(s) for s in _exit_state.get("partial", {})
+            }
             extra_rows: list[dict] = []
 
             # 1. Full exits → target_qty=0 → SELL entire position
             for sym in _exit_state.get("full", set()):
                 if str(sym) not in syms_in_targets:
-                    extra_rows.append({"symbol": sym, "target_weight": 0.0, "target_qty": 0.0})
-                    log.debug("%s injecting zero target for full exit: %s", _mf_tag, sym)
+                    extra_rows.append(
+                        {"symbol": sym, "target_weight": 0.0, "target_qty": 0.0}
+                    )
+                    log.debug(
+                        "%s injecting zero target for full exit: %s", _mf_tag, sym
+                    )
 
             # 2. Partial exits → target_qty = remaining notional after partial sell
             for sym, exit_pct in _exit_state.get("partial", {}).items():
@@ -243,12 +295,22 @@ def _prd_make_strategy_fns(
                 if current_qty > 0 and avg_price > 0:
                     remaining_qty = current_qty * (1.0 - exit_pct)
                     remaining_notional = remaining_qty * avg_price
-                    extra_rows.append({
-                        "symbol": sym,
-                        "target_weight": remaining_notional / cap if cap > 0 else 0.0,
-                        "target_qty": remaining_notional,
-                    })
-                    log.debug("%s injecting partial target for %s: qty=%.2f→%.2f", _mf_tag, sym, current_qty, remaining_qty)
+                    extra_rows.append(
+                        {
+                            "symbol": sym,
+                            "target_weight": (
+                                remaining_notional / cap if cap > 0 else 0.0
+                            ),
+                            "target_qty": remaining_notional,
+                        }
+                    )
+                    log.debug(
+                        "%s injecting partial target for %s: qty=%.2f→%.2f",
+                        _mf_tag,
+                        sym,
+                        current_qty,
+                        remaining_qty,
+                    )
 
             # 3. Hold targets → preserve non-exit positions that are absent from targets
             #    using current_price so delta = current_qty * px / px = current_qty → 0 order.
@@ -262,13 +324,23 @@ def _prd_make_strategy_fns(
                     continue
                 # Use current_price if available; fall back to avg_price
                 cur_px = float(current_prices.get(sym, avg_price))
-                hold_notional = current_qty * cur_px  # target_qty / cur_px = current_qty → Δ = 0
-                extra_rows.append({
-                    "symbol": sym,
-                    "target_weight": hold_notional / cap if cap > 0 else 0.0,
-                    "target_qty": hold_notional,
-                })
-                log.debug("%s injecting hold target for %s (qty=%.2f @ %.2f)", _mf_tag, sym, current_qty, cur_px)
+                hold_notional = (
+                    current_qty * cur_px
+                )  # target_qty / cur_px = current_qty → Δ = 0
+                extra_rows.append(
+                    {
+                        "symbol": sym,
+                        "target_weight": hold_notional / cap if cap > 0 else 0.0,
+                        "target_qty": hold_notional,
+                    }
+                )
+                log.debug(
+                    "%s injecting hold target for %s (qty=%.2f @ %.2f)",
+                    _mf_tag,
+                    sym,
+                    current_qty,
+                    cur_px,
+                )
 
             if extra_rows:
                 targets = pd.concat(
@@ -291,9 +363,9 @@ def _prd_intel_summaries(
 
     intel_cfg = paper_cfg.get("intel") or {}
     news_out = (intel_cfg.get("news") or {}).get("output_dir") or "output/intel/news"
-    discl_out = (
-        (intel_cfg.get("disclosures") or {}).get("output_dir") or "output/intel/disclosures"
-    )
+    discl_out = (intel_cfg.get("disclosures") or {}).get(
+        "output_dir"
+    ) or "output/intel/disclosures"
     news_path = (
         root / news_out if not Path(news_out).is_absolute() else Path(news_out)
     ) / "triggers_latest.json"
@@ -306,6 +378,7 @@ def _prd_intel_summaries(
             load_disclosures_triggers,
             load_news_triggers,
         )
+
         news_snap = load_news_triggers(news_path)
         result.meta["news_triggers_summary"] = {
             "count": len(news_snap.triggers),
@@ -317,8 +390,12 @@ def _prd_intel_summaries(
     except Exception as exc:
         log.warning("[PaperRunner] news triggers unavailable: %s", exc)
         result.meta["news_triggers_summary"] = {
-            "count": 0, "max_severity": 0, "count_sev1plus": 0, "count_sev2plus": 0,
-            "status": "error", "error": str(exc),
+            "count": 0,
+            "max_severity": 0,
+            "count_sev1plus": 0,
+            "count_sev2plus": 0,
+            "status": "error",
+            "error": str(exc),
         }
 
     try:
@@ -329,8 +406,12 @@ def _prd_intel_summaries(
                 compact = dict(funnel_data["counts"])
                 exc_reasons = funnel_data.get("normalize_exception_reasons") or {}
                 none_reasons = funnel_data.get("normalize_none_reasons") or {}
-                compact["normalize_exception_reasons_preview"] = dict(list(exc_reasons.items())[:2])
-                compact["normalize_none_reasons_preview"] = dict(list(none_reasons.items())[:2])
+                compact["normalize_exception_reasons_preview"] = dict(
+                    list(exc_reasons.items())[:2]
+                )
+                compact["normalize_none_reasons_preview"] = dict(
+                    list(none_reasons.items())[:2]
+                )
                 result.meta["news_debug_funnel"] = compact
     except Exception as exc:
         log.warning("[PaperRunner] failed to load news funnel: %s", exc)
@@ -347,8 +428,12 @@ def _prd_intel_summaries(
     except Exception as exc:
         log.warning("[PaperRunner] disclosures triggers unavailable: %s", exc)
         result.meta["disclosures_triggers_summary"] = {
-            "count": 0, "max_severity": 0, "count_sev1plus": 0, "count_sev2plus": 0,
-            "status": "error", "error": str(exc),
+            "count": 0,
+            "max_severity": 0,
+            "count_sev1plus": 0,
+            "count_sev2plus": 0,
+            "status": "error",
+            "error": str(exc),
         }
 
 
@@ -397,7 +482,10 @@ def _prd_paper_fills_and_ledger(
 
         regime = getattr(result, "regime", None) or "bull"
         orders_for_fills, exec_meta = annotate_execution_cost(
-            orders_for_fills, prices_for_fills, policy=load_policy(), regime=regime,
+            orders_for_fills,
+            prices_for_fills,
+            policy=load_policy(),
+            regime=regime,
         )
         result.meta["execution_cost"] = exec_meta
     except Exception as _exec_exc:
@@ -408,18 +496,25 @@ def _prd_paper_fills_and_ledger(
         log.error("Unknown execution_mode=%r — falling back to sim", execution_mode)
         execution_mode = "sim"
     if execution_mode in ("broker", "dry_run") and broker_adapter is None:
-        log.warning("execution_mode=%r but broker_adapter is None — falling back to sim", execution_mode)
+        log.warning(
+            "execution_mode=%r but broker_adapter is None — falling back to sim",
+            execution_mode,
+        )
         execution_mode = "sim"
 
     broker_exec_meta: dict[str, Any] = {}
     if execution_mode == "broker" and broker_adapter is not None:
         from src.assembled_core.execution.broker_execution import execute_via_broker
 
-        exec_result = execute_via_broker(broker_adapter, orders_for_fills, dry_run=False)
+        exec_result = execute_via_broker(
+            broker_adapter, orders_for_fills, dry_run=False
+        )
         fills = exec_result.fills_for_ledger
         broker_exec_meta = {
-            "filled": len(exec_result.filled), "rejected": len(exec_result.rejected),
-            "timed_out": len(exec_result.timed_out), "errors": exec_result.errors,
+            "filled": len(exec_result.filled),
+            "rejected": len(exec_result.rejected),
+            "timed_out": len(exec_result.timed_out),
+            "errors": exec_result.errors,
             "execution_time_s": exec_result.execution_time_s,
         }
     elif execution_mode == "dry_run" and broker_adapter is not None:
@@ -428,7 +523,10 @@ def _prd_paper_fills_and_ledger(
         exec_result = execute_via_broker(broker_adapter, orders_for_fills, dry_run=True)
         fills = []
         broker_exec_meta = {
-            "filled": 0, "rejected": 0, "timed_out": 0, "dry_run": True,
+            "filled": 0,
+            "rejected": 0,
+            "timed_out": 0,
+            "dry_run": True,
             "would_submit": len(exec_result.submitted),
         }
     else:
@@ -445,13 +543,24 @@ def _prd_paper_fills_and_ledger(
                     participation_cap=float(partial_cfg.get("participation_cap", 0.1)),
                     min_fill_qty=float(partial_cfg.get("min_fill_qty", 1.0)),
                     adv_window=int(partial_cfg.get("adv_window", 20)),
-                    fallback_fill_ratio=float(partial_cfg.get("fallback_fill_ratio", 1.0)),
+                    fallback_fill_ratio=float(
+                        partial_cfg.get("fallback_fill_ratio", 1.0)
+                    ),
                 )
-                clipped = apply_partial_fills(orders_for_fills, prices=prices_for_fills, partial_fill_model=pfm)
+                clipped = apply_partial_fills(
+                    orders_for_fills, prices=prices_for_fills, partial_fill_model=pfm
+                )
                 if not clipped.empty and "fill_qty" in clipped.columns:
                     orders_for_sim = orders_for_fills.copy()
-                    qty_map = dict(zip(clipped["symbol"].astype(str), clipped["fill_qty"].astype(float)))
-                    orders_for_sim["qty"] = orders_for_sim["symbol"].map(lambda s, _m=qty_map: _m.get(str(s), 0.0))
+                    qty_map = dict(
+                        zip(
+                            clipped["symbol"].astype(str),
+                            clipped["fill_qty"].astype(float),
+                        )
+                    )
+                    orders_for_sim["qty"] = orders_for_sim["symbol"].map(
+                        lambda s, _m=qty_map: _m.get(str(s), 0.0)
+                    )
                     orders_for_sim = orders_for_sim[orders_for_sim["qty"] > 0]
                     result.meta["partial_fill"] = {
                         "n_orders_in": int(len(orders_for_fills)),
@@ -467,8 +576,13 @@ def _prd_paper_fills_and_ledger(
     now_iso = pd.Timestamp.now("UTC").isoformat()
     append_equity_curve_deduped(state_after, now_iso, equity_after)
     report = build_reconcile_report(
-        as_of_utc=now_iso, ledger_before=ledger_before, ledger_after=state_after,
-        orders=orders_for_fills, fills=fills, prices_latest=prices_for_fills, cost_model_cfg=cost_cfg,
+        as_of_utc=now_iso,
+        ledger_before=ledger_before,
+        ledger_after=state_after,
+        orders=orders_for_fills,
+        fills=fills,
+        prices_latest=prices_for_fills,
+        cost_model_cfg=cost_cfg,
     )
     write_reconcile_artifact(output_dir, report)
     reconcile_status = report.get("status") or "OK"
@@ -489,12 +603,17 @@ def _prd_paper_fills_and_ledger(
             )
 
             append_trade_journal_entries(
-                fills, signal_context=None, ledger_state=ledger_before,
+                fills,
+                signal_context=None,
+                ledger_state=ledger_before,
                 run_id=str(output_dir.name) if output_dir else "",
             )
             write_daily_summary(
-                date_str=as_of_ts.strftime("%Y-%m-%d"), ledger_state=state_after,
-                equity=equity_after, start_capital=start_capital, fills=fills,
+                date_str=as_of_ts.strftime("%Y-%m-%d"),
+                ledger_state=state_after,
+                equity=equity_after,
+                start_capital=start_capital,
+                fills=fills,
             )
         except Exception as exc:
             log.warning("[PaperRunner] trade journal write failed: %s", exc)
@@ -502,18 +621,26 @@ def _prd_paper_fills_and_ledger(
         try:
             from src.assembled_core.qa.tca import compute_implementation_shortfall
 
-            fills_df = pd.DataFrame([
-                {"symbol": f["symbol"], "side": f.get("side", "BUY"),
-                 "fill_price": float(f.get("price", 0.0)), "fill_qty": float(f.get("qty", 0.0))}
-                for f in fills
-            ])
+            fills_df = pd.DataFrame(
+                [
+                    {
+                        "symbol": f["symbol"],
+                        "side": f.get("side", "BUY"),
+                        "fill_price": float(f.get("price", 0.0)),
+                        "fill_qty": float(f.get("qty", 0.0)),
+                    }
+                    for f in fills
+                ]
+            )
             if (
                 not fills_df.empty
                 and orders_for_fills is not None
                 and not orders_for_fills.empty
                 and "arrival_price" in orders_for_fills.columns
             ):
-                arrival_lookup = orders_for_fills[["symbol", "arrival_price"]].drop_duplicates("symbol")
+                arrival_lookup = orders_for_fills[
+                    ["symbol", "arrival_price"]
+                ].drop_duplicates("symbol")
                 fills_df = fills_df.merge(arrival_lookup, on="symbol", how="left")
             is_df = compute_implementation_shortfall(fills_df)
             if not is_df.empty and "is_bps" in is_df.columns:
@@ -537,14 +664,25 @@ def _prd_paper_fills_and_ledger(
 
             prices_for_analysis = result.prices_with_features
             if not prices_for_analysis.empty and "close" in prices_for_analysis.columns:
-                fwd_returns = compute_forward_returns(prices_for_analysis, horizon_days=5)
-                trades_for_analysis = pd.DataFrame([
-                    {"symbol": f["symbol"], "side": f.get("side", "BUY"), "event_ts": as_of_ts,
-                     "qty": f.get("qty", 0), "price": f.get("price", 0)}
-                    for f in fills
-                ])
+                fwd_returns = compute_forward_returns(
+                    prices_for_analysis, horizon_days=5
+                )
+                trades_for_analysis = pd.DataFrame(
+                    [
+                        {
+                            "symbol": f["symbol"],
+                            "side": f.get("side", "BUY"),
+                            "event_ts": as_of_ts,
+                            "qty": f.get("qty", 0),
+                            "price": f.get("price", 0),
+                        }
+                        for f in fills
+                    ]
+                )
                 if not trades_for_analysis.empty and not fwd_returns.empty:
-                    hit_rate_df = compute_signal_hit_rate(trades_for_analysis, fwd_returns)
+                    hit_rate_df = compute_signal_hit_rate(
+                        trades_for_analysis, fwd_returns
+                    )
                     if not hit_rate_df.empty:
                         record = build_learning_record(
                             run_id=str(output_dir.name) if output_dir else "",
@@ -594,15 +732,27 @@ def _prd_write_artifacts(
     if execution_mode == "sim":
         _ = maybe_execute_orders(
             mode,
-            result.orders_filtered if not result.orders_filtered.empty else result.orders,
+            (
+                result.orders_filtered
+                if not result.orders_filtered.empty
+                else result.orders
+            ),
         )
 
     policy = load_policy()
-    kpis_path = write_run_kpis(output_dir=output_dir, ctx=ctx, result=result, policy=policy, mode=mode)
-    write_targets_artifact(output_dir=output_dir, target_positions=result.target_positions)
-    orders_df = result.orders_filtered if not result.orders_filtered.empty else result.orders
+    kpis_path = write_run_kpis(
+        output_dir=output_dir, ctx=ctx, result=result, policy=policy, mode=mode
+    )
+    write_targets_artifact(
+        output_dir=output_dir, target_positions=result.target_positions
+    )
+    orders_df = (
+        result.orders_filtered if not result.orders_filtered.empty else result.orders
+    )
     write_orders_artifact(output_dir=output_dir, orders=orders_df)
-    write_reasons_artifact(output_dir=output_dir, ctx=ctx, result=result, policy=policy, mode=mode)
+    write_reasons_artifact(
+        output_dir=output_dir, ctx=ctx, result=result, policy=policy, mode=mode
+    )
 
     try:
         current_kpis = _json.loads(kpis_path.read_text(encoding="utf-8"))
@@ -612,8 +762,10 @@ def _prd_write_artifacts(
     prev_date = as_of_ts.date() - timedelta(days=1)
     prev_dir = output_dir.parent / prev_date.isoformat()
     write_diff_vs_prev(
-        output_dir=output_dir, prev_dir=prev_dir,
-        current_targets=result.target_positions, current_kpis=current_kpis,
+        output_dir=output_dir,
+        prev_dir=prev_dir,
+        current_targets=result.target_positions,
+        current_kpis=current_kpis,
     )
 
     if app_cfg.get("alerts", {}).get("enabled", True):
@@ -622,12 +774,16 @@ def _prd_write_artifacts(
         diff_data: dict[str, Any] = {}
         if (out / "reasons_latest.json").exists():
             try:
-                reasons_data = _json.loads((out / "reasons_latest.json").read_text(encoding="utf-8"))
+                reasons_data = _json.loads(
+                    (out / "reasons_latest.json").read_text(encoding="utf-8")
+                )
             except Exception as exc:
                 log.warning("[PaperRunner] failed to read reasons_latest.json: %s", exc)
         if (out / "diff_vs_prev.json").exists():
             try:
-                diff_data = _json.loads((out / "diff_vs_prev.json").read_text(encoding="utf-8"))
+                diff_data = _json.loads(
+                    (out / "diff_vs_prev.json").read_text(encoding="utf-8")
+                )
             except Exception as exc:
                 log.warning("[PaperRunner] failed to read diff_vs_prev.json: %s", exc)
         generated_utc = current_kpis.get("generated_utc") or ""
@@ -636,10 +792,16 @@ def _prd_write_artifacts(
             alerts_list = list(alerts_list)
             alerts_list.append(make_reconcile_fail_alert(generated_utc))
             severity_map = app_cfg.get("alerts", {}).get("severity_map") or {
-                "info": 0, "warn": 1, "critical": 2,
+                "info": 0,
+                "warn": 1,
+                "critical": 2,
             }
             alerts_list.sort(
-                key=lambda a: (-severity_map.get(a["level"], 0), a["kind"], a["alert_id"])
+                key=lambda a: (
+                    -severity_map.get(a["level"], 0),
+                    a["kind"],
+                    a["alert_id"],
+                )
             )
         write_alerts_artifact(output_dir, alerts_list, generated_utc, app_cfg)
 
@@ -663,13 +825,20 @@ def run_paper_daily_one(
     paper_cfg = app_cfg.get("paper_runner") or {}
     start_capital = float(paper_cfg.get("start_capital", 100000.0))
 
-    ledger_state, ledger_path, equity_before, current_positions_df, equity_series, equity_curve_index = (
-        _prd_load_paper_state(mode, app_cfg, prices, as_of_ts, root, start_capital)
-    )
+    (
+        ledger_state,
+        ledger_path,
+        equity_before,
+        current_positions_df,
+        equity_series,
+        equity_curve_index,
+    ) = _prd_load_paper_state(mode, app_cfg, prices, as_of_ts, root, start_capital)
 
     strategy_cfg = paper_cfg.get("strategy") or {}
     strategy_name = (strategy_cfg.get("name") or "none").strip().lower()
-    signal_fn, position_sizing_fn = _prd_make_strategy_fns(strategy_name, strategy_cfg, ledger_state)
+    signal_fn, position_sizing_fn = _prd_make_strategy_fns(
+        strategy_name, strategy_cfg, ledger_state
+    )
 
     intel_cfg = paper_cfg.get("intel") or {}
     intel_mode = (intel_cfg.get("mode") or "sim").strip().lower()
@@ -680,18 +849,30 @@ def run_paper_daily_one(
         intel_orchestration = run_intel_pipelines(app_cfg, root=root)
 
     ctx = TradingContext(
-        prices=prices, as_of=as_of_ts, freq="1d", mode="eod",
-        signal_fn=signal_fn, position_sizing_fn=position_sizing_fn,
-        capital=start_capital, write_outputs=False, enable_risk_controls=False,
+        prices=prices,
+        as_of=as_of_ts,
+        freq="1d",
+        mode="eod",
+        signal_fn=signal_fn,
+        position_sizing_fn=position_sizing_fn,
+        capital=start_capital,
+        write_outputs=False,
+        enable_risk_controls=False,
     )
     if mode == "paper" and ledger_state is not None:
         ctx.capital = equity_before
-        ctx.current_positions = current_positions_df if not current_positions_df.empty else None
+        ctx.current_positions = (
+            current_positions_df if not current_positions_df.empty else None
+        )
         ctx.equity_curve = equity_series
         ctx.equity_curve_index = equity_curve_index
 
     intel_sim_cfg = paper_cfg.get("intel_sim") or {}
-    if intel_mode == "sim" and intel_sim_cfg.get("enabled", False) and day_index is not None:
+    if (
+        intel_mode == "sim"
+        and intel_sim_cfg.get("enabled", False)
+        and day_index is not None
+    ):
         from src.assembled_core.ops.intel_sim import apply_intel_sim
 
         apply_intel_sim(ctx, day_index, intel_sim_cfg)
@@ -709,7 +890,11 @@ def run_paper_daily_one(
         return 1, None
 
     try:
-        if result.signals is not None and not result.signals.empty and "score" in result.signals.columns:
+        if (
+            result.signals is not None
+            and not result.signals.empty
+            and "score" in result.signals.columns
+        ):
             from src.assembled_core.paper.intel_context import persist_historical_scores
 
             persist_historical_scores(result.signals["score"], root)
@@ -723,14 +908,27 @@ def run_paper_daily_one(
     reconcile_status: str | None = None
     if mode == "paper" and ledger_state is not None and ledger_path is not None:
         reconcile_status = _prd_paper_fills_and_ledger(
-            mode=mode, ledger_state=ledger_state, ledger_path=ledger_path,
-            result=result, execution_mode=execution_mode, broker_adapter=broker_adapter,
-            app_cfg=app_cfg, as_of_ts=as_of_ts, output_dir=output_dir, start_capital=start_capital,
+            mode=mode,
+            ledger_state=ledger_state,
+            ledger_path=ledger_path,
+            result=result,
+            execution_mode=execution_mode,
+            broker_adapter=broker_adapter,
+            app_cfg=app_cfg,
+            as_of_ts=as_of_ts,
+            output_dir=output_dir,
+            start_capital=start_capital,
         )
 
     _prd_write_artifacts(
-        mode=mode, ctx=ctx, result=result, output_dir=output_dir, as_of_ts=as_of_ts,
-        app_cfg=app_cfg, reconcile_status=reconcile_status, execution_mode=execution_mode,
+        mode=mode,
+        ctx=ctx,
+        result=result,
+        output_dir=output_dir,
+        as_of_ts=as_of_ts,
+        app_cfg=app_cfg,
+        reconcile_status=reconcile_status,
+        execution_mode=execution_mode,
     )
 
     return 0, reconcile_status

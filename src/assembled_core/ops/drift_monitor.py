@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DriftReport:
     """Result of a drift check."""
+
     date: date
     feature_psi: dict[str, float] = field(default_factory=dict)
     max_psi: float = 0.0
@@ -45,6 +46,7 @@ def _try_evidently():
     try:
         from evidently.metric_preset import DataDriftPreset
         from evidently.report import Report
+
         return Report, DataDriftPreset
     except ImportError:
         logger.warning("evidently not installed — pip install evidently")
@@ -54,6 +56,7 @@ def _try_evidently():
 def _try_nannyml():
     try:
         import nannyml
+
         return nannyml
     except ImportError:
         logger.warning("nannyml not installed — pip install nannyml")
@@ -129,7 +132,9 @@ class DriftMonitor:
             report.feature_psi = feature_psi
             if feature_psi:
                 report.max_psi = max(feature_psi.values())
-                report.drifted_features = [k for k, v in feature_psi.items() if v > self.psi_warn]
+                report.drifted_features = [
+                    k for k, v in feature_psi.items() if v > self.psi_warn
+                ]
 
             # Determine action
             if report.max_psi > self.psi_pause:
@@ -141,7 +146,10 @@ class DriftMonitor:
 
             logger.info(
                 "Drift check %s: max_psi=%.3f, action=%s, drifted=%d features",
-                report_date, report.max_psi, report.action, len(report.drifted_features),
+                report_date,
+                report.max_psi,
+                report.action,
+                len(report.drifted_features),
             )
 
             # Save HTML report
@@ -197,14 +205,18 @@ def estimate_performance_without_labels(
             y_pred_proba=prediction_col,
             y_pred=prediction_col,
             y_true=target_col,
-            timestamp_column_name="timestamp" if "timestamp" in reference_with_targets.columns else None,
+            timestamp_column_name=(
+                "timestamp" if "timestamp" in reference_with_targets.columns else None
+            ),
             metrics=["roc_auc", "f1"],
             chunk_size=50,
         )
         estimator.fit(reference_with_targets)
         results = estimator.estimate(current_without_targets)
         return {
-            "estimated_roc_auc": float(results.filter(period="analysis").to_df()["estimated_roc_auc"].mean()),
+            "estimated_roc_auc": float(
+                results.filter(period="analysis").to_df()["estimated_roc_auc"].mean()
+            ),
         }
     except Exception as exc:
         logger.debug("NannyML CBPE failed: %s", exc)

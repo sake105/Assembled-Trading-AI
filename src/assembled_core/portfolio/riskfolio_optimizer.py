@@ -30,6 +30,7 @@ class OptimizationConfig:
 def _try_riskfolio():
     try:
         import riskfolio as rp
+
         return rp
     except ImportError:
         logger.warning("riskfolio-lib not installed — pip install riskfolio-lib==7.2.1")
@@ -124,7 +125,9 @@ def cvar_budget(
     try:
         port = rp.Portfolio(returns=returns)
         port.assets_stats(method_mu="hist", method_cov="ledoit")
-        weights = port.optimization(model="Classic", rm="CVaR", obj="ERC", rf=0.0, hist=True)
+        weights = port.optimization(
+            model="Classic", rm="CVaR", obj="ERC", rf=0.0, hist=True
+        )
         if weights is None or weights.empty:
             return None
         return weights["weights"].squeeze()

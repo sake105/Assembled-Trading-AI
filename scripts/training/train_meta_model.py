@@ -50,6 +50,7 @@ log = logging.getLogger(__name__)
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MetaModelTrainResult:
     """Full training result with metrics and diagnostics."""
@@ -89,6 +90,7 @@ class MetaModelTrainResult:
 # Feature Selection
 # ---------------------------------------------------------------------------
 
+
 def run_feature_selection(
     panel: pd.DataFrame,
     fwd_return_col: str,
@@ -104,12 +106,23 @@ def run_feature_selection(
         ic_prescreen,
     )
 
-    meta_cols = {"timestamp", "date", "symbol", "label",
-                 "barrier_hit", "realized_return", "holding_days",
-                 "max_drawdown", "max_runup", "entry_price", "exit_price"}
+    meta_cols = {
+        "timestamp",
+        "date",
+        "symbol",
+        "label",
+        "barrier_hit",
+        "realized_return",
+        "holding_days",
+        "max_drawdown",
+        "max_runup",
+        "entry_price",
+        "exit_price",
+    }
     # Exclude ALL forward-looking columns (fwd_return_*) to prevent data leakage
     all_features = [
-        c for c in panel.columns
+        c
+        for c in panel.columns
         if c not in meta_cols
         and not c.startswith("fwd_return_")
         and panel[c].dtype in ("float64", "float32", "int64", "int32")
@@ -123,34 +136,56 @@ def run_feature_selection(
     survived_1, ic_scores = ic_prescreen(
         panel_safe, forward_return_col=fwd_return_col, min_ic=min_ic
     )
-    log.info("IC prescreen: %d -> %d features (min_ic=%.3f)", len(all_features), len(survived_1), min_ic)
+    log.info(
+        "IC prescreen: %d -> %d features (min_ic=%.3f)",
+        len(all_features),
+        len(survived_1),
+        min_ic,
+    )
 
     # Stage 2: Collinearity filter
     if len(survived_1) > 1:
         survived_2, dropped_pairs = collinearity_filter(
             panel, survived_1, ic_scores=ic_scores, max_corr=max_corr
         )
-        log.info("Collinearity filter: %d -> %d features (max_corr=%.2f)", len(survived_1), len(survived_2), max_corr)
+        log.info(
+            "Collinearity filter: %d -> %d features (max_corr=%.2f)",
+            len(survived_1),
+            len(survived_2),
+            max_corr,
+        )
     else:
         survived_2 = survived_1
         dropped_pairs = []
 
     # If feature selection is too aggressive, fall back to IC-only
     if len(survived_2) < 5 and len(survived_1) >= 5:
-        log.warning("Collinearity too aggressive (%d left), using IC-only (%d)", len(survived_2), len(survived_1))
+        log.warning(
+            "Collinearity too aggressive (%d left), using IC-only (%d)",
+            len(survived_2),
+            len(survived_1),
+        )
         survived_2 = survived_1
 
     # If even IC prescreen is too aggressive, use all features
     if len(survived_2) < 3:
-        log.warning("Feature selection too aggressive (%d left), using all %d features", len(survived_2), len(all_features))
+        log.warning(
+            "Feature selection too aggressive (%d left), using all %d features",
+            len(survived_2),
+            len(all_features),
+        )
         survived_2 = all_features
 
     diagnostics = {
         "n_candidates": len(all_features),
         "n_after_ic": len(survived_1),
         "n_after_collinearity": len(survived_2),
-        "ic_scores": {k: round(v, 4) for k, v in ic_scores.items()} if ic_scores else {},
-        "n_collinear_pairs_dropped": len(dropped_pairs) if isinstance(dropped_pairs, list) else 0,
+        "ic_scores": (
+            {k: round(v, 4) for k, v in ic_scores.items()} if ic_scores else {}
+        ),
+        "n_collinear_pairs_dropped": (
+            len(dropped_pairs) if isinstance(dropped_pairs, list) else 0
+        ),
     }
     return survived_2, diagnostics
 
@@ -158,6 +193,7 @@ def run_feature_selection(
 # ---------------------------------------------------------------------------
 # Triple-Barrier Label Generation
 # ---------------------------------------------------------------------------
+
 
 def generate_labels(
     panel: pd.DataFrame,
@@ -174,26 +210,39 @@ def generate_labels(
     if fwd_return_col in panel.columns:
         # Simplified: use forward return directly
         fwd = panel[fwd_return_col].values
-        labels = np.where(fwd >= profit_target, 1, np.where(fwd <= -stop_loss, 0, np.where(fwd > 0, 1, 0)))
+        labels = np.where(
+            fwd >= profit_target,
+            1,
+            np.where(fwd <= -stop_loss, 0, np.where(fwd > 0, 1, 0)),
+        )
         panel = panel.copy()
         panel["label"] = labels
         panel["barrier_hit"] = np.where(
-            fwd >= profit_target, "profit_target",
-            np.where(fwd <= -stop_loss, "stop_loss", "time_barrier")
+            fwd >= profit_target,
+            "profit_target",
+            np.where(fwd <= -stop_loss, "stop_loss", "time_barrier"),
         )
         n_pos = int((labels == 1).sum())
         n_neg = int((labels == 0).sum())
-        log.info("Labels: %d positive (%.1f%%), %d negative, total %d",
-                 n_pos, n_pos / max(len(labels), 1) * 100, n_neg, len(labels))
+        log.info(
+            "Labels: %d positive (%.1f%%), %d negative, total %d",
+            n_pos,
+            n_pos / max(len(labels), 1) * 100,
+            n_neg,
+            len(labels),
+        )
         return panel
 
-    log.warning("No forward return column '%s' -- labels require raw prices", fwd_return_col)
+    log.warning(
+        "No forward return column '%s' -- labels require raw prices", fwd_return_col
+    )
     return panel
 
 
 # ---------------------------------------------------------------------------
 # Purged CV Training
 # ---------------------------------------------------------------------------
+
 
 def train_with_purged_cv(
     panel: pd.DataFrame,
@@ -221,11 +270,13 @@ def train_with_purged_cv(
     xgb_available = False
     try:
         import lightgbm as lgb
+
         lgb_available = True
     except ImportError:
         pass
     try:
         import xgboost as xgb
+
         xgb_available = True
     except ImportError:
         pass
@@ -239,11 +290,15 @@ def train_with_purged_cv(
     timestamps = pd.to_datetime(panel[ts_col])
 
     # Create purged splitter
-    pkf = PurgedKFold(n_splits=n_splits, label_horizon=label_horizon, embargo_pct=embargo_pct)
+    pkf = PurgedKFold(
+        n_splits=n_splits, label_horizon=label_horizon, embargo_pct=embargo_pct
+    )
     splits = pkf.split(timestamps)
 
     if not splits:
-        log.warning("PurgedKFold returned no splits -- falling back to simple time split")
+        log.warning(
+            "PurgedKFold returned no splits -- falling back to simple time split"
+        )
         split_idx = int(len(X) * 0.8)
         splits = [(np.arange(split_idx), np.arange(split_idx, len(X)))]
 
@@ -251,26 +306,43 @@ def train_with_purged_cv(
     def _make_model(mtype: str):
         if mtype == "lightgbm" and lgb_available:
             return lgb.LGBMClassifier(
-                n_estimators=300, learning_rate=0.05, max_depth=6,
-                num_leaves=31, min_child_samples=20,
-                random_state=42, verbose=-1, n_jobs=-1,
+                n_estimators=300,
+                learning_rate=0.05,
+                max_depth=6,
+                num_leaves=31,
+                min_child_samples=20,
+                random_state=42,
+                verbose=-1,
+                n_jobs=-1,
             )
         elif mtype == "xgboost" and xgb_available:
             return xgb.XGBClassifier(
-                n_estimators=300, learning_rate=0.05, max_depth=6,
-                min_child_weight=20, random_state=42, verbosity=0, n_jobs=-1,
-                use_label_encoder=False, eval_metric="logloss",
+                n_estimators=300,
+                learning_rate=0.05,
+                max_depth=6,
+                min_child_weight=20,
+                random_state=42,
+                verbosity=0,
+                n_jobs=-1,
+                use_label_encoder=False,
+                eval_metric="logloss",
             )
         elif mtype == "random_forest":
             return RandomForestClassifier(
-                n_estimators=200, max_depth=8, min_samples_leaf=20,
-                random_state=42, n_jobs=-1,
+                n_estimators=200,
+                max_depth=8,
+                min_samples_leaf=20,
+                random_state=42,
+                n_jobs=-1,
             )
         else:
             # Default: gradient boosting
             return GradientBoostingClassifier(
-                n_estimators=200, learning_rate=0.05, max_depth=6,
-                min_samples_leaf=20, random_state=42,
+                n_estimators=200,
+                learning_rate=0.05,
+                max_depth=6,
+                min_samples_leaf=20,
+                random_state=42,
             )
 
     # Choose best available model type
@@ -311,8 +383,15 @@ def train_with_purged_cv(
         logloss_scores.append(ll)
         brier_scores.append(brier)
 
-        log.info("Fold %d: AUC=%.4f  LogLoss=%.4f  Brier=%.4f  (train=%d, test=%d)",
-                 fold_i, auc, ll, brier, len(train_idx), len(test_idx))
+        log.info(
+            "Fold %d: AUC=%.4f  LogLoss=%.4f  Brier=%.4f  (train=%d, test=%d)",
+            fold_i,
+            auc,
+            ll,
+            brier,
+            len(train_idx),
+            len(test_idx),
+        )
 
     # Retrain on full dataset
     log.info("Retraining on full dataset (%d samples)...", len(X))
@@ -326,7 +405,9 @@ def train_with_purged_cv(
         "logloss_scores": [round(s, 4) for s in logloss_scores],
         "brier_scores": [round(s, 4) for s in brier_scores],
         "mean_auc": round(float(np.mean(auc_scores)), 4) if auc_scores else 0.0,
-        "mean_logloss": round(float(np.mean(logloss_scores)), 4) if logloss_scores else 0.0,
+        "mean_logloss": (
+            round(float(np.mean(logloss_scores)), 4) if logloss_scores else 0.0
+        ),
         "mean_brier": round(float(np.mean(brier_scores)), 4) if brier_scores else 0.0,
         "oof_predictions_available": int(np.isfinite(oof_predictions).sum()),
     }
@@ -338,7 +419,10 @@ def train_with_purged_cv(
 # Calibration
 # ---------------------------------------------------------------------------
 
-def calibrate_model(model, X: pd.DataFrame, y: np.ndarray, method: str = "sigmoid") -> tuple[Any, float]:
+
+def calibrate_model(
+    model, X: pd.DataFrame, y: np.ndarray, method: str = "sigmoid"
+) -> tuple[Any, float]:
     """Apply Platt calibration and compute calibration error.
 
     For classifiers (with predict_proba): uses CalibratedClassifierCV.
@@ -381,7 +465,9 @@ def calibrate_model(model, X: pd.DataFrame, y: np.ndarray, method: str = "sigmoi
         return model, cal_error
 
 
-def _compute_calibration_error(proba: np.ndarray, y: np.ndarray, n_bins: int = 10) -> float:
+def _compute_calibration_error(
+    proba: np.ndarray, y: np.ndarray, n_bins: int = 10
+) -> float:
     """Mean absolute calibration error across probability deciles."""
     bin_edges = np.linspace(0, 1, n_bins + 1)
     errors = []
@@ -398,6 +484,7 @@ def _compute_calibration_error(proba: np.ndarray, y: np.ndarray, n_bins: int = 1
 # ---------------------------------------------------------------------------
 # CPCV Overfitting Check
 # ---------------------------------------------------------------------------
+
 
 def run_cpcv_check(
     panel: pd.DataFrame,
@@ -418,20 +505,31 @@ def run_cpcv_check(
         )
     except ImportError:
         log.warning("CPCV module not importable -- skipping overfitting check")
-        return {"prob_positive_sharpe": None, "deflated_sharpe": None, "is_likely_overfit": None}
+        return {
+            "prob_positive_sharpe": None,
+            "deflated_sharpe": None,
+            "is_likely_overfit": None,
+        }
 
     X = panel[feature_cols].fillna(0).values
     y = panel[label_col].values.astype(int)
     n = len(X)
 
     splits = generate_cpcv_splits(
-        n_timestamps=n, n_groups=n_groups, k_test_groups=k_test_groups,
-        purge_length=5, embargo_length=3,
+        n_timestamps=n,
+        n_groups=n_groups,
+        k_test_groups=k_test_groups,
+        purge_length=5,
+        embargo_length=3,
     )
 
     if not splits:
         log.warning("CPCV generated 0 splits -- cannot check overfitting")
-        return {"prob_positive_sharpe": None, "deflated_sharpe": None, "is_likely_overfit": None}
+        return {
+            "prob_positive_sharpe": None,
+            "deflated_sharpe": None,
+            "is_likely_overfit": None,
+        }
 
     # Compute Sharpe per path
     sharpes = []
@@ -440,6 +538,7 @@ def run_cpcv_check(
             continue
         try:
             from sklearn.base import clone
+
             m = clone(model)
             m.fit(X[train_idx], y[train_idx])
             proba = m.predict_proba(X[test_idx])[:, 1]
@@ -451,7 +550,9 @@ def run_cpcv_check(
                 test_returns = panel.iloc[test_idx][fwd_col].values
                 strat_returns = predictions * test_returns
                 if np.std(strat_returns) > 1e-10:
-                    sharpe = float(np.mean(strat_returns) / np.std(strat_returns) * np.sqrt(252))
+                    sharpe = float(
+                        np.mean(strat_returns) / np.std(strat_returns) * np.sqrt(252)
+                    )
                 else:
                     sharpe = 0.0
             else:
@@ -464,7 +565,11 @@ def run_cpcv_check(
             continue
 
     if not sharpes:
-        return {"prob_positive_sharpe": None, "deflated_sharpe": None, "is_likely_overfit": None}
+        return {
+            "prob_positive_sharpe": None,
+            "deflated_sharpe": None,
+            "is_likely_overfit": None,
+        }
 
     prob_pos = float(np.mean(np.array(sharpes) > 0))
     mean_s = float(np.mean(sharpes))
@@ -477,8 +582,13 @@ def run_cpcv_check(
 
     is_overfit = prob_pos < 0.60 or deflated < 0
 
-    log.info("CPCV: %d paths, P(Sharpe>0)=%.2f, DeflatedSharpe=%.3f, overfit=%s",
-             n_paths, prob_pos, deflated, is_overfit)
+    log.info(
+        "CPCV: %d paths, P(Sharpe>0)=%.2f, DeflatedSharpe=%.3f, overfit=%s",
+        n_paths,
+        prob_pos,
+        deflated,
+        is_overfit,
+    )
 
     return {
         "n_paths": n_paths,
@@ -493,20 +603,30 @@ def run_cpcv_check(
 # Feature Importance (SHAP)
 # ---------------------------------------------------------------------------
 
-def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) -> list[tuple[str, float]]:
+
+def compute_feature_importance(
+    model, X: pd.DataFrame, feature_cols: list[str]
+) -> list[tuple[str, float]]:
     """Compute feature importance via SHAP (tree) or permutation fallback."""
     # Try SHAP first
     try:
         import shap
+
         explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(X.iloc[:min(500, len(X))])
+        shap_values = explainer.shap_values(X.iloc[: min(500, len(X))])
         if isinstance(shap_values, list):
             shap_values = shap_values[1]  # class 1 for binary
         mean_abs_shap = np.abs(shap_values).mean(axis=0)
-        importance = list(zip(feature_cols, [round(float(v), 6) for v in mean_abs_shap]))
+        importance = list(
+            zip(feature_cols, [round(float(v), 6) for v in mean_abs_shap])
+        )
         importance.sort(key=lambda x: x[1], reverse=True)
         if importance:
-            log.info("SHAP importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
+            log.info(
+                "SHAP importance computed (top: %s=%.4f)",
+                importance[0][0],
+                importance[0][1],
+            )
         return importance[:20]
     except Exception as _exc:
         log.debug("[feature_importance] SHAP failed: %s", _exc)
@@ -518,7 +638,11 @@ def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) 
             importance = list(zip(feature_cols, [round(float(v), 6) for v in imp]))
             importance.sort(key=lambda x: x[1], reverse=True)
             if importance:
-                log.info("Tree importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
+                log.info(
+                    "Tree importance computed (top: %s=%.4f)",
+                    importance[0][0],
+                    importance[0][1],
+                )
             return importance[:20]
     except Exception as _exc:
         log.debug("[feature_importance] tree importance failed: %s", _exc)
@@ -542,6 +666,7 @@ def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) 
 # ---------------------------------------------------------------------------
 # Main Pipeline
 # ---------------------------------------------------------------------------
+
 
 def train_meta_model_pipeline(
     panel_path: Path,
@@ -580,7 +705,12 @@ def train_meta_model_pipeline(
     log.info("Loading panel from %s", panel_path)
 
     panel = pd.read_parquet(panel_path)
-    log.info("Panel shape: %s (%d rows × %d cols)", panel.shape, len(panel), len(panel.columns))
+    log.info(
+        "Panel shape: %s (%d rows × %d cols)",
+        panel.shape,
+        len(panel),
+        len(panel.columns),
+    )
 
     fwd_col = f"fwd_return_{label_horizon}d"
     if fwd_col not in panel.columns:
@@ -589,7 +719,11 @@ def train_meta_model_pipeline(
             if alt in panel.columns:
                 fwd_col = alt
                 label_horizon = int(alt.split("_")[-1].replace("d", ""))
-                log.info("Using alternative forward return: %s (horizon=%d)", fwd_col, label_horizon)
+                log.info(
+                    "Using alternative forward return: %s (horizon=%d)",
+                    fwd_col,
+                    label_horizon,
+                )
                 break
         else:
             raise ValueError(f"No forward return column found. Expected: {fwd_col}")
@@ -597,16 +731,28 @@ def train_meta_model_pipeline(
     # 2. Feature selection
     log.info("-" * 40)
     log.info("STEP 1: Feature Selection")
-    selected_features, fs_diag = run_feature_selection(panel, fwd_col, min_ic=min_ic, max_corr=max_corr)
+    selected_features, fs_diag = run_feature_selection(
+        panel, fwd_col, min_ic=min_ic, max_corr=max_corr
+    )
     log.info("Selected %d features", len(selected_features))
 
     n_input_features = fs_diag["n_candidates"]
 
     # 3. Label generation
     log.info("-" * 40)
-    log.info("STEP 2: Triple-Barrier Labels (pt=%.2f, sl=%.2f, max_hold=%d)", profit_target, stop_loss, max_holding)
-    panel = generate_labels(panel, profit_target=profit_target, stop_loss=stop_loss,
-                            max_holding=max_holding, fwd_return_col=fwd_col)
+    log.info(
+        "STEP 2: Triple-Barrier Labels (pt=%.2f, sl=%.2f, max_hold=%d)",
+        profit_target,
+        stop_loss,
+        max_holding,
+    )
+    panel = generate_labels(
+        panel,
+        profit_target=profit_target,
+        stop_loss=stop_loss,
+        max_holding=max_holding,
+        fwd_return_col=fwd_col,
+    )
 
     if "label" not in panel.columns:
         raise ValueError("Label generation failed -- no 'label' column")
@@ -616,7 +762,11 @@ def train_meta_model_pipeline(
     for fc in selected_features:
         valid_mask &= panel[fc].notna()
     panel_clean = panel[valid_mask].copy()
-    log.info("Clean panel: %d rows (dropped %d with NaN)", len(panel_clean), len(panel) - len(panel_clean))
+    log.info(
+        "Clean panel: %d rows (dropped %d with NaN)",
+        len(panel_clean),
+        len(panel) - len(panel_clean),
+    )
 
     n_pos = int((panel_clean["label"] == 1).sum())
     n_neg = int((panel_clean["label"] == 0).sum())
@@ -628,8 +778,11 @@ def train_meta_model_pipeline(
     cal_split_idx = int(len(panel_clean) * 0.80)
     panel_train = panel_clean.iloc[:cal_split_idx].copy()
     panel_cal = panel_clean.iloc[cal_split_idx:].copy()
-    log.info("Train/calibration split: %d train, %d calibration (last 20%% by date)",
-             len(panel_train), len(panel_cal))
+    log.info(
+        "Train/calibration split: %d train, %d calibration (last 20%% by date)",
+        len(panel_train),
+        len(panel_cal),
+    )
 
     # 4. Training (purged CV or stacking)
     log.info("-" * 40)
@@ -641,7 +794,11 @@ def train_meta_model_pipeline(
 
             stack = build_default_stack()
             experiment_cfg = MLExperimentConfig(
-                label_col=f"fwd_return_{label_horizon}d" if f"fwd_return_{label_horizon}d" in panel_train.columns else "label",
+                label_col=(
+                    f"fwd_return_{label_horizon}d"
+                    if f"fwd_return_{label_horizon}d" in panel_train.columns
+                    else "label"
+                ),
                 n_splits=n_splits,
                 min_train_samples=50,
                 standardize=True,
@@ -659,9 +816,13 @@ def train_meta_model_pipeline(
             # Run purged CV metrics on the training set for reporting
             log.info("Computing CV metrics on training set for reporting...")
             _, cv_metrics = train_with_purged_cv(
-                panel_train, selected_features, label_col="label",
-                n_splits=n_splits, label_horizon=label_horizon,
-                embargo_pct=embargo_pct, model_type=model_type,
+                panel_train,
+                selected_features,
+                label_col="label",
+                n_splits=n_splits,
+                label_horizon=label_horizon,
+                embargo_pct=embargo_pct,
+                model_type=model_type,
             )
             cv_metrics["model_type"] = "stacking_ensemble"
             log.info("Stacking ensemble fitted successfully")
@@ -670,11 +831,19 @@ def train_meta_model_pipeline(
             use_stacking = False
 
     if not use_stacking:
-        log.info("STEP 3: Purged Cross-Validation (splits=%d, embargo=%.2f)", n_splits, embargo_pct)
+        log.info(
+            "STEP 3: Purged Cross-Validation (splits=%d, embargo=%.2f)",
+            n_splits,
+            embargo_pct,
+        )
         trained_model, cv_metrics = train_with_purged_cv(
-            panel_train, selected_features, label_col="label",
-            n_splits=n_splits, label_horizon=label_horizon,
-            embargo_pct=embargo_pct, model_type=model_type,
+            panel_train,
+            selected_features,
+            label_col="label",
+            n_splits=n_splits,
+            label_horizon=label_horizon,
+            embargo_pct=embargo_pct,
+            model_type=model_type,
         )
         actual_model_type = cv_metrics["model_type"]
 
@@ -710,6 +879,7 @@ def train_meta_model_pipeline(
     try:
         import joblib
         from src.assembled_core.signals.meta_model import MetaModel
+
         meta_model = MetaModel(
             model=trained_model,
             feature_names=list(selected_features),
@@ -759,7 +929,9 @@ def train_meta_model_pipeline(
     log.info("=" * 60)
     log.info("TRAINING COMPLETE in %.1fs", t_elapsed)
     log.info("  Model type:      %s", actual_model_type)
-    log.info("  Features:        %d/%d selected", len(selected_features), n_input_features)
+    log.info(
+        "  Features:        %d/%d selected", len(selected_features), n_input_features
+    )
     log.info("  Samples:         %d (pos=%d, neg=%d)", len(panel_clean), n_pos, n_neg)
     log.info("  Mean AUC:        %.4f", result.mean_auc)
     log.info("  Mean LogLoss:    %.4f", result.mean_logloss)
@@ -775,7 +947,9 @@ def train_meta_model_pipeline(
         log.warning("GATE FAIL: AUC %.4f < 0.52 (worse than random)", result.mean_auc)
         gates_passed = False
     if result.calibration_error > 0.05 and result.calibration_error >= 0:
-        log.warning("GATE FAIL: Calibration error %.4f > 0.05", result.calibration_error)
+        log.warning(
+            "GATE FAIL: Calibration error %.4f > 0.05", result.calibration_error
+        )
         gates_passed = False
     if cpcv_result.get("is_likely_overfit"):
         log.warning("GATE WARN: CPCV indicates possible overfitting")
@@ -793,34 +967,69 @@ def train_meta_model_pipeline(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Train meta-model for signal confidence")
-    parser.add_argument("--panel", type=str, default="output/factor_panels/full_panel_7y.parquet",
-                        help="Path to factor panel parquet")
-    parser.add_argument("--output-dir", type=str, default="models/meta",
-                        help="Output directory for model + report")
-    parser.add_argument("--label-horizon", type=int, default=5,
-                        help="Forward return horizon in days")
-    parser.add_argument("--profit-target", type=float, default=0.03,
-                        help="Triple-barrier profit target (fraction)")
-    parser.add_argument("--stop-loss", type=float, default=0.02,
-                        help="Triple-barrier stop loss (fraction)")
-    parser.add_argument("--max-holding", type=int, default=10,
-                        help="Maximum holding days for triple-barrier")
-    parser.add_argument("--n-splits", type=int, default=5,
-                        help="Number of purged CV folds")
-    parser.add_argument("--model-type", type=str, default="auto",
-                        choices=["auto", "gradient_boosting", "random_forest", "lightgbm", "xgboost"],
-                        help="Model type (auto picks best available)")
-    parser.add_argument("--min-ic", type=float, default=0.02,
-                        help="Minimum IC for feature prescreen")
-    parser.add_argument("--no-calibrate", action="store_true",
-                        help="Skip Platt calibration")
-    parser.add_argument("--no-cpcv", action="store_true",
-                        help="Skip CPCV overfitting check")
-    parser.add_argument("--use-stacking", action=argparse.BooleanOptionalAction,
-                        default=True,
-                        help="Use stacking ensemble (4 base + Ridge meta) instead of single model (default: True)")
+    parser = argparse.ArgumentParser(
+        description="Train meta-model for signal confidence"
+    )
+    parser.add_argument(
+        "--panel",
+        type=str,
+        default="output/factor_panels/full_panel_7y.parquet",
+        help="Path to factor panel parquet",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="models/meta",
+        help="Output directory for model + report",
+    )
+    parser.add_argument(
+        "--label-horizon", type=int, default=5, help="Forward return horizon in days"
+    )
+    parser.add_argument(
+        "--profit-target",
+        type=float,
+        default=0.03,
+        help="Triple-barrier profit target (fraction)",
+    )
+    parser.add_argument(
+        "--stop-loss",
+        type=float,
+        default=0.02,
+        help="Triple-barrier stop loss (fraction)",
+    )
+    parser.add_argument(
+        "--max-holding",
+        type=int,
+        default=10,
+        help="Maximum holding days for triple-barrier",
+    )
+    parser.add_argument(
+        "--n-splits", type=int, default=5, help="Number of purged CV folds"
+    )
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        default="auto",
+        choices=["auto", "gradient_boosting", "random_forest", "lightgbm", "xgboost"],
+        help="Model type (auto picks best available)",
+    )
+    parser.add_argument(
+        "--min-ic", type=float, default=0.02, help="Minimum IC for feature prescreen"
+    )
+    parser.add_argument(
+        "--no-calibrate", action="store_true", help="Skip Platt calibration"
+    )
+    parser.add_argument(
+        "--no-cpcv", action="store_true", help="Skip CPCV overfitting check"
+    )
+    parser.add_argument(
+        "--use-stacking",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use stacking ensemble (4 base + Ridge meta) instead of single model (default: True)",
+    )
     args = parser.parse_args()
 
     result = train_meta_model_pipeline(

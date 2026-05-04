@@ -9,6 +9,7 @@ Invariants tested:
 - Kelly weights are non-negative for positive expected returns
 - Gross exposure is non-negative for long-only positions
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,10 +17,10 @@ import pandas as pd
 from hypothesis import given, settings, assume, HealthCheck
 from hypothesis import strategies as st
 
-
 # ---------------------------------------------------------------------------
 # qa/metrics — Sharpe ratio
 # ---------------------------------------------------------------------------
+
 
 @given(
     returns=st.lists(
@@ -43,18 +44,25 @@ def test_sharpe_sign_matches_mean_return(returns: list[float]) -> None:
 
     mean_r = float(arr.mean())
     if mean_r > 1e-8:
-        assert sharpe >= 0, f"Positive mean return should give non-negative Sharpe; got {sharpe}"
+        assert (
+            sharpe >= 0
+        ), f"Positive mean return should give non-negative Sharpe; got {sharpe}"
     elif mean_r < -1e-8:
-        assert sharpe <= 0, f"Negative mean return should give non-positive Sharpe; got {sharpe}"
+        assert (
+            sharpe <= 0
+        ), f"Negative mean return should give non-positive Sharpe; got {sharpe}"
 
 
 # ---------------------------------------------------------------------------
 # qa/metrics — drawdown
 # ---------------------------------------------------------------------------
 
+
 @given(
     values=st.lists(
-        st.floats(min_value=0.1, max_value=200.0, allow_nan=False, allow_infinity=False),
+        st.floats(
+            min_value=0.1, max_value=200.0, allow_nan=False, allow_infinity=False
+        ),
         min_size=10,
         max_size=200,
     )
@@ -75,13 +83,20 @@ def test_drawdown_is_non_positive(values: list[float]) -> None:
 # qa/metrics — CAGR
 # ---------------------------------------------------------------------------
 
+
 @given(
-    start=st.floats(min_value=1000.0, max_value=10000.0, allow_nan=False, allow_infinity=False),
-    growth=st.floats(min_value=0.01, max_value=5.0, allow_nan=False, allow_infinity=False),
+    start=st.floats(
+        min_value=1000.0, max_value=10000.0, allow_nan=False, allow_infinity=False
+    ),
+    growth=st.floats(
+        min_value=0.01, max_value=5.0, allow_nan=False, allow_infinity=False
+    ),
     periods=st.integers(min_value=252, max_value=2520),
 )
 @settings(max_examples=80, suppress_health_check=[HealthCheck.too_slow])
-def test_cagr_positive_for_growing_equity(start: float, growth: float, periods: int) -> None:
+def test_cagr_positive_for_growing_equity(
+    start: float, growth: float, periods: int
+) -> None:
     """CAGR is positive when end_value > start_value and periods >= 1 year."""
     from src.assembled_core.qa.metrics import compute_cagr
 
@@ -96,12 +111,15 @@ def test_cagr_positive_for_growing_equity(start: float, growth: float, periods: 
 # portfolio/position_sizing — vol-scaled weights
 # ---------------------------------------------------------------------------
 
+
 def _signals_df(symbols: list[str]) -> pd.DataFrame:
-    return pd.DataFrame({
-        "symbol": symbols,
-        "direction": ["LONG"] * len(symbols),
-        "score": [1.0] * len(symbols),
-    })
+    return pd.DataFrame(
+        {
+            "symbol": symbols,
+            "direction": ["LONG"] * len(symbols),
+            "score": [1.0] * len(symbols),
+        }
+    )
 
 
 @given(
@@ -110,7 +128,9 @@ def _signals_df(symbols: list[str]) -> pd.DataFrame:
         min_size=2,
         max_size=15,
     ),
-    target_vol=st.floats(min_value=0.05, max_value=0.5, allow_nan=False, allow_infinity=False),
+    target_vol=st.floats(
+        min_value=0.05, max_value=0.5, allow_nan=False, allow_infinity=False
+    ),
 )
 @settings(max_examples=80, suppress_health_check=[HealthCheck.too_slow])
 def test_vol_scaled_weights_non_negative(vols: list[float], target_vol: float) -> None:
@@ -127,18 +147,21 @@ def test_vol_scaled_weights_non_negative(vols: list[float], target_vol: float) -
         return  # acceptable if all vols are invalid
 
     for _, row in result.iterrows():
-        assert row["target_weight"] >= -1e-9, (
-            f"Weight for {row['symbol']} must be >= 0; got {row['target_weight']}"
-        )
+        assert (
+            row["target_weight"] >= -1e-9
+        ), f"Weight for {row['symbol']} must be >= 0; got {row['target_weight']}"
 
 
 # ---------------------------------------------------------------------------
 # portfolio/position_sizing — Kelly weights
 # ---------------------------------------------------------------------------
 
+
 @given(
     win_rates=st.lists(
-        st.floats(min_value=0.51, max_value=0.99, allow_nan=False, allow_infinity=False),
+        st.floats(
+            min_value=0.51, max_value=0.99, allow_nan=False, allow_infinity=False
+        ),
         min_size=2,
         max_size=10,
     ),
@@ -164,7 +187,9 @@ def test_kelly_weights_non_negative_for_favourable_bets(
     wr = pd.Series(dict(zip(symbols, win_rates[:n])))
     pr = pd.Series(dict(zip(symbols, payoff_ratios[:n])))
 
-    result = compute_kelly_weights(signals, win_rates=wr, payoff_ratios=pr, fraction=0.5)
+    result = compute_kelly_weights(
+        signals, win_rates=wr, payoff_ratios=pr, fraction=0.5
+    )
 
     if result.empty:
         return  # acceptable
@@ -180,15 +205,20 @@ def test_kelly_weights_non_negative_for_favourable_bets(
 # risk/exposure_engine — gross exposure
 # ---------------------------------------------------------------------------
 
+
 @given(
     n_positions=st.integers(min_value=1, max_value=10),
     quantities=st.lists(
-        st.floats(min_value=1.0, max_value=1000.0, allow_nan=False, allow_infinity=False),
+        st.floats(
+            min_value=1.0, max_value=1000.0, allow_nan=False, allow_infinity=False
+        ),
         min_size=1,
         max_size=10,
     ),
     prices_raw=st.lists(
-        st.floats(min_value=1.0, max_value=500.0, allow_nan=False, allow_infinity=False),
+        st.floats(
+            min_value=1.0, max_value=500.0, allow_nan=False, allow_infinity=False
+        ),
         min_size=1,
         max_size=10,
     ),
@@ -217,6 +247,6 @@ def test_long_only_gross_exposure_non_negative(
         target_positions, prices_df, equity=equity, missing_price_handling="zero"
     )
 
-    assert summary.gross_exposure >= -1e-9, (
-        f"Gross exposure must be >= 0 for long positions; got {summary.gross_exposure}"
-    )
+    assert (
+        summary.gross_exposure >= -1e-9
+    ), f"Gross exposure must be >= 0 for long positions; got {summary.gross_exposure}"

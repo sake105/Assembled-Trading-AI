@@ -6,6 +6,7 @@ walk_forward_objective: Optuna trial wrapper using rolling time windows.
 check_config_drift: Compare strategy configs across environments.
 deployment_inventory: Snapshot which model/config versions are active per env.
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,8 +60,8 @@ def walk_forward_objective(
     fold = 0
 
     for start in range(0, n - train_months - test_months + 1, stride_months):
-        train = data.iloc[start: start + train_months]
-        test = data.iloc[start + train_months: start + train_months + test_months]
+        train = data.iloc[start : start + train_months]
+        test = data.iloc[start + train_months : start + train_months + test_months]
         if len(train) < train_months or len(test) < test_months:
             break
         try:
@@ -92,15 +93,19 @@ def check_config_drift(
     """
     try:
         import yaml as _yaml
+
         _load = lambda p: _yaml.safe_load(p.read_text(encoding="utf-8"))  # noqa: E731
     except ImportError:
         import json as _json
+
         _load = lambda p: _json.loads(p.read_text(encoding="utf-8"))  # noqa: E731
 
     configs: dict[str, dict] = {}
     for env, path in config_paths.items():
         if not Path(path).exists():
-            logger.warning("check_config_drift: config not found for %s at %s", env, path)
+            logger.warning(
+                "check_config_drift: config not found for %s at %s", env, path
+            )
             configs[env] = {}
         else:
             configs[env] = _load(Path(path))
@@ -152,9 +157,11 @@ def deployment_inventory(
 
     try:
         import yaml as _yaml
+
         _load = lambda p: _yaml.safe_load(p.read_text(encoding="utf-8"))  # noqa: E731
     except ImportError:
         import json as _json
+
         _load = lambda p: _json.loads(p.read_text(encoding="utf-8"))  # noqa: E731
 
     snapshot: dict[str, Any] = {"timestamp": timestamp_utc, "environments": {}}

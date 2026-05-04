@@ -83,8 +83,9 @@ def generate_trend_signals(
         # A full-history mean would be dominated by old high-volume data and
         # block all signals for recent dates.
         df["volume_threshold"] = (
-            df.groupby("symbol")["volume"]
-            .transform(lambda x: x.rolling(ma_slow, min_periods=1).mean())
+            df.groupby("symbol")["volume"].transform(
+                lambda x: x.rolling(ma_slow, min_periods=1).mean()
+            )
             * min_volume_multiplier
         )
     elif volume_threshold is not None:
@@ -153,6 +154,7 @@ def generate_trend_signals(
     if intel_overlay is not None:
         try:
             from src.assembled_core.signals.news_signal_bridge import blend_with_news
+
             result = blend_with_news(result, intel_overlay, news_alpha=news_alpha)
         except Exception as exc:
             logger.warning("[rules_trend] news blend failed, using pure trend: %s", exc)
@@ -251,10 +253,14 @@ def compute_sector_rotation_signal(
     has_benchmark = _SECTOR_BENCHMARK in _sym_set
 
     if not available_sectors:
-        return pd.DataFrame(columns=[timestamp_col, symbol_col, "sector", "sector_signal"])
+        return pd.DataFrame(
+            columns=[timestamp_col, symbol_col, "sector", "sector_signal"]
+        )
 
     # Pivot to wide format
-    pivot = df.pivot_table(index=timestamp_col, columns=symbol_col, values=close_col, aggfunc="last")
+    pivot = df.pivot_table(
+        index=timestamp_col, columns=symbol_col, values=close_col, aggfunc="last"
+    )
     pivot = pivot.sort_index()
 
     results = []
@@ -268,23 +274,29 @@ def compute_sector_rotation_signal(
         sym_ret_long = pivot[sym].pct_change(long_window, fill_method=None)
 
         if has_benchmark and _SECTOR_BENCHMARK in pivot.columns:
-            bench_ret = pivot[_SECTOR_BENCHMARK].pct_change(momentum_window, fill_method=None)
+            bench_ret = pivot[_SECTOR_BENCHMARK].pct_change(
+                momentum_window, fill_method=None
+            )
             rs = sym_ret - bench_ret
         else:
             rs = sym_ret
 
         for ts in timestamps:
-            results.append({
-                timestamp_col: ts,
-                symbol_col: sym,
-                "sector": SECTOR_ETF_MAP[sym],
-                "relative_strength": float(rs.get(ts, float("nan"))),
-                "momentum_short": float(sym_ret.get(ts, float("nan"))),
-                "momentum_long": float(sym_ret_long.get(ts, float("nan"))),
-            })
+            results.append(
+                {
+                    timestamp_col: ts,
+                    symbol_col: sym,
+                    "sector": SECTOR_ETF_MAP[sym],
+                    "relative_strength": float(rs.get(ts, float("nan"))),
+                    "momentum_short": float(sym_ret.get(ts, float("nan"))),
+                    "momentum_long": float(sym_ret_long.get(ts, float("nan"))),
+                }
+            )
 
     if not results:
-        return pd.DataFrame(columns=[timestamp_col, symbol_col, "sector", "sector_signal"])
+        return pd.DataFrame(
+            columns=[timestamp_col, symbol_col, "sector", "sector_signal"]
+        )
 
     out = pd.DataFrame(results)
 
@@ -307,7 +319,8 @@ def compute_sector_rotation_signal(
         top_cutoff = n_valid // 3
         bot_cutoff = n_valid - n_valid // 3
         grp["sector_signal"] = np.where(
-            full_ranks <= top_cutoff, 1.0,
+            full_ranks <= top_cutoff,
+            1.0,
             np.where(full_ranks >= bot_cutoff, -1.0, 0.0),
         )
         # Normalized score 0–1 (1=strongest)
@@ -409,8 +422,13 @@ def compute_multi_timeframe_signal(
     if df.empty:
         return pd.DataFrame(
             columns=[
-                timestamp_col, symbol_col, "daily_trend", "weekly_trend",
-                "monthly_trend", "mtf_signal", "mtf_score",
+                timestamp_col,
+                symbol_col,
+                "daily_trend",
+                "weekly_trend",
+                "monthly_trend",
+                "mtf_signal",
+                "mtf_score",
             ]
         )
 
@@ -435,23 +453,23 @@ def compute_multi_timeframe_signal(
         return group
 
     # --- daily trend -------------------------------------------------------
-    daily = (
-        df.groupby(symbol_col, group_keys=False)
-        .apply(
-            lambda g: _sma_trend(g, timestamp_col, close_col, daily_fast, daily_slow, "daily_trend"),
-            include_groups=False,
-        )
+    daily = df.groupby(symbol_col, group_keys=False).apply(
+        lambda g: _sma_trend(
+            g, timestamp_col, close_col, daily_fast, daily_slow, "daily_trend"
+        ),
+        include_groups=False,
     )
 
     # --- weekly trend ------------------------------------------------------
-    weekly = resample_to_weekly(df, symbol_col=symbol_col, timestamp_col=timestamp_col, as_of=as_of)
+    weekly = resample_to_weekly(
+        df, symbol_col=symbol_col, timestamp_col=timestamp_col, as_of=as_of
+    )
     if not weekly.empty and close_col in weekly.columns:
-        weekly = (
-            weekly.groupby(symbol_col, group_keys=False)
-            .apply(
-                lambda g: _sma_trend(g, timestamp_col, close_col, weekly_fast, weekly_slow, "weekly_trend"),
-                include_groups=False,
-            )
+        weekly = weekly.groupby(symbol_col, group_keys=False).apply(
+            lambda g: _sma_trend(
+                g, timestamp_col, close_col, weekly_fast, weekly_slow, "weekly_trend"
+            ),
+            include_groups=False,
         )
         daily = align_higher_tf_to_daily(
             daily,
@@ -464,14 +482,15 @@ def compute_multi_timeframe_signal(
         daily["weekly_trend"] = np.nan
 
     # --- monthly trend -----------------------------------------------------
-    monthly = resample_to_monthly(df, symbol_col=symbol_col, timestamp_col=timestamp_col, as_of=as_of)
+    monthly = resample_to_monthly(
+        df, symbol_col=symbol_col, timestamp_col=timestamp_col, as_of=as_of
+    )
     if not monthly.empty and close_col in monthly.columns:
-        monthly = (
-            monthly.groupby(symbol_col, group_keys=False)
-            .apply(
-                lambda g: _sma_trend(g, timestamp_col, close_col, monthly_fast, monthly_slow, "monthly_trend"),
-                include_groups=False,
-            )
+        monthly = monthly.groupby(symbol_col, group_keys=False).apply(
+            lambda g: _sma_trend(
+                g, timestamp_col, close_col, monthly_fast, monthly_slow, "monthly_trend"
+            ),
+            include_groups=False,
         )
         daily = align_higher_tf_to_daily(
             daily,
@@ -492,7 +511,8 @@ def compute_multi_timeframe_signal(
     all_bearish = (dt == -1.0) & (wt == -1.0) & (mt == -1.0)
 
     daily["mtf_signal"] = np.where(
-        all_bullish, 1.0,
+        all_bullish,
+        1.0,
         np.where(all_bearish, -1.0, 0.0),
     )
     # Normalized score: map sum of trends (-3..+3) to (0..1).
@@ -508,7 +528,14 @@ def compute_multi_timeframe_signal(
 
     # --- output columns ----------------------------------------------------
     out_cols = [
-        timestamp_col, symbol_col, "daily_trend", "weekly_trend",
-        "monthly_trend", "mtf_signal", "mtf_score",
+        timestamp_col,
+        symbol_col,
+        "daily_trend",
+        "weekly_trend",
+        "monthly_trend",
+        "mtf_signal",
+        "mtf_score",
     ]
-    return daily[out_cols].sort_values([symbol_col, timestamp_col]).reset_index(drop=True)
+    return (
+        daily[out_cols].sort_values([symbol_col, timestamp_col]).reset_index(drop=True)
+    )

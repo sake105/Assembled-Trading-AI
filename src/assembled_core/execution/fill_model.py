@@ -233,7 +233,9 @@ def _validate_fill_constraints(fills: pd.DataFrame) -> None:
     # Check fill_qty <= qty (NaN-safe: drop rows where either is NaN before comparison)
     _valid = fills.dropna(subset=["fill_qty", "qty"])
     if not (_valid["fill_qty"] <= _valid["qty"]).all():
-        _bad = _valid[_valid["fill_qty"] > _valid["qty"]][["symbol", "side", "qty", "fill_qty"]].head(5)
+        _bad = _valid[_valid["fill_qty"] > _valid["qty"]][
+            ["symbol", "side", "qty", "fill_qty"]
+        ].head(5)
         logger.error("[fill_model] fill_qty > qty in rows: %s", _bad.to_dict("records"))
         raise ValueError("fill_qty must be <= qty for all rows")
 
@@ -851,6 +853,7 @@ def apply_limit_order_fills(
 
 
 # ── Circuit Breaker simulation (Plan 6.1) ────────────────���────────────
+
 
 @dataclass
 class CircuitBreakerConfig:

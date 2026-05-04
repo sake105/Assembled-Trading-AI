@@ -459,24 +459,33 @@ def generate_dividend_events(
             continue
         div_per_share = dividends[sym]
         import math as _math
-        if div_per_share is None or (isinstance(div_per_share, float) and _math.isnan(div_per_share)):
+
+        if div_per_share is None or (
+            isinstance(div_per_share, float) and _math.isnan(div_per_share)
+        ):
             logger.warning("[LEDGER] NaN/None dividend for %s — skipping", sym)
             continue
         cash_delta = qty * div_per_share  # long->positive, short->negative
 
         event_id = generate_event_id(
-            EVENT_TYPE_DIVIDEND, event_ts, sym, qty, div_per_share,
+            EVENT_TYPE_DIVIDEND,
+            event_ts,
+            sym,
+            qty,
+            div_per_share,
         )
-        events.append({
-            "event_ts": event_ts,
-            "event_type": EVENT_TYPE_DIVIDEND,
-            "symbol": sym,
-            "qty": qty,
-            "price": div_per_share,
-            "cash_delta": round(cash_delta, 4),
-            "run_id": run_id,
-            "event_id": event_id,
-        })
+        events.append(
+            {
+                "event_ts": event_ts,
+                "event_type": EVENT_TYPE_DIVIDEND,
+                "symbol": sym,
+                "qty": qty,
+                "price": div_per_share,
+                "cash_delta": round(cash_delta, 4),
+                "run_id": run_id,
+                "event_id": event_id,
+            }
+        )
 
     if not events:
         return pd.DataFrame(columns=REQUIRED_COLUMNS)
@@ -528,7 +537,9 @@ def check_margin_requirements(
     if margin_call:
         logger.warning(
             "[Margin] MARGIN CALL: equity=%.2f < maintenance=%.2f, shortfall=%.2f",
-            equity, maintenance_req, margin_call_amount,
+            equity,
+            maintenance_req,
+            margin_call_amount,
         )
 
     return {
@@ -546,6 +557,7 @@ def check_margin_requirements(
 # ---------------------------------------------------------------------------
 # 8.5  Cash Management and Drag
 # ---------------------------------------------------------------------------
+
 
 def compute_cash_drag(
     cash_balance: float,
@@ -580,6 +592,7 @@ def compute_cash_drag(
 # ---------------------------------------------------------------------------
 # 8.9  Interest Accrual (Borrow + Margin)
 # ---------------------------------------------------------------------------
+
 
 def compute_daily_interest_accrual(
     short_notionals: dict[str, float],

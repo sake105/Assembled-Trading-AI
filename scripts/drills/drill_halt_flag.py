@@ -8,6 +8,7 @@
 Usage:
     python scripts/drills/drill_halt_flag.py --dry-run-only
 """
+
 from __future__ import annotations
 
 import json
@@ -43,13 +44,22 @@ def main() -> int:
     # 2. Try to run a dry-run cycle — should skip trading
     result = subprocess.run(
         [sys.executable, "scripts/run_live_paper.py", "--once", "--dry-run"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     output = (result.stdout + result.stderr).lower()
     halted = "halt" in output or "skipped" in output or result.returncode in (0, 1)
     traded = "order submitted" in output or "orders: " in output
-    step("cycle_halted_by_flag", halted and not traded,
-         "correctly refused trading" if (halted and not traded) else f"rc={result.returncode}")
+    step(
+        "cycle_halted_by_flag",
+        halted and not traded,
+        (
+            "correctly refused trading"
+            if (halted and not traded)
+            else f"rc={result.returncode}"
+        ),
+    )
 
     # 3. Remove halt flag
     HALT_PATH.unlink(missing_ok=True)

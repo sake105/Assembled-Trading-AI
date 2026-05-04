@@ -48,6 +48,7 @@ try:
     from src.assembled_core.strategies.ema_trend_v0 import (
         compute_signals as _v1_compute_signals,
     )
+
     _V1_AVAILABLE = True
 except Exception as _e:
     logger.error("%s Failed to import V1 strategy: %s", TAG, _e)
@@ -57,9 +58,12 @@ try:
     from src.assembled_core.strategies.multifactor_v2 import (
         compute_signals as _v2_compute_signals,
     )
+
     _V2_AVAILABLE = True
 except Exception as _e:
-    logger.warning("%s Failed to import V2 strategy: %s -- V2 will be skipped.", TAG, _e)
+    logger.warning(
+        "%s Failed to import V2 strategy: %s -- V2 will be skipped.", TAG, _e
+    )
     _V2_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
@@ -96,7 +100,9 @@ def load_prices(
     if not parquet_files:
         raise FileNotFoundError(f"{TAG} No parquet files found in {price_dir}")
 
-    logger.info("%s Loading %d parquet files from %s", TAG, len(parquet_files), price_dir)
+    logger.info(
+        "%s Loading %d parquet files from %s", TAG, len(parquet_files), price_dir
+    )
     frames: list[pd.DataFrame] = []
     for fp in parquet_files:
         try:
@@ -186,9 +192,15 @@ def _compute_v2_signals_rolling(
         try:
             try:
                 from src.assembled_core.features.ta_features import compute_ta_features
+
                 subset_with_features = compute_ta_features(subset)
             except Exception as _feat_exc:
-                logger.warning("%s V2 TA features failed on %s, using raw prices: %s", TAG, dt.date(), _feat_exc)
+                logger.warning(
+                    "%s V2 TA features failed on %s, using raw prices: %s",
+                    TAG,
+                    dt.date(),
+                    _feat_exc,
+                )
                 subset_with_features = subset
             sig = _v2_compute_signals(subset_with_features, strategy_cfg={})
             signals_by_date[dt] = _get_longs_for_date(sig)
@@ -215,9 +227,15 @@ def _compute_v2_scores_rolling(
         try:
             try:
                 from src.assembled_core.features.ta_features import compute_ta_features
+
                 subset_with_features = compute_ta_features(subset)
             except Exception as _feat_exc:
-                logger.warning("%s V2 TA features failed on %s (scores), using raw prices: %s", TAG, dt.date(), _feat_exc)
+                logger.warning(
+                    "%s V2 TA features failed on %s (scores), using raw prices: %s",
+                    TAG,
+                    dt.date(),
+                    _feat_exc,
+                )
                 subset_with_features = subset
             sig = _v2_compute_signals(subset_with_features, strategy_cfg={})
             longs = sig[sig["direction"] == "LONG"] if not sig.empty else sig
@@ -281,7 +299,9 @@ def _equal_weight_portfolio_returns(
             port_returns.append(float(day_rets.mean()))
         port_dates.append(return_date)
 
-    return pd.Series(port_returns, index=pd.DatetimeIndex(port_dates), name="v1_returns")
+    return pd.Series(
+        port_returns, index=pd.DatetimeIndex(port_dates), name="v1_returns"
+    )
 
 
 def _score_weight_portfolio_returns(
@@ -325,7 +345,9 @@ def _score_weight_portfolio_returns(
             port_returns.append(float(port_ret))
         port_dates.append(return_date)
 
-    return pd.Series(port_returns, index=pd.DatetimeIndex(port_dates), name="v2_returns")
+    return pd.Series(
+        port_returns, index=pd.DatetimeIndex(port_dates), name="v2_returns"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -358,8 +380,16 @@ def compute_strategy_metrics(returns: pd.Series) -> dict:
     sharpe = annual_return / annual_vol if annual_vol > 1e-10 else float("nan")
 
     downside = r[r < 0]
-    downside_vol = float(downside.std() * np.sqrt(TRADING_DAYS)) if len(downside) > 1 else float("nan")
-    sortino = annual_return / downside_vol if (downside_vol and downside_vol > 1e-10) else float("nan")
+    downside_vol = (
+        float(downside.std() * np.sqrt(TRADING_DAYS))
+        if len(downside) > 1
+        else float("nan")
+    )
+    sortino = (
+        annual_return / downside_vol
+        if (downside_vol and downside_vol > 1e-10)
+        else float("nan")
+    )
 
     cum = (1 + r).cumprod()
     rolling_max = cum.cummax()
@@ -405,6 +435,7 @@ def test_strategy_difference(
     """
     try:
         from scipy import stats as scipy_stats
+
         _scipy_ok = True
     except ImportError:
         logger.warning("%s scipy not available -- t-test skipped.", TAG)
@@ -438,6 +469,7 @@ def test_strategy_difference(
         idx = rng.integers(0, n, size=n)
         s1 = r1[idx]
         s2 = r2[idx]
+
         def _sharpe(x: np.ndarray) -> float:
             mu = x.mean()
             sd = x.std()
@@ -462,9 +494,15 @@ def test_strategy_difference(
         "n_bootstrap": n_bootstrap,
         "paired_ttest_statistic": round(t_stat, 4) if np.isfinite(t_stat) else None,
         "paired_ttest_pvalue": round(p_value, 6) if np.isfinite(p_value) else None,
-        "bootstrap_sharpe_diff_mean": round(bs_mean, 4) if np.isfinite(bs_mean) else None,
-        "bootstrap_sharpe_diff_ci_low": round(ci_low, 4) if np.isfinite(ci_low) else None,
-        "bootstrap_sharpe_diff_ci_high": round(ci_high, 4) if np.isfinite(ci_high) else None,
+        "bootstrap_sharpe_diff_mean": (
+            round(bs_mean, 4) if np.isfinite(bs_mean) else None
+        ),
+        "bootstrap_sharpe_diff_ci_low": (
+            round(ci_low, 4) if np.isfinite(ci_low) else None
+        ),
+        "bootstrap_sharpe_diff_ci_high": (
+            round(ci_high, 4) if np.isfinite(ci_high) else None
+        ),
         "ci_excludes_zero": bool(ci_low > 0) if np.isfinite(ci_low) else False,
     }
 
@@ -481,7 +519,12 @@ def _compute_improvement(v1: dict, v2: dict) -> dict:
             continue
         a = v1.get(key)
         b = v2.get(key)
-        if isinstance(a, float) and isinstance(b, float) and np.isfinite(a) and np.isfinite(b):
+        if (
+            isinstance(a, float)
+            and isinstance(b, float)
+            and np.isfinite(a)
+            and np.isfinite(b)
+        ):
             improvement[key] = round(b - a, 4)
         else:
             improvement[key] = None
@@ -585,11 +628,17 @@ def run_parallel_comparison(
     logger.info("%s [START] Parallel backtest comparison", TAG)
     logger.info(
         "%s price_dir=%s  start=%s  end=%s  capital=%.0f",
-        TAG, price_dir, start_date or "earliest", end_date or "latest", start_capital,
+        TAG,
+        price_dir,
+        start_date or "earliest",
+        end_date or "latest",
+        start_capital,
     )
 
     if not _V1_AVAILABLE:
-        raise RuntimeError(f"{TAG} V1 strategy (ema_trend_v0) is not available -- cannot continue.")
+        raise RuntimeError(
+            f"{TAG} V1 strategy (ema_trend_v0) is not available -- cannot continue."
+        )
 
     # --- Load prices ---
     prices = load_prices(price_dir, start_date=start_date, end_date=end_date)
@@ -599,32 +648,48 @@ def run_parallel_comparison(
     all_dates = return_pivot.index
 
     if len(all_dates) < 5:
-        raise ValueError(f"{TAG} Not enough trading days ({len(all_dates)}) after filtering.")
+        raise ValueError(
+            f"{TAG} Not enough trading days ({len(all_dates)}) after filtering."
+        )
 
     # --- V1: equal-weight signals ---
-    logger.info("%s [START] Computing V1 (EMA) signals for %d dates ...", TAG, len(all_dates))
+    logger.info(
+        "%s [START] Computing V1 (EMA) signals for %d dates ...", TAG, len(all_dates)
+    )
     v1_signals_by_date = _compute_v1_signals_rolling(prices, all_dates)
     v1_returns = _equal_weight_portfolio_returns(v1_signals_by_date, return_pivot)
     v1_returns.name = "v1_returns"
     logger.info(
         "%s [OK] V1 returns computed. Non-zero days: %d / %d",
-        TAG, int((v1_returns != 0).sum()), len(v1_returns),
+        TAG,
+        int((v1_returns != 0).sum()),
+        len(v1_returns),
     )
 
     # --- V2: score-weighted signals (optional) ---
     v2_returns: pd.Series | None = None
     if _V2_AVAILABLE:
-        logger.info("%s [START] Computing V2 (multifactor_v2) signals for %d dates ...", TAG, len(all_dates))
+        logger.info(
+            "%s [START] Computing V2 (multifactor_v2) signals for %d dates ...",
+            TAG,
+            len(all_dates),
+        )
         try:
             v2_scores_by_date = _compute_v2_scores_rolling(prices, all_dates)
-            v2_returns = _score_weight_portfolio_returns(v2_scores_by_date, return_pivot)
+            v2_returns = _score_weight_portfolio_returns(
+                v2_scores_by_date, return_pivot
+            )
             v2_returns.name = "v2_returns"
             logger.info(
                 "%s [OK] V2 returns computed. Non-zero days: %d / %d",
-                TAG, int((v2_returns != 0).sum()), len(v2_returns),
+                TAG,
+                int((v2_returns != 0).sum()),
+                len(v2_returns),
             )
         except Exception as exc:
-            logger.error("%s V2 computation failed: %s -- continuing with V1 only.", TAG, exc)
+            logger.error(
+                "%s V2 computation failed: %s -- continuing with V1 only.", TAG, exc
+            )
             v2_returns = None
     else:
         logger.warning("%s V2 not available -- comparison will be V1 only.", TAG)
@@ -637,7 +702,9 @@ def run_parallel_comparison(
     stat_tests: dict = {}
     if v2_returns is not None:
         logger.info("%s [START] Running statistical tests ...", TAG)
-        stat_tests = test_strategy_difference(v1_returns, v2_returns, n_bootstrap=10_000)
+        stat_tests = test_strategy_difference(
+            v1_returns, v2_returns, n_bootstrap=10_000
+        )
         logger.info("%s [OK] Statistical tests complete.", TAG)
 
     # --- Improvement delta ---
@@ -664,7 +731,9 @@ def run_parallel_comparison(
     # --- Console table ---
     if v2_metrics:
         _print_summary_table(v1_metrics, v2_metrics, improvement)
-        sig_str = "YES (bootstrap CI excludes 0 and p < 0.05)" if is_significant else "NO"
+        sig_str = (
+            "YES (bootstrap CI excludes 0 and p < 0.05)" if is_significant else "NO"
+        )
         print(f"  Statistically significant improvement: {sig_str}")
         p_str = f"{p_val:.4f}" if p_val is not None else "N/A"
         print(f"  Paired t-test p-value: {p_str}")

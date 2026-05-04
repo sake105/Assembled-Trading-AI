@@ -17,15 +17,17 @@ def _synthetic_daily(n: int = 200, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     dates = pd.bdate_range("2023-01-01", periods=n)
     close = 100.0 + np.cumsum(rng.normal(0, 0.5, n))
-    return pd.DataFrame({
-        "timestamp": dates,
-        "symbol": "AAPL",
-        "open": close + rng.normal(0, 0.2, n),
-        "high": close + rng.uniform(0.5, 1.5, n),
-        "low": close - rng.uniform(0.5, 1.5, n),
-        "close": close,
-        "volume": rng.poisson(1000000, n),
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": "AAPL",
+            "open": close + rng.normal(0, 0.2, n),
+            "high": close + rng.uniform(0.5, 1.5, n),
+            "low": close - rng.uniform(0.5, 1.5, n),
+            "close": close,
+            "volume": rng.poisson(1000000, n),
+        }
+    )
 
 
 @pytest.mark.phase12
@@ -65,7 +67,8 @@ class TestAlignHigherTFToDaily:
         daily = _synthetic_daily()
         weekly = resample_to_weekly(daily)
         aligned = align_higher_tf_to_daily(
-            daily, weekly,
+            daily,
+            weekly,
             suffix="_weekly",
         )
         assert len(aligned) == len(daily)

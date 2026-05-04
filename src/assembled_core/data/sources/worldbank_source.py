@@ -118,7 +118,10 @@ def fetch_worldbank_indicator(
                 "country_code": (
                     rec.get("countryiso3code") or rec.get("country", {}).get("id") or ""
                 ).upper(),
-                "country_name": (rec.get("country") if isinstance(rec.get("country"), dict) else {}).get("value") or "",
+                "country_name": (
+                    rec.get("country") if isinstance(rec.get("country"), dict) else {}
+                ).get("value")
+                or "",
                 "indicator": indicator,
                 "value": float(value),
             }

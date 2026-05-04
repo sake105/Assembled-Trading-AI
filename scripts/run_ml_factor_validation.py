@@ -238,9 +238,7 @@ def write_ml_validation_report(
             f.write("| Rank | Feature | Importance | Raw Value | Direction |\n")
             f.write("|------|---------|------------|-----------|----------|\n")
             for rank, row in enumerate(top_features.itertuples(index=False), start=1):
-                direction_str = (
-                    str(row.direction) if pd.notna(row.direction) else "N/A"
-                )
+                direction_str = str(row.direction) if pd.notna(row.direction) else "N/A"
                 f.write(
                     f"| {rank} | {row.feature} | {row.importance:.6f} | "
                     f"{row.raw_value:.6f} | {direction_str} |\n"
@@ -314,7 +312,9 @@ def write_ml_validation_report(
 
             f.write("| Rank | Feature | Importance (Mean) | Importance (Std) |\n")
             f.write("|------|---------|-------------------|------------------|\n")
-            for rank, row in enumerate(top_perm_features.itertuples(index=False), start=1):
+            for rank, row in enumerate(
+                top_perm_features.itertuples(index=False), start=1
+            ):
                 f.write(
                     f"| {rank} | {row.feature} | {row.importance_mean:.6f} | "
                     f"{row.importance_std:.6f} |\n"

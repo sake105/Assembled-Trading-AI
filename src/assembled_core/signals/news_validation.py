@@ -5,6 +5,7 @@ Three-level validation pipeline from 34_NEWS_GROUND_TRUTH.md:
   Level B — economic relevance via event-study (MacKinlay 1997)
   Level C — tradability via IC / quantile-spread / cost-adjusted edge
 """
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # Level A — Classification Accuracy
 # ---------------------------------------------------------------------------
+
 
 def classification_metrics(
     y_true: list[str],
@@ -116,6 +118,7 @@ def load_gold_dataset(path: str | Path) -> tuple[list[str], list[str]]:
 # Level B — Economic Relevance (Event Study)
 # ---------------------------------------------------------------------------
 
+
 def compute_market_model(
     ticker_returns: pd.Series,
     market_returns: pd.Series,
@@ -128,7 +131,9 @@ def compute_market_model(
     Returns (alpha, beta, residual_std). Returns (None, None, None) if data
     insufficient.
     """
-    mask = (ticker_returns.index >= estimation_start) & (ticker_returns.index <= estimation_end)
+    mask = (ticker_returns.index >= estimation_start) & (
+        ticker_returns.index <= estimation_end
+    )
     r_t = ticker_returns[mask].dropna()
     r_m = market_returns.reindex(r_t.index).dropna()
     r_t = r_t.reindex(r_m.index)
@@ -221,17 +226,21 @@ def event_study(
         if len(ars) == 0:
             continue
 
-        results.append({
-            "ticker": ticker,
-            "event_date": event_date,
-            "label": label,
-            "car": float(ars.sum()),
-            "n_event_days": len(ars),
-            "resid_std": resid_std,
-        })
+        results.append(
+            {
+                "ticker": ticker,
+                "event_date": event_date,
+                "label": label,
+                "car": float(ars.sum()),
+                "n_event_days": len(ars),
+                "resid_std": resid_std,
+            }
+        )
 
-    return pd.DataFrame(results, columns=["ticker", "event_date", "label", "car",
-                                          "n_event_days", "resid_std"])
+    return pd.DataFrame(
+        results,
+        columns=["ticker", "event_date", "label", "car", "n_event_days", "resid_std"],
+    )
 
 
 def car_significance_report(event_study_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
@@ -254,8 +263,12 @@ def car_significance_report(event_study_df: pd.DataFrame) -> dict[str, dict[str,
         mean_car = float(np.mean(car_vals))
         if n < 2:
             report[str(label)] = {
-                "n": n, "mean_car": mean_car, "median_car": mean_car,
-                "std_car": 0.0, "t_stat": None, "p_value": None,
+                "n": n,
+                "mean_car": mean_car,
+                "median_car": mean_car,
+                "std_car": 0.0,
+                "t_stat": None,
+                "p_value": None,
                 "significant_5pct": False,
             }
             continue
@@ -270,6 +283,7 @@ def car_significance_report(event_study_df: pd.DataFrame) -> dict[str, dict[str,
             t_stat = mean_car / se if se > 0 else 0.0
             # approximate p-value via normal (acceptable for n > 30)
             from math import erfc, sqrt
+
             p_value = float(erfc(abs(t_stat) / sqrt(2)))
 
         report[str(label)] = {
@@ -287,6 +301,7 @@ def car_significance_report(event_study_df: pd.DataFrame) -> dict[str, dict[str,
 # ---------------------------------------------------------------------------
 # Level C — Tradability (IC / quantile spread / cost-adjusted edge)
 # ---------------------------------------------------------------------------
+
 
 def compute_ic(
     factor_values: pd.Series,
@@ -322,7 +337,7 @@ def _rank(arr: np.ndarray) -> np.ndarray:
 def _pearson(x: np.ndarray, y: np.ndarray) -> float:
     xm = x - x.mean()
     ym = y - y.mean()
-    denom = np.sqrt((xm ** 2).sum() * (ym ** 2).sum())
+    denom = np.sqrt((xm**2).sum() * (ym**2).sum())
     if denom == 0:
         return 0.0
     return float((xm * ym).sum() / denom)
@@ -334,13 +349,15 @@ def compute_quantile_returns(
     n_quantiles: int = 5,
 ) -> pd.Series:
     """Mean forward return per factor quantile bucket."""
-    combined = pd.concat([factor_values.rename("factor"),
-                          forward_returns.rename("fwd")], axis=1).dropna()
+    combined = pd.concat(
+        [factor_values.rename("factor"), forward_returns.rename("fwd")], axis=1
+    ).dropna()
     if len(combined) < n_quantiles * 5:
         return pd.Series(dtype=float)
 
-    combined["quantile"] = pd.qcut(combined["factor"], q=n_quantiles, labels=False,
-                                   duplicates="drop")
+    combined["quantile"] = pd.qcut(
+        combined["factor"], q=n_quantiles, labels=False, duplicates="drop"
+    )
     return combined.groupby("quantile")["fwd"].mean()
 
 
@@ -360,9 +377,11 @@ def net_edge_after_costs(
         dict with gross_edge_annual_pct, cost_annual_pct, net_edge_annual_pct
     """
     if q_returns.empty:
-        return {"gross_edge_annual_pct": float("nan"),
-                "cost_annual_pct": float("nan"),
-                "net_edge_annual_pct": float("nan")}
+        return {
+            "gross_edge_annual_pct": float("nan"),
+            "cost_annual_pct": float("nan"),
+            "net_edge_annual_pct": float("nan"),
+        }
 
     q_last = q_returns.index[-1]
     q_first = q_returns.index[0]
@@ -383,7 +402,7 @@ def net_edge_after_costs(
 GATE_THRESHOLDS: dict[str, float] = {
     "level_a_fpb_macro_f1": 0.70,
     "level_a_own_gold_macro_f1": 0.60,
-    "level_b_car_significance_p": 0.05,       # must be < threshold
+    "level_b_car_significance_p": 0.05,  # must be < threshold
     "level_b_car_magnitude_bps": 30.0,
     "level_c_ic_mean": 0.02,
     "level_c_quantile_spread_bps": 15.0,
@@ -436,6 +455,7 @@ def gate_summary(
 # Model inference helpers (34_NEWS_GROUND_TRUTH.md §5 — optional deps)
 # ---------------------------------------------------------------------------
 
+
 def run_finbert_tone(texts: list[str]) -> list[str]:
     """Run FinBERT-tone classification on a list of texts.
 
@@ -447,6 +467,7 @@ def run_finbert_tone(texts: list[str]) -> list[str]:
         from transformers import pipeline as hf_pipeline  # type: ignore[import]
     except ImportError:
         import logging
+
         logging.getLogger(__name__).warning(
             "transformers not installed — run_finbert_tone returns neutral for all texts"
         )
@@ -473,6 +494,7 @@ def run_haiku_zeroshot(texts: list[str], anthropic_client: Any) -> list[str]:
     Falls back to 'neutral' on any API error.
     """
     import logging
+
     logger = logging.getLogger(__name__)
     results: list[str] = []
     for text in texts:
@@ -504,6 +526,7 @@ def run_haiku_zeroshot(texts: list[str], anthropic_client: Any) -> list[str]:
 # Text utilities
 # ---------------------------------------------------------------------------
 
+
 def entity_anonymize(headline: str, ticker: str, company_name: str) -> str:
     """Replace ticker symbol and company name with neutral placeholders.
 
@@ -520,7 +543,8 @@ def entity_anonymize(headline: str, ticker: str, company_name: str) -> str:
         Anonymized headline with ticker → 'XYZ' and company → 'Company XYZ'.
     """
     import re
-    result = re.sub(r'\b' + re.escape(ticker) + r'\b', "XYZ", headline)
+
+    result = re.sub(r"\b" + re.escape(ticker) + r"\b", "XYZ", headline)
     result = re.sub(re.escape(company_name), "Company XYZ", result, flags=re.IGNORECASE)
     return result
 
@@ -528,6 +552,7 @@ def entity_anonymize(headline: str, ticker: str, company_name: str) -> str:
 # ---------------------------------------------------------------------------
 # Factor series builder (34_NEWS_GROUND_TRUTH.md §8 — Alphalens integration)
 # ---------------------------------------------------------------------------
+
 
 def build_factor_series(
     news_events_df: "pd.DataFrame",
@@ -549,10 +574,7 @@ def build_factor_series(
     df = news_events_df.copy()
     df["date"] = pd.to_datetime(df["date"]).dt.normalize()
 
-    grouped = (
-        df.groupby(["date", "ticker"])["sentiment_numeric"]
-        .mean()
-    )
+    grouped = df.groupby(["date", "ticker"])["sentiment_numeric"].mean()
 
     full_index = pd.MultiIndex.from_product(
         [pd.DatetimeIndex(dates).normalize(), tickers_universe],

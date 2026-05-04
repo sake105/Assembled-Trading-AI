@@ -63,10 +63,7 @@ def sync_positions_from_broker(
         return result
 
     # Convert broker positions to DataFrame
-    broker_rows = [
-        {"symbol": p.symbol, "qty": p.qty}
-        for p in broker_positions
-    ]
+    broker_rows = [{"symbol": p.symbol, "qty": p.qty} for p in broker_positions]
     broker_df = (
         pd.DataFrame(broker_rows, columns=["symbol", "qty"])
         if broker_rows

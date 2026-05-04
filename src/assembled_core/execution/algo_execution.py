@@ -143,20 +143,27 @@ class TWAPScheduler:
         slices = []
         for i in range(n):
             t = start_time + timedelta(seconds=interval * (i + 0.5))
-            slices.append(SlicedOrder(
-                symbol=symbol,
-                side=side,
-                quantity=float(quantities[i]),
-                scheduled_time=t,
-                slice_idx=i,
-                total_slices=n,
-                algo="TWAP",
-                parent_order_id=parent_order_id,
-            ))
+            slices.append(
+                SlicedOrder(
+                    symbol=symbol,
+                    side=side,
+                    quantity=float(quantities[i]),
+                    scheduled_time=t,
+                    slice_idx=i,
+                    total_slices=n,
+                    algo="TWAP",
+                    parent_order_id=parent_order_id,
+                )
+            )
 
         logger.debug(
             "[TWAP] %s %s %.0f in %d slices (%s → %s)",
-            side, symbol, total_qty, n, start_time, end_time,
+            side,
+            symbol,
+            total_qty,
+            n,
+            start_time,
+            end_time,
         )
         return slices
 
@@ -209,9 +216,13 @@ class VWAPScheduler:
         n = max(1, min(self.n_slices, int(total_qty)))
 
         if volume_profile is None or volume_profile.empty:
-            logger.warning("[VWAP] No volume profile — falling back to equal distribution")
+            logger.warning(
+                "[VWAP] No volume profile — falling back to equal distribution"
+            )
             twap = TWAPScheduler(n_slices=n, randomize=False)
-            slices = twap.schedule(symbol, total_qty, side, start_time, end_time, parent_order_id)
+            slices = twap.schedule(
+                symbol, total_qty, side, start_time, end_time, parent_order_id
+            )
             for s in slices:
                 s.algo = "VWAP"
             return slices
@@ -226,7 +237,9 @@ class VWAPScheduler:
 
         if vol.empty:
             twap = TWAPScheduler(n_slices=n, randomize=False)
-            slices = twap.schedule(symbol, total_qty, side, start_time, end_time, parent_order_id)
+            slices = twap.schedule(
+                symbol, total_qty, side, start_time, end_time, parent_order_id
+            )
             for s in slices:
                 s.algo = "VWAP"
             return slices
@@ -241,10 +254,12 @@ class VWAPScheduler:
         for i in range(n):
             start_i = i * bucket_size
             end_i = start_i + bucket_size if i < n - 1 else len(vol_values)
-            buckets.append((
-                pd.Timestamp(times[start_i]).to_pydatetime(),
-                float(vol_values[start_i:end_i].sum()),
-            ))
+            buckets.append(
+                (
+                    pd.Timestamp(times[start_i]).to_pydatetime(),
+                    float(vol_values[start_i:end_i].sum()),
+                )
+            )
 
         total_bucket_vol = sum(b[1] for b in buckets)
         if total_bucket_vol <= 0:
@@ -260,20 +275,25 @@ class VWAPScheduler:
             else:
                 qty = remaining  # last slice absorbs rounding
 
-            slices.append(SlicedOrder(
-                symbol=symbol,
-                side=side,
-                quantity=max(0.0, qty),
-                scheduled_time=bucket_time,
-                slice_idx=i,
-                total_slices=n,
-                algo="VWAP",
-                parent_order_id=parent_order_id,
-            ))
+            slices.append(
+                SlicedOrder(
+                    symbol=symbol,
+                    side=side,
+                    quantity=max(0.0, qty),
+                    scheduled_time=bucket_time,
+                    slice_idx=i,
+                    total_slices=n,
+                    algo="VWAP",
+                    parent_order_id=parent_order_id,
+                )
+            )
 
         logger.debug(
             "[VWAP] %s %s %.0f in %d volume-proportional slices",
-            side, symbol, total_qty, n,
+            side,
+            symbol,
+            total_qty,
+            n,
         )
         return slices
 
@@ -326,7 +346,10 @@ class ImplementationShortfallModel:
                 "opportunity_cost_bps": self.opportunity_cost_bps,
                 "total_cost_bps": self.opportunity_cost_bps,
                 "total_cost_pct": self.opportunity_cost_bps / 10000,
-                "total_cost_notional": quantity * price * self.opportunity_cost_bps / 10000,
+                "total_cost_notional": quantity
+                * price
+                * self.opportunity_cost_bps
+                / 10000,
             }
 
         participation = quantity / (adv * execution_days)
@@ -441,12 +464,14 @@ def compute_multi_day_execution_plan(
 
     while remaining > 0:
         slice_qty = min(remaining, max_daily)
-        plan.append({
-            "day": day,
-            "quantity": round(slice_qty, 0),
-            "pct_of_adv": round(slice_qty / adv * 100, 2),
-            "remaining_after": round(remaining - slice_qty, 0),
-        })
+        plan.append(
+            {
+                "day": day,
+                "quantity": round(slice_qty, 0),
+                "pct_of_adv": round(slice_qty / adv * 100, 2),
+                "remaining_after": round(remaining - slice_qty, 0),
+            }
+        )
         remaining -= slice_qty
         day += 1
 

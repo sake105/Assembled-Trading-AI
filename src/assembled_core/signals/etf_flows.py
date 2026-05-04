@@ -93,6 +93,7 @@ def sector_rotation_signal(lookback_days: int = 5) -> dict[str, float]:
         return {}
 
     import numpy as np
+
     values = list(flows.values())
     mean_flow = float(np.mean(values))
     std_flow = float(np.std(values))
@@ -108,13 +109,18 @@ def etf_flow_summary(lookback_days: int = 5) -> pd.DataFrame:
     rotation = sector_rotation_signal(lookback_days)
     rows = []
     for sector, etf in SECTOR_ETFS.items():
-        rows.append({
-            "sector": sector,
-            "etf": etf,
-            "flow_score": rotation.get(sector, 0.0),
-            "direction": "inflow" if rotation.get(sector, 0) > 0.5 else
-                         "outflow" if rotation.get(sector, 0) < -0.5 else "neutral",
-        })
+        rows.append(
+            {
+                "sector": sector,
+                "etf": etf,
+                "flow_score": rotation.get(sector, 0.0),
+                "direction": (
+                    "inflow"
+                    if rotation.get(sector, 0) > 0.5
+                    else "outflow" if rotation.get(sector, 0) < -0.5 else "neutral"
+                ),
+            }
+        )
     return pd.DataFrame(rows).sort_values("flow_score", ascending=False)
 
 

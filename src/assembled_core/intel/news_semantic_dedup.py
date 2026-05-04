@@ -28,11 +28,35 @@ from datetime import datetime, timedelta, timezone
 logger = logging.getLogger(__name__)
 
 _WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9'-]+")
-_STOP = frozenset({
-    "the", "a", "an", "of", "to", "in", "on", "for", "with",
-    "and", "or", "but", "is", "are", "was", "were", "be", "by",
-    "as", "at", "from", "that", "this", "it", "its",
-})
+_STOP = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "of",
+        "to",
+        "in",
+        "on",
+        "for",
+        "with",
+        "and",
+        "or",
+        "but",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "by",
+        "as",
+        "at",
+        "from",
+        "that",
+        "this",
+        "it",
+        "its",
+    }
+)
 
 
 @dataclass
@@ -45,7 +69,8 @@ class _Entry:
 
 def _tokenise(title: str) -> frozenset[str]:
     return frozenset(
-        w.lower() for w in _WORD_RE.findall(title or "")
+        w.lower()
+        for w in _WORD_RE.findall(title or "")
         if w.lower() not in _STOP and len(w) > 2
     )
 

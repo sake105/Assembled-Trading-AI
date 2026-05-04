@@ -14,8 +14,13 @@ from src.assembled_core.intel.news_source_voting import (
 )
 
 
-def _evt(eid: str, src: str, tier: SourceTier, direction: str = "neutral",
-         event_types: list[str] | None = None) -> NewsEvent:
+def _evt(
+    eid: str,
+    src: str,
+    tier: SourceTier,
+    direction: str = "neutral",
+    event_types: list[str] | None = None,
+) -> NewsEvent:
     ts = datetime.now(tz=timezone.utc)
     return NewsEvent(
         event_id=eid,
@@ -59,7 +64,7 @@ class TestVoteDirection:
     def test_state_media_discount(self):
         # state-media gets 0.5x discount
         evs = [
-            _evt("e1", "rt", SourceTier.T3, "bullish"),       # tier T3=0.4 * 0.5 = 0.2
+            _evt("e1", "rt", SourceTier.T3, "bullish"),  # tier T3=0.4 * 0.5 = 0.2
             _evt("e2", "reuters", SourceTier.T1, "bearish"),  # 2.0
         ]
         r = vote_direction(evs)

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import pytest; pytest.importorskip("src.assembled_core.ml.nlp_sentiment")
+import pytest
+
+pytest.importorskip("src.assembled_core.ml.nlp_sentiment")
 import pandas as pd
 
 from src.assembled_core.ml.nlp_sentiment import (
@@ -17,7 +19,10 @@ class TestScoreTextsFinbert:
         """Without transformers installed, should raise ImportError."""
         try:
             import transformers  # noqa: F401
-            pytest.skip("transformers is installed — this test is for no-transformers env")
+
+            pytest.skip(
+                "transformers is installed — this test is for no-transformers env"
+            )
         except ImportError:
             pass
         with pytest.raises(ImportError, match="transformers"):
@@ -30,6 +35,7 @@ class TestScoreTextsFinbert:
     def test_single_text(self):
         try:
             import transformers  # noqa: F401
+
             pytest.skip("transformers required for actual scoring test")
         except ImportError:
             with pytest.raises(ImportError):
@@ -42,14 +48,17 @@ class TestScoreNewsStore:
         """score_news_store requires transformers — should raise without it."""
         try:
             import transformers  # noqa: F401
+
             pytest.skip("transformers installed — skip no-transformers test")
         except ImportError:
             pass
-        news_df = pd.DataFrame({
-            "headline": ["Stock rises sharply", "Market crashes"],
-            "symbol": ["AAPL", "MSFT"],
-            "timestamp": pd.date_range("2024-01-01", periods=2),
-        })
+        news_df = pd.DataFrame(
+            {
+                "headline": ["Stock rises sharply", "Market crashes"],
+                "symbol": ["AAPL", "MSFT"],
+                "timestamp": pd.date_range("2024-01-01", periods=2),
+            }
+        )
         with pytest.raises(ImportError):
             score_news_store(news_df)
 

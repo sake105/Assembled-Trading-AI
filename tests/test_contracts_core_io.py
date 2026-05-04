@@ -29,7 +29,6 @@ from src.assembled_core.pipeline.orders import signals_to_orders
 from src.assembled_core.pipeline.signals import compute_ema_signals
 from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
 
-
 # ============================================================================
 # Helper Functions
 # ============================================================================

@@ -35,9 +35,7 @@ def test_render_with_labels() -> None:
 
 
 def test_render_skips_invalid_metric_name() -> None:
-    text = render_prometheus_text(
-        {"good_metric": 1.0, "bad metric with space": 2.0}
-    )
+    text = render_prometheus_text({"good_metric": 1.0, "bad metric with space": 2.0})
     assert "good_metric" in text
     assert "bad metric" not in text
 

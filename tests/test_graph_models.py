@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytest.importorskip('src.assembled_core.ml.graph_models')
+pytest.importorskip("src.assembled_core.ml.graph_models")
 from src.assembled_core.ml.graph_models import (
     GraphNode,
     GraphEdge,
@@ -112,18 +112,23 @@ class TestLeadLag:
         edges = detect_lead_lag(lead_lag_returns, max_lag=3, min_correlation=0.1)
         assert isinstance(edges, list)
         # Should detect A leads B
-        ab_edges = [e for e in edges if
-                    (e.source == "A" and e.target == "B") or
-                    (e.source == "B" and e.target == "A")]
+        ab_edges = [
+            e
+            for e in edges
+            if (e.source == "A" and e.target == "B")
+            or (e.source == "B" and e.target == "A")
+        ]
         if ab_edges:
             assert ab_edges[0].lag >= 1
 
     def test_no_lead_lag_in_random(self):
         rng = np.random.default_rng(42)
-        df = pd.DataFrame({
-            "X": rng.normal(0, 0.01, 200),
-            "Y": rng.normal(0, 0.01, 200),
-        })
+        df = pd.DataFrame(
+            {
+                "X": rng.normal(0, 0.01, 200),
+                "Y": rng.normal(0, 0.01, 200),
+            }
+        )
         edges = detect_lead_lag(df, max_lag=3, min_correlation=0.3)
         # With high threshold, random data shouldn't show lead-lag
         assert isinstance(edges, list)

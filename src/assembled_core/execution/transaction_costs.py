@@ -579,7 +579,9 @@ def compute_volatility_proxy(
 
     # Compute log returns per symbol (groupby shift avoids cross-symbol leakage)
     _prev_close = prices_copy.groupby("symbol")["close"].shift(1)
-    prices_copy["log_return"] = np.log((prices_copy["close"] / _prev_close).clip(lower=1e-10))
+    prices_copy["log_return"] = np.log(
+        (prices_copy["close"] / _prev_close).clip(lower=1e-10)
+    )
 
     # Rolling standard deviation per symbol
     volatility = (
@@ -768,9 +770,9 @@ class BorrowCostModel:
     Borrow fee accrues daily on the notional value of the short position.
     """
 
-    gc_rate_annual: float = 0.0025       # 0.25% p.a.
-    special_rate_annual: float = 0.03    # 3% p.a. (midpoint)
-    htb_rate_annual: float = 0.08        # 8% p.a. (moderate HTB)
+    gc_rate_annual: float = 0.0025  # 0.25% p.a.
+    special_rate_annual: float = 0.03  # 3% p.a. (midpoint)
+    htb_rate_annual: float = 0.08  # 8% p.a. (moderate HTB)
     htb_symbols: set[str] | None = None
     special_symbols: set[str] | None = None
 
@@ -824,6 +826,7 @@ class BorrowCostModel:
 # ---------------------------------------------------------------------------
 # 6.8  TCA Feedback Loop
 # ---------------------------------------------------------------------------
+
 
 def compute_tca_feedback(
     realized_slippage: pd.DataFrame,
@@ -1003,6 +1006,8 @@ def compute_regime_adjusted_slippage_bps(
 
     # Fallback for missing data
     no_data = np.isnan(adv_usd) | np.isnan(volatility)
-    slippage_bps = np.where(no_data, model.fallback_slippage_bps * slip_k_m, slippage_bps)
+    slippage_bps = np.where(
+        no_data, model.fallback_slippage_bps * slip_k_m, slippage_bps
+    )
 
     return slippage_bps

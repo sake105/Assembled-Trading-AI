@@ -28,7 +28,9 @@ def _mk_prices(sym: str = "AAA", n: int = 80, vol: float = 1e6) -> pd.DataFrame:
     )
 
 
-def _mk_orders(sym: str = "AAA", qty: float = 100.0, price: float = 100.0) -> pd.DataFrame:
+def _mk_orders(
+    sym: str = "AAA", qty: float = 100.0, price: float = 100.0
+) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
@@ -100,11 +102,25 @@ def test_meta_contains_aggregate_stats() -> None:
     )
     orders = pd.DataFrame(
         [
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "AAA", "side": "BUY", "qty": 50.0, "price": 100.0},
-            {"timestamp": pd.Timestamp("2025-03-01", tz="UTC"), "symbol": "BBB", "side": "BUY", "qty": 50.0, "price": 100.0},
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 50.0,
+                "price": 100.0,
+            },
+            {
+                "timestamp": pd.Timestamp("2025-03-01", tz="UTC"),
+                "symbol": "BBB",
+                "side": "BUY",
+                "qty": 50.0,
+                "price": 100.0,
+            },
         ]
     )
-    new_orders, meta = _apply_pre_trade_impact(orders, prices, {"max_total_cost_bps": 500.0})
+    new_orders, meta = _apply_pre_trade_impact(
+        orders, prices, {"max_total_cost_bps": 500.0}
+    )
     assert meta["n_orders"] == 2
     assert "avg_bps" in meta and "max_bps" in meta
     assert meta["max_bps"] >= meta["avg_bps"]

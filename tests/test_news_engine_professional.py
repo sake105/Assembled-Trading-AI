@@ -20,7 +20,6 @@ import pytest
 
 from src.assembled_core.intel.models import NewsEvent, SourceTier
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -37,6 +36,7 @@ def _make_event(
     url: str = "",
 ) -> NewsEvent:
     import hashlib
+
     content_hash = hashlib.sha256((title + source_id).encode()).hexdigest()[:16]
     return NewsEvent(
         event_id=event_id,
@@ -157,7 +157,9 @@ class TestNewsPositionBridge:
         assert sig is None
 
     def test_classification_to_signal_bearish(self):
-        from src.assembled_core.intel.news_position_bridge import classification_to_signal
+        from src.assembled_core.intel.news_position_bridge import (
+            classification_to_signal,
+        )
 
         class FakeClassification:
             event_types = ["sanctions", "war_escalation"]
@@ -174,7 +176,9 @@ class TestNewsPositionBridge:
         assert "XAR" in sig.affected_assets
 
     def test_classification_to_signal_bullish(self):
-        from src.assembled_core.intel.news_position_bridge import classification_to_signal
+        from src.assembled_core.intel.news_position_bridge import (
+            classification_to_signal,
+        )
 
         class FakeClassification:
             event_types = ["diplomatic"]
@@ -268,16 +272,24 @@ class TestSectorRotationSignal:
         return pd.DataFrame(rows)
 
     def test_returns_dict(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
-        from src.assembled_core.features.news_features import compute_sector_rotation_signal
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.news_features")
+        from src.assembled_core.features.news_features import (
+            compute_sector_rotation_signal,
+        )
 
         df = self._make_events_df()
         result = compute_sector_rotation_signal(df, window_hours=4.0, min_events=1)
         assert isinstance(result, dict)
 
     def test_energy_bearish_gets_negative_score(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
-        from src.assembled_core.features.news_features import compute_sector_rotation_signal
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.news_features")
+        from src.assembled_core.features.news_features import (
+            compute_sector_rotation_signal,
+        )
 
         df = self._make_events_df()
         result = compute_sector_rotation_signal(df, window_hours=4.0, min_events=1)
@@ -286,16 +298,24 @@ class TestSectorRotationSignal:
             assert result["energy"] < 0
 
     def test_empty_df_returns_empty(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.news_features")
         import pandas as pd
-        from src.assembled_core.features.news_features import compute_sector_rotation_signal
+        from src.assembled_core.features.news_features import (
+            compute_sector_rotation_signal,
+        )
 
         result = compute_sector_rotation_signal(pd.DataFrame(), window_hours=4.0)
         assert result == {}
 
     def test_scores_bounded(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
-        from src.assembled_core.features.news_features import compute_sector_rotation_signal
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.news_features")
+        from src.assembled_core.features.news_features import (
+            compute_sector_rotation_signal,
+        )
 
         df = self._make_events_df()
         result = compute_sector_rotation_signal(df, window_hours=4.0, min_events=1)
@@ -311,12 +331,18 @@ class TestSectorRotationSignal:
 @pytest.mark.phase12
 class TestEarningsProximityBoost:
     def test_near_quarter_end_gets_boost(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.news_features")
         import pandas as pd
-        from src.assembled_core.features.news_features import compute_earnings_proximity_boost
+        from src.assembled_core.features.news_features import (
+            compute_earnings_proximity_boost,
+        )
 
         # Late March = near Q1 end
-        df = pd.DataFrame({"timestamp": ["2024-03-28T10:00:00Z", "2024-01-15T10:00:00Z"]})
+        df = pd.DataFrame(
+            {"timestamp": ["2024-03-28T10:00:00Z", "2024-01-15T10:00:00Z"]}
+        )
         result = compute_earnings_proximity_boost(df, proximity_days=14)
         assert "earnings_proximity_boost" in result.columns
         assert result.iloc[0]["earnings_proximity_boost"] >= 1.0
@@ -324,18 +350,26 @@ class TestEarningsProximityBoost:
         assert result.iloc[1]["earnings_proximity_boost"] == 1.0
 
     def test_boost_capped_at_1_5(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.news_features")
         import pandas as pd
-        from src.assembled_core.features.news_features import compute_earnings_proximity_boost
+        from src.assembled_core.features.news_features import (
+            compute_earnings_proximity_boost,
+        )
 
         df = pd.DataFrame({"timestamp": ["2024-03-31T10:00:00Z"]})
         result = compute_earnings_proximity_boost(df)
         assert result.iloc[0]["earnings_proximity_boost"] <= 1.5
 
     def test_empty_df(self):
-        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.features.news_features")
         import pandas as pd
-        from src.assembled_core.features.news_features import compute_earnings_proximity_boost
+        from src.assembled_core.features.news_features import (
+            compute_earnings_proximity_boost,
+        )
 
         result = compute_earnings_proximity_boost(pd.DataFrame())
         assert result.empty
@@ -378,7 +412,9 @@ class TestNewsFatigueDetection:
         evt_template = _make_event("ev_tmpl", title=title)
         # Simulate 8 reports (full fatigue) via story count
         for i in range(8):
-            idx.record_story_count(_make_event(f"ev_{i}", title=title, source_id=f"src{i}"))
+            idx.record_story_count(
+                _make_event(f"ev_{i}", title=title, source_id=f"src{i}")
+            )
 
         assert idx.is_fatigued(evt_template, threshold=0.6)
 
@@ -390,7 +426,9 @@ class TestNewsFatigueDetection:
         evt = _make_event("ev_fresh", title=title)
         # Only 2 reports — low fatigue
         for i in range(2):
-            idx.record_story_count(_make_event(f"ev_{i}", title=title, source_id=f"src{i}"))
+            idx.record_story_count(
+                _make_event(f"ev_{i}", title=title, source_id=f"src{i}")
+            )
 
         assert not idx.is_fatigued(evt, threshold=0.6)
 
@@ -429,8 +467,12 @@ class TestContradictionDetector:
         from src.assembled_core.intel.news_dedupe import detect_contradictions
 
         title = "Oil supply disruption from Russia pipeline attack"
-        evt1 = _make_event("ev1", title=title, market_direction="bearish", news_confidence=0.7)
-        evt2 = _make_event("ev2", title=title, market_direction="bearish", news_confidence=0.8)
+        evt1 = _make_event(
+            "ev1", title=title, market_direction="bearish", news_confidence=0.7
+        )
+        evt2 = _make_event(
+            "ev2", title=title, market_direction="bearish", news_confidence=0.8
+        )
 
         contradictions = detect_contradictions([evt1, evt2])
         assert len(contradictions) == 0
@@ -439,8 +481,12 @@ class TestContradictionDetector:
         from src.assembled_core.intel.news_dedupe import detect_contradictions
 
         title = "Market reaction to trade war tariff announcement"
-        evt1 = _make_event("ev1", title=title, market_direction="bearish", news_confidence=0.1)
-        evt2 = _make_event("ev2", title=title, market_direction="bullish", news_confidence=0.1)
+        evt1 = _make_event(
+            "ev1", title=title, market_direction="bearish", news_confidence=0.1
+        )
+        evt2 = _make_event(
+            "ev2", title=title, market_direction="bullish", news_confidence=0.1
+        )
 
         contradictions = detect_contradictions([evt1, evt2], min_confidence=0.3)
         assert len(contradictions) == 0
@@ -545,6 +591,7 @@ class TestFeedHealthDashboard:
         # Force last_event_time to be far in the past
         stats = hm._source_stats["old_feed"]
         from datetime import timedelta
+
         stats.last_event_time = datetime.now(tz=timezone.utc) - timedelta(hours=5)
 
         silent = hm.check_silent_feeds(threshold_hours=2.0)

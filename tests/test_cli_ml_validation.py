@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import pytest; pytest.importorskip("src.assembled_core.ml.factor_models")
+import pytest
+
+pytest.importorskip("src.assembled_core.ml.factor_models")
 
 import sys
 import subprocess
@@ -133,7 +135,9 @@ def test_ml_validate_factors_with_ridge(sample_factor_panel_file: Path, tmp_path
     portfolio_df = pd.read_csv(portfolio_csv)
     assert len(portfolio_df) == 1  # One row
     assert "model_name" in portfolio_df.columns
-    assert "ls_sharpe_raw" in portfolio_df.columns or "ls_sharpe" in portfolio_df.columns
+    assert (
+        "ls_sharpe_raw" in portfolio_df.columns or "ls_sharpe" in portfolio_df.columns
+    )
 
 
 def test_ml_validate_factors_via_cli_subcommand(

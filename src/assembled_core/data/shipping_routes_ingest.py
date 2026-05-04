@@ -50,7 +50,14 @@ def load_shipping_sample(path: Path | str | None = None) -> pd.DataFrame:
                 raise IOError(f"Failed to read shipping data file {path}") from exc
         elif path.suffix == ".csv":
             try:
-                df = pd.read_csv(path, dtype={"route": "string", "origin": "string", "destination": "string"})
+                df = pd.read_csv(
+                    path,
+                    dtype={
+                        "route": "string",
+                        "origin": "string",
+                        "destination": "string",
+                    },
+                )
             except (IOError, OSError) as exc:
                 raise IOError(f"Failed to read shipping data file {path}") from exc
             if "timestamp" in df.columns:

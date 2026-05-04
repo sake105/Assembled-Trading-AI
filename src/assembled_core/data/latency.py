@@ -104,7 +104,9 @@ def apply_source_latency(
 
     if mode == "shift":
         if "disclosure_date" not in df.columns:
-            raise ValueError("mode='shift' requires 'disclosure_date' column in DataFrame.")
+            raise ValueError(
+                "mode='shift' requires 'disclosure_date' column in DataFrame."
+            )
         # Shift existing disclosure_date in place.
         df["disclosure_date"] = pd.to_datetime(df["disclosure_date"], utc=True) + delta
         return df

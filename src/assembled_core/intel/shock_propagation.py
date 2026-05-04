@@ -202,7 +202,11 @@ SHOCK_TO_ORIGIN_NODES: dict[ShockType, list[str]] = {
     ShockType.CYBER_RISK: ["CYBER"],
     # New shocks
     ShockType.RARE_EARTH_SUPPLY_RISK: ["RARE_EARTHS", "CHINA"],
-    ShockType.SEMICONDUCTOR_SUPPLY_RISK: ["SEMICONDUCTORS", "TSMC_FABRICATION", "TAIWAN"],
+    ShockType.SEMICONDUCTOR_SUPPLY_RISK: [
+        "SEMICONDUCTORS",
+        "TSMC_FABRICATION",
+        "TAIWAN",
+    ],
     ShockType.FOOD_SUPPLY_RISK: ["WHEAT", "CORN", "UKRAINE_CONFLICT"],
     ShockType.LITHIUM_SUPPLY_RISK: ["LITHIUM", "EV_BATTERY_CHAIN"],
     ShockType.LNG_SUPPLY_RISK: ["LNG", "RUSSIA", "QATAR"],
@@ -249,6 +253,7 @@ MIN_PATH_CONFIDENCE = 0.15
 
 # Dampening factor per hop (each edge traversal decays magnitude by this factor)
 DEFAULT_DAMPENING_FACTOR = 0.85
+
 
 # Lag hours → time horizon mapping
 def _lag_to_horizon(lag_hours: float) -> str:
@@ -318,24 +323,35 @@ def propagate(
             if origin_node is None:
                 continue
 
-            queue: deque[tuple[str, list[TransmissionHop], float, set[str], int, float]] = deque()
+            queue: deque[
+                tuple[str, list[TransmissionHop], float, set[str], int, float]
+            ] = deque()
             initial_hop = TransmissionHop(
                 node_id=origin_id,
                 node_type=origin_node.node_type.value,
                 impact_direction="+" if is_positive_shock else "-",
                 weight=1.0,
             )
-            queue.append((origin_id, [initial_hop], 1.0, {origin_id}, 0, effective_magnitude))
+            queue.append(
+                (origin_id, [initial_hop], 1.0, {origin_id}, 0, effective_magnitude)
+            )
 
             while queue:
-                current_id, hops, path_conf, visited, total_lag, current_mag = queue.popleft()
+                current_id, hops, path_conf, visited, total_lag, current_mag = (
+                    queue.popleft()
+                )
 
                 current_node = graph.get_node(current_id)
-                if current_node and current_node.node_type in {
-                    NodeType.SECTOR, NodeType.ASSET, NodeType.MACRO_INDEX
-                } and len(hops) > 1:
+                if (
+                    current_node
+                    and current_node.node_type
+                    in {NodeType.SECTOR, NodeType.ASSET, NodeType.MACRO_INDEX}
+                    and len(hops) > 1
+                ):
                     if path_conf >= min_confidence:
-                        all_paths.append((list(hops), path_conf, total_lag, current_mag))
+                        all_paths.append(
+                            (list(hops), path_conf, total_lag, current_mag)
+                        )
 
                 if len(hops) > max_hops:
                     continue
@@ -361,14 +377,16 @@ def propagate(
                         impact_direction=impact_dir,
                         weight=edge.weight,
                     )
-                    queue.append((
-                        neighbor.node_id,
-                        hops + [new_hop],
-                        new_conf,
-                        visited | {neighbor.node_id},
-                        total_lag + edge.lag_hours,
-                        new_mag,
-                    ))
+                    queue.append(
+                        (
+                            neighbor.node_id,
+                            hops + [new_hop],
+                            new_conf,
+                            visited | {neighbor.node_id},
+                            total_lag + edge.lag_hours,
+                            new_mag,
+                        )
+                    )
 
         if not all_paths:
             continue
@@ -391,7 +409,10 @@ def propagate(
 
     logger.debug(
         "[ShockPropagation] trigger=%s regime=%s magnitude=%.2f → %d transmissions",
-        trigger_id, regime, effective_magnitude, len(transmissions),
+        trigger_id,
+        regime,
+        effective_magnitude,
+        len(transmissions),
     )
     return transmissions
 
@@ -441,7 +462,9 @@ def to_dependency_signal(
             del beneficiaries[node_id]
 
     # Sort by confidence descending
-    sorted_beneficiaries = sorted(beneficiaries, key=lambda n: beneficiaries[n], reverse=True)
+    sorted_beneficiaries = sorted(
+        beneficiaries, key=lambda n: beneficiaries[n], reverse=True
+    )
     sorted_losers = sorted(losers, key=lambda n: losers[n], reverse=True)
 
     # Compute overall severity (0-3) and confidence
@@ -451,7 +474,8 @@ def to_dependency_signal(
     # Scale severity by average magnitude across transmissions
     avg_magnitude = (
         sum(t.magnitude for t in transmissions) / len(transmissions)
-        if transmissions else 1.0
+        if transmissions
+        else 1.0
     )
     severity = min(3, round(trigger_score * min(avg_magnitude, 2.0)))
 
@@ -464,9 +488,10 @@ def to_dependency_signal(
     else:
         horizon = "medium"
 
-    signal_id = "sig_" + hashlib.sha256(
-        f"{trigger_id}:{now.isoformat()}".encode()
-    ).hexdigest()[:16]
+    signal_id = (
+        "sig_"
+        + hashlib.sha256(f"{trigger_id}:{now.isoformat()}".encode()).hexdigest()[:16]
+    )
 
     return DependencySignal(
         signal_id=signal_id,

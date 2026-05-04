@@ -132,28 +132,28 @@ def get_defensive_symbols(universe: dict[str, Any]) -> list[str]:
 #: Used for market-neutral construction without short-selling directly.
 INVERSE_ETF_MAP: dict[str, str] = {
     # Broad equity
-    "SPY": "SH",    # ProShares Short S&P500
-    "QQQ": "PSQ",   # ProShares Short QQQ
-    "IWM": "RWM",   # ProShares Short Russell 2000
-    "DIA": "DOG",   # ProShares Short Dow30
+    "SPY": "SH",  # ProShares Short S&P500
+    "QQQ": "PSQ",  # ProShares Short QQQ
+    "IWM": "RWM",  # ProShares Short Russell 2000
+    "DIA": "DOG",  # ProShares Short Dow30
     # Sector ETFs
-    "XLK": "REW",   # ProShares UltraShort Technology (2×, use carefully)
-    "XLF": "SKF",   # ProShares UltraShort Financials (2×, use carefully)
-    "XLE": "DDG",   # ProShares Short Oil & Gas
-    "XLV": "RXD",   # ProShares UltraShort Health Care (2×)
-    "XLI": "SIJ",   # ProShares UltraShort Industrials (2×)
-    "XLY": "SCC",   # ProShares UltraShort Consumer Disc. (2×)
-    "XLP": "SZK",   # ProShares UltraShort Consumer Staples (2×)
-    "XLU": "SDP",   # ProShares UltraShort Utilities (2×)
-    "XLB": "SMN",   # ProShares UltraShort Basic Materials (2×)
+    "XLK": "REW",  # ProShares UltraShort Technology (2×, use carefully)
+    "XLF": "SKF",  # ProShares UltraShort Financials (2×, use carefully)
+    "XLE": "DDG",  # ProShares Short Oil & Gas
+    "XLV": "RXD",  # ProShares UltraShort Health Care (2×)
+    "XLI": "SIJ",  # ProShares UltraShort Industrials (2×)
+    "XLY": "SCC",  # ProShares UltraShort Consumer Disc. (2×)
+    "XLP": "SZK",  # ProShares UltraShort Consumer Staples (2×)
+    "XLU": "SDP",  # ProShares UltraShort Utilities (2×)
+    "XLB": "SMN",  # ProShares UltraShort Basic Materials (2×)
     "XLRE": "REK",  # ProShares Short Real Estate
     # Fixed income
-    "TLT": "TBF",   # ProShares Short 20+ Year Treasury
-    "IEF": "TBX",   # ProShares Short 7-10 Year Treasury
-    "HYG": "SJB",   # ProShares Short High Yield
+    "TLT": "TBF",  # ProShares Short 20+ Year Treasury
+    "IEF": "TBX",  # ProShares Short 7-10 Year Treasury
+    "HYG": "SJB",  # ProShares Short High Yield
     # International
-    "EFA": "EFZ",   # ProShares Short MSCI EAFE
-    "EEM": "EEV",   # ProShares UltraShort MSCI Emerging Mkts (2×)
+    "EFA": "EFZ",  # ProShares Short MSCI EAFE
+    "EEM": "EEV",  # ProShares UltraShort MSCI Emerging Mkts (2×)
 }
 
 

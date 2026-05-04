@@ -60,7 +60,9 @@ def main(argv: list[str] | None = None) -> int:
         age = result.get("age_seconds")
         age_str = f"{age:.0f}s" if age is not None else "n/a"
         reason = result.get("reason", "")
-        print(f"[{status}] age={age_str} status={result.get('status', 'n/a')} reason={reason}")
+        print(
+            f"[{status}] age={age_str} status={result.get('status', 'n/a')} reason={reason}"
+        )
 
     return 0 if result["alive"] else 1
 

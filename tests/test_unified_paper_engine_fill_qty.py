@@ -46,8 +46,13 @@ def test_update_positions_legacy_full_fill_unchanged(tmp_path: Path) -> None:
     eng = _make_engine(tmp_path)
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_price": 100.0,
-             "notional": 1000.0},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_price": 100.0,
+                "notional": 1000.0,
+            },
         ]
     )
 
@@ -63,8 +68,14 @@ def test_update_positions_uses_fill_qty_when_partial(tmp_path: Path) -> None:
     eng = _make_engine(tmp_path)
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 3.0,
-             "fill_price": 100.0, "status": "partial"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 3.0,
+                "fill_price": 100.0,
+                "status": "partial",
+            },
         ]
     )
 
@@ -80,9 +91,15 @@ def test_update_positions_skips_rejected(tmp_path: Path) -> None:
     eng = _make_engine(tmp_path)
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 0.0,
-             "fill_price": 100.0, "status": "rejected",
-             "reject_reason": "INSUFFICIENT_CASH"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 0.0,
+                "fill_price": 100.0,
+                "status": "rejected",
+                "reject_reason": "INSUFFICIENT_CASH",
+            },
         ]
     )
 
@@ -100,8 +117,14 @@ def test_update_positions_partial_sell_respects_fill_qty(tmp_path: Path) -> None
 
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "SELL", "qty": 10.0, "fill_qty": 4.0,
-             "fill_price": 110.0, "status": "partial"},
+            {
+                "symbol": "AAA",
+                "side": "SELL",
+                "qty": 10.0,
+                "fill_qty": 4.0,
+                "fill_price": 110.0,
+                "status": "partial",
+            },
         ]
     )
     eng._update_positions(fills)
@@ -122,8 +145,14 @@ def test_ledger_records_fill_qty_for_partial(tmp_path: Path) -> None:
     eng = _make_engine(tmp_path)
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 3.0,
-             "fill_price": 100.0, "status": "partial"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 3.0,
+                "fill_price": 100.0,
+                "status": "partial",
+            },
         ]
     )
     eng._write_ledger_events(fills, "2025-01-15")
@@ -139,9 +168,15 @@ def test_ledger_records_rejected_as_reject_event(tmp_path: Path) -> None:
     eng = _make_engine(tmp_path)
     fills = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 10.0, "fill_qty": 0.0,
-             "fill_price": 100.0, "status": "rejected",
-             "reject_reason": "INSUFFICIENT_CASH"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 10.0,
+                "fill_qty": 0.0,
+                "fill_price": 100.0,
+                "status": "rejected",
+                "reject_reason": "INSUFFICIENT_CASH",
+            },
         ]
     )
     eng._write_ledger_events(fills, "2025-01-15")

@@ -28,6 +28,7 @@ class ChangePointResult(NamedTuple):
 def _try_ruptures():
     try:
         import ruptures as rpt
+
         return rpt
     except ImportError:
         logger.warning("ruptures not installed — pip install ruptures==1.1.10")
@@ -124,7 +125,9 @@ def change_point_regime_feature(
     Returns integer segment labels (0, 1, 2, ...) aligned to returns index.
     Useful as a categorical feature for ML models.
     """
-    result = detect_change_points_pelt(returns, model="rbf", penalty=penalty, min_size=min_size)
+    result = detect_change_points_pelt(
+        returns, model="rbf", penalty=penalty, min_size=min_size
+    )
 
     labels = np.zeros(len(returns), dtype=int)
     prev = 0

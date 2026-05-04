@@ -16,6 +16,7 @@ Usage:
     # Or via environment variable fallback (CI):
     # export ATA_STAGING_ALPACA_API_KEY=xxx
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,14 +44,18 @@ def store_secret(env: str, key: str, value: str | None = None) -> None:
     """
     if value is None:
         import getpass
+
         value = getpass.getpass(f"{env.upper()} {key}: ")
 
     try:
         import keyring  # type: ignore[import]
+
         keyring.set_password(_SERVICE, f"{env}:{key}", value)
         logger.info("Stored %s:%s in keychain (%s)", env, key, _SERVICE)
     except ImportError:
-        logger.warning("keyring not installed — cannot persist secret for %s:%s", env, key)
+        logger.warning(
+            "keyring not installed — cannot persist secret for %s:%s", env, key
+        )
         raise RuntimeError(
             "keyring package not installed. Install with: pip install keyring"
         )
@@ -77,18 +82,23 @@ def get_secret(env: str, key: str) -> str:
 
     try:
         import keyring  # type: ignore[import]
+
         value = keyring.get_password(_SERVICE, f"{env}:{key}")
         if value is not None:
             return value
         if env_fallback is not None:
-            logger.debug("Keychain miss for %s:%s — using env var %s", env, key, env_var)
+            logger.debug(
+                "Keychain miss for %s:%s — using env var %s", env, key, env_var
+            )
             return env_fallback
         raise RuntimeError(
             f"Secret {env}:{key} not found in keychain ({_SERVICE}) or env var {env_var}"
         )
     except ImportError:
         if env_fallback is not None:
-            logger.debug("keyring not available — using env var %s for %s:%s", env_var, env, key)
+            logger.debug(
+                "keyring not available — using env var %s for %s:%s", env_var, env, key
+            )
             return env_fallback
         raise RuntimeError(
             f"keyring not installed and env var {env_var} not set. "

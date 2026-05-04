@@ -2,6 +2,7 @@
 
 From 38_FEATURE_ATTRIBUTION_DASHBOARD.md §2.3.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,9 +56,18 @@ class AttributionStore:
                     attr.timestamp.isoformat(),
                     attr.ticker,
                     attr.composite_score,
-                    json.dumps(attr.dimension_contributions, default=lambda v: v.item() if hasattr(v, "item") else str(v)),
-                    json.dumps(attr.dimension_raw_scores, default=lambda v: v.item() if hasattr(v, "item") else str(v)),
-                    json.dumps(attr.dimension_weights, default=lambda v: v.item() if hasattr(v, "item") else str(v)),
+                    json.dumps(
+                        attr.dimension_contributions,
+                        default=lambda v: v.item() if hasattr(v, "item") else str(v),
+                    ),
+                    json.dumps(
+                        attr.dimension_raw_scores,
+                        default=lambda v: v.item() if hasattr(v, "item") else str(v),
+                    ),
+                    json.dumps(
+                        attr.dimension_weights,
+                        default=lambda v: v.item() if hasattr(v, "item") else str(v),
+                    ),
                     attr.strategy_id,
                     attr.model_version,
                     attr.regime,
@@ -89,7 +99,9 @@ class AttributionStore:
             dim_raw_scores = json.loads(row[5])
             dim_weights = json.loads(row[6])
         except json.JSONDecodeError as exc:
-            _logger.warning("[AttributionStore] corrupted JSON in row for %s: %s", row[2], exc)
+            _logger.warning(
+                "[AttributionStore] corrupted JSON in row for %s: %s", row[2], exc
+            )
             dim_contributions = {}
             dim_raw_scores = {}
             dim_weights = {}

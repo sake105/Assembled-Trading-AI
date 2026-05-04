@@ -344,9 +344,11 @@ def add_amihud_illiquidity(
 
     for w in windows:
         col = f"amihud_illiq_{w}d"
-        result[col] = result.groupby(group_col)["_amihud_daily"].transform(
-            lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
-        ).astype("float64")
+        result[col] = (
+            result.groupby(group_col)["_amihud_daily"]
+            .transform(lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean())
+            .astype("float64")
+        )
 
     result = result.drop(columns=["_amihud_daily"])
     return result
@@ -412,9 +414,11 @@ def add_kyle_lambda_proxy(
 
     for w in windows:
         col = f"kyle_lambda_{w}d"
-        result[col] = result.groupby(group_col)["_lambda_daily"].transform(
-            lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
-        ).astype("float64")
+        result[col] = (
+            result.groupby(group_col)["_lambda_daily"]
+            .transform(lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean())
+            .astype("float64")
+        )
 
     result = result.drop(columns=["_lambda_daily"])
     return result
@@ -483,7 +487,9 @@ def add_abnormal_volume(
         mean_vol = result.groupby(group_col)[volume_col].transform(
             lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
         )
-        result[col] = (result[volume_col] / mean_vol.replace(0, np.nan)).astype("float64")
+        result[col] = (result[volume_col] / mean_vol.replace(0, np.nan)).astype(
+            "float64"
+        )
 
     return result
 
@@ -536,7 +542,7 @@ def add_intraday_noise_proxy(
         # Garman-Klass estimator: 0.5*(ln(H/L))^2 - (2*ln2-1)*(ln(C/O))^2
         log_hl = np.log((high / low).clip(lower=1e-10))
         log_co = np.log((close / open_).clip(lower=1e-10))
-        gk = 0.5 * log_hl ** 2 - (2.0 * np.log(2) - 1.0) * log_co ** 2
+        gk = 0.5 * log_hl**2 - (2.0 * np.log(2) - 1.0) * log_co**2
         result["intraday_gk_vol"] = np.sqrt(gk.clip(lower=0)).astype("float64")
 
     return result

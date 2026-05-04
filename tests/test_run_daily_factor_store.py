@@ -68,15 +68,36 @@ def test_run_daily_eod_with_factor_store_flag(tmp_path: Path) -> None:
     mock_settings = MagicMock()
     mock_settings.watchlist_file = tmp_path / "watchlist.txt"
 
-    with patch("src.assembled_core.config.settings.get_settings", return_value=mock_settings), \
-         patch("src.assembled_core.data.prices_ingest.load_eod_prices_for_universe", return_value=prices), \
-         patch("scripts.run_daily.generate_trend_signals_from_prices") as mock_signals, \
-         patch("scripts.run_daily.compute_target_positions_from_trend_signals") as mock_targets, \
-         patch("scripts.run_daily.run_trading_cycle", return_value=_make_mock_trading_result(dates)) as mock_cycle, \
-         patch("scripts.run_daily.write_safe_orders_csv", return_value=tmp_path / "orders.csv"):
+    with (
+        patch(
+            "src.assembled_core.config.settings.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            "src.assembled_core.data.prices_ingest.load_eod_prices_for_universe",
+            return_value=prices,
+        ),
+        patch("scripts.run_daily.generate_trend_signals_from_prices") as mock_signals,
+        patch(
+            "scripts.run_daily.compute_target_positions_from_trend_signals"
+        ) as mock_targets,
+        patch(
+            "scripts.run_daily.run_trading_cycle",
+            return_value=_make_mock_trading_result(dates),
+        ) as mock_cycle,
+        patch(
+            "scripts.run_daily.write_safe_orders_csv",
+            return_value=tmp_path / "orders.csv",
+        ),
+    ):
 
         mock_signals.return_value = pd.DataFrame(
-            {"timestamp": dates, "symbol": ["AAPL"] * len(dates), "direction": ["LONG"] * len(dates), "score": [0.5] * len(dates)}
+            {
+                "timestamp": dates,
+                "symbol": ["AAPL"] * len(dates),
+                "direction": ["LONG"] * len(dates),
+                "score": [0.5] * len(dates),
+            }
         )
         mock_targets.return_value = pd.DataFrame(
             {"symbol": ["AAPL"], "target_weight": [0.5], "target_qty": [100.0]}
@@ -119,15 +140,36 @@ def test_run_daily_eod_without_factor_store_flag(tmp_path: Path) -> None:
     mock_settings = MagicMock()
     mock_settings.watchlist_file = tmp_path / "watchlist.txt"
 
-    with patch("src.assembled_core.config.settings.get_settings", return_value=mock_settings), \
-         patch("src.assembled_core.data.prices_ingest.load_eod_prices_for_universe", return_value=prices), \
-         patch("scripts.run_daily.generate_trend_signals_from_prices") as mock_signals, \
-         patch("scripts.run_daily.compute_target_positions_from_trend_signals") as mock_targets, \
-         patch("scripts.run_daily.run_trading_cycle", return_value=_make_mock_trading_result(dates)) as mock_cycle, \
-         patch("scripts.run_daily.write_safe_orders_csv", return_value=tmp_path / "orders.csv"):
+    with (
+        patch(
+            "src.assembled_core.config.settings.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            "src.assembled_core.data.prices_ingest.load_eod_prices_for_universe",
+            return_value=prices,
+        ),
+        patch("scripts.run_daily.generate_trend_signals_from_prices") as mock_signals,
+        patch(
+            "scripts.run_daily.compute_target_positions_from_trend_signals"
+        ) as mock_targets,
+        patch(
+            "scripts.run_daily.run_trading_cycle",
+            return_value=_make_mock_trading_result(dates),
+        ) as mock_cycle,
+        patch(
+            "scripts.run_daily.write_safe_orders_csv",
+            return_value=tmp_path / "orders.csv",
+        ),
+    ):
 
         mock_signals.return_value = pd.DataFrame(
-            {"timestamp": dates, "symbol": ["AAPL"] * len(dates), "direction": ["LONG"] * len(dates), "score": [0.5] * len(dates)}
+            {
+                "timestamp": dates,
+                "symbol": ["AAPL"] * len(dates),
+                "direction": ["LONG"] * len(dates),
+                "score": [0.5] * len(dates),
+            }
         )
         mock_targets.return_value = pd.DataFrame(
             {"symbol": ["AAPL"], "target_weight": [0.5], "target_qty": [100.0]}
@@ -166,15 +208,36 @@ def test_run_daily_eod_timings_metadata_with_factor_store(tmp_path: Path) -> Non
     mock_settings = MagicMock()
     mock_settings.watchlist_file = tmp_path / "watchlist.txt"
 
-    with patch("src.assembled_core.config.settings.get_settings", return_value=mock_settings), \
-         patch("src.assembled_core.data.prices_ingest.load_eod_prices_for_universe", return_value=prices), \
-         patch("scripts.run_daily.generate_trend_signals_from_prices") as mock_signals, \
-         patch("scripts.run_daily.compute_target_positions_from_trend_signals") as mock_targets, \
-         patch("scripts.run_daily.run_trading_cycle", return_value=_make_mock_trading_result(dates)), \
-         patch("scripts.run_daily.write_safe_orders_csv", return_value=tmp_path / "orders.csv"):
+    with (
+        patch(
+            "src.assembled_core.config.settings.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            "src.assembled_core.data.prices_ingest.load_eod_prices_for_universe",
+            return_value=prices,
+        ),
+        patch("scripts.run_daily.generate_trend_signals_from_prices") as mock_signals,
+        patch(
+            "scripts.run_daily.compute_target_positions_from_trend_signals"
+        ) as mock_targets,
+        patch(
+            "scripts.run_daily.run_trading_cycle",
+            return_value=_make_mock_trading_result(dates),
+        ),
+        patch(
+            "scripts.run_daily.write_safe_orders_csv",
+            return_value=tmp_path / "orders.csv",
+        ),
+    ):
 
         mock_signals.return_value = pd.DataFrame(
-            {"timestamp": dates, "symbol": ["AAPL"] * len(dates), "direction": ["LONG"] * len(dates), "score": [0.5] * len(dates)}
+            {
+                "timestamp": dates,
+                "symbol": ["AAPL"] * len(dates),
+                "direction": ["LONG"] * len(dates),
+                "score": [0.5] * len(dates),
+            }
         )
         mock_targets.return_value = pd.DataFrame(
             {"symbol": ["AAPL"], "target_weight": [0.5], "target_qty": [100.0]}

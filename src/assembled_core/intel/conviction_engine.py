@@ -77,7 +77,11 @@ def compute_conviction_score(
 
     log.debug(
         "[EDCL-CONVICTION] base=%.3f beta_boost=%.3f diversity=%.3f corroboration=%.3f → %.3f",
-        base, beta_boost, diversity_bonus, corroboration, score,
+        base,
+        beta_boost,
+        diversity_bonus,
+        corroboration,
+        score,
     )
     return score
 
@@ -126,7 +130,9 @@ def compute_event_beta(
         val = result[col].dropna()
         return float(val.median()) if not val.empty else None
     except Exception as exc:
-        log.debug("event_beta lookup skipped (%s/%s): %s", trigger_type_name, asset, exc)
+        log.debug(
+            "event_beta lookup skipped (%s/%s): %s", trigger_type_name, asset, exc
+        )
         return None
 
 
@@ -167,10 +173,19 @@ def _try_fetch_beta_boost(
     # Median beta → scale to [0, 0.3] boost
     sorted_betas = sorted(betas)
     n = len(sorted_betas)
-    median_beta = sorted_betas[n // 2] if n % 2 == 1 else (sorted_betas[n // 2 - 1] + sorted_betas[n // 2]) / 2.0
+    median_beta = (
+        sorted_betas[n // 2]
+        if n % 2 == 1
+        else (sorted_betas[n // 2 - 1] + sorted_betas[n // 2]) / 2.0
+    )
     # Typical asset event beta ~ 0.02–0.10 (2–10% move). Cap boost at beta >= 0.10.
     boost = min(median_beta / 0.10, 1.0) * 0.30
-    log.debug("[EDCL-CONVICTION] beta evidence: n=%d median=%.4f boost=%.3f", len(betas), median_beta, boost)
+    log.debug(
+        "[EDCL-CONVICTION] beta evidence: n=%d median=%.4f boost=%.3f",
+        len(betas),
+        median_beta,
+        boost,
+    )
     return boost
 
 
@@ -206,7 +221,9 @@ def compute_edcl_position_size(
     edcl_cfg = (policy or {}).get("edcl_conviction_overlay") or {}
     sizing_cfg = edcl_cfg.get("edcl_sizing") or {}
     base_max = float(sizing_cfg.get("max_edcl_weight", 0.30))
-    _target_coverage = float(sizing_cfg.get("target_coverage", 0.85))  # used by conformal model if loaded
+    _target_coverage = float(
+        sizing_cfg.get("target_coverage", 0.85)
+    )  # used by conformal model if loaded
 
     # Default: no scaling (conformal model unavailable)
     conformal_factor = 1.0
@@ -217,6 +234,7 @@ def compute_edcl_position_size(
         try:
             import joblib
             from pathlib import Path
+
             _path = Path(model_path)
             if not _path.is_absolute():
                 # Resolve relative to project root (3 levels up from this file)
@@ -231,27 +249,39 @@ def compute_edcl_position_size(
                         from src.assembled_core.portfolio.conformal_position import (
                             conformal_size_factor,
                         )
+
                         feat_cols = bundle.get("feature_cols", [])
                         row_aligned = feature_row.reindex(feat_cols, fill_value=0.0)
                         X = row_aligned.values.reshape(1, -1)
                         model = bundle.get("model")
                         if model is not None and hasattr(model, "predict"):
-                            _y_pred = float(model.predict(X)[0])  # noqa: F841 — future: use for interval shift
+                            _y_pred = float(
+                                model.predict(X)[0]
+                            )  # noqa: F841 — future: use for interval shift
                             # Use median_interval_width as proxy (no MAPIE re-inference here)
                             conformal_factor = conformal_size_factor(
                                 interval_width=med_width,
-                                max_width=float(bundle.get("max_interval_width", med_width * 2)),
+                                max_width=float(
+                                    bundle.get("max_interval_width", med_width * 2)
+                                ),
                                 min_factor=0.20,
                             )
-                            stop_loss_pct = med_width / 2.0  # symmetric interval → half-width
+                            stop_loss_pct = (
+                                med_width / 2.0
+                            )  # symmetric interval → half-width
                     except Exception as e:
                         log.debug("EDCL conformal inference skipped: %s", e)
                 else:
                     # Fallback: use pre-computed median width for discount
-                    from src.assembled_core.portfolio.conformal_position import conformal_size_factor
+                    from src.assembled_core.portfolio.conformal_position import (
+                        conformal_size_factor,
+                    )
+
                     conformal_factor = conformal_size_factor(
                         interval_width=med_width,
-                        max_width=float(bundle.get("max_interval_width", med_width * 2)),
+                        max_width=float(
+                            bundle.get("max_interval_width", med_width * 2)
+                        ),
                         min_factor=0.20,
                     )
                     stop_loss_pct = med_width / 2.0
@@ -261,14 +291,23 @@ def compute_edcl_position_size(
     # Conviction scaling: linear from threshold to 1.0
     threshold = float(edcl_cfg.get("conviction_threshold", 0.70))
     denom = 1.0 - threshold if threshold < 1.0 else 1.0
-    conviction_scale = min(1.0, max(0.0, (conviction - threshold) / denom)) if conviction > threshold else 0.0
+    conviction_scale = (
+        min(1.0, max(0.0, (conviction - threshold) / denom))
+        if conviction > threshold
+        else 0.0
+    )
 
     size_factor = conformal_factor * conviction_scale
     max_weight = base_max * size_factor
 
     log.debug(
         "[EDCL-SIZING] conviction=%.3f scale=%.3f conf_factor=%.3f → size_factor=%.3f max_weight=%.3f stop_loss=%.3f",
-        conviction, conviction_scale, conformal_factor, size_factor, max_weight, stop_loss_pct,
+        conviction,
+        conviction_scale,
+        conformal_factor,
+        size_factor,
+        max_weight,
+        stop_loss_pct,
     )
     return {
         "max_weight": float(max_weight),

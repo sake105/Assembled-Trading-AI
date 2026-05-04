@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import pytest; pytest.importorskip("src.assembled_core.intel.entity_linker")
+import pytest
+
+pytest.importorskip("src.assembled_core.intel.entity_linker")
 
 import csv
 from pathlib import Path
@@ -90,10 +92,12 @@ class TestEntityLinkerFromCSV:
         with open(csv_path, "w", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=["symbol", "sector"])
             writer.writeheader()
-            writer.writerows([
-                {"symbol": "MYCO", "sector": "Technology"},
-                {"symbol": "OTHR", "sector": "Energy"},
-            ])
+            writer.writerows(
+                [
+                    {"symbol": "MYCO", "sector": "Technology"},
+                    {"symbol": "OTHR", "sector": "Energy"},
+                ]
+            )
         linker = EntityLinker.from_security_master(csv_path)
         assert linker.symbol_count == 2
         assert linker.link("MYCO") == ["MYCO"]

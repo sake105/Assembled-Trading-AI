@@ -1,4 +1,5 @@
 """Tests for assembled_core/strategy/hyperparameter.py (spec 39)."""
+
 from __future__ import annotations
 
 import json
@@ -12,10 +13,10 @@ from assembled_core.strategy.hyperparameter import (
     walk_forward_objective,
 )
 
-
 # ---------------------------------------------------------------------------
 # walk_forward_objective
 # ---------------------------------------------------------------------------
+
 
 def _make_data(n=24):
     rng = np.random.default_rng(42)
@@ -32,39 +33,59 @@ class TestWalkForwardObjective:
 
     def test_returns_float(self):
         data = _make_data(24)
-        trial = type("T", (), {"suggest_int": lambda self, n, lo, hi: lo,
-                               "suggest_float": lambda self, n, lo, hi: lo})()
+        trial = type(
+            "T",
+            (),
+            {
+                "suggest_int": lambda self, n, lo, hi: lo,
+                "suggest_float": lambda self, n, lo, hi: lo,
+            },
+        )()
         score = walk_forward_objective(trial, data, self._train_fn, self._eval_fn)
         assert isinstance(score, float)
 
     def test_insufficient_data_returns_neg_inf(self):
         data = _make_data(5)
         trial = type("T", (), {})()
-        score = walk_forward_objective(trial, data, self._train_fn, self._eval_fn,
-                                       train_months=9, test_months=3)
+        score = walk_forward_objective(
+            trial, data, self._train_fn, self._eval_fn, train_months=9, test_months=3
+        )
         assert score == float("-inf")
 
     def test_param_space_int(self):
         data = _make_data(24)
         suggested = {}
+
         class FakeTrial:
             def suggest_int(self, name, lo, hi):
                 suggested[name] = lo
                 return lo
+
         score = walk_forward_objective(
-            FakeTrial(), data, self._train_fn, self._eval_fn,
-            param_space={"n": (1, 10, "int")}
+            FakeTrial(),
+            data,
+            self._train_fn,
+            self._eval_fn,
+            param_space={"n": (1, 10, "int")},
         )
         assert "n" in suggested
 
     def test_multiple_folds_averaged(self):
         data = _make_data(24)
         scores = []
+
         class CountingTrial:
-            def suggest_int(self, name, lo, hi): return lo
+            def suggest_int(self, name, lo, hi):
+                return lo
+
         score = walk_forward_objective(
-            CountingTrial(), data, self._train_fn, self._eval_fn,
-            train_months=9, test_months=3, stride_months=3,
+            CountingTrial(),
+            data,
+            self._train_fn,
+            self._eval_fn,
+            train_months=9,
+            test_months=3,
+            stride_months=3,
         )
         assert score != float("-inf")
 
@@ -72,6 +93,7 @@ class TestWalkForwardObjective:
 # ---------------------------------------------------------------------------
 # check_config_drift
 # ---------------------------------------------------------------------------
+
 
 class TestCheckConfigDrift:
     def _write_json(self, path, data):
@@ -126,6 +148,7 @@ class TestCheckConfigDrift:
 # deployment_inventory
 # ---------------------------------------------------------------------------
 
+
 class TestDeploymentInventory:
     def _write_json(self, path, data):
         path.write_text(json.dumps(data))
@@ -139,7 +162,9 @@ class TestDeploymentInventory:
 
     def test_known_env_has_strategy_id(self, tmp_path):
         p = tmp_path / "paper.json"
-        self._write_json(p, {"strategy_id": "my_strat", "model_versions": {"clf": "v3"}})
+        self._write_json(
+            p, {"strategy_id": "my_strat", "model_versions": {"clf": "v3"}}
+        )
         snap = deployment_inventory({"paper": p})
         assert snap["environments"]["paper"]["strategy_id"] == "my_strat"
         assert snap["environments"]["paper"]["model_versions"]["clf"] == "v3"
@@ -151,5 +176,7 @@ class TestDeploymentInventory:
     def test_custom_timestamp(self, tmp_path):
         p = tmp_path / "dev.json"
         self._write_json(p, {"strategy_id": "x"})
-        snap = deployment_inventory({"dev": p}, timestamp_utc="2024-01-01T00:00:00+00:00")
+        snap = deployment_inventory(
+            {"dev": p}, timestamp_utc="2024-01-01T00:00:00+00:00"
+        )
         assert snap["timestamp"] == "2024-01-01T00:00:00+00:00"

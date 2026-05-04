@@ -158,7 +158,9 @@ def _build_report_content(
     # Header
     lines.append(f"# QA Report: {strategy_name} ({freq})")
     lines.append("")
-    lines.append(f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(
+        f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -234,8 +236,12 @@ def _build_report_content(
 
     # Metadata
     lines.append("### Period Information")
-    lines.append(f"- **Start Date:** {metrics.start_date.strftime('%Y-%m-%d') if metrics.start_date is not None else 'N/A'}")
-    lines.append(f"- **End Date:** {metrics.end_date.strftime('%Y-%m-%d') if metrics.end_date is not None else 'N/A'}")
+    lines.append(
+        f"- **Start Date:** {metrics.start_date.strftime('%Y-%m-%d') if metrics.start_date is not None else 'N/A'}"
+    )
+    lines.append(
+        f"- **End Date:** {metrics.end_date.strftime('%Y-%m-%d') if metrics.end_date is not None else 'N/A'}"
+    )
     lines.append(f"- **Periods:** {metrics.periods}")
     lines.append(f"- **Start Capital:** {metrics.start_capital:,.2f}")
     lines.append(f"- **End Equity:** {metrics.end_equity:,.2f}")
@@ -415,7 +421,9 @@ def _build_report_content(
                 lines.append(f"- **Sortino:** {profile.sortino:.4f}")
                 lines.append(f"- **Calmar:** {profile.calmar:.4f}")
                 lines.append(f"- **Max Drawdown:** {profile.max_drawdown:.2%}")
-                lines.append(f"- **Max DD Duration:** {profile.max_drawdown_duration_days} days")
+                lines.append(
+                    f"- **Max DD Duration:** {profile.max_drawdown_duration_days} days"
+                )
                 lines.append(f"- **Profit Factor:** {profile.profit_factor:.4f}")
                 lines.append(f"- **Win Rate:** {profile.win_rate:.2%}")
                 lines.append(f"- **Expectancy:** {profile.expectancy:.6f}")
@@ -440,7 +448,9 @@ def _build_report_content(
                                 f"- **{name}:** {ci.point_estimate:.4f} "
                                 f"[95% CI: {ci.ci_lower:.4f} to {ci.ci_upper:.4f}]"
                             )
-                        lines.append(f"- **P(Sharpe <= 0):** {mc_result.p_value_vs_zero:.4f}")
+                        lines.append(
+                            f"- **P(Sharpe <= 0):** {mc_result.p_value_vs_zero:.4f}"
+                        )
                         lines.append("")
                 except Exception as mc_err:
                     lines.append(f"*Monte Carlo skipped: {mc_err}*")
@@ -532,7 +542,10 @@ def generate_qa_report_from_files(
         if isinstance(trades_file, str):
             trades_file = Path(trades_file)
         if trades_file.exists():
-            trades_df = pd.read_csv(trades_file, dtype={"symbol": "string", "side": "string", "timestamp": "string"})
+            trades_df = pd.read_csv(
+                trades_file,
+                dtype={"symbol": "string", "side": "string", "timestamp": "string"},
+            )
             trades_df["timestamp"] = pd.to_datetime(trades_df["timestamp"], utc=True)
 
     # Compute metrics
@@ -602,7 +615,9 @@ def generate_quantstats_tearsheet(
     try:
         import quantstats as qs  # noqa: PLC0415
     except ImportError:
-        logger.warning("[QS] quantstats not installed — pip install quantstats. Tearsheet skipped.")
+        logger.warning(
+            "[QS] quantstats not installed — pip install quantstats. Tearsheet skipped."
+        )
         return None
 
     output_path = Path(output_path)

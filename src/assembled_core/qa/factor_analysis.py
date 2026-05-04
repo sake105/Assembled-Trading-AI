@@ -471,9 +471,11 @@ def summarize_factor_ic(
     # NaN > 0 → False in pandas; count() excludes NaN; so sum(>0)/count is correct
     pos_count = (ic_df[ic_col] > 0).groupby(ic_df["factor"]).sum()
     stats["hit_ratio"] = (pos_count / stats["count"]).fillna(0.0)
-    stats["ic_ir"] = (stats["mean_ic"] / stats["std_ic"]).where(
-        stats["std_ic"] > 1e-10, 0.0
-    ).fillna(0.0)
+    stats["ic_ir"] = (
+        (stats["mean_ic"] / stats["std_ic"])
+        .where(stats["std_ic"] > 1e-10, 0.0)
+        .fillna(0.0)
+    )
     stats = stats[stats["count"] > 0].reset_index()
 
     summary_data = stats.to_dict("records")
@@ -1981,7 +1983,9 @@ def summarize_factor_portfolios(
                         kurtosis=3.0,
                     )
                 except (ValueError, TypeError, AttributeError) as exc:
-                    logger.warning("[FactorAnalysis] stats computation failed for factor: %s", exc)
+                    logger.warning(
+                        "[FactorAnalysis] stats computation failed for factor: %s", exc
+                    )
                     return row.get("deflated_sharpe", float("nan"))
 
             result_df["deflated_sharpe"] = result_df.apply(_recompute_dsr, axis=1)
@@ -2122,9 +2126,8 @@ def compute_ic_decay_curve(
     records = []
     for h in horizons:
         fwd_col = f"_fwd_{h}d"
-        df[fwd_col] = (
-            df.groupby(symbol_col)[price_col]
-            .transform(lambda x: x.shift(-h) / x - 1)
+        df[fwd_col] = df.groupby(symbol_col)[price_col].transform(
+            lambda x: x.shift(-h) / x - 1
         )
         sub = df[[timestamp_col, factor_col, fwd_col]].dropna()
         if sub.empty:
@@ -2133,16 +2136,20 @@ def compute_ic_decay_curve(
         ic_series = (
             sub.groupby(timestamp_col)
             .apply(
-                lambda g: g[factor_col].corr(g[fwd_col], method=method)
-                if len(g) >= 5
-                else np.nan,
+                lambda g: (
+                    g[factor_col].corr(g[fwd_col], method=method)
+                    if len(g) >= 5
+                    else np.nan
+                ),
                 include_groups=False,
             )
             .dropna()
         )
         if len(ic_series) == 0:
             continue
-        ic_ir = float(ic_series.mean() / ic_series.std()) if ic_series.std() > 0 else np.nan
+        ic_ir = (
+            float(ic_series.mean() / ic_series.std()) if ic_series.std() > 0 else np.nan
+        )
         records.append(
             {
                 "horizon_days": h,
@@ -2155,7 +2162,9 @@ def compute_ic_decay_curve(
         df = df.drop(columns=[fwd_col])
 
     if not records:
-        return pd.DataFrame(columns=["horizon_days", "ic_mean", "ic_std", "ic_ir", "n_timestamps"])
+        return pd.DataFrame(
+            columns=["horizon_days", "ic_mean", "ic_std", "ic_ir", "n_timestamps"]
+        )
     return pd.DataFrame(records)
 
 
@@ -2252,7 +2261,14 @@ def flag_decayed_factors(
 
     if not records:
         return pd.DataFrame(
-            columns=["factor", "current_ic_rolling", "hist_mean", "hist_std", "z_score", "flagged"]
+            columns=[
+                "factor",
+                "current_ic_rolling",
+                "hist_mean",
+                "hist_std",
+                "z_score",
+                "flagged",
+            ]
         )
     result = pd.DataFrame(records).sort_values("z_score")
     return result
@@ -2280,7 +2296,12 @@ def estimate_alpha_decay_halflife(
         ``r_squared`` (fit quality), ``decay_rate``.
     """
     if ic_decay_df.empty or "horizon_days" not in ic_decay_df.columns:
-        return {"half_life_days": float("nan"), "ic_0": 0.0, "r_squared": 0.0, "decay_rate": 0.0}
+        return {
+            "half_life_days": float("nan"),
+            "ic_0": 0.0,
+            "r_squared": 0.0,
+            "decay_rate": 0.0,
+        }
 
     h = ic_decay_df["horizon_days"].values.astype(float)
     ic = ic_decay_df["ic_mean"].values.astype(float)
@@ -2288,8 +2309,12 @@ def estimate_alpha_decay_halflife(
     # Filter to positive ICs for log-linear fit
     mask = ic > 0
     if mask.sum() < 2:
-        return {"half_life_days": float("nan"), "ic_0": float(ic[0]) if len(ic) > 0 else 0.0,
-                "r_squared": 0.0, "decay_rate": 0.0}
+        return {
+            "half_life_days": float("nan"),
+            "ic_0": float(ic[0]) if len(ic) > 0 else 0.0,
+            "r_squared": 0.0,
+            "decay_rate": 0.0,
+        }
 
     h_pos = h[mask]
     log_ic = np.log(ic[mask])
@@ -2315,7 +2340,12 @@ def estimate_alpha_decay_halflife(
         r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
 
     except Exception:
-        return {"half_life_days": float("nan"), "ic_0": 0.0, "r_squared": 0.0, "decay_rate": 0.0}
+        return {
+            "half_life_days": float("nan"),
+            "ic_0": 0.0,
+            "r_squared": 0.0,
+            "decay_rate": 0.0,
+        }
 
     return {
         "half_life_days": round(half_life, 1),

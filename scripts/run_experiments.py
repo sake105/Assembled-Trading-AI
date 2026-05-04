@@ -4,6 +4,7 @@ Tests variations of: rebalance frequency, position count, MA windows,
 risk aversion, turnover penalty, max weight, trailing stop tightness,
 and vol cap. Produces a comparison table of all configurations.
 """
+
 from __future__ import annotations
 
 import os
@@ -126,7 +127,9 @@ def run_experiment(
             sym_list = top_syms["symbol"].tolist()
 
             if config.use_optimizer and len(sym_list) >= 2:
-                exp_ret = pd.Series(dict(zip(top_syms["symbol"], top_syms["score"].astype(float))))
+                exp_ret = pd.Series(
+                    dict(zip(top_syms["symbol"], top_syms["score"].astype(float)))
+                )
                 available = [s for s in sym_list if s in cov_matrix.columns]
                 if len(available) >= 2:
                     sub_cov = cov_matrix.loc[available, available]
@@ -164,6 +167,7 @@ def run_experiment(
                             }
                 if positions_for_stops:
                     from assembled_core.risk.trailing_stops import _REGIME_MULTIPLIERS
+
                     custom_mult = dict(_REGIME_MULTIPLIERS)
                     for k in custom_mult:
                         custom_mult[k] = config.trailing_stop_mult
@@ -324,7 +328,9 @@ def main():
         # Baseline: equal weight, no optimizer
         ExperimentConfig(
             name="EW_baseline",
-            use_optimizer=False, use_liquidity=False, use_trailing_stops=False,
+            use_optimizer=False,
+            use_liquidity=False,
+            use_trailing_stops=False,
         ),
         # --- Rebalance frequency ---
         ExperimentConfig(name="rebal_weekly", rebal_every_n_days=5),
@@ -369,27 +375,51 @@ def main():
         # --- Best-of combinations ---
         ExperimentConfig(
             name="BEST_conservative",
-            ma_fast=20, ma_slow=50, rebal_every_n_days=20,
-            n_positions=10, risk_aversion=3.0, turnover_penalty=0.01,
-            max_weight=0.10, trailing_stop_mult=1.5, vol_cap=0.12,
+            ma_fast=20,
+            ma_slow=50,
+            rebal_every_n_days=20,
+            n_positions=10,
+            risk_aversion=3.0,
+            turnover_penalty=0.01,
+            max_weight=0.10,
+            trailing_stop_mult=1.5,
+            vol_cap=0.12,
         ),
         ExperimentConfig(
             name="BEST_balanced",
-            ma_fast=20, ma_slow=50, rebal_every_n_days=10,
-            n_positions=12, risk_aversion=1.5, turnover_penalty=0.005,
-            max_weight=0.12, trailing_stop_mult=2.0, vol_cap=0.15,
+            ma_fast=20,
+            ma_slow=50,
+            rebal_every_n_days=10,
+            n_positions=12,
+            risk_aversion=1.5,
+            turnover_penalty=0.005,
+            max_weight=0.12,
+            trailing_stop_mult=2.0,
+            vol_cap=0.15,
         ),
         ExperimentConfig(
             name="BEST_aggressive",
-            ma_fast=10, ma_slow=30, rebal_every_n_days=5,
-            n_positions=8, risk_aversion=0.5, turnover_penalty=0.001,
-            max_weight=0.20, trailing_stop_mult=3.0, vol_cap=None,
+            ma_fast=10,
+            ma_slow=30,
+            rebal_every_n_days=5,
+            n_positions=8,
+            risk_aversion=0.5,
+            turnover_penalty=0.001,
+            max_weight=0.20,
+            trailing_stop_mult=3.0,
+            vol_cap=None,
         ),
         ExperimentConfig(
             name="BEST_minvol",
-            ma_fast=50, ma_slow=200, rebal_every_n_days=63,
-            n_positions=15, risk_aversion=5.0, turnover_penalty=0.02,
-            max_weight=0.07, trailing_stop_mult=1.5, vol_cap=0.08,
+            ma_fast=50,
+            ma_slow=200,
+            rebal_every_n_days=63,
+            n_positions=15,
+            risk_aversion=5.0,
+            turnover_penalty=0.02,
+            max_weight=0.07,
+            trailing_stop_mult=1.5,
+            vol_cap=0.08,
         ),
     ]
 
@@ -447,7 +477,11 @@ def main():
         ("Highest Alpha", max, lambda r: r.alpha),
         ("Lowest Turnover", min, lambda r: r.turnover if r.turnover > 0 else 999),
         ("Best Calmar", max, lambda r: r.calmar),
-        ("Best Risk-Adj (Sharpe/Vol)", max, lambda r: r.sharpe / max(r.volatility, 0.01)),
+        (
+            "Best Risk-Adj (Sharpe/Vol)",
+            max,
+            lambda r: r.sharpe / max(r.volatility, 0.01),
+        ),
     ]
     for cat_name, func, key_fn in categories:
         winner = func(results, key=key_fn)
@@ -465,31 +499,41 @@ def main():
     rebal_exps = [r for r in results if r.name.startswith("rebal_")]
     if rebal_exps:
         best_rebal = max(rebal_exps, key=lambda r: r.sharpe)
-        print(f"  Rebalancing: Best frequency = {best_rebal.name} (Sharpe {best_rebal.sharpe:.2f})")
+        print(
+            f"  Rebalancing: Best frequency = {best_rebal.name} (Sharpe {best_rebal.sharpe:.2f})"
+        )
 
     # Position count effect
     pos_exps = [r for r in results if r.name.startswith("top")]
     if pos_exps:
         best_pos = max(pos_exps, key=lambda r: r.sharpe)
-        print(f"  Positions: Best count = {best_pos.name} (Sharpe {best_pos.sharpe:.2f})")
+        print(
+            f"  Positions: Best count = {best_pos.name} (Sharpe {best_pos.sharpe:.2f})"
+        )
 
     # MA window effect
     ma_exps = [r for r in results if r.name.startswith("MA_")]
     if ma_exps:
         best_ma = max(ma_exps, key=lambda r: r.sharpe)
-        print(f"  MA Windows: Best combo = {best_ma.name} (Sharpe {best_ma.sharpe:.2f})")
+        print(
+            f"  MA Windows: Best combo = {best_ma.name} (Sharpe {best_ma.sharpe:.2f})"
+        )
 
     # Risk aversion effect
     risk_exps = [r for r in results if r.name.startswith("risk_")]
     if risk_exps:
         best_risk = max(risk_exps, key=lambda r: r.sharpe)
-        print(f"  Risk Aversion: Best = {best_risk.name} (Sharpe {best_risk.sharpe:.2f})")
+        print(
+            f"  Risk Aversion: Best = {best_risk.name} (Sharpe {best_risk.sharpe:.2f})"
+        )
 
     # Trailing stops effect
     stop_exps = [r for r in results if r.name.startswith("stop_")]
     if stop_exps:
         best_stop = max(stop_exps, key=lambda r: r.sharpe)
-        print(f"  Trailing Stops: Best = {best_stop.name} (Sharpe {best_stop.sharpe:.2f})")
+        print(
+            f"  Trailing Stops: Best = {best_stop.name} (Sharpe {best_stop.sharpe:.2f})"
+        )
 
     # Overall best
     overall_best = max(results, key=lambda r: r.sharpe)
@@ -498,30 +542,34 @@ def main():
     print(f"    Sharpe: {overall_best.sharpe:.3f}")
     print(f"    MaxDD:  {overall_best.max_drawdown*100:.1f}%")
     print(f"    Alpha:  {overall_best.alpha*100:+.1f}%")
-    print(f"    CPCV:   {overall_best.cpcv_mean_sharpe:.2f} (overfit={overall_best.cpcv_overfit})")
+    print(
+        f"    CPCV:   {overall_best.cpcv_mean_sharpe:.2f} (overfit={overall_best.cpcv_overfit})"
+    )
 
     # Save all results
     os.makedirs("output/experiments", exist_ok=True)
     rows = []
     for r in results:
-        rows.append({
-            "name": r.name,
-            "total_return": r.total_return,
-            "sharpe": r.sharpe,
-            "sortino": r.sortino,
-            "calmar": r.calmar,
-            "cagr": r.cagr,
-            "volatility": r.volatility,
-            "max_drawdown": r.max_drawdown,
-            "alpha": r.alpha,
-            "beta": r.beta,
-            "turnover": r.turnover,
-            "n_rebalances": r.n_rebalances,
-            "cost_bps": r.cost_bps,
-            "cpcv_mean_sharpe": r.cpcv_mean_sharpe,
-            "cpcv_overfit": r.cpcv_overfit,
-            "runtime_s": r.runtime_s,
-        })
+        rows.append(
+            {
+                "name": r.name,
+                "total_return": r.total_return,
+                "sharpe": r.sharpe,
+                "sortino": r.sortino,
+                "calmar": r.calmar,
+                "cagr": r.cagr,
+                "volatility": r.volatility,
+                "max_drawdown": r.max_drawdown,
+                "alpha": r.alpha,
+                "beta": r.beta,
+                "turnover": r.turnover,
+                "n_rebalances": r.n_rebalances,
+                "cost_bps": r.cost_bps,
+                "cpcv_mean_sharpe": r.cpcv_mean_sharpe,
+                "cpcv_overfit": r.cpcv_overfit,
+                "runtime_s": r.runtime_s,
+            }
+        )
     df = pd.DataFrame(rows)
     df.to_csv("output/experiments/all_results.csv", index=False)
     print("\nFull results saved to output/experiments/all_results.csv")

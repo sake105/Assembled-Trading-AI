@@ -12,7 +12,6 @@ from src.assembled_core.ops.intel_activity_summary import (
     build_intel_activity_summary,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

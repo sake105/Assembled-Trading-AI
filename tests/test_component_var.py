@@ -17,11 +17,13 @@ from src.assembled_core.risk.risk_metrics import compute_component_var
 def _mk_returns(n: int = 400, seed: int = 7) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     # 3-asset correlated returns
-    L = np.array([
-        [0.015, 0.000, 0.000],
-        [0.008, 0.012, 0.000],
-        [0.005, 0.004, 0.010],
-    ])
+    L = np.array(
+        [
+            [0.015, 0.000, 0.000],
+            [0.008, 0.012, 0.000],
+            [0.005, 0.004, 0.010],
+        ]
+    )
     z = rng.standard_normal((n, 3))
     r = z @ L.T
     return pd.DataFrame(r, columns=["A", "B", "C"])

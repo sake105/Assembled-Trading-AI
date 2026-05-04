@@ -12,6 +12,7 @@ by the execution layer to enforce the 3-day-trade limit when equity < $25k.
 A "day trade" is defined as opening and closing the same security on the
 same calendar day.
 """
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -54,9 +55,7 @@ def count_day_trades(
         pairs.setdefault(key, set()).add(t["side"].lower())
 
     # Day-trade = both sides present on the same day for the same symbol
-    return sum(
-        1 for sides in pairs.values() if "buy" in sides and "sell" in sides
-    )
+    return sum(1 for sides in pairs.values() if "buy" in sides and "sell" in sides)
 
 
 def can_day_trade(

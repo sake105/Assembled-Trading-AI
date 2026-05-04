@@ -16,6 +16,7 @@ References:
   - Hamilton et al. (2017) "Inductive Representation Learning on Large Graphs" (GraphSAGE)
   - Xu et al. (2018) "How Powerful are Graph Neural Networks?" (GIN)
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,8 +32,10 @@ _PYG_AVAILABLE = False
 
 try:
     import torch  # type: ignore[import]  # noqa: F401
+
     _TORCH_AVAILABLE = True
     import torch_geometric  # type: ignore[import]  # noqa: F401
+
     _PYG_AVAILABLE = True
 except ImportError:
     pass
@@ -41,10 +44,11 @@ except ImportError:
 @dataclass
 class GNNConfig:
     """Configuration for the GNN signal model."""
-    n_node_features: int = 16       # per-symbol feature vector dimension
-    hidden_dim: int = 64            # GNN hidden layer width
-    n_layers: int = 3               # message-passing rounds
-    output_dim: int = 1             # signal per node (1 = scalar alpha score)
+
+    n_node_features: int = 16  # per-symbol feature vector dimension
+    hidden_dim: int = 64  # GNN hidden layer width
+    n_layers: int = 3  # message-passing rounds
+    output_dim: int = 1  # signal per node (1 = scalar alpha score)
     dropout: float = 0.2
     learning_rate: float = 1e-3
     epochs: int = 100
@@ -53,10 +57,11 @@ class GNNConfig:
 @dataclass
 class GNNSignalResult:
     """Output of the GNN signal generator."""
+
     symbols: list[str]
-    scores: dict[str, float]        # symbol → alpha score
-    n_edges: int                    # edges in the co-movement graph
-    backend: str                    # "pytorch_geometric" or "stub"
+    scores: dict[str, float]  # symbol → alpha score
+    n_edges: int  # edges in the co-movement graph
+    backend: str  # "pytorch_geometric" or "stub"
 
 
 class GNNSignalModel:
@@ -105,6 +110,7 @@ class GNNSignalModel:
             return None, None
 
         import torch
+
         n = returns_matrix.shape[1]
         corr = np.corrcoef(returns_matrix.T)
         rows, cols = np.triu_indices(n, k=1)
@@ -146,7 +152,9 @@ class GNNSignalModel:
             )
         self._symbols = symbols
         self._is_trained = False
-        raise NotImplementedError("Full GNN training not yet implemented. See stub docstring.")
+        raise NotImplementedError(
+            "Full GNN training not yet implemented. See stub docstring."
+        )
 
     def predict(
         self,
@@ -164,10 +172,15 @@ class GNNSignalModel:
         Returns:
             GNNSignalResult with zero scores in stub mode.
         """
-        syms = symbols or self._symbols or [f"SYM_{i}" for i in range(len(node_features))]
+        syms = (
+            symbols or self._symbols or [f"SYM_{i}" for i in range(len(node_features))]
+        )
 
         if not _PYG_AVAILABLE or not self._is_trained:
-            logger.debug("[GNNSignal] stub predict — returning zero scores for %d symbols", len(syms))
+            logger.debug(
+                "[GNNSignal] stub predict — returning zero scores for %d symbols",
+                len(syms),
+            )
             return GNNSignalResult(
                 symbols=syms,
                 scores={s: 0.0 for s in syms},

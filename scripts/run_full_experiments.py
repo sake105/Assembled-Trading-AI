@@ -8,6 +8,7 @@ Tests:
 5. MA 20/200 + biweekly combo
 6. Multiple combined configurations
 """
+
 from __future__ import annotations
 
 import os
@@ -46,17 +47,36 @@ from assembled_core.risk.trailing_stops import (
 from assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 
 SECTOR_MAP = {
-    "AAPL": "Technology", "MSFT": "Technology", "GOOGL": "Technology",
-    "AMZN": "Consumer Discretionary", "NVDA": "Technology", "META": "Technology",
-    "TSLA": "Consumer Discretionary", "NFLX": "Communication Services",
-    "AVGO": "Technology", "ADBE": "Technology", "CRM": "Technology",
-    "JPM": "Financials", "V": "Financials", "MA": "Financials",
-    "HD": "Consumer Discretionary", "WMT": "Consumer Staples", "MCD": "Consumer Discretionary",
-    "COST": "Consumer Staples", "PEP": "Consumer Staples", "KO": "Consumer Staples",
+    "AAPL": "Technology",
+    "MSFT": "Technology",
+    "GOOGL": "Technology",
+    "AMZN": "Consumer Discretionary",
+    "NVDA": "Technology",
+    "META": "Technology",
+    "TSLA": "Consumer Discretionary",
+    "NFLX": "Communication Services",
+    "AVGO": "Technology",
+    "ADBE": "Technology",
+    "CRM": "Technology",
+    "JPM": "Financials",
+    "V": "Financials",
+    "MA": "Financials",
+    "HD": "Consumer Discretionary",
+    "WMT": "Consumer Staples",
+    "MCD": "Consumer Discretionary",
+    "COST": "Consumer Staples",
+    "PEP": "Consumer Staples",
+    "KO": "Consumer Staples",
     "PG": "Consumer Staples",
-    "JNJ": "Healthcare", "LLY": "Healthcare", "UNH": "Healthcare",
-    "MRK": "Healthcare", "TMO": "Healthcare", "ABBV": "Healthcare",
-    "XOM": "Energy", "CVX": "Energy", "BRK-B": "Financials",
+    "JNJ": "Healthcare",
+    "LLY": "Healthcare",
+    "UNH": "Healthcare",
+    "MRK": "Healthcare",
+    "TMO": "Healthcare",
+    "ABBV": "Healthcare",
+    "XOM": "Energy",
+    "CVX": "Energy",
+    "BRK-B": "Financials",
 }
 
 
@@ -93,11 +113,17 @@ def build_enhanced_signals(
 
         for sym in symbols:
             sym_trend = day_trend[day_trend["symbol"] == sym]
-            trend_dir = sym_trend["direction"].iloc[0] if not sym_trend.empty else "FLAT"
-            trend_score = float(sym_trend["score"].iloc[0]) if not sym_trend.empty else 0.0
+            trend_dir = (
+                sym_trend["direction"].iloc[0] if not sym_trend.empty else "FLAT"
+            )
+            trend_score = (
+                float(sym_trend["score"].iloc[0]) if not sym_trend.empty else 0.0
+            )
 
             # Historical data for this symbol up to this date
-            sym_hist = prices[(prices["symbol"] == sym) & (prices["timestamp"] <= date)].sort_values("timestamp")
+            sym_hist = prices[
+                (prices["symbol"] == sym) & (prices["timestamp"] <= date)
+            ].sort_values("timestamp")
 
             composite_score = trend_score
             direction = trend_dir
@@ -106,12 +132,20 @@ def build_enhanced_signals(
             if use_momentum and len(sym_hist) >= 252:
                 close_now = float(sym_hist["close"].iloc[-1])
                 close_252 = float(sym_hist["close"].iloc[-252])
-                close_21 = float(sym_hist["close"].iloc[-21]) if len(sym_hist) >= 21 else close_now
+                close_21 = (
+                    float(sym_hist["close"].iloc[-21])
+                    if len(sym_hist) >= 21
+                    else close_now
+                )
                 mom_12m_1m = (close_now / close_252) - (close_now / close_21)
                 composite_score += mom_12m_1m * 0.3  # 30% weight
 
             # Layer 3: Volume sentiment proxy (abnormal volume = news activity)
-            if use_sentiment_proxy and "volume" in sym_hist.columns and len(sym_hist) >= 20:
+            if (
+                use_sentiment_proxy
+                and "volume" in sym_hist.columns
+                and len(sym_hist) >= 20
+            ):
                 recent_vol = float(sym_hist["volume"].iloc[-1])
                 avg_vol = float(sym_hist["volume"].iloc[-20:].mean())
                 if avg_vol > 0:
@@ -120,7 +154,9 @@ def build_enhanced_signals(
                     price_change_1d = 0.0
                     if len(sym_hist) >= 2:
                         price_change_1d = (
-                            float(sym_hist["close"].iloc[-1]) / float(sym_hist["close"].iloc[-2]) - 1
+                            float(sym_hist["close"].iloc[-1])
+                            / float(sym_hist["close"].iloc[-2])
+                            - 1
                         )
                     sentiment_proxy = price_change_1d * min(vol_ratio, 3.0)
                     composite_score += sentiment_proxy * 0.2  # 20% weight
@@ -142,13 +178,15 @@ def build_enhanced_signals(
                 elif rsi > 70:
                     composite_score -= 0.15  # Overbought penalty
 
-            rows.append({
-                "timestamp": date,
-                "symbol": sym,
-                "direction": direction,
-                "score": composite_score,
-                "trend_score": trend_score,
-            })
+            rows.append(
+                {
+                    "timestamp": date,
+                    "symbol": sym,
+                    "direction": direction,
+                    "score": composite_score,
+                    "trend_score": trend_score,
+                }
+            )
 
     result = pd.DataFrame(rows)
 
@@ -163,7 +201,9 @@ def build_enhanced_signals(
         q_low = day["score"].quantile(0.20)
         result.loc[mask & (result["score"] >= q_high), "direction"] = "LONG"
         result.loc[mask & (result["score"] <= q_low), "direction"] = "SHORT"
-        result.loc[mask & (result["score"] > q_low) & (result["score"] < q_high), "direction"] = "FLAT"
+        result.loc[
+            mask & (result["score"] > q_low) & (result["score"] < q_high), "direction"
+        ] = "FLAT"
 
     return result
 
@@ -232,20 +272,32 @@ def run_backtest(
             long_ct += len(longs)
 
             if long_short:
-                shorts = day_sig[day_sig["direction"] == "SHORT"].nsmallest(n_short, "score")
+                shorts = day_sig[day_sig["direction"] == "SHORT"].nsmallest(
+                    n_short, "score"
+                )
                 short_ct += len(shorts)
 
                 # Market-neutral: use optimizer if available
-                all_syms = list(set(longs["symbol"].tolist() + shorts["symbol"].tolist()))
+                all_syms = list(
+                    set(longs["symbol"].tolist() + shorts["symbol"].tolist())
+                )
                 available = [s for s in all_syms if s in cov_matrix.columns]
 
                 if len(available) >= 2:
-                    exp_ret = pd.Series(
-                        dict(zip(
-                            pd.concat([longs["symbol"], shorts["symbol"]]),
-                            pd.concat([longs["score"], shorts["score"]]).astype(float),
-                        ))
-                    ).reindex(available).fillna(0.0)
+                    exp_ret = (
+                        pd.Series(
+                            dict(
+                                zip(
+                                    pd.concat([longs["symbol"], shorts["symbol"]]),
+                                    pd.concat([longs["score"], shorts["score"]]).astype(
+                                        float
+                                    ),
+                                )
+                            )
+                        )
+                        .reindex(available)
+                        .fillna(0.0)
+                    )
 
                     mn_config = MarketNeutralConfig(
                         risk_aversion=risk_aversion,
@@ -280,7 +332,9 @@ def run_backtest(
                 available = [s for s in sym_list if s in cov_matrix.columns]
 
                 if len(available) >= 2:
-                    exp_ret = pd.Series(dict(zip(longs["symbol"], longs["score"].astype(float))))
+                    exp_ret = pd.Series(
+                        dict(zip(longs["symbol"], longs["score"].astype(float)))
+                    )
                     sub_cov = cov_matrix.loc[available, available]
                     exp_ret_sub = exp_ret.reindex(available).fillna(0.0)
 
@@ -317,7 +371,11 @@ def run_backtest(
             # Liquidity adjustment
             pos_weights = {s: w for s, w in new_weights.items() if w > 0}
             neg_weights = {s: w for s, w in new_weights.items() if w < 0}
-            pos_adj = apply_liquidity_adjusted_sizing(pos_weights, liq_scores, alpha=0.3) if pos_weights else {}
+            pos_adj = (
+                apply_liquidity_adjusted_sizing(pos_weights, liq_scores, alpha=0.3)
+                if pos_weights
+                else {}
+            )
             new_weights = {**pos_adj, **neg_weights}
 
             # Trailing stops (long side only)
@@ -326,11 +384,15 @@ def run_backtest(
                 if new_weights[s] > 0.01:
                     sp = prices[(prices["symbol"] == s) & (prices["timestamp"] == date)]
                     if not sp.empty:
-                        positions_for_stops[s] = {"entry_price": float(sp["close"].iloc[0])}
+                        positions_for_stops[s] = {
+                            "entry_price": float(sp["close"].iloc[0])
+                        }
             if positions_for_stops:
                 stop_result = compute_trailing_stops(
-                    positions_for_stops, prices[prices["timestamp"] <= date],
-                    regime="unknown", prior_states=stop_states,
+                    positions_for_stops,
+                    prices[prices["timestamp"] <= date],
+                    regime="unknown",
+                    prior_states=stop_states,
                 )
                 long_adj = apply_stop_reductions_to_weights(
                     {s: w for s, w in new_weights.items() if w > 0}, stop_result
@@ -340,10 +402,14 @@ def run_backtest(
 
             # Turnover & cost
             all_syms = set(holdings.keys()) | set(new_weights.keys())
-            turnover = sum(abs(holdings.get(s, 0) - new_weights.get(s, 0)) for s in all_syms)
+            turnover = sum(
+                abs(holdings.get(s, 0) - new_weights.get(s, 0)) for s in all_syms
+            )
             total_turnover += turnover
             total_cost += sum(
-                abs(holdings.get(s, 0) - new_weights.get(s, 0)) * cost_bps.get(s, 6.0) / 10000
+                abs(holdings.get(s, 0) - new_weights.get(s, 0))
+                * cost_bps.get(s, 6.0)
+                / 10000
                 for s in all_syms
             )
             holdings = {s: w for s, w in new_weights.items() if abs(w) > 0.001}
@@ -353,7 +419,10 @@ def run_backtest(
         # Daily PnL
         port_ret = 0.0
         for sym, w in holdings.items():
-            sp = prices[(prices["symbol"] == sym) & (prices["timestamp"].isin([prev_date, date]))]
+            sp = prices[
+                (prices["symbol"] == sym)
+                & (prices["timestamp"].isin([prev_date, date]))
+            ]
             if len(sp) >= 2:
                 sp = sp.sort_values("timestamp")
                 ret = (sp["close"].iloc[-1] / sp["close"].iloc[0]) - 1.0
@@ -365,15 +434,27 @@ def run_backtest(
     equity = np.array(portfolio_value)
 
     # Metrics
-    sharpe = float(np.mean(returns) / np.std(returns) * np.sqrt(252)) if np.std(returns) > 0 else 0
+    sharpe = (
+        float(np.mean(returns) / np.std(returns) * np.sqrt(252))
+        if np.std(returns) > 0
+        else 0
+    )
     down = returns[returns < 0]
-    sortino = float(np.mean(returns) / np.std(down) * np.sqrt(252)) if len(down) > 0 and np.std(down) > 0 else 0
+    sortino = (
+        float(np.mean(returns) / np.std(down) * np.sqrt(252))
+        if len(down) > 0 and np.std(down) > 0
+        else 0
+    )
     cum = np.cumprod(1 + returns)
     rm = np.maximum.accumulate(cum)
     dd = (cum - rm) / rm
     max_dd = float(dd.min())
     vol = float(np.std(returns) * np.sqrt(252))
-    cagr = float((equity[-1] / equity[0]) ** (252 / len(returns)) - 1) if len(returns) > 0 else 0
+    cagr = (
+        float((equity[-1] / equity[0]) ** (252 / len(returns)) - 1)
+        if len(returns) > 0
+        else 0
+    )
     calmar = float(cagr / abs(max_dd)) if abs(max_dd) > 1e-10 else 0
 
     wins = returns[returns > 0]
@@ -382,13 +463,17 @@ def run_backtest(
     pf = abs(wins.sum() / losses.sum()) if len(losses) > 0 and losses.sum() != 0 else 0
 
     alpha_val, beta_val = 0.0, 0.0
-    spy_al = spy_returns[:len(returns)]
+    spy_al = spy_returns[: len(returns)]
     if len(spy_al) > 10:
-        bm = compute_benchmark_metrics(pd.Series(returns[:len(spy_al)]), pd.Series(spy_al))
+        bm = compute_benchmark_metrics(
+            pd.Series(returns[: len(spy_al)]), pd.Series(spy_al)
+        )
         alpha_val, beta_val = bm.alpha, bm.beta
 
     cpcv_s, overfit = 0.0, False
-    splits = generate_cpcv_splits(len(returns), n_groups=6, k_test_groups=2, purge_length=5, embargo_length=3)
+    splits = generate_cpcv_splits(
+        len(returns), n_groups=6, k_test_groups=2, purge_length=5, embargo_length=3
+    )
     if splits:
         cpcv = compute_cpcv_sharpe_distribution([returns[t] for _, t in splits])
         cpcv_s, overfit = cpcv.mean_sharpe, cpcv.is_likely_overfit
@@ -396,14 +481,22 @@ def run_backtest(
     return ExpResult(
         name=name,
         total_return=float(equity[-1] / equity[0] - 1),
-        sharpe=sharpe, sortino=sortino, calmar=calmar,
-        volatility=vol, max_drawdown=max_dd,
-        alpha=alpha_val, beta=beta_val,
-        turnover=total_turnover, cost_bps=total_cost * 10000,
-        hit_rate=hr, profit_factor=pf,
+        sharpe=sharpe,
+        sortino=sortino,
+        calmar=calmar,
+        volatility=vol,
+        max_drawdown=max_dd,
+        alpha=alpha_val,
+        beta=beta_val,
+        turnover=total_turnover,
+        cost_bps=total_cost * 10000,
+        hit_rate=hr,
+        profit_factor=pf,
         avg_hhi=float(np.mean(hhi_vals)),
-        cpcv_sharpe=cpcv_s, overfit=overfit,
-        long_count=long_ct, short_count=short_ct,
+        cpcv_sharpe=cpcv_s,
+        overfit=overfit,
+        long_count=long_ct,
+        short_count=short_ct,
     )
 
 
@@ -431,6 +524,7 @@ def main():
 
     try:
         from assembled_core.data.cost_model_policy import get_per_symbol_costs
+
         cost_df = get_per_symbol_costs(prices)
         cost_bps = dict(zip(cost_df["symbol"], cost_df["one_way_cost_bps"]))
     except Exception:
@@ -442,29 +536,48 @@ def main():
     print("\nBuilding signal variants...")
 
     t0 = time.time()
-    sig_ta_only = generate_trend_signals_from_prices(prices_feat, ma_fast=20, ma_slow=50)
+    sig_ta_only = generate_trend_signals_from_prices(
+        prices_feat, ma_fast=20, ma_slow=50
+    )
     # Add direction for all symbols on all dates
-    sig_ta_only_20_200 = generate_trend_signals_from_prices(prices_feat, ma_fast=20, ma_slow=200)
+    sig_ta_only_20_200 = generate_trend_signals_from_prices(
+        prices_feat, ma_fast=20, ma_slow=200
+    )
     print(f"  TA signals (20/50): {len(sig_ta_only)} rows ({time.time()-t0:.1f}s)")
 
     t0 = time.time()
     sig_hybrid = build_enhanced_signals(
-        prices_feat, prices, ma_fast=20, ma_slow=50,
-        use_momentum=True, use_sentiment_proxy=True, use_mean_reversion=False,
+        prices_feat,
+        prices,
+        ma_fast=20,
+        ma_slow=50,
+        use_momentum=True,
+        use_sentiment_proxy=True,
+        use_mean_reversion=False,
     )
     print(f"  Hybrid (TA+Mom+Sent): {len(sig_hybrid)} rows ({time.time()-t0:.1f}s)")
 
     t0 = time.time()
     sig_hybrid_mr = build_enhanced_signals(
-        prices_feat, prices, ma_fast=20, ma_slow=50,
-        use_momentum=True, use_sentiment_proxy=True, use_mean_reversion=True,
+        prices_feat,
+        prices,
+        ma_fast=20,
+        ma_slow=50,
+        use_momentum=True,
+        use_sentiment_proxy=True,
+        use_mean_reversion=True,
     )
     print(f"  Hybrid+MeanRev: {len(sig_hybrid_mr)} rows ({time.time()-t0:.1f}s)")
 
     t0 = time.time()
     sig_hybrid_200 = build_enhanced_signals(
-        prices_feat, prices, ma_fast=20, ma_slow=200,
-        use_momentum=True, use_sentiment_proxy=True, use_mean_reversion=False,
+        prices_feat,
+        prices,
+        ma_fast=20,
+        ma_slow=200,
+        use_momentum=True,
+        use_sentiment_proxy=True,
+        use_mean_reversion=False,
     )
     print(f"  Hybrid MA20/200: {len(sig_hybrid_200)} rows ({time.time()-t0:.1f}s)")
 
@@ -475,52 +588,92 @@ def main():
         experiments.append((name, signals, kwargs))
 
     # --- SECTION A: Signal comparison (Long-only, biweekly) ---
-    add("A1_TA_only_20_50",         sig_ta_only)
-    add("A2_TA_only_20_200",        sig_ta_only_20_200)
-    add("A3_Hybrid_TA+Mom+Sent",    sig_hybrid)
-    add("A4_Hybrid+MeanRev",        sig_hybrid_mr)
-    add("A5_Hybrid_MA20_200",       sig_hybrid_200)
+    add("A1_TA_only_20_50", sig_ta_only)
+    add("A2_TA_only_20_200", sig_ta_only_20_200)
+    add("A3_Hybrid_TA+Mom+Sent", sig_hybrid)
+    add("A4_Hybrid+MeanRev", sig_hybrid_mr)
+    add("A5_Hybrid_MA20_200", sig_hybrid_200)
 
     # --- SECTION B: Long/Short comparison ---
-    add("B1_LongOnly_TA",           sig_ta_only, long_short=False)
-    add("B2_LongShort_TA",          sig_ta_only, long_short=True, n_short=6)
-    add("B3_LongOnly_Hybrid",       sig_hybrid, long_short=False)
-    add("B4_LongShort_Hybrid",      sig_hybrid, long_short=True, n_short=6)
+    add("B1_LongOnly_TA", sig_ta_only, long_short=False)
+    add("B2_LongShort_TA", sig_ta_only, long_short=True, n_short=6)
+    add("B3_LongOnly_Hybrid", sig_hybrid, long_short=False)
+    add("B4_LongShort_Hybrid", sig_hybrid, long_short=True, n_short=6)
     add("B5_LongShort_Hybrid_wide", sig_hybrid, long_short=True, n_short=10)
-    add("B6_LongShort_200",         sig_hybrid_200, long_short=True, n_short=6)
+    add("B6_LongShort_200", sig_hybrid_200, long_short=True, n_short=6)
 
     # --- SECTION C: HHI concentration fix ---
-    add("C1_NoFloor",               sig_hybrid, min_weight_floor=0.0)
-    add("C2_Floor_3pct",            sig_hybrid, min_weight_floor=0.03)
-    add("C3_Floor_5pct",            sig_hybrid, min_weight_floor=0.05)
-    add("C4_Floor_7pct",            sig_hybrid, min_weight_floor=0.07)
+    add("C1_NoFloor", sig_hybrid, min_weight_floor=0.0)
+    add("C2_Floor_3pct", sig_hybrid, min_weight_floor=0.03)
+    add("C3_Floor_5pct", sig_hybrid, min_weight_floor=0.05)
+    add("C4_Floor_7pct", sig_hybrid, min_weight_floor=0.07)
 
     # --- SECTION D: Rebalance + position combos ---
-    add("D1_Weekly_8pos",           sig_hybrid, rebal_days=5, n_long=8)
-    add("D2_Biweekly_12pos",        sig_hybrid, rebal_days=10, n_long=12)
-    add("D3_Monthly_15pos",         sig_hybrid, rebal_days=20, n_long=15)
+    add("D1_Weekly_8pos", sig_hybrid, rebal_days=5, n_long=8)
+    add("D2_Biweekly_12pos", sig_hybrid, rebal_days=10, n_long=12)
+    add("D3_Monthly_15pos", sig_hybrid, rebal_days=20, n_long=15)
 
     # --- SECTION E: Best combos ---
-    add("E1_BEST_LongOnly",         sig_hybrid, rebal_days=10, n_long=12,
-        max_weight=0.12, min_weight_floor=0.04, risk_aversion=1.5)
-    add("E2_BEST_LongShort",        sig_hybrid, long_short=True, rebal_days=10,
-        n_long=10, n_short=6, max_weight=0.12, min_weight_floor=0.03,
-        risk_aversion=1.5)
-    add("E3_BEST_200_LS",           sig_hybrid_200, long_short=True, rebal_days=10,
-        n_long=10, n_short=6, max_weight=0.12, risk_aversion=1.5)
-    add("E4_BEST_Conservative",     sig_hybrid, rebal_days=20, n_long=15,
-        max_weight=0.08, min_weight_floor=0.04, risk_aversion=3.0)
+    add(
+        "E1_BEST_LongOnly",
+        sig_hybrid,
+        rebal_days=10,
+        n_long=12,
+        max_weight=0.12,
+        min_weight_floor=0.04,
+        risk_aversion=1.5,
+    )
+    add(
+        "E2_BEST_LongShort",
+        sig_hybrid,
+        long_short=True,
+        rebal_days=10,
+        n_long=10,
+        n_short=6,
+        max_weight=0.12,
+        min_weight_floor=0.03,
+        risk_aversion=1.5,
+    )
+    add(
+        "E3_BEST_200_LS",
+        sig_hybrid_200,
+        long_short=True,
+        rebal_days=10,
+        n_long=10,
+        n_short=6,
+        max_weight=0.12,
+        risk_aversion=1.5,
+    )
+    add(
+        "E4_BEST_Conservative",
+        sig_hybrid,
+        rebal_days=20,
+        n_long=15,
+        max_weight=0.08,
+        min_weight_floor=0.04,
+        risk_aversion=3.0,
+    )
 
     results: list[ExpResult] = []
     for i, (name, signals, kwargs) in enumerate(experiments, 1):
         print(f"\n[{i}/{len(experiments)}] {name}...", end=" ", flush=True)
         try:
             r = run_backtest(
-                name, signals, prices, spy_returns, cov_matrix, liq_scores, cost_bps,
+                name,
+                signals,
+                prices,
+                spy_returns,
+                cov_matrix,
+                liq_scores,
+                cost_bps,
                 **kwargs,
             )
             results.append(r)
-            ls_info = f"L={r.long_count}/S={r.short_count}" if r.short_count > 0 else f"L={r.long_count}"
+            ls_info = (
+                f"L={r.long_count}/S={r.short_count}"
+                if r.short_count > 0
+                else f"L={r.long_count}"
+            )
             print(
                 f"Ret={r.total_return*100:+.1f}% Sh={r.sharpe:.2f} DD={r.max_drawdown*100:.1f}% "
                 f"HHI={r.avg_hhi:.3f} {ls_info}"
@@ -544,7 +697,11 @@ def main():
     results.sort(key=lambda r: r.sharpe, reverse=True)
     for r in results:
         ofit = "YES" if r.overfit else "no"
-        ls = f"{r.long_count}/{r.short_count}" if r.short_count > 0 else f"{r.long_count}/0"
+        ls = (
+            f"{r.long_count}/{r.short_count}"
+            if r.short_count > 0
+            else f"{r.long_count}/0"
+        )
         print(
             f"{r.name:<26} {r.total_return*100:>+7.1f}% {r.sharpe:>7.2f} {r.sortino:>8.2f} "
             f"{r.max_drawdown*100:>6.1f}% {r.volatility*100:>5.1f}% {r.alpha*100:>+6.1f}% {r.beta:>5.2f} "
@@ -563,7 +720,9 @@ def main():
         best_a = max(a_exps, key=lambda r: r.sharpe)
         print("\nA. SIGNAL TYPE:")
         for r in sorted(a_exps, key=lambda r: -r.sharpe):
-            print(f"   {r.name:<30} Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% DD={r.max_drawdown*100:.1f}%")
+            print(
+                f"   {r.name:<30} Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% DD={r.max_drawdown*100:.1f}%"
+            )
         print(f"   -> Winner: {best_a.name}")
 
     # B: Long/Short
@@ -573,7 +732,9 @@ def main():
         print("\nB. LONG vs LONG/SHORT:")
         for r in sorted(b_exps, key=lambda r: -r.sharpe):
             ls = "L/S" if r.short_count > 0 else "Long"
-            print(f"   {r.name:<30} [{ls:>4}] Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% Beta={r.beta:.3f}")
+            print(
+                f"   {r.name:<30} [{ls:>4}] Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% Beta={r.beta:.3f}"
+            )
         print(f"   -> Winner: {best_b.name}")
 
     # C: HHI fix
@@ -582,7 +743,9 @@ def main():
         print("\nC. HHI CONCENTRATION FIX:")
         for r in sorted(c_exps, key=lambda r: r.avg_hhi):
             eff_n = 1 / r.avg_hhi if r.avg_hhi > 0 else 0
-            print(f"   {r.name:<30} HHI={r.avg_hhi:.3f} EffN={eff_n:.1f} Sharpe={r.sharpe:.2f}")
+            print(
+                f"   {r.name:<30} HHI={r.avg_hhi:.3f} EffN={eff_n:.1f} Sharpe={r.sharpe:.2f}"
+            )
 
     # D: Rebalance combos
     d_exps = [r for r in results if r.name.startswith("D")]
@@ -590,7 +753,9 @@ def main():
         best_d = max(d_exps, key=lambda r: r.sharpe)
         print("\nD. REBALANCE + POSITION COMBOS:")
         for r in sorted(d_exps, key=lambda r: -r.sharpe):
-            print(f"   {r.name:<30} Sharpe={r.sharpe:.2f} TO={r.turnover:.1f}x Return={r.total_return*100:+.1f}%")
+            print(
+                f"   {r.name:<30} Sharpe={r.sharpe:.2f} TO={r.turnover:.1f}x Return={r.total_return*100:+.1f}%"
+            )
         print(f"   -> Winner: {best_d.name}")
 
     # E: Best combos

@@ -13,7 +13,10 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.pipeline.trading_cycle_shared import TradingContext, TradingCycleResult
+from src.assembled_core.pipeline.trading_cycle_shared import (
+    TradingContext,
+    TradingCycleResult,
+)
 from src.assembled_core.pipeline.trading_cycle_v2 import (
     book_fills,
     build_features,
@@ -33,7 +36,9 @@ N_DAYS = 60
 SYMBOLS = ["AAPL", "MSFT", "GOOG"]
 
 
-def _make_prices(n_days: int = N_DAYS, symbols: list[str] | None = None) -> pd.DataFrame:
+def _make_prices(
+    n_days: int = N_DAYS, symbols: list[str] | None = None
+) -> pd.DataFrame:
     if symbols is None:
         symbols = SYMBOLS
     rng = np.random.default_rng(42)
@@ -43,15 +48,17 @@ def _make_prices(n_days: int = N_DAYS, symbols: list[str] | None = None) -> pd.D
         close = 100.0 + rng.normal(0, 1, n_days).cumsum()
         close = np.maximum(close, 10.0)
         for i, ts in enumerate(dates):
-            rows.append({
-                "timestamp": ts,
-                "symbol": sym,
-                "close": round(float(close[i]), 2),
-                "open": round(float(close[i]) * 0.99, 2),
-                "high": round(float(close[i]) * 1.01, 2),
-                "low": round(float(close[i]) * 0.98, 2),
-                "volume": int(1_000_000 + rng.integers(0, 100_000)),
-            })
+            rows.append(
+                {
+                    "timestamp": ts,
+                    "symbol": sym,
+                    "close": round(float(close[i]), 2),
+                    "open": round(float(close[i]) * 0.99, 2),
+                    "high": round(float(close[i]) * 1.01, 2),
+                    "low": round(float(close[i]) * 0.98, 2),
+                    "volume": int(1_000_000 + rng.integers(0, 100_000)),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -59,12 +66,14 @@ def _signal_fn(df: pd.DataFrame) -> pd.DataFrame:
     """LONG for all symbols at latest timestamp."""
     ts = df["timestamp"].max() if "timestamp" in df.columns else pd.Timestamp.now("UTC")
     syms = list(df["symbol"].unique()) if "symbol" in df.columns else []
-    return pd.DataFrame({
-        "timestamp": [ts] * len(syms),
-        "symbol": syms,
-        "direction": ["LONG"] * len(syms),
-        "score": [0.5] * len(syms),
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": [ts] * len(syms),
+            "symbol": syms,
+            "direction": ["LONG"] * len(syms),
+            "score": [0.5] * len(syms),
+        }
+    )
 
 
 def _sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
@@ -76,11 +85,13 @@ def _sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
         return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
     syms = long_s["symbol"].tolist()
     w = 1.0 / len(syms)
-    return pd.DataFrame({
-        "symbol": syms,
-        "target_weight": [round(w, 4)] * len(syms),
-        "target_qty": [round(w * capital, 2)] * len(syms),
-    })
+    return pd.DataFrame(
+        {
+            "symbol": syms,
+            "target_weight": [round(w, 4)] * len(syms),
+            "target_qty": [round(w * capital, 2)] * len(syms),
+        }
+    )
 
 
 def _make_ctx(
@@ -164,14 +175,18 @@ class TestIngestData:
         assert isinstance(pf, pd.DataFrame)
         assert not pf.empty
 
-    def test_prices_filtered_contains_required_columns(self, monkeypatch: pytest.MonkeyPatch):
+    def test_prices_filtered_contains_required_columns(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         ctx = _make_ctx()
         pf, _ = ingest_data(ctx)
         for col in ("timestamp", "symbol", "close"):
             assert col in pf.columns, f"column '{col}' missing from prices_filtered"
 
-    def test_filtered_prices_all_before_or_equal_as_of(self, monkeypatch: pytest.MonkeyPatch):
+    def test_filtered_prices_all_before_or_equal_as_of(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         prices = _make_prices(60)
         midpoint = prices["timestamp"].sort_values().iloc[29]
@@ -290,14 +305,18 @@ class TestGenerateSignals:
 
     def test_signal_fn_output_propagated(self):
         """signal_fn returning LONG for AAPL only → AAPL in signals."""
+
         def one_symbol_fn(df: pd.DataFrame) -> pd.DataFrame:
             ts = df["timestamp"].max()
-            return pd.DataFrame({
-                "timestamp": [ts],
-                "symbol": ["AAPL"],
-                "direction": ["LONG"],
-                "score": [0.9],
-            })
+            return pd.DataFrame(
+                {
+                    "timestamp": [ts],
+                    "symbol": ["AAPL"],
+                    "direction": ["LONG"],
+                    "score": [0.9],
+                }
+            )
+
         ctx = _make_ctx()
         ctx.signal_fn = one_symbol_fn
         feats = self._make_features()
@@ -307,6 +326,7 @@ class TestGenerateSignals:
     def test_raises_if_signal_fn_missing_required_columns(self):
         def bad_fn(df: pd.DataFrame) -> pd.DataFrame:
             return pd.DataFrame({"symbol": ["AAPL"], "score": [0.5]})
+
         ctx = _make_ctx()
         ctx.signal_fn = bad_fn
         feats = self._make_features()
@@ -328,12 +348,14 @@ class TestGenerateSignals:
 class TestSizePositions:
     def _make_signals(self) -> pd.DataFrame:
         ts = pd.Timestamp("2024-04-01", tz="UTC")
-        return pd.DataFrame({
-            "timestamp": [ts] * 3,
-            "symbol": SYMBOLS,
-            "direction": ["LONG", "LONG", "LONG"],
-            "score": [0.6, 0.5, 0.4],
-        })
+        return pd.DataFrame(
+            {
+                "timestamp": [ts] * 3,
+                "symbol": SYMBOLS,
+                "direction": ["LONG", "LONG", "LONG"],
+                "score": [0.6, 0.5, 0.4],
+            }
+        )
 
     def test_returns_three_element_tuple(self):
         ctx = _make_ctx()
@@ -400,11 +422,13 @@ class TestSizePositions:
 
 class TestRouteOrders:
     def _make_targets(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "symbol": SYMBOLS,
-            "target_weight": [1 / 3, 1 / 3, 1 / 3],
-            "target_qty": [33_333.0, 33_333.0, 33_334.0],
-        })
+        return pd.DataFrame(
+            {
+                "symbol": SYMBOLS,
+                "target_weight": [1 / 3, 1 / 3, 1 / 3],
+                "target_qty": [33_333.0, 33_333.0, 33_334.0],
+            }
+        )
 
     def test_returns_empty_dataframe_when_do_rebal_false(self):
         ctx = _make_ctx()
@@ -453,23 +477,27 @@ class TestRouteOrders:
 class TestCheckRisk:
     def _make_orders(self) -> pd.DataFrame:
         ts = pd.Timestamp("2024-04-01", tz="UTC")
-        return pd.DataFrame({
-            "timestamp": [ts] * 3,
-            "symbol": SYMBOLS,
-            "side": ["buy", "buy", "buy"],
-            "qty": [100.0, 80.0, 60.0],
-            "price": [150.0, 300.0, 140.0],
-        })
+        return pd.DataFrame(
+            {
+                "timestamp": [ts] * 3,
+                "symbol": SYMBOLS,
+                "side": ["buy", "buy", "buy"],
+                "qty": [100.0, 80.0, 60.0],
+                "price": [150.0, 300.0, 140.0],
+            }
+        )
 
     def _make_result_with_signals(self) -> TradingCycleResult:
         ts = pd.Timestamp("2024-04-01", tz="UTC")
         r = _minimal_result()
-        r.signals = pd.DataFrame({
-            "timestamp": [ts] * 3,
-            "symbol": SYMBOLS,
-            "direction": ["LONG", "LONG", "LONG"],
-            "score": [0.5, 0.5, 0.5],
-        })
+        r.signals = pd.DataFrame(
+            {
+                "timestamp": [ts] * 3,
+                "symbol": SYMBOLS,
+                "direction": ["LONG", "LONG", "LONG"],
+                "score": [0.5, 0.5, 0.5],
+            }
+        )
         return r
 
     def test_qa_block_clears_all_orders(self):
@@ -533,12 +561,14 @@ class TestBookFills:
         r = _minimal_result()
         r.orders = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
         r.orders_filtered = r.orders.copy()
-        r.signals = pd.DataFrame({
-            "timestamp": [ts],
-            "symbol": ["AAPL"],
-            "direction": ["LONG"],
-            "score": [0.5],
-        })
+        r.signals = pd.DataFrame(
+            {
+                "timestamp": [ts],
+                "symbol": ["AAPL"],
+                "direction": ["LONG"],
+                "score": [0.5],
+            }
+        )
         return r
 
     def test_returns_result_type(self):
@@ -563,13 +593,15 @@ class TestBookFills:
         ctx = _make_ctx()
         result = self._make_result_ready()
         ts = pd.Timestamp("2024-04-01", tz="UTC")
-        result.orders_filtered = pd.DataFrame({
-            "timestamp": [ts],
-            "symbol": ["AAPL"],
-            "side": ["buy"],
-            "qty": [100.0],
-            "price": [150.0],
-        })
+        result.orders_filtered = pd.DataFrame(
+            {
+                "timestamp": [ts],
+                "symbol": ["AAPL"],
+                "side": ["buy"],
+                "qty": [100.0],
+                "price": [150.0],
+            }
+        )
         out = book_fills(result, ctx)
         assert len(out.orders_filtered) == 1
 
@@ -580,7 +612,10 @@ class TestBookFills:
         result = self._make_result_ready()
         book_fills(result, ctx)
         # output_dir should NOT be created for a no-write cycle
-        assert not (tmp_path / "output").exists() or not (tmp_path / "output" / "orders_latest.csv").exists()
+        assert (
+            not (tmp_path / "output").exists()
+            or not (tmp_path / "output" / "orders_latest.csv").exists()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -614,7 +649,9 @@ class TestRunTradingCycle:
         result = run_trading_cycle(ctx)
         assert result.status == "success", result.error_message
 
-    def test_prices_filtered_populated_on_success(self, monkeypatch: pytest.MonkeyPatch):
+    def test_prices_filtered_populated_on_success(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         ctx = _make_ctx()
         result = run_trading_cycle(ctx)
@@ -630,7 +667,9 @@ class TestRunTradingCycle:
             assert isinstance(result.signals, pd.DataFrame)
             assert not result.signals.empty
 
-    def test_target_positions_populated_on_success(self, monkeypatch: pytest.MonkeyPatch):
+    def test_target_positions_populated_on_success(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         ctx = _make_ctx()
         result = run_trading_cycle(ctx)
@@ -644,7 +683,9 @@ class TestRunTradingCycle:
         if result.status == "success":
             assert isinstance(result.orders_filtered, pd.DataFrame)
 
-    def test_qa_block_propagates_through_full_cycle(self, monkeypatch: pytest.MonkeyPatch):
+    def test_qa_block_propagates_through_full_cycle(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         ctx = _make_ctx()
         ctx.qa_block_trading = True
@@ -682,7 +723,9 @@ class TestRejectionCountsWiring:
         assert "rejection_counts" in result.meta
         assert isinstance(result.meta["rejection_counts"], dict)
 
-    def test_rejection_counts_empty_when_no_rejections(self, monkeypatch: pytest.MonkeyPatch):
+    def test_rejection_counts_empty_when_no_rejections(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         ctx = _make_ctx(enable_risk_controls=False)
         result = run_trading_cycle(ctx)
@@ -692,13 +735,15 @@ class TestRejectionCountsWiring:
     def test_rejection_counts_written_by_check_risk_directly(self):
         """check_risk writes rejection_counts even with zero rejections."""
         ctx = _make_ctx()
-        orders = pd.DataFrame({
-            "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")] * 2,
-            "symbol": ["AAPL", "MSFT"],
-            "side": ["BUY", "BUY"],
-            "qty": [10.0, 5.0],
-            "price": [150.0, 300.0],
-        })
+        orders = pd.DataFrame(
+            {
+                "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")] * 2,
+                "symbol": ["AAPL", "MSFT"],
+                "side": ["BUY", "BUY"],
+                "qty": [10.0, 5.0],
+                "price": [150.0, 300.0],
+            }
+        )
         result = _minimal_result(ctx)
         result = check_risk(orders, result, ctx)
         assert "rejection_counts" in result.meta
@@ -713,14 +758,16 @@ class TestTotalCostBpsWiring:
         # total_cost_cash with model-computed values before A8b runs.
         ctx = _make_ctx(mode="live")
         result = _minimal_result(ctx)
-        result.orders_filtered = pd.DataFrame({
-            "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")],
-            "symbol": ["AAPL"],
-            "side": ["BUY"],
-            "qty": [10.0],
-            "price": [150.0],
-            "total_cost_cash": [3.0],  # 3 USD on 1500 USD notional = 20 bps
-        })
+        result.orders_filtered = pd.DataFrame(
+            {
+                "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")],
+                "symbol": ["AAPL"],
+                "side": ["BUY"],
+                "qty": [10.0],
+                "price": [150.0],
+                "total_cost_cash": [3.0],  # 3 USD on 1500 USD notional = 20 bps
+            }
+        )
         result.prices_with_features = pd.DataFrame()
         result = book_fills(result, ctx)
         assert "total_cost_bps" in result.orders_filtered.columns
@@ -731,14 +778,16 @@ class TestTotalCostBpsWiring:
         # fallback path in A8b is reachable.
         ctx = _make_ctx(mode="live")
         result = _minimal_result(ctx)
-        result.orders_filtered = pd.DataFrame({
-            "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")],
-            "symbol": ["MSFT"],
-            "side": ["BUY"],
-            "qty": [5.0],
-            "price": [300.0],
-            "expected_impact_bps": [12.5],
-        })
+        result.orders_filtered = pd.DataFrame(
+            {
+                "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")],
+                "symbol": ["MSFT"],
+                "side": ["BUY"],
+                "qty": [5.0],
+                "price": [300.0],
+                "expected_impact_bps": [12.5],
+            }
+        )
         result.prices_with_features = pd.DataFrame()
         result = book_fills(result, ctx)
         assert "total_cost_bps" in result.orders_filtered.columns
@@ -748,19 +797,28 @@ class TestTotalCostBpsWiring:
 class TestDriftMonitorWiring:
     """drift_monitor skip-by-default (no policy.enabled) must not error."""
 
-    def test_drift_monitor_not_enabled_by_default(self, monkeypatch: pytest.MonkeyPatch):
+    def test_drift_monitor_not_enabled_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         ctx = _make_ctx()
         result = run_trading_cycle(ctx)
         # Without policy drift_monitor.enabled=True, key should be absent
         assert result.meta.get("drift_monitor") is None
 
-    def test_drift_monitor_skipped_gracefully_on_missing_ref(self, monkeypatch: pytest.MonkeyPatch):
+    def test_drift_monitor_skipped_gracefully_on_missing_ref(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         """Enabled but missing reference_path → skip, no crash."""
         monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
         monkeypatch.setattr(
             "src.assembled_core.config.policy_loader.load_policy",
-            lambda: {"drift_monitor": {"enabled": True, "reference_path": "/nonexistent.parquet"}},
+            lambda: {
+                "drift_monitor": {
+                    "enabled": True,
+                    "reference_path": "/nonexistent.parquet",
+                }
+            },
         )
         ctx = _make_ctx()
         result = run_trading_cycle(ctx)

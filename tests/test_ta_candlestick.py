@@ -23,11 +23,17 @@ def _synthetic_ohlcv(n: int = 100, seed: int = 42) -> pd.DataFrame:
         open_ = close + rng.normal(0, 0.5, n)
         volume = rng.poisson(1000000, n)
         for i in range(n):
-            rows.append({
-                "timestamp": dates[i], "symbol": sym,
-                "open": open_[i], "high": high[i], "low": low[i],
-                "close": close[i], "volume": volume[i],
-            })
+            rows.append(
+                {
+                    "timestamp": dates[i],
+                    "symbol": sym,
+                    "open": open_[i],
+                    "high": high[i],
+                    "low": low[i],
+                    "close": close[i],
+                    "volume": volume[i],
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -55,8 +61,14 @@ class TestBuildCandlestickFeatures:
         for col in pattern_cols:
             if col in result.columns:
                 unique_vals = set(result[col].dropna().unique())
-                assert unique_vals <= {-1.0, -1, 0.0, 0, 1.0, 1}, \
-                    f"{col} has unexpected values: {unique_vals}"
+                assert unique_vals <= {
+                    -1.0,
+                    -1,
+                    0.0,
+                    0,
+                    1.0,
+                    1,
+                }, f"{col} has unexpected values: {unique_vals}"
 
     def test_short_data(self):
         df = _synthetic_ohlcv(n=5)
@@ -73,15 +85,17 @@ class TestBuildCandlestickFeatures:
 class TestCandlestickPatterns:
     def test_doji_detection(self):
         """A doji has open ≈ close."""
-        df = pd.DataFrame({
-            "symbol": ["AAPL"] * 3 + ["MSFT"] * 3,
-            "timestamp": list(pd.bdate_range("2024-01-01", periods=3)) * 2,
-            "open": [100.0, 100.0, 100.0, 200.0, 200.0, 200.0],
-            "high": [102.0, 101.0, 103.0, 202.0, 201.0, 203.0],
-            "low": [98.0, 99.0, 97.0, 198.0, 199.0, 197.0],
-            "close": [100.01, 100.0, 99.99, 200.01, 200.0, 199.99],
-            "volume": [1000] * 6,
-        })
+        df = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 3 + ["MSFT"] * 3,
+                "timestamp": list(pd.bdate_range("2024-01-01", periods=3)) * 2,
+                "open": [100.0, 100.0, 100.0, 200.0, 200.0, 200.0],
+                "high": [102.0, 101.0, 103.0, 202.0, 201.0, 203.0],
+                "low": [98.0, 99.0, 97.0, 198.0, 199.0, 197.0],
+                "close": [100.01, 100.0, 99.99, 200.01, 200.0, 199.99],
+                "volume": [1000] * 6,
+            }
+        )
         result = build_candlestick_features(df)
         pattern_names = get_candlestick_feature_names()
         # Should have pattern columns

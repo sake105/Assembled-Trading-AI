@@ -434,6 +434,7 @@ def build_positions_from_ledger(
 # 8.6  Corporate Action Adjustments
 # ---------------------------------------------------------------------------
 
+
 def adjust_for_stock_split(
     positions: dict[str, dict],
     symbol: str,

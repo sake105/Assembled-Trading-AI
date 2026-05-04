@@ -26,7 +26,7 @@ from src.assembled_core.signals.intel_signal_adapter import IntelOverlay
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_NEWS_ALPHA = 0.20   # Weight for news score in blend
+_DEFAULT_NEWS_ALPHA = 0.20  # Weight for news score in blend
 _CRISIS_BEARISH_THRESHOLD = -0.5  # News score below this forces LONG → FLAT
 
 
@@ -64,11 +64,17 @@ def blend_with_news(
 
     original_count = len(signals)
 
-    sym_scores = signals["symbol"].map(overlay.ticker_scores).fillna(overlay.macro_score)
-    blended = ((1.0 - news_alpha) * signals["score"].astype(float) + news_alpha * sym_scores).clip(0.0, 1.0)
+    sym_scores = (
+        signals["symbol"].map(overlay.ticker_scores).fillna(overlay.macro_score)
+    )
+    blended = (
+        (1.0 - news_alpha) * signals["score"].astype(float) + news_alpha * sym_scores
+    ).clip(0.0, 1.0)
     signals["score"] = blended
 
-    crisis_mask = (sym_scores < _CRISIS_BEARISH_THRESHOLD) & (signals["direction"] == "LONG")
+    crisis_mask = (sym_scores < _CRISIS_BEARISH_THRESHOLD) & (
+        signals["direction"] == "LONG"
+    )
     downgraded = int(crisis_mask.sum())
     if downgraded > 0:
         signals.loc[crisis_mask, "direction"] = "FLAT"
@@ -78,12 +84,18 @@ def blend_with_news(
         logger.info(
             "[NewsSignalBridge] %d/%d LONG signals downgraded to FLAT"
             " (news_score < %.2f, risk=%s)",
-            downgraded, original_count, _CRISIS_BEARISH_THRESHOLD, overlay.risk_level,
+            downgraded,
+            original_count,
+            _CRISIS_BEARISH_THRESHOLD,
+            overlay.risk_level,
         )
 
     logger.debug(
         "[NewsSignalBridge] blended %d signals | alpha=%.2f | macro=%.2f | actionable=%s",
-        original_count, news_alpha, overlay.macro_score, overlay.is_actionable,
+        original_count,
+        news_alpha,
+        overlay.macro_score,
+        overlay.is_actionable,
     )
 
     return signals

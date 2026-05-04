@@ -13,6 +13,7 @@ levels (e.g. RSI=70 in a calm market vs a trending market) become comparable.
 Usage:
     python scripts/train_ml_models_v4.py
 """
+
 import sys
 import warnings
 from pathlib import Path
@@ -69,7 +70,9 @@ def compute_lagged_returns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values(["symbol", "date"])
 
     def _lret(g, n):
-        return np.log(g["close"].clip(lower=1e-9) / g["close"].shift(n).clip(lower=1e-9))
+        return np.log(
+            g["close"].clip(lower=1e-9) / g["close"].shift(n).clip(lower=1e-9)
+        )
 
     df["ret_5d"] = df.groupby("symbol", group_keys=False).apply(lambda g: _lret(g, 5))
     df["ret_20d"] = df.groupby("symbol", group_keys=False).apply(lambda g: _lret(g, 20))
@@ -139,17 +142,24 @@ def main():
     X_train, X_val, y_train, y_val = purged_train_test_split(
         X, y, test_size=test_size, embargo_bars=EMBARGO_BARS
     )
-    print(f"[v4] Train: {len(X_train):,} | Embargo: {EMBARGO_BARS} bars | Val: {len(X_val):,}")
+    print(
+        f"[v4] Train: {len(X_train):,} | Embargo: {EMBARGO_BARS} bars | Val: {len(X_val):,}"
+    )
 
     # Leakage check on training features (look-ahead + recursive bias)
     try:
         from src.assembled_core.qa.leakage_analyzer import LeakageAnalyzer
+
         _analyzer = LeakageAnalyzer(max_lag_check=3, correlation_threshold=0.90)
         _la_reports = _analyzer.full_check(X_train, y_train)
         if _la_reports:
-            print(f"[WARN][v4] Leakage analyzer found {len(_la_reports)} potential issues:")
+            print(
+                f"[WARN][v4] Leakage analyzer found {len(_la_reports)} potential issues:"
+            )
             for r in _la_reports[:5]:
-                print(f"     {r.leakage_type} | {r.feature} | {r.evidence} [{r.severity}]")
+                print(
+                    f"     {r.leakage_type} | {r.feature} | {r.evidence} [{r.severity}]"
+                )
         else:
             print("[v4] Leakage check: no issues detected")
     except Exception as _le:
@@ -218,7 +228,9 @@ def main():
     print(f"[v4] Train AUC:           {train_auc:.4f}")
     print(f"[v4] Val AUC:             {val_auc:.4f}")
     print(f"[v4] Val acc (0.5):       {val_acc:.4f}")
-    print(f"[v4] Best threshold:      {best_threshold:.2f}  F1={best_f1:.4f}  acc={val_acc_cal:.4f}")
+    print(
+        f"[v4] Best threshold:      {best_threshold:.2f}  F1={best_f1:.4f}  acc={val_acc_cal:.4f}"
+    )
     print(f"[v4] Baseline (majority): {baseline_acc:.4f}")
 
     importances = dict(zip(feature_cols, model.feature_importances_))
@@ -234,9 +246,9 @@ def main():
     # So: store raw_available as inference_feature_cols; cs_ are training-only.
     artifact = {
         "model": model,
-        "feature_cols": raw_available,        # raw names — used at inference
-        "cs_feature_cols": cs_cols,            # cross-sectional — training only
-        "training_feature_cols": feature_cols, # all features used during training
+        "feature_cols": raw_available,  # raw names — used at inference
+        "cs_feature_cols": cs_cols,  # cross-sectional — training only
+        "training_feature_cols": feature_cols,  # all features used during training
         "decision_threshold": float(best_threshold),
         "oos_accuracy": float(val_acc),
         "oos_accuracy_calibrated": float(val_acc_cal),

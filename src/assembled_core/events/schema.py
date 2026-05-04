@@ -47,56 +47,79 @@ class BaseEvent:
         return cls(**d)
 
 
-def make_market_tick(session_id: str, sequence: int,
-                     symbol: str, bid: float, ask: float,
-                     last: float, volume: int) -> BaseEvent:
+def make_market_tick(
+    session_id: str,
+    sequence: int,
+    symbol: str,
+    bid: float,
+    ask: float,
+    last: float,
+    volume: int,
+) -> BaseEvent:
     return BaseEvent(
         event_type="market_tick_received",
         source=EventSource.MARKET_DATA,
         session_id=session_id,
         sequence=sequence,
-        payload={"symbol": symbol, "bid": bid, "ask": ask,
-                 "last": last, "volume": volume},
+        payload={
+            "symbol": symbol,
+            "bid": bid,
+            "ask": ask,
+            "last": last,
+            "volume": volume,
+        },
     )
 
 
-def make_news_event(session_id: str, sequence: int,
-                    headline: str, ticker: str | None,
-                    sentiment: float) -> BaseEvent:
+def make_news_event(
+    session_id: str, sequence: int, headline: str, ticker: str | None, sentiment: float
+) -> BaseEvent:
     return BaseEvent(
         event_type="news_received",
         source=EventSource.NEWS,
         session_id=session_id,
         sequence=sequence,
-        payload={"headline": headline, "ticker": ticker,
-                 "sentiment": sentiment},
+        payload={"headline": headline, "ticker": ticker, "sentiment": sentiment},
     )
 
 
-def make_order_filled(session_id: str, sequence: int,
-                      symbol: str, side: str, qty: float,
-                      fill_price: float, client_order_id: str) -> BaseEvent:
+def make_order_filled(
+    session_id: str,
+    sequence: int,
+    symbol: str,
+    side: str,
+    qty: float,
+    fill_price: float,
+    client_order_id: str,
+) -> BaseEvent:
     return BaseEvent(
         event_type="order_filled",
         source=EventSource.ORDER,
         session_id=session_id,
         sequence=sequence,
-        payload={"symbol": symbol, "side": side, "qty": qty,
-                 "fill_price": fill_price,
-                 "client_order_id": client_order_id},
+        payload={
+            "symbol": symbol,
+            "side": side,
+            "qty": qty,
+            "fill_price": fill_price,
+            "client_order_id": client_order_id,
+        },
     )
 
 
-def make_order_rejected(session_id: str, sequence: int,
-                        symbol: str, reason: str,
-                        client_order_id: str) -> BaseEvent:
+def make_order_rejected(
+    session_id: str, sequence: int, symbol: str, reason: str, client_order_id: str
+) -> BaseEvent:
     return BaseEvent(
         event_type="order_rejected",
         source=EventSource.ORDER,
         session_id=session_id,
         sequence=sequence,
-        payload={"symbol": symbol, "reason": reason,
-                 "client_order_id": client_order_id},
+        payload={
+            "symbol": symbol,
+            "reason": reason,
+            "client_order_id": client_order_id,
+        },
     )
 
 

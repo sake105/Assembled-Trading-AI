@@ -37,6 +37,7 @@ def load_sources_registry(config_path: str | Path) -> List[DisclosureSource]:
             data = yaml.safe_load(f) or {}
     except Exception as exc:
         import logging as _logging
+
         _logging.getLogger(__name__).warning(
             "[disclosures] Failed to load sources config %s: %s", path, exc
         )

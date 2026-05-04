@@ -12,6 +12,7 @@ intentionally simplified (linear permanent impact, no LOB dynamics).
 Requires: gymnasium (or gym), numpy.
 stable-baselines3 is optional (only needed for training, not for the env itself).
 """
+
 from __future__ import annotations
 
 import math
@@ -23,17 +24,20 @@ import numpy as np
 try:
     import gymnasium as gym  # type: ignore[import]
     from gymnasium import spaces
+
     _GYM_AVAILABLE = True
     _GYM_BACKEND = "gymnasium"
 except ImportError:
     try:
         import gym  # type: ignore[import]  # noqa: F401
         from gym import spaces  # type: ignore[import]
+
         _GYM_AVAILABLE = True
         _GYM_BACKEND = "gym"
     except ImportError:
         _GYM_AVAILABLE = False
         _GYM_BACKEND = None
+
         # Provide minimal stubs so the module can be imported without gym
         class spaces:  # type: ignore[no-redef]
             class Box:
@@ -45,14 +49,15 @@ except ImportError:
 @dataclass
 class ExecutionEnvConfig:
     """Configuration for the RL execution environment."""
-    total_shares: int = 10_000       # parent order size
-    n_steps: int = 20                # time slices available
-    arrival_price: float = 100.0     # price at order arrival
-    sigma_daily: float = 0.015       # daily vol (σ)
-    eta: float = 0.10                # temporary impact coefficient
-    gamma_perm: float = 0.05         # permanent impact coefficient
-    lambda_risk: float = 1e-5        # risk aversion (variance penalty)
-    bid_ask_spread: float = 0.02     # fixed spread (simplification)
+
+    total_shares: int = 10_000  # parent order size
+    n_steps: int = 20  # time slices available
+    arrival_price: float = 100.0  # price at order arrival
+    sigma_daily: float = 0.015  # daily vol (σ)
+    eta: float = 0.10  # temporary impact coefficient
+    gamma_perm: float = 0.05  # permanent impact coefficient
+    lambda_risk: float = 1e-5  # risk aversion (variance penalty)
+    bid_ask_spread: float = 0.02  # fixed spread (simplification)
     seed: int = 42
 
 
@@ -80,16 +85,18 @@ class OrderExecutionEnv:
         self.config = config or ExecutionEnvConfig()
         self._rng = np.random.default_rng(self.config.seed)
 
-        obs_low  = np.array([0.0, 0.0, -0.20, 0.0, -1.0], dtype=np.float32)
-        obs_high = np.array([1.0, 1.0,  0.20, 0.02, 1.0], dtype=np.float32)
+        obs_low = np.array([0.0, 0.0, -0.20, 0.0, -1.0], dtype=np.float32)
+        obs_high = np.array([1.0, 1.0, 0.20, 0.02, 1.0], dtype=np.float32)
 
         if _GYM_AVAILABLE:
             self.observation_space = spaces.Box(
                 low=obs_low, high=obs_high, dtype=np.float32
             )
             self.action_space = spaces.Box(
-                low=np.float32(0.0), high=np.float32(1.0),
-                shape=(1,), dtype=np.float32,
+                low=np.float32(0.0),
+                high=np.float32(1.0),
+                shape=(1,),
+                dtype=np.float32,
             )
 
         self._reset_state()
@@ -99,7 +106,7 @@ class OrderExecutionEnv:
         self._remaining = cfg.total_shares
         self._step_idx = 0
         self._price = cfg.arrival_price
-        self._perm_impact_acc = 0.0   # accumulated permanent impact (price drift)
+        self._perm_impact_acc = 0.0  # accumulated permanent impact (price drift)
 
     def reset(
         self,
@@ -117,7 +124,7 @@ class OrderExecutionEnv:
         action: np.ndarray | float,
     ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         cfg = self.config
-        if hasattr(action, '__len__'):
+        if hasattr(action, "__len__"):
             frac = float(np.clip(float(action[0]), 0.0, 1.0))
         else:
             frac = float(np.clip(float(action), 0.0, 1.0))
@@ -131,24 +138,35 @@ class OrderExecutionEnv:
         shares_this_step = min(shares_this_step, self._remaining)
 
         # Temporary impact: slippage = eta * qty * sigma^2 / price
-        temp_impact_frac = cfg.eta * shares_this_step * cfg.sigma_daily ** 2 / max(self._price, 1e-6)
-        execution_price = self._price * (1.0 + temp_impact_frac + cfg.bid_ask_spread / 2)
+        temp_impact_frac = (
+            cfg.eta * shares_this_step * cfg.sigma_daily**2 / max(self._price, 1e-6)
+        )
+        execution_price = self._price * (
+            1.0 + temp_impact_frac + cfg.bid_ask_spread / 2
+        )
 
         # Permanent impact: price drifts by gamma * qty * sigma^2 / price
-        perm_impact_frac = cfg.gamma_perm * shares_this_step * cfg.sigma_daily ** 2 / max(self._price, 1e-6)
-        self._price *= (1.0 + perm_impact_frac)
+        perm_impact_frac = (
+            cfg.gamma_perm
+            * shares_this_step
+            * cfg.sigma_daily**2
+            / max(self._price, 1e-6)
+        )
+        self._price *= 1.0 + perm_impact_frac
 
         # Simulate next-step price return (GBM)
         dt = 1.0 / cfg.n_steps
         gbm_ret = self._rng.normal(0, cfg.sigma_daily * math.sqrt(dt))
-        self._price *= (1.0 + gbm_ret)
+        self._price *= 1.0 + gbm_ret
 
         # Implementation shortfall for this slice
         shortfall = (execution_price - cfg.arrival_price) * shares_this_step
         # Variance penalty
-        variance_penalty = cfg.lambda_risk * (self._remaining ** 2) * cfg.sigma_daily ** 2
+        variance_penalty = cfg.lambda_risk * (self._remaining**2) * cfg.sigma_daily**2
 
-        reward = -(shortfall + variance_penalty) / max(cfg.arrival_price * cfg.total_shares, 1.0)
+        reward = -(shortfall + variance_penalty) / max(
+            cfg.arrival_price * cfg.total_shares, 1.0
+        )
 
         self._remaining -= shares_this_step
         self._step_idx += 1
@@ -175,12 +193,18 @@ class OrderExecutionEnv:
         cfg = self.config
         remaining_frac = self._remaining / max(cfg.total_shares, 1)
         time_frac = max(0.0, (cfg.n_steps - self._step_idx) / cfg.n_steps)
-        price_frac = float(np.clip((self._price / cfg.arrival_price) - 1.0, -0.20, 0.20))
-        spread_frac = float(np.clip(cfg.bid_ask_spread / max(self._price, 1e-6), 0.0, 0.02))
+        price_frac = float(
+            np.clip((self._price / cfg.arrival_price) - 1.0, -0.20, 0.20)
+        )
+        spread_frac = float(
+            np.clip(cfg.bid_ask_spread / max(self._price, 1e-6), 0.0, 0.02)
+        )
         # Synthetic imbalance: random walk bounded in [-1,1]
         imbalance = float(np.clip(self._rng.normal(0, 0.3), -1.0, 1.0))
-        return np.array([remaining_frac, time_frac, price_frac, spread_frac, imbalance],
-                        dtype=np.float32)
+        return np.array(
+            [remaining_frac, time_frac, price_frac, spread_frac, imbalance],
+            dtype=np.float32,
+        )
 
 
 GYM_AVAILABLE = _GYM_AVAILABLE

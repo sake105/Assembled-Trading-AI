@@ -139,11 +139,17 @@ def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | N
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         # Validate: must have at least one regime key with a dict value
-        regimes = {k: v for k, v in data.items() if isinstance(v, dict) and not k.startswith("_")}
+        regimes = {
+            k: v
+            for k, v in data.items()
+            if isinstance(v, dict) and not k.startswith("_")
+        }
         if not regimes:
             return None
         _REGIME_WEIGHTS_CACHE = regimes
-        logger.info("[MF-V2] Loaded regime weights for regimes: %s", list(regimes.keys()))
+        logger.info(
+            "[MF-V2] Loaded regime weights for regimes: %s", list(regimes.keys())
+        )
         return regimes
     except Exception as exc:
         logger.debug("[MF-V2] Failed to load regime weights: %s", exc)
@@ -172,11 +178,16 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
     try:
         from pathlib import Path as _Path
         from src.assembled_core.ml.regime_hmm import MultiFeatureRegimeHMM
-        _hmm_path = _Path(__file__).parents[3] / "models" / "regime_hmm_4state_spy.joblib"
+
+        _hmm_path = (
+            _Path(__file__).parents[3] / "models" / "regime_hmm_4state_spy.joblib"
+        )
         if _hmm_path.exists() and "close" in df.columns and "timestamp" in df.columns:
             _hmm = MultiFeatureRegimeHMM.load(_hmm_path)
             if "symbol" in df.columns:
-                _px = df.pivot_table(index="timestamp", columns="symbol", values="close", aggfunc="last")
+                _px = df.pivot_table(
+                    index="timestamp", columns="symbol", values="close", aggfunc="last"
+                )
                 _mkt = _px.mean(axis=1)
             else:
                 _mkt = df.set_index("timestamp")["close"]
@@ -185,7 +196,10 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
             _vol_20d = _log_ret.rolling(20).std().dropna()
             _log_ret = _log_ret.loc[_vol_20d.index]
             if len(_log_ret) >= 20:
-                _feat = pd.DataFrame({"daily_return": _log_ret.values, "realized_vol": _vol_20d.values}, index=_log_ret.index)
+                _feat = pd.DataFrame(
+                    {"daily_return": _log_ret.values, "realized_vol": _vol_20d.values},
+                    index=_log_ret.index,
+                )
                 _regimes = _hmm.predict_regime(_feat)
                 if len(_regimes) > 0:
                     return str(_regimes.iloc[-1])
@@ -260,9 +274,14 @@ def _compute_mr_zscore_reversal_3d(df: pd.DataFrame) -> pd.Series:
         from src.assembled_core.features.mean_reversion_factors import (
             compute_mean_reversion_factors,
         )
+
         mr_df = compute_mean_reversion_factors(df)
         if mr_df is not None and "mr_zscore_reversal_3d" in mr_df.columns:
-            latest = mr_df.sort_values("timestamp").groupby("symbol", group_keys=False).tail(1)
+            latest = (
+                mr_df.sort_values("timestamp")
+                .groupby("symbol", group_keys=False)
+                .tail(1)
+            )
             return latest.set_index("symbol")["mr_zscore_reversal_3d"]
     except Exception as exc:
         logger.debug("[MF-V2] mr_zscore_reversal_3d unavailable: %s", exc)
@@ -275,9 +294,14 @@ def _compute_mr_rsi_extreme_uptrend(df: pd.DataFrame) -> pd.Series:
         from src.assembled_core.features.mean_reversion_factors import (
             compute_mean_reversion_factors,
         )
+
         mr_df = compute_mean_reversion_factors(df)
         if mr_df is not None and "mr_rsi_extreme_uptrend" in mr_df.columns:
-            latest = mr_df.sort_values("timestamp").groupby("symbol", group_keys=False).tail(1)
+            latest = (
+                mr_df.sort_values("timestamp")
+                .groupby("symbol", group_keys=False)
+                .tail(1)
+            )
             return latest.set_index("symbol")["mr_rsi_extreme_uptrend"]
     except Exception as exc:
         logger.debug("[MF-V2] mr_rsi_extreme_uptrend unavailable: %s", exc)
@@ -364,15 +388,12 @@ def _compute_earnings_insider_factors(
         from src.assembled_core.features.earnings_insider_wrapper import (
             compute_earnings_insider_factors,
         )
+
         as_of = pd.Timestamp.now().normalize()
         # Need earnings_df and filings_df from data sources
         # These are PIT-safe wrappers — pass empty frames if no data
-        earnings_df = pd.DataFrame(
-            columns=["symbol", "filing_date", "surprise_pct"]
-        )
-        filings_df = pd.DataFrame(
-            columns=["symbol", "filing_date", "shares_delta"]
-        )
+        earnings_df = pd.DataFrame(columns=["symbol", "filing_date", "surprise_pct"])
+        filings_df = pd.DataFrame(columns=["symbol", "filing_date", "shares_delta"])
         result = compute_earnings_insider_factors(
             as_of, latest_symbols, earnings_df, filings_df
         )
@@ -396,11 +417,10 @@ def _compute_news_macro_factors(
         from src.assembled_core.features.news_macro_wrapper import (
             compute_news_macro_factors,
         )
+
         as_of = pd.Timestamp.now().normalize()
         news_df = pd.DataFrame(columns=["symbol", "timestamp", "sentiment_score"])
-        macro_df = pd.DataFrame(
-            columns=["timestamp", "macro_code", "value", "country"]
-        )
+        macro_df = pd.DataFrame(columns=["timestamp", "macro_code", "value", "country"])
         out = compute_news_macro_factors(as_of, latest_symbols, news_df, macro_df)
         if out is not None and not out.empty:
             for col in [
@@ -428,7 +448,9 @@ def _compute_intermarket_factors(
     Universal factors — same value per date, broadcast to all symbols.
     """
     result: dict[str, pd.Series] = {}
-    sym_idx = latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    sym_idx = (
+        latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    )
 
     # --- Path 1: columns already in latest (from trading_cycle merge) ---
     col_map = {
@@ -452,13 +474,18 @@ def _compute_intermarket_factors(
         from src.assembled_core.features.intermarket_factors import (
             build_intermarket_factors,
         )
+
         im = build_intermarket_factors()
         if not im.empty:
             last_row = im.iloc[-1]
             for factor_name, src_col in col_map.items():
-                val = float(last_row.get(src_col, 0.0)) if src_col in im.columns else 0.0
+                val = (
+                    float(last_row.get(src_col, 0.0)) if src_col in im.columns else 0.0
+                )
                 result[factor_name] = pd.Series(val, index=sym_idx.values)
-            logger.debug("[MF-V2] intermarket factors: fetched %d directly", len(result))
+            logger.debug(
+                "[MF-V2] intermarket factors: fetched %d directly", len(result)
+            )
     except Exception as exc:
         logger.debug("[MF-V2] intermarket factors unavailable: %s", exc)
     return result
@@ -474,7 +501,9 @@ def _compute_options_factors(
     Universal factors — same value per date, broadcast to all symbols.
     """
     result: dict[str, pd.Series] = {}
-    sym_idx = latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    sym_idx = (
+        latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    )
 
     try:
         from src.assembled_core.data.sources.cboe_source import CBOESource
@@ -490,11 +519,14 @@ def _compute_options_factors(
                 last_row = opts.iloc[-1]
                 pcr_extreme = float(last_row.get("equity_put_call_extreme", 0.0))
                 vix_z = float(last_row.get("vix_zscore_252d", 0.0))
-                result["options_put_call_extreme"] = pd.Series(pcr_extreme, index=sym_idx.values)
+                result["options_put_call_extreme"] = pd.Series(
+                    pcr_extreme, index=sym_idx.values
+                )
                 result["vix_regime_score"] = pd.Series(vix_z, index=sym_idx.values)
                 logger.debug(
                     "[MF-V2] options factors: pcr_extreme=%.2f, vix_z=%.2f",
-                    pcr_extreme, vix_z,
+                    pcr_extreme,
+                    vix_z,
                 )
     except Exception as exc:
         logger.debug("[MF-V2] options factors unavailable: %s", exc)
@@ -511,7 +543,9 @@ def _compute_congress_factors(
     trading_cycle when include_congress=True). Per-symbol factor.
     """
     result: dict[str, pd.Series] = {}
-    sym_idx = latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    sym_idx = (
+        latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    )
 
     try:
         # Congress features are per-symbol — read from panel if available
@@ -526,8 +560,12 @@ def _compute_congress_factors(
             ).fillna(0.0)
             # Composite: normalize count + log(1+amount) as activity score
             activity = count_vals + np.log1p(amount_vals.abs()) / 10.0
-            result["congress_activity"] = pd.Series(activity.values, index=sym_idx.values)
-            logger.debug("[MF-V2] congress factors: %d symbols with data", (count_vals > 0).sum())
+            result["congress_activity"] = pd.Series(
+                activity.values, index=sym_idx.values
+            )
+            logger.debug(
+                "[MF-V2] congress factors: %d symbols with data", (count_vals > 0).sum()
+            )
     except Exception as exc:
         logger.debug("[MF-V2] congress factors unavailable: %s", exc)
     return result
@@ -572,10 +610,7 @@ def compute_signals(
 
     # Latest bar per symbol
     latest = (
-        df.sort_values("timestamp")
-        .groupby("symbol", group_keys=False)
-        .tail(1)
-        .copy()
+        df.sort_values("timestamp").groupby("symbol", group_keys=False).tail(1).copy()
     )
     if latest.empty:
         return _empty_signals()
@@ -587,7 +622,9 @@ def compute_signals(
     weights = _get_weights_for_regime(regime_label, cfg)
     logger.info(
         "[MF-V2] Regime=%s, %d weight entries, universe=%d symbols",
-        regime_label, len(weights), len(latest_symbols),
+        regime_label,
+        len(weights),
+        len(latest_symbols),
     )
 
     # --- Compute raw factor values (factors 1-15 from v1) ---
@@ -598,13 +635,17 @@ def compute_signals(
 
     # Factors 1-4: Trend
     scores["trend_ema_spread"] = _compute_ema_spread(df, ema_fast, ema_slow)
-    scores["trend_ma200_position"] = _ma_position(latest, close, "ta_ma_200_v1", fallback_window=200)
+    scores["trend_ma200_position"] = _ma_position(
+        latest, close, "ta_ma_200_v1", fallback_window=200
+    )
     scores["trend_adx_strength"] = _safe_col(latest, "ta_adx_v1", default=0.0) / 100.0
     scores["trend_macd_hist"] = _safe_col(latest, "ta_macd_hist_v1", default=0.0)
 
     # Factors 5-7: Momentum
     scores["mom_rsi_centered"] = _rsi_score(latest)
-    scores["mom_volume_weighted"] = _safe_col(latest, "ta_vol_weighted_mom_20d_v1", default=0.0)
+    scores["mom_volume_weighted"] = _safe_col(
+        latest, "ta_vol_weighted_mom_20d_v1", default=0.0
+    )
     scores["mom_obv_trend"] = _obv_trend(df)
 
     # Factors 8-9: Mean-reversion guard
@@ -628,59 +669,109 @@ def compute_signals(
     # Factors 16-17: Mean-reversion from sidecar module
     mr_16 = _compute_mr_zscore_reversal_3d(df)
     mr_17 = _compute_mr_rsi_extreme_uptrend(df)
-    scores["mr_zscore_reversal_3d"] = scores["symbol"].map(mr_16).fillna(0.0) if not mr_16.empty else 0.0
-    scores["mr_rsi_extreme_uptrend"] = scores["symbol"].map(mr_17).fillna(0.0) if not mr_17.empty else 0.0
+    scores["mr_zscore_reversal_3d"] = (
+        scores["symbol"].map(mr_16).fillna(0.0) if not mr_16.empty else 0.0
+    )
+    scores["mr_rsi_extreme_uptrend"] = (
+        scores["symbol"].map(mr_17).fillna(0.0) if not mr_17.empty else 0.0
+    )
 
     # Factor 18: Sector rotation
     sector_bias = _compute_sector_rotation_bias(df, latest_symbols, cfg)
-    scores["sector_rotation_bias"] = scores["symbol"].map(sector_bias).fillna(0.0) if not sector_bias.empty else 0.0
+    scores["sector_rotation_bias"] = (
+        scores["symbol"].map(sector_bias).fillna(0.0) if not sector_bias.empty else 0.0
+    )
 
     # Factors 19-20: Earnings + Insider
     earn_z, insider_z = _compute_earnings_insider_factors(latest_symbols, cfg)
-    scores["earnings_surprise_z"] = scores["symbol"].map(earn_z).fillna(0.0) if not earn_z.empty else 0.0
-    scores["insider_activity_score"] = scores["symbol"].map(insider_z).fillna(0.0) if not insider_z.empty else 0.0
+    scores["earnings_surprise_z"] = (
+        scores["symbol"].map(earn_z).fillna(0.0) if not earn_z.empty else 0.0
+    )
+    scores["insider_activity_score"] = (
+        scores["symbol"].map(insider_z).fillna(0.0) if not insider_z.empty else 0.0
+    )
 
     # Factors 21-24: News + Macro
     news_macro = _compute_news_macro_factors(latest_symbols, cfg)
-    scores["news_sentiment_7d"] = scores["symbol"].map(
-        news_macro.get("news_sentiment_7d_z", pd.Series(dtype=float))
-    ).fillna(0.0) if "news_sentiment_7d_z" in news_macro else 0.0
-    scores["news_volume_spike"] = scores["symbol"].map(
-        news_macro.get("news_volume_spike_z", pd.Series(dtype=float))
-    ).fillna(0.0) if "news_volume_spike_z" in news_macro else 0.0
-    scores["macro_growth_momentum"] = scores["symbol"].map(
-        news_macro.get("macro_growth_momentum_z", pd.Series(dtype=float))
-    ).fillna(0.0) if "macro_growth_momentum_z" in news_macro else 0.0
-    scores["macro_inflation_surprise"] = scores["symbol"].map(
-        news_macro.get("macro_inflation_surprise_z", pd.Series(dtype=float))
-    ).fillna(0.0) if "macro_inflation_surprise_z" in news_macro else 0.0
+    scores["news_sentiment_7d"] = (
+        scores["symbol"]
+        .map(news_macro.get("news_sentiment_7d_z", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "news_sentiment_7d_z" in news_macro
+        else 0.0
+    )
+    scores["news_volume_spike"] = (
+        scores["symbol"]
+        .map(news_macro.get("news_volume_spike_z", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "news_volume_spike_z" in news_macro
+        else 0.0
+    )
+    scores["macro_growth_momentum"] = (
+        scores["symbol"]
+        .map(news_macro.get("macro_growth_momentum_z", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "macro_growth_momentum_z" in news_macro
+        else 0.0
+    )
+    scores["macro_inflation_surprise"] = (
+        scores["symbol"]
+        .map(news_macro.get("macro_inflation_surprise_z", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "macro_inflation_surprise_z" in news_macro
+        else 0.0
+    )
 
     # Factors 25-27: Intermarket (bond-equity, credit spread, yield curve)
     intermarket = _compute_intermarket_factors(latest_symbols, latest)
-    scores["intermarket_bond_equity"] = scores["symbol"].map(
-        intermarket.get("intermarket_bond_equity", pd.Series(dtype=float))
-    ).fillna(0.0) if "intermarket_bond_equity" in intermarket else 0.0
-    scores["intermarket_credit_spread"] = scores["symbol"].map(
-        intermarket.get("intermarket_credit_spread", pd.Series(dtype=float))
-    ).fillna(0.0) if "intermarket_credit_spread" in intermarket else 0.0
-    scores["intermarket_yield_curve"] = scores["symbol"].map(
-        intermarket.get("intermarket_yield_curve", pd.Series(dtype=float))
-    ).fillna(0.0) if "intermarket_yield_curve" in intermarket else 0.0
+    scores["intermarket_bond_equity"] = (
+        scores["symbol"]
+        .map(intermarket.get("intermarket_bond_equity", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "intermarket_bond_equity" in intermarket
+        else 0.0
+    )
+    scores["intermarket_credit_spread"] = (
+        scores["symbol"]
+        .map(intermarket.get("intermarket_credit_spread", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "intermarket_credit_spread" in intermarket
+        else 0.0
+    )
+    scores["intermarket_yield_curve"] = (
+        scores["symbol"]
+        .map(intermarket.get("intermarket_yield_curve", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "intermarket_yield_curve" in intermarket
+        else 0.0
+    )
 
     # Factors 28-29: Options (put-call extreme, VIX regime score)
     options = _compute_options_factors(latest_symbols, latest)
-    scores["options_put_call_extreme"] = scores["symbol"].map(
-        options.get("options_put_call_extreme", pd.Series(dtype=float))
-    ).fillna(0.0) if "options_put_call_extreme" in options else 0.0
-    scores["vix_regime_score"] = scores["symbol"].map(
-        options.get("vix_regime_score", pd.Series(dtype=float))
-    ).fillna(0.0) if "vix_regime_score" in options else 0.0
+    scores["options_put_call_extreme"] = (
+        scores["symbol"]
+        .map(options.get("options_put_call_extreme", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "options_put_call_extreme" in options
+        else 0.0
+    )
+    scores["vix_regime_score"] = (
+        scores["symbol"]
+        .map(options.get("vix_regime_score", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "vix_regime_score" in options
+        else 0.0
+    )
 
     # Factor 30: Congress trading activity
     congress = _compute_congress_factors(latest_symbols, latest)
-    scores["congress_activity"] = scores["symbol"].map(
-        congress.get("congress_activity", pd.Series(dtype=float))
-    ).fillna(0.0) if "congress_activity" in congress else 0.0
+    scores["congress_activity"] = (
+        scores["symbol"]
+        .map(congress.get("congress_activity", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "congress_activity" in congress
+        else 0.0
+    )
 
     # Crash probability inverse -- not z-scored (scalar → zero variance).
     # Applied as multiplier post-composite via _crash_prediction_multiplier.
@@ -737,7 +828,11 @@ def compute_signals(
         else np.zeros(len(composite_arr))
     )
     sym_list = latest["symbol"].tolist()
-    ts_list = latest["timestamp"].tolist() if "timestamp" in latest.columns else [None] * len(latest)
+    ts_list = (
+        latest["timestamp"].tolist()
+        if "timestamp" in latest.columns
+        else [None] * len(latest)
+    )
     scores_mat = scores[factor_cols].to_numpy(dtype=float)
     col_idx = {f: j for j, f in enumerate(factor_cols)}
 
@@ -756,15 +851,21 @@ def compute_signals(
             factor_contribs.sort(key=lambda x: abs(x[1]), reverse=True)
             reasons = [f"{f}={v:.2f}" for f, v in factor_contribs[:5]]
 
-            out.append({
-                "timestamp": ts_list[i],
-                "symbol": sym_list[i],
-                "direction": "LONG",
-                "score": float(score),
-                "reason": f"v2|regime={regime_label}|" + "; ".join(reasons),
-                # Preserve factor scores for meta-model
-                **{f: float(row_scores[col_idx[f]]) for f in factor_cols if f in col_idx},
-            })
+            out.append(
+                {
+                    "timestamp": ts_list[i],
+                    "symbol": sym_list[i],
+                    "direction": "LONG",
+                    "score": float(score),
+                    "reason": f"v2|regime={regime_label}|" + "; ".join(reasons),
+                    # Preserve factor scores for meta-model
+                    **{
+                        f: float(row_scores[col_idx[f]])
+                        for f in factor_cols
+                        if f in col_idx
+                    },
+                }
+            )
 
     if not out:
         return _empty_signals()
@@ -782,8 +883,13 @@ def compute_signals(
     logger.info(
         "[MF-V2] %d LONG signals from %d symbols "
         "(regime=%s, exposure=%.2f, crash_mult=%.3f, active_factors=%d/%d)",
-        len(result), len(latest), regime_label, exposure_mult,
-        crash_mult, len(used_factors), len(weights),
+        len(result),
+        len(latest),
+        regime_label,
+        exposure_mult,
+        crash_mult,
+        len(used_factors),
+        len(weights),
     )
     return result
 
@@ -804,15 +910,34 @@ def _apply_meta_model_filter(
     try:
         model = joblib.load(model_path)
     except (EOFError, Exception) as exc:
-        raise RuntimeError(f"[multifactor_v2] Failed to load meta-model from {model_path}: {exc}") from exc
+        raise RuntimeError(
+            f"[multifactor_v2] Failed to load meta-model from {model_path}: {exc}"
+        ) from exc
 
     feature_cols = meta_cfg.get("feature_cols")
     if not feature_cols:
         feature_cols = [
-            c for c in signals.columns
-            if c.startswith(("trend_", "mom_", "mr_", "vol_", "vola_", "breadth_",
-                             "sector_", "earnings_", "insider_", "news_", "macro_",
-                             "intermarket_", "options_", "vix_", "crash_"))
+            c
+            for c in signals.columns
+            if c.startswith(
+                (
+                    "trend_",
+                    "mom_",
+                    "mr_",
+                    "vol_",
+                    "vola_",
+                    "breadth_",
+                    "sector_",
+                    "earnings_",
+                    "insider_",
+                    "news_",
+                    "macro_",
+                    "intermarket_",
+                    "options_",
+                    "vix_",
+                    "crash_",
+                )
+            )
         ]
     if not feature_cols:
         raise ValueError("meta_model: no feature columns available")
@@ -891,16 +1016,23 @@ def _compute_atr(df: pd.DataFrame, symbol: str, window: int = 14) -> float:
     if len(sym_df) < window + 1:
         return 0.0
 
-    high = pd.to_numeric(sym_df.get("high", sym_df.get("close", pd.Series(dtype=float))), errors="coerce")
-    low = pd.to_numeric(sym_df.get("low", sym_df.get("close", pd.Series(dtype=float))), errors="coerce")
+    high = pd.to_numeric(
+        sym_df.get("high", sym_df.get("close", pd.Series(dtype=float))), errors="coerce"
+    )
+    low = pd.to_numeric(
+        sym_df.get("low", sym_df.get("close", pd.Series(dtype=float))), errors="coerce"
+    )
     close = pd.to_numeric(sym_df.get("close", pd.Series(dtype=float)), errors="coerce")
 
     prev_close = close.shift(1)
-    tr = pd.concat([
-        (high - low).abs(),
-        (high - prev_close).abs(),
-        (low - prev_close).abs(),
-    ], axis=1).max(axis=1)
+    tr = pd.concat(
+        [
+            (high - low).abs(),
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
 
     atr = tr.iloc[-window:].mean()
     return float(atr) if np.isfinite(atr) else 0.0
@@ -931,10 +1063,15 @@ def check_exit_signals(
         from src.assembled_core.strategies.multifactor_v1 import (
             check_exit_signals as _v1_exits,
         )
+
         return _v1_exits(current_positions, prices_latest, strategy_cfg)
 
     # Detect regime for ATR multipliers
-    regime = _detect_regime(prices_latest, cfg) if "symbol" in prices_latest.columns else "sideways"
+    regime = (
+        _detect_regime(prices_latest, cfg)
+        if "symbol" in prices_latest.columns
+        else "sideways"
+    )
 
     stop_mult = _STOP_ATR_MULT.get(regime, 2.0)
     trail_mult = _TRAIL_ATR_MULT.get(regime, 1.8)
@@ -955,7 +1092,9 @@ def check_exit_signals(
 
     price_map = {}
     if "symbol" in prices_latest.columns and "close" in prices_latest.columns:
-        price_map = dict(zip(prices_latest["symbol"].values, prices_latest["close"].values))
+        price_map = dict(
+            zip(prices_latest["symbol"].values, prices_latest["close"].values)
+        )
 
     exits = []
     for sym, pos in current_positions.items():
@@ -986,48 +1125,58 @@ def check_exit_signals(
             if momentum_verify and _momentum_intact(prices_latest, sym):
                 logger.debug("[MF-V2] %s: stop hit but momentum intact, holding", sym)
                 continue
-            exits.append({
-                "symbol": sym,
-                "direction": "FLAT",
-                "exit_reason": f"stop_atr_{regime} ({current_price:.2f} <= {stop_price:.2f})",
-                "exit_qty_pct": 1.0,
-            })
+            exits.append(
+                {
+                    "symbol": sym,
+                    "direction": "FLAT",
+                    "exit_reason": f"stop_atr_{regime} ({current_price:.2f} <= {stop_price:.2f})",
+                    "exit_qty_pct": 1.0,
+                }
+            )
             continue
 
         # --- Trailing stop (ATR-based on HWM) ---
         if hwm > avg_price:
             trail_price = hwm - trail_mult * atr
             if current_price <= trail_price:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"trailing_atr_{regime} ({current_price:.2f} <= {trail_price:.2f}, hwm={hwm:.2f})",
-                    "exit_qty_pct": 1.0,
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"trailing_atr_{regime} ({current_price:.2f} <= {trail_price:.2f}, hwm={hwm:.2f})",
+                        "exit_qty_pct": 1.0,
+                    }
+                )
                 continue
 
         # --- Take-profit (partial, ATR-based) ---
         tp_price = avg_price + tp_mult * atr
         if current_price >= tp_price:
-            exits.append({
-                "symbol": sym,
-                "direction": "FLAT",
-                "exit_reason": f"take_profit_atr_{regime} ({current_price:.2f} >= {tp_price:.2f})",
-                "exit_qty_pct": 0.5,
-            })
+            exits.append(
+                {
+                    "symbol": sym,
+                    "direction": "FLAT",
+                    "exit_reason": f"take_profit_atr_{regime} ({current_price:.2f} >= {tp_price:.2f})",
+                    "exit_qty_pct": 0.5,
+                }
+            )
             continue
 
         # --- Time stop (zombie killer) ---
         days_held = int(pos.get("days_held", 0))
         if days_held > time_stop_days:
-            return_pct = (current_price - avg_price) / avg_price if avg_price > 0 else 0.0
+            return_pct = (
+                (current_price - avg_price) / avg_price if avg_price > 0 else 0.0
+            )
             if return_pct < time_stop_min_return:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"time_stop ({days_held}d, return={return_pct:.2%} < {time_stop_min_return:.2%})",
-                    "exit_qty_pct": 1.0,
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"time_stop ({days_held}d, return={return_pct:.2%} < {time_stop_min_return:.2%})",
+                        "exit_qty_pct": 1.0,
+                    }
+                )
                 continue
 
     if not exits:

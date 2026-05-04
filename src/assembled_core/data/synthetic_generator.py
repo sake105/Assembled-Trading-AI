@@ -44,7 +44,9 @@ def generate_crisis_returns(
     np.random.seed(seed)
 
     if template not in CRISIS_TEMPLATES:
-        raise ValueError(f"Unknown template: {template}. Available: {list(CRISIS_TEMPLATES.keys())}")
+        raise ValueError(
+            f"Unknown template: {template}. Available: {list(CRISIS_TEMPLATES.keys())}"
+        )
 
     n_days, mean_ret, vol = CRISIS_TEMPLATES[template]
     mean_ret *= scale
@@ -128,11 +130,11 @@ def generate_garch_returns(
     for _ in range(n_assets):
         h = np.empty(n_days)
         r = np.empty(n_days)
-        h[0] = omega / max(1 - alpha - beta, 1e-8)   # unconditional variance
+        h[0] = omega / max(1 - alpha - beta, 1e-8)  # unconditional variance
         eps_prev = 0.0
         for t in range(n_days):
             if t > 0:
-                h[t] = omega + alpha * eps_prev ** 2 + beta * h[t - 1]
+                h[t] = omega + alpha * eps_prev**2 + beta * h[t - 1]
             eps = rng.standard_normal() * np.sqrt(max(h[t], 1e-12))
             eps_prev = eps
             r[t] = daily_mean + eps
@@ -146,9 +148,9 @@ def generate_jump_diffusion_returns(
     n_assets: int = 5,
     mu_annual: float = 0.06,
     sigma_annual: float = 0.18,
-    jump_intensity: float = 5.0,       # expected jumps per year
-    jump_mean: float = -0.02,          # mean jump size (log return)
-    jump_std: float = 0.03,            # std of jump size
+    jump_intensity: float = 5.0,  # expected jumps per year
+    jump_mean: float = -0.02,  # mean jump size (log return)
+    jump_std: float = 0.03,  # std of jump size
     seed: int = 42,
 ) -> pd.DataFrame:
     """Merton (1976) jump-diffusion return series.
@@ -176,7 +178,9 @@ def generate_jump_diffusion_returns(
     daily_lambda = jump_intensity / 252
 
     # Drift correction: subtract expected jump contribution (clip exponent to avoid overflow)
-    drift_adj = daily_mu - daily_lambda * (np.exp(min(jump_mean + 0.5 * jump_std ** 2, 700)) - 1)
+    drift_adj = daily_mu - daily_lambda * (
+        np.exp(min(jump_mean + 0.5 * jump_std**2, 700)) - 1
+    )
 
     columns = [f"ASSET_{i}" for i in range(n_assets)]
     all_returns: list[np.ndarray] = []
@@ -184,10 +188,12 @@ def generate_jump_diffusion_returns(
     for _ in range(n_assets):
         diffusion = rng.normal(drift_adj, daily_sigma, n_days)
         n_jumps = rng.poisson(daily_lambda, n_days)
-        jump_component = np.array([
-            np.sum(rng.normal(jump_mean, jump_std, int(n))) if n > 0 else 0.0
-            for n in n_jumps
-        ])
+        jump_component = np.array(
+            [
+                np.sum(rng.normal(jump_mean, jump_std, int(n))) if n > 0 else 0.0
+                for n in n_jumps
+            ]
+        )
         all_returns.append(diffusion + jump_component)
 
     return pd.DataFrame(np.column_stack(all_returns), columns=columns)
@@ -200,7 +206,7 @@ def generate_regime_switching_returns(
     bull_vol_annual: float = 0.12,
     bear_mu_annual: float = -0.15,
     bear_vol_annual: float = 0.30,
-    p_bull_to_bear: float = 0.02,      # daily transition probability
+    p_bull_to_bear: float = 0.02,  # daily transition probability
     p_bear_to_bull: float = 0.05,
     seed: int = 42,
 ) -> tuple[pd.DataFrame, np.ndarray]:

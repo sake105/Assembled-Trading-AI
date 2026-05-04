@@ -11,6 +11,7 @@ Usage::
     sigma_annual = forecast_vol(returns_series, horizon=5)
     size = size_vol_target(sigma_annual, target_vol=0.15)
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 _ARCH_AVAILABLE: bool
 try:
     from arch import arch_model as _arch_model  # type: ignore  # noqa: F401
+
     _ARCH_AVAILABLE = True
 except ImportError:
     _ARCH_AVAILABLE = False
@@ -32,6 +34,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Vol forecast
 # ---------------------------------------------------------------------------
+
 
 def forecast_vol(
     returns: pd.Series | np.ndarray,
@@ -110,6 +113,7 @@ def _fallback_vol(r: pd.Series, window: int, annualize_factor: float) -> float:
 # Position sizing
 # ---------------------------------------------------------------------------
 
+
 def size_vol_target(
     asset_vol_forecast: float,
     target_vol: float = 0.15,
@@ -144,6 +148,7 @@ def size_vol_target(
 # Batch helper: per-ticker vol forecast
 # ---------------------------------------------------------------------------
 
+
 def compute_vol_forecasts(
     prices_df: pd.DataFrame,
     price_col: str = "close",
@@ -172,9 +177,11 @@ def compute_vol_forecasts(
         returns = group[price_col].pct_change(fill_method=None).dropna()
         vol = forecast_vol(returns, horizon=horizon)
         size = size_vol_target(vol, target_vol=target_vol, max_leverage=max_leverage)
-        records.append({
-            "ticker": ticker,
-            "vol_forecast_annual": vol,
-            "size_multiplier": size,
-        })
+        records.append(
+            {
+                "ticker": ticker,
+                "vol_forecast_annual": vol,
+                "size_multiplier": size,
+            }
+        )
     return pd.DataFrame(records)

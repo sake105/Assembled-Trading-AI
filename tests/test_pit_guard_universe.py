@@ -37,27 +37,35 @@ def universe_root(tmp_path: Path) -> Path:
 
 def test_universe_validate_happy_path(universe_root: Path) -> None:
     guard = PITGuard(as_of=pd.Timestamp("2005-06-01", tz="UTC"), mode="assert")
-    assert guard.validate_universe(["AAPL", "LEH"], universe_name="uni", root=universe_root)
+    assert guard.validate_universe(
+        ["AAPL", "LEH"], universe_name="uni", root=universe_root
+    )
 
 
 def test_universe_validate_assert_raises_on_delisted(universe_root: Path) -> None:
     # LEH was delisted 2008-09-15 → cannot be in 2020 universe
     guard = PITGuard(as_of=pd.Timestamp("2020-01-01", tz="UTC"), mode="assert")
     with pytest.raises(PITViolationError) as excinfo:
-        guard.validate_universe(["AAPL", "LEH"], universe_name="uni", root=universe_root)
+        guard.validate_universe(
+            ["AAPL", "LEH"], universe_name="uni", root=universe_root
+        )
     assert "LEH" in str(excinfo.value)
 
 
 def test_universe_validate_warn_returns_false(universe_root: Path) -> None:
     guard = PITGuard(as_of=pd.Timestamp("2020-01-01", tz="UTC"), mode="warn")
-    ok = guard.validate_universe(["AAPL", "LEH"], universe_name="uni", root=universe_root)
+    ok = guard.validate_universe(
+        ["AAPL", "LEH"], universe_name="uni", root=universe_root
+    )
     assert ok is False
 
 
 def test_universe_validate_rejects_unknown_symbol(universe_root: Path) -> None:
     guard = PITGuard(as_of=pd.Timestamp("2005-06-01", tz="UTC"), mode="assert")
     with pytest.raises(PITViolationError):
-        guard.validate_universe(["AAPL", "UNKNOWN_XYZ"], universe_name="uni", root=universe_root)
+        guard.validate_universe(
+            ["AAPL", "UNKNOWN_XYZ"], universe_name="uni", root=universe_root
+        )
 
 
 def test_universe_validate_empty_input_returns_true(universe_root: Path) -> None:

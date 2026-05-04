@@ -121,7 +121,10 @@ def enforce_turnover_budget(
     capped = prev + t * (tgt - prev)
     logger.info(
         "[Turnover] Budget overrun: %.3f → %.3f (cap=%.3f, t=%.2f)",
-        raw_turnover, float((capped - prev).abs().sum() / 2.0), max_turnover, t,
+        raw_turnover,
+        float((capped - prev).abs().sum() / 2.0),
+        max_turnover,
+        t,
     )
     return capped
 
@@ -148,9 +151,13 @@ class TurnoverConstrainedSizer:
             self._previous = result
             return result
 
-        smoothed = apply_turnover_smoothing(target, self._previous, alpha=self.config.ema_alpha)
+        smoothed = apply_turnover_smoothing(
+            target, self._previous, alpha=self.config.ema_alpha
+        )
         capped = enforce_turnover_budget(
-            smoothed, self._previous, max_turnover=self.config.max_turnover_per_period,
+            smoothed,
+            self._previous,
+            max_turnover=self.config.max_turnover_per_period,
         )
         self._previous = capped
         return capped
@@ -163,7 +170,9 @@ class TurnoverConstrainedSizer:
         if previous is None:
             self._previous = None
         else:
-            self._previous = previous if isinstance(previous, pd.Series) else pd.Series(previous)
+            self._previous = (
+                previous if isinstance(previous, pd.Series) else pd.Series(previous)
+            )
 
 
 __all__ = [

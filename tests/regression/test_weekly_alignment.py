@@ -49,12 +49,14 @@ def test_disagreement_suppresses_alignment() -> None:
     out = add_weekly_alignment(df)
     tail = out.iloc[-40:]
     # Long daily-trend bars in a downtrend week should NOT clear the gate.
-    conflict = ((tail["daily_trend"] > 0) & (tail["weekly_ema_slope"] < 0))
+    conflict = (tail["daily_trend"] > 0) & (tail["weekly_ema_slope"] < 0)
     assert (tail.loc[conflict, "weekly_alignment_ok"] == False).all()  # noqa: E712
 
 
 def test_missing_column_raises() -> None:
-    df = pd.DataFrame({"close": [1.0, 2.0]}, index=pd.date_range("2023-01-02", periods=2))
+    df = pd.DataFrame(
+        {"close": [1.0, 2.0]}, index=pd.date_range("2023-01-02", periods=2)
+    )
     with pytest.raises(ValueError, match="daily_trend"):
         add_weekly_alignment(df)
 
@@ -81,4 +83,6 @@ def test_config_override_affects_slope() -> None:
     fast = add_weekly_alignment(df, config=WeeklyAlignmentConfig(ema_span=3))
     slow = add_weekly_alignment(df, config=WeeklyAlignmentConfig(ema_span=40))
     # A much slower EMA must be less reactive than a 3-span EMA.
-    assert fast["weekly_ema_slope"].abs().mean() >= slow["weekly_ema_slope"].abs().mean()
+    assert (
+        fast["weekly_ema_slope"].abs().mean() >= slow["weekly_ema_slope"].abs().mean()
+    )

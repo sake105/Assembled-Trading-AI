@@ -1,4 +1,5 @@
 """Tests for signals/base.py and signals/registry.py (spec 60)."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,10 +10,10 @@ import pytest
 from assembled_core.signals.base import BaseSignal, SignalOutput
 from assembled_core.signals.registry import SignalRegistry, get_registry
 
-
 # ---------------------------------------------------------------------------
 # SignalOutput
 # ---------------------------------------------------------------------------
+
 
 class TestSignalOutput:
     def test_basic_fields(self):
@@ -46,6 +47,7 @@ class TestSignalOutput:
 # BaseSignal — concrete subclass for testing
 # ---------------------------------------------------------------------------
 
+
 class _ConcreteSignal(BaseSignal):
     name = "test_signal"
     version = "1.2.3"
@@ -53,9 +55,13 @@ class _ConcreteSignal(BaseSignal):
     required_data = ["bars_daily"]
     horizon_days = 3
 
-    async def compute(self, symbol: str, feature_store: Any, now: datetime) -> SignalOutput | None:
+    async def compute(
+        self, symbol: str, feature_store: Any, now: datetime
+    ) -> SignalOutput | None:
         return SignalOutput(
-            symbol=symbol, score=0.5, confidence=0.9,
+            symbol=symbol,
+            score=0.5,
+            confidence=0.9,
             features_used=self.required_features,
             computed_at=now,
             horizon_days=self.horizon_days,
@@ -90,6 +96,7 @@ class TestBaseSignal:
 
     def test_healthcheck_default_true(self):
         import asyncio
+
         sig = _ConcreteSignal()
         result = asyncio.run(sig.healthcheck())
         assert result is True
@@ -102,6 +109,7 @@ class TestBaseSignal:
 # ---------------------------------------------------------------------------
 # SignalRegistry
 # ---------------------------------------------------------------------------
+
 
 class TestSignalRegistry:
     def test_empty_registry(self):

@@ -178,7 +178,9 @@ def submit_orders_to_broker(
                         store_path=intent_store_path,
                     )
                 except Exception as _exc:
-                    logger.debug("[broker_execution] intent completion write failed: %s", _exc)
+                    logger.debug(
+                        "[broker_execution] intent completion write failed: %s", _exc
+                    )
             results.append(None)
 
     return results, intent_keys
@@ -211,7 +213,9 @@ def poll_order_fills(
     pending = {
         o.order_id: o
         for o in broker_orders
-        if o is not None and o.status not in _TERMINAL_STATUSES and o.status != "dry_run"
+        if o is not None
+        and o.status not in _TERMINAL_STATUSES
+        and o.status != "dry_run"
     }
 
     if not pending:
@@ -389,6 +393,7 @@ def execute_via_broker(
         try:
             from src.assembled_core.qa.sanity_checks import SanityChecker
             from src.assembled_core.ops.alerting import AlertManager
+
             _checker = SanityChecker()
             _alert = AlertManager()
             _halted_syms: list[str] = []
@@ -402,16 +407,19 @@ def execute_via_broker(
                 if _result.get("halt_recommendation"):
                     _sym = str(_order["symbol"])
                     _halted_syms.append(_sym)
-                    _flags_str = "; ".join(
-                        f["rule"] for f in _result.get("flags", [])
+                    _flags_str = "; ".join(f["rule"] for f in _result.get("flags", []))
+                    _alert.fire(
+                        "sanity_check_halt",
+                        {
+                            "symbol": _sym,
+                            "flags": _flags_str or "unknown",
+                        },
                     )
-                    _alert.fire("sanity_check_halt", {
-                        "symbol": _sym,
-                        "flags": _flags_str or "unknown",
-                    })
                     logger.warning(
                         "[broker_execution] SANITY HALT: %s %s — %s",
-                        _order["side"], _sym, _flags_str,
+                        _order["side"],
+                        _sym,
+                        _flags_str,
                     )
             if _halted_syms:
                 orders_df = orders_df[
@@ -419,7 +427,8 @@ def execute_via_broker(
                 ].reset_index(drop=True)
                 logger.warning(
                     "[broker_execution] %d order(s) removed by sanity checks: %s",
-                    len(_halted_syms), _halted_syms,
+                    len(_halted_syms),
+                    _halted_syms,
                 )
         except Exception as _se:
             logger.debug("[broker_execution] sanity check skipped: %s", _se)
@@ -497,6 +506,7 @@ def execute_via_broker(
             fill_rate = len(result.filled) / len(submitted)
             if fill_rate < 0.5:
                 from src.assembled_core.ops.alerting import AlertManager
+
                 AlertManager().fire("fill_rate_low", {"daily_fill_rate": fill_rate})
         except Exception as _fe:
             logger.debug("[broker_execution] fill rate alert skipped: %s", _fe)

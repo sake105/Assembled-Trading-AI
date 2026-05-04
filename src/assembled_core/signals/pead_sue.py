@@ -94,6 +94,7 @@ def pre_trade_earnings_check(
         if not items:
             return False
         import datetime
+
         today = datetime.date.today()
         for item in items[:3]:
             date_str = item.get("date", "")

@@ -204,15 +204,21 @@ def filter_orders_with_kill_switches(
     # 1. Global kill switch check
     try:
         from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
+
         if is_kill_switch_engaged():
             import logging as _log
+
             _log.getLogger(__name__).warning(
-                "[kill_switch] Global kill switch ENGAGED — all %d orders blocked", len(orders)
+                "[kill_switch] Global kill switch ENGAGED — all %d orders blocked",
+                len(orders),
             )
             return orders.iloc[0:0].copy()
     except Exception as _exc:
         import logging as _logging
-        _logging.getLogger(__name__).debug("[kill_switch] global kill_switch check failed: %s", _exc)
+
+        _logging.getLogger(__name__).debug(
+            "[kill_switch] global kill_switch check failed: %s", _exc
+        )
 
     # 2. Per-symbol blocks
     filtered, _ = filter_orders_by_symbol_blocks(orders, state_path=state_path)

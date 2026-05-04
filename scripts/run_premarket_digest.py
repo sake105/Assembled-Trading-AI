@@ -56,7 +56,9 @@ def generate_premarket_digest(
         active_clusters, feed_health.
     """
     now = datetime.now(tz=timezone.utc)
-    cutoff = now - timedelta(hours=lookback_hours)  # noqa: F841 — kept for future time filters
+    cutoff = now - timedelta(
+        hours=lookback_hours
+    )  # noqa: F841 — kept for future time filters
 
     triggers = _load_json(intel_dir / "triggers_latest.json")
     crisis_state = _load_json(intel_dir / "crisis_state.json")
@@ -69,8 +71,7 @@ def generate_premarket_digest(
     # --- Top risks from triggers ---
     trigger_list: list[dict] = triggers.get("triggers", [])
     top_risks = [
-        t for t in trigger_list
-        if float(t.get("confidence", 0)) >= min_confidence
+        t for t in trigger_list if float(t.get("confidence", 0)) >= min_confidence
     ]
     top_risks.sort(key=lambda t: -float(t.get("severity", 0)))
 
@@ -82,7 +83,11 @@ def generate_premarket_digest(
             sector = tx.get("sector") or tx.get("target_sector", "unknown")
             magnitude = float(tx.get("magnitude", 0))
             if sector not in sector_exposure:
-                sector_exposure[sector] = {"magnitude": 0.0, "count": 0, "direction": "unknown"}
+                sector_exposure[sector] = {
+                    "magnitude": 0.0,
+                    "count": 0,
+                    "direction": "unknown",
+                }
             sector_exposure[sector]["magnitude"] += magnitude
             sector_exposure[sector]["count"] += 1
             if magnitude < 0:
@@ -117,7 +122,8 @@ def generate_premarket_digest(
 
     # --- Sentiment drift: deteriorating names ---
     deteriorating = [
-        e for e in intel_sentiment.get("entries", [])
+        e
+        for e in intel_sentiment.get("entries", [])
         if e.get("drift_direction") == "deteriorating"
     ]
     deteriorating.sort(key=lambda e: e.get("slope", 0.0))  # most negative slope first
@@ -125,28 +131,42 @@ def generate_premarket_digest(
     # --- Build digest ---
     summary_lines = []
     if crisis_mode in ("CRISIS", "ACTIVE"):
-        summary_lines.append(f"ELEVATED RISK: crisis_mode={crisis_mode}, geo_score={geo_score}")
+        summary_lines.append(
+            f"ELEVATED RISK: crisis_mode={crisis_mode}, geo_score={geo_score}"
+        )
     elif geo_score >= 2:
-        summary_lines.append(f"WATCH: geo_score={geo_score}, {len(top_risks)} active risk signals")
+        summary_lines.append(
+            f"WATCH: geo_score={geo_score}, {len(top_risks)} active risk signals"
+        )
     else:
-        summary_lines.append(f"NORMAL: geo_score={geo_score}, {len(top_risks)} signals above threshold")
+        summary_lines.append(
+            f"NORMAL: geo_score={geo_score}, {len(top_risks)} signals above threshold"
+        )
 
     if intel_risk in ("HIGH", "CRITICAL"):
-        summary_lines.append(f"INTEL: {intel_direction.upper()} risk={intel_risk} conf={intel_conf:.2f}")
+        summary_lines.append(
+            f"INTEL: {intel_direction.upper()} risk={intel_risk} conf={intel_conf:.2f}"
+        )
 
     if macro_info.get("blackout_active"):
         kinds = macro_info.get("blackout_kinds", [])
-        summary_lines.append(f"MACRO BLACKOUT: {', '.join(kinds)} — reduce position sizing")
+        summary_lines.append(
+            f"MACRO BLACKOUT: {', '.join(kinds)} — reduce position sizing"
+        )
 
     if ticker_surges:
         names = [t["ticker"] for t in ticker_surges[:3]]
         summary_lines.append(f"TICKER SURGE: {', '.join(names)}")
 
     if recent_alerts:
-        summary_lines.append(f"ALERTS: {len(recent_alerts)} active (top: {recent_alerts[0]['kind']})")
+        summary_lines.append(
+            f"ALERTS: {len(recent_alerts)} active (top: {recent_alerts[0]['kind']})"
+        )
 
     if silent_feeds:
-        summary_lines.append(f"WARNING: {len(silent_feeds)} feeds silent >2h: {', '.join(silent_feeds[:3])}")
+        summary_lines.append(
+            f"WARNING: {len(silent_feeds)} feeds silent >2h: {', '.join(silent_feeds[:3])}"
+        )
 
     digest = {
         "schema_version": "premarket.digest.v2",

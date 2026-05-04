@@ -71,7 +71,8 @@ def compute_recession_probability(
         )
         logger.info(
             "Recession probability: current=%.2f, mean=%.2f",
-            float(recession_prob.iloc[-1]), float(recession_prob.mean()),
+            float(recession_prob.iloc[-1]),
+            float(recession_prob.mean()),
         )
         return recession_prob
     except Exception as exc:

@@ -22,10 +22,13 @@ AlertLevel = Literal["INFO", "WARNING", "CRITICAL"]
 @dataclass
 class Alert:
     """A single alert."""
+
     level: AlertLevel
     source: str
     message: str
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     details: dict | None = None
 
 
@@ -42,7 +45,9 @@ class AlertManager:
         self._last_alert_time: dict[str, float] = defaultdict(float)
         self._alerts: list[Alert] = []
 
-    def alert(self, level: AlertLevel, source: str, message: str, details: dict | None = None) -> bool:
+    def alert(
+        self, level: AlertLevel, source: str, message: str, details: dict | None = None
+    ) -> bool:
         """Send an alert if not rate-limited.
 
         Returns:
@@ -59,7 +64,11 @@ class AlertManager:
         self._alerts.append(alert)
 
         # Console output
-        log_fn = logger.info if level == "INFO" else logger.warning if level == "WARNING" else logger.critical
+        log_fn = (
+            logger.info
+            if level == "INFO"
+            else logger.warning if level == "WARNING" else logger.critical
+        )
         log_fn("[ALERT][%s] %s: %s", level, source, message)
 
         return True
@@ -70,11 +79,19 @@ class AlertManager:
             return None
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        filepath = self.output_dir / f"alerts_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+        filepath = (
+            self.output_dir
+            / f"alerts_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+        )
 
         data = [
-            {"level": a.level, "source": a.source, "message": a.message,
-             "timestamp": a.timestamp, "details": a.details}
+            {
+                "level": a.level,
+                "source": a.source,
+                "message": a.message,
+                "timestamp": a.timestamp,
+                "details": a.details,
+            }
             for a in self._alerts
         ]
         filepath.write_text(json.dumps(data, indent=2), encoding="utf-8")

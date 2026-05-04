@@ -6,6 +6,7 @@ Usage:
     from assembled_core.certify.mlflow_integration import log_certificate_to_mlflow
     log_certificate_to_mlflow(cert, experiment_name="backtest_v4")
 """
+
 from __future__ import annotations
 
 import json
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 def _mlflow_available() -> bool:
     try:
         import mlflow  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -52,7 +54,9 @@ def log_certificate_to_mlflow(
         The MLflow run_id, or ``None`` if mlflow is not installed.
     """
     if not _mlflow_available():
-        logger.warning("[MLflow] mlflow not installed — certificate not logged. pip install mlflow>=2.0.0")
+        logger.warning(
+            "[MLflow] mlflow not installed — certificate not logged. pip install mlflow>=2.0.0"
+        )
         return None
 
     import mlflow  # noqa: PLC0415
@@ -93,7 +97,9 @@ def log_certificate_to_mlflow(
 
         git_info = getattr(certificate, "git_info", None)
         if git_info:
-            git_dict = git_info.__dict__ if hasattr(git_info, "__dict__") else dict(git_info)
+            git_dict = (
+                git_info.__dict__ if hasattr(git_info, "__dict__") else dict(git_info)
+            )
             mlflow.set_tags({f"git.{k}": str(v)[:250] for k, v in git_dict.items()})
 
         # --- Artifact: full certificate JSON ---
@@ -101,6 +107,7 @@ def log_certificate_to_mlflow(
         if cert_json:
             import os
             import tempfile  # noqa: E401
+
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False, prefix="certificate_"
             ) as f:
@@ -111,7 +118,11 @@ def log_certificate_to_mlflow(
             finally:
                 os.unlink(tmp_path)
 
-        logger.info("[MLflow] Certificate logged — experiment=%s run_id=%s", experiment_name, run_id)
+        logger.info(
+            "[MLflow] Certificate logged — experiment=%s run_id=%s",
+            experiment_name,
+            run_id,
+        )
         return run_id
 
 
@@ -120,11 +131,22 @@ def _log_output_metrics(output: Any) -> None:
     import mlflow  # noqa: PLC0415
 
     metric_attrs = (
-        "total_return", "cagr", "sharpe_ratio", "sortino_ratio",
-        "max_drawdown", "calmar_ratio", "n_trades", "win_rate",
-        "avg_return_per_trade", "annualized_volatility",
+        "total_return",
+        "cagr",
+        "sharpe_ratio",
+        "sortino_ratio",
+        "max_drawdown",
+        "calmar_ratio",
+        "n_trades",
+        "win_rate",
+        "avg_return_per_trade",
+        "annualized_volatility",
     )
-    out_dict = output.__dict__ if hasattr(output, "__dict__") else dict(output) if hasattr(output, "__iter__") else {}
+    out_dict = (
+        output.__dict__
+        if hasattr(output, "__dict__")
+        else dict(output) if hasattr(output, "__iter__") else {}
+    )
     if not out_dict:
         out_dict = {attr: getattr(output, attr, None) for attr in metric_attrs}
 
@@ -139,11 +161,16 @@ def _log_output_metrics(output: Any) -> None:
 def _certificate_to_json(certificate: Any) -> str | None:
     """Serialize a certificate to JSON string (dataclass → dict → json)."""
     import dataclasses  # noqa: PLC0415
+
     try:
         if dataclasses.is_dataclass(certificate):
             d = dataclasses.asdict(certificate)
         else:
-            d = certificate.__dict__ if hasattr(certificate, "__dict__") else str(certificate)
+            d = (
+                certificate.__dict__
+                if hasattr(certificate, "__dict__")
+                else str(certificate)
+            )
         return json.dumps(d, default=str, indent=2)
     except Exception as exc:
         logger.debug("Certificate serialization failed: %s", exc)
@@ -196,7 +223,7 @@ def log_backtest_run(
         if git_commit:
             mlflow.set_tag("git.commit", git_commit[:40])
 
-        for path in (artifact_paths or []):
+        for path in artifact_paths or []:
             if Path(path).exists():
                 mlflow.log_artifact(path)
 

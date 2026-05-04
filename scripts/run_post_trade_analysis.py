@@ -9,6 +9,7 @@ Usage:
         [--date <YYYY-MM-DD>] [--horizon-days <N>] [--ledger-path <path>] \
         [--store-path <path>]
 """
+
 from __future__ import annotations
 
 import argparse

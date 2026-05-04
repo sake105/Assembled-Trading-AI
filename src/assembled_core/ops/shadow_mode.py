@@ -107,7 +107,9 @@ def write_shadow_snapshot(
     suffix = f"_{run_id}" if run_id else ""
     file_path = root / f"{module}_{snap_date.isoformat()}{suffix}.json"
     _atomic_write_json(file_path, envelope)
-    logger.info("[SHADOW] module=%s snapshot_date=%s path=%s", module, snap_date, file_path)
+    logger.info(
+        "[SHADOW] module=%s snapshot_date=%s path=%s", module, snap_date, file_path
+    )
     return file_path
 
 

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 def _try_mapie():
     try:
         from mapie.regression import MapieTimeSeriesRegressor
+
         return MapieTimeSeriesRegressor
     except ImportError:
         logger.warning("mapie not installed — pip install mapie==0.9.2")
@@ -67,11 +68,15 @@ class ConformalPositionSizer:
         self._mapie = None
         self._max_width: float = 1.0
 
-    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> "ConformalPositionSizer":
+    def fit(
+        self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series
+    ) -> "ConformalPositionSizer":
         """Fit the conformal predictor on training data."""
         MapieTimeSeriesRegressor = _try_mapie()
         if MapieTimeSeriesRegressor is None:
-            logger.warning("ConformalPositionSizer: MAPIE unavailable — no fitting done")
+            logger.warning(
+                "ConformalPositionSizer: MAPIE unavailable — no fitting done"
+            )
             return self
 
         self._mapie = MapieTimeSeriesRegressor(
@@ -89,7 +94,11 @@ class ConformalPositionSizer:
         self._max_width = float(np.nanquantile(widths, self.max_width_quantile))
         if self._max_width <= 0:
             self._max_width = 1.0
-        logger.info("ConformalPositionSizer fitted. Max width (p%.0f): %.4f", self.max_width_quantile * 100, self._max_width)
+        logger.info(
+            "ConformalPositionSizer fitted. Max width (p%.0f): %.4f",
+            self.max_width_quantile * 100,
+            self._max_width,
+        )
         return self
 
     def predict_intervals(

@@ -35,7 +35,8 @@ class TestBlackLittermanOptimizer:
         symbols, mw, sigma = _synthetic_market()
         bl = BlackLittermanOptimizer(risk_aversion=2.5)
         pi = bl.compute_implied_returns(
-            pd.Series(mw, index=symbols), sigma,
+            pd.Series(mw, index=symbols),
+            sigma,
         )
         assert len(pi) == len(symbols)
         assert all(np.isfinite(pi))
@@ -46,7 +47,9 @@ class TestBlackLittermanOptimizer:
         pi = bl.compute_implied_returns(pd.Series(mw, index=symbols), sigma)
         # Without views, posterior should equal prior
         posterior = bl.compute_posterior_returns(
-            pi, sigma, views={},
+            pi,
+            sigma,
+            views={},
         )
         np.testing.assert_allclose(posterior, pi, atol=1e-6)
 

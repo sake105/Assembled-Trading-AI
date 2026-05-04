@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 def _try_mlfinpy():
     try:
         import mlfinpy
+
         return mlfinpy
     except ImportError:
         logger.warning("mlfinpy not installed — pip install mlfinpy==0.1.2")
@@ -55,6 +56,7 @@ def cusum_filter(
     if use_mlfinpy and mfp is not None:
         try:
             from mlfinpy.filters.filters import cusum_filter as mfp_cusum
+
             events = mfp_cusum(prices, threshold)
             return events
         except Exception as exc:
@@ -121,14 +123,13 @@ def triple_barrier_labels(
                 get_bins,
                 get_events,
             )
+
             if vol is None:
                 log_ret = np.log(prices.clip(lower=1e-10)).diff()
                 vol = log_ret.rolling(20).std().dropna()
 
             t1 = add_vertical_barrier(events, prices, num_days=vertical_barrier_days)
-            events_df = get_events(
-                prices, events, pt_sl, vol, min_ret, cpus=1, t1=t1
-            )
+            events_df = get_events(prices, events, pt_sl, vol, min_ret, cpus=1, t1=t1)
             labels = get_bins(events_df, prices)
             return labels
         except Exception as exc:
@@ -158,7 +159,11 @@ def _triple_barrier_numpy(
             continue
 
         p0 = prices.loc[t0]
-        v_raw = vol.asof(t0) if hasattr(vol, "asof") else (vol.loc[t0] if t0 in vol.index else None)
+        v_raw = (
+            vol.asof(t0)
+            if hasattr(vol, "asof")
+            else (vol.loc[t0] if t0 in vol.index else None)
+        )
         if v_raw is None or pd.isna(v_raw):
             continue  # Skip events before vol window is fully populated (avoids look-ahead)
         v = float(v_raw)
@@ -169,7 +174,7 @@ def _triple_barrier_numpy(
         # Lookahead window
         future = prices.loc[t0:]
         if len(future) > 1:
-            window = future.iloc[1:max_days + 1]
+            window = future.iloc[1 : max_days + 1]
         else:
             window = pd.Series(dtype=float)
 
@@ -228,6 +233,7 @@ def fractional_diff(
     if mfp is not None:
         try:
             from mlfinpy.features.fracdiff import frac_diff_ffd
+
             df = pd.DataFrame({"val": series})
             result = frac_diff_ffd(df, d, threshold)
             return result["val"].rename(series.name)
@@ -262,7 +268,9 @@ def _fracdiff_numpy(series: pd.Series, d: float, threshold: float) -> pd.Series:
     result_values = np.full(len(arr), np.nan)
     if len(arr) >= width:
         # np.convolve(arr, w, 'full')[k] = sum(arr[k-j]*w[j]) = dot(w, window) at position k
-        result_values[width - 1:] = np.convolve(arr, w, mode="full")[width - 1: len(arr)]
+        result_values[width - 1 :] = np.convolve(arr, w, mode="full")[
+            width - 1 : len(arr)
+        ]
     return pd.Series(result_values, index=series.index, name=series.name)
 
 

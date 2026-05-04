@@ -337,9 +337,7 @@ def write_tca_report_markdown(
         lines.append("|------|------------|----------|----------------|")
         for row in tca_summary_df.head(20).itertuples(index=False):
             date_str = (
-                row.timestamp.strftime("%Y-%m-%d")
-                if pd.notna(row.timestamp)
-                else "N/A"
+                row.timestamp.strftime("%Y-%m-%d") if pd.notna(row.timestamp) else "N/A"
             )
             lines.append(
                 f"| {date_str} | {row.total_cost:.4f} | {row.n_trades} | {row.avg_cost_per_trade:.4f} |"

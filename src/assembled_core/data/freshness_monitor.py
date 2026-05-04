@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SourceFreshness:
     """Freshness status for a data source."""
+
     source: str
     last_updated: datetime | None = None
     max_age_hours: float = 24.0
@@ -38,10 +39,13 @@ class SourceFreshness:
 @dataclass
 class FreshnessMonitor:
     """Monitor freshness of multiple data sources."""
+
     sources: dict[str, SourceFreshness] = field(default_factory=dict)
 
     def register(self, source: str, max_age_hours: float = 24.0) -> None:
-        self.sources[source] = SourceFreshness(source=source, max_age_hours=max_age_hours)
+        self.sources[source] = SourceFreshness(
+            source=source, max_age_hours=max_age_hours
+        )
 
     def update(self, source: str) -> None:
         if source in self.sources:
@@ -51,12 +55,19 @@ class FreshnessMonitor:
         alerts = []
         for name, sf in self.sources.items():
             if sf.is_stale:
-                alerts.append({
-                    "source": name,
-                    "age_hours": round(sf.age_hours, 1),
-                    "max_age_hours": sf.max_age_hours,
-                })
-                logger.warning("[Freshness] Source '%s' is stale (%.1fh > %.1fh)", name, sf.age_hours, sf.max_age_hours)
+                alerts.append(
+                    {
+                        "source": name,
+                        "age_hours": round(sf.age_hours, 1),
+                        "max_age_hours": sf.max_age_hours,
+                    }
+                )
+                logger.warning(
+                    "[Freshness] Source '%s' is stale (%.1fh > %.1fh)",
+                    name,
+                    sf.age_hours,
+                    sf.max_age_hours,
+                )
         return alerts
 
 

@@ -1,5 +1,6 @@
 # scripts/commands/reports.py
 """Report subcommands: risk_report, tca_report."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,7 +10,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
 
 
 def risk_report_subcommand(args: argparse.Namespace) -> int:

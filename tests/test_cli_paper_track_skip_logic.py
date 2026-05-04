@@ -79,9 +79,7 @@ trading:
   freq: 1d
 portfolio:
   seed_capital: 100000.0
-""".format(
-            tmp_path=tmp_path
-        ),
+""".format(tmp_path=tmp_path),
         encoding="utf-8",
     )
     (tmp_path / "universe.txt").write_text("AAPL\n", encoding="utf-8")
@@ -135,9 +133,7 @@ trading:
   freq: 1d
 portfolio:
   seed_capital: 100000.0
-""".format(
-            tmp_path=tmp_path
-        ),
+""".format(tmp_path=tmp_path),
         encoding="utf-8",
     )
     (tmp_path / "universe.txt").write_text("AAPL\n", encoding="utf-8")

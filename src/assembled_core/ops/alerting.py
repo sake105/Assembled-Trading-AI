@@ -4,6 +4,7 @@ Reads configs/alerting.yaml. Fire events are dispatched to all
 matching channels with cooldown logic. Channels: telegram, email, log_only.
 Credentials are always read from environment variables — never hardcoded.
 """
+
 from __future__ import annotations
 
 import logging
@@ -85,12 +86,16 @@ class AlertManager:
                 return r
         return None
 
-    def _dispatch(self, channel_cfg: dict, message: str, rule_name: str, severity: str) -> None:
+    def _dispatch(
+        self, channel_cfg: dict, message: str, rule_name: str, severity: str
+    ) -> None:
         kind = channel_cfg.get("type", "log_only")
 
         if kind == "log_only":
-            log_fn = logger.critical if severity == "critical" else (
-                logger.warning if severity == "warning" else logger.info
+            log_fn = (
+                logger.critical
+                if severity == "critical"
+                else (logger.warning if severity == "warning" else logger.info)
             )
             log_fn("[ALERT][%s] %s", rule_name, message)
 
@@ -122,8 +127,9 @@ class AlertManager:
 
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         payload = _json.dumps({"chat_id": chat_id, "text": text}).encode()
-        req = urllib.request.Request(url, data=payload,
-                                     headers={"Content-Type": "application/json"})
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
         with urllib.request.urlopen(req, timeout=10) as resp:
             if resp.status != 200:
                 logger.warning("[alerting] telegram returned HTTP %s", resp.status)

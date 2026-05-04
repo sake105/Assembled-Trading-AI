@@ -31,7 +31,6 @@ from src.assembled_core.events.news.fetch_rss import fetch_rss_feed
 from src.assembled_core.events.news.fetch_gdelt import fetch_gdelt_events
 from src.assembled_core.events.news import run_news_pipeline
 
-
 pytestmark = [pytest.mark.phase6, pytest.mark.unit]
 
 
@@ -1846,18 +1845,22 @@ def test_rss_fetch_state_persists_new_source_entry(monkeypatch):
         return Resp()
 
     monkeypatch.setitem(sys.modules, "requests", types.SimpleNamespace(get=fake_get))
-    monkeypatch.setitem(sys.modules, "feedparser", types.SimpleNamespace(
-        parse=lambda content: types.SimpleNamespace(
-            entries=[
-                {
-                    "title": "Title",
-                    "link": "https://example.com/article",
-                    "published": "2025-01-01T00:00:00Z",
-                    "summary": "Summary",
-                }
-            ]
-        )
-    ))
+    monkeypatch.setitem(
+        sys.modules,
+        "feedparser",
+        types.SimpleNamespace(
+            parse=lambda content: types.SimpleNamespace(
+                entries=[
+                    {
+                        "title": "Title",
+                        "link": "https://example.com/article",
+                        "published": "2025-01-01T00:00:00Z",
+                        "summary": "Summary",
+                    }
+                ]
+            )
+        ),
+    )
 
     fetch_state = {"rss": {}}
     items, failure, stats = fetch_rss_feed(

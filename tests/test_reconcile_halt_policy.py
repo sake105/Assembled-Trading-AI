@@ -24,7 +24,9 @@ def runner_module():
     """Load scripts/run_live_paper.py as a module without executing main()."""
     repo_root = Path(__file__).resolve().parents[1]
     script_path = repo_root / "scripts" / "run_live_paper.py"
-    spec = importlib.util.spec_from_file_location("run_live_paper_under_test", script_path)
+    spec = importlib.util.spec_from_file_location(
+        "run_live_paper_under_test", script_path
+    )
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
@@ -56,7 +58,11 @@ def test_reconcile_policy_override(runner_module) -> None:
 
 
 def test_threshold_trips_on_usd_diff(runner_module) -> None:
-    policy = {"halt_on_mismatch": True, "cash_threshold_usd": 100.0, "cash_threshold_bps": 10.0}
+    policy = {
+        "halt_on_mismatch": True,
+        "cash_threshold_usd": 100.0,
+        "cash_threshold_bps": 10.0,
+    }
     tripped, reason = runner_module._mismatch_exceeds_threshold(
         cash_diff=-250.0, broker_equity=1_000_000.0, policy=policy
     )
@@ -66,7 +72,11 @@ def test_threshold_trips_on_usd_diff(runner_module) -> None:
 
 def test_threshold_trips_on_bps_only(runner_module) -> None:
     # $50 on $10k equity = 50 bps > 10 bps even though USD threshold OK.
-    policy = {"halt_on_mismatch": True, "cash_threshold_usd": 100.0, "cash_threshold_bps": 10.0}
+    policy = {
+        "halt_on_mismatch": True,
+        "cash_threshold_usd": 100.0,
+        "cash_threshold_bps": 10.0,
+    }
     tripped, reason = runner_module._mismatch_exceeds_threshold(
         cash_diff=50.0, broker_equity=10_000.0, policy=policy
     )
@@ -75,7 +85,11 @@ def test_threshold_trips_on_bps_only(runner_module) -> None:
 
 
 def test_threshold_quiet_when_below_both(runner_module) -> None:
-    policy = {"halt_on_mismatch": True, "cash_threshold_usd": 100.0, "cash_threshold_bps": 10.0}
+    policy = {
+        "halt_on_mismatch": True,
+        "cash_threshold_usd": 100.0,
+        "cash_threshold_bps": 10.0,
+    }
     tripped, reason = runner_module._mismatch_exceeds_threshold(
         cash_diff=5.0, broker_equity=1_000_000.0, policy=policy
     )
@@ -84,7 +98,11 @@ def test_threshold_quiet_when_below_both(runner_module) -> None:
 
 
 def test_threshold_survives_zero_equity(runner_module) -> None:
-    policy = {"halt_on_mismatch": True, "cash_threshold_usd": 100.0, "cash_threshold_bps": 10.0}
+    policy = {
+        "halt_on_mismatch": True,
+        "cash_threshold_usd": 100.0,
+        "cash_threshold_bps": 10.0,
+    }
     # No equity signal — USD path alone must still work.
     tripped, _ = runner_module._mismatch_exceeds_threshold(
         cash_diff=150.0, broker_equity=0.0, policy=policy

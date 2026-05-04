@@ -133,10 +133,13 @@ def detect_correlated_clusters(
 
     if n_total > 0 and n_nan / n_total > 0.25:
         import logging
+
         logging.getLogger(__name__).warning(
             "[CorrGuard] degraded correlation matrix: %d/%d pairs NaN (%.1f%%) — "
             "clustering may under-detect concentration",
-            n_nan, n_total, 100.0 * n_nan / n_total,
+            n_nan,
+            n_total,
+            100.0 * n_nan / n_total,
         )
 
     groups: dict[str, list[str]] = {}
@@ -246,6 +249,7 @@ def compute_avg_correlation(corr_matrix: pd.DataFrame) -> float:
     if corr_matrix is None or corr_matrix.empty or len(corr_matrix) < 2:
         return 0.0
     import numpy as np
+
     mask = ~np.eye(len(corr_matrix), dtype=bool)
     vals = corr_matrix.values[mask]
     vals = vals[~pd.isna(vals)]

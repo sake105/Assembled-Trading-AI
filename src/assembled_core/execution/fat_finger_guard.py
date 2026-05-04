@@ -100,7 +100,11 @@ def apply_fat_finger_guard(
     if max_qty_multiple is not None and history:
         hist_qty_s = symbols_s.map(history).astype(float)
         has_hist = hist_qty_s.notna() & (hist_qty_s > 0)
-        qty_reject = keep_mask & has_hist & (qty_s.abs() > float(max_qty_multiple) * hist_qty_s.fillna(0.0))
+        qty_reject = (
+            keep_mask
+            & has_hist
+            & (qty_s.abs() > float(max_qty_multiple) * hist_qty_s.fillna(0.0))
+        )
         for idx in orders.index[qty_reject]:
             sym = symbols_s.loc[idx]
             reasons.append(

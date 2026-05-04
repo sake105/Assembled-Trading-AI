@@ -139,8 +139,13 @@ class TestBehavioralComposite:
 
     def test_custom_weights(self):
         prices, volumes, returns = _make_price_volume()
-        w = {"cgo": 2.0, "anchor_52w": 1.0, "abn_vol": 0.5,
-             "max_effect": 1.0, "abn_turnover": 0.5}
+        w = {
+            "cgo": 2.0,
+            "anchor_52w": 1.0,
+            "abn_vol": 0.5,
+            "max_effect": 1.0,
+            "abn_turnover": 0.5,
+        }
         composite = compute_behavioral_composite(prices, volumes, returns, weights=w)
         assert len(composite) == len(prices)
 

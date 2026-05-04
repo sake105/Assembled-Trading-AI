@@ -74,6 +74,7 @@ def _fwd_return_col(horizon: int) -> str:
 # Core computation
 # ---------------------------------------------------------------------------
 
+
 def compute_ic_timeseries_all_factors(
     panel_path: Path = Path("output/factor_panels/full_panel_7y.parquet"),
     horizons: list[int] | None = None,
@@ -145,7 +146,9 @@ def compute_ic_timeseries_all_factors(
         if col in df.columns:
             available_horizons.append(h)
         else:
-            _warn(f"Forward-return column '{col}' not in panel -- skipping horizon {h}d")
+            _warn(
+                f"Forward-return column '{col}' not in panel -- skipping horizon {h}d"
+            )
 
     if not available_horizons:
         _warn("No valid forward-return columns found -- aborting.")
@@ -201,7 +204,9 @@ def compute_ic_timeseries_all_factors(
                 if ic_col not in results[horizon_key]:
                     results[horizon_key][ic_col] = {}
 
-                results[horizon_key][ic_col][date] = float(corr) if not math.isnan(corr) else np.nan
+                results[horizon_key][ic_col][date] = (
+                    float(corr) if not math.isnan(corr) else np.nan
+                )
 
     _log(
         f"Processed {processed_dates} dates, skipped {skipped_dates} "
@@ -227,7 +232,9 @@ def compute_ic_timeseries_all_factors(
 
         out_path = output_dir / f"ic_timeseries_{horizon_key}.parquet"
         ic_df.to_parquet(out_path, index=False)
-        _log(f"[OK] Saved IC timeseries {horizon_key} -> {out_path} ({len(ic_df)} rows, {len(ic_df.columns)-1} factors)")
+        _log(
+            f"[OK] Saved IC timeseries {horizon_key} -> {out_path} ({len(ic_df)} rows, {len(ic_df.columns)-1} factors)"
+        )
 
         ic_timeseries[horizon_key] = ic_df
 
@@ -237,6 +244,7 @@ def compute_ic_timeseries_all_factors(
 # ---------------------------------------------------------------------------
 # IC Summary
 # ---------------------------------------------------------------------------
+
 
 def compute_ic_summary(
     ic_timeseries: dict[str, pd.DataFrame],
@@ -267,7 +275,7 @@ def compute_ic_summary(
         horizon_summary: dict[str, dict] = {}
 
         for ic_col in ic_cols:
-            factor_name = ic_col[len("ic_"):]  # strip "ic_" prefix
+            factor_name = ic_col[len("ic_") :]  # strip "ic_" prefix
             series = ic_df[ic_col].dropna()
             n = len(series)
 
@@ -309,6 +317,7 @@ def compute_ic_summary(
 # Printing helpers
 # ---------------------------------------------------------------------------
 
+
 def _print_factor_table(
     summary: dict[str, dict[str, dict]],
     horizon_key: str = "20d",
@@ -347,9 +356,13 @@ def _print_factor_table(
     print(f"{'-'*80}")
 
     for row in table.itertuples(index=False):
-        mean_ic_str = f"{row.mean_ic:8.4f}" if not math.isnan(row.mean_ic) else "     NaN"
+        mean_ic_str = (
+            f"{row.mean_ic:8.4f}" if not math.isnan(row.mean_ic) else "     NaN"
+        )
         ic_ir_str = f"{row.ic_ir:7.3f}" if not math.isnan(row.ic_ir) else "    NaN"
-        hit_str = f"{row.hit_ratio:9.3f}" if not math.isnan(row.hit_ratio) else "      NaN"
+        hit_str = (
+            f"{row.hit_ratio:9.3f}" if not math.isnan(row.hit_ratio) else "      NaN"
+        )
         t_str = f"{row.t_stat:8.3f}" if not math.isnan(row.t_stat) else "     NaN"
         print(
             f"{row.factor:<35} {mean_ic_str} {ic_ir_str} {hit_str} {t_str} {int(row.n_periods):>6}"
@@ -374,7 +387,8 @@ def _gate_check(
     positive_ir = sum(
         1
         for stats in horizon_data.values()
-        if not math.isnan(stats.get("ic_ir", math.nan)) and stats.get("ic_ir", math.nan) > 0
+        if not math.isnan(stats.get("ic_ir", math.nan))
+        and stats.get("ic_ir", math.nan) > 0
     )
 
     status = "PASS" if positive_ir >= required else "FAIL"
@@ -387,6 +401,7 @@ def _gate_check(
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -474,7 +489,9 @@ if __name__ == "__main__":
     _log(f"[OK] Summary saved -> {summary_path}")
 
     # Step 4: Print ranked factor table for primary horizon (20d)
-    primary_horizon = "20d" if "20d" in ic_timeseries else sorted(ic_timeseries.keys())[-1]
+    primary_horizon = (
+        "20d" if "20d" in ic_timeseries else sorted(ic_timeseries.keys())[-1]
+    )
     _print_factor_table(summary, horizon_key=primary_horizon)
 
     # Step 5: Gate check

@@ -74,9 +74,18 @@ def test_missing_fields_are_skipped(tmp_path: Path) -> None:
     fills = _write_fills(
         tmp_path,
         [
-            {"order_id": "ok", "arrival_price": 10.0, "fill_price": 10.01, "synthetic_fill_price": 10.005},
+            {
+                "order_id": "ok",
+                "arrival_price": 10.0,
+                "fill_price": 10.01,
+                "synthetic_fill_price": 10.005,
+            },
             {"order_id": "no_synth", "arrival_price": 10.0, "fill_price": 10.01},
-            {"order_id": "no_arrival", "fill_price": 10.01, "synthetic_fill_price": 10.005},
+            {
+                "order_id": "no_arrival",
+                "fill_price": 10.01,
+                "synthetic_fill_price": 10.005,
+            },
         ],
     )
     report = build_calibration_report(fills)

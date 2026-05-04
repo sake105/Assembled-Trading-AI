@@ -69,7 +69,9 @@ def bayesian_update_normal(
 
     # Conjugate update
     posterior_var = 1.0 / (1.0 / prior_var + n / sample_var)
-    posterior_mean = posterior_var * (prior_mean / prior_var + n * sample_mean / sample_var)
+    posterior_mean = posterior_var * (
+        prior_mean / prior_var + n * sample_mean / sample_var
+    )
 
     return posterior_mean, posterior_var
 
@@ -100,13 +102,15 @@ def compute_signal_confidence(
     # Estimate prior from history or current cross-section
     if historical_scores is not None and len(historical_scores) >= min_history:
         prior_mean = float(historical_scores.mean())
-        prior_std = float(historical_scores.std()) if len(historical_scores) > 1 else 1.0
+        prior_std = (
+            float(historical_scores.std()) if len(historical_scores) > 1 else 1.0
+        )
     else:
         valid = current_scores.dropna()
         prior_mean = float(valid.mean()) if len(valid) > 0 else 0.0
         prior_std = float(valid.std()) if len(valid) > 1 else 1.0
 
-    prior_var = max(prior_std ** 2, 1e-10)
+    prior_var = max(prior_std**2, 1e-10)
 
     # Cross-sectional observations
     observations = current_scores.dropna().values
@@ -126,7 +130,9 @@ def compute_signal_confidence(
         if pd.isna(score):
             continue
 
-        individual_mean = (score / individual_var + post_mean / post_var) / combined_precision
+        individual_mean = (
+            score / individual_var + post_mean / post_var
+        ) / combined_precision
         ci_lower = individual_mean - half_ci
         ci_upper = individual_mean + half_ci
 

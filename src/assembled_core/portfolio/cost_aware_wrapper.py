@@ -29,7 +29,7 @@ from __future__ import annotations
 from typing import Any
 
 DEFAULT_COST_BPS = 6.0  # one-way commission + spread proxy
-_MIN_SHRINK = 0.0      # allow full cancellation if costs dominate
+_MIN_SHRINK = 0.0  # allow full cancellation if costs dominate
 
 
 def apply_cost_aware_wrapper(

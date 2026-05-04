@@ -40,12 +40,12 @@ def _vix_multiplier_factor(vix: float | None) -> float:
     if vix is None or vix != vix:  # None or NaN
         return 1.0
     if vix < 15:
-        return 0.8   # tight — calm market, precise stops
+        return 0.8  # tight — calm market, precise stops
     if vix < 20:
-        return 1.0   # normal
+        return 1.0  # normal
     if vix < 30:
-        return 1.3   # elevated — widen stops
-    return 1.7       # crisis — very wide stops
+        return 1.3  # elevated — widen stops
+    return 1.7  # crisis — very wide stops
 
 
 @dataclass
@@ -62,8 +62,8 @@ class TrailingStopState:
     triggered: bool = False
     reduction_pct: float = 0.0  # 0.0 = no reduction, 0.25/0.50/0.75 = gradual
     # E3: time-stop tracking
-    entry_bar: int = 0          # bar index when position was opened
-    bars_held: int = 0          # bars held so far (updated externally)
+    entry_bar: int = 0  # bar index when position was opened
+    bars_held: int = 0  # bars held so far (updated externally)
 
 
 @dataclass
@@ -147,14 +147,26 @@ def compute_trailing_stops(
             continue
 
         # Get price data for symbol
-        sym_data = prices_df[prices_df["symbol"] == sym].sort_values("timestamp") if "symbol" in prices_df.columns else pd.DataFrame()
+        sym_data = (
+            prices_df[prices_df["symbol"] == sym].sort_values("timestamp")
+            if "symbol" in prices_df.columns
+            else pd.DataFrame()
+        )
 
         if sym_data.empty or "close" not in sym_data.columns:
             continue
 
         close_vals = sym_data["close"].values.astype(float)
-        high_vals = sym_data["high"].values.astype(float) if "high" in sym_data.columns else close_vals
-        low_vals = sym_data["low"].values.astype(float) if "low" in sym_data.columns else close_vals
+        high_vals = (
+            sym_data["high"].values.astype(float)
+            if "high" in sym_data.columns
+            else close_vals
+        )
+        low_vals = (
+            sym_data["low"].values.astype(float)
+            if "low" in sym_data.columns
+            else close_vals
+        )
 
         current_price = float(close_vals[-1])
         atr = compute_atr(high_vals, low_vals, close_vals, atr_window)
@@ -168,7 +180,9 @@ def compute_trailing_stops(
 
         # Check trigger — grace period: no stops for first 5 bars after entry
         grace_period = 5
-        bars_since_entry = current_bar - (prior.get(sym).entry_bar if sym in prior else current_bar)
+        bars_since_entry = current_bar - (
+            prior.get(sym).entry_bar if sym in prior else current_bar
+        )
         triggered = (current_price <= stop) and (bars_since_entry >= grace_period)
 
         # Gradual de-risking: based on distance from HWM in sigma units
@@ -194,14 +208,18 @@ def compute_trailing_stops(
                 triggered = True
                 _log.info(
                     "TIME-STOP CLOSE: %s held %d bars with pnl=%.1f%%",
-                    sym, bars_held, unrealized_pnl * 100,
+                    sym,
+                    bars_held,
+                    unrealized_pnl * 100,
                 )
             elif bars_held >= time_stop_warn_bars and unrealized_pnl < 0.05:
                 # Reduce by 50% but don't close
                 reduction = max(reduction, 0.50)
                 _log.info(
                     "TIME-STOP WARN: %s held %d bars with pnl=%.1f%% — reducing 50%%",
-                    sym, bars_held, unrealized_pnl * 100,
+                    sym,
+                    bars_held,
+                    unrealized_pnl * 100,
                 )
 
         state = TrailingStopState(
@@ -227,7 +245,9 @@ def compute_trailing_stops(
     if result.triggered_symbols:
         _log.warning(
             "TRAILING STOPS TRIGGERED: %s (regime=%s, mult=%.1f)",
-            result.triggered_symbols, regime, mult,
+            result.triggered_symbols,
+            regime,
+            mult,
         )
     if result.reduction_symbols:
         _log.info(
@@ -254,7 +274,7 @@ def apply_stop_reductions_to_weights(
 
     for sym, reduction in stop_result.reduction_symbols.items():
         if sym in adjusted and sym not in stop_result.triggered_symbols:
-            adjusted[sym] *= (1.0 - reduction)
+            adjusted[sym] *= 1.0 - reduction
 
     return adjusted
 

@@ -73,12 +73,18 @@ def _fetch_etf_prices(
 
         # Flatten multi-level columns: (Close, SPY) → SPY
         if isinstance(raw.columns, pd.MultiIndex):
-            closes = raw["Close"] if "Close" in raw.columns.get_level_values(0) else raw.xs("Close", axis=1, level=0)
+            closes = (
+                raw["Close"]
+                if "Close" in raw.columns.get_level_values(0)
+                else raw.xs("Close", axis=1, level=0)
+            )
         else:
             closes = raw[["Close"]] if "Close" in raw.columns else raw
 
         closes.index = pd.to_datetime(closes.index)
-        closes = closes.reset_index().rename(columns={"Date": "timestamp", "Datetime": "timestamp", "index": "timestamp"})
+        closes = closes.reset_index().rename(
+            columns={"Date": "timestamp", "Datetime": "timestamp", "index": "timestamp"}
+        )
         if closes.columns[0] != "timestamp":
             closes = closes.rename(columns={closes.columns[0]: "timestamp"})
         closes["timestamp"] = pd.to_datetime(closes["timestamp"])
@@ -93,7 +99,9 @@ def _fetch_yield_curve(start_date: str, end_date: str) -> pd.DataFrame:
     try:
         import pandas_datareader.data as web  # type: ignore
     except ImportError:
-        logger.warning("[Intermarket] pandas_datareader not installed — yield curve skipped")
+        logger.warning(
+            "[Intermarket] pandas_datareader not installed — yield curve skipped"
+        )
         return pd.DataFrame()
 
     try:
@@ -105,7 +113,9 @@ def _fetch_yield_curve(start_date: str, end_date: str) -> pd.DataFrame:
         df = df.reset_index().rename(columns={"DATE": "timestamp"})
         df["timestamp"] = pd.to_datetime(df["timestamp"])
         df["yield_curve_slope"] = df["yield_10y"] - df["yield_2y"]
-        return df[["timestamp", "yield_10y", "yield_2y", "yield_curve_slope"]].sort_values("timestamp")
+        return df[
+            ["timestamp", "yield_10y", "yield_2y", "yield_curve_slope"]
+        ].sort_values("timestamp")
     except Exception as exc:
         logger.warning("[Intermarket] Yield curve fetch failed: %s", exc)
         return pd.DataFrame()
@@ -131,6 +141,7 @@ def build_intermarket_factors(
         Universal factors (same value per date across all symbols).
     """
     from datetime import datetime
+
     end = end_date or datetime.today().strftime("%Y-%m-%d")
 
     etf_df = _fetch_etf_prices(_ETF_SYMBOLS, start_date, end)
@@ -160,13 +171,16 @@ def build_intermarket_factors(
         if "TLT" in etf_df.columns and "SPY" in etf_df.columns:
             tlt_ma = _ma("TLT", 20)
             spy_ma = _ma("SPY", 20)
-            result["bond_equity_ratio_20d"] = (tlt_ma / spy_ma.replace(0, np.nan)).fillna(np.nan)
+            result["bond_equity_ratio_20d"] = (
+                tlt_ma / spy_ma.replace(0, np.nan)
+            ).fillna(np.nan)
 
             # Divergence flag: bonds up, equities down over 20d
             tlt_ret = _ret("TLT", 20)
             spy_ret = _ret("SPY", 20)
             result["bond_equity_divergence_flag"] = np.where(
-                (tlt_ret > 0) & (spy_ret < 0), 1.0,
+                (tlt_ret > 0) & (spy_ret < 0),
+                1.0,
                 np.where((tlt_ret < 0) & (spy_ret > 0), -1.0, 0.0),
             )
 
@@ -179,8 +193,12 @@ def build_intermarket_factors(
         if "HYG" in etf_df.columns and "LQD" in etf_df.columns:
             hy_ig = etf_df["HYG"] / etf_df["LQD"].replace(0, np.nan)
             result["hy_ig_ratio"] = hy_ig.values
-            result["credit_spread_change_5d"] = hy_ig.pct_change(5, fill_method=None).values
-            result["credit_spread_change_20d"] = hy_ig.pct_change(20, fill_method=None).values
+            result["credit_spread_change_5d"] = hy_ig.pct_change(
+                5, fill_method=None
+            ).values
+            result["credit_spread_change_20d"] = hy_ig.pct_change(
+                20, fill_method=None
+            ).values
 
         # Gold / equity divergence: GLD minus SPY return (20d) — risk-off signal
         if "GLD" in etf_df.columns and "SPY" in etf_df.columns:

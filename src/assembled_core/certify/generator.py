@@ -76,13 +76,16 @@ def get_git_info() -> tuple[str, bool]:
         return "unknown", False
 
 
-def get_environment_fingerprint(extra_seeds: dict[str, int] | None = None) -> EnvironmentFingerprint:
+def get_environment_fingerprint(
+    extra_seeds: dict[str, int] | None = None,
+) -> EnvironmentFingerprint:
     """Capture the current Python environment."""
     git_sha, git_dirty = get_git_info()
 
     pkg_versions: dict[str, str] = {}
     try:
         import importlib.metadata as im
+
         for dist in im.distributions():
             pkg_versions[dist.metadata["Name"]] = dist.metadata["Version"]
     except Exception:
@@ -93,6 +96,7 @@ def get_environment_fingerprint(extra_seeds: dict[str, int] | None = None) -> En
     }
     try:
         import numpy as np
+
         seeds["numpy_global"] = int(np.random.get_state()[1][0])
     except Exception:
         pass
@@ -153,7 +157,9 @@ def build_output_fingerprint(output_dir: Path | str) -> OutputFingerprint:
         equity_curve_hash=file_sha256(d / "equity_curve.parquet"),
         trades_hash=file_sha256(d / "trades.parquet"),
         signals_hash=file_sha256(d / "signals.parquet"),
-        summary_metrics={k: float(v) for k, v in summary.items() if isinstance(v, (int, float))},
+        summary_metrics={
+            k: float(v) for k, v in summary.items() if isinstance(v, (int, float))
+        },
     )
 
 
@@ -227,7 +233,9 @@ def verify_certificate(
         "signals": cert.outputs.signals_hash == new_out.signals_hash,
     }
     all_match = all(results.values())
-    logger.info("Certificate verification: %s — %s", "PASS" if all_match else "FAIL", results)
+    logger.info(
+        "Certificate verification: %s — %s", "PASS" if all_match else "FAIL", results
+    )
     return results
 
 

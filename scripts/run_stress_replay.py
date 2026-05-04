@@ -143,8 +143,10 @@ def main(argv: list[str] | None = None) -> int:
     summaries = run_replay(args.config, args.output_dir)
     ok = sum(1 for s in summaries if s.get("status") == "ok")
     err = len(summaries) - ok
-    print(f"[stress_replay] wrote {len(summaries)} reports to {args.output_dir} "
-          f"(ok={ok}, errors={err})")
+    print(
+        f"[stress_replay] wrote {len(summaries)} reports to {args.output_dir} "
+        f"(ok={ok}, errors={err})"
+    )
     return 0 if err == 0 else 1
 
 

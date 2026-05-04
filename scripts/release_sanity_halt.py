@@ -14,6 +14,7 @@ Usage:
         --symbol AAPL --date 2026-05-04 \\
         --reason "Confirmed: position in-universe, size correct"
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,7 +53,9 @@ def _find_recent_halts(journal_path: Path, symbol: str, date: str) -> list[dict]
     return halts
 
 
-def _write_override(journal_path: Path, symbol: str, date: str, reason: str, actor: str) -> None:
+def _write_override(
+    journal_path: Path, symbol: str, date: str, reason: str, actor: str
+) -> None:
     journal_path.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "event": "sanity_halt_override",
@@ -70,8 +73,12 @@ def _write_override(journal_path: Path, symbol: str, date: str, reason: str, act
 def main() -> int:
     parser = argparse.ArgumentParser(description="Release a sanity-halted order")
     parser.add_argument("--symbol", required=True, help="Ticker symbol of halted order")
-    parser.add_argument("--date", default="", help="YYYY-MM-DD of halt (default: today)")
-    parser.add_argument("--reason", required=True, help="Human-readable override reason")
+    parser.add_argument(
+        "--date", default="", help="YYYY-MM-DD of halt (default: today)"
+    )
+    parser.add_argument(
+        "--reason", required=True, help="Human-readable override reason"
+    )
     parser.add_argument("--actor", default="manual", help="Who is releasing the halt")
     parser.add_argument(
         "--journal",
@@ -86,7 +93,12 @@ def main() -> int:
     # Try to find the halted entry for confirmation
     halts = _find_recent_halts(journal_path, args.symbol, date)
     if halts:
-        log.info("[release_sanity_halt] found %d halt(s) for %s on %s", len(halts), args.symbol, date)
+        log.info(
+            "[release_sanity_halt] found %d halt(s) for %s on %s",
+            len(halts),
+            args.symbol,
+            date,
+        )
         for h in halts:
             flags = h.get("flags", [])
             log.info("  halt flags: %s", [f.get("rule") for f in flags])
@@ -100,7 +112,9 @@ def main() -> int:
 
     # Write override record
     _write_override(journal_path, args.symbol, date, args.reason, args.actor)
-    log.info("[release_sanity_halt] DONE — override recorded. Order can be re-submitted manually.")
+    log.info(
+        "[release_sanity_halt] DONE — override recorded. Order can be re-submitted manually."
+    )
     return 0
 
 

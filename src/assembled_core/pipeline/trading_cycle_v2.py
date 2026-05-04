@@ -68,8 +68,12 @@ from src.assembled_core.pipeline._tc_sizing import (  # noqa: F401
 )
 from src.assembled_core.pipeline._tc_risk import check_risk
 from src.assembled_core.pipeline._tc_execution import book_fills, route_orders
-from src.assembled_core.execution.transaction_costs import add_cost_columns_to_trades  # A8 wiring — re-export for tests  # noqa: F401
-from src.assembled_core.risk.georisk_overlay import compute_exposure_multiplier  # re-export for tests  # noqa: F401
+from src.assembled_core.execution.transaction_costs import (
+    add_cost_columns_to_trades,
+)  # A8 wiring — re-export for tests  # noqa: F401
+from src.assembled_core.risk.georisk_overlay import (
+    compute_exposure_multiplier,
+)  # re-export for tests  # noqa: F401
 
 if TYPE_CHECKING:
     pass
@@ -233,7 +237,9 @@ def _load_intel(
                 "path", "output/intel/disclosures/triggers_latest.json"
             )
             path_resolved = (
-                (base_dir / path_raw) if not Path(path_raw).is_absolute() else Path(path_raw)
+                (base_dir / path_raw)
+                if not Path(path_raw).is_absolute()
+                else Path(path_raw)
             )
             snap = load_disclosures_triggers(path_resolved)
             ctx.disclosures_triggers = snap if snap.generated_utc else None
@@ -249,7 +255,9 @@ def _load_intel(
     try:
         crisis_cfg = intel_cfg.get("crisis_alpha") or {}
         if crisis_cfg.get("enabled", False):
-            cs_path_raw = crisis_cfg.get("crisis_state_path", "data/intel/crisis_state.json")
+            cs_path_raw = crisis_cfg.get(
+                "crisis_state_path", "data/intel/crisis_state.json"
+            )
             cs_path = (
                 (base_dir / cs_path_raw)
                 if not Path(cs_path_raw).is_absolute()
@@ -302,12 +310,16 @@ def _load_intel(
             )
             try:
                 from src.assembled_core.ops.alerting import AlertManager
-                AlertManager().fire("kill_switch_activated", {"reason": cb_trip["reason"]})
+
+                AlertManager().fire(
+                    "kill_switch_activated", {"reason": cb_trip["reason"]}
+                )
             except Exception as _ae:
                 log.debug("[alert] circuit_breaker alert failed: %s", _ae)
     except Exception as e:
         log.warning(
-            "[RISK-SAFETY] circuit_breaker_daily check failed: %s — breaker may not engage", e
+            "[RISK-SAFETY] circuit_breaker_daily check failed: %s — breaker may not engage",
+            e,
         )
 
     # Disclosures confirm (boosts geo_confidence when disclosure triggers sev >= 1)
@@ -336,6 +348,7 @@ def _load_intel(
             from src.assembled_core.features.options_derived_signals import (
                 build_options_regime_factors,
             )
+
             _cboe_df = CBOESource().fetch_options_regime_data()
             if not _cboe_df.empty:
                 _opts = build_options_regime_factors(_cboe_df)
@@ -352,7 +365,7 @@ def _load_intel(
     # is always populated for observability. Multiplier only fires when enabled.
     _basket = None  # guard: Phase G reads this; must be defined even if try-block skips
     try:
-        _edcl_cfg = (policy.get("edcl_conviction_overlay") or {})
+        _edcl_cfg = policy.get("edcl_conviction_overlay") or {}
         # Skip entirely in backtest mode unless allow_in_backtest is set
         _edcl_mode = getattr(ctx, "mode", "backtest")
         _allow_bt = _edcl_cfg.get("allow_in_backtest", False)
@@ -361,7 +374,9 @@ def _load_intel(
                 TriggerBasket,
                 build_trigger_basket,
             )
-            from src.assembled_core.intel.conviction_engine import compute_conviction_score
+            from src.assembled_core.intel.conviction_engine import (
+                compute_conviction_score,
+            )
             from src.assembled_core.intel.models import TriggerType
 
             _basket: TriggerBasket | None = None
@@ -393,10 +408,13 @@ def _load_intel(
                         COUNTRY_TO_ASSETS,
                         SECTOR_TO_ETFS,
                     )
+
                     _sector_scores: dict[str, float] = {}
                     for _tt, _sc in _fired:
                         for _sec in _TRIGGER_SECTOR_MAP.get(_tt, []):
-                            _sector_scores[_sec] = max(_sector_scores.get(_sec, 0.0), _sc)
+                            _sector_scores[_sec] = max(
+                                _sector_scores.get(_sec, 0.0), _sc
+                            )
                     _seen: set[str] = set()
                     _assets: list[str] = []
                     for _sec in _sector_scores:
@@ -445,10 +463,14 @@ def _load_intel(
                 # Phase C: log fired events to geo_events_historical.parquet
                 # Builds training data for compute_event_betas.py over time.
                 try:
-                    from src.assembled_core.intel.geo_event_logger import log_basket_event
+                    from src.assembled_core.intel.geo_event_logger import (
+                        log_basket_event,
+                    )
+
                     _tier = 1 if _source == "raw_news_events" else 2
                     log_basket_event(
-                        _basket, _conviction,
+                        _basket,
+                        _conviction,
                         as_of=getattr(ctx, "as_of", None),
                         source_tier=_tier,
                     )
@@ -463,6 +485,7 @@ def _load_intel(
         _conviction_g = float(_edcl_state.get("conviction", 0.0))
         if _conviction_g > 0.0 and _basket is not None:
             from src.assembled_core.intel.tail_hunting import match_tail_plans
+
             _tail_signals = match_tail_plans(_basket, _conviction_g)
             if _tail_signals:
                 _edcl_state["tail_signals"] = [s.as_dict() for s in _tail_signals]
@@ -518,16 +541,20 @@ def run_trading_cycle(
     _bus = None
     try:
         from src.assembled_core.pipeline.event_bus import get_null_bus
+
         _bus = get_null_bus()
         import os as _os
 
         from src.assembled_core.pipeline.event_bus import EventBus as _EventBus
+
         _redis_url = _os.environ.get("REDIS_URL", "")
         if _redis_url:
             try:
                 _bus = _EventBus(redis_url=_redis_url, connect_timeout=0.5)
             except Exception as _exc:
-                logger.debug("[event_bus] Redis connect failed (%s): %s", _redis_url, _exc)
+                logger.debug(
+                    "[event_bus] Redis connect failed (%s): %s", _redis_url, _exc
+                )
     except Exception as _exc:
         logger.debug("[event_bus] EventBus init failed: %s", _exc)
 
@@ -563,7 +590,8 @@ def run_trading_cycle(
 
         _pub("sizing_start")
         targets, do_rebal, sizing_meta = size_positions(
-            signals, ctx,
+            signals,
+            ctx,
             prices_filtered=result.prices_filtered,
             prices_with_features=result.prices_with_features,
             prices_latest=result.prices_latest,
@@ -575,7 +603,8 @@ def run_trading_cycle(
 
         _pub("routing_start")
         orders = route_orders(
-            targets, ctx,
+            targets,
+            ctx,
             prices_filtered=result.prices_filtered,
             prices_with_features=result.prices_with_features,
             prices_latest=result.prices_latest,
@@ -585,7 +614,9 @@ def run_trading_cycle(
         result.orders = orders
         _pub("routing_end", n_orders=len(orders) if orders is not None else 0)
 
-        result = check_risk(orders, result, ctx, prices_filtered=result.prices_filtered, log=log)
+        result = check_risk(
+            orders, result, ctx, prices_filtered=result.prices_filtered, log=log
+        )
         _pub("risk_checked", status=result.status)
 
         result = book_fills(result, ctx, log=log)
@@ -602,6 +633,7 @@ def run_trading_cycle(
         _pub("cycle_error", error=str(exc))
         try:
             from src.assembled_core.ops.alerting import AlertManager
+
             AlertManager().fire("cycle_error", {"error": str(exc)[:200]})
         except Exception as _ae:
             log.debug("[alert] cycle_error alert failed: %s", _ae)

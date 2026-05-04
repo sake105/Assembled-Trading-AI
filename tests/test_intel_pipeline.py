@@ -362,7 +362,9 @@ class TestGeoTrigger:
     def test_score_event_war_keywords(self):
         from src.assembled_core.intel.geo_trigger import score_event
 
-        evt = _make_event("REUTERS", "Military attack in region", keywords=["war", "attack"])
+        evt = _make_event(
+            "REUTERS", "Military attack in region", keywords=["war", "attack"]
+        )
         score = score_event(evt)
         assert score > 0.0
 
@@ -377,7 +379,11 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import classify_trigger_type
         from src.assembled_core.intel.models import TriggerType
 
-        evt = _make_event("REUTERS", "Missile attack launched", keywords=["missile", "military", "attack"])
+        evt = _make_event(
+            "REUTERS",
+            "Missile attack launched",
+            keywords=["missile", "military", "attack"],
+        )
         result = classify_trigger_type(evt)
         assert result == TriggerType.WAR_ESCALATION
 
@@ -385,7 +391,11 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import classify_trigger_type
         from src.assembled_core.intel.models import TriggerType
 
-        evt = _make_event("REUTERS", "Strait of Hormuz tanker blockade", keywords=["hormuz", "tanker", "blockade"])
+        evt = _make_event(
+            "REUTERS",
+            "Strait of Hormuz tanker blockade",
+            keywords=["hormuz", "tanker", "blockade"],
+        )
         result = classify_trigger_type(evt)
         assert result == TriggerType.CHOKEPOINT_STRESS
 
@@ -393,7 +403,11 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import classify_trigger_type
         from src.assembled_core.intel.models import TriggerType
 
-        evt = _make_event("EIA", "Oil pipeline closure announced", keywords=["oil", "pipeline", "refinery"])
+        evt = _make_event(
+            "EIA",
+            "Oil pipeline closure announced",
+            keywords=["oil", "pipeline", "refinery"],
+        )
         result = classify_trigger_type(evt)
         assert result == TriggerType.ENERGY_SUPPLY_RISK
 
@@ -401,14 +415,20 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import classify_trigger_type
         from src.assembled_core.intel.models import TriggerType
 
-        evt = _make_event("REUTERS", "Major cyberattack on infrastructure", keywords=["cyberattack", "hack", "malware"])
+        evt = _make_event(
+            "REUTERS",
+            "Major cyberattack on infrastructure",
+            keywords=["cyberattack", "hack", "malware"],
+        )
         result = classify_trigger_type(evt)
         assert result == TriggerType.CYBER_ESCALATION
 
     def test_classify_no_match_returns_none(self):
         from src.assembled_core.intel.geo_trigger import classify_trigger_type
 
-        evt = _make_event("REUTERS", "Football world cup results", keywords=["football", "score"])
+        evt = _make_event(
+            "REUTERS", "Football world cup results", keywords=["football", "score"]
+        )
         result = classify_trigger_type(evt)
         assert result is None
 
@@ -417,7 +437,12 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import score_cluster
         from src.assembled_core.intel.models import SourceTier, TriggerType
 
-        evt = _make_event("OFAC", "OFAC sanctions escalation", event_id="ofac_evt_001", keywords=["sanctions"])
+        evt = _make_event(
+            "OFAC",
+            "OFAC sanctions escalation",
+            event_id="ofac_evt_001",
+            keywords=["sanctions"],
+        )
         cluster = _make_cluster(
             event_ids=[evt.event_id],
             trigger_type=TriggerType.SANCTIONS_ESCALATION,
@@ -431,7 +456,12 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import score_cluster
         from src.assembled_core.intel.models import SourceTier, TriggerType
 
-        evt = _make_event("REUTERS", "War erupts in region", event_id="reuters_evt_001", keywords=["war", "military"])
+        evt = _make_event(
+            "REUTERS",
+            "War erupts in region",
+            event_id="reuters_evt_001",
+            keywords=["war", "military"],
+        )
         cluster = _make_cluster(
             event_ids=[evt.event_id],
             trigger_type=TriggerType.WAR_ESCALATION,
@@ -445,7 +475,12 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import score_cluster
         from src.assembled_core.intel.models import SourceTier, TriggerType
 
-        evt = _make_event("NEWSAPI", "Rumor: conflict looming", event_id="newsapi_evt_001", keywords=["conflict"])
+        evt = _make_event(
+            "NEWSAPI",
+            "Rumor: conflict looming",
+            event_id="newsapi_evt_001",
+            keywords=["conflict"],
+        )
         cluster = _make_cluster(
             event_ids=[evt.event_id],
             trigger_type=TriggerType.WAR_ESCALATION,
@@ -459,8 +494,18 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import score_cluster
         from src.assembled_core.intel.models import SourceTier, TriggerType
 
-        evt1 = _make_event("GDELT", "Energy crisis unfolding", event_id="gdelt_evt_001", keywords=["energy", "oil"])
-        evt2 = _make_event("ACLED", "Pipeline blocked in region", event_id="acled_evt_001", keywords=["pipeline", "oil"])
+        evt1 = _make_event(
+            "GDELT",
+            "Energy crisis unfolding",
+            event_id="gdelt_evt_001",
+            keywords=["energy", "oil"],
+        )
+        evt2 = _make_event(
+            "ACLED",
+            "Pipeline blocked in region",
+            event_id="acled_evt_001",
+            keywords=["pipeline", "oil"],
+        )
         cluster = _make_cluster(
             event_ids=[evt1.event_id, evt2.event_id],
             trigger_type=TriggerType.ENERGY_SUPPLY_RISK,
@@ -474,7 +519,12 @@ class TestGeoTrigger:
         from src.assembled_core.intel.geo_trigger import score_cluster
         from src.assembled_core.intel.models import SourceTier, TriggerType
 
-        evt = _make_event("GDELT", "Oil supply concerns", event_id="gdelt_evt_002", keywords=["oil", "energy"])
+        evt = _make_event(
+            "GDELT",
+            "Oil supply concerns",
+            event_id="gdelt_evt_002",
+            keywords=["oil", "energy"],
+        )
         cluster = _make_cluster(
             event_ids=[evt.event_id],
             trigger_type=TriggerType.ENERGY_SUPPLY_RISK,
@@ -489,17 +539,27 @@ class TestGeoTrigger:
 
         now = _now()
         t1 = GeoTrigger(
-            trigger_id="t1", trigger_type=TriggerType.WAR_ESCALATION,
-            trigger_score=2, confidence=0.7, evidence_cluster_id="c1",
-            ttl_minutes=360, decay_half_life_minutes=180,
-            created_at=now, expires_at=now + timedelta(hours=6),
+            trigger_id="t1",
+            trigger_type=TriggerType.WAR_ESCALATION,
+            trigger_score=2,
+            confidence=0.7,
+            evidence_cluster_id="c1",
+            ttl_minutes=360,
+            decay_half_life_minutes=180,
+            created_at=now,
+            expires_at=now + timedelta(hours=6),
             source_breakdown={},
         )
         t2 = GeoTrigger(
-            trigger_id="t2", trigger_type=TriggerType.CHOKEPOINT_STRESS,
-            trigger_score=3, confidence=0.9, evidence_cluster_id="c2",
-            ttl_minutes=360, decay_half_life_minutes=180,
-            created_at=now, expires_at=now + timedelta(hours=6),
+            trigger_id="t2",
+            trigger_type=TriggerType.CHOKEPOINT_STRESS,
+            trigger_score=3,
+            confidence=0.9,
+            evidence_cluster_id="c2",
+            ttl_minutes=360,
+            decay_half_life_minutes=180,
+            created_at=now,
+            expires_at=now + timedelta(hours=6),
             source_breakdown={},
         )
         result = aggregate_triggers([t1, t2])
@@ -561,7 +621,9 @@ class TestDependencyGraph:
         from src.assembled_core.intel.models import EdgeType
 
         graph = load_graph(GRAPH_YAML)
-        neighbors = graph.get_neighbors("HORMUZ", edge_types=[EdgeType.TRANSITS_THROUGH])
+        neighbors = graph.get_neighbors(
+            "HORMUZ", edge_types=[EdgeType.TRANSITS_THROUGH]
+        )
         assert len(neighbors) >= 1
         for edge, _ in neighbors:
             assert edge.edge_type == EdgeType.TRANSITS_THROUGH
@@ -679,21 +741,31 @@ class TestShockPropagation:
     def test_propagate_chokepoint_creates_beneficiaries_and_losers(self):
         """CHOKEPOINT_STRESS: energy sector benefits, tech loses."""
         from src.assembled_core.intel.dependency_graph import load_graph
-        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.shock_propagation import (
+            propagate,
+            to_dependency_signal,
+        )
         from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         shocks = [ShockType.OIL_SUPPLY_RISK, ShockType.SHIPPING_COST_RISK]
-        transmissions = propagate(shocks=shocks, graph=graph, trigger_id="trig_test", max_hops=4)
+        transmissions = propagate(
+            shocks=shocks, graph=graph, trigger_id="trig_test", max_hops=4
+        )
 
-        signal = to_dependency_signal(transmissions, trigger_id="trig_test", trigger_score=3)
+        signal = to_dependency_signal(
+            transmissions, trigger_id="trig_test", trigger_score=3
+        )
         # Signal should have some beneficiaries or losers
         assert len(signal.beneficiaries) + len(signal.losers) > 0
 
     def test_propagate_defense_demand_surge_positive(self):
         """DEFENSE_DEMAND_SURGE should produce DEFENSE_SECTOR as a beneficiary."""
         from src.assembled_core.intel.dependency_graph import load_graph
-        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.shock_propagation import (
+            propagate,
+            to_dependency_signal,
+        )
         from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
@@ -708,16 +780,24 @@ class TestShockPropagation:
             _signal = to_dependency_signal(transmissions, "trig_war", trigger_score=3)
             # DEFENSE_SECTOR should be a beneficiary or in the path
             all_path_nodes = {hop.node_id for t in transmissions for hop in t.path}
-            assert "DEFENSE_SECTOR" in all_path_nodes or "WAR_ESCALATION_EVENT" in all_path_nodes
+            assert (
+                "DEFENSE_SECTOR" in all_path_nodes
+                or "WAR_ESCALATION_EVENT" in all_path_nodes
+            )
 
     def test_to_dependency_signal_fields(self):
         from src.assembled_core.intel.dependency_graph import load_graph
-        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.shock_propagation import (
+            propagate,
+            to_dependency_signal,
+        )
         from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         shocks = [ShockType.OIL_SUPPLY_RISK]
-        transmissions = propagate(shocks=shocks, graph=graph, trigger_id="trig_x", max_hops=4)
+        transmissions = propagate(
+            shocks=shocks, graph=graph, trigger_id="trig_x", max_hops=4
+        )
         signal = to_dependency_signal(transmissions, "trig_x", trigger_score=2)
 
         assert signal.signal_id.startswith("sig_")
@@ -730,12 +810,17 @@ class TestShockPropagation:
     def test_no_overlap_between_beneficiaries_and_losers(self):
         """A node should not appear in both beneficiaries and losers."""
         from src.assembled_core.intel.dependency_graph import load_graph
-        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.shock_propagation import (
+            propagate,
+            to_dependency_signal,
+        )
         from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         shocks = [ShockType.OIL_SUPPLY_RISK, ShockType.GLOBAL_RISK_OFF]
-        transmissions = propagate(shocks=shocks, graph=graph, trigger_id="t_overlap", max_hops=4)
+        transmissions = propagate(
+            shocks=shocks, graph=graph, trigger_id="t_overlap", max_hops=4
+        )
         signal = to_dependency_signal(transmissions, "t_overlap", trigger_score=2)
 
         overlap = set(signal.beneficiaries) & set(signal.losers)
@@ -939,7 +1024,10 @@ class TestCrisisStateMachine:
         assert new_state.mode in {CrisisMode.COOLDOWN, CrisisMode.NORMAL}
 
     def test_cooldown_to_normal_after_elapsed(self):
-        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state, CrisisStateConfig
+        from src.assembled_core.intel.crisis_alpha_worker import (
+            update_crisis_state,
+            CrisisStateConfig,
+        )
         from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         # Entered cooldown 13 hours ago, cooldown_min=720min=12h
@@ -963,7 +1051,10 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.NORMAL
 
     def test_cooldown_stays_cooldown_before_elapsed(self):
-        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state, CrisisStateConfig
+        from src.assembled_core.intel.crisis_alpha_worker import (
+            update_crisis_state,
+            CrisisStateConfig,
+        )
         from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         config = CrisisStateConfig(cooldown_min_minutes=720)

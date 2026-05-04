@@ -3,6 +3,7 @@
 Significantly more efficient than close-to-close estimators because they
 incorporate intra-day range information.
 """
+
 from __future__ import annotations
 
 import numpy as np

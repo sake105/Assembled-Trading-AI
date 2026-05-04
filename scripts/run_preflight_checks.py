@@ -9,6 +9,7 @@ Usage:
 
 Exit code: 0 = all automated checks pass, 1 = failures found.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,7 +24,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 log = logging.getLogger("preflight")
 
 _RESULTS: list[dict] = []
@@ -49,11 +52,13 @@ def check_alpaca_env() -> bool:
     missing = [k for k, v in required.items() if not v]
     passed = len(missing) == 0
     if passed:
-        _record("Check1_AlpacaEnv", True,
-                f"all vars set ({', '.join(present)})")
+        _record("Check1_AlpacaEnv", True, f"all vars set ({', '.join(present)})")
     else:
-        _record("Check1_AlpacaEnv", False,
-                f"missing: {missing} — set in .env or environment before paper trading")
+        _record(
+            "Check1_AlpacaEnv",
+            False,
+            f"missing: {missing} — set in .env or environment before paper trading",
+        )
     return passed
 
 
@@ -87,8 +92,13 @@ def check_halt_mechanism() -> bool:
 
     # Write halt file
     halt_path.write_text(
-        json.dumps({"reason": "preflight_drill", "actor": "run_preflight_checks.py",
-                    "ts": datetime.now(timezone.utc).isoformat()}),
+        json.dumps(
+            {
+                "reason": "preflight_drill",
+                "actor": "run_preflight_checks.py",
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -96,21 +106,37 @@ def check_halt_mechanism() -> bool:
         cmd = [sys.executable, "scripts/run_live_paper.py", "once", "--dry-run"]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         output = result.stdout + result.stderr
-        halt_detected = any(w in output.lower() for w in ["halt", "halted", "halt flag"])
-        _record("Check3a_HaltFlag", halt_detected,
-                "halt file detected" if halt_detected else f"NOT detected — output: {output[-200:]}")
+        halt_detected = any(
+            w in output.lower() for w in ["halt", "halted", "halt flag"]
+        )
+        _record(
+            "Check3a_HaltFlag",
+            halt_detected,
+            (
+                "halt file detected"
+                if halt_detected
+                else f"NOT detected — output: {output[-200:]}"
+            ),
+        )
     finally:
         halt_path.unlink(missing_ok=True)
 
     # Kill-switch test
     from src.assembled_core.execution.kill_switch import (
-        activate_kill_switch, deactivate_kill_switch, is_kill_switch_engaged,
+        activate_kill_switch,
+        deactivate_kill_switch,
+        is_kill_switch_engaged,
     )
+
     try:
-        activate_kill_switch(throttle_pct=0.0, reason="preflight_drill", actor="run_preflight_checks.py")
+        activate_kill_switch(
+            throttle_pct=0.0, reason="preflight_drill", actor="run_preflight_checks.py"
+        )
         engaged = is_kill_switch_engaged()
         _record("Check3b_KillSwitch_Activate", engaged, f"engaged={engaged}")
-        deactivate_kill_switch(reason="preflight_drill_done", actor="run_preflight_checks.py")
+        deactivate_kill_switch(
+            reason="preflight_drill_done", actor="run_preflight_checks.py"
+        )
         disengaged = not is_kill_switch_engaged()
         _record("Check3c_KillSwitch_Deactivate", disengaged, f"disengaged={disengaged}")
     except Exception as exc:
@@ -132,15 +158,25 @@ def check_heartbeat() -> bool:
     try:
         result = subprocess.run(
             [sys.executable, str(liveness_script), "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         try:
             data = json.loads(result.stdout.strip())
             alive = data.get("alive", False)
             age = data.get("age_seconds", "?")
-            _record("Check4_Heartbeat", True, f"alive={alive} age={age}s (liveness check reachable)")
+            _record(
+                "Check4_Heartbeat",
+                True,
+                f"alive={alive} age={age}s (liveness check reachable)",
+            )
         except json.JSONDecodeError:
-            _record("Check4_Heartbeat", True, "SKIPPED — liveness_check returned non-JSON (first run)")
+            _record(
+                "Check4_Heartbeat",
+                True,
+                "SKIPPED — liveness_check returned non-JSON (first run)",
+            )
         return True
     except Exception as exc:
         _record("Check4_Heartbeat", False, str(exc))
@@ -166,16 +202,22 @@ def check_data_and_calendar() -> bool:
 
     if parquet_files:
         most_recent = max(parquet_files, key=lambda p: p.stat().st_mtime)
-        age_days = (datetime.now() - datetime.fromtimestamp(most_recent.stat().st_mtime)).days
+        age_days = (
+            datetime.now() - datetime.fromtimestamp(most_recent.stat().st_mtime)
+        ).days
         fresh = age_days <= 5
-        _record("Check5a_DataFreshness", fresh,
-                f"most recent: {most_recent.name} ({age_days}d old) {'OK' if fresh else 'STALE'}")
+        _record(
+            "Check5a_DataFreshness",
+            fresh,
+            f"most recent: {most_recent.name} ({age_days}d old) {'OK' if fresh else 'STALE'}",
+        )
     else:
         _record("Check5a_DataFreshness", False, "no parquet cache files found")
 
     # Holiday calendar
     try:
         from src.assembled_core.utils.market_calendar import is_trading_day
+
         checks = [
             (pd.Timestamp("2026-05-25"), False, "Memorial Day"),
             (pd.Timestamp("2026-07-04"), False, "Independence Day"),
@@ -186,13 +228,20 @@ def check_data_and_calendar() -> bool:
             got = is_trading_day(ts)
             if got != expected:
                 calendar_ok = False
-                log.warning("  Calendar mismatch: %s got=%s expected=%s", label, got, expected)
-        _record("Check5b_HolidayCalendar", calendar_ok,
-                "all 3 checks pass" if calendar_ok else "calendar mismatch — see above")
+                log.warning(
+                    "  Calendar mismatch: %s got=%s expected=%s", label, got, expected
+                )
+        _record(
+            "Check5b_HolidayCalendar",
+            calendar_ok,
+            "all 3 checks pass" if calendar_ok else "calendar mismatch — see above",
+        )
     except Exception as exc:
         _record("Check5b_HolidayCalendar", False, str(exc))
 
-    return all(r["status"] == "PASS" for r in _RESULTS if r["check"].startswith("Check5"))
+    return all(
+        r["status"] == "PASS" for r in _RESULTS if r["check"].startswith("Check5")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +251,7 @@ def check_risk_limits(config: str) -> bool:
     log.info("[CHECK 6] Risk limits in config...")
     try:
         import yaml
+
         cfg_path = Path(config)
         if not cfg_path.exists():
             _record("Check6_RiskLimits", False, f"config not found: {config}")
@@ -209,7 +259,12 @@ def check_risk_limits(config: str) -> bool:
         with open(cfg_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         rl = cfg.get("risk_limits", {})
-        required_keys = ["max_total_exposure_pct", "max_position_pct", "max_daily_orders", "max_daily_loss_pct"]
+        required_keys = [
+            "max_total_exposure_pct",
+            "max_position_pct",
+            "max_daily_orders",
+            "max_daily_loss_pct",
+        ]
         missing = [k for k in required_keys if k not in rl]
         if missing:
             _record("Check6_RiskLimits", False, f"missing keys: {missing}")
@@ -220,8 +275,10 @@ def check_risk_limits(config: str) -> bool:
         orders_ok = rl.get("max_daily_orders", 999) <= 50
         loss_ok = rl.get("max_daily_loss_pct", 0) >= -0.05
         all_ok = exp_ok and pos_ok and orders_ok and loss_ok
-        detail = (f"exposure={rl.get('max_total_exposure_pct')} pos={rl.get('max_position_pct')} "
-                  f"orders={rl.get('max_daily_orders')} daily_loss={rl.get('max_daily_loss_pct')}")
+        detail = (
+            f"exposure={rl.get('max_total_exposure_pct')} pos={rl.get('max_position_pct')} "
+            f"orders={rl.get('max_daily_orders')} daily_loss={rl.get('max_daily_loss_pct')}"
+        )
         _record("Check6_RiskLimits", all_ok, detail)
         return all_ok
     except Exception as exc:
@@ -234,7 +291,9 @@ def check_risk_limits(config: str) -> bool:
 # ---------------------------------------------------------------------------
 def main() -> int:
     parser = argparse.ArgumentParser(description="Pre-flight checks for paper trading")
-    parser.add_argument("--skip-broker", action="store_true", help="Skip live Alpaca API checks")
+    parser.add_argument(
+        "--skip-broker", action="store_true", help="Skip live Alpaca API checks"
+    )
     parser.add_argument(
         "--config",
         default="configs/paper_track/trend_baseline_live.yaml",

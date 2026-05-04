@@ -42,7 +42,11 @@ def _load_texts_from_store(
                 continue
             try:
                 rec = json.loads(line)
-                ts_raw = rec.get("published_at") or rec.get("timestamp") or rec.get("created_at")
+                ts_raw = (
+                    rec.get("published_at")
+                    or rec.get("timestamp")
+                    or rec.get("created_at")
+                )
                 if ts_raw:
                     ts = pd.Timestamp(ts_raw)
                     if ts.tz is None:
@@ -59,12 +63,16 @@ def _load_texts_from_store(
             except Exception as _exc:
                 logger.debug("[train_news_embeddings] line skipped: %s", _exc)
                 continue
-    logger.info("Geladen: %d Texte (%d übersprungen wegen PIT-Guard)", len(texts), skipped)
+    logger.info(
+        "Geladen: %d Texte (%d übersprungen wegen PIT-Guard)", len(texts), skipped
+    )
     return texts
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Trainiere PCA auf FinBERT-Embeddings aus News-Archive")
+    parser = argparse.ArgumentParser(
+        description="Trainiere PCA auf FinBERT-Embeddings aus News-Archive"
+    )
     parser.add_argument(
         "--news-store",
         type=Path,

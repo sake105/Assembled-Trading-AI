@@ -76,7 +76,8 @@ def should_buy_hedge(
     if iv_rank > cfg.max_iv_rank_for_buy:
         logger.debug(
             "IV rank %.1f above threshold %.1f — skipping tail hedge buy",
-            iv_rank, cfg.max_iv_rank_for_buy,
+            iv_rank,
+            cfg.max_iv_rank_for_buy,
         )
         return None
 
@@ -152,7 +153,7 @@ def hedge_cost_estimate(
     """
     # Simplified: OTM put premium ~ IV * sqrt(t) * 0.4 (ATM proxy) * OTM_discount
     t = dte / 252
-    atm_premium_pct = iv * (t ** 0.5) * 0.4
+    atm_premium_pct = iv * (t**0.5) * 0.4
     otm_discount = max(0.1, 1.0 - strike_otm_pct * 5)
     put_cost_pct = atm_premium_pct * otm_discount
 

@@ -13,6 +13,7 @@ Usage in backtest loop:
     for sym, factor in pt_reductions.items():
         new_weights[sym] = new_weights.get(sym, 0.0) * factor
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,17 +31,21 @@ class ProfitTargetConfig:
       sell_fraction: fraction of ORIGINAL position to sell at this tier.
     Tiers should be ordered by ascending threshold.
     """
-    tiers: list[tuple[float, float]] = field(default_factory=lambda: [
-        (0.10, 0.25),   # +10%: sell 25% of position
-        (0.20, 0.25),   # +20%: sell another 25% (50% total)
-        (0.35, 0.25),   # +35%: sell another 25% (75% total)
-    ])
-    apply_to_shorts: bool = True   # mirror logic for short positions
+
+    tiers: list[tuple[float, float]] = field(
+        default_factory=lambda: [
+            (0.10, 0.25),  # +10%: sell 25% of position
+            (0.20, 0.25),  # +20%: sell another 25% (50% total)
+            (0.35, 0.25),  # +35%: sell another 25% (75% total)
+        ]
+    )
+    apply_to_shorts: bool = True  # mirror logic for short positions
 
 
 @dataclass
 class PositionRecord:
     """Tracks entry price and cumulative exits for one position."""
+
     symbol: str
     entry_price: float
     is_long: bool = True
@@ -92,7 +97,10 @@ def check_profit_targets(
                 newly_triggered_fraction += sell_frac
                 _log.info(
                     "PROFIT TARGET tier %d triggered for %s: pnl=+%.1f%%, selling %.0f%%",
-                    i + 1, sym, pnl * 100, sell_frac * 100,
+                    i + 1,
+                    sym,
+                    pnl * 100,
+                    sell_frac * 100,
                 )
 
         if newly_triggered_fraction > 0:

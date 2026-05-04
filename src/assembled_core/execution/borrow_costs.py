@@ -150,6 +150,7 @@ def compute_borrow_cost_for_positions(
     price-feed gap rather than look like a healthy zero-cost short.
     """
     import logging
+
     log = logging.getLogger(__name__)
     table = rate_table or BorrowRateTable()
     out: dict[str, float] = {}
@@ -160,7 +161,8 @@ def compute_borrow_cost_for_positions(
             log.warning(
                 "[BORROW] missing price for short %s qty=%s — borrow cost "
                 "reported as 0 but financing drag is real",
-                sym, qty,
+                sym,
+                qty,
             )
             continue
         price = float(prices.get(sym, 0.0))

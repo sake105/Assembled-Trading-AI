@@ -17,29 +17,118 @@ import re
 from collections import Counter
 
 # Unicode blocks that clearly identify a language family
-_CJK_RE = re.compile(r"[\u4e00-\u9fff]")          # Chinese / Japanese Kanji
-_HIRAGANA_RE = re.compile(r"[\u3040-\u309f]")     # Japanese hiragana
-_KATAKANA_RE = re.compile(r"[\u30a0-\u30ff]")     # Japanese katakana
-_HANGUL_RE = re.compile(r"[\uac00-\ud7af]")       # Korean
-_ARABIC_RE = re.compile(r"[\u0600-\u06ff]")       # Arabic
-_CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")     # Russian / Ukrainian / Bulgarian
-_HEBREW_RE = re.compile(r"[\u0590-\u05ff]")       # Hebrew
-_GREEK_RE = re.compile(r"[\u0370-\u03ff]")        # Greek
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")  # Chinese / Japanese Kanji
+_HIRAGANA_RE = re.compile(r"[\u3040-\u309f]")  # Japanese hiragana
+_KATAKANA_RE = re.compile(r"[\u30a0-\u30ff]")  # Japanese katakana
+_HANGUL_RE = re.compile(r"[\uac00-\ud7af]")  # Korean
+_ARABIC_RE = re.compile(r"[\u0600-\u06ff]")  # Arabic
+_CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")  # Russian / Ukrainian / Bulgarian
+_HEBREW_RE = re.compile(r"[\u0590-\u05ff]")  # Hebrew
+_GREEK_RE = re.compile(r"[\u0370-\u03ff]")  # Greek
 
 # Small stopword lists per latin-script language (high signal, low overlap)
 _STOPWORDS: dict[str, frozenset[str]] = {
-    "en": frozenset({"the", "and", "of", "to", "in", "for", "on", "is", "with", "a", "after", "as", "that"}),
-    "de": frozenset({"der", "die", "das", "und", "ist", "mit", "für", "von", "im", "nach", "auf", "nicht", "auch", "eine"}),
-    "fr": frozenset({"le", "la", "les", "et", "de", "du", "pour", "avec", "dans", "un", "une", "sur", "ne"}),
-    "es": frozenset({"el", "la", "los", "las", "y", "de", "en", "con", "para", "por", "un", "una", "que", "no"}),
-    "it": frozenset({"il", "la", "lo", "i", "gli", "le", "e", "di", "per", "con", "in", "un", "una", "non"}),
-    "pt": frozenset({"o", "a", "os", "as", "e", "de", "em", "para", "com", "um", "uma", "não"}),
-    "nl": frozenset({"de", "het", "en", "van", "voor", "met", "op", "is", "niet", "een"}),
+    "en": frozenset(
+        {
+            "the",
+            "and",
+            "of",
+            "to",
+            "in",
+            "for",
+            "on",
+            "is",
+            "with",
+            "a",
+            "after",
+            "as",
+            "that",
+        }
+    ),
+    "de": frozenset(
+        {
+            "der",
+            "die",
+            "das",
+            "und",
+            "ist",
+            "mit",
+            "für",
+            "von",
+            "im",
+            "nach",
+            "auf",
+            "nicht",
+            "auch",
+            "eine",
+        }
+    ),
+    "fr": frozenset(
+        {
+            "le",
+            "la",
+            "les",
+            "et",
+            "de",
+            "du",
+            "pour",
+            "avec",
+            "dans",
+            "un",
+            "une",
+            "sur",
+            "ne",
+        }
+    ),
+    "es": frozenset(
+        {
+            "el",
+            "la",
+            "los",
+            "las",
+            "y",
+            "de",
+            "en",
+            "con",
+            "para",
+            "por",
+            "un",
+            "una",
+            "que",
+            "no",
+        }
+    ),
+    "it": frozenset(
+        {
+            "il",
+            "la",
+            "lo",
+            "i",
+            "gli",
+            "le",
+            "e",
+            "di",
+            "per",
+            "con",
+            "in",
+            "un",
+            "una",
+            "non",
+        }
+    ),
+    "pt": frozenset(
+        {"o", "a", "os", "as", "e", "de", "em", "para", "com", "um", "uma", "não"}
+    ),
+    "nl": frozenset(
+        {"de", "het", "en", "van", "voor", "met", "op", "is", "niet", "een"}
+    ),
     "sv": frozenset({"och", "att", "det", "som", "på", "inte", "med", "för", "av"}),
     "pl": frozenset({"i", "w", "na", "nie", "z", "jest", "się", "do", "że"}),
     "tr": frozenset({"ve", "bir", "bu", "için", "ile", "de", "da", "olan"}),
     # H8: Vietnamese uses Latin script with diacritics; stopwords disambiguate.
-    "vi": frozenset({"và", "của", "là", "trong", "với", "không", "được", "đã", "có", "tại", "theo"}),
+    "vi": frozenset(
+        {"và", "của", "là", "trong", "với", "không", "được", "đã", "có", "tại", "theo"}
+    ),
 }
 
 # Ukrainian vs Russian discriminator (Cyrillic charset alone is ambiguous)

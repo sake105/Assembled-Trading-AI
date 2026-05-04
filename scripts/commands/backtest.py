@@ -1,5 +1,6 @@
 # scripts/commands/backtest.py
 """Backtest subcommands: run_backtest, batch_backtest, batch_run, leaderboard."""
+
 from __future__ import annotations
 
 import argparse

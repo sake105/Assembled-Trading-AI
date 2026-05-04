@@ -12,6 +12,7 @@ Usage:
     python scripts/run_paper_live.py --once  # one cycle then exit (for pilot runner)
     python scripts/run_paper_live.py --dry-run  # no order submission
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,17 +33,27 @@ logging.basicConfig(
 logger = logging.getLogger("run_paper_live")
 
 _DEFAULT_SYMBOLS = [
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN",
-    "META", "AVGO", "TSLA", "TSM", "AMD",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "AVGO",
+    "TSLA",
+    "TSM",
+    "AMD",
 ]
 
 
 def _is_market_hours(now: datetime) -> bool:
     try:
         from zoneinfo import ZoneInfo
+
         et = now.astimezone(ZoneInfo("America/New_York"))
     except ImportError:
         import datetime as _dt
+
         et_offset = _dt.timezone(_dt.timedelta(hours=-4))
         et = now.astimezone(et_offset)
     if et.weekday() >= 5:
@@ -51,7 +62,9 @@ def _is_market_hours(now: datetime) -> bool:
 
 
 def _write_cycle_summary(cycle_id: str, result: dict) -> None:
-    out_dir = Path("output/paper_live") / datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out_dir = Path("output/paper_live") / datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d"
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"cycle_{cycle_id}.json"
     out_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
@@ -74,11 +87,13 @@ def _run_one_cycle(symbols: list[str], dry_run: bool) -> dict:
 
     try:
         from src.assembled_core.execution.broker_adapter import AlpacaAdapter
+
         adapter = AlpacaAdapter.from_env()
     except Exception as exc:
         logger.error("[live] broker adapter init failed: %s", exc)
         try:
             from src.assembled_core.ops.alerting import AlertManager
+
             AlertManager().fire("broker_connection_failure", {"error": str(exc)[:200]})
         except Exception:
             pass
@@ -92,7 +107,9 @@ def _run_one_cycle(symbols: list[str], dry_run: bool) -> dict:
             return {"status": "skip", "reason": "no_bars"}
     except AttributeError:
         # Adapter doesn't have get_latest_bars — use existing paper runner path
-        logger.info("[live] get_latest_bars not available — falling back to paper_runner path")
+        logger.info(
+            "[live] get_latest_bars not available — falling back to paper_runner path"
+        )
         return _run_via_paper_runner(symbols, dry_run)
     except Exception as exc:
         logger.error("[live] bar fetch failed: %s", exc)
@@ -104,6 +121,7 @@ def _run_one_cycle(symbols: list[str], dry_run: bool) -> dict:
 def _run_via_paper_runner(symbols: list[str], dry_run: bool) -> dict:
     """Delegate to paper_runner for a single cycle (uses existing ledger state)."""
     import subprocess
+
     cmd = [sys.executable, "scripts/run_live_paper.py", "--once"]
     if dry_run:
         cmd.append("--dry-run")
@@ -118,10 +136,16 @@ def _run_via_paper_runner(symbols: list[str], dry_run: bool) -> dict:
     }
 
 
-async def paper_live_loop(symbols: list[str], cycle_minutes: int, dry_run: bool) -> None:
+async def paper_live_loop(
+    symbols: list[str], cycle_minutes: int, dry_run: bool
+) -> None:
     """Async loop: run one cycle every N minutes during market hours."""
-    logger.info("[live] starting paper-live loop: %d symbols, cycle=%dmin, dry_run=%s",
-                len(symbols), cycle_minutes, dry_run)
+    logger.info(
+        "[live] starting paper-live loop: %d symbols, cycle=%dmin, dry_run=%s",
+        len(symbols),
+        cycle_minutes,
+        dry_run,
+    )
 
     while True:
         now = datetime.now(timezone.utc)

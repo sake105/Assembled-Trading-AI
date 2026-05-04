@@ -44,6 +44,7 @@ def reset_corroboration_drop_count() -> None:
 @dataclass
 class IntelSignal:
     """Unified intel signal derived from aggregated news clusters."""
+
     signal_id: str
     net_direction: str  # "bearish" / "bullish" / "neutral"
     aggregate_confidence: float  # 0-1, confidence-weighted
@@ -54,10 +55,14 @@ class IntelSignal:
     n_clusters: int
     n_signals: int
     max_severity: float
-    generated_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    generated_at: datetime = field(
+        default_factory=lambda: datetime.now(tz=timezone.utc)
+    )
 
     def is_actionable(self) -> bool:
-        return self.risk_level in ("HIGH", "CRITICAL") and self.net_direction != "neutral"
+        return (
+            self.risk_level in ("HIGH", "CRITICAL") and self.net_direction != "neutral"
+        )
 
 
 def aggregate_signals(
@@ -100,7 +105,8 @@ def aggregate_signals(
             if require_corroboration_gate:
                 events = list(getattr(cl, "supporting_events", []) or [])
                 gated = require_corroboration(
-                    sig, events,
+                    sig,
+                    events,
                     min_independent_high_tier=min_independent_high_tier,
                 )
                 if gated is None:
@@ -137,10 +143,14 @@ def aggregate_signals(
         agg_conf = 0.0
     elif bearish_weight > bullish_weight:
         net_direction = "bearish"
-        agg_conf = bearish_weight / total_weight * max(s.confidence for s in active_signals)
+        agg_conf = (
+            bearish_weight / total_weight * max(s.confidence for s in active_signals)
+        )
     else:
         net_direction = "bullish"
-        agg_conf = bullish_weight / total_weight * max(s.confidence for s in active_signals)
+        agg_conf = (
+            bullish_weight / total_weight * max(s.confidence for s in active_signals)
+        )
 
     agg_conf = round(min(agg_conf, 1.0), 4)
 
@@ -157,9 +167,15 @@ def aggregate_signals(
     # Sector exposure
     sector_scores: dict[str, float] = {}
     for sig in active_signals:
-        sign = -1.0 if sig.direction == "short" else (1.0 if sig.direction == "long" else 0.0)
+        sign = (
+            -1.0
+            if sig.direction == "short"
+            else (1.0 if sig.direction == "long" else 0.0)
+        )
         for sector in sig.affected_sectors:
-            sector_scores[sector] = sector_scores.get(sector, 0.0) + sig.confidence * sign
+            sector_scores[sector] = (
+                sector_scores.get(sector, 0.0) + sig.confidence * sign
+            )
 
     if sector_scores:
         max_abs = max(abs(v) for v in sector_scores.values())

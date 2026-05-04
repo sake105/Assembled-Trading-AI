@@ -1,4 +1,5 @@
 """Brinson-Hood-Beebower performance attribution."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -23,8 +24,12 @@ class BrinsonAttribution:
         """Return DataFrame with allocation/selection/interaction/active_total per period."""
         w_diff = self.w_p - self.w_b
         allocation = (w_diff * sector_returns_benchmark).sum(axis=1)
-        selection = (self.w_b * (sector_returns_portfolio - sector_returns_benchmark)).sum(axis=1)
-        interaction = (w_diff * (sector_returns_portfolio - sector_returns_benchmark)).sum(axis=1)
+        selection = (
+            self.w_b * (sector_returns_portfolio - sector_returns_benchmark)
+        ).sum(axis=1)
+        interaction = (
+            w_diff * (sector_returns_portfolio - sector_returns_benchmark)
+        ).sum(axis=1)
         return pd.DataFrame(
             {
                 "allocation": allocation,

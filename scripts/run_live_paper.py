@@ -176,9 +176,7 @@ def _load_prices(app_cfg: dict):
                     age_days,
                 )
                 return cache_prices
-            cache_stale_reason = (
-                f"cache latest={cache_latest.date()} age={age_days}d"
-            )
+            cache_stale_reason = f"cache latest={cache_latest.date()} age={age_days}d"
             logger.warning(
                 "[run_live_paper] cache is stale (%s) — fetching fresh from yfinance",
                 cache_stale_reason,
@@ -192,12 +190,12 @@ def _load_prices(app_cfg: dict):
             fetch_prices_yfinance,
         )
 
-        end_date = (
-            pd.Timestamp.now("UTC") + pd.DateOffset(days=1)
-        ).strftime("%Y-%m-%d")
-        start_date = (
-            pd.Timestamp.now("UTC") - pd.DateOffset(days=400)
-        ).strftime("%Y-%m-%d")
+        end_date = (pd.Timestamp.now("UTC") + pd.DateOffset(days=1)).strftime(
+            "%Y-%m-%d"
+        )
+        start_date = (pd.Timestamp.now("UTC") - pd.DateOffset(days=400)).strftime(
+            "%Y-%m-%d"
+        )
 
         logger.info(
             "[run_live_paper] fetching %d symbols via yfinance (%s to %s)",
@@ -446,8 +444,7 @@ def cmd_reconcile_only(args):
 
     paper_cfg = app_cfg.get("paper_runner") or {}
     ledger_path_str = (
-        paper_cfg.get("ledger_path")
-        or "output/runs/_paper_ledger/ledger_state.json"
+        paper_cfg.get("ledger_path") or "output/runs/_paper_ledger/ledger_state.json"
     )
     ledger_path = (
         ROOT / ledger_path_str
@@ -472,7 +469,9 @@ def cmd_reconcile_only(args):
     if sync_result.mismatches:
         print("\nPosition mismatches:")
         for m in sync_result.mismatches:
-            print(f"  {m['symbol']}: ledger={m.get('ledger_qty')}, broker={m.get('broker_qty')}")
+            print(
+                f"  {m['symbol']}: ledger={m.get('ledger_qty')}, broker={m.get('broker_qty')}"
+            )
 
     if not sync_result.ok:
         print(f"\nMessage: {sync_result.message}")
@@ -491,8 +490,7 @@ def cmd_rebuild_ledger(args):
 
     paper_cfg = app_cfg.get("paper_runner") or {}
     ledger_path_str = (
-        paper_cfg.get("ledger_path")
-        or "output/runs/_paper_ledger/ledger_state.json"
+        paper_cfg.get("ledger_path") or "output/runs/_paper_ledger/ledger_state.json"
     )
     ledger_path = (
         ROOT / ledger_path_str
@@ -510,8 +508,10 @@ def cmd_rebuild_ledger(args):
 
     new_state = rebuild_ledger_from_broker(adapter)
     save_ledger_state(new_state, ledger_path)
-    print(f"\nLedger rebuilt: cash=${new_state['cash']:,.2f}, "
-          f"{len(new_state['positions'])} positions")
+    print(
+        f"\nLedger rebuilt: cash=${new_state['cash']:,.2f}, "
+        f"{len(new_state['positions'])} positions"
+    )
     print(f"Saved to: {ledger_path}")
 
 
@@ -533,7 +533,9 @@ def main():
     recon_p.set_defaults(func=cmd_reconcile_only)
 
     # --rebuild-ledger
-    rebuild_p = sub.add_parser("rebuild-ledger", help="Emergency: rebuild ledger from broker")
+    rebuild_p = sub.add_parser(
+        "rebuild-ledger", help="Emergency: rebuild ledger from broker"
+    )
     rebuild_p.set_defaults(func=cmd_rebuild_ledger)
 
     args = parser.parse_args()

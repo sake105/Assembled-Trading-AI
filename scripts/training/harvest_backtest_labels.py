@@ -60,6 +60,7 @@ def _warn(msg: str) -> None:
 # Trade reconstruction
 # ---------------------------------------------------------------------------
 
+
 def _reconstruct_trades_from_ledger(ledger_path: Path) -> list[dict[str, Any]]:
     """Read a ledger_events.parquet and return a list of round-trip trade dicts.
 
@@ -86,7 +87,11 @@ def _reconstruct_trades_from_ledger(ledger_path: Path) -> list[dict[str, Any]]:
     df = df.sort_values("event_ts").reset_index(drop=True)
 
     # Prefer FILL events; fall back to ORDER_SUBMIT if none present
-    fills = df[df["event_type"] == "FILL"] if "FILL" in df["event_type"].values else df[df["event_type"] == "ORDER_SUBMIT"]
+    fills = (
+        df[df["event_type"] == "FILL"]
+        if "FILL" in df["event_type"].values
+        else df[df["event_type"] == "ORDER_SUBMIT"]
+    )
 
     if fills.empty:
         return []
@@ -104,7 +109,9 @@ def _reconstruct_trades_from_ledger(ledger_path: Path) -> list[dict[str, Any]]:
 
             if qty > 0:
                 # Entry (buy)
-                open_positions.append({"entry_ts": ts, "entry_price": price, "qty": qty})
+                open_positions.append(
+                    {"entry_ts": ts, "entry_price": price, "qty": qty}
+                )
             elif qty < 0 and open_positions:
                 # Exit (sell) -- match FIFO
                 entry = open_positions.pop(0)
@@ -113,16 +120,24 @@ def _reconstruct_trades_from_ledger(ledger_path: Path) -> list[dict[str, Any]]:
                 entry_price = entry["entry_price"]
                 exit_price = price
                 holding_days = max(1, (ts - entry["entry_ts"]).days)
-                realized_return = (exit_price - entry_price) / entry_price if entry_price != 0 else 0.0
-                trades.append({
-                    "entry_date": pd.Timestamp(entry["entry_ts"]).normalize().tz_localize(None),
-                    "exit_date": pd.Timestamp(ts).normalize().tz_localize(None),
-                    "symbol": symbol,
-                    "entry_price": round(entry_price, 6),
-                    "exit_price": round(exit_price, 6),
-                    "realized_return": round(realized_return, 8),
-                    "holding_days": holding_days,
-                })
+                realized_return = (
+                    (exit_price - entry_price) / entry_price
+                    if entry_price != 0
+                    else 0.0
+                )
+                trades.append(
+                    {
+                        "entry_date": pd.Timestamp(entry["entry_ts"])
+                        .normalize()
+                        .tz_localize(None),
+                        "exit_date": pd.Timestamp(ts).normalize().tz_localize(None),
+                        "symbol": symbol,
+                        "entry_price": round(entry_price, 6),
+                        "exit_price": round(exit_price, 6),
+                        "realized_return": round(realized_return, 8),
+                        "holding_days": holding_days,
+                    }
+                )
 
     return trades
 
@@ -152,7 +167,9 @@ def _load_all_trades(bt_root: Path) -> pd.DataFrame:
     df = pd.DataFrame(all_trades)
     df["entry_date"] = pd.to_datetime(df["entry_date"])
     df["exit_date"] = pd.to_datetime(df["exit_date"])
-    df = df.drop_duplicates(subset=["entry_date", "exit_date", "symbol", "entry_price", "exit_price"])
+    df = df.drop_duplicates(
+        subset=["entry_date", "exit_date", "symbol", "entry_price", "exit_price"]
+    )
     _log(f"Unique trades after dedup: {len(df)}")
     return df
 
@@ -160,6 +177,7 @@ def _load_all_trades(bt_root: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Factor panel join
 # ---------------------------------------------------------------------------
+
 
 def _join_with_panel(trades_df: pd.DataFrame, panel_path: Path) -> pd.DataFrame:
     """Left-join trades with factor panel at entry_date x symbol."""
@@ -194,10 +212,21 @@ def _join_with_panel(trades_df: pd.DataFrame, panel_path: Path) -> pd.DataFrame:
 
     # Keep only feature-like numeric columns (exclude OHLCV meta)
     exclude = {
-        "_join_date", "symbol", "open", "high", "low", "close", "volume",
-        "date", "timestamp",
+        "_join_date",
+        "symbol",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "date",
+        "timestamp",
     }
-    feature_cols = [c for c in panel.columns if c not in exclude and pd.api.types.is_numeric_dtype(panel[c])]
+    feature_cols = [
+        c
+        for c in panel.columns
+        if c not in exclude and pd.api.types.is_numeric_dtype(panel[c])
+    ]
     _log(f"Panel feature columns available: {len(feature_cols)}")
 
     panel_slim = panel[["_join_date", "symbol"] + feature_cols].copy()
@@ -218,6 +247,7 @@ def _join_with_panel(trades_df: pd.DataFrame, panel_path: Path) -> pd.DataFrame:
 # Labelling
 # ---------------------------------------------------------------------------
 
+
 def _add_label(df: pd.DataFrame) -> pd.DataFrame:
     """Add binary label: 1 if realized_return > 0, else 0."""
     df = df.copy()
@@ -231,6 +261,7 @@ def _add_label(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
+
 
 def harvest_labels(
     bt_root: Path,
@@ -250,11 +281,19 @@ def harvest_labels(
     if trades_df.empty:
         _warn("No trades found -- output will be empty.")
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        empty = pd.DataFrame(columns=[
-            "entry_date", "exit_date", "symbol",
-            "entry_price", "exit_price", "realized_return",
-            "holding_days", "label", "source_run",
-        ])
+        empty = pd.DataFrame(
+            columns=[
+                "entry_date",
+                "exit_date",
+                "symbol",
+                "entry_price",
+                "exit_price",
+                "realized_return",
+                "holding_days",
+                "label",
+                "source_run",
+            ]
+        )
         empty.to_parquet(output_path, index=False)
         _log(f"Empty parquet written to {output_path}")
         return empty
@@ -266,7 +305,9 @@ def harvest_labels(
     labelled_df = _add_label(labelled_df)
 
     # 4. Sort and save
-    labelled_df = labelled_df.sort_values(["entry_date", "symbol"]).reset_index(drop=True)
+    labelled_df = labelled_df.sort_values(["entry_date", "symbol"]).reset_index(
+        drop=True
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     labelled_df.to_parquet(output_path, index=False)
     _log(f"[OK] Written {len(labelled_df)} labelled trades to {output_path}")
@@ -290,6 +331,7 @@ def harvest_labels(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(

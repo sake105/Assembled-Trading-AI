@@ -27,7 +27,6 @@ from src.assembled_core.intel.disclosures_triggers_loader import (
 import src.assembled_core.pipeline.trading_cycle_v2  # noqa: F401 - ensure submodule is loaded for monkeypatch
 import src.assembled_core.risk.state_machine  # noqa: F401 - ensure submodule is loaded for monkeypatch
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

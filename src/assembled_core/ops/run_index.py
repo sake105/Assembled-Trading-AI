@@ -81,7 +81,9 @@ def append_run_index(
     existing = _read_existing(index_path)
 
     key = (run_id, date)
-    updated: list[dict] = [r for r in existing if (r.get("run_id"), r.get("date")) != key]
+    updated: list[dict] = [
+        r for r in existing if (r.get("run_id"), r.get("date")) != key
+    ]
 
     new_row = {
         "run_id": run_id,

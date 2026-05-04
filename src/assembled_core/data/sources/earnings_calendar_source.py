@@ -31,8 +31,8 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_PRE_EARNINGS_DAYS = 5    # flag raised this many days before earnings
-_POST_EARNINGS_DAYS = 3   # flag raised this many days after earnings
+_PRE_EARNINGS_DAYS = 5  # flag raised this many days before earnings
+_POST_EARNINGS_DAYS = 3  # flag raised this many days after earnings
 
 
 class EarningsCalendarSource:
@@ -49,7 +49,9 @@ class EarningsCalendarSource:
         alphavantage_api_key: Optional[str] = None,
     ) -> None:
         self.finnhub_api_key = finnhub_api_key or os.environ.get("FINNHUB_API_KEY", "")
-        self.alphavantage_api_key = alphavantage_api_key or os.environ.get("ALPHAVANTAGE_API_KEY", "")
+        self.alphavantage_api_key = alphavantage_api_key or os.environ.get(
+            "ALPHAVANTAGE_API_KEY", ""
+        )
 
     # ------------------------------------------------------------------
     # Fetching
@@ -94,15 +96,29 @@ class EarningsCalendarSource:
                         rows.extend(result)
                         continue
                 except Exception as exc:
-                    logger.debug("[EarningsCalendar] Finnhub failed for %s: %s", sym, exc)
+                    logger.debug(
+                        "[EarningsCalendar] Finnhub failed for %s: %s", sym, exc
+                    )
 
         if not rows:
-            return pd.DataFrame(columns=["symbol", "earnings_date", "eps_estimate", "eps_actual", "surprise_pct"])
+            return pd.DataFrame(
+                columns=[
+                    "symbol",
+                    "earnings_date",
+                    "eps_estimate",
+                    "eps_actual",
+                    "surprise_pct",
+                ]
+            )
 
         df = pd.DataFrame(rows)
         df["earnings_date"] = pd.to_datetime(df["earnings_date"])
         df = df.sort_values(["symbol", "earnings_date"]).reset_index(drop=True)
-        logger.info("[EarningsCalendar] Fetched %d earnings dates for %d symbols", len(df), len(symbols))
+        logger.info(
+            "[EarningsCalendar] Fetched %d earnings dates for %d symbols",
+            len(df),
+            len(symbols),
+        )
         return df
 
     def _fetch_yfinance(
@@ -128,13 +144,15 @@ class EarningsCalendarSource:
                     if pd.isna(edate):
                         continue
                     if start_date <= edate.to_pydatetime() <= end_date:
-                        rows.append({
-                            "symbol": symbol,
-                            "earnings_date": edate,
-                            "eps_estimate": row.get("EPS Estimate", float("nan")),
-                            "eps_actual": float("nan"),
-                            "surprise_pct": float("nan"),
-                        })
+                        rows.append(
+                            {
+                                "symbol": symbol,
+                                "earnings_date": edate,
+                                "eps_estimate": row.get("EPS Estimate", float("nan")),
+                                "eps_actual": float("nan"),
+                                "surprise_pct": float("nan"),
+                            }
+                        )
             elif isinstance(cal, pd.DataFrame):
                 # Older yfinance returns transposed DataFrame
                 for col in cal.columns:
@@ -142,37 +160,55 @@ class EarningsCalendarSource:
                     if pd.isna(edate):
                         continue
                     if start_date <= edate.to_pydatetime() <= end_date:
-                        rows.append({
-                            "symbol": symbol,
-                            "earnings_date": edate,
-                            "eps_estimate": float("nan"),
-                            "eps_actual": float("nan"),
-                            "surprise_pct": float("nan"),
-                        })
+                        rows.append(
+                            {
+                                "symbol": symbol,
+                                "earnings_date": edate,
+                                "eps_estimate": float("nan"),
+                                "eps_actual": float("nan"),
+                                "surprise_pct": float("nan"),
+                            }
+                        )
         except Exception as exc:
-            logger.debug("[EarningsCalendar] yfinance calendar parse error for %s: %s", symbol, exc)
+            logger.debug(
+                "[EarningsCalendar] yfinance calendar parse error for %s: %s",
+                symbol,
+                exc,
+            )
 
         # Also check earnings history for recent surprises
         try:
             earnings = ticker.earnings_history
             if earnings is not None and not earnings.empty:
                 for _, row in earnings.iterrows():
-                    edate = pd.to_datetime(row.name if hasattr(row, "name") else row.get("Earnings Date"))
+                    edate = pd.to_datetime(
+                        row.name if hasattr(row, "name") else row.get("Earnings Date")
+                    )
                     if pd.isna(edate):
                         continue
                     if start_date <= edate.to_pydatetime() <= end_date:
                         est = float(row.get("EPS Estimate", float("nan")))
                         actual = float(row.get("Reported EPS", float("nan")))
-                        surprise = ((actual - est) / abs(est) * 100) if est != 0 and not np.isnan(est) else float("nan")
-                        rows.append({
-                            "symbol": symbol,
-                            "earnings_date": edate,
-                            "eps_estimate": est,
-                            "eps_actual": actual,
-                            "surprise_pct": surprise,
-                        })
+                        surprise = (
+                            ((actual - est) / abs(est) * 100)
+                            if est != 0 and not np.isnan(est)
+                            else float("nan")
+                        )
+                        rows.append(
+                            {
+                                "symbol": symbol,
+                                "earnings_date": edate,
+                                "eps_estimate": est,
+                                "eps_actual": actual,
+                                "surprise_pct": surprise,
+                            }
+                        )
         except Exception as exc:
-            logger.warning("[EarningsCalendar] earnings history parse error for %s: %s", symbol, exc)
+            logger.warning(
+                "[EarningsCalendar] earnings history parse error for %s: %s",
+                symbol,
+                exc,
+            )
 
         return rows
 
@@ -195,26 +231,35 @@ class EarningsCalendarSource:
         )
         # URL is built from a fixed finnhub.io endpoint with validated params.
         import urllib.error
+
         try:
             with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
                 try:
                     data = json.loads(resp.read())
                 except json.JSONDecodeError as exc:
-                    logger.warning("[EarningsCalendar] Finnhub returned invalid JSON for %s: %s", symbol, exc)
+                    logger.warning(
+                        "[EarningsCalendar] Finnhub returned invalid JSON for %s: %s",
+                        symbol,
+                        exc,
+                    )
                     return []
         except (urllib.error.URLError, urllib.error.HTTPError, OSError) as exc:
-            logger.warning("[EarningsCalendar] Finnhub network error for %s: %s", symbol, exc)
+            logger.warning(
+                "[EarningsCalendar] Finnhub network error for %s: %s", symbol, exc
+            )
             return []
 
         rows = []
         for item in data.get("earningsCalendar", []):
-            rows.append({
-                "symbol": symbol,
-                "earnings_date": pd.to_datetime(item.get("date"), errors="coerce"),
-                "eps_estimate": item.get("epsEstimate", float("nan")),
-                "eps_actual": item.get("epsActual", float("nan")),
-                "surprise_pct": float("nan"),
-            })
+            rows.append(
+                {
+                    "symbol": symbol,
+                    "earnings_date": pd.to_datetime(item.get("date"), errors="coerce"),
+                    "eps_estimate": item.get("epsEstimate", float("nan")),
+                    "eps_actual": item.get("epsActual", float("nan")),
+                    "surprise_pct": float("nan"),
+                }
+            )
         return rows
 
     # ------------------------------------------------------------------
@@ -254,7 +299,9 @@ class EarningsCalendarSource:
         result = prices_df.copy()
         result[timestamp_col] = pd.to_datetime(result[timestamp_col])
 
-        _cal_by_sym = {sym: grp for sym, grp in calendar_df.groupby("symbol", sort=False)}
+        _cal_by_sym = {
+            sym: grp for sym, grp in calendar_df.groupby("symbol", sort=False)
+        }
 
         days_to = []
         pre_flag = []
@@ -282,7 +329,15 @@ class EarningsCalendarSource:
                 days = float("nan")
 
             days_to.append(days)
-            pre_flag.append(1.0 if (isinstance(days, float) and not np.isnan(days) and 0 <= days <= pre_days) else 0.0)
+            pre_flag.append(
+                1.0
+                if (
+                    isinstance(days, float)
+                    and not np.isnan(days)
+                    and 0 <= days <= pre_days
+                )
+                else 0.0
+            )
 
             # Post-earnings flag
             if not past.empty:

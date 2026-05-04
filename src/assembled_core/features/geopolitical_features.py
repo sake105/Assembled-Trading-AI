@@ -69,13 +69,16 @@ def compute_gpr_proxy(
 
     if vix_series is not None and not vix_series.empty:
         # VIX spike indicator: z-score > 1 contributes to GPR
-        vix_z = (vix_series - vix_series.rolling(60, min_periods=20).mean()) / \
-                vix_series.rolling(60, min_periods=20).std().replace(0, np.nan)
+        vix_z = (
+            vix_series - vix_series.rolling(60, min_periods=20).mean()
+        ) / vix_series.rolling(60, min_periods=20).std().replace(0, np.nan)
         components.append((vix_z.clip(lower=0), w_vix))
 
     if not components:
         logger.warning("[GPR] No input data available — returning empty")
-        return pd.DataFrame(columns=["gpr_level", "gpr_zscore", "gpr_momentum", "gpr_regime"])
+        return pd.DataFrame(
+            columns=["gpr_level", "gpr_zscore", "gpr_momentum", "gpr_regime"]
+        )
 
     # Align all series to common index
     all_series = [s for s, _ in components]
@@ -113,12 +116,15 @@ def compute_gpr_proxy(
     # Regime (quartile)
     gpr_regime = pd.cut(gpr_level, bins=[0, 25, 50, 75, 100], labels=[1, 2, 3, 4])
 
-    result = pd.DataFrame({
-        "gpr_level": gpr_level.round(2),
-        "gpr_zscore": gpr_zscore.round(4),
-        "gpr_momentum": gpr_momentum.round(2),
-        "gpr_regime": gpr_regime,
-    }, index=common_idx)
+    result = pd.DataFrame(
+        {
+            "gpr_level": gpr_level.round(2),
+            "gpr_zscore": gpr_zscore.round(4),
+            "gpr_momentum": gpr_momentum.round(2),
+            "gpr_regime": gpr_regime,
+        },
+        index=common_idx,
+    )
 
     return result
 
@@ -141,7 +147,9 @@ def compute_gpr_from_fred(
         DataFrame with GPR features.
     """
     if gpr_series is None or gpr_series.empty:
-        return pd.DataFrame(columns=["gpr_level", "gpr_zscore", "gpr_momentum", "gpr_regime"])
+        return pd.DataFrame(
+            columns=["gpr_level", "gpr_zscore", "gpr_momentum", "gpr_regime"]
+        )
 
     # Percentile over rolling window: proportion of window <= last value
     gpr_level = gpr_series.rolling(rolling_window, min_periods=30).apply(
@@ -156,12 +164,15 @@ def compute_gpr_from_fred(
     gpr_momentum = gpr_level.diff(5)
     gpr_regime = pd.cut(gpr_level, bins=[0, 25, 50, 75, 100], labels=[1, 2, 3, 4])
 
-    return pd.DataFrame({
-        "gpr_level": gpr_level.round(2),
-        "gpr_zscore": gpr_zscore.round(4),
-        "gpr_momentum": gpr_momentum.round(2),
-        "gpr_regime": gpr_regime,
-    }, index=gpr_series.index)
+    return pd.DataFrame(
+        {
+            "gpr_level": gpr_level.round(2),
+            "gpr_zscore": gpr_zscore.round(4),
+            "gpr_momentum": gpr_momentum.round(2),
+            "gpr_regime": gpr_regime,
+        },
+        index=gpr_series.index,
+    )
 
 
 __all__ = [

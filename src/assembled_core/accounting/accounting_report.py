@@ -178,7 +178,9 @@ def write_accounting_report_csv(
     if not positions_df.empty:
         for row in positions_df.itertuples(index=False):
             _rpnl = row.realized_pnl if hasattr(row, "realized_pnl") else float("nan")
-            _upnl = row.unrealized_pnl if hasattr(row, "unrealized_pnl") else float("nan")
+            _upnl = (
+                row.unrealized_pnl if hasattr(row, "unrealized_pnl") else float("nan")
+            )
             report_rows.append(
                 {
                     "section": "POSITION",
@@ -287,7 +289,9 @@ def write_accounting_report_json(
             _qty = row.qty if hasattr(row, "qty") else float("nan")
             _avg = row.avg_price if hasattr(row, "avg_price") else float("nan")
             _rpnl = row.realized_pnl if hasattr(row, "realized_pnl") else float("nan")
-            _upnl = row.unrealized_pnl if hasattr(row, "unrealized_pnl") else float("nan")
+            _upnl = (
+                row.unrealized_pnl if hasattr(row, "unrealized_pnl") else float("nan")
+            )
             _notional = row.notional if hasattr(row, "notional") else float("nan")
             _last = row.last_price if hasattr(row, "last_price") else float("nan")
             positions_list.append(
@@ -371,6 +375,7 @@ def write_accounting_report_json(
 
     # Write JSON atomically (deterministic: sort_keys=True, indent=2)
     from src.assembled_core.utils.atomic_io import atomic_write_json
+
     atomic_write_json(json_path, report_serialized, sort_keys=True)
 
     logger.info(f"Accounting report JSON written: {json_path}")

@@ -122,9 +122,11 @@ def compute_sector_dispersion(
 
     # Inter-sector: population std of sector means (only where >= 2 sectors have finite mean)
     valid_count = sector_means_wide.count(axis=1)
-    inter_series = sector_means_wide.std(axis=1, ddof=0, skipna=True).where(
-        valid_count >= 2
-    ).reindex(returns_wide.index)
+    inter_series = (
+        sector_means_wide.std(axis=1, ddof=0, skipna=True)
+        .where(valid_count >= 2)
+        .reindex(returns_wide.index)
+    )
 
     return pd.DataFrame(
         {
@@ -155,7 +157,9 @@ def compute_correlation_to_benchmark(
 
     for sym in returns_wide.columns:
         col_name = f"corr_to_benchmark_{sym}"
-        results[col_name] = returns_wide[sym].rolling(window, min_periods=20).corr(benchmark_returns)
+        results[col_name] = (
+            returns_wide[sym].rolling(window, min_periods=20).corr(benchmark_returns)
+        )
 
     return results
 
@@ -185,7 +189,8 @@ def compute_correlation_regime_features(
         DataFrame with correlation regime features.
     """
     corr_df = compute_avg_pairwise_correlation(
-        returns_wide, windows=(short_window, long_window),
+        returns_wide,
+        windows=(short_window, long_window),
     )
 
     short_col = f"avg_pairwise_corr_{short_window}d"
@@ -196,9 +201,13 @@ def compute_correlation_regime_features(
     result["avg_corr_long"] = corr_df[long_col]
 
     # Z-score of short-window correlation vs. rolling history
-    rolling_mean = result["avg_corr_short"].rolling(history_window, min_periods=60).mean()
+    rolling_mean = (
+        result["avg_corr_short"].rolling(history_window, min_periods=60).mean()
+    )
     rolling_std = result["avg_corr_short"].rolling(history_window, min_periods=60).std()
-    result["corr_regime_zscore"] = (result["avg_corr_short"] - rolling_mean) / rolling_std.replace(0, np.nan)
+    result["corr_regime_zscore"] = (
+        result["avg_corr_short"] - rolling_mean
+    ) / rolling_std.replace(0, np.nan)
 
     # Correlation momentum (5d change)
     result["corr_momentum"] = result["avg_corr_short"].diff(5)
@@ -237,7 +246,9 @@ def build_correlation_features_panel(
 
     # Pivot to wide format
     wide = prices_df.pivot_table(
-        index=timestamp_col, columns=symbol_col, values=close_col,
+        index=timestamp_col,
+        columns=symbol_col,
+        values=close_col,
     )
     # Compute returns
     returns_wide = wide.pct_change(fill_method=None).dropna(how="all")
@@ -260,7 +271,9 @@ def build_correlation_features_panel(
         bench_ret = returns_wide[benchmark_col]
         other_cols = [c for c in returns_wide.columns if c != benchmark_col]
         bench_corr = compute_correlation_to_benchmark(
-            returns_wide[other_cols], bench_ret, window=60,
+            returns_wide[other_cols],
+            bench_ret,
+            window=60,
         )
 
     # Convert market-wide features back to panel format
@@ -271,7 +284,11 @@ def build_correlation_features_panel(
         sym_regime[timestamp_col] = sym_regime.index
 
         # Add per-asset benchmark correlation if computed
-        if benchmark_col and benchmark_col in returns_wide.columns and sym != benchmark_col:
+        if (
+            benchmark_col
+            and benchmark_col in returns_wide.columns
+            and sym != benchmark_col
+        ):
             corr_col = f"corr_to_benchmark_{sym}"
             if corr_col in bench_corr.columns:
                 sym_regime["corr_to_benchmark"] = bench_corr[corr_col].values

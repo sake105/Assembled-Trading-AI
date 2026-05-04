@@ -46,10 +46,19 @@ def get_short_interest(
       symbolCode, shortInterestQty, shortInterestSharesPct, avgDailyVol, daysToClose, settlementDate
     """
     body = {
-        "compareFilters": [{"fieldName": "symbolCode", "compareType": "equal", "fieldValue": ticker}],
+        "compareFilters": [
+            {"fieldName": "symbolCode", "compareType": "equal", "fieldValue": ticker}
+        ],
         "limit": limit,
         "offset": 0,
-        "fields": ["symbolCode", "shortInterestQty", "shortInterestSharesPct", "avgDailyVol", "daysToClose", "settlementDate"],
+        "fields": [
+            "symbolCode",
+            "shortInterestQty",
+            "shortInterestSharesPct",
+            "avgDailyVol",
+            "daysToClose",
+            "settlementDate",
+        ],
         "domainFilters": [],
         "sortFields": [{"fieldName": "settlementDate", "sortOrder": "DESC"}],
     }
@@ -65,7 +74,13 @@ def get_reg_sho_daily(
     More granular and reactive than bi-monthly EquityShortInterest.
     """
     body = {
-        "compareFilters": [{"fieldName": "issueSymbolIdentifier", "compareType": "equal", "fieldValue": ticker}],
+        "compareFilters": [
+            {
+                "fieldName": "issueSymbolIdentifier",
+                "compareType": "equal",
+                "fieldValue": ticker,
+            }
+        ],
         "limit": limit,
         "offset": 0,
         "sortFields": [{"fieldName": "tradeReportDate", "sortOrder": "DESC"}],

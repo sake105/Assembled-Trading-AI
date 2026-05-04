@@ -1,4 +1,5 @@
 """VVIX/SKEW tail-risk signal — calm/elevated/high/extreme regime detection."""
+
 from __future__ import annotations
 
 import logging
@@ -76,12 +77,16 @@ class VVIXTailRiskSignal:
                 "vix": vix,
                 "vix3m": vix3m,
                 "vix9d": vix9d,
-                "term_structure": (float(vix) - float(vix3m))
-                if (vix is not None and vix3m is not None)
-                else None,
-                "short_inversion": (float(vix9d) - float(vix))
-                if (vix9d is not None and vix is not None)
-                else None,
+                "term_structure": (
+                    (float(vix) - float(vix3m))
+                    if (vix is not None and vix3m is not None)
+                    else None
+                ),
+                "short_inversion": (
+                    (float(vix9d) - float(vix))
+                    if (vix9d is not None and vix is not None)
+                    else None
+                ),
             },
         )
 
@@ -95,8 +100,13 @@ class VVIXTailRiskSignal:
         except ImportError:
             return pd.DataFrame()
 
-        tickers = {"^VVIX": "vvix", "^SKEW": "skew", "^VIX": "vix",
-                   "^VIX9D": "vix9d", "^VIX3M": "vix3m"}
+        tickers = {
+            "^VVIX": "vvix",
+            "^SKEW": "skew",
+            "^VIX": "vix",
+            "^VIX9D": "vix9d",
+            "^VIX3M": "vix3m",
+        }
         frames: dict[str, pd.Series] = {}
         for ticker, col in tickers.items():
             try:
@@ -122,7 +132,7 @@ class VVIXTailRiskSignal:
             return 3
         if v >= t["high"]:
             return 2
-        if v >= t["calm"]:   # calm threshold is the lower bound of elevated regime
+        if v >= t["calm"]:  # calm threshold is the lower bound of elevated regime
             return 1
         return 0
 

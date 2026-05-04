@@ -134,7 +134,9 @@ def compute_regime_weights(
         if len(subset) < min_samples:
             logger.warning(
                 "Regime '%s' has only %d samples (need %d), using equal weights",
-                regime, len(subset), min_samples,
+                regime,
+                len(subset),
+                min_samples,
             )
             weights[regime] = {f: 1.0 / len(factors) for f in factors}
             continue
@@ -162,7 +164,9 @@ def save_weights(weights: dict, path: Path) -> None:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    parser = argparse.ArgumentParser(description="Train regime-conditional factor weights")
+    parser = argparse.ArgumentParser(
+        description="Train regime-conditional factor weights"
+    )
     parser.add_argument("--data-dir", type=Path, default=ROOT / "output" / "runs")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--synthetic", action="store_true")

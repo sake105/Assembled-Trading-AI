@@ -9,13 +9,14 @@ Usage:
 
 Exit: 0 no changes, 1 changes found
 """
+
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
 
-REPO_ROOT   = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_MAP = REPO_ROOT / "docs/architecture/system_map/data/system_map.json"
 
 
@@ -34,10 +35,11 @@ def diff(old_path: Path, new_path: Path) -> int:
     old_nodes = {n["id"]: n for n in old.get("nodes", [])}
     new_nodes = {n["id"]: n for n in new.get("nodes", [])}
 
-    added   = sorted(new_nodes.keys() - old_nodes.keys())
+    added = sorted(new_nodes.keys() - old_nodes.keys())
     removed = sorted(old_nodes.keys() - new_nodes.keys())
     changed_status = sorted(
-        nid for nid in new_nodes.keys() & old_nodes.keys()
+        nid
+        for nid in new_nodes.keys() & old_nodes.keys()
         if old_nodes[nid].get("status") != new_nodes[nid].get("status")
     )
 
@@ -46,9 +48,13 @@ def diff(old_path: Path, new_path: Path) -> int:
         return 0
 
     if added:
-        print(f"ADDED   ({len(added)}): {', '.join(added[:5])}{'...' if len(added) > 5 else ''}")
+        print(
+            f"ADDED   ({len(added)}): {', '.join(added[:5])}{'...' if len(added) > 5 else ''}"
+        )
     if removed:
-        print(f"REMOVED ({len(removed)}): {', '.join(removed[:5])}{'...' if len(removed) > 5 else ''}")
+        print(
+            f"REMOVED ({len(removed)}): {', '.join(removed[:5])}{'...' if len(removed) > 5 else ''}"
+        )
     if changed_status:
         print(f"STATUS  ({len(changed_status)}):")
         for nid in changed_status[:10]:
@@ -58,7 +64,9 @@ def diff(old_path: Path, new_path: Path) -> int:
         if len(changed_status) > 10:
             print(f"  ... and {len(changed_status) - 10} more")
 
-    print(f"\nSummary: +{len(added)} -{len(removed)} ~{len(changed_status)} status changes")
+    print(
+        f"\nSummary: +{len(added)} -{len(removed)} ~{len(changed_status)} status changes"
+    )
     return 1
 
 

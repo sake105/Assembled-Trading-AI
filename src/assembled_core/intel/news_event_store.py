@@ -53,7 +53,9 @@ class NewsEventStore:
         self._events.append(event)
 
         # Index tickers
-        for ticker in list(getattr(event, "tickers", []) or []) + list(getattr(event, "affected_assets", []) or []):
+        for ticker in list(getattr(event, "tickers", []) or []) + list(
+            getattr(event, "affected_assets", []) or []
+        ):
             self._idx_ticker[ticker.upper()].add(idx)
 
         # Index sectors
@@ -112,15 +114,25 @@ class NewsEventStore:
         """Return all events from the last N hours."""
         return self._filter_by_time(self._events, hours)
 
-    def query_by_severity(self, min_severity: float, hours: float | None = None) -> list:
+    def query_by_severity(
+        self, min_severity: float, hours: float | None = None
+    ) -> list:
         """Return events at or above the given severity."""
         candidates = self._filter_by_time(self._events, hours)
-        return [e for e in candidates if float(getattr(e, "severity", 0.0)) >= min_severity]
+        return [
+            e for e in candidates if float(getattr(e, "severity", 0.0)) >= min_severity
+        ]
 
-    def query_by_confidence(self, min_confidence: float, hours: float | None = None) -> list:
+    def query_by_confidence(
+        self, min_confidence: float, hours: float | None = None
+    ) -> list:
         """Return events at or above the given news_confidence."""
         candidates = self._filter_by_time(self._events, hours)
-        return [e for e in candidates if float(getattr(e, "news_confidence", 0.0)) >= min_confidence]
+        return [
+            e
+            for e in candidates
+            if float(getattr(e, "news_confidence", 0.0)) >= min_confidence
+        ]
 
     def query(self, predicate: Callable[[object], bool]) -> list:
         """Return events matching an arbitrary predicate function."""
@@ -143,7 +155,9 @@ class NewsEventStore:
         recent = self._filter_by_time(self._events, hours)
         counts: dict[str, int] = {}
         for evt in recent:
-            for ticker in list(getattr(evt, "tickers", []) or []) + list(getattr(evt, "affected_assets", []) or []):
+            for ticker in list(getattr(evt, "tickers", []) or []) + list(
+                getattr(evt, "affected_assets", []) or []
+            ):
                 counts[ticker] = counts.get(ticker, 0) + 1
         return sorted(counts.items(), key=lambda x: -x[1])[:n]
 
@@ -152,7 +166,9 @@ class NewsEventStore:
         recent = self._filter_by_time(self._events, hours)
         if not recent:
             return 0.0
-        return round(sum(float(getattr(e, "severity", 0.0)) for e in recent) / len(recent), 3)
+        return round(
+            sum(float(getattr(e, "severity", 0.0)) for e in recent) / len(recent), 3
+        )
 
     def clear(self) -> None:
         """Remove all stored events and reset indices."""
@@ -233,7 +249,9 @@ class NewsEventStore:
         self._idx_geo = defaultdict(set)
         self._idx_source = defaultdict(set)
         for new_idx, evt in enumerate(self._events):
-            for ticker in list(getattr(evt, "tickers", []) or []) + list(getattr(evt, "affected_assets", []) or []):
+            for ticker in list(getattr(evt, "tickers", []) or []) + list(
+                getattr(evt, "affected_assets", []) or []
+            ):
                 self._idx_ticker[ticker.upper()].add(new_idx)
             for sector in getattr(evt, "affected_sectors", []) or []:
                 self._idx_sector[sector.lower()].add(new_idx)

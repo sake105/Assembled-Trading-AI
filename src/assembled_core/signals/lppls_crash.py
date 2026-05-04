@@ -5,6 +5,7 @@ Uses `lppls` pip package if installed; otherwise pure numpy fallback.
 
 Reference: Sornette, D. (2003) Why Stock Markets Crash. Princeton University Press.
 """
+
 from __future__ import annotations
 
 import logging
@@ -61,7 +62,7 @@ class LPPLSCrashDetector:
     def _fit_lppls_lib(self, prices: np.ndarray) -> dict[str, Any]:
         from lppls import lppls as lppls_model  # noqa: PLC0415
 
-        window = prices[-self.fit_window:]
+        window = prices[-self.fit_window :]
         log_p = np.log(np.clip(window, 1e-9, None))
         t = np.arange(len(log_p))
 
@@ -87,7 +88,7 @@ class LPPLSCrashDetector:
 
         Linearises A, B, C given (tc, m, omega) and optimises nonlinear params.
         """
-        window = prices[-self.fit_window:]
+        window = prices[-self.fit_window :]
         log_p = np.log(np.clip(window, 1e-9, None))
         n = len(log_p)
         t = np.arange(n, dtype=float)
@@ -141,7 +142,7 @@ class LPPLSCrashDetector:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            power = dt ** m
+            power = dt**m
             phase = omega * np.log(dt)
 
         f1 = np.ones(len(t))
@@ -160,8 +161,16 @@ class LPPLSCrashDetector:
         phi = np.arctan2(C2, C1)
         residual = float(np.sum((log_p - X @ coef) ** 2))
 
-        return {"tc": tc, "m": m, "omega": omega, "A": A, "B": B, "C": C, "phi": phi,
-                "residual": residual}
+        return {
+            "tc": tc,
+            "m": m,
+            "omega": omega,
+            "A": A,
+            "B": B,
+            "C": C,
+            "phi": phi,
+            "residual": residual,
+        }
 
     @staticmethod
     def _compute_confidence(result: dict, n: int) -> float:

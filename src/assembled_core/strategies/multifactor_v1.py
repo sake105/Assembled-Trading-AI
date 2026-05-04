@@ -32,31 +32,26 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FACTOR_WEIGHTS = {
     # Trend factors (40%) — primary alpha source
-    "trend_ema_spread": 0.15,       # EMA20/EMA60 normalized spread
-    "trend_ma200_position": 0.10,   # Price vs MA200 (long-term trend)
-    "trend_adx_strength": 0.08,     # ADX trend strength
-    "trend_macd_hist": 0.07,        # MACD histogram momentum
-
+    "trend_ema_spread": 0.15,  # EMA20/EMA60 normalized spread
+    "trend_ma200_position": 0.10,  # Price vs MA200 (long-term trend)
+    "trend_adx_strength": 0.08,  # ADX trend strength
+    "trend_macd_hist": 0.07,  # MACD histogram momentum
     # Momentum factors (20%) — confirmation + timing
-    "mom_rsi_centered": 0.08,       # RSI centered around 50 (not overbought/oversold)
-    "mom_volume_weighted": 0.07,    # Volume-weighted momentum
-    "mom_obv_trend": 0.05,          # OBV slope (smart money)
-
+    "mom_rsi_centered": 0.08,  # RSI centered around 50 (not overbought/oversold)
+    "mom_volume_weighted": 0.07,  # Volume-weighted momentum
+    "mom_obv_trend": 0.05,  # OBV slope (smart money)
     # Mean-reversion guard (10%) — avoid buying tops
-    "mr_bollinger_pctb": 0.05,      # Bollinger %B (penalize >0.95)
-    "mr_stoch_oversold": 0.05,      # Stochastic K (reward oversold in uptrend)
-
+    "mr_bollinger_pctb": 0.05,  # Bollinger %B (penalize >0.95)
+    "mr_stoch_oversold": 0.05,  # Stochastic K (reward oversold in uptrend)
     # Volume/Liquidity (10%) — confirmation
-    "vol_abnormal": 0.05,           # Abnormal volume (breakout confirmation)
-    "vol_tick_imbalance": 0.05,     # Buy/sell pressure
-
+    "vol_abnormal": 0.05,  # Abnormal volume (breakout confirmation)
+    "vol_tick_imbalance": 0.05,  # Buy/sell pressure
     # Volatility regime (10%) — risk adjustment
-    "vola_regime_score": 0.05,      # Low vol = positive, high vol = negative
-    "vola_vov_penalty": 0.05,       # Vol-of-vol penalty (uncertainty)
-
+    "vola_regime_score": 0.05,  # Low vol = positive, high vol = negative
+    "vola_vov_penalty": 0.05,  # Vol-of-vol penalty (uncertainty)
     # Market breadth (10%) — universe-level filter
-    "breadth_above_ma": 0.05,       # Fraction above MA50
-    "breadth_ad_line": 0.05,        # Advance/decline momentum
+    "breadth_above_ma": 0.05,  # Fraction above MA50
+    "breadth_ad_line": 0.05,  # Advance/decline momentum
 }
 
 # ---------------------------------------------------------------------------
@@ -107,7 +102,8 @@ def compute_signals(
         enabled=bool(decay_cfg.get("enabled", False)),
         stale_multiplier=float(decay_cfg.get("stale_multiplier", 0.0)),
         report_path=(
-            None if decay_cfg.get("report_path") is None
+            None
+            if decay_cfg.get("report_path") is None
             else __import__("pathlib").Path(decay_cfg["report_path"])
         ),
     )
@@ -128,7 +124,9 @@ def compute_signals(
             ic_cfg["ic_snapshot"],
             lags=ic_cfg.get("lags") or {},
             half_lives=ic_cfg.get("half_lives") or {},
-            max_w_per_factor=float(ic_cfg.get("max_w_per_factor", DEFAULT_MAX_W_PER_FACTOR)),
+            max_w_per_factor=float(
+                ic_cfg.get("max_w_per_factor", DEFAULT_MAX_W_PER_FACTOR)
+            ),
             fallback_weights=weights,
         )
         weights = ic_result.weights
@@ -144,10 +142,7 @@ def compute_signals(
 
     # Work on latest bar per symbol only (EOD signal)
     latest = (
-        df.sort_values("timestamp")
-        .groupby("symbol", group_keys=False)
-        .tail(1)
-        .copy()
+        df.sort_values("timestamp").groupby("symbol", group_keys=False).tail(1).copy()
     )
 
     if latest.empty:
@@ -160,13 +155,19 @@ def compute_signals(
     # 1. TREND: EMA spread
     close = pd.to_numeric(latest.get("close", pd.Series(dtype=float)), errors="coerce")
     scores["trend_ema_spread"] = _compute_ema_spread(df, ema_fast, ema_slow)
-    scores["trend_ma200_position"] = _ma_position(latest, close, "ta_ma_200_v1", fallback_window=200)
-    scores["trend_adx_strength"] = _safe_col(latest, "ta_adx_v1", default=0.0) / 100.0  # normalize to 0-1
+    scores["trend_ma200_position"] = _ma_position(
+        latest, close, "ta_ma_200_v1", fallback_window=200
+    )
+    scores["trend_adx_strength"] = (
+        _safe_col(latest, "ta_adx_v1", default=0.0) / 100.0
+    )  # normalize to 0-1
     scores["trend_macd_hist"] = _safe_col(latest, "ta_macd_hist_v1", default=0.0)
 
     # 2. MOMENTUM
     scores["mom_rsi_centered"] = _rsi_score(latest)
-    scores["mom_volume_weighted"] = _safe_col(latest, "ta_vol_weighted_mom_20d_v1", default=0.0)
+    scores["mom_volume_weighted"] = _safe_col(
+        latest, "ta_vol_weighted_mom_20d_v1", default=0.0
+    )
     scores["mom_obv_trend"] = _obv_trend(df)
 
     # 3. MEAN-REVERSION GUARD
@@ -228,23 +229,35 @@ def compute_signals(
         else np.zeros(len(composite_arr))
     )
     sym_list = latest["symbol"].tolist()
-    ts_list = latest["timestamp"].tolist() if "timestamp" in latest.columns else [None] * len(latest)
+    ts_list = (
+        latest["timestamp"].tolist()
+        if "timestamp" in latest.columns
+        else [None] * len(latest)
+    )
     top_factors = used_factors[:3]
-    factor_arrs = {f: scores[f].to_numpy(dtype=float) for f in top_factors if f in scores.columns}
+    factor_arrs = {
+        f: scores[f].to_numpy(dtype=float) for f in top_factors if f in scores.columns
+    }
 
     out = []
     for i in range(len(latest)):
         score = composite_arr[i]
         ema_spread = ema_spread_arr[i]
-        if score > min_score and ema_spread > -0.5:  # Allow slight negative EMA if other factors strong
-            reasons = [f"{f}={factor_arrs[f][i]:.2f}" for f in top_factors if f in factor_arrs]
-            out.append({
-                "timestamp": ts_list[i],
-                "symbol": sym_list[i],
-                "direction": "LONG",
-                "score": float(score),
-                "reason": "; ".join(reasons),
-            })
+        if (
+            score > min_score and ema_spread > -0.5
+        ):  # Allow slight negative EMA if other factors strong
+            reasons = [
+                f"{f}={factor_arrs[f][i]:.2f}" for f in top_factors if f in factor_arrs
+            ]
+            out.append(
+                {
+                    "timestamp": ts_list[i],
+                    "symbol": sym_list[i],
+                    "direction": "LONG",
+                    "score": float(score),
+                    "reason": "; ".join(reasons),
+                }
+            )
 
     if not out:
         return _empty_signals()
@@ -252,7 +265,10 @@ def compute_signals(
     result = pd.DataFrame(out).sort_values("score", ascending=False)
     logger.info(
         "[MF-V1] %d LONG signals from %d symbols (regime_mult=%.2f, factors=%d)",
-        len(result), len(latest), regime_mult, len(used_factors),
+        len(result),
+        len(latest),
+        regime_mult,
+        len(used_factors),
     )
     return result
 
@@ -339,7 +355,7 @@ def compute_target_positions(
 
     # Cap maximum weight per position to prevent extreme concentration
     max_weight = 1.0 / max(n, 1) * 2.5  # At most 2.5x equal-weight share
-    max_weight = min(max_weight, 0.20)   # Hard cap at 20% per position
+    max_weight = min(max_weight, 0.20)  # Hard cap at 20% per position
     capped = False
     for s in syms:
         if weights[s] > max_weight:
@@ -353,11 +369,13 @@ def compute_target_positions(
     rows = []
     for sym in syms:
         w = weights[sym] * min(target_invested_pct, 1.0)
-        rows.append({
-            "symbol": sym,
-            "target_weight": w,
-            "target_qty": available_capital * weights[sym],  # NOTIONAL
-        })
+        rows.append(
+            {
+                "symbol": sym,
+                "target_weight": w,
+                "target_qty": available_capital * weights[sym],  # NOTIONAL
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -386,7 +404,9 @@ def check_exit_signals(
 
     price_map = {}
     if "symbol" in prices_latest.columns and "close" in prices_latest.columns:
-        price_map = dict(zip(prices_latest["symbol"].values, prices_latest["close"].values))
+        price_map = dict(
+            zip(prices_latest["symbol"].values, prices_latest["close"].values)
+        )
 
     exits = []
     for sym, pos in current_positions.items():
@@ -409,36 +429,42 @@ def check_exit_signals(
         if stop_loss_pct > 0:
             stop_price = avg_price * (1 - stop_loss_pct)
             if current_price <= stop_price:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"stop_loss ({current_price:.2f} <= {stop_price:.2f})",
-                    "exit_qty_pct": 1.0,
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"stop_loss ({current_price:.2f} <= {stop_price:.2f})",
+                        "exit_qty_pct": 1.0,
+                    }
+                )
                 continue
 
         # Trailing stop
         if trailing_stop_pct > 0 and hwm > avg_price:
             trail_price = hwm * (1 - trailing_stop_pct)
             if current_price <= trail_price:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"trailing_stop ({current_price:.2f} <= {trail_price:.2f}, hwm={hwm:.2f})",
-                    "exit_qty_pct": 1.0,
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"trailing_stop ({current_price:.2f} <= {trail_price:.2f}, hwm={hwm:.2f})",
+                        "exit_qty_pct": 1.0,
+                    }
+                )
                 continue
 
         # Take-profit
         if take_profit_pct > 0:
             tp_price = avg_price * (1 + take_profit_pct)
             if current_price >= tp_price:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"take_profit ({current_price:.2f} >= {tp_price:.2f})",
-                    "exit_qty_pct": 0.5,
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"take_profit ({current_price:.2f} >= {tp_price:.2f})",
+                        "exit_qty_pct": 0.5,
+                    }
+                )
                 continue
 
     if not exits:
@@ -449,6 +475,7 @@ def check_exit_signals(
 # ---------------------------------------------------------------------------
 # Internal factor computation helpers
 # ---------------------------------------------------------------------------
+
 
 def _empty_signals() -> pd.DataFrame:
     return pd.DataFrame(columns=["timestamp", "symbol", "direction", "score", "reason"])
@@ -481,7 +508,9 @@ def _compute_ema_spread(df: pd.DataFrame, fast: int, slow: int) -> pd.Series:
     return latest["symbol"].map(results).fillna(0.0)
 
 
-def _ma_position(latest: pd.DataFrame, close: pd.Series, ma_col: str, fallback_window: int = 200) -> pd.Series:
+def _ma_position(
+    latest: pd.DataFrame, close: pd.Series, ma_col: str, fallback_window: int = 200
+) -> pd.Series:
     """Price position relative to long-term MA. >0 = above MA (bullish)."""
     if ma_col in latest.columns:
         ma = pd.to_numeric(latest[ma_col], errors="coerce")
@@ -579,9 +608,7 @@ def _compute_breadth_score(df: pd.DataFrame) -> float:
     if "symbol" not in df.columns:
         return 0.0
     if "timestamp" in df.columns:
-        latest = df.sort_values("timestamp").groupby(
-            "symbol", group_keys=False
-        ).tail(1)
+        latest = df.sort_values("timestamp").groupby("symbol", group_keys=False).tail(1)
     else:
         latest = df.groupby("symbol", group_keys=False).tail(1)
     close = pd.to_numeric(latest.get("close", pd.Series(dtype=float)), errors="coerce")
@@ -644,9 +671,7 @@ def _crash_prediction_multiplier(df: pd.DataFrame, cfg: dict) -> float:
         else:
             mult = 1.0
 
-        logger.info(
-            "[MF-V1] CrashPrediction prob=%.3f -> mult=%.2f", prob, mult
-        )
+        logger.info("[MF-V1] CrashPrediction prob=%.3f -> mult=%.2f", prob, mult)
         return mult
     except Exception as exc:
         logger.debug("[MF-V1] crash-prediction unavailable: %s", exc)
@@ -667,6 +692,7 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
             DEFAULT_HALF_LIFE_DAYS,
             smooth_posterior,
         )
+
         try:
             smoothed = smooth_posterior(
                 reg_cfg["posterior"],
@@ -683,7 +709,8 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
             )
             logger.info(
                 "[MF-V1] Regime posterior-blended -> exposure_mult=%.3f (keys=%s)",
-                base_mult, sorted(smoothed.keys()),
+                base_mult,
+                sorted(smoothed.keys()),
             )
             crash_mult = _crash_prediction_multiplier(df, cfg)
             return base_mult * crash_mult
@@ -701,7 +728,9 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
             # silently defaulted to "neutral" which then maps to 0.70 —
             # indistinguishable from a correctly detected neutral regime. Log
             # the fallback so the distinction is observable.
-            if raw_label is None or (isinstance(raw_label, float) and raw_label != raw_label):
+            if raw_label is None or (
+                isinstance(raw_label, float) and raw_label != raw_label
+            ):
                 logger.warning(
                     "[MF-V1] regime_label missing/NaN in regime_df — using 'neutral' fallback"
                 )
@@ -712,7 +741,8 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
                 logger.warning(
                     "[MF-V1] regime_label=%r not in REGIME_EXPOSURE keys %s — "
                     "using 0.70 fallback",
-                    label, list(REGIME_EXPOSURE.keys()),
+                    label,
+                    list(REGIME_EXPOSURE.keys()),
                 )
             base_mult = REGIME_EXPOSURE.get(label, 0.70)
             logger.info("[MF-V1] Regime=%s -> exposure_mult=%.2f", label, base_mult)
@@ -727,7 +757,7 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
         elif breadth < -0.1:
             base_mult = 0.70  # Cautious
         elif breadth > 0.3:
-            base_mult = 1.0   # Bullish
+            base_mult = 1.0  # Bullish
         else:
             base_mult = 0.85  # Neutral
 

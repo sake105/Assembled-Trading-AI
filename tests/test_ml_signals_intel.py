@@ -8,6 +8,7 @@ import pytest
 def _scipy_available():
     try:
         import scipy  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -15,12 +16,14 @@ def _scipy_available():
 
 # ── Signal Confidence (1.9) ───────────────────────────────────────────
 
+
 class TestSignalConfidence:
 
     def test_import(self):
         from src.assembled_core.signals.signal_confidence import (
             compute_signal_confidence,
         )
+
         assert compute_signal_confidence is not None
 
     def test_bayesian_update(self):
@@ -34,7 +37,9 @@ class TestSignalConfidence:
 
     @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_signal_confidence_basic(self):
-        from src.assembled_core.signals.signal_confidence import compute_signal_confidence
+        from src.assembled_core.signals.signal_confidence import (
+            compute_signal_confidence,
+        )
 
         scores = pd.Series({"AAPL": 0.8, "MSFT": 0.3, "GOOG": -0.2, "AMZN": 0.5})
 
@@ -48,7 +53,8 @@ class TestSignalConfidence:
     @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_confidence_position_scaler(self):
         from src.assembled_core.signals.signal_confidence import (
-            compute_signal_confidence, confidence_position_scaler,
+            compute_signal_confidence,
+            confidence_position_scaler,
         )
 
         scores = pd.Series({"A": 0.9, "B": 0.1})
@@ -61,17 +67,23 @@ class TestSignalConfidence:
 
 # ── Multi-Channel Propagation (4.1) ──────────────────────────────────
 
+
 class TestMultiChannelPropagation:
 
     def test_import_v2(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.multichannel_propagation")
         from src.assembled_core.intel.multichannel_propagation import (
             propagate_multichannel,
         )
+
         assert propagate_multichannel is not None
 
     def test_exponential_decay(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.multichannel_propagation")
         from src.assembled_core.intel.multichannel_propagation import exponential_decay
 
         # At t=0, impact = magnitude
@@ -82,9 +94,12 @@ class TestMultiChannelPropagation:
         assert abs(exponential_decay(1.0, 10.0, 5.0) - 0.25) < 0.01
 
     def test_channel_impact_financial(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.multichannel_propagation")
         from src.assembled_core.intel.multichannel_propagation import (
-            compute_channel_impact, PropagationChannel,
+            compute_channel_impact,
+            PropagationChannel,
         )
 
         # Financial channel: fast (0-2d lag)
@@ -98,9 +113,12 @@ class TestMultiChannelPropagation:
         assert impact.channel == PropagationChannel.FINANCIAL
 
     def test_channel_impact_trade_delayed(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.multichannel_propagation")
         from src.assembled_core.intel.multichannel_propagation import (
-            compute_channel_impact, PropagationChannel,
+            compute_channel_impact,
+            PropagationChannel,
         )
 
         # Trade channel: slow (5-30d lag)
@@ -121,8 +139,12 @@ class TestMultiChannelPropagation:
         assert impact_peak.current_impact > 0  # active
 
     def test_propagate_multichannel(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
-        from src.assembled_core.intel.multichannel_propagation import propagate_multichannel
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.multichannel_propagation")
+        from src.assembled_core.intel.multichannel_propagation import (
+            propagate_multichannel,
+        )
 
         result = propagate_multichannel(
             initial_magnitude=0.7,
@@ -135,8 +157,12 @@ class TestMultiChannelPropagation:
         assert result.dominant_channel in ("financial", "trade", "sentiment")
 
     def test_impact_timeline(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
-        from src.assembled_core.intel.multichannel_propagation import compute_impact_timeline
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.multichannel_propagation")
+        from src.assembled_core.intel.multichannel_propagation import (
+            compute_impact_timeline,
+        )
 
         timeline = compute_impact_timeline(
             initial_magnitude=0.8,
@@ -149,9 +175,12 @@ class TestMultiChannelPropagation:
         assert max(timeline.values()) > 0
 
     def test_sentiment_instantaneous(self):
-        import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.intel.multichannel_propagation")
         from src.assembled_core.intel.multichannel_propagation import (
-            compute_channel_impact, PropagationChannel,
+            compute_channel_impact,
+            PropagationChannel,
         )
 
         # Sentiment is instantaneous
@@ -166,10 +195,12 @@ class TestMultiChannelPropagation:
 
 # ── Alpha Decay Half-Life (1.4) ───────────────────────────────────────
 
+
 class TestAlphaDecay:
 
     def test_import_v3(self):
         from src.assembled_core.qa.factor_analysis import estimate_alpha_decay_halflife
+
         assert estimate_alpha_decay_halflife is not None
 
     def test_decaying_ic(self):
@@ -181,10 +212,12 @@ class TestAlphaDecay:
         true_hl = 10.0
         ic_values = [ic_0 * np.exp(-np.log(2) * h / true_hl) for h in horizons]
 
-        ic_decay_df = pd.DataFrame({
-            "horizon_days": horizons,
-            "ic_mean": ic_values,
-        })
+        ic_decay_df = pd.DataFrame(
+            {
+                "horizon_days": horizons,
+                "ic_mean": ic_values,
+            }
+        )
 
         result = estimate_alpha_decay_halflife(ic_decay_df)
         assert abs(result["half_life_days"] - true_hl) < 2.0  # close to true
@@ -195,10 +228,12 @@ class TestAlphaDecay:
         from src.assembled_core.qa.factor_analysis import estimate_alpha_decay_halflife
 
         # Non-decaying IC (value factor)
-        ic_decay_df = pd.DataFrame({
-            "horizon_days": [1, 5, 10, 20, 60],
-            "ic_mean": [0.05, 0.05, 0.05, 0.05, 0.05],
-        })
+        ic_decay_df = pd.DataFrame(
+            {
+                "horizon_days": [1, 5, 10, 20, 60],
+                "ic_mean": [0.05, 0.05, 0.05, 0.05, 0.05],
+            }
+        )
 
         result = estimate_alpha_decay_halflife(ic_decay_df)
         # Should have very long or infinite half-life
@@ -212,6 +247,7 @@ class TestAlphaDecay:
 
 
 # ── IC Weights (1.1) ─────────────────────────────────────────────────
+
 
 class TestICWeights:
 
@@ -229,17 +265,21 @@ class TestICWeights:
             for s in range(n_symbols):
                 # Factor with predictive power
                 fwd = np.random.normal(0, 0.02)
-                rows.append({
-                    "timestamp": d,
-                    "symbol": f"SYM{s}",
-                    "factor_a": fwd + np.random.normal(0, 0.01),  # correlated
-                    "factor_b": np.random.normal(0, 0.02),  # uncorrelated
-                    "fwd_return": fwd,
-                })
+                rows.append(
+                    {
+                        "timestamp": d,
+                        "symbol": f"SYM{s}",
+                        "factor_a": fwd + np.random.normal(0, 0.01),  # correlated
+                        "factor_b": np.random.normal(0, 0.02),  # uncorrelated
+                        "fwd_return": fwd,
+                    }
+                )
         df = pd.DataFrame(rows)
 
         result = compute_ic_weights(
-            df, "fwd_return", ["factor_a", "factor_b"],
+            df,
+            "fwd_return",
+            ["factor_a", "factor_b"],
             ic_window=40,
         )
         assert not result.empty

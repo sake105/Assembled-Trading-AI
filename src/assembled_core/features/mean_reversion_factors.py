@@ -147,9 +147,7 @@ def compute_mean_reversion_factors(
         raise KeyError(f"prices is missing required columns: {sorted(missing)}")
 
     if prices.empty:
-        return pd.DataFrame(
-            columns=[timestamp_col, symbol_col, *_FACTOR_COLUMNS]
-        )
+        return pd.DataFrame(columns=[timestamp_col, symbol_col, *_FACTOR_COLUMNS])
 
     # Stable ordering: symbol, then timestamp. We preserve original row
     # order in the output by remembering the source index.

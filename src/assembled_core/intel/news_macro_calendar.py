@@ -56,9 +56,9 @@ _DEFAULT_WINDOWS: dict[str, tuple[int, int]] = {
 @dataclass
 class MacroEvent:
     event_id: str
-    kind: str          # "fomc", "cpi", "nfp", "earnings", ...
-    ts: datetime       # scheduled timestamp (UTC)
-    importance: int = 3   # 1 (low) – 5 (top)
+    kind: str  # "fomc", "cpi", "nfp", "earnings", ...
+    ts: datetime  # scheduled timestamp (UTC)
+    importance: int = 3  # 1 (low) – 5 (top)
     tickers: list[str] = field(default_factory=list)  # relevant tickers (for earnings)
     note: str = ""
 
@@ -66,7 +66,7 @@ class MacroEvent:
 @dataclass
 class Proximity:
     event: MacroEvent
-    minutes_to_event: float   # negative if event already passed
+    minutes_to_event: float  # negative if event already passed
     within_blackout: bool
 
 
@@ -80,9 +80,11 @@ class MacroCalendar:
     def add(self, event: MacroEvent) -> None:
         if event.ts.tzinfo is None:
             event = MacroEvent(
-                event_id=event.event_id, kind=event.kind,
+                event_id=event.event_id,
+                kind=event.kind,
                 ts=event.ts.replace(tzinfo=timezone.utc),
-                importance=event.importance, tickers=list(event.tickers),
+                importance=event.importance,
+                tickers=list(event.tickers),
                 note=event.note,
             )
         self._events.append(event)
@@ -101,14 +103,16 @@ class MacroCalendar:
         for entry in raw or []:
             try:
                 ts = datetime.fromisoformat(entry["ts"].replace("Z", "+00:00"))
-                self.add(MacroEvent(
-                    event_id=entry["event_id"],
-                    kind=entry.get("kind", "other").lower(),
-                    ts=ts,
-                    importance=int(entry.get("importance") or 3),
-                    tickers=list(entry.get("tickers", [])),
-                    note=entry.get("note", ""),
-                ))
+                self.add(
+                    MacroEvent(
+                        event_id=entry["event_id"],
+                        kind=entry.get("kind", "other").lower(),
+                        ts=ts,
+                        importance=int(entry.get("importance") or 3),
+                        tickers=list(entry.get("tickers", [])),
+                        note=entry.get("note", ""),
+                    )
+                )
                 count += 1
             except Exception as exc:
                 logger.debug("[SKIP] MacroCalendar entry: %s", exc)
@@ -151,7 +155,9 @@ class MacroCalendar:
             post = post_min
         minutes = (nearest.ts - now).total_seconds() / 60.0
         in_blackout = -post <= minutes <= pre
-        return Proximity(event=nearest, minutes_to_event=minutes, within_blackout=in_blackout)
+        return Proximity(
+            event=nearest, minutes_to_event=minutes, within_blackout=in_blackout
+        )
 
     def is_blackout(
         self,
@@ -161,8 +167,10 @@ class MacroCalendar:
     ) -> bool:
         """True if now is within the symmetric blackout window of the nearest event."""
         prox = self.proximity(
-            kind, now=now,
-            pre_min=window_min, post_min=window_min,
+            kind,
+            now=now,
+            pre_min=window_min,
+            post_min=window_min,
         )
         return bool(prox and prox.within_blackout)
 

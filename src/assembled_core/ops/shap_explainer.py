@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 def _try_shap():
     try:
         import shap
+
         return shap
     except ImportError:
         logger.warning("shap not installed — pip install shap==0.48")
@@ -80,7 +81,9 @@ def feature_attribution_per_trade(
         DataFrame with SHAP values: index=trade_idx, columns=feature_names.
         Returns None if computation fails.
     """
-    names = feature_names or (list(X_trade.columns) if isinstance(X_trade, pd.DataFrame) else None)
+    names = feature_names or (
+        list(X_trade.columns) if isinstance(X_trade, pd.DataFrame) else None
+    )
     shap_vals = compute_shap_values(model, X_trade)
     if shap_vals is None:
         return None
@@ -143,7 +146,11 @@ def pnl_attribution_waterfall(
 
     total = sum(abs(v) for v in groups.values()) + 1e-9
     rows = [
-        {"feature_group": k, "shap_contribution": v, "pct_of_total": abs(v) / total * 100}
+        {
+            "feature_group": k,
+            "shap_contribution": v,
+            "pct_of_total": abs(v) / total * 100,
+        }
         for k, v in sorted(groups.items(), key=lambda x: abs(x[1]), reverse=True)
     ]
     return pd.DataFrame(rows)

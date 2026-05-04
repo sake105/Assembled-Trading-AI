@@ -162,7 +162,9 @@ def get_qa_metrics(freq: str) -> PerformanceMetricsResponse:
         equity_df = None
         if portfolio_equity_file.exists():
             try:
-                equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
+                equity_df = pd.read_csv(
+                    portfolio_equity_file, dtype={"timestamp": "string"}
+                )
             except (IOError, OSError) as exc:
                 logger.warning(
                     f"Failed to read portfolio equity file {portfolio_equity_file}: {exc}"
@@ -175,7 +177,9 @@ def get_qa_metrics(freq: str) -> PerformanceMetricsResponse:
                 logger.info(f"Using portfolio equity: {len(equity_df)} rows")
         if equity_df is None and backtest_equity_file.exists():
             try:
-                equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": "string"})
+                equity_df = pd.read_csv(
+                    backtest_equity_file, dtype={"timestamp": "string"}
+                )
             except (IOError, OSError) as exc:
                 logger.warning(
                     f"Failed to read backtest equity file {backtest_equity_file}: {exc}"

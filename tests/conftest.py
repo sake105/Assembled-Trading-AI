@@ -17,7 +17,6 @@ import pytest
 
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
 
-
 # ---------------------------------------------------------------------------
 # P0 A9 (Deep Run v2, 2026-04-18) — marker consolidation.
 #
@@ -46,7 +45,9 @@ _LEGACY_MARKER_ALIASES: dict[str, str] = {
 
 def pytest_collection_modifyitems(config, items) -> None:  # pragma: no cover - wiring
     for item in items:
-        legacy_markers = [m.name for m in item.iter_markers() if m.name in _LEGACY_MARKER_ALIASES]
+        legacy_markers = [
+            m.name for m in item.iter_markers() if m.name in _LEGACY_MARKER_ALIASES
+        ]
         for legacy in legacy_markers:
             canonical = _LEGACY_MARKER_ALIASES[legacy]
             if canonical not in {m.name for m in item.iter_markers()}:

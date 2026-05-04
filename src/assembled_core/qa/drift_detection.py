@@ -454,4 +454,6 @@ def save_drift_results(
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"drift_analysis_{freq}.parquet"
     drift_df.to_parquet(path, index=False)
-    logger.info("[drift_detection] saved drift results → %s (%d features)", path, len(drift_df))
+    logger.info(
+        "[drift_detection] saved drift results → %s (%d features)", path, len(drift_df)
+    )

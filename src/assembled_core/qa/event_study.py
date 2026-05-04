@@ -330,7 +330,9 @@ def compute_event_returns(
 
             # Compute benchmark returns
             if return_type == "log":
-                benchmark_returns = np.diff(np.log(np.clip(benchmark_prices, 1e-10, None)))
+                benchmark_returns = np.diff(
+                    np.log(np.clip(benchmark_prices, 1e-10, None))
+                )
                 benchmark_returns = np.concatenate([[np.nan], benchmark_returns])
             else:
                 benchmark_returns = np.diff(benchmark_prices) / benchmark_prices[:-1]

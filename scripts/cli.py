@@ -14,6 +14,7 @@ Usage:
     python scripts/cli.py info
     python scripts/cli.py --version
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,7 +58,10 @@ _COMMAND_MODULES = [
 # Re-export handler functions for backward-compatible imports (e.g., tests)
 from scripts.commands.info import print_version
 from scripts.commands.ml import _run_backtest_for_ml_dataset  # noqa: F401
-from scripts.commands.paper import run_paper_experiment_subcommand, summarize_intel_activity_subcommand  # noqa: F401
+from scripts.commands.paper import (
+    run_paper_experiment_subcommand,
+    summarize_intel_activity_subcommand,
+)  # noqa: F401
 from scripts.commands.backtest import batch_backtest_subcommand  # noqa: F401
 
 

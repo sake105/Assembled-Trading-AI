@@ -204,7 +204,11 @@ def compute_implementation_shortfall(
         if arrival_prices_df is None or arrival_prices_df.empty:
             out["arrival_price"] = np.nan
         else:
-            join_cols = [c for c in ("timestamp", "symbol") if c in out.columns and c in arrival_prices_df.columns]
+            join_cols = [
+                c
+                for c in ("timestamp", "symbol")
+                if c in out.columns and c in arrival_prices_df.columns
+            ]
             if not join_cols:
                 out["arrival_price"] = np.nan
             else:
@@ -225,7 +229,13 @@ def compute_implementation_shortfall(
 
     # Sign: +1 for BUY, -1 for SELL; default +1 if no side column present
     if "side" in out.columns:
-        sign = out["side"].astype(str).str.upper().map({"BUY": 1.0, "SELL": -1.0}).fillna(1.0)
+        sign = (
+            out["side"]
+            .astype(str)
+            .str.upper()
+            .map({"BUY": 1.0, "SELL": -1.0})
+            .fillna(1.0)
+        )
     else:
         sign = pd.Series(1.0, index=out.index)
 

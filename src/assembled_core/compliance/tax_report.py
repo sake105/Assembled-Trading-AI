@@ -15,13 +15,16 @@ The annual tax report (Anlage KAP) requires:
   - Estimated tax after Sparer-Pauschbetrag
   - Count of trades and holding days
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 ABGELTUNGSTEUER_RATE: float = 0.25
 SOLIDARITAETSZUSCHLAG_RATE: float = 0.055
-EFFECTIVE_TAX_RATE: float = ABGELTUNGSTEUER_RATE * (1 + SOLIDARITAETSZUSCHLAG_RATE)  # 0.26375
+EFFECTIVE_TAX_RATE: float = ABGELTUNGSTEUER_RATE * (
+    1 + SOLIDARITAETSZUSCHLAG_RATE
+)  # 0.26375
 SPARER_PAUSCHBETRAG_EUR: float = 1_000.0  # 2026, single person
 
 
@@ -36,7 +39,7 @@ class TaxReportSummary:
     total_realized_pnl_eur: float = 0.0
     total_wins_eur: float = 0.0
     total_losses_eur: float = 0.0
-    taxable_pnl_eur: float = 0.0          # after Sparer-Pauschbetrag
+    taxable_pnl_eur: float = 0.0  # after Sparer-Pauschbetrag
     estimated_tax_eur: float = 0.0
     effective_tax_rate: float = EFFECTIVE_TAX_RATE
     notes: list[str] = field(default_factory=list)
@@ -56,9 +59,9 @@ def summarize_closed_lots(
     Only lots whose ``trade_date.year`` equals *year* are included.
     """
     relevant = [
-        lot for lot in closed_lots
-        if hasattr(lot.get("trade_date"), "year")
-        and lot["trade_date"].year == year
+        lot
+        for lot in closed_lots
+        if hasattr(lot.get("trade_date"), "year") and lot["trade_date"].year == year
     ]
 
     total = sum(float(lot.get("realized_pnl_eur") or 0.0) for lot in relevant)

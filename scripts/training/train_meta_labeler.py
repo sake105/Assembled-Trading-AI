@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Trainiere MetaLabeler aus learning_store")
+    parser = argparse.ArgumentParser(
+        description="Trainiere MetaLabeler aus learning_store"
+    )
     parser.add_argument(
         "--learning-store",
         type=Path,
@@ -76,6 +78,7 @@ def main() -> int:
 
     if args.dry_run:
         from src.assembled_core.ml.meta_labeling import _load_records_from_store
+
         records = _load_records_from_store(args.learning_store, as_of=as_of)
         logger.info("--dry-run: %d Records verfügbar", len(records))
         return 0
@@ -100,9 +103,7 @@ def main() -> int:
     labeler.save(args.out)
 
     report_path = args.out.with_suffix(".report.json")
-    report_path.write_text(
-        json.dumps(report, indent=2, default=str), encoding="utf-8"
-    )
+    report_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     logger.info("Report: %s", report_path)
     return 0
 

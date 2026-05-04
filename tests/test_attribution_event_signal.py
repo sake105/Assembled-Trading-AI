@@ -14,13 +14,15 @@ class TestEventSignalAttribution:
     def _make_fills(self, buckets: list[str], cost_bps: float = 5.0) -> pd.DataFrame:
         rows = []
         for i, b in enumerate(buckets):
-            rows.append({
-                "symbol": f"SYM{i}",
-                "event_signal_bucket": b,
-                "fill_qty": 100.0,
-                "fill_price": 50.0,
-                "total_cost_bps": cost_bps,
-            })
+            rows.append(
+                {
+                    "symbol": f"SYM{i}",
+                    "event_signal_bucket": b,
+                    "fill_qty": 100.0,
+                    "fill_price": 50.0,
+                    "total_cost_bps": cost_bps,
+                }
+            )
         return pd.DataFrame(rows)
 
     def test_basic_aggregation(self):
@@ -47,13 +49,17 @@ class TestEventSignalAttribution:
         assert row["total_cost_bps"] > 0
 
     def test_custom_bucket_column(self):
-        fills = pd.DataFrame([{
-            "symbol": "X",
-            "my_bucket": "geo_conflict",
-            "fill_qty": 50.0,
-            "fill_price": 100.0,
-            "total_cost_bps": 3.0,
-        }])
+        fills = pd.DataFrame(
+            [
+                {
+                    "symbol": "X",
+                    "my_bucket": "geo_conflict",
+                    "fill_qty": 50.0,
+                    "fill_price": 100.0,
+                    "total_cost_bps": 3.0,
+                }
+            ]
+        )
         result = compute_event_signal_attribution(fills, bucket_column="my_bucket")
         assert not result.empty
         assert result.iloc[0]["event_signal_bucket"] == "geo_conflict"

@@ -327,7 +327,11 @@ def get_runtime_profile(
             return RuntimeProfile(profile_str)
         except ValueError as exc:
             # Invalid profile, fall through to default
-            logger.warning("[Settings] invalid runtime profile %r, falling through to default: %s", profile_str, exc)
+            logger.warning(
+                "[Settings] invalid runtime profile %r, falling through to default: %s",
+                profile_str,
+                exc,
+            )
 
     # Priority 2: Environment variable
     env_value = os.environ.get(env_var, "").strip().upper()
@@ -336,7 +340,11 @@ def get_runtime_profile(
             return RuntimeProfile(env_value)
         except ValueError as exc:
             # Invalid value in env var, fall through to default
-            logger.warning("[Settings] invalid runtime profile in env var %r, falling through to default: %s", env_value, exc)
+            logger.warning(
+                "[Settings] invalid runtime profile in env var %r, falling through to default: %s",
+                env_value,
+                exc,
+            )
 
     # Priority 3: Default
     return RuntimeProfile.DEV

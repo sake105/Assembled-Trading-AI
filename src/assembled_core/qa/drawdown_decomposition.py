@@ -59,7 +59,9 @@ class DrawdownDecompositionReport:
             "r_squared": round(self.r_squared, 4),
             "idiosyncratic": round(self.idiosyncratic_return, 6),
             "factor_betas": {k: round(v, 4) for k, v in self.factor_betas.items()},
-            "factor_contributions": {k: round(v, 6) for k, v in self.factor_contributions.items()},
+            "factor_contributions": {
+                k: round(v, 6) for k, v in self.factor_contributions.items()
+            },
         }
 
 
@@ -72,7 +74,7 @@ def find_worst_drawdown(returns: pd.Series) -> DrawdownPeriod:
     # Worst point
     trough_idx = int(dd.values.argmin())
     # Peak before trough
-    peak_idx = int(equity.iloc[:trough_idx + 1].values.argmax())
+    peak_idx = int(equity.iloc[: trough_idx + 1].values.argmax())
 
     max_dd = float(dd.iloc[trough_idx])
     duration = trough_idx - peak_idx
@@ -84,8 +86,12 @@ def find_worst_drawdown(returns: pd.Series) -> DrawdownPeriod:
         trough_value=float(equity.iloc[trough_idx]),
         max_drawdown=max_dd,
         duration=duration,
-        start_timestamp=str(returns.index[peak_idx]) if hasattr(returns.index, "date") else None,
-        end_timestamp=str(returns.index[trough_idx]) if hasattr(returns.index, "date") else None,
+        start_timestamp=(
+            str(returns.index[peak_idx]) if hasattr(returns.index, "date") else None
+        ),
+        end_timestamp=(
+            str(returns.index[trough_idx]) if hasattr(returns.index, "date") else None
+        ),
     )
 
 
@@ -105,12 +111,17 @@ def decompose_drawdown(
     dd = find_worst_drawdown(portfolio_returns)
 
     # Slice auf DD-Periode
-    port_slice = portfolio_returns.iloc[dd.start_idx:dd.end_idx + 1]
-    factor_slice = factor_returns.loc[port_slice.index.intersection(factor_returns.index)]
+    port_slice = portfolio_returns.iloc[dd.start_idx : dd.end_idx + 1]
+    factor_slice = factor_returns.loc[
+        port_slice.index.intersection(factor_returns.index)
+    ]
     port_slice = port_slice.loc[factor_slice.index]
 
     if len(port_slice) < 10:
-        logger.warning("[DDDecomp] Nur %d Perioden im DD — zu wenig für Regression", len(port_slice))
+        logger.warning(
+            "[DDDecomp] Nur %d Perioden im DD — zu wenig für Regression",
+            len(port_slice),
+        )
         return DrawdownDecompositionReport(drawdown=dd)
 
     try:
@@ -124,7 +135,9 @@ def decompose_drawdown(
             alpha_during_dd=attr.alpha,
             alpha_t_stat=attr.alpha_t_stat,
             r_squared=attr.r_squared,
-            idiosyncratic_return=float(port_slice.mean() - sum(attr.factor_contributions.values())),
+            idiosyncratic_return=float(
+                port_slice.mean() - sum(attr.factor_contributions.values())
+            ),
         )
     except Exception as exc:
         logger.warning("[DDDecomp] Attribution fehlgeschlagen: %s", exc)
@@ -162,14 +175,16 @@ def find_all_drawdowns(
             trough_idx = current_peak_idx + trough_idx_rel
             duration = trough_idx - current_peak_idx
             if duration >= min_duration:
-                drawdowns.append(DrawdownPeriod(
-                    start_idx=current_peak_idx,
-                    end_idx=trough_idx,
-                    peak_value=float(equity_arr[current_peak_idx]),
-                    trough_value=float(equity_arr[trough_idx]),
-                    max_drawdown=float(dd_arr[trough_idx]),
-                    duration=duration,
-                ))
+                drawdowns.append(
+                    DrawdownPeriod(
+                        start_idx=current_peak_idx,
+                        end_idx=trough_idx,
+                        peak_value=float(equity_arr[current_peak_idx]),
+                        trough_value=float(equity_arr[trough_idx]),
+                        max_drawdown=float(dd_arr[trough_idx]),
+                        duration=duration,
+                    )
+                )
             in_dd = False
 
     return drawdowns

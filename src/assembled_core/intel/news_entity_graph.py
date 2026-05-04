@@ -40,9 +40,9 @@ class _Edge:
 @dataclass
 class EntityStat:
     entity: str
-    degree: int       # number of distinct neighbours
-    strength: int     # sum of edge weights
-    n_events: int     # number of events the entity appeared in
+    degree: int  # number of distinct neighbours
+    strength: int  # sum of edge weights
+    n_events: int  # number of events the entity appeared in
 
 
 class EntityCoGraph:
@@ -79,7 +79,11 @@ class EntityCoGraph:
                         for e in ents:
                             self._counts[e] += 1
                     continue
-                ts = getattr(evt, "published_at", None) or getattr(evt, "ingested_at", None) or now
+                ts = (
+                    getattr(evt, "published_at", None)
+                    or getattr(evt, "ingested_at", None)
+                    or now
+                )
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
                 ents = ents[: self._max_per_event]
@@ -177,12 +181,14 @@ class EntityCoGraph:
         stats: list[EntityStat] = []
         for ent, edges in self._adj.items():
             strength = sum(e.weight for e in edges.values())
-            stats.append(EntityStat(
-                entity=ent,
-                degree=len(edges),
-                strength=strength,
-                n_events=self._counts.get(ent, 0),
-            ))
+            stats.append(
+                EntityStat(
+                    entity=ent,
+                    degree=len(edges),
+                    strength=strength,
+                    n_events=self._counts.get(ent, 0),
+                )
+            )
         stats.sort(key=lambda s: (-s.strength, -s.degree))
         return stats[:n]
 

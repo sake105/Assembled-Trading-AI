@@ -3,43 +3,50 @@
 import numpy as np
 import pandas as pd
 
-
 # ── Circuit Breaker (6.1) ─────────────────────────────────────────────
+
 
 class TestCircuitBreaker:
 
     def test_import(self):
         from src.assembled_core.execution.fill_model import check_circuit_breaker
+
         assert check_circuit_breaker is not None
 
     def test_no_halt_normal_day(self):
         from src.assembled_core.execution.fill_model import check_circuit_breaker
+
         halted, reason = check_circuit_breaker(market_return_today=-0.02)
         assert not halted
         assert reason == ""
 
     def test_level1_halt(self):
         from src.assembled_core.execution.fill_model import check_circuit_breaker
+
         halted, reason = check_circuit_breaker(market_return_today=-0.08)
         assert halted
         assert "L1" in reason
 
     def test_level2_halt(self):
         from src.assembled_core.execution.fill_model import check_circuit_breaker
+
         halted, reason = check_circuit_breaker(market_return_today=-0.14)
         assert halted
         assert "L2" in reason
 
     def test_level3_halt(self):
         from src.assembled_core.execution.fill_model import check_circuit_breaker
+
         halted, reason = check_circuit_breaker(market_return_today=-0.21)
         assert halted
         assert "L3" in reason
 
     def test_luld_halt(self):
         from src.assembled_core.execution.fill_model import check_circuit_breaker
+
         halted, reason = check_circuit_breaker(
-            market_return_today=-0.01, symbol_5min_return=0.07,
+            market_return_today=-0.01,
+            symbol_5min_return=0.07,
         )
         assert halted
         assert "LULD" in reason
@@ -47,38 +54,58 @@ class TestCircuitBreaker:
 
 # ── Adversarial Fill (6.3) ────────────────────────────────────────────
 
+
 class TestAdversarialFill:
 
     def test_import_v2(self):
         from src.assembled_core.execution.fill_model import (
             compute_adversarial_fill_cost,
         )
+
         assert compute_adversarial_fill_cost is not None
 
     def test_zero_signal_no_cost(self):
-        from src.assembled_core.execution.fill_model import compute_adversarial_fill_cost
+        from src.assembled_core.execution.fill_model import (
+            compute_adversarial_fill_cost,
+        )
+
         cost = compute_adversarial_fill_cost(
-            order_size=10000, signal_strength=0.0, adv=1_000_000,
+            order_size=10000,
+            signal_strength=0.0,
+            adv=1_000_000,
         )
         assert cost == 0.0
 
     def test_high_signal_higher_cost(self):
-        from src.assembled_core.execution.fill_model import compute_adversarial_fill_cost
+        from src.assembled_core.execution.fill_model import (
+            compute_adversarial_fill_cost,
+        )
+
         cost_low = compute_adversarial_fill_cost(
-            order_size=10000, signal_strength=0.2, adv=1_000_000,
+            order_size=10000,
+            signal_strength=0.2,
+            adv=1_000_000,
         )
         cost_high = compute_adversarial_fill_cost(
-            order_size=10000, signal_strength=0.8, adv=1_000_000,
+            order_size=10000,
+            signal_strength=0.8,
+            adv=1_000_000,
         )
         assert cost_high > cost_low
 
     def test_fill_adjustment_buy(self):
-        from src.assembled_core.execution.fill_model import apply_adversarial_fill_adjustment
+        from src.assembled_core.execution.fill_model import (
+            apply_adversarial_fill_adjustment,
+        )
+
         adjusted = apply_adversarial_fill_adjustment(100.0, "BUY", 10.0)
         assert adjusted > 100.0  # buy fills higher (worse)
 
     def test_fill_adjustment_sell(self):
-        from src.assembled_core.execution.fill_model import apply_adversarial_fill_adjustment
+        from src.assembled_core.execution.fill_model import (
+            apply_adversarial_fill_adjustment,
+        )
+
         adjusted = apply_adversarial_fill_adjustment(100.0, "SELL", 10.0)
         assert adjusted < 100.0  # sell fills lower (worse)
 
@@ -90,10 +117,12 @@ class TestAdversarialFill:
 
 # ── Benchmark Metrics (9.2) ───────────────────────────────────────────
 
+
 class TestBenchmarkMetrics:
 
     def test_import_v3(self):
         from src.assembled_core.qa.metrics import compute_benchmark_relative_metrics
+
         assert compute_benchmark_relative_metrics is not None
 
     def test_basic_metrics(self):
@@ -138,10 +167,12 @@ class TestBenchmarkMetrics:
 
 # ── Permutation Test (9.4) ────────────────────────────────────────────
 
+
 class TestPermutationTest:
 
     def test_import_v4(self):
         from src.assembled_core.qa.metrics import permutation_test_sharpe
+
         assert permutation_test_sharpe is not None
 
     def test_basic_output(self):
@@ -178,10 +209,12 @@ class TestPermutationTest:
 
 # ── Daily P&L Reconciliation (8.1) ────────────────────────────────────
 
+
 class TestDailyPnLReconciliation:
 
     def test_import_v5(self):
         from src.assembled_core.accounting.reconciliation import reconcile_daily_pnl
+
         assert reconcile_daily_pnl is not None
 
     def test_matching_pnl(self):
@@ -195,7 +228,10 @@ class TestDailyPnLReconciliation:
         portfolio_return = 0.005
 
         result = reconcile_daily_pnl(
-            positions, prices_start, prices_end, portfolio_return,
+            positions,
+            prices_start,
+            prices_end,
+            portfolio_return,
         )
         assert result["ok"]
         assert abs(result["unexplained_return"]) < 0.001
@@ -211,7 +247,10 @@ class TestDailyPnLReconciliation:
         portfolio_return = 0.02  # 2% but should be 0.5%
 
         result = reconcile_daily_pnl(
-            positions, prices_start, prices_end, portfolio_return,
+            positions,
+            prices_start,
+            prices_end,
+            portfolio_return,
         )
         assert not result["ok"]
         assert result["break_reason"] != ""
@@ -224,7 +263,10 @@ class TestDailyPnLReconciliation:
         prices_end = {"A": 55.0, "B": 95.0}
 
         result = reconcile_daily_pnl(
-            positions, prices_start, prices_end, 0.04,
+            positions,
+            prices_start,
+            prices_end,
+            0.04,
         )
         assert "A" in result["position_contributions"]
         assert result["position_contributions"]["A"] > 0  # A went up

@@ -1,4 +1,5 @@
 """Look-ahead bias and recursive (feature leakage) bias detection."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -26,7 +27,9 @@ class LeakageAnalyzer:
     - Normalization leakage: scaler fit on full dataset before train/test split
     """
 
-    def __init__(self, max_lag_check: int = 5, correlation_threshold: float = 0.95) -> None:
+    def __init__(
+        self, max_lag_check: int = 5, correlation_threshold: float = 0.95
+    ) -> None:
         self.max_lag_check = max_lag_check
         self.correlation_threshold = correlation_threshold
 
@@ -127,8 +130,11 @@ class LeakageAnalyzer:
                         leakage_type="normalization",
                         evidence=f"Test mean ≈ train mean (z={z:.3f}); possible full-dataset scaler fit",
                         severity="low",
-                        details={"z_score": z, "train_mean": float(train_means[col]),
-                                 "test_mean": float(test_means[col])},
+                        details={
+                            "z_score": z,
+                            "train_mean": float(train_means[col]),
+                            "test_mean": float(test_means[col]),
+                        },
                     )
                 )
         return reports

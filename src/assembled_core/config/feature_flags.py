@@ -7,6 +7,7 @@ Flags follow a 4-stage lifecycle:
 
 Golden rule: new features in prod always start as 'shadow', then 'canary', then 'on'.
 """
+
 from __future__ import annotations
 
 import logging
@@ -61,10 +62,17 @@ def load_flags() -> FeatureFlags:
     """
     try:
         from assembled_core.config.settings import get_settings
+
         settings = get_settings()
-        env = settings.environment.value if hasattr(settings.environment, "value") else str(settings.environment)
+        env = (
+            settings.environment.value
+            if hasattr(settings.environment, "value")
+            else str(settings.environment)
+        )
     except Exception as exc:
-        logger.warning("load_flags: could not read settings (%s) — using prod defaults", exc)
+        logger.warning(
+            "load_flags: could not read settings (%s) — using prod defaults", exc
+        )
         env = "prod"
 
     if env in ("dev", "development"):
@@ -98,15 +106,26 @@ def emit_startup_banner() -> None:
     """
     try:
         from assembled_core.config.settings import get_settings
+
         settings = get_settings()
-        env = settings.environment.value if hasattr(settings.environment, "value") else str(settings.environment)
+        env = (
+            settings.environment.value
+            if hasattr(settings.environment, "value")
+            else str(settings.environment)
+        )
         mode_attr = getattr(settings, "trading_mode", None)
-        mode = mode_attr.value if hasattr(mode_attr, "value") else str(mode_attr) if mode_attr else "unknown"
+        mode = (
+            mode_attr.value
+            if hasattr(mode_attr, "value")
+            else str(mode_attr) if mode_attr else "unknown"
+        )
     except Exception:
         env = "unknown"
         mode = "unknown"
 
-    banner_char = {"dev": "_", "development": "_", "staging": "-", "paper": "-"}.get(env, "!")
+    banner_char = {"dev": "_", "development": "_", "staging": "-", "paper": "-"}.get(
+        env, "!"
+    )
     width = 60
     lines = [
         banner_char * width,

@@ -49,6 +49,7 @@ _TICKER_TO_WIKI: dict[str, str] = {
 def _try_mwviews():
     try:
         from mwviews.api import PageviewsClient
+
         return PageviewsClient
     except ImportError:
         logger.warning("mwviews not installed — pip install mwviews==0.3")

@@ -33,19 +33,29 @@ def detect_volume_anomaly(
     if len(event_counts) < window:
         return {"is_anomaly": False, "zscore": 0.0}
 
-    baseline = event_counts.iloc[-(window + 1):-1]
+    baseline = event_counts.iloc[-(window + 1) : -1]
     current = float(event_counts.iloc[-1])
     mean = float(baseline.mean())
     std = float(baseline.std())
 
     if pd.isna(std) or std < 1e-6:
-        return {"is_anomaly": False, "zscore": 0.0, "baseline_mean": mean, "current_count": current}
+        return {
+            "is_anomaly": False,
+            "zscore": 0.0,
+            "baseline_mean": mean,
+            "current_count": current,
+        }
 
     zscore = (current - mean) / std
     is_anomaly = zscore > sigma_threshold
 
     if is_anomaly:
-        logger.warning("[WildCard] Volume anomaly: z=%.1f (current=%d, baseline_mean=%.0f)", zscore, current, mean)
+        logger.warning(
+            "[WildCard] Volume anomaly: z=%.1f (current=%d, baseline_mean=%.0f)",
+            zscore,
+            current,
+            mean,
+        )
 
     return {
         "is_anomaly": is_anomaly,
@@ -81,7 +91,11 @@ def detect_cross_domain_spike(
     alert = len(spiking) >= min_domains
 
     if alert:
-        logger.warning("[WildCard] Cross-domain spike: %d domains spiking: %s", len(spiking), spiking)
+        logger.warning(
+            "[WildCard] Cross-domain spike: %d domains spiking: %s",
+            len(spiking),
+            spiking,
+        )
 
     return {
         "alert": alert,

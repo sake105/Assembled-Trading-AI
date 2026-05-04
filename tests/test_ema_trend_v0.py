@@ -13,7 +13,6 @@ from src.assembled_core.strategies.ema_trend_v0 import (
     compute_target_positions,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

@@ -37,6 +37,7 @@ CARRY_ETFS = {
 def _try_yfinance():
     try:
         import yfinance as yf
+
         return yf
     except ImportError:
         logger.warning("yfinance not installed — pip install yfinance")

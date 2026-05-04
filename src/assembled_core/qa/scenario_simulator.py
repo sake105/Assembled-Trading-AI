@@ -133,7 +133,7 @@ def simulate_correlation_breakdown_scenario(
     orig_std = portfolio_returns.std().values
     # build target cov matrix with target_correlation
     target_cov = np.outer(orig_std, orig_std) * target_correlation
-    np.fill_diagonal(target_cov, orig_std ** 2)
+    np.fill_diagonal(target_cov, orig_std**2)
 
     # Equal weighted portfolio (simpel)
     weights = np.ones(n_assets) / n_assets
@@ -188,7 +188,11 @@ def run_stress_test(
         scenarios.append(simulate_vol_spike_scenario(baseline_returns))
     if include_crash:
         scenarios.append(simulate_crash_scenario(baseline_returns))
-    if include_correlation and portfolio_returns is not None and portfolio_returns.shape[1] > 1:
+    if (
+        include_correlation
+        and portfolio_returns is not None
+        and portfolio_returns.shape[1] > 1
+    ):
         scenarios.append(simulate_correlation_breakdown_scenario(portfolio_returns))
 
     worst = min(scenarios, key=lambda s: s.cvar_95) if scenarios else None

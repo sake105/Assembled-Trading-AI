@@ -21,7 +21,6 @@ from src.assembled_core.execution.risk_controls import (
     filter_orders_with_risk_controls,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

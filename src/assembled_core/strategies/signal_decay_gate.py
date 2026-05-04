@@ -56,7 +56,9 @@ DEFAULT_HEALTHY_MULTIPLIER = 1.0
 
 def _load_report(path: Path) -> dict[str, Any] | None:
     if not path.exists():
-        logger.info("[signal_decay] no report at %s — falling back to 1.0 multipliers", path)
+        logger.info(
+            "[signal_decay] no report at %s — falling back to 1.0 multipliers", path
+        )
         return None
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -116,5 +118,7 @@ def apply_multipliers(
     )
     if not enabled:
         return dict(weights), multipliers
-    effective = {name: float(w) * multipliers.get(name, 1.0) for name, w in weights.items()}
+    effective = {
+        name: float(w) * multipliers.get(name, 1.0) for name, w in weights.items()
+    }
     return effective, multipliers

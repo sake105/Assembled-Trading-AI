@@ -18,7 +18,6 @@ from src.assembled_core.data.cost_model_policy import (
     get_effective_cost_params,
 )
 
-
 # ---------------------------------------------------------------------------
 # estimate_rebalance_cost_fraction
 # ---------------------------------------------------------------------------

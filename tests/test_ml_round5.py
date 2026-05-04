@@ -13,9 +13,12 @@ pytestmark = pytest.mark.phase12
 # Signal 7: Distribution-Shift
 # ---------------------------------------------------------------------------
 
+
 def test_signal7_detects_shift_in_feedback_loop():
     """FeedbackLoopController detectiert distribution-shift auf panel mit starkem Shift."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.feedback_loop')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.feedback_loop")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.feedback_loop import FeedbackLoopController
 
@@ -24,36 +27,46 @@ def test_signal7_detects_shift_in_feedback_loop():
     # Erste Hälfte N(0,1), zweite N(3, 2)
     stable = rng.standard_normal(n // 2)
     shifted = rng.standard_normal(n // 2) * 2 + 3
-    panel = pd.DataFrame({
-        "timestamp": pd.date_range("2025-01-01", periods=n),
-        "f1": np.concatenate([stable, shifted]),
-        "f2": rng.standard_normal(n),
-    })
+    panel = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2025-01-01", periods=n),
+            "f1": np.concatenate([stable, shifted]),
+            "f2": rng.standard_normal(n),
+        }
+    )
 
     controller = FeedbackLoopController()
     skipped: list[str] = []
-    fired, auc = controller._check_distribution_shift(panel, skipped, train_fraction=0.5)
+    fired, auc = controller._check_distribution_shift(
+        panel, skipped, train_fraction=0.5
+    )
     # Strong shift sollte detektiert werden
     assert auc > 0.65
     assert fired is True
 
 
 def test_signal7_no_shift_when_stable():
-    import pytest; pytest.importorskip('src.assembled_core.ml.feedback_loop')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.feedback_loop")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.feedback_loop import FeedbackLoopController
 
     rng = np.random.default_rng(2)
     n = 400
-    panel = pd.DataFrame({
-        "timestamp": pd.date_range("2025-01-01", periods=n),
-        "f1": rng.standard_normal(n),
-        "f2": rng.standard_normal(n),
-    })
+    panel = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2025-01-01", periods=n),
+            "f1": rng.standard_normal(n),
+            "f2": rng.standard_normal(n),
+        }
+    )
 
     controller = FeedbackLoopController()
     skipped: list[str] = []
-    fired, auc = controller._check_distribution_shift(panel, skipped, train_fraction=0.5)
+    fired, auc = controller._check_distribution_shift(
+        panel, skipped, train_fraction=0.5
+    )
     # Keine Shift → low AUC, not fired
     assert auc < 0.70
     assert fired is False
@@ -61,14 +74,18 @@ def test_signal7_no_shift_when_stable():
 
 def test_signal7_handles_small_panel():
     """Zu kleines Panel → skipped."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.feedback_loop')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.feedback_loop")
     from src.assembled_core.ml.feedback_loop import FeedbackLoopController
 
     rng = np.random.default_rng(3)
-    panel = pd.DataFrame({
-        "timestamp": pd.date_range("2025-01-01", periods=50),
-        "f1": rng.standard_normal(50),
-    })
+    panel = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2025-01-01", periods=50),
+            "f1": rng.standard_normal(50),
+        }
+    )
 
     controller = FeedbackLoopController()
     skipped: list[str] = []
@@ -82,9 +99,12 @@ def test_signal7_handles_small_panel():
 # Calibration Monitor
 # ---------------------------------------------------------------------------
 
+
 def test_calibration_perfect_predictions():
     """Perfekt kalibrierte Predictions (pred == actual) → ECE nahe 0."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.calibration_monitor')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.calibration_monitor")
     from src.assembled_core.ml.calibration_monitor import compute_calibration
 
     n = 500
@@ -101,13 +121,15 @@ def test_calibration_perfect_predictions():
 
 def test_calibration_poor_predictions():
     """Systematisch überzogen (pred=0.9 aber acc=0.5) → hohe ECE."""
-    import pytest; pytest.importorskip('src.assembled_core.ml.calibration_monitor')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.calibration_monitor")
     from src.assembled_core.ml.calibration_monitor import compute_calibration
 
     n = 300
     pred = np.full(n, 0.9)
     actual = np.zeros(n)  # nichts passiert
-    actual[:n // 2] = 1  # 50% wirklich positive
+    actual[: n // 2] = 1  # 50% wirklich positive
 
     report = compute_calibration(pred, actual, n_bins=10)
     assert report.ece > 0.3  # starker Kalibrierungsfehler
@@ -115,9 +137,14 @@ def test_calibration_poor_predictions():
 
 
 def test_platt_calibrator():
-    import pytest; pytest.importorskip('src.assembled_core.ml.calibration_monitor')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.calibration_monitor")
     pytest.importorskip("sklearn")
-    from src.assembled_core.ml.calibration_monitor import PlattCalibrator, compute_calibration
+    from src.assembled_core.ml.calibration_monitor import (
+        PlattCalibrator,
+        compute_calibration,
+    )
 
     rng = np.random.default_rng(11)
     n = 400
@@ -137,7 +164,9 @@ def test_platt_calibrator():
 
 
 def test_isotonic_calibrator():
-    import pytest; pytest.importorskip('src.assembled_core.ml.calibration_monitor')
+    import pytest
+
+    pytest.importorskip("src.assembled_core.ml.calibration_monitor")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.calibration_monitor import IsotonicCalibrator
 

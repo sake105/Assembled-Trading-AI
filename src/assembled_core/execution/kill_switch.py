@@ -64,6 +64,7 @@ def _audit_path() -> Path:
 # Persistent state  (JSON file with file-level locking on Windows)
 # ---------------------------------------------------------------------------
 
+
 def _read_state() -> dict[str, Any]:
     """Read kill switch state from JSON file. Returns empty dict on error."""
     p = _state_path()
@@ -88,7 +89,9 @@ def _write_state(state: dict[str, Any]) -> bool:
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
     try:
-        tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        tmp.write_text(
+            json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         tmp.replace(p)
         return True
     except Exception as exc:
@@ -122,6 +125,7 @@ def _append_audit(event: dict[str, Any]) -> None:
 # Public API: activate / deactivate / query
 # ---------------------------------------------------------------------------
 
+
 def activate_kill_switch(
     *,
     throttle_pct: float = 0.0,
@@ -145,10 +149,20 @@ def activate_kill_switch(
         "activated_at": datetime.now(timezone.utc).isoformat(),
     }
     write_ok = _write_state(state)
-    _append_audit({"action": "ACTIVATE", "throttle_pct": throttle_pct, "reason": reason, "actor": actor})
+    _append_audit(
+        {
+            "action": "ACTIVATE",
+            "throttle_pct": throttle_pct,
+            "reason": reason,
+            "actor": actor,
+        }
+    )
     try:
         from src.assembled_core.ops.alerting import AlertManager
-        AlertManager().fire("kill_switch_activated", {"reason": reason or "no reason given"})
+
+        AlertManager().fire(
+            "kill_switch_activated", {"reason": reason or "no reason given"}
+        )
     except Exception as _ae:
         logger.debug("[KillSwitch] alert dispatch failed: %s", _ae)
     if write_ok:
@@ -193,7 +207,10 @@ def deactivate_kill_switch(*, reason: str = "", actor: str = "system") -> None:
 def get_kill_switch_state() -> dict[str, Any]:
     """Return the current kill switch state (persistent + env + sentinel)."""
     env_engaged = os.environ.get("ASSEMBLED_KILL_SWITCH", "").strip().lower() in {
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     }
     sentinel_engaged = _sentinel_path().exists()
     persistent = _read_state()
@@ -217,6 +234,7 @@ def get_kill_switch_state() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Core checks (backward-compatible API)
 # ---------------------------------------------------------------------------
+
 
 def is_kill_switch_engaged() -> bool:
     """Check if kill switch is engaged via env var, sentinel file, or persistent state.
@@ -326,13 +344,19 @@ def guard_orders_with_kill_switch(orders: pd.DataFrame) -> pd.DataFrame:
     n_orders = len(orders)
 
     # Audit: record which orders were blocked/throttled
-    symbols = list(orders["symbol"].unique()) if "symbol" in orders.columns and not orders.empty else []
-    _append_audit({
-        "action": "GUARD",
-        "orders_count": n_orders,
-        "symbols": symbols[:20],  # cap for log size
-        "throttle_pct": throttle,
-    })
+    symbols = (
+        list(orders["symbol"].unique())
+        if "symbol" in orders.columns and not orders.empty
+        else []
+    )
+    _append_audit(
+        {
+            "action": "GUARD",
+            "orders_count": n_orders,
+            "symbols": symbols[:20],  # cap for log size
+            "throttle_pct": throttle,
+        }
+    )
 
     if throttle <= 0.0 or n_orders == 0:
         logger.warning(

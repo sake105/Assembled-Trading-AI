@@ -6,6 +6,7 @@ Monitors whether the broker has migrated away from PDT rules by checking
 if 4th-day-trade attempts still result in HTTP 403 blocks.
 FINRA effective date: 4 June 2026. Broker phase-in until 20 Oct 2027.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,7 +31,9 @@ class PDTMigrationDetector:
     def record_pdt_block(self, timestamp: datetime | None = None) -> None:
         self.pdt_blocks.append(timestamp or datetime.now(timezone.utc))
 
-    def record_fourth_day_trade_attempt(self, timestamp: datetime | None = None) -> None:
+    def record_fourth_day_trade_attempt(
+        self, timestamp: datetime | None = None
+    ) -> None:
         """Record an order that would have been a 4th day-trade.
 
         If broker allowed it without a 403, migration has occurred.
@@ -43,7 +46,9 @@ class PDTMigrationDetector:
         def _tz_aware(ts: datetime) -> datetime:
             return ts if ts.tzinfo is not None else ts.replace(tzinfo=timezone.utc)
 
-        recent_attempts = sum(1 for ts in self.fourth_day_trade_attempts if _tz_aware(ts) > cutoff)
+        recent_attempts = sum(
+            1 for ts in self.fourth_day_trade_attempts if _tz_aware(ts) > cutoff
+        )
         recent_blocks = sum(1 for ts in self.pdt_blocks if _tz_aware(ts) > cutoff)
         if recent_attempts >= 3 and recent_blocks == 0:
             logger.warning(

@@ -24,40 +24,46 @@ _MIN_CONFIDENCE = 0.3
 # Must stay in sync with news_classifier._EVENT_KEYWORDS. When the classifier
 # gains a new bearish event type, add it here AND update
 # tests/test_news_position_bridge.py.
-_BEARISH_EVENT_TYPES = frozenset({
-    "war_escalation",
-    "military_strike",
-    "sanctions",
-    "energy_disruption",
-    "political_crisis",
-    "market_stress",
-    "cyber_attack",
-    "natural_disaster",
-    # K7: previously silent (fell through to "flat") — now wired.
-    "trade_policy",     # tariffs / trade war typically bearish for risk
-    "regulatory",       # investigations / fines are bearish on average
-    # Gap fill: capital-structure / labour signals
-    "layoffs",          # mass job cuts usually bearish (demand signal)
-})
+_BEARISH_EVENT_TYPES = frozenset(
+    {
+        "war_escalation",
+        "military_strike",
+        "sanctions",
+        "energy_disruption",
+        "political_crisis",
+        "market_stress",
+        "cyber_attack",
+        "natural_disaster",
+        # K7: previously silent (fell through to "flat") — now wired.
+        "trade_policy",  # tariffs / trade war typically bearish for risk
+        "regulatory",  # investigations / fines are bearish on average
+        # Gap fill: capital-structure / labour signals
+        "layoffs",  # mass job cuts usually bearish (demand signal)
+    }
+)
 
 # Event types that produce long (bullish) signals by default
-_BULLISH_EVENT_TYPES = frozenset({
-    "diplomatic",   # peace talks / ceasefire
-    "ma_activity",  # M&A premium
-    "earnings",     # positive earnings surprise context
-    # Gap fill: capital-return signals
-    "buyback",      # share repurchase programs lift per-share value
-})
+_BULLISH_EVENT_TYPES = frozenset(
+    {
+        "diplomatic",  # peace talks / ceasefire
+        "ma_activity",  # M&A premium
+        "earnings",  # positive earnings surprise context
+        # Gap fill: capital-return signals
+        "buyback",  # share repurchase programs lift per-share value
+    }
+)
 
 # Event types whose direction depends on market_direction label (classifier
 # already decides based on keyword context — central_bank can be either).
 # Listed here so reviewers know they were considered but intentionally
 # excluded from the static bearish/bullish sets.
-_CONTEXT_SENSITIVE_EVENT_TYPES = frozenset({
-    "central_bank",      # rate cut = bullish, rate hike = bearish
-    "analyst_rating",    # upgrade = bullish, downgrade = bearish
-    "ipo",               # IPO can pop or flop; resolved via market_direction
-})
+_CONTEXT_SENSITIVE_EVENT_TYPES = frozenset(
+    {
+        "central_bank",  # rate cut = bullish, rate hike = bearish
+        "analyst_rating",  # upgrade = bullish, downgrade = bearish
+        "ipo",  # IPO can pop or flop; resolved via market_direction
+    }
+)
 
 # Sectors with known inverse reaction to geo events
 _CRISIS_LONG_SECTORS = frozenset({"defense", "materials", "energy"})
@@ -67,6 +73,7 @@ _CRISIS_SHORT_SECTORS = frozenset({"consumer", "tech", "industrials"})
 @dataclass
 class PositionSignal:
     """A single news-derived position signal."""
+
     signal_id: str
     source_cluster_id: str | None
     direction: str  # "long" / "short" / "flat"
@@ -77,7 +84,9 @@ class PositionSignal:
     time_horizon: str = "short"  # "intraday" / "short" / "medium" / "long"
     severity: float = 0.0
     market_direction: str = "neutral"
-    generated_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    generated_at: datetime = field(
+        default_factory=lambda: datetime.now(tz=timezone.utc)
+    )
     rationale: str = ""
 
     def is_actionable(self) -> bool:
@@ -111,7 +120,11 @@ def cluster_to_signal(cluster: object) -> PositionSignal | None:
         direction=direction,
         confidence=confidence,
         event_types=[trigger_type] if trigger_type else [],
-        time_horizon="intraday" if trigger_type in ("military_strike", "war_escalation") else "short",
+        time_horizon=(
+            "intraday"
+            if trigger_type in ("military_strike", "war_escalation")
+            else "short"
+        ),
         rationale=f"cluster={cluster_id} trigger={trigger_type} conf={confidence:.2f}",
     )
 
@@ -142,14 +155,20 @@ def classification_to_signal(
     # Derive direction from market_direction + event type hints.
     # H12: severity now feeds the "mixed" resolution path.
     direction = _derive_direction(
-        market_direction, event_types, affected_sectors, confidence, severity,
+        market_direction,
+        event_types,
+        affected_sectors,
+        confidence,
+        severity,
     )
 
     # Deterministic ID: stable across processes (hash() is salted per run).
     # 12 hex chars ≈ 48 bits → ~281T possible values, enough to make
     # collisions negligible across distinct event_type combinations.
     _etype_key = ",".join(sorted(event_types)) or "none"
-    _etype_hash = hashlib.sha1(_etype_key.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
+    _etype_hash = hashlib.sha1(
+        _etype_key.encode("utf-8"), usedforsecurity=False
+    ).hexdigest()[:12]
     _safe_cluster = (cluster_id or "cls").replace("/", "_").replace(" ", "_")
     signal_id = f"ps_{_safe_cluster}_{_etype_hash}"
 
@@ -285,7 +304,9 @@ def require_corroboration(
     if len(sources_high_tier) < min_independent_high_tier:
         logger.debug(
             "[SKIP] require_corroboration: signal=%s high_tier_sources=%d < %d",
-            signal.signal_id, len(sources_high_tier), min_independent_high_tier,
+            signal.signal_id,
+            len(sources_high_tier),
+            min_independent_high_tier,
         )
         return None
     return signal

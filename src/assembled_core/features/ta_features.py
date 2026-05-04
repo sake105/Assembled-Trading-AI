@@ -633,7 +633,11 @@ def add_vwap(
 
     # Cumulative within each symbol × date group
     result["_date"] = result[timestamp_col].dt.date
-    cum_pv = result.groupby([symbol_col, "_date"])["_pv"].transform("cumsum") if "_pv" in result.columns else None
+    cum_pv = (
+        result.groupby([symbol_col, "_date"])["_pv"].transform("cumsum")
+        if "_pv" in result.columns
+        else None
+    )
 
     result["_pv"] = pv.values
     cum_pv = result.groupby([symbol_col, "_date"])["_pv"].cumsum()
@@ -641,7 +645,9 @@ def add_vwap(
 
     vwap = cum_pv / cum_vol.replace(0, float("nan"))
     result["ta_vwap_v1"] = vwap.values
-    result["ta_vwap_deviation_v1"] = (result[close_col] - vwap) / vwap.replace(0, float("nan"))
+    result["ta_vwap_deviation_v1"] = (result[close_col] - vwap) / vwap.replace(
+        0, float("nan")
+    )
 
     result = result.drop(columns=["_date", "_pv"], errors="ignore")
     return result
@@ -712,10 +718,17 @@ def add_vwap_bands(
         grp["ta_vwap_rolling_v1"] = rolling_vwap
         return grp
 
-    pieces = [_vwap_bands_for_group(g) for _, g in result.groupby(symbol_col, group_keys=False)]
+    pieces = [
+        _vwap_bands_for_group(g)
+        for _, g in result.groupby(symbol_col, group_keys=False)
+    ]
     if not pieces:
         return result
-    return pd.concat(pieces, ignore_index=True).sort_values([symbol_col, timestamp_col]).reset_index(drop=True)
+    return (
+        pd.concat(pieces, ignore_index=True)
+        .sort_values([symbol_col, timestamp_col])
+        .reset_index(drop=True)
+    )
 
 
 def add_volume_weighted_momentum(

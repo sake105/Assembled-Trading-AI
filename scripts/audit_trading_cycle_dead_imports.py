@@ -3,6 +3,7 @@
 For every 'from src.assembled_core.X.Y import ...' line, checks whether
 the source file exists under src/ or has been archived. Outputs a CSV.
 """
+
 from __future__ import annotations
 
 import csv
@@ -71,19 +72,23 @@ def main() -> None:
         else:
             status = check_archive(module)
         in_try = is_in_try_block(lines, i - 1)
-        rows.append({
-            "line_number": i,
-            "module": module,
-            "status": status,
-            "in_try_block": in_try,
-            "line": line.strip(),
-        })
+        rows.append(
+            {
+                "line_number": i,
+                "module": module,
+                "status": status,
+                "in_try_block": in_try,
+                "line": line.strip(),
+            }
+        )
 
     dead = [r for r in rows if r["status"] != "OK"]
     ok = [r for r in rows if r["status"] == "OK"]
 
     with open(OUT_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["line_number", "module", "status", "in_try_block", "line"])
+        writer = csv.DictWriter(
+            f, fieldnames=["line_number", "module", "status", "in_try_block", "line"]
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -95,7 +100,9 @@ def main() -> None:
     if dead:
         print("\nDead imports sample (first 20):")
         for r in dead[:20]:
-            print(f"  L{r['line_number']:5d}  try={r['in_try_block']}  {r['status'][:40]}  {r['module']}")
+            print(
+                f"  L{r['line_number']:5d}  try={r['in_try_block']}  {r['status'][:40]}  {r['module']}"
+            )
 
 
 if __name__ == "__main__":

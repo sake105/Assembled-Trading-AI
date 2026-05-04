@@ -42,7 +42,22 @@ _LABEL_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 _DEFAULT_PATH = Path("output") / "metrics" / "assembled.prom"
 
 # Slippage histogram buckets in basis points
-_SLIPPAGE_BUCKETS: list[float] = [-200, -50, -20, -10, -5, -1, 0, 1, 5, 10, 20, 50, 200, float("inf")]
+_SLIPPAGE_BUCKETS: list[float] = [
+    -200,
+    -50,
+    -20,
+    -10,
+    -5,
+    -1,
+    0,
+    1,
+    5,
+    10,
+    20,
+    50,
+    200,
+    float("inf"),
+]
 
 
 @dataclass
@@ -53,6 +68,7 @@ class HistogramSnapshot:
     sum: sum of all observed values.
     count: total number of observations.
     """
+
     buckets: dict[float, int]
     sum: float
     count: int
@@ -137,20 +153,28 @@ def render_prometheus_text(
         try:
             value = float(raw_value)
         except (TypeError, ValueError):
-            logger.warning("[metrics_exporter] skipping non-numeric %s=%r", name, raw_value)
+            logger.warning(
+                "[metrics_exporter] skipping non-numeric %s=%r", name, raw_value
+            )
             continue
         lines.append(f"{name}{label_block} {value}")
 
     if histograms:
         for hist_name, snap in histograms.items():
             if not _METRIC_NAME_RE.match(hist_name):
-                logger.warning("[metrics_exporter] skipping invalid histogram name %r", hist_name)
+                logger.warning(
+                    "[metrics_exporter] skipping invalid histogram name %r", hist_name
+                )
                 continue
             lines.append(f"# TYPE {hist_name} histogram")
-            for upper, count in sorted(snap.buckets.items(), key=lambda x: (x[0] == float("inf"), x[0])):
+            for upper, count in sorted(
+                snap.buckets.items(), key=lambda x: (x[0] == float("inf"), x[0])
+            ):
                 bucket_label = "+Inf" if upper == float("inf") else str(upper)
                 bucket_labels = {**(labels or {}), "le": bucket_label}
-                lines.append(f"{hist_name}_bucket{_format_labels(bucket_labels)} {count}")
+                lines.append(
+                    f"{hist_name}_bucket{_format_labels(bucket_labels)} {count}"
+                )
             lines.append(f"{hist_name}_sum{label_block} {snap.sum}")
             lines.append(f"{hist_name}_count{label_block} {snap.count}")
 
@@ -221,7 +245,9 @@ def export_metrics(
     2. ``os.environ[gateway_url_env]``
     3. None → file-only export
     """
-    text = render_prometheus_text(metrics, histograms=histograms, labels=labels, now=now)
+    text = render_prometheus_text(
+        metrics, histograms=histograms, labels=labels, now=now
+    )
     written = write_metrics_file(text, path=path)
 
     url = gateway_url or os.environ.get(gateway_url_env, "").strip() or None

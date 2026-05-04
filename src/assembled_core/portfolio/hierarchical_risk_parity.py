@@ -163,7 +163,7 @@ def compute_hrp_weights(
         for i in left:
             weights[i] *= alpha
         for i in right:
-            weights[i] *= (1.0 - alpha)
+            weights[i] *= 1.0 - alpha
 
         # Recurse
         _recursive_bisect(left)
@@ -187,8 +187,10 @@ def compute_hrp_weights(
 
     logger.debug(
         "[HRP] Computed weights for %d assets: max=%.4f, min=%.4f, HHI=%.4f",
-        n, max(result.values()), min(result.values()),
-        sum(w ** 2 for w in result.values()),
+        n,
+        max(result.values()),
+        min(result.values()),
+        sum(w**2 for w in result.values()),
     )
 
     return result
@@ -224,7 +226,7 @@ def hrp_vs_equal_weight_comparison(
 
     def _portfolio_stats(w: dict[str, float]) -> dict[str, float]:
         weights_arr = np.array([w.get(s, 0) for s in symbols])
-        port_ret = (returns.values @ weights_arr)
+        port_ret = returns.values @ weights_arr
         cumret = np.cumprod(1 + port_ret)
         peak = np.maximum.accumulate(cumret)
         peak = np.maximum(peak, 1e-10)
@@ -296,7 +298,9 @@ def hrp_with_turnover_control(
 
     logger.info(
         "[HRP] Turnover control: full=%.4f, max=%.4f, effective_speed=%.4f",
-        full_turnover, max_turnover, effective_speed,
+        full_turnover,
+        max_turnover,
+        effective_speed,
     )
 
     return {s: round(float(w_final[i]), 6) for i, s in enumerate(symbols)}

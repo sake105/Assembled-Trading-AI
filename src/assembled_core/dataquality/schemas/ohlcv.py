@@ -1,7 +1,9 @@
 """Pandera schema for OHLCV bars. From 37_DATA_QUALITY_GATE.md §2."""
+
 from __future__ import annotations
 
 import pandas as pd
+
 try:
     import pandera.pandas as pa
 except ImportError:
@@ -23,7 +25,9 @@ class OHLCVSchema(pa.DataFrameModel):
     volume: Series[int] = pa.Field(ge=0, nullable=False)
 
     class Config:
-        strict = False   # allow extra columns (vwap/trade_count/timestamp handled per-use)
+        strict = (
+            False  # allow extra columns (vwap/trade_count/timestamp handled per-use)
+        )
         coerce = True
 
     @pa.dataframe_check

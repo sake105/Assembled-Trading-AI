@@ -10,6 +10,7 @@ Public API reference:
 Returned structures are plain dicts so the caller can decide how to persist or
 route the data without pulling in pandas at import time.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,18 +27,39 @@ _GEO_SIGNAL_CACHE_TS: float = 0.0
 _GEO_SIGNAL_TTL: float = 300.0  # 5 minutes — avoids 240+ calls/hour in fast cycles
 
 # Topics that map well to geo-risk signals
-GEO_KEYWORDS = frozenset({
-    "election", "war", "conflict", "sanctions", "tariff", "trade",
-    "invasion", "ceasefire", "coup", "nato", "military", "nuclear",
-    "strait", "oil", "energy", "opec", "taiwan", "ukraine", "russia",
-    "china", "iran", "north korea",
-})
+GEO_KEYWORDS = frozenset(
+    {
+        "election",
+        "war",
+        "conflict",
+        "sanctions",
+        "tariff",
+        "trade",
+        "invasion",
+        "ceasefire",
+        "coup",
+        "nato",
+        "military",
+        "nuclear",
+        "strait",
+        "oil",
+        "energy",
+        "opec",
+        "taiwan",
+        "ukraine",
+        "russia",
+        "china",
+        "iran",
+        "north korea",
+    }
+)
 
 
 def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 10) -> Any:
     """HTTP GET with httpx; returns parsed JSON or None on any error."""
     try:
         import httpx  # type: ignore[import]
+
         r = httpx.get(url, params=params, timeout=timeout)
         r.raise_for_status()
         return r.json()
@@ -46,7 +68,9 @@ def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 10) -> A
         return None
 
 
-def fetch_active_markets(limit: int = 200, geo_filter: bool = True) -> list[dict[str, Any]]:
+def fetch_active_markets(
+    limit: int = 200, geo_filter: bool = True
+) -> list[dict[str, Any]]:
     """Fetch active Polymarket markets from Gamma API.
 
     Args:
@@ -59,7 +83,12 @@ def fetch_active_markets(limit: int = 200, geo_filter: bool = True) -> list[dict
     """
     data = _get(
         f"{_GAMMA_BASE}/markets",
-        params={"active": "true", "limit": str(limit), "order": "volume", "ascending": "false"},
+        params={
+            "active": "true",
+            "limit": str(limit),
+            "order": "volume",
+            "ascending": "false",
+        },
     )
     if not data:
         return []
@@ -70,15 +99,17 @@ def fetch_active_markets(limit: int = 200, geo_filter: bool = True) -> list[dict
             question_lower = str(item.get("question", "")).lower()
             if not any(kw in question_lower for kw in GEO_KEYWORDS):
                 continue
-        markets.append({
-            "id":              item.get("id", ""),
-            "question":        item.get("question", ""),
-            "end_date":        item.get("endDate", ""),
-            "volume":          float(item.get("volume", 0) or 0),
-            "liquidity":       float(item.get("liquidity", 0) or 0),
-            "last_trade_price": float(item.get("lastTradePrice", 0.5) or 0.5),
-            "outcomes":        item.get("outcomes", []),
-        })
+        markets.append(
+            {
+                "id": item.get("id", ""),
+                "question": item.get("question", ""),
+                "end_date": item.get("endDate", ""),
+                "volume": float(item.get("volume", 0) or 0),
+                "liquidity": float(item.get("liquidity", 0) or 0),
+                "last_trade_price": float(item.get("lastTradePrice", 0.5) or 0.5),
+                "outcomes": item.get("outcomes", []),
+            }
+        )
 
     return markets[:limit]
 
@@ -158,11 +189,11 @@ def get_market_implied_geo_signal(
     signal = min(1.0, max(0.0, (avg_prob - 0.40) / 0.40))
 
     result = {
-        "signal":               round(signal, 4),
-        "n_markets":            len(markets),
-        "avg_prob":             round(avg_prob, 4),
+        "signal": round(signal, 4),
+        "n_markets": len(markets),
+        "avg_prob": round(avg_prob, 4),
         "volume_weighted_prob": round(vol_weighted, 4),
-        "source":               "polymarket",
+        "source": "polymarket",
     }
     _GEO_SIGNAL_CACHE = result
     _GEO_SIGNAL_CACHE_TS = now

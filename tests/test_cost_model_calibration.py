@@ -21,7 +21,9 @@ from src.assembled_core.execution.cost_model_calibrator import (
 )
 
 
-def _write_tca(tca_dir: Path, name: str, spread: float, impact: float, fill_rate: float) -> None:
+def _write_tca(
+    tca_dir: Path, name: str, spread: float, impact: float, fill_rate: float
+) -> None:
     tca_dir.mkdir(parents=True, exist_ok=True)
     payload = {
         "run_id": "r",
@@ -30,8 +32,11 @@ def _write_tca(tca_dir: Path, name: str, spread: float, impact: float, fill_rate
         "n_fills": int(10 * fill_rate),
         "fill_rate": fill_rate,
         "cost_bps_avg": {
-            "spread": spread, "impact": impact,
-            "adversarial": 0.0, "sor": 0.0, "total": spread + impact,
+            "spread": spread,
+            "impact": impact,
+            "adversarial": 0.0,
+            "sor": 0.0,
+            "total": spread + impact,
         },
     }
     (tca_dir / f"tca_r_{name}.json").write_text(json.dumps(payload))
@@ -79,7 +84,9 @@ def test_write_calibration_report_roundtrip(tmp_path: Path) -> None:
     _write_tca(d, "2025-01-01", spread=3.0, impact=6.0, fill_rate=0.8)
     res = calibrate_cost_model(d)
 
-    out = write_calibration_report(res, tmp_path / "configs" / "fill_model_calibrated.yaml")
+    out = write_calibration_report(
+        res, tmp_path / "configs" / "fill_model_calibrated.yaml"
+    )
     assert out.exists()
     text = out.read_text()
     assert "half_spread_bps" in text

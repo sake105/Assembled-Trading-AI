@@ -64,7 +64,9 @@ def build_features(
     ):
         precomputed = ctx.precomputed_prices_with_features.copy()
         if precomputed["timestamp"].dtype.tz is None:
-            precomputed["timestamp"] = pd.to_datetime(precomputed["timestamp"], utc=True)
+            precomputed["timestamp"] = pd.to_datetime(
+                precomputed["timestamp"], utc=True
+            )
 
         if ctx.backtest_use_snapshot:
             if ctx.precomputed_panel_index is not None and ctx.as_of is not None:
@@ -83,7 +85,9 @@ def build_features(
                     else precomputed.copy()
                 )
                 snap = (
-                    precomputed_filtered.groupby("symbol", group_keys=False, dropna=False)
+                    precomputed_filtered.groupby(
+                        "symbol", group_keys=False, dropna=False
+                    )
                     .last()
                     .reset_index()
                     .sort_values("symbol")
@@ -132,17 +136,20 @@ def build_features(
     else:
         pwf = _build_features_default(ctx, prices)
 
-    log.debug(
-        "Features: %d columns (was %d)", len(pwf.columns), len(prices.columns)
-    )
+    log.debug("Features: %d columns (was %d)", len(pwf.columns), len(prices.columns))
 
     # --- Step 2.5 HMM: D3 regime detection → sets ctx.regime_state ---
     try:
         regime_cfg = policy.get("regime_detection", {})
-        if regime_cfg.get("method") == "hmm" and getattr(ctx, "regime_state", None) is None:
+        if (
+            regime_cfg.get("method") == "hmm"
+            and getattr(ctx, "regime_state", None) is None
+        ):
             from src.assembled_core.risk.regime_models import build_regime_state_hmm
 
-            prices_for_hmm = prices if prices is not None and not prices.empty else ctx.prices
+            prices_for_hmm = (
+                prices if prices is not None and not prices.empty else ctx.prices
+            )
             if prices_for_hmm is not None and not prices_for_hmm.empty:
                 hmm_df = build_regime_state_hmm(
                     prices=prices_for_hmm,
@@ -173,7 +180,10 @@ def build_features(
                 )
 
                 pwf = build_core_ta_factors(
-                    pwf, price_col="close", group_col="symbol", timestamp_col="timestamp"
+                    pwf,
+                    price_col="close",
+                    group_col="symbol",
+                    timestamp_col="timestamp",
                 )
             if enh_cfg.get("cross_sectional_rank", True):
                 from src.assembled_core.features.cross_sectional import (
@@ -185,9 +195,13 @@ def build_features(
                     for c in enh_cfg.get(
                         "rank_cols",
                         [
-                            "trend_ema_spread", "mom_rsi_centered", "mom_12_1",
-                            "low_vol_rank", "quality_score",
-                            "trend_strength_20", "trend_strength_50",
+                            "trend_ema_spread",
+                            "mom_rsi_centered",
+                            "mom_12_1",
+                            "low_vol_rank",
+                            "quality_score",
+                            "trend_strength_20",
+                            "trend_strength_50",
                             "momentum_12m_excl_1m",
                         ],
                     )
@@ -232,9 +246,13 @@ def build_features(
                     _br = _bp.pct_change(fill_method=None).fillna(0)
                     try:
                         _bc = compute_behavioral_composite(_bp, _bv, _br)
-                        _beh_scores[str(_sym)] = float(_bc.iloc[-1]) if len(_bc) > 0 else 0.0
+                        _beh_scores[str(_sym)] = (
+                            float(_bc.iloc[-1]) if len(_bc) > 0 else 0.0
+                        )
                     except Exception as _exc:
-                        logger.debug("[behavioral_composite] %s skipped: %s", _sym, _exc)
+                        logger.debug(
+                            "[behavioral_composite] %s skipped: %s", _sym, _exc
+                        )
                 if _beh_scores:
                     pwf = pwf.copy()
                     pwf["behavioral_composite"] = pwf["symbol"].map(_beh_scores)
@@ -244,7 +262,11 @@ def build_features(
     # --- Step 2.6: Seasonal features (zero look-ahead calendar columns) ---
     try:
         seas_cfg = (policy.get("features") or {}).get("seasonal_features") or {}
-        if seas_cfg.get("enabled", False) and not pwf.empty and "timestamp" in pwf.columns:
+        if (
+            seas_cfg.get("enabled", False)
+            and not pwf.empty
+            and "timestamp" in pwf.columns
+        ):
             from src.assembled_core.features.seasonal_features import (
                 build_seasonal_features,
             )
@@ -272,11 +294,17 @@ def build_features(
                     _mr_cols = [c for c in _mr_df.columns if c.startswith("mr_")]
                     _keys = [k for k in ["symbol", "timestamp"] if k in _mr_df.columns]
                     pwf = pwf.merge(
-                        _mr_df[_keys + _mr_cols], on=_keys, how="left", suffixes=("", "_mrf")
+                        _mr_df[_keys + _mr_cols],
+                        on=_keys,
+                        how="left",
+                        suffixes=("", "_mrf"),
                     )
                     _null_frac = pwf[_mr_cols].isna().mean().max() if _mr_cols else 0.0
                     if _null_frac > 0.5:
-                        log.warning("[MR-FACTORS] %.0f%% NaN after merge — possible key misalignment", _null_frac * 100)
+                        log.warning(
+                            "[MR-FACTORS] %.0f%% NaN after merge — possible key misalignment",
+                            _null_frac * 100,
+                        )
     except Exception as e:
         log.debug("[MR-FACTORS] mean_reversion_factors skipped: %s", e)
 
@@ -309,7 +337,9 @@ def build_features(
                     (
                         c
                         for c in (
-                            "trend_strength_50", "momentum_12m_excl_1m", "trend_strength_200"
+                            "trend_strength_50",
+                            "momentum_12m_excl_1m",
+                            "trend_strength_200",
                         )
                         if c in pwf.columns
                     ),
@@ -365,16 +395,24 @@ def build_features(
                 from src.assembled_core.features.order_book_imbalance import (
                     rolling_imbalance_signal,
                 )
+
                 ob_signals = rolling_imbalance_signal(
                     snapshots,
                     lookback=int(ob_cfg.get("lookback", 10)),
                 )
                 if ob_signals:
                     import pandas as _pd
-                    ob_df = _pd.DataFrame([
-                        {"symbol": sym, "ob_imbalance": sig.l1_imbalance, "ob_vw_imbalance": sig.vw_imbalance}
-                        for sym, sig in ob_signals.items()
-                    ])
+
+                    ob_df = _pd.DataFrame(
+                        [
+                            {
+                                "symbol": sym,
+                                "ob_imbalance": sig.l1_imbalance,
+                                "ob_vw_imbalance": sig.vw_imbalance,
+                            }
+                            for sym, sig in ob_signals.items()
+                        ]
+                    )
                     if not ob_df.empty and "symbol" in pwf.columns:
                         pwf = pwf.merge(ob_df, on="symbol", how="left")
     except Exception as e:
@@ -392,9 +430,7 @@ def build_features(
                 from src.assembled_core.features.news_features import add_news_features
 
                 _ts_col = "timestamp" if "timestamp" in pwf.columns else None
-                _prices_dates = (
-                    pwf[_ts_col].unique() if _ts_col else None
-                )
+                _prices_dates = pwf[_ts_col].unique() if _ts_col else None
                 pwf = add_news_features(
                     prices=pwf,
                     events=_news_events,
@@ -402,7 +438,9 @@ def build_features(
                     long_window=int(nf_cfg.get("long_window", 30)),
                 )
                 _nf_cols = [c for c in pwf.columns if c.startswith("news_")]
-                log.debug("[NEWS-FEATURES] added %d news columns: %s", len(_nf_cols), _nf_cols)
+                log.debug(
+                    "[NEWS-FEATURES] added %d news columns: %s", len(_nf_cols), _nf_cols
+                )
             else:
                 log.debug("[NEWS-FEATURES] enabled but no ctx.news_events — skipped")
     except Exception as e:

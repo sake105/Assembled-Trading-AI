@@ -28,10 +28,12 @@ def test_empty_orders_pass_through() -> None:
 
 
 def test_notional_cap_rejects_oversized_order() -> None:
-    orders = _orders([
-        ("AAA", 100.0, 10.0),   # notional 1000
-        ("BBB", 500.0, 50.0),   # notional 25000
-    ])
+    orders = _orders(
+        [
+            ("AAA", 100.0, 10.0),  # notional 1000
+            ("BBB", 500.0, 50.0),  # notional 25000
+        ]
+    )
     filtered, reasons = apply_fat_finger_guard(orders, max_notional_usd=10_000.0)
     assert list(filtered["symbol"]) == ["AAA"]
     assert len(reasons) == 1
@@ -40,11 +42,13 @@ def test_notional_cap_rejects_oversized_order() -> None:
 
 
 def test_qty_multiple_rejects_vs_history() -> None:
-    orders = _orders([
-        ("AAA", 50.0, 10.0),   # 2x history_max=25 → rejected (3x cap)
-        ("BBB", 200.0, 10.0),  # 4x history_max=50 → rejected (3x cap)
-        ("CCC", 10.0, 10.0),   # 1x history_max=10 → ok
-    ])
+    orders = _orders(
+        [
+            ("AAA", 50.0, 10.0),  # 2x history_max=25 → rejected (3x cap)
+            ("BBB", 200.0, 10.0),  # 4x history_max=50 → rejected (3x cap)
+            ("CCC", 10.0, 10.0),  # 1x history_max=10 → ok
+        ]
+    )
     filtered, reasons = apply_fat_finger_guard(
         orders,
         max_qty_multiple=3.0,
@@ -56,11 +60,17 @@ def test_qty_multiple_rejects_vs_history() -> None:
 
 
 def test_both_checks_combined() -> None:
-    orders = _orders([
-        ("AAA", 100.0, 10.0),       # notional 1000, history=50 -> 2x, ok
-        ("BBB", 1000.0, 500.0),     # notional 500000 -> rejected by notional
-        ("CCC", 200.0, 10.0),       # notional 2000, history=10 -> 20x, rejected by multiple
-    ])
+    orders = _orders(
+        [
+            ("AAA", 100.0, 10.0),  # notional 1000, history=50 -> 2x, ok
+            ("BBB", 1000.0, 500.0),  # notional 500000 -> rejected by notional
+            (
+                "CCC",
+                200.0,
+                10.0,
+            ),  # notional 2000, history=10 -> 20x, rejected by multiple
+        ]
+    )
     filtered, reasons = apply_fat_finger_guard(
         orders,
         max_notional_usd=10_000.0,

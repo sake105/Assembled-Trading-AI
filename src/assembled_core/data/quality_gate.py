@@ -32,6 +32,7 @@ class QualityStatus(str, Enum):
 @dataclass
 class QualityResult:
     """Structured output of the quality gate."""
+
     status: QualityStatus
     ticker: str
     n_rows: int
@@ -53,7 +54,9 @@ class QualityResult:
 # ---------------------------------------------------------------------------
 
 
-def _check_ohlcv_structure(df: pd.DataFrame, ticker: str, result: QualityResult) -> None:
+def _check_ohlcv_structure(
+    df: pd.DataFrame, ticker: str, result: QualityResult
+) -> None:
     required = {"Open", "High", "Low", "Close", "Volume"}
     missing = required - set(df.columns)
     if missing:
@@ -86,8 +89,9 @@ def _check_close_within_range(df: pd.DataFrame, result: QualityResult) -> None:
             result.checks_warned.append(f"close_outside_hl:{out_of_range}_rows")
 
 
-def _check_price_spikes(df: pd.DataFrame, result: QualityResult,
-                        spike_threshold: float = 3.0) -> None:
+def _check_price_spikes(
+    df: pd.DataFrame, result: QualityResult, spike_threshold: float = 3.0
+) -> None:
     """Flag rows where intrabar return > spike_threshold × daily vol."""
     if "Close" not in df.columns or len(df) < 5:
         return
@@ -129,20 +133,24 @@ def _build_pandera_schema():
     """Build Pandera DataFrameSchema for OHLCV validation."""
     try:
         import pandera as pa
+
         schema = pa.DataFrameSchema(
             columns={
-                "Open":   pa.Column(float, pa.Check.gt(0), nullable=False),
-                "High":   pa.Column(float, pa.Check.gt(0), nullable=False),
-                "Low":    pa.Column(float, pa.Check.gt(0), nullable=False),
-                "Close":  pa.Column(float, pa.Check.gt(0), nullable=False),
+                "Open": pa.Column(float, pa.Check.gt(0), nullable=False),
+                "High": pa.Column(float, pa.Check.gt(0), nullable=False),
+                "Low": pa.Column(float, pa.Check.gt(0), nullable=False),
+                "Close": pa.Column(float, pa.Check.gt(0), nullable=False),
                 "Volume": pa.Column(float, pa.Check.ge(0), nullable=True),
             },
             checks=[
-                pa.Check(lambda df: (df["High"] >= df["Low"]).all(),
-                         error="high_lt_low"),
-                pa.Check(lambda df: (df["Close"] <= df["High"]).all() &
-                                    (df["Close"] >= df["Low"]).all(),
-                         error="close_outside_hl"),
+                pa.Check(
+                    lambda df: (df["High"] >= df["Low"]).all(), error="high_lt_low"
+                ),
+                pa.Check(
+                    lambda df: (df["Close"] <= df["High"]).all()
+                    & (df["Close"] >= df["Low"]).all(),
+                    error="close_outside_hl",
+                ),
             ],
             index=pa.Index(pd.DatetimeTZDtype(tz="UTC"), coerce=True, name=None),
         )
@@ -217,19 +225,31 @@ def validate_ohlcv(
     if result.status == QualityStatus.FAIL and quarantine_dir:
         _quarantine(df, ticker, quarantine_dir, result)
 
-    level = logging.ERROR if result.blocked else (logging.WARNING if result.status == QualityStatus.WARN else logging.DEBUG)
-    logger.log(level, "QualityGate %s [%s] rows=%d fails=%s warns=%s",
-               ticker, result.status.value, result.n_rows,
-               result.checks_failed, result.checks_warned)
+    level = (
+        logging.ERROR
+        if result.blocked
+        else (logging.WARNING if result.status == QualityStatus.WARN else logging.DEBUG)
+    )
+    logger.log(
+        level,
+        "QualityGate %s [%s] rows=%d fails=%s warns=%s",
+        ticker,
+        result.status.value,
+        result.n_rows,
+        result.checks_failed,
+        result.checks_warned,
+    )
 
     return result
 
 
-def _quarantine(df: pd.DataFrame, ticker: str, quarantine_dir: str,
-                result: QualityResult) -> None:
+def _quarantine(
+    df: pd.DataFrame, ticker: str, quarantine_dir: str, result: QualityResult
+) -> None:
     """Save bad data to quarantine directory."""
     import os
     from datetime import datetime, timezone
+
     ts = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
     out_dir = os.path.join(quarantine_dir, ticker)
     os.makedirs(out_dir, exist_ok=True)

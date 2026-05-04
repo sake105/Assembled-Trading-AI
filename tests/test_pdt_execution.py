@@ -1,13 +1,17 @@
 """Tests for PDT execution modules (spec 41_PDT_REGEL_INTRADAY_MARGIN)."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
+
 def _noon_utc() -> datetime:
     """Return today's noon UTC at call time — avoids midnight-crossing when the
     module is imported hours before the tests run (e.g. long full-suite runs)."""
-    return datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+    return datetime.now(timezone.utc).replace(
+        hour=12, minute=0, second=0, microsecond=0
+    )
 
 
 from assembled_core.execution.pdt_tracker import DayTrade, PDTTracker
@@ -15,10 +19,10 @@ from assembled_core.execution.round_trip_detector import RoundTripDetector
 from assembled_core.execution.order_gate import OrderDecision, OrderGate
 from assembled_core.execution.migration_detector import PDTMigrationDetector
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _trade(ticker="AAPL", side="long", days_ago=0, qty=100, entry=100.0, exit_=105.0):
     ts = datetime.now(timezone.utc) - timedelta(days=days_ago)
@@ -36,12 +40,15 @@ def _trade(ticker="AAPL", side="long", days_ago=0, qty=100, entry=100.0, exit_=1
 def _fill(ticker, side, qty=100, price=100.0, ts=None):
     if ts is None:
         ts = datetime.now(timezone.utc)
-    return SimpleNamespace(ticker=ticker, side=side, quantity=qty, price=price, timestamp=ts)
+    return SimpleNamespace(
+        ticker=ticker, side=side, quantity=qty, price=price, timestamp=ts
+    )
 
 
 # ---------------------------------------------------------------------------
 # DayTrade
 # ---------------------------------------------------------------------------
+
 
 class TestDayTrade:
     def test_trade_date(self):
@@ -49,19 +56,34 @@ class TestDayTrade:
         assert isinstance(t.trade_date, date)
 
     def test_pnl_long(self):
-        t = DayTrade("A", datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc),
-                     "long", 100, 100.0, 110.0)
+        t = DayTrade(
+            "A",
+            datetime.now(tz=timezone.utc),
+            datetime.now(tz=timezone.utc),
+            "long",
+            100,
+            100.0,
+            110.0,
+        )
         assert abs(t.pnl - 1000.0) < 0.01
 
     def test_pnl_short(self):
-        t = DayTrade("A", datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc),
-                     "short", 100, 110.0, 100.0)
+        t = DayTrade(
+            "A",
+            datetime.now(tz=timezone.utc),
+            datetime.now(tz=timezone.utc),
+            "short",
+            100,
+            110.0,
+            100.0,
+        )
         assert abs(t.pnl - 1000.0) < 0.01
 
 
 # ---------------------------------------------------------------------------
 # PDTTracker
 # ---------------------------------------------------------------------------
+
 
 class TestPDTTracker:
     def test_no_trades_count_zero(self):
@@ -118,6 +140,7 @@ class TestPDTTracker:
 # RoundTripDetector
 # ---------------------------------------------------------------------------
 
+
 class TestRoundTripDetector:
     def _make_detector(self, equity=10_000.0):
         tracker = PDTTracker(account_equity=equity)
@@ -133,7 +156,9 @@ class TestRoundTripDetector:
         tracker, detector = self._make_detector()
         ts = _noon_utc()
         detector.on_fill(_fill("AAPL", "buy", ts=ts))
-        trade = detector.on_fill(_fill("AAPL", "sell", price=110.0, ts=ts + timedelta(hours=1)))
+        trade = detector.on_fill(
+            _fill("AAPL", "sell", price=110.0, ts=ts + timedelta(hours=1))
+        )
         assert trade is not None
         assert trade.ticker == "AAPL"
         assert trade.side == "long"
@@ -152,7 +177,9 @@ class TestRoundTripDetector:
         tracker, detector = self._make_detector()
         ts = _noon_utc()
         detector.on_fill(_fill("AAPL", "buy", qty=100, ts=ts))
-        result = detector.on_fill(_fill("AAPL", "buy", qty=50, price=105.0, ts=ts + timedelta(minutes=30)))
+        result = detector.on_fill(
+            _fill("AAPL", "buy", qty=50, price=105.0, ts=ts + timedelta(minutes=30))
+        )
         assert result is None
         assert tracker.count_recent_day_trades() == 0
 
@@ -168,7 +195,9 @@ class TestRoundTripDetector:
         tracker, detector = self._make_detector()
         ts = _noon_utc()
         detector.on_fill(_fill("TSLA", "sell", ts=ts))  # short
-        trade = detector.on_fill(_fill("TSLA", "buy", price=95.0, ts=ts + timedelta(hours=2)))
+        trade = detector.on_fill(
+            _fill("TSLA", "buy", price=95.0, ts=ts + timedelta(hours=2))
+        )
         assert trade is not None
         assert trade.side == "short"
 
@@ -176,6 +205,7 @@ class TestRoundTripDetector:
 # ---------------------------------------------------------------------------
 # OrderGate
 # ---------------------------------------------------------------------------
+
 
 class TestOrderGate:
     def _gate(self, equity=10_000.0, n_existing_trades=0):
@@ -224,6 +254,7 @@ class TestOrderGate:
 # ---------------------------------------------------------------------------
 # PDTMigrationDetector
 # ---------------------------------------------------------------------------
+
 
 class TestPDTMigrationDetector:
     def test_no_data_not_migrated(self):

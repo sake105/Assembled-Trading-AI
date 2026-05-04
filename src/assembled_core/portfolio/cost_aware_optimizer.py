@@ -18,6 +18,7 @@ _log = logging.getLogger(__name__)
 
 try:
     import cvxpy as cp
+
     CVXPY_AVAILABLE = True
 except ImportError:
     CVXPY_AVAILABLE = False
@@ -32,7 +33,9 @@ class OptimizerConfig:
     max_weight: float = 0.10  # Max single-name weight
     min_weight: float = 0.0  # Min weight (0 = long-only)
     max_gross_exposure: float = 1.0
-    max_sector_deviation: float | None = None  # Max abs deviation from benchmark sector weight
+    max_sector_deviation: float | None = (
+        None  # Max abs deviation from benchmark sector weight
+    )
     sector_mapping: dict[str, str] = field(default_factory=dict)
     long_only: bool = True
     # Liquidity penalty: mu_liquidity * sum(w_i^2 / ADV_i^alpha)
@@ -82,8 +85,12 @@ def optimize_portfolio(
 
     if n == 0:
         return OptimizationResult(
-            weights={}, expected_return=0.0, expected_risk=0.0,
-            turnover_cost=0.0, solver_status="empty", method="none",
+            weights={},
+            expected_return=0.0,
+            expected_risk=0.0,
+            turnover_cost=0.0,
+            solver_status="empty",
+            method="none",
         )
 
     mu = expected_returns.values.astype(float)
@@ -92,24 +99,20 @@ def optimize_portfolio(
 
     # Cost vector (per-symbol)
     default_cost = 6.0  # bps
-    cost_vec = np.array([
-        (per_symbol_cost_bps or {}).get(s, default_cost) / 10_000.0
-        for s in symbols
-    ])
+    cost_vec = np.array(
+        [(per_symbol_cost_bps or {}).get(s, default_cost) / 10_000.0 for s in symbols]
+    )
 
     # ADV vector for liquidity penalty
-    adv_vec = np.array([
-        (adv_shares or {}).get(s, 1e8) for s in symbols  # default: very liquid
-    ], dtype=float)
+    adv_vec = np.array(
+        [(adv_shares or {}).get(s, 1e8) for s in symbols],  # default: very liquid
+        dtype=float,
+    )
 
     if CVXPY_AVAILABLE:
-        return _optimize_cvxpy(
-            symbols, mu, Sigma, w_old, cost_vec, config, adv_vec
-        )
+        return _optimize_cvxpy(symbols, mu, Sigma, w_old, cost_vec, config, adv_vec)
     else:
-        return _optimize_fallback(
-            symbols, mu, Sigma, w_old, cost_vec, config, adv_vec
-        )
+        return _optimize_fallback(symbols, mu, Sigma, w_old, cost_vec, config, adv_vec)
 
 
 def _optimize_cvxpy(
@@ -164,13 +167,16 @@ def _optimize_cvxpy(
     if config.max_sector_deviation is not None and config.sector_mapping:
         sectors = set(config.sector_mapping.values())
         for sector in sectors:
-            sector_mask = np.array([
-                1.0 if config.sector_mapping.get(s) == sector else 0.0
-                for s in symbols
-            ])
+            sector_mask = np.array(
+                [
+                    1.0 if config.sector_mapping.get(s) == sector else 0.0
+                    for s in symbols
+                ]
+            )
             if sector_mask.sum() > 0:
                 constraints.append(
-                    sector_mask @ w <= config.max_sector_deviation + sector_mask.sum() / n
+                    sector_mask @ w
+                    <= config.max_sector_deviation + sector_mask.sum() / n
                 )
 
     try:
@@ -228,7 +234,9 @@ def _optimize_fallback(
         w_opt = np.ones(len(symbols)) / len(symbols) * config.max_gross_exposure
 
     # Clip
-    w_opt = np.clip(w_opt, config.min_weight if not config.long_only else 0, config.max_weight)
+    w_opt = np.clip(
+        w_opt, config.min_weight if not config.long_only else 0, config.max_weight
+    )
 
     # Renormalize
     if w_opt.sum() > config.max_gross_exposure:

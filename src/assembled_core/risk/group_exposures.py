@@ -264,6 +264,7 @@ def compute_net_market_exposure(
     if inverse_etf_map is None:
         try:
             from src.assembled_core.data.universe_etf import INVERSE_ETF_MAP
+
             inverse_etf_map = INVERSE_ETF_MAP
         except ImportError:
             inverse_etf_map = {}

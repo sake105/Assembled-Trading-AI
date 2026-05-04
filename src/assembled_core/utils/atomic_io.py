@@ -8,6 +8,7 @@ Usage:
 
     atomic_write_json(path, {"key": "value"})
 """
+
 from __future__ import annotations
 
 import json

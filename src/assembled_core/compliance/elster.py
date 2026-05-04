@@ -23,6 +23,7 @@ Usage::
     xml_str = build_anlage_kap_xml(summary, cfg)
     Path("anlage_kap_2025.xml").write_text(xml_str, encoding="utf-8")
 """
+
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
@@ -38,22 +39,24 @@ if TYPE_CHECKING:
 # Config
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ElsterExportConfig:
     """Metadata required for the ELSTER submission envelope."""
 
     tax_year: int
-    steuerpflichtiger_id: str           # Steueridentifikationsnummer (11 digits)
-    finanzamt_nr: str = "9201"          # Finanzamt-Nummer (Bundesland + Amt)
+    steuerpflichtiger_id: str  # Steueridentifikationsnummer (11 digits)
+    finanzamt_nr: str = "9201"  # Finanzamt-Nummer (Bundesland + Amt)
     software_name: str = "AssembledTradingAI"
     software_version: str = "1.0"
-    kist_kirchensteuer_satz: float = 0.0   # 0 = no church tax
+    kist_kirchensteuer_satz: float = 0.0  # 0 = no church tax
     anrechenbare_quellensteuer_eur: float = 0.0  # already-paid withholding
 
 
 # ---------------------------------------------------------------------------
 # Core builder
 # ---------------------------------------------------------------------------
+
 
 def build_anlage_kap_xml(
     summary: "TaxReportSummary",
@@ -101,12 +104,17 @@ def build_anlage_kap_xml(
     kap = ET.SubElement(est, "AnlageKAP", veranlagungszeitraum=str(config.tax_year))
 
     # Gains from equity sales (Zeile 7)
-    _add_field(kap, "Kap_Z7_Veraeusserungsgewinne",
-               max(0.0, summary.total_wins_eur), "EUR")
+    _add_field(
+        kap, "Kap_Z7_Veraeusserungsgewinne", max(0.0, summary.total_wins_eur), "EUR"
+    )
 
     # Losses from equity sales (Zeile 8)
-    _add_field(kap, "Kap_Z8_Veraeusserungsverluste",
-               abs(min(0.0, summary.total_losses_eur)), "EUR")
+    _add_field(
+        kap,
+        "Kap_Z8_Veraeusserungsverluste",
+        abs(min(0.0, summary.total_losses_eur)),
+        "EUR",
+    )
 
     # Net taxable capital gains (Zeile 18 / carry-forward)
     net = summary.total_wins_eur + summary.total_losses_eur  # losses negative
@@ -128,8 +136,12 @@ def build_anlage_kap_xml(
 
     # Anrechenbare Quellensteuer (Zeile 48)
     if config.anrechenbare_quellensteuer_eur > 0:
-        _add_field(kap, "Kap_Z48_AnrechenbareSteuer",
-                   config.anrechenbare_quellensteuer_eur, "EUR")
+        _add_field(
+            kap,
+            "Kap_Z48_AnrechenbareSteuer",
+            config.anrechenbare_quellensteuer_eur,
+            "EUR",
+        )
 
     # Metadata
     ET.SubElement(kap, "AnzahlGeschaeftsvorfaelle").text = str(summary.trade_count)
@@ -141,6 +153,7 @@ def build_anlage_kap_xml(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _add_field(parent: ET.Element, tag: str, value: float, unit: str = "EUR") -> None:
     el = ET.SubElement(parent, tag)
@@ -163,6 +176,7 @@ def _pretty_xml(root: ET.Element) -> str:
 # ---------------------------------------------------------------------------
 # Convenience
 # ---------------------------------------------------------------------------
+
 
 def export_to_file(
     summary: "TaxReportSummary",

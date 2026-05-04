@@ -96,7 +96,8 @@ def _gumbel_logpdf(u: np.ndarray, v: np.ndarray, theta: float) -> float:
 
     log_density = (
         log_C
-        - np.log(u) - np.log(v)
+        - np.log(u)
+        - np.log(v)
         + (theta - 2) * np.log(np.maximum(A, eps))
         + (theta - 1) * (log_neg_ln_u + log_neg_ln_v)
         + np.log(np.maximum(1 + (theta - 1) / np.maximum(A, eps), eps))
@@ -120,11 +121,10 @@ def _gaussian_logpdf(u: np.ndarray, v: np.ndarray, rho: float) -> float:
     y = sp_stats.norm.ppf(v)
 
     # c(u,v) = (1/sqrt(1-rho²)) * exp(-(rho²(x²+y²) - 2*rho*x*y) / (2*(1-rho²)))
-    r2 = rho ** 2
+    r2 = rho**2
     denom = 1 - r2
-    log_density = (
-        -0.5 * np.log(denom)
-        - (r2 * (x ** 2 + y ** 2) - 2 * rho * x * y) / (2 * denom)
+    log_density = -0.5 * np.log(denom) - (r2 * (x**2 + y**2) - 2 * rho * x * y) / (
+        2 * denom
     )
     return float(np.sum(log_density))
 
@@ -168,10 +168,13 @@ def fit_copula_pair(
 
     # --- Clayton ---
     try:
+
         def neg_ll_clayton(theta: float) -> float:
             return -_clayton_logpdf(u, v, theta)
 
-        res_c = sp_opt.minimize_scalar(neg_ll_clayton, bounds=(0.01, 20.0), method="bounded")
+        res_c = sp_opt.minimize_scalar(
+            neg_ll_clayton, bounds=(0.01, 20.0), method="bounded"
+        )
         if res_c.success:
             theta_c = float(res_c.x)
             ll_c = -float(res_c.fun)
@@ -182,10 +185,13 @@ def fit_copula_pair(
 
     # --- Gumbel ---
     try:
+
         def neg_ll_gumbel(theta: float) -> float:
             return -_gumbel_logpdf(u, v, theta)
 
-        res_g = sp_opt.minimize_scalar(neg_ll_gumbel, bounds=(1.01, 20.0), method="bounded")
+        res_g = sp_opt.minimize_scalar(
+            neg_ll_gumbel, bounds=(1.01, 20.0), method="bounded"
+        )
         if res_g.success:
             theta_g = float(res_g.x)
             ll_g = -float(res_g.fun)
@@ -196,10 +202,13 @@ def fit_copula_pair(
 
     # --- Gaussian ---
     try:
+
         def neg_ll_gauss(rho: float) -> float:
             return -_gaussian_logpdf(u, v, rho)
 
-        res_n = sp_opt.minimize_scalar(neg_ll_gauss, bounds=(-0.99, 0.99), method="bounded")
+        res_n = sp_opt.minimize_scalar(
+            neg_ll_gauss, bounds=(-0.99, 0.99), method="bounded"
+        )
         if res_n.success:
             rho = float(res_n.x)
             ll_n = -float(res_n.fun)
@@ -245,14 +254,19 @@ def compute_portfolio_tail_risk(
     """
     symbols = list(returns_df.columns)
     if len(symbols) < 2:
-        return {"avg_lower_tail_dep": 0.0, "max_lower_tail_dep": 0.0, "n_pairs": 0, "most_dependent_pair": ""}
+        return {
+            "avg_lower_tail_dep": 0.0,
+            "max_lower_tail_dep": 0.0,
+            "n_pairs": 0,
+            "most_dependent_pair": "",
+        }
 
     tail_deps: list[float] = []
     max_td = 0.0
     max_pair = ""
 
     for i, sym_a in enumerate(symbols):
-        for sym_b in symbols[i + 1:]:
+        for sym_b in symbols[i + 1 :]:
             ra = returns_df[sym_a].values
             rb = returns_df[sym_b].values
             result = fit_copula_pair(ra, rb, sym_a, sym_b)
@@ -264,7 +278,12 @@ def compute_portfolio_tail_risk(
                     max_pair = f"{sym_a}/{sym_b}"
 
     if not tail_deps:
-        return {"avg_lower_tail_dep": 0.0, "max_lower_tail_dep": 0.0, "n_pairs": 0, "most_dependent_pair": ""}
+        return {
+            "avg_lower_tail_dep": 0.0,
+            "max_lower_tail_dep": 0.0,
+            "n_pairs": 0,
+            "most_dependent_pair": "",
+        }
 
     return {
         "avg_lower_tail_dep": round(float(np.mean(tail_deps)), 4),
@@ -291,18 +310,20 @@ from dataclasses import dataclass as _dc_dvine
 @_dc_dvine
 class DVineResult:
     """Fitted D-vine copula for a triple of assets."""
+
     symbols: tuple[str, str, str]
-    copula_12: str      # "clayton" | "gumbel" | "gaussian"
+    copula_12: str  # "clayton" | "gumbel" | "gaussian"
     theta_12: float
     copula_23: str
     theta_23: float
-    copula_13_2: str   # C(1,3|2) — conditional copula
+    copula_13_2: str  # C(1,3|2) — conditional copula
     theta_13_2: float
     log_likelihood: float
     n_obs: int
 
 
 # -- h-functions (conditional CDFs) -----------------------------------------
+
 
 def _h_clayton(u: np.ndarray, v: np.ndarray, theta: float) -> np.ndarray:
     """h(u|v; Clayton) = P(U1 <= u | U2 = v)."""
@@ -337,7 +358,7 @@ def _h_gaussian(u: np.ndarray, v: np.ndarray, rho: float) -> np.ndarray:
     v = np.clip(v, eps, 1 - eps)
     xu = sp_stats.norm.ppf(u)
     xv = sp_stats.norm.ppf(v)
-    denom = max(np.sqrt(1.0 - rho ** 2), 1e-8)
+    denom = max(np.sqrt(1.0 - rho**2), 1e-8)
     return sp_stats.norm.cdf((xu - rho * xv) / denom)
 
 
@@ -360,17 +381,15 @@ def _logpdf(u: np.ndarray, v: np.ndarray, copula: str, theta: float) -> float:
     return _gaussian_logpdf(u, v, theta)
 
 
-def _fit_pair(
-    u: np.ndarray, v: np.ndarray
-) -> tuple[str, float, float]:
+def _fit_pair(u: np.ndarray, v: np.ndarray) -> tuple[str, float, float]:
     """Return (best_copula, theta, loglik) for a pseudo-uniform pair."""
     if not SCIPY_AVAILABLE:
         return ("gaussian", 0.0, 0.0)
 
     results = []
     for name, bounds, neg_ll in [
-        ("clayton", (0.01, 20.0),  lambda t: -_clayton_logpdf(u, v, t)),
-        ("gumbel",  (1.01, 20.0),  lambda t: -_gumbel_logpdf(u, v, t)),
+        ("clayton", (0.01, 20.0), lambda t: -_clayton_logpdf(u, v, t)),
+        ("gumbel", (1.01, 20.0), lambda t: -_gumbel_logpdf(u, v, t)),
         ("gaussian", (-0.99, 0.99), lambda t: -_gaussian_logpdf(u, v, t)),
     ]:
         try:

@@ -126,7 +126,10 @@ def test_is_model_basic_cost() -> None:
 
     model = ImplementationShortfallModel(kyle_lambda=0.1)
     cost = model.estimate_cost(
-        quantity=1000, adv=100_000, daily_vol=0.02, price=150.0,
+        quantity=1000,
+        adv=100_000,
+        daily_vol=0.02,
+        price=150.0,
     )
     assert cost["total_cost_bps"] > 0
     assert cost["market_impact_bps"] > 0
@@ -148,14 +151,18 @@ def test_is_model_zero_adv() -> None:
 
 def test_congress_features_add_columns() -> None:
     pytest.importorskip("src.assembled_core.data.congress_trades_ingest")
-    from src.assembled_core.data.congress_trades_ingest import load_congress_sample  # noqa: E402
+    from src.assembled_core.data.congress_trades_ingest import (
+        load_congress_sample,
+    )  # noqa: E402
     from src.assembled_core.features.congress_features import add_congress_features
 
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="B", tz="UTC"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0 + i for i in range(10)],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="B", tz="UTC"),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0 + i for i in range(10)],
+        }
+    )
     events = load_congress_sample()  # dummy data
 
     result = add_congress_features(prices, events)
@@ -169,11 +176,13 @@ def test_congress_features_add_columns() -> None:
 def test_congress_features_empty_events() -> None:
     from src.assembled_core.features.congress_features import add_congress_features
 
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=5, freq="B", tz="UTC"),
-        "symbol": ["MSFT"] * 5,
-        "close": [400.0] * 5,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=5, freq="B", tz="UTC"),
+            "symbol": ["MSFT"] * 5,
+            "close": [400.0] * 5,
+        }
+    )
     empty_events = pd.DataFrame(columns=["timestamp", "symbol", "amount"])
 
     result = add_congress_features(prices, empty_events)
@@ -181,15 +190,19 @@ def test_congress_features_empty_events() -> None:
 
 
 def test_congress_net_buy_score() -> None:
-    from src.assembled_core.features.congress_features import compute_congress_net_buy_score
+    from src.assembled_core.features.congress_features import (
+        compute_congress_net_buy_score,
+    )
 
-    trades = pd.DataFrame({
-        "symbol": ["AAPL", "AAPL", "MSFT"],
-        "amount": [100_000, 50_000, 200_000],
-        "type": ["buy", "sell", "purchase"],
-        "disclosure_date": pd.date_range("2024-01-01", periods=3, freq="7D"),
-        "member_id": ["m1", "m2", "m3"],
-    })
+    trades = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL", "MSFT"],
+            "amount": [100_000, 50_000, 200_000],
+            "type": ["buy", "sell", "purchase"],
+            "disclosure_date": pd.date_range("2024-01-01", periods=3, freq="7D"),
+            "member_id": ["m1", "m2", "m3"],
+        }
+    )
 
     scores = compute_congress_net_buy_score(trades)
     assert "AAPL" in scores

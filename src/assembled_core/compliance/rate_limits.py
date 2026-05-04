@@ -4,16 +4,17 @@ From 50_COMPLIANCE_RECHT.md §50.3.
 Respecting rate limits protects us from IP bans and ToS violations.
 All values are conservative estimates; reduce further if issues occur.
 """
+
 from __future__ import annotations
 
 # ── requests per unit ───────────────────────────────────────────────────────
 YFINANCE_MAX_REQ_PER_HOUR: int = 500
 STOOQ_MAX_REQ_PER_MINUTE: int = 10
 WIKIPEDIA_MAX_REQ_PER_SEC: int = 100
-REDDIT_MAX_REQ_PER_MINUTE: int = 60     # PRAW enforces this
-SEC_EDGAR_MAX_REQ_PER_SEC: int = 10     # Official limit — violations cause bans
-FINNHUB_MAX_REQ_PER_MINUTE: int = 60    # Free-tier limit
-ALPACA_MAX_REQ_PER_MINUTE: int = 200    # Free-tier Alpaca
+REDDIT_MAX_REQ_PER_MINUTE: int = 60  # PRAW enforces this
+SEC_EDGAR_MAX_REQ_PER_SEC: int = 10  # Official limit — violations cause bans
+FINNHUB_MAX_REQ_PER_MINUTE: int = 60  # Free-tier limit
+ALPACA_MAX_REQ_PER_MINUTE: int = 200  # Free-tier Alpaca
 
 # ── source licences ─────────────────────────────────────────────────────────
 # Allowed for personal-use (no re-sale, no redistribution)
@@ -36,9 +37,9 @@ PROHIBITED_SOURCES: tuple[str, ...] = (
     "linkedin",
     "indeed",
     "glassdoor",
-    "nitter",           # Twitter scraping proxy — often hacked
+    "nitter",  # Twitter scraping proxy — often hacked
     "seeking_alpha_scraper",
-    "pytrends",         # Google sends fake data to bot-detection
+    "pytrends",  # Google sends fake data to bot-detection
 )
 
 

@@ -5,6 +5,7 @@ Decomposes portfolio variance into:
 
 Optionally uses `toraniko` for factor return estimation if installed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,9 +51,7 @@ class BarraRiskModel:
         """Estimate factor loadings and factor returns via cross-sectional regression."""
         style_scores = self._build_style_scores()
         sector_dummies = self._build_sector_dummies()
-        market_dummy = pd.DataFrame(
-            1.0, index=style_scores.index, columns=["market"]
-        )
+        market_dummy = pd.DataFrame(1.0, index=style_scores.index, columns=["market"])
         X = pd.concat([market_dummy, sector_dummies, style_scores], axis=1).fillna(0)
         self._factor_loadings = X
 
@@ -67,7 +66,9 @@ class BarraRiskModel:
             try:
                 coef, resid, *_ = np.linalg.lstsq(X_day.values, y.values, rcond=None)
                 f_ret = pd.Series(coef, index=X_day.columns, name=date)
-                r_vec = pd.Series(y.values - X_day.values @ coef, index=y.index, name=date)
+                r_vec = pd.Series(
+                    y.values - X_day.values @ coef, index=y.index, name=date
+                )
                 factor_ret_rows.append(f_ret)
                 residual_rows.append(r_vec)
             except Exception as _exc:
@@ -114,9 +115,7 @@ class BarraRiskModel:
 
         # Idiosyncratic variance
         if self._residuals is not None:
-            resid_common = self._residuals.loc[
-                self._residuals.index.isin(w.index)
-            ]
+            resid_common = self._residuals.loc[self._residuals.index.isin(w.index)]
             resid_var = resid_common.var(axis=1).reindex(w.index).fillna(0)
             idio_var = float((w_vec**2) @ resid_var.values)
         else:
@@ -135,8 +134,11 @@ class BarraRiskModel:
         # Attribution by factor group
         factor_cols = list(self._factor_returns.columns)
         market_idx = [i for i, c in enumerate(factor_cols) if c == "market"]
-        sector_idx = [i for i, c in enumerate(factor_cols)
-                      if c not in ("market",) and c not in self.STYLE_FACTORS]
+        sector_idx = [
+            i
+            for i, c in enumerate(factor_cols)
+            if c not in ("market",) and c not in self.STYLE_FACTORS
+        ]
         style_idx = [i for i, c in enumerate(factor_cols) if c in self.STYLE_FACTORS]
 
         def _group_var(idxs: list[int]) -> float:
@@ -171,8 +173,16 @@ class BarraRiskModel:
         symbols = self.returns.columns.tolist()
 
         # Momentum: 12M-1M return
-        mom_252 = self.returns.iloc[-252:].mean() * 252 if len(self.returns) >= 252 else self.returns.mean()
-        mom_21 = self.returns.iloc[-21:].mean() * 21 if len(self.returns) >= 21 else self.returns.mean()
+        mom_252 = (
+            self.returns.iloc[-252:].mean() * 252
+            if len(self.returns) >= 252
+            else self.returns.mean()
+        )
+        mom_21 = (
+            self.returns.iloc[-21:].mean() * 21
+            if len(self.returns) >= 21
+            else self.returns.mean()
+        )
         momentum = mom_252 - mom_21
 
         # Fundamentals-based: expect fundamentals indexed by symbol
@@ -180,16 +190,29 @@ class BarraRiskModel:
         if isinstance(fund.index, pd.MultiIndex):
             fund = fund.xs(fund.index.get_level_values(0)[-1], level=0)
 
-        mcap = fund["market_cap"].reindex(symbols) if "market_cap" in fund.columns else pd.Series(np.nan, index=symbols)
-        b2p = fund["book_to_price"].reindex(symbols) if "book_to_price" in fund.columns else pd.Series(np.nan, index=symbols)
+        mcap = (
+            fund["market_cap"].reindex(symbols)
+            if "market_cap" in fund.columns
+            else pd.Series(np.nan, index=symbols)
+        )
+        b2p = (
+            fund["book_to_price"].reindex(symbols)
+            if "book_to_price" in fund.columns
+            else pd.Series(np.nan, index=symbols)
+        )
 
-        size = -np.log(mcap.fillna(1.0).clip(lower=1))  # smaller market cap → positive size score
+        size = -np.log(
+            mcap.fillna(1.0).clip(lower=1)
+        )  # smaller market cap → positive size score
 
-        scores = pd.DataFrame({
-            "momentum": momentum,
-            "size": size,
-            "value": b2p,
-        }, index=symbols)
+        scores = pd.DataFrame(
+            {
+                "momentum": momentum,
+                "size": size,
+                "value": b2p,
+            },
+            index=symbols,
+        )
 
         # Cross-sectional standardisation (vectorized DataFrame arithmetic)
         return (scores - scores.mean()) / (scores.std() + 1e-9)

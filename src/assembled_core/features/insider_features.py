@@ -126,13 +126,19 @@ def add_insider_features(
             continue
 
         # Determine window time column once (constant per symbol group)
-        window_time_col = "event_date" if "event_date" in symbol_events.columns else "timestamp"
+        window_time_col = (
+            "event_date" if "event_date" in symbol_events.columns else "timestamp"
+        )
         has_pit = "disclosure_date" in symbol_events.columns
         has_ns = "net_shares" in symbol_events.columns
 
         # Pre-extract event arrays in int64 ns for fast comparison
         ev_time_ns = symbol_events[window_time_col].values.astype("int64")
-        ev_ns_vals = symbol_events["net_shares"].values if has_ns else np.zeros(len(symbol_events))
+        ev_ns_vals = (
+            symbol_events["net_shares"].values
+            if has_ns
+            else np.zeros(len(symbol_events))
+        )
         if has_pit:
             ev_disclose_ns = symbol_events["disclosure_date"].values.astype("int64")
         else:

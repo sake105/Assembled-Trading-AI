@@ -56,9 +56,9 @@ class NewsTradeAttributor:
         decay_halflife_hours: float = 12.0,
     ) -> None:
         """Args:
-            pre_window_hours: Wie weit vor Trade-Open News relevant sind.
-            post_window_hours: Wie weit nach Trade-Open (z.B. wenn innerhalb Position gehalten).
-            decay_halflife_hours: Exponential-Decay für zeitlichen Abstand.
+        pre_window_hours: Wie weit vor Trade-Open News relevant sind.
+        post_window_hours: Wie weit nach Trade-Open (z.B. wenn innerhalb Position gehalten).
+        decay_halflife_hours: Exponential-Decay für zeitlichen Abstand.
         """
         self.pre = pre_window_hours
         self.post = post_window_hours
@@ -98,7 +98,9 @@ class NewsTradeAttributor:
             return []
 
         # Avoid underscore-prefix column (_pub_ts) which itertuples silently renames
-        events["pub_ts_"] = pd.to_datetime(events["published_at"], errors="coerce", utc=True)
+        events["pub_ts_"] = pd.to_datetime(
+            events["published_at"], errors="coerce", utc=True
+        )
         events = events.dropna(subset=["pub_ts_"])
 
         # Symbol-Match (entweder direkte 'symbol' oder 'tickers' Liste)
@@ -111,7 +113,9 @@ class NewsTradeAttributor:
         else:
             return []
 
-        time_mask = (events["pub_ts_"] >= window_start) & (events["pub_ts_"] <= window_end)
+        time_mask = (events["pub_ts_"] >= window_start) & (
+            events["pub_ts_"] <= window_end
+        )
         relevant = events[sym_mask & time_mask]
         if relevant.empty:
             return []
@@ -136,14 +140,16 @@ class NewsTradeAttributor:
 
         links: list[NewsLink] = []
         for idx in relevant.index:
-            links.append(NewsLink(
-                event_id=event_id_s[idx],
-                symbol=symbol,
-                distance_hours=round(float(dist_hours[idx]), 2),
-                weight=round(float(weight[idx]), 4),
-                estimated_contribution=round(float(est_contrib[idx]), 6),
-                impact_bps=round(float(impact_bps_s[idx]), 2),
-            ))
+            links.append(
+                NewsLink(
+                    event_id=event_id_s[idx],
+                    symbol=symbol,
+                    distance_hours=round(float(dist_hours[idx]), 2),
+                    weight=round(float(weight[idx]), 4),
+                    estimated_contribution=round(float(est_contrib[idx]), 6),
+                    impact_bps=round(float(impact_bps_s[idx]), 2),
+                )
+            )
         return links
 
     def attribute_trades(
@@ -156,17 +162,21 @@ class NewsTradeAttributor:
         for trade in trades:
             try:
                 links = self.link_trade_to_events(trade, news_events)
-                closed_return = float(trade.get("closed_return", 0.0) or trade.get("pnl", 0.0))
+                closed_return = float(
+                    trade.get("closed_return", 0.0) or trade.get("pnl", 0.0)
+                )
                 total_attributed = sum(link.estimated_contribution for link in links)
                 residual = closed_return - total_attributed
 
-                attributions.append(TradeAttribution(
-                    trade_id=str(trade.get("trade_id", trade.get("id", ""))),
-                    symbol=str(trade.get("symbol", "")),
-                    closed_return=round(closed_return, 6),
-                    news_links=links,
-                    residual_return=round(residual, 6),
-                ))
+                attributions.append(
+                    TradeAttribution(
+                        trade_id=str(trade.get("trade_id", trade.get("id", ""))),
+                        symbol=str(trade.get("symbol", "")),
+                        closed_return=round(closed_return, 6),
+                        news_links=links,
+                        residual_return=round(residual, 6),
+                    )
+                )
             except Exception as exc:
                 logger.debug("[NewsTradeAttr] trade failed: %s", exc)
 
@@ -243,7 +253,9 @@ class NewsTradeAttributor:
                                 n_enriched += 1
                     enriched_lines.append(json.dumps(rec))
                 except Exception as _exc:
-                    logger.debug("[NewsTradeAttr] enrich_learning_store line skipped: %s", _exc)
+                    logger.debug(
+                        "[NewsTradeAttr] enrich_learning_store line skipped: %s", _exc
+                    )
                     enriched_lines.append(line)
 
         target = output_path or learning_store_path
@@ -263,7 +275,9 @@ class NewsTradeAttributor:
             return 0
         logger.info(
             "[NewsTradeAttr] enriched %d neu, %d bereits-enriched übersprungen → %s",
-            n_enriched, n_skipped, target,
+            n_enriched,
+            n_skipped,
+            target,
         )
         return n_enriched
 

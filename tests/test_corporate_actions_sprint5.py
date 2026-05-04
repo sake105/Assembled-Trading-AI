@@ -36,19 +36,24 @@ pytestmark = [pytest.mark.phase12, pytest.mark.unwired_code]
 def test_delisting_generates_exit_event() -> None:
     """Delisted symbol with open position generates DELIST_EXIT."""
     positions = pd.DataFrame({"symbol": ["AAPL", "LEH"], "qty": [100.0, 50.0]})
-    actions = pd.DataFrame({
-        "symbol": ["LEH"],
-        "action_type": ["DELISTING"],
-        "effective_date": [pd.Timestamp("2008-09-15", tz="UTC")],
-    })
-    prices = pd.DataFrame({
-        "timestamp": [
-            pd.Timestamp("2008-09-12", tz="UTC"),
-            pd.Timestamp("2008-09-15", tz="UTC"),
-        ] * 2,
-        "symbol": ["LEH", "LEH", "AAPL", "AAPL"],
-        "close": [3.65, 0.21, 150.0, 148.0],
-    })
+    actions = pd.DataFrame(
+        {
+            "symbol": ["LEH"],
+            "action_type": ["DELISTING"],
+            "effective_date": [pd.Timestamp("2008-09-15", tz="UTC")],
+        }
+    )
+    prices = pd.DataFrame(
+        {
+            "timestamp": [
+                pd.Timestamp("2008-09-12", tz="UTC"),
+                pd.Timestamp("2008-09-15", tz="UTC"),
+            ]
+            * 2,
+            "symbol": ["LEH", "LEH", "AAPL", "AAPL"],
+            "close": [3.65, 0.21, 150.0, 148.0],
+        }
+    )
 
     result = apply_delisting_exits(positions, actions, prices)
     assert len(result) == 1
@@ -62,17 +67,21 @@ def test_delisting_generates_exit_event() -> None:
 def test_delisting_uses_last_price_before_date() -> None:
     """If no price on delisting date, use last available before it."""
     positions = pd.DataFrame({"symbol": ["XYZ"], "qty": [200.0]})
-    actions = pd.DataFrame({
-        "symbol": ["XYZ"],
-        "action_type": ["DELISTING"],
-        "effective_date": [pd.Timestamp("2024-06-15", tz="UTC")],
-    })
+    actions = pd.DataFrame(
+        {
+            "symbol": ["XYZ"],
+            "action_type": ["DELISTING"],
+            "effective_date": [pd.Timestamp("2024-06-15", tz="UTC")],
+        }
+    )
     # Price data ends before delisting
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-06-01", periods=10, freq="B", tz="UTC"),
-        "symbol": ["XYZ"] * 10,
-        "close": [50.0 + i for i in range(10)],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-06-01", periods=10, freq="B", tz="UTC"),
+            "symbol": ["XYZ"] * 10,
+            "close": [50.0 + i for i in range(10)],
+        }
+    )
 
     result = apply_delisting_exits(positions, actions, prices)
     assert len(result) == 1
@@ -83,19 +92,25 @@ def test_delisting_uses_last_price_before_date() -> None:
 def test_delisting_as_of_filter() -> None:
     """Delisting after as_of is not processed."""
     positions = pd.DataFrame({"symbol": ["XYZ"], "qty": [100.0]})
-    actions = pd.DataFrame({
-        "symbol": ["XYZ"],
-        "action_type": ["DELISTING"],
-        "effective_date": [pd.Timestamp("2024-12-01", tz="UTC")],
-    })
-    prices = pd.DataFrame({
-        "timestamp": [pd.Timestamp("2024-11-01", tz="UTC")],
-        "symbol": ["XYZ"],
-        "close": [10.0],
-    })
+    actions = pd.DataFrame(
+        {
+            "symbol": ["XYZ"],
+            "action_type": ["DELISTING"],
+            "effective_date": [pd.Timestamp("2024-12-01", tz="UTC")],
+        }
+    )
+    prices = pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2024-11-01", tz="UTC")],
+            "symbol": ["XYZ"],
+            "close": [10.0],
+        }
+    )
 
     result = apply_delisting_exits(
-        positions, actions, prices,
+        positions,
+        actions,
+        prices,
         as_of=pd.Timestamp("2024-06-01", tz="UTC"),
     )
     assert result.empty
@@ -104,16 +119,20 @@ def test_delisting_as_of_filter() -> None:
 def test_delisting_no_position() -> None:
     """Delisting for symbol not held is a no-op."""
     positions = pd.DataFrame({"symbol": ["AAPL"], "qty": [100.0]})
-    actions = pd.DataFrame({
-        "symbol": ["LEH"],
-        "action_type": ["DELISTING"],
-        "effective_date": [pd.Timestamp("2008-09-15", tz="UTC")],
-    })
-    prices = pd.DataFrame({
-        "timestamp": [pd.Timestamp("2008-09-12", tz="UTC")],
-        "symbol": ["LEH"],
-        "close": [3.65],
-    })
+    actions = pd.DataFrame(
+        {
+            "symbol": ["LEH"],
+            "action_type": ["DELISTING"],
+            "effective_date": [pd.Timestamp("2008-09-15", tz="UTC")],
+        }
+    )
+    prices = pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2008-09-12", tz="UTC")],
+            "symbol": ["LEH"],
+            "close": [3.65],
+        }
+    )
 
     result = apply_delisting_exits(positions, actions, prices)
     assert result.empty
@@ -136,18 +155,22 @@ def test_delisting_empty_inputs() -> None:
 
 def test_spinoff_creates_child_position() -> None:
     """Spinoff adds child position based on ratio."""
-    positions = pd.DataFrame({
-        "symbol": ["PARENT"],
-        "qty": [100.0],
-        "avg_price": [50.0],
-    })
-    actions = pd.DataFrame({
-        "symbol": ["PARENT"],
-        "action_type": ["SPINOFF"],
-        "effective_date": [pd.Timestamp("2024-06-01", tz="UTC")],
-        "child_symbol": ["CHILD"],
-        "spinoff_ratio": [0.25],  # 0.25 child shares per parent share
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["PARENT"],
+            "qty": [100.0],
+            "avg_price": [50.0],
+        }
+    )
+    actions = pd.DataFrame(
+        {
+            "symbol": ["PARENT"],
+            "action_type": ["SPINOFF"],
+            "effective_date": [pd.Timestamp("2024-06-01", tz="UTC")],
+            "child_symbol": ["CHILD"],
+            "spinoff_ratio": [0.25],  # 0.25 child shares per parent share
+        }
+    )
 
     result = apply_spinoff(positions, actions)
     assert len(result) == 2  # parent + child
@@ -161,13 +184,15 @@ def test_spinoff_creates_child_position() -> None:
 def test_spinoff_zero_ratio() -> None:
     """Spinoff with ratio=0 is a no-op."""
     positions = pd.DataFrame({"symbol": ["X"], "qty": [100.0]})
-    actions = pd.DataFrame({
-        "symbol": ["X"],
-        "action_type": ["SPINOFF"],
-        "effective_date": [pd.Timestamp("2024-01-01", tz="UTC")],
-        "child_symbol": ["Y"],
-        "spinoff_ratio": [0.0],
-    })
+    actions = pd.DataFrame(
+        {
+            "symbol": ["X"],
+            "action_type": ["SPINOFF"],
+            "effective_date": [pd.Timestamp("2024-01-01", tz="UTC")],
+            "child_symbol": ["Y"],
+            "spinoff_ratio": [0.0],
+        }
+    )
 
     result = apply_spinoff(positions, actions)
     assert len(result) == 1
@@ -177,13 +202,15 @@ def test_spinoff_zero_ratio() -> None:
 def test_spinoff_no_matching_parent() -> None:
     """Spinoff for non-held parent is a no-op."""
     positions = pd.DataFrame({"symbol": ["AAPL"], "qty": [100.0]})
-    actions = pd.DataFrame({
-        "symbol": ["MSFT"],
-        "action_type": ["SPINOFF"],
-        "effective_date": [pd.Timestamp("2024-01-01", tz="UTC")],
-        "child_symbol": ["CHILD"],
-        "spinoff_ratio": [0.5],
-    })
+    actions = pd.DataFrame(
+        {
+            "symbol": ["MSFT"],
+            "action_type": ["SPINOFF"],
+            "effective_date": [pd.Timestamp("2024-01-01", tz="UTC")],
+            "child_symbol": ["CHILD"],
+            "spinoff_ratio": [0.5],
+        }
+    )
 
     result = apply_spinoff(positions, actions)
     assert len(result) == 1
@@ -193,7 +220,15 @@ def test_spinoff_no_matching_parent() -> None:
 def test_spinoff_empty_inputs() -> None:
     """Empty positions or actions returns copy."""
     empty_pos = pd.DataFrame(columns=["symbol", "qty"])
-    empty_act = pd.DataFrame(columns=["symbol", "action_type", "effective_date", "child_symbol", "spinoff_ratio"])
+    empty_act = pd.DataFrame(
+        columns=[
+            "symbol",
+            "action_type",
+            "effective_date",
+            "child_symbol",
+            "spinoff_ratio",
+        ]
+    )
 
     assert apply_spinoff(empty_pos, empty_act).empty
     assert apply_spinoff(None, empty_act).empty
@@ -201,21 +236,25 @@ def test_spinoff_empty_inputs() -> None:
 
 def test_spinoff_multiple() -> None:
     """Multiple spinoffs from different parents."""
-    positions = pd.DataFrame({
-        "symbol": ["A", "B"],
-        "qty": [100.0, 200.0],
-        "avg_price": [10.0, 20.0],
-    })
-    actions = pd.DataFrame({
-        "symbol": ["A", "B"],
-        "action_type": ["SPINOFF", "SPINOFF"],
-        "effective_date": [
-            pd.Timestamp("2024-01-01", tz="UTC"),
-            pd.Timestamp("2024-02-01", tz="UTC"),
-        ],
-        "child_symbol": ["A_CHILD", "B_CHILD"],
-        "spinoff_ratio": [0.1, 0.5],
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["A", "B"],
+            "qty": [100.0, 200.0],
+            "avg_price": [10.0, 20.0],
+        }
+    )
+    actions = pd.DataFrame(
+        {
+            "symbol": ["A", "B"],
+            "action_type": ["SPINOFF", "SPINOFF"],
+            "effective_date": [
+                pd.Timestamp("2024-01-01", tz="UTC"),
+                pd.Timestamp("2024-02-01", tz="UTC"),
+            ],
+            "child_symbol": ["A_CHILD", "B_CHILD"],
+            "spinoff_ratio": [0.1, 0.5],
+        }
+    )
 
     result = apply_spinoff(positions, actions)
     assert len(result) == 4  # 2 parents + 2 children

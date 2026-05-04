@@ -56,7 +56,11 @@ def compute_factor_concentration(
         return {}
 
     if factor_cols is None:
-        factor_cols = [c for c in factor_exposures.columns if factor_exposures[c].dtype in ("float64", "float32", "int64")]
+        factor_cols = [
+            c
+            for c in factor_exposures.columns
+            if factor_exposures[c].dtype in ("float64", "float32", "int64")
+        ]
 
     symbols = list(weights.keys())
     w = np.array([weights.get(s, 0.0) for s in symbols])
@@ -65,10 +69,16 @@ def compute_factor_concentration(
     for fc in factor_cols:
         if fc not in factor_exposures.columns:
             continue
-        exp = np.array([
-            float(factor_exposures.loc[s, fc]) if s in factor_exposures.index else 0.0
-            for s in symbols
-        ])
+        exp = np.array(
+            [
+                (
+                    float(factor_exposures.loc[s, fc])
+                    if s in factor_exposures.index
+                    else 0.0
+                )
+                for s in symbols
+            ]
+        )
         weighted_exp = w * exp
         numerator = abs(weighted_exp.sum())
         denominator = np.sum(np.abs(w) * np.abs(exp))
@@ -93,7 +103,7 @@ def compute_hhi(weights: dict[str, float]) -> float:
     if total < 1e-10:
         return 0.0
     w_norm = w / total
-    return float(np.sum(w_norm ** 2))
+    return float(np.sum(w_norm**2))
 
 
 def detect_crowding(
@@ -120,7 +130,9 @@ def detect_crowding(
     # Factor concentration
     concentrations: dict[str, float] = {}
     if factor_exposures is not None and not factor_exposures.empty:
-        concentrations = compute_factor_concentration(weights, factor_exposures, factor_cols)
+        concentrations = compute_factor_concentration(
+            weights, factor_exposures, factor_cols
+        )
 
     # HHI
     hhi = compute_hhi(weights)
@@ -151,7 +163,9 @@ def detect_crowding(
     if is_crowded and factor_exposures is not None and dominant:
         warning_parts = []
         if dominant_share > crowding_threshold:
-            warning_parts.append(f"factor '{dominant}' concentration={dominant_share:.2f}")
+            warning_parts.append(
+                f"factor '{dominant}' concentration={dominant_share:.2f}"
+            )
         if hhi > hhi_threshold:
             warning_parts.append(f"HHI={hhi:.3f}")
         if mom_score > crowding_threshold:
@@ -200,7 +214,7 @@ def apply_crowding_reduction(
     adjusted = dict(target_weights)
     for sym, reduction in crowding_result.recommended_reduction.items():
         if sym in adjusted:
-            adjusted[sym] *= (1.0 - reduction)
+            adjusted[sym] *= 1.0 - reduction
 
     return adjusted
 

@@ -20,12 +20,14 @@ def _synthetic_filings(n: int = 100, seed: int = 42) -> pd.DataFrame:
     filing_dates = rng.choice(dates, n)
     ipc_classes = rng.choice(["H04L", "G06F", "H01L", "G06N", "A61K"], n)
     citations = rng.poisson(3, n)
-    return pd.DataFrame({
-        "symbol": symbols,
-        "filing_date": filing_dates,
-        "ipc_class": ipc_classes,
-        "forward_citations": citations,
-    })
+    return pd.DataFrame(
+        {
+            "symbol": symbols,
+            "filing_date": filing_dates,
+            "ipc_class": ipc_classes,
+            "forward_citations": citations,
+        }
+    )
 
 
 @pytest.mark.phase12
@@ -43,12 +45,14 @@ class TestComputePatentFeatures:
 
     def test_pit_safety(self):
         """Only filings before as_of should be counted."""
-        filings = pd.DataFrame({
-            "symbol": ["AAPL"] * 10,
-            "filing_date": pd.date_range("2024-06-01", periods=10, freq="D"),
-            "ipc_class": ["G06F"] * 10,
-            "forward_citations": [2] * 10,
-        })
+        filings = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 10,
+                "filing_date": pd.date_range("2024-06-01", periods=10, freq="D"),
+                "ipc_class": ["G06F"] * 10,
+                "forward_citations": [2] * 10,
+            }
+        )
         result = compute_patent_features(filings, as_of="2024-01-01")
         assert len(result) == 0  # all filings are in the future
 

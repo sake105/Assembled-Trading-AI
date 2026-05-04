@@ -5,6 +5,7 @@ From 35_GOLDEN_EQUITY_SCENARIO_TESTS.md §2.3.
 All random sources are seeded so that test outputs are reproducible
 regardless of OS, hardware, or Python hash randomisation.
 """
+
 from __future__ import annotations
 
 import random
@@ -24,6 +25,7 @@ def deterministic_seeds(monkeypatch):
     monkeypatch.setenv("PYTHONHASHSEED", str(DETERMINISTIC_SEED))
     try:
         import torch
+
         torch.manual_seed(DETERMINISTIC_SEED)
         torch.use_deterministic_algorithms(True, warn_only=True)
     except ImportError:

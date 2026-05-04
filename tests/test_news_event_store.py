@@ -64,19 +64,37 @@ class TestNewsEventStore:
         store = NewsEventStore()
         store.add(_make_event("ev_nvda", tickers=["NVDA"], title="Nvidia AI chip news"))
         store.add(_make_event("ev_aapl", tickers=["AAPL"], title="Apple earnings beat"))
-        store.add(_make_event("ev_both", tickers=["NVDA", "AMD"], title="Chip sector news"))
+        store.add(
+            _make_event("ev_both", tickers=["NVDA", "AMD"], title="Chip sector news")
+        )
 
         nvda_events = store.query_by_ticker("NVDA")
         assert len(nvda_events) == 2
-        assert all("ev_nvda" == e.event_id or "ev_both" == e.event_id for e in nvda_events)
+        assert all(
+            "ev_nvda" == e.event_id or "ev_both" == e.event_id for e in nvda_events
+        )
 
     def test_query_by_sector(self):
         from src.assembled_core.intel.news_event_store import NewsEventStore
 
         store = NewsEventStore()
-        store.add(_make_event("ev_en1", affected_sectors=["energy"], title="Oil pipeline attack"))
-        store.add(_make_event("ev_en2", affected_sectors=["energy", "defense"], title="Russia energy cuts"))
-        store.add(_make_event("ev_fin", affected_sectors=["financials"], title="Fed rate hike"))
+        store.add(
+            _make_event(
+                "ev_en1", affected_sectors=["energy"], title="Oil pipeline attack"
+            )
+        )
+        store.add(
+            _make_event(
+                "ev_en2",
+                affected_sectors=["energy", "defense"],
+                title="Russia energy cuts",
+            )
+        )
+        store.add(
+            _make_event(
+                "ev_fin", affected_sectors=["financials"], title="Fed rate hike"
+            )
+        )
 
         energy = store.query_by_sector("energy")
         assert len(energy) == 2
@@ -87,9 +105,19 @@ class TestNewsEventStore:
         from src.assembled_core.intel.news_event_store import NewsEventStore
 
         store = NewsEventStore()
-        store.add(_make_event("ev_war", event_types=["war_escalation"], title="War escalation update"))
-        store.add(_make_event("ev_san", event_types=["sanctions"], title="New sanctions announced"))
-        store.add(_make_event("ev_earn", event_types=["earnings"], title="Q1 earnings beat"))
+        store.add(
+            _make_event(
+                "ev_war", event_types=["war_escalation"], title="War escalation update"
+            )
+        )
+        store.add(
+            _make_event(
+                "ev_san", event_types=["sanctions"], title="New sanctions announced"
+            )
+        )
+        store.add(
+            _make_event("ev_earn", event_types=["earnings"], title="Q1 earnings beat")
+        )
 
         war_events = store.query_by_event_type("war_escalation")
         assert len(war_events) == 1
@@ -101,7 +129,11 @@ class TestNewsEventStore:
         store = NewsEventStore()
         store.add(_make_event("ev_ru", geo_tags=["RU"], title="Russia sanctions"))
         store.add(_make_event("ev_cn", geo_tags=["CN"], title="China trade war"))
-        store.add(_make_event("ev_ru2", geo_tags=["RU", "UA"], title="Russia-Ukraine conflict"))
+        store.add(
+            _make_event(
+                "ev_ru2", geo_tags=["RU", "UA"], title="Russia-Ukraine conflict"
+            )
+        )
 
         ru_events = store.query_by_geo("RU")
         assert len(ru_events) == 2
@@ -219,6 +251,7 @@ class TestIntelSignalAggregator:
     ):
         class FakeCluster:
             pass
+
         cl = FakeCluster()
         cl.cluster_id = cluster_id
         cl.trigger_type = type("TT", (), {"value": trigger_type_val})()
@@ -306,16 +339,18 @@ class TestIntelSignalAggregator:
 
         # Single T3 source → gate should drop it.
         cl = self._make_cluster("cl_uncorr", "war_escalation", 0.80)
-        cl.supporting_events = [NewsEvent(
-            event_id="e1",
-            source_id="rt",
-            source_tier=SourceTier.T3,
-            title="something",
-            url="https://x/e1",
-            published_at=datetime.now(tz=timezone.utc),
-            ingested_at=datetime.now(tz=timezone.utc),
-            content_hash="h1",
-        )]
+        cl.supporting_events = [
+            NewsEvent(
+                event_id="e1",
+                source_id="rt",
+                source_tier=SourceTier.T3,
+                title="something",
+                url="https://x/e1",
+                published_at=datetime.now(tz=timezone.utc),
+                ingested_at=datetime.now(tz=timezone.utc),
+                content_hash="h1",
+            )
+        ]
         sig = aggregate_signals([cl], require_corroboration_gate=True)
         assert sig.net_direction == "neutral"
         assert get_corroboration_drop_count() > drop_before
@@ -329,9 +364,16 @@ class TestIntelSignalAggregator:
         cl = self._make_cluster("cl_corr", "war_escalation", 0.80)
         now = datetime.now(tz=timezone.utc)
         cl.supporting_events = [
-            NewsEvent(event_id=f"e{i}", source_id=src, source_tier=SourceTier.T1,
-                      title="t", url=f"https://x/e{i}", published_at=now,
-                      ingested_at=now, content_hash=f"h{i}")
+            NewsEvent(
+                event_id=f"e{i}",
+                source_id=src,
+                source_tier=SourceTier.T1,
+                title="t",
+                url=f"https://x/e{i}",
+                published_at=now,
+                ingested_at=now,
+                content_hash=f"h{i}",
+            )
             for i, src in enumerate(["reuters", "ap", "bbc"])
         ]
         sig = aggregate_signals([cl], require_corroboration_gate=True)

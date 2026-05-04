@@ -97,7 +97,10 @@ def get_qa_status_summary(
                             str(manifest["timestamp"]).replace("Z", "+00:00")
                         )
                     except Exception as exc:
-                        logger.warning("[Monitoring] failed to parse QA manifest timestamp: %s", exc)
+                        logger.warning(
+                            "[Monitoring] failed to parse QA manifest timestamp: %s",
+                            exc,
+                        )
 
                 return QAStatusSummary(
                     overall_result=overall_result,
@@ -128,7 +131,9 @@ def get_qa_status_summary(
 
         equity_df = None
         if portfolio_equity_file.exists():
-            equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
+            equity_df = pd.read_csv(
+                portfolio_equity_file, dtype={"timestamp": "string"}
+            )
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
             last_updated = equity_df["timestamp"].max().to_pydatetime()
         elif backtest_equity_file.exists():
@@ -223,7 +228,9 @@ def get_risk_status_summary(
         last_updated = None
 
         if portfolio_equity_file.exists():
-            equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
+            equity_df = pd.read_csv(
+                portfolio_equity_file, dtype={"timestamp": "string"}
+            )
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
             last_updated = equity_df["timestamp"].max().to_pydatetime()
         elif backtest_equity_file.exists():
@@ -378,7 +385,9 @@ def get_drift_status_summary(
 
 @router.get("/monitoring/portfolio")
 def get_portfolio_status(
-    db_path: str = Query(default="data/paper_ledger.db", description="Path to SQLite ledger"),
+    db_path: str = Query(
+        default="data/paper_ledger.db", description="Path to SQLite ledger"
+    ),
 ) -> dict:
     """Return current portfolio state: positions, P&L, cash, equity.
 
@@ -403,15 +412,25 @@ def get_portfolio_status(
         positions = ledger.get_positions()
         cash = ledger.get_cash()
         equity_curve = ledger.load_equity_curve()
-        last_equity = float(equity_curve["equity"].iloc[-1]) if not equity_curve.empty else cash
+        last_equity = (
+            float(equity_curve["equity"].iloc[-1]) if not equity_curve.empty else cash
+        )
 
         return {
             "status": "ok",
             "cash": round(cash, 2),
             "equity": round(last_equity, 2),
             "n_positions": len(positions),
-            "positions": json.loads(positions.to_json(orient="records")) if not positions.empty else [],
-            "last_updated": equity_curve["as_of"].iloc[-1].isoformat() if not equity_curve.empty else None,
+            "positions": (
+                json.loads(positions.to_json(orient="records"))
+                if not positions.empty
+                else []
+            ),
+            "last_updated": (
+                equity_curve["as_of"].iloc[-1].isoformat()
+                if not equity_curve.empty
+                else None
+            ),
         }
     except Exception as exc:
         logger.error("Error fetching portfolio status: %s", exc)
@@ -420,7 +439,9 @@ def get_portfolio_status(
 
 @router.get("/monitoring/regime")
 def get_regime_status(
-    output_dir: str = Query(default="src/output", description="Output directory for regime state"),
+    output_dir: str = Query(
+        default="src/output", description="Output directory for regime state"
+    ),
 ) -> dict:
     """Return current market regime state.
 
@@ -468,7 +489,9 @@ def get_regime_status(
 
 @router.get("/monitoring/alerts")
 def get_active_alerts(
-    db_path: str = Query(default="data/paper_ledger.db", description="Path to SQLite ledger"),
+    db_path: str = Query(
+        default="data/paper_ledger.db", description="Path to SQLite ledger"
+    ),
     output_dir: str = Query(default="src/output", description="Output directory"),
 ) -> dict:
     """Return active system alerts: zombies, correlation guard, kill-switch status.
@@ -481,31 +504,37 @@ def get_active_alerts(
     try:
         import json as _json
         from pathlib import Path as _Path
+
         out_path = _Path(output_dir)
         zombie_files = sorted(out_path.glob("zombie_report_*.json"), reverse=True)
         if zombie_files:
             zombie_data = _json.loads(zombie_files[0].read_text(encoding="utf-8"))
             zombie_syms = zombie_data.get("zombie_symbols", [])
             if zombie_syms:
-                alerts.append({
-                    "type": "zombie_positions",
-                    "severity": "HIGH",
-                    "message": f"{len(zombie_syms)} zombie position(s) detected: {zombie_syms}",
-                    "source": zombie_files[0].name,
-                })
+                alerts.append(
+                    {
+                        "type": "zombie_positions",
+                        "severity": "HIGH",
+                        "message": f"{len(zombie_syms)} zombie position(s) detected: {zombie_syms}",
+                        "source": zombie_files[0].name,
+                    }
+                )
     except Exception as exc:
         logger.warning("[Monitoring] failed to load zombie alerts: %s", exc)
 
     # Kill-switch state
     try:
         from src.assembled_core.risk.kill_switch import KillSwitch  # type: ignore
+
         ks = KillSwitch()
         if ks.is_triggered():
-            alerts.append({
-                "type": "kill_switch",
-                "severity": "CRITICAL",
-                "message": "Kill switch is ACTIVE — trading halted",
-            })
+            alerts.append(
+                {
+                    "type": "kill_switch",
+                    "severity": "CRITICAL",
+                    "message": "Kill switch is ACTIVE — trading halted",
+                }
+            )
     except Exception as exc:
         logger.warning("[Monitoring] failed to check kill-switch state: %s", exc)
 
@@ -513,17 +542,20 @@ def get_active_alerts(
     try:
         import json as _json
         from pathlib import Path as _Path
+
         out_path = _Path(output_dir)
         corr_files = sorted(out_path.glob("correlation_guard_*.json"), reverse=True)
         if corr_files:
             corr_data = _json.loads(corr_files[0].read_text(encoding="utf-8"))
             if corr_data.get("guard_triggered"):
-                alerts.append({
-                    "type": "correlation_guard",
-                    "severity": "MEDIUM",
-                    "message": "Correlation guard active — position weights scaled down",
-                    "source": corr_files[0].name,
-                })
+                alerts.append(
+                    {
+                        "type": "correlation_guard",
+                        "severity": "MEDIUM",
+                        "message": "Correlation guard active — position weights scaled down",
+                        "source": corr_files[0].name,
+                    }
+                )
     except Exception as exc:
         logger.warning("[Monitoring] failed to check correlation guard: %s", exc)
 
@@ -536,8 +568,12 @@ def get_active_alerts(
 
 @router.get("/monitoring/signals")
 def get_signal_scores(
-    output_dir: str = Query(default="src/output", description="Output directory for signal scores"),
-    top_n: int = Query(default=20, description="Number of top/bottom symbols to return"),
+    output_dir: str = Query(
+        default="src/output", description="Output directory for signal scores"
+    ),
+    top_n: int = Query(
+        default=20, description="Number of top/bottom symbols to return"
+    ),
 ) -> dict:
     """Return most recent composite signal scores per symbol.
 
@@ -551,10 +587,19 @@ def get_signal_scores(
         score_files = sorted(out_path.glob("signal_scores_*.json"), reverse=True)
         if not score_files:
             # Try parquet
-            score_files_pq = sorted(out_path.glob("signal_scores_*.parquet"), reverse=True)
+            score_files_pq = sorted(
+                out_path.glob("signal_scores_*.parquet"), reverse=True
+            )
             if score_files_pq:
                 df = pd.read_parquet(str(score_files_pq[0]))
-                scores = {k: float(v) for k, v in df.set_index("symbol")["score"].to_dict().items()} if "score" in df.columns else {}
+                scores = (
+                    {
+                        k: float(v)
+                        for k, v in df.set_index("symbol")["score"].to_dict().items()
+                    }
+                    if "score" in df.columns
+                    else {}
+                )
                 return {
                     "status": "ok",
                     "source": score_files_pq[0].name,

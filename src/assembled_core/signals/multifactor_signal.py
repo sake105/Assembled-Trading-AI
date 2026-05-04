@@ -104,6 +104,7 @@ def _zscore_crosssectional(
     Returns:
         Series with z-scores (index matches df.index)
     """
+
     # Use transform on SeriesGroupBy — always returns a flat Series with the
     # same index as the original column (avoids pandas 2.2 DataFrame return
     # from DataFrameGroupBy.apply with include_groups=False).
@@ -219,7 +220,9 @@ def build_multifactor_signal(
         # Step 2: Z-score (cross-sectional per timestamp)
         if bundle.options.zscore:
             logger.debug(f"Applying cross-sectional z-scoring to {factor_name}")
-            result_df[factor_name] = factor_series  # write in-place; z-score overwrites below
+            result_df[factor_name] = (
+                factor_series  # write in-place; z-score overwrites below
+            )
             zscore_series = _zscore_crosssectional(
                 result_df,
                 factor_col=factor_name,
@@ -449,8 +452,14 @@ def compute_ic_weights(
     # Step 2: rolling mean IC + EWMA smoothing
     for fcol in factor_cols:
         raw_col = f"ic_{fcol}"
-        rolling_ic = ic_df[raw_col].rolling(ic_window, min_periods=max(10, ic_window // 3)).mean()
-        ic_df[f"ic_smooth_{fcol}"] = rolling_ic.ewm(halflife=ic_halflife, min_periods=5).mean()
+        rolling_ic = (
+            ic_df[raw_col]
+            .rolling(ic_window, min_periods=max(10, ic_window // 3))
+            .mean()
+        )
+        ic_df[f"ic_smooth_{fcol}"] = rolling_ic.ewm(
+            halflife=ic_halflife, min_periods=5
+        ).mean()
 
     # Step 3: normalise positive smoothed ICs into weights (vectorized)
     smooth_cols = [f"ic_smooth_{f}" for f in factor_cols]
@@ -496,6 +505,7 @@ def neutralize_by_group(
     Returns:
         Series of neutralized z-scores (same index as ``df``).
     """
+
     def _neutralize_group(sub: pd.DataFrame) -> pd.Series:
         vals = sub[factor_col]
         valid = vals.dropna()
@@ -553,25 +563,39 @@ def build_adaptive_multifactor_signal(
 
     # Determine available factors
     available_factors = [f for f in bundle.factors if f.name in result_df.columns]
-    missing_factors = [f.name for f in bundle.factors if f.name not in result_df.columns]
+    missing_factors = [
+        f.name for f in bundle.factors if f.name not in result_df.columns
+    ]
 
     if not available_factors:
-        raise ValueError(f"No factors from bundle available. Missing: {missing_factors}")
+        raise ValueError(
+            f"No factors from bundle available. Missing: {missing_factors}"
+        )
 
     factor_names = [f.name for f in available_factors]
 
     # Optional: compute IC weights on the fly
-    if ic_weights_df is None and forward_returns_col and forward_returns_col in result_df.columns:
+    if (
+        ic_weights_df is None
+        and forward_returns_col
+        and forward_returns_col in result_df.columns
+    ):
         ic_weights_df = compute_ic_weights(
-            result_df, forward_returns_col, factor_names,
-            timestamp_col=timestamp_col, group_col=group_col,
+            result_df,
+            forward_returns_col,
+            factor_names,
+            timestamp_col=timestamp_col,
+            group_col=group_col,
         )
 
     # Neutralize factors if requested
     if neutralize_col and neutralize_col in result_df.columns:
         for f in available_factors:
             result_df[f.name] = neutralize_by_group(
-                result_df, f.name, neutralize_col, timestamp_col,
+                result_df,
+                f.name,
+                neutralize_col,
+                timestamp_col,
             )
 
     # Process factors: winsorize + zscore (same as build_multifactor_signal)
@@ -602,13 +626,15 @@ def build_adaptive_multifactor_signal(
             # Map IC weight per timestamp
             weight_col = f"weight_{fname}"
             if weight_col in ic_weights_df.columns:
-                ts_weights = result_df[timestamp_col].map(
-                    ic_weights_df[weight_col]
-                ).fillna(0.0)
+                ts_weights = (
+                    result_df[timestamp_col].map(ic_weights_df[weight_col]).fillna(0.0)
+                )
             else:
                 # Fallback: static weight
                 cfg = next((f for f in available_factors if f.name == fname), None)
-                ts_weights = pd.Series(cfg.weight if cfg else 0.0, index=result_df.index)
+                ts_weights = pd.Series(
+                    cfg.weight if cfg else 0.0, index=result_df.index
+                )
         else:
             cfg = next((f for f in available_factors if f.name == fname), None)
             ts_weights = pd.Series(cfg.weight if cfg else 0.0, index=result_df.index)
@@ -647,29 +673,59 @@ def build_adaptive_multifactor_signal(
 
 REGIME_FACTOR_WEIGHTS: dict[str, dict[str, float]] = {
     "bull": {
-        "momentum": 0.30, "quality": 0.20, "value": 0.10,
-        "low_vol": 0.05, "growth": 0.20, "size": 0.10,
-        "mean_reversion": 0.00, "safe_haven": 0.00, "carry": 0.05,
+        "momentum": 0.30,
+        "quality": 0.20,
+        "value": 0.10,
+        "low_vol": 0.05,
+        "growth": 0.20,
+        "size": 0.10,
+        "mean_reversion": 0.00,
+        "safe_haven": 0.00,
+        "carry": 0.05,
     },
     "bear": {
-        "momentum": -0.10, "quality": 0.35, "value": 0.10,
-        "low_vol": 0.25, "growth": 0.00, "size": 0.00,
-        "mean_reversion": 0.10, "safe_haven": 0.10, "carry": 0.00,
+        "momentum": -0.10,
+        "quality": 0.35,
+        "value": 0.10,
+        "low_vol": 0.25,
+        "growth": 0.00,
+        "size": 0.00,
+        "mean_reversion": 0.10,
+        "safe_haven": 0.10,
+        "carry": 0.00,
     },
     "crisis": {
-        "momentum": -0.10, "quality": 0.15, "value": 0.00,
-        "low_vol": 0.30, "growth": 0.00, "size": 0.00,
-        "mean_reversion": 0.00, "safe_haven": 0.40, "carry": 0.00,
+        "momentum": -0.10,
+        "quality": 0.15,
+        "value": 0.00,
+        "low_vol": 0.30,
+        "growth": 0.00,
+        "size": 0.00,
+        "mean_reversion": 0.00,
+        "safe_haven": 0.40,
+        "carry": 0.00,
     },
     "recovery": {
-        "momentum": -0.05, "quality": 0.10, "value": 0.35,
-        "low_vol": 0.05, "growth": 0.15, "size": 0.20,
-        "mean_reversion": 0.10, "safe_haven": 0.00, "carry": 0.05,
+        "momentum": -0.05,
+        "quality": 0.10,
+        "value": 0.35,
+        "low_vol": 0.05,
+        "growth": 0.15,
+        "size": 0.20,
+        "mean_reversion": 0.10,
+        "safe_haven": 0.00,
+        "carry": 0.05,
     },
     "sideways": {
-        "momentum": 0.10, "quality": 0.15, "value": 0.15,
-        "low_vol": 0.10, "growth": 0.10, "size": 0.05,
-        "mean_reversion": 0.25, "safe_haven": 0.00, "carry": 0.10,
+        "momentum": 0.10,
+        "quality": 0.15,
+        "value": 0.15,
+        "low_vol": 0.10,
+        "growth": 0.10,
+        "size": 0.05,
+        "mean_reversion": 0.25,
+        "safe_haven": 0.00,
+        "carry": 0.10,
     },
 }
 
@@ -706,7 +762,9 @@ def compute_regime_blended_weights(
             blended[category] = blended.get(category, 0.0) + norm_prob * w
 
     if factor_categories:
-        return {fn: round(blended.get(cat, 0.0), 6) for fn, cat in factor_categories.items()}
+        return {
+            fn: round(blended.get(cat, 0.0), 6) for fn, cat in factor_categories.items()
+        }
 
     return {k: round(v, 6) for k, v in blended.items()}
 
@@ -736,7 +794,11 @@ def extract_regime_posteriors(
 
     # Select the row
     if timestamp is not None:
-        ts_col = "timestamp" if "timestamp" in regime_state_df.columns else regime_state_df.columns[0]
+        ts_col = (
+            "timestamp"
+            if "timestamp" in regime_state_df.columns
+            else regime_state_df.columns[0]
+        )
         row_mask = regime_state_df[ts_col] == timestamp
         if row_mask.any():
             row = regime_state_df.loc[row_mask].iloc[-1]
@@ -746,12 +808,20 @@ def extract_regime_posteriors(
         row = regime_state_df.iloc[-1]
 
     # Extract all hmm_*_prob columns
-    proba_cols = [c for c in regime_state_df.columns if c.startswith("hmm_") and c.endswith("_prob")]
+    proba_cols = [
+        c
+        for c in regime_state_df.columns
+        if c.startswith("hmm_") and c.endswith("_prob")
+    ]
     if not proba_cols:
         # Fallback: use discrete label with confidence
         label = row.get("regime_label", "sideways")
         conf = float(row.get("regime_confidence", 0.8))
-        return {str(label): conf, "sideways": 1.0 - conf} if label != "sideways" else {"sideways": 1.0}
+        return (
+            {str(label): conf, "sideways": 1.0 - conf}
+            if label != "sideways"
+            else {"sideways": 1.0}
+        )
 
     posteriors: dict[str, float] = {}
     for col in proba_cols:
@@ -876,26 +946,33 @@ def apply_meta_model_filter(
         if isinstance(meta_obj, dict):
             clf = meta_obj["model"]
             feature_cols = meta_obj.get("feature_cols", [])  # raw inference features
-            cs_feature_cols = meta_obj.get("cs_feature_cols", [])  # cross-sectional (v4+)
+            cs_feature_cols = meta_obj.get(
+                "cs_feature_cols", []
+            )  # cross-sectional (v4+)
             training_feature_cols = meta_obj.get("training_feature_cols", feature_cols)
             version = meta_obj.get("version", "v2")
 
             available = [f for f in feature_cols if f in signals_df.columns]
             if not available:
-                logger.warning("[META-FILTER] %s: no feature columns found in signals_df — passing through", version)
+                logger.warning(
+                    "[META-FILTER] %s: no feature columns found in signals_df — passing through",
+                    version,
+                )
                 return signals_df
 
             # Build raw feature matrix
             X = pd.DataFrame(
-                {col: signals_df[col].fillna(0) if col in signals_df.columns else 0.0
-                 for col in feature_cols},
+                {
+                    col: signals_df[col].fillna(0) if col in signals_df.columns else 0.0
+                    for col in feature_cols
+                },
                 index=signals_df.index,
             )
 
             # v4+: compute cross-sectional rank features from current signals batch
             if cs_feature_cols:
                 for cs_col in cs_feature_cols:
-                    raw_col = cs_col[len("cs_"):]  # strip "cs_" prefix
+                    raw_col = cs_col[len("cs_") :]  # strip "cs_" prefix
                     if raw_col in X.columns and len(X) > 1:
                         X[cs_col] = X[raw_col].rank(pct=True)
                     else:
@@ -904,14 +981,19 @@ def apply_meta_model_filter(
             # Align columns to training order (fill any still-missing with 0)
             if training_feature_cols and training_feature_cols != feature_cols:
                 X = pd.DataFrame(
-                    {col: X[col] if col in X.columns else 0.0
-                     for col in training_feature_cols},
+                    {
+                        col: X[col] if col in X.columns else 0.0
+                        for col in training_feature_cols
+                    },
                     index=signals_df.index,
                 )
 
             logger.debug(
                 "[META-FILTER] %s: %d/%d raw features available, %d cs features",
-                version, len(available), len(feature_cols), len(cs_feature_cols),
+                version,
+                len(available),
+                len(feature_cols),
+                len(cs_feature_cols),
             )
             proba = clf.predict_proba(X)
             confidence = pd.Series(proba[:, 1], index=signals_df.index)
@@ -932,12 +1014,16 @@ def apply_meta_model_filter(
 
         logger.info(
             "[META-FILTER] %d/%d passed (thr=%.2f, scaled=%s)",
-            n_after, n_before, confidence_threshold, scale_by_confidence,
+            n_after,
+            n_before,
+            confidence_threshold,
+            scale_by_confidence,
         )
         return signals_df
 
     except Exception as exc:
         logger.warning(
-            "[META-FILTER] Failed: %s — passing through", exc,
+            "[META-FILTER] Failed: %s — passing through",
+            exc,
         )
         return signals_df

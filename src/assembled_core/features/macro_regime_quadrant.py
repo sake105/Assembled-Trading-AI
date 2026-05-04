@@ -122,8 +122,17 @@ def quadrant_exposure_bias(quadrant: str) -> dict[str, float]:
     Sectors in the quadrant's favored list → 1.3, others → 0.9.
     """
     favored = _QUADRANT_ALLOCATIONS.get(quadrant, [])
-    all_sectors = ["commodities", "emerging", "value", "growth", "large_cap_tech",
-                   "gold", "defensive_value", "treasuries", "cash"]
+    all_sectors = [
+        "commodities",
+        "emerging",
+        "value",
+        "growth",
+        "large_cap_tech",
+        "gold",
+        "defensive_value",
+        "treasuries",
+        "cash",
+    ]
     return {s: 1.3 if s in favored else 0.9 for s in all_sectors}
 
 

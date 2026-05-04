@@ -1,5 +1,6 @@
 # scripts/commands/ops.py
 """Ops subcommands: check_health, paper_track, walk_forward, run_phase4_tests."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,7 +11,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
 
 
 def check_health_subcommand(args: argparse.Namespace) -> int:

@@ -44,7 +44,9 @@ def _is_kill_switch_active(policy_path: Path = _POLICY_PATH) -> bool:
     try:
         with open(policy_path, "r", encoding="utf-8") as fh:
             policy = yaml.safe_load(fh)
-        return bool((policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False))
+        return bool(
+            (policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False)
+        )
     except Exception as exc:
         logger.warning("[WARN] Could not read kill_switch from policy: %s", exc)
         return False
@@ -90,9 +92,7 @@ class _WorkerLock:
             pid = -1
         if pid > 0 and self._is_pid_alive(pid):
             return False
-        logger.warning(
-            "[WARN] stale lock released (mtime=%.0f, pid=%s)", mtime, pid
-        )
+        logger.warning("[WARN] stale lock released (mtime=%.0f, pid=%s)", mtime, pid)
         try:
             self._lock_path.unlink(missing_ok=True)
         except OSError:

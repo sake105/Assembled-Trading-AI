@@ -9,7 +9,6 @@ import pytest
 
 from src.assembled_core.risk.market_stress import compute_market_stress
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

@@ -17,7 +17,9 @@ from src.assembled_core.features.market_breadth import (
 )
 
 
-def _synthetic_prices_panel(n_days: int = 200, n_symbols: int = 50, seed: int = 42) -> pd.DataFrame:
+def _synthetic_prices_panel(
+    n_days: int = 200, n_symbols: int = 50, seed: int = 42
+) -> pd.DataFrame:
     """Synthetic prices panel (long format) for breadth tests."""
     rng = np.random.default_rng(seed)
     dates = pd.bdate_range("2023-01-01", periods=n_days)
@@ -42,8 +44,9 @@ class TestMarketBreadthMA:
     def test_columns_present(self):
         prices = _synthetic_prices_panel()
         result = compute_market_breadth_ma(prices)
-        assert any("fraction" in c.lower() or "above" in c.lower()
-                    for c in result.columns)
+        assert any(
+            "fraction" in c.lower() or "above" in c.lower() for c in result.columns
+        )
 
 
 @pytest.mark.phase12

@@ -126,7 +126,9 @@ def calibrate_cost_model(
     if len(files) < min_runs:
         logger.info(
             "[CALIBRATOR] only %d runs found in %s (< min_runs=%d), returning priors",
-            len(files), tca_dir, min_runs,
+            len(files),
+            tca_dir,
+            min_runs,
         )
         return CalibrationResult(
             half_spread_bps=priors.half_spread_bps,
@@ -160,13 +162,15 @@ def calibrate_cost_model(
             n_coerce_failed += 1
             logger.warning(
                 "[CALIBRATOR] malformed metric in %s: %s — run dropped from mean",
-                p, exc,
+                p,
+                exc,
             )
             continue
     if n_unreadable or n_coerce_failed:
         logger.warning(
             "[CALIBRATOR] parse summary: %d unreadable, %d malformed, %d parsed cleanly (of %d files)",
-            n_unreadable, n_coerce_failed,
+            n_unreadable,
+            n_coerce_failed,
             len(files) - n_unreadable - n_coerce_failed,
             len(files),
         )
@@ -183,7 +187,9 @@ def calibrate_cost_model(
 
     new = CalibrationResult(
         half_spread_bps=_shrink(priors.half_spread_bps, mean_spread, shrinkage),
-        impact_bps_per_pct_adv=_shrink(priors.impact_bps_per_pct_adv, mean_impact, shrinkage),
+        impact_bps_per_pct_adv=_shrink(
+            priors.impact_bps_per_pct_adv, mean_impact, shrinkage
+        ),
         participation_cap=_shrink(priors.participation_cap, realised_cap, shrinkage),
         n_runs=len(files),
         mean_realised={
@@ -205,9 +211,12 @@ def calibrate_cost_model(
     logger.info(
         "[CALIBRATOR] %d runs: half_spread %.3f→%.3f, impact %.3f→%.3f, cap %.3f→%.3f",
         new.n_runs,
-        priors.half_spread_bps, new.half_spread_bps,
-        priors.impact_bps_per_pct_adv, new.impact_bps_per_pct_adv,
-        priors.participation_cap, new.participation_cap,
+        priors.half_spread_bps,
+        new.half_spread_bps,
+        priors.impact_bps_per_pct_adv,
+        new.impact_bps_per_pct_adv,
+        priors.participation_cap,
+        new.participation_cap,
     )
     return new
 

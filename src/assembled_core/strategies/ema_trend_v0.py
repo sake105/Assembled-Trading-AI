@@ -121,9 +121,7 @@ def compute_target_positions(
             weight = 1.0 / n
             weights = {sym: weight for sym in syms}
         else:
-            weights = {
-                sym: scores.get(sym, 0.0) / total_score for sym in syms
-            }
+            weights = {sym: scores.get(sym, 0.0) / total_score for sym in syms}
 
     # Apply min_position_weight: drop positions below minimum
     if min_position_weight > 0:
@@ -140,9 +138,7 @@ def compute_target_positions(
         else:
             total_score = sum(scores.get(s, 0.0) for s in syms)
             if total_score > 0:
-                weights = {
-                    sym: scores.get(sym, 0.0) / total_score for sym in syms
-                }
+                weights = {sym: scores.get(sym, 0.0) / total_score for sym in syms}
             else:
                 weights = {sym: 1.0 / n for sym in syms}
 
@@ -151,11 +147,13 @@ def compute_target_positions(
     for sym in syms:
         w = weights[sym] * min(target_invested_pct, 1.0)
         # target_qty is NOTIONAL (dollar amount)
-        rows.append({
-            "symbol": sym,
-            "target_weight": w,
-            "target_qty": available_capital * w,
-        })
+        rows.append(
+            {
+                "symbol": sym,
+                "target_weight": w,
+                "target_qty": available_capital * w,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -218,36 +216,42 @@ def check_exit_signals(
         if stop_loss_pct > 0:
             stop_price = avg_price * (1 - stop_loss_pct)
             if current_price <= stop_price:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"stop_loss ({current_price:.2f} <= {stop_price:.2f})",
-                    "exit_qty_pct": 1.0,
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"stop_loss ({current_price:.2f} <= {stop_price:.2f})",
+                        "exit_qty_pct": 1.0,
+                    }
+                )
                 continue
 
         # Check trailing stop (below HWM)
         if trailing_stop_pct > 0 and hwm > avg_price:
             trail_price = hwm * (1 - trailing_stop_pct)
             if current_price <= trail_price:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"trailing_stop ({current_price:.2f} <= {trail_price:.2f}, hwm={hwm:.2f})",
-                    "exit_qty_pct": 1.0,
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"trailing_stop ({current_price:.2f} <= {trail_price:.2f}, hwm={hwm:.2f})",
+                        "exit_qty_pct": 1.0,
+                    }
+                )
                 continue
 
         # Check take-profit (partial sell at +N%)
         if take_profit_pct > 0:
             tp_price = avg_price * (1 + take_profit_pct)
             if current_price >= tp_price:
-                exits.append({
-                    "symbol": sym,
-                    "direction": "FLAT",
-                    "exit_reason": f"take_profit ({current_price:.2f} >= {tp_price:.2f})",
-                    "exit_qty_pct": 0.5,  # Sell 50%, let rest run with trailing stop
-                })
+                exits.append(
+                    {
+                        "symbol": sym,
+                        "direction": "FLAT",
+                        "exit_reason": f"take_profit ({current_price:.2f} >= {tp_price:.2f})",
+                        "exit_qty_pct": 0.5,  # Sell 50%, let rest run with trailing stop
+                    }
+                )
                 continue
 
     if not exits:

@@ -8,7 +8,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import pytest; pytest.importorskip("src.assembled_core.risk.circuit_breaker")
+import pytest
+
+pytest.importorskip("src.assembled_core.risk.circuit_breaker")
 from src.assembled_core.risk.circuit_breaker import VolCircuitBreaker  # noqa: E402
 
 

@@ -42,23 +42,73 @@ PREFIX = "[DATA-EXT]"
 
 DEFAULT_UNIVERSE: list[str] = [
     # Tech / Mega-cap
-    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA",
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "NVDA",
+    "TSLA",
     # Financials / Consumer
-    "JPM", "V", "JNJ", "UNH", "PG", "HD", "MA", "DIS",
+    "JPM",
+    "V",
+    "JNJ",
+    "UNH",
+    "PG",
+    "HD",
+    "MA",
+    "DIS",
     # Software / Cloud
-    "ADBE", "CRM", "NFLX", "COST", "PEP", "CMCSA",
+    "ADBE",
+    "CRM",
+    "NFLX",
+    "COST",
+    "PEP",
+    "CMCSA",
     # Semiconductors
-    "INTC", "AMD", "QCOM", "TXN", "AVGO", "MU", "AMAT", "LRCX", "KLAC",
+    "INTC",
+    "AMD",
+    "QCOM",
+    "TXN",
+    "AVGO",
+    "MU",
+    "AMAT",
+    "LRCX",
+    "KLAC",
     # Fintech / Payments
-    "PYPL", "SQ",
+    "PYPL",
+    "SQ",
     # High-growth / New economy
-    "ABNB", "COIN", "SNOW", "NET", "DDOG", "ZS", "CRWD", "PANW",
+    "ABNB",
+    "COIN",
+    "SNOW",
+    "NET",
+    "DDOG",
+    "ZS",
+    "CRWD",
+    "PANW",
     # International e-commerce
-    "SHOP", "MELI", "SE", "BABA", "JD", "PDD",
+    "SHOP",
+    "MELI",
+    "SE",
+    "BABA",
+    "JD",
+    "PDD",
     # EV
-    "NIO", "LI", "XPEV",
+    "NIO",
+    "LI",
+    "XPEV",
     # Energy
-    "XOM", "CVX", "COP", "SLB", "OXY", "MPC", "VLO", "PSX", "EOG", "DVN",
+    "XOM",
+    "CVX",
+    "COP",
+    "SLB",
+    "OXY",
+    "MPC",
+    "VLO",
+    "PSX",
+    "EOG",
+    "DVN",
 ]
 
 # ---------------------------------------------------------------------------
@@ -67,12 +117,13 @@ DEFAULT_UNIVERSE: list[str] = [
 
 _RETRY_MAX = 3
 _RETRY_BACKOFF_BASE = 2.0  # seconds; doubles each retry
-_RATE_LIMIT_SLEEP = 0.5    # seconds between tickers
+_RATE_LIMIT_SLEEP = 0.5  # seconds between tickers
 
 
 # ---------------------------------------------------------------------------
 # Universe loading
 # ---------------------------------------------------------------------------
+
 
 def _load_universe(universe_file: Path | None) -> list[str]:
     """Load tickers from file, or fall back to DEFAULT_UNIVERSE.
@@ -87,9 +138,13 @@ def _load_universe(universe_file: Path | None) -> list[str]:
     if universe_file is not None:
         if universe_file.exists():
             tickers = _read_ticker_file(universe_file)
-            logger.info("%s Loaded %d tickers from %s", PREFIX, len(tickers), universe_file)
+            logger.info(
+                "%s Loaded %d tickers from %s", PREFIX, len(tickers), universe_file
+            )
             return tickers
-        logger.warning("%s universe_file not found: %s — searching defaults", PREFIX, universe_file)
+        logger.warning(
+            "%s universe_file not found: %s — searching defaults", PREFIX, universe_file
+        )
 
     # -- repo-relative defaults --
     repo_root = Path(__file__).resolve().parents[2]
@@ -119,7 +174,13 @@ def _read_ticker_file(path: Path) -> list[str]:
         df = pd.read_csv(path, header=None)
         # If the first cell looks like a header (non-ticker string) skip it
         raw = df.iloc[:, 0].dropna().astype(str).str.strip().str.upper().tolist()
-        tickers = [t for t in raw if t and not t.lower().startswith("ticker") and not t.lower().startswith("symbol")]
+        tickers = [
+            t
+            for t in raw
+            if t
+            and not t.lower().startswith("ticker")
+            and not t.lower().startswith("symbol")
+        ]
         return tickers
     except Exception as exc:  # noqa: BLE001
         logger.warning("%s Failed to read %s — %s", PREFIX, path, exc)
@@ -129,6 +190,7 @@ def _read_ticker_file(path: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 # yfinance download with retry
 # ---------------------------------------------------------------------------
+
 
 def _fetch_symbol(
     symbol: str,
@@ -143,7 +205,9 @@ def _fetch_symbol(
     try:
         import yfinance as yf  # noqa: PLC0415
     except ImportError:
-        logger.error("%s yfinance not installed. Run: pip install yfinance>=0.2.40", PREFIX)
+        logger.error(
+            "%s yfinance not installed. Run: pip install yfinance>=0.2.40", PREFIX
+        )
         return None
 
     last_exc: Exception | None = None
@@ -154,45 +218,65 @@ def _fetch_symbol(
                 start=start_date,
                 end=end_date,
                 interval="1d",
-                auto_adjust=True,   # adjusted OHLCV — correct for corporate actions
+                auto_adjust=True,  # adjusted OHLCV — correct for corporate actions
                 actions=False,
             )
             if raw is None or raw.empty:
                 logger.warning(
                     "%s No data for %s (%s – %s) on attempt %d",
-                    PREFIX, symbol, start_date, end_date, attempt,
+                    PREFIX,
+                    symbol,
+                    start_date,
+                    end_date,
+                    attempt,
                 )
                 return None
 
             raw = raw.reset_index()
             date_col = "Date" if "Date" in raw.columns else "Datetime"
             raw = raw.rename(columns={date_col: "date"})
-            raw["date"] = pd.to_datetime(raw["date"]).dt.normalize().dt.tz_localize(None)
+            raw["date"] = (
+                pd.to_datetime(raw["date"]).dt.normalize().dt.tz_localize(None)
+            )
             raw["symbol"] = symbol
 
             rename_map = {
-                "Open": "open", "High": "high", "Low": "low",
-                "Close": "close", "Volume": "volume",
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "volume",
             }
             raw = raw.rename(columns=rename_map)
 
-            cols = [c for c in ["date", "open", "high", "low", "close", "volume", "symbol"]
-                    if c in raw.columns]
+            cols = [
+                c
+                for c in ["date", "open", "high", "low", "close", "volume", "symbol"]
+                if c in raw.columns
+            ]
             return raw[cols].copy()
 
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
-            wait = _RETRY_BACKOFF_BASE ** attempt
+            wait = _RETRY_BACKOFF_BASE**attempt
             logger.warning(
                 "%s Attempt %d/%d failed for %s — %s. Retry in %.1fs.",
-                PREFIX, attempt, _RETRY_MAX, symbol, exc, wait,
+                PREFIX,
+                attempt,
+                _RETRY_MAX,
+                symbol,
+                exc,
+                wait,
             )
             if attempt < _RETRY_MAX:
                 time.sleep(wait)
 
     logger.error(
         "%s All %d retries exhausted for %s — %s",
-        PREFIX, _RETRY_MAX, symbol, last_exc,
+        PREFIX,
+        _RETRY_MAX,
+        symbol,
+        last_exc,
     )
     return None
 
@@ -200,6 +284,7 @@ def _fetch_symbol(
 # ---------------------------------------------------------------------------
 # Per-ticker merge + validate
 # ---------------------------------------------------------------------------
+
 
 def _load_existing(parquet_path: Path) -> pd.DataFrame | None:
     """Load existing parquet for a symbol.  Returns None if absent/unreadable.
@@ -223,14 +308,20 @@ def _load_existing(parquet_path: Path) -> pd.DataFrame | None:
         return None
 
 
-def _merge_frames(existing: pd.DataFrame | None, new: pd.DataFrame | None) -> pd.DataFrame | None:
+def _merge_frames(
+    existing: pd.DataFrame | None, new: pd.DataFrame | None
+) -> pd.DataFrame | None:
     """Combine existing and newly-downloaded frames; dedup + sort by date."""
     frames = [f for f in (existing, new) if f is not None and not f.empty]
     if not frames:
         return None
     merged = pd.concat(frames, ignore_index=True)
     merged["date"] = pd.to_datetime(merged["date"]).dt.normalize().dt.tz_localize(None)
-    merged = merged.drop_duplicates(subset=["date"]).sort_values("date").reset_index(drop=True)
+    merged = (
+        merged.drop_duplicates(subset=["date"])
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
     return merged
 
 
@@ -285,6 +376,7 @@ def _validate(
 # Main extension function
 # ---------------------------------------------------------------------------
 
+
 def extend_historical_data(
     universe_file: Path | None = None,
     target_start: str = "2019-01-01",
@@ -329,7 +421,10 @@ def extend_historical_data(
     output_dir.mkdir(parents=True, exist_ok=True)
     logger.info(
         "%s Starting extension run — %d tickers, target_start=%s, output=%s",
-        PREFIX, len(tickers), target_start, output_dir,
+        PREFIX,
+        len(tickers),
+        target_start,
+        output_dir,
     )
 
     results: dict[str, dict] = {}
@@ -368,21 +463,29 @@ def extend_historical_data(
                 if dl_start_str >= today_str:
                     logger.info(
                         "%s %s already up-to-date through %s — skipping download",
-                        PREFIX, symbol, existing_df["date"].max().date(),
+                        PREFIX,
+                        symbol,
+                        existing_df["date"].max().date(),
                     )
                     ticker_result["skipped"] = True
                     new_df = None
                 else:
                     logger.info(
                         "%s %s has data from %s; downloading %s → %s",
-                        PREFIX, symbol, existing_earliest.date(), dl_start_str, today_str,
+                        PREFIX,
+                        symbol,
+                        existing_earliest.date(),
+                        dl_start_str,
+                        today_str,
                     )
                     download_start_str = dl_start_str
                     download_end_str = today_str
                     ticker_result["download_start"] = download_start_str
                     ticker_result["download_end"] = download_end_str
-                    new_df = None if dry_run else _fetch_symbol(
-                        symbol, download_start_str, download_end_str
+                    new_df = (
+                        None
+                        if dry_run
+                        else _fetch_symbol(symbol, download_start_str, download_end_str)
                     )
                     if new_df is not None:
                         ticker_result["downloaded_rows"] = len(new_df)
@@ -393,9 +496,14 @@ def extend_historical_data(
                 ticker_result["download_end"] = dl_end
                 logger.info(
                     "%s %s needs full history %s → %s",
-                    PREFIX, symbol, target_start, dl_end,
+                    PREFIX,
+                    symbol,
+                    target_start,
+                    dl_end,
                 )
-                new_df = None if dry_run else _fetch_symbol(symbol, target_start, dl_end)
+                new_df = (
+                    None if dry_run else _fetch_symbol(symbol, target_start, dl_end)
+                )
                 if new_df is not None:
                     ticker_result["downloaded_rows"] = len(new_df)
 
@@ -437,7 +545,10 @@ def extend_historical_data(
                 merged_df.to_parquet(parquet_path, index=False)
                 logger.info(
                     "%s %s saved %d rows → %s",
-                    PREFIX, symbol, len(merged_df), parquet_path,
+                    PREFIX,
+                    symbol,
+                    len(merged_df),
+                    parquet_path,
                 )
 
             ticker_result["status"] = "ok"
@@ -454,13 +565,20 @@ def extend_historical_data(
     # Summary
     # ---------------------------------------------------------------------------
     ok_count = sum(1 for r in results.values() if r["status"] == "ok")
-    skip_count = sum(1 for r in results.values() if r.get("skipped") and r["status"] != "error")
+    skip_count = sum(
+        1 for r in results.values() if r.get("skipped") and r["status"] != "error"
+    )
     fail_count = sum(1 for r in results.values() if r["status"] == "error")
     nodata_count = sum(1 for r in results.values() if r["status"] == "no_data")
 
     logger.info(
         "%s Done — ok=%d  skipped=%d  no_data=%d  errors=%d  (total=%d)",
-        PREFIX, ok_count, skip_count, nodata_count, fail_count, len(results),
+        PREFIX,
+        ok_count,
+        skip_count,
+        nodata_count,
+        fail_count,
+        len(results),
     )
     if fail_count:
         failed = [s for s, r in results.items() if r["status"] == "error"]
@@ -499,6 +617,7 @@ def extend_historical_data(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(

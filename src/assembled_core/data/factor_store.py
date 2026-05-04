@@ -144,9 +144,7 @@ def _load_all_partitions(panel_dir: Path) -> pd.DataFrame | None:
             dfs.append(pd.read_parquet(p))
         except Exception:
             failed_parts.append(str(p))
-            logger.error(
-                "[factor_store] Failed to read partition %s", p, exc_info=True
-            )
+            logger.error("[factor_store] Failed to read partition %s", p, exc_info=True)
     if failed_parts:
         logger.error(
             "[factor_store] %d of %d partitions unreadable in %s: %s",
@@ -227,6 +225,7 @@ def _write_manifest(
         manifest.update(extra_metadata)
 
     from src.assembled_core.utils.atomic_io import atomic_write_json
+
     atomic_write_json(panel_dir / "_metadata.json", manifest)
 
 
@@ -450,7 +449,11 @@ def list_factor_partitions(
                     if key in manifest:
                         entry[key] = manifest[key]
             except Exception as exc:
-                logger.warning("[FactorStore] failed to read metadata from %s: %s", manifest_file, exc)
+                logger.warning(
+                    "[FactorStore] failed to read metadata from %s: %s",
+                    manifest_file,
+                    exc,
+                )
         result.append(entry)
 
     return result

@@ -8,6 +8,7 @@ Usage:
 Predictions file: JSONL, each line {text, label} (predicted labels).
 Gold dataset file: JSONL, each line {text, label} (ground-truth labels).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,7 +43,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", required=True, help="Gold dataset JSONL")
     parser.add_argument("--predictions", required=True, help="Predictions JSONL")
-    parser.add_argument("--name", default="", help="Dataset name for threshold selection")
+    parser.add_argument(
+        "--name", default="", help="Dataset name for threshold selection"
+    )
     args = parser.parse_args()
 
     _, y_true = load_gold_dataset(Path(args.dataset))

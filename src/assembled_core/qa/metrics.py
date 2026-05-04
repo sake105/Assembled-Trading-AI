@@ -333,7 +333,9 @@ def _compute_round_trip_pnls(trades: pd.DataFrame) -> list[float]:
         sym = getattr(row, "symbol", "")
         side = getattr(row, "side", "BUY")
         _qty_raw = getattr(row, qty_col, None)
-        raw_qty = float(_qty_raw) if _qty_raw is not None and pd.notna(_qty_raw) else 0.0
+        raw_qty = (
+            float(_qty_raw) if _qty_raw is not None and pd.notna(_qty_raw) else 0.0
+        )
         _px_raw = getattr(row, px_col, None)
         price = float(_px_raw) if _px_raw is not None and pd.notna(_px_raw) else 0.0
 
@@ -836,17 +838,23 @@ def compute_benchmark_relative_metrics(
         ``active_sharpe``, ``beta``, ``alpha``.
     """
     # Align
-    combined = pd.DataFrame({
-        "port": portfolio_returns,
-        "bench": benchmark_returns,
-    }).dropna()
+    combined = pd.DataFrame(
+        {
+            "port": portfolio_returns,
+            "bench": benchmark_returns,
+        }
+    ).dropna()
 
     if len(combined) < 30:
         return {
-            "information_ratio": None, "active_return": None,
-            "tracking_error": None, "up_capture": None,
-            "down_capture": None, "active_sharpe": None,
-            "beta": None, "alpha": None,
+            "information_ratio": None,
+            "active_return": None,
+            "tracking_error": None,
+            "up_capture": None,
+            "down_capture": None,
+            "active_sharpe": None,
+            "beta": None,
+            "alpha": None,
         }
 
     port = combined["port"]
@@ -895,7 +903,9 @@ def compute_benchmark_relative_metrics(
         "tracking_error": round(tracking_error, 6),
         "up_capture": up_capture,
         "down_capture": down_capture,
-        "active_sharpe": round(active_return / tracking_error, 4) if tracking_error > 1e-10 else None,
+        "active_sharpe": (
+            round(active_return / tracking_error, 4) if tracking_error > 1e-10 else None
+        ),
         "beta": round(beta, 4) if beta is not None else None,
         "alpha": round(alpha, 6) if alpha is not None else None,
     }
@@ -933,8 +943,10 @@ def permutation_test_sharpe(
     clean = returns.dropna()
     if len(clean) < 30:
         return {
-            "observed_sharpe": 0.0, "p_value": 1.0,
-            "mean_permuted_sharpe": 0.0, "sharpe_percentile": 0.0,
+            "observed_sharpe": 0.0,
+            "p_value": 1.0,
+            "mean_permuted_sharpe": 0.0,
+            "sharpe_percentile": 0.0,
         }
 
     ret_arr = clean.values
@@ -995,8 +1007,11 @@ def compute_regime_segmented_performance(
 
         if len(r) < 5:
             results[str(regime)] = {
-                "sharpe": 0.0, "max_dd": 0.0, "win_rate": 0.0,
-                "avg_return": 0.0, "n_days": len(r),
+                "sharpe": 0.0,
+                "max_dd": 0.0,
+                "win_rate": 0.0,
+                "avg_return": 0.0,
+                "n_days": len(r),
             }
             continue
 
@@ -1045,7 +1060,9 @@ def compute_hit_rate_and_profit_factor(
     hit_rate = len(wins) / len(returns) if len(returns) > 0 else 0.0
     avg_win = float(wins.mean()) if len(wins) > 0 else 0.0
     avg_loss = float(losses.mean()) if len(losses) > 0 else 0.0
-    profit_factor = float(wins.sum() / abs(losses.sum())) if losses.sum() != 0 else float("inf")
+    profit_factor = (
+        float(wins.sum() / abs(losses.sum())) if losses.sum() != 0 else float("inf")
+    )
 
     return {
         "hit_rate": round(hit_rate, 4),
@@ -1127,17 +1144,22 @@ def bayesian_sharpe_credible_interval(
         return {"posterior_mean": 0.0, "ci_lower": -1.0, "ci_upper": 1.0}
 
     trading_days = 252
-    sample_sharpe = float(returns.mean() / returns.std() * np.sqrt(trading_days)) if returns.std() > 1e-10 else 0.0
+    sample_sharpe = (
+        float(returns.mean() / returns.std() * np.sqrt(trading_days))
+        if returns.std() > 1e-10
+        else 0.0
+    )
     se = 1.0 / np.sqrt(n / trading_days)  # SE of Sharpe estimate
 
     # Bayesian posterior (Normal-Normal conjugate)
-    prior_prec = 1.0 / prior_std ** 2
-    data_prec = 1.0 / se ** 2
+    prior_prec = 1.0 / prior_std**2
+    data_prec = 1.0 / se**2
     post_prec = prior_prec + data_prec
     post_mean = (prior_prec * prior_sharpe + data_prec * sample_sharpe) / post_prec
     post_std = 1.0 / np.sqrt(post_prec)
 
     from scipy.stats import norm
+
     z = norm.ppf((1 + credible_level) / 2)
 
     return {
@@ -1152,7 +1174,12 @@ def bayesian_sharpe_credible_interval(
 # PSI and PBO (from 32_VALIDIERUNG.md §32.8 and §32.3)
 # ---------------------------------------------------------------------------
 
-def psi(reference: "np.ndarray | pd.Series", current: "np.ndarray | pd.Series", bins: int = 10) -> float:
+
+def psi(
+    reference: "np.ndarray | pd.Series",
+    current: "np.ndarray | pd.Series",
+    bins: int = 10,
+) -> float:
     """Population Stability Index between reference and current distributions.
 
     Interpretation:

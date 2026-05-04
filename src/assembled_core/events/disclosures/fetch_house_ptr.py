@@ -239,7 +239,9 @@ def _compute_pdf_meta(
             sha256_hex = h.hexdigest()
             hashed = True
         except Exception as exc:
-            logger.warning("[FetchHousePtr] failed to compute sha256 for %s: %s", path, exc)
+            logger.warning(
+                "[FetchHousePtr] failed to compute sha256 for %s: %s", path, exc
+            )
     out: Dict[str, Any] = {
         "local_path": str(path),
         "size_bytes": size_bytes,
@@ -327,7 +329,11 @@ def fetch_house_ptr_filings(
                 stats["duration_ms"] = 0
                 return list(_cached_items), None, stats
         except Exception as exc:
-            logger.warning("[FetchHousePtr] failed to parse cached state for %s: %s", source_id, exc)
+            logger.warning(
+                "[FetchHousePtr] failed to parse cached state for %s: %s",
+                source_id,
+                exc,
+            )
 
     if not index_url or index_url.startswith("https://<"):
         failure = {"source": source_id, "reason": "missing_index_url"}
@@ -352,7 +358,11 @@ def fetch_house_ptr_filings(
                     stats["cached_from_ts"] = _cached_utc
                     return list(_cached_items), failure, stats
             except Exception as exc:
-                logger.warning("[FetchHousePtr] stale-on-error cache parse failed for %s: %s", source_id, exc)
+                logger.warning(
+                    "[FetchHousePtr] stale-on-error cache parse failed for %s: %s",
+                    source_id,
+                    exc,
+                )
         return items, failure, stats
 
     start = time.perf_counter()
@@ -383,7 +393,8 @@ def fetch_house_ptr_filings(
                     if (now - then) <= timedelta(minutes=stale_on_error_minutes):
                         logger.warning(
                             "[WARN] fetch_house_ptr using stale cache (from=%s) after http_%s",
-                            _cached_utc, resp.status_code,
+                            _cached_utc,
+                            resp.status_code,
                         )
                         failure["reason"] = "stale-on-error"
                         stats["ok"] = True
@@ -393,7 +404,11 @@ def fetch_house_ptr_filings(
                         stats["cached_from_ts"] = _cached_utc
                         return list(_cached_items), failure, stats
                 except Exception as exc:
-                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed (http) for %s: %s", source_id, exc)
+                    logger.warning(
+                        "[FetchHousePtr] stale-on-error cache parse failed (http) for %s: %s",
+                        source_id,
+                        exc,
+                    )
             return items, failure, stats
 
         content = resp.content
@@ -475,7 +490,11 @@ def fetch_house_ptr_filings(
                         stats["cached"] = True
                         return list(cached_items), failure, stats
                 except Exception as exc:
-                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed (request) for %s: %s", source_id, exc)
+                    logger.warning(
+                        "[FetchHousePtr] stale-on-error cache parse failed (request) for %s: %s",
+                        source_id,
+                        exc,
+                    )
         return items, failure, stats
     except ET.ParseError as e:
         duration_ms = int((time.perf_counter() - start) * 1000)
@@ -498,7 +517,11 @@ def fetch_house_ptr_filings(
                         stats["cached"] = True
                         return list(cached_items), failure, stats
                 except Exception as exc:
-                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed (parse_error) for %s: %s", source_id, exc)
+                    logger.warning(
+                        "[FetchHousePtr] stale-on-error cache parse failed (parse_error) for %s: %s",
+                        source_id,
+                        exc,
+                    )
         return items, failure, stats
     except Exception as e:
         duration_ms = int((time.perf_counter() - start) * 1000)

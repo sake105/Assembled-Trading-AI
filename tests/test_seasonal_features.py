@@ -50,17 +50,25 @@ class TestBuildSeasonalFeatures:
 
     def test_turn_of_month(self):
         # First 3 days of month should be flagged
-        dates = pd.DatetimeIndex([pd.Timestamp("2024-03-01"),
-                                   pd.Timestamp("2024-03-02"),
-                                   pd.Timestamp("2024-03-15")])
+        dates = pd.DatetimeIndex(
+            [
+                pd.Timestamp("2024-03-01"),
+                pd.Timestamp("2024-03-02"),
+                pd.Timestamp("2024-03-15"),
+            ]
+        )
         result = build_seasonal_features(dates)
         assert result["seasonal_turn_of_month"].iloc[0] == 1.0
         assert result["seasonal_turn_of_month"].iloc[2] == 0.0
 
     def test_russell_reconstitution(self):
-        dates = pd.DatetimeIndex([pd.Timestamp("2024-06-17"),
-                                   pd.Timestamp("2024-06-28"),
-                                   pd.Timestamp("2024-07-01")])
+        dates = pd.DatetimeIndex(
+            [
+                pd.Timestamp("2024-06-17"),
+                pd.Timestamp("2024-06-28"),
+                pd.Timestamp("2024-07-01"),
+            ]
+        )
         result = build_seasonal_features(dates)
         assert result["seasonal_russell_recon"].iloc[0] == 1.0
         assert result["seasonal_russell_recon"].iloc[2] == 0.0

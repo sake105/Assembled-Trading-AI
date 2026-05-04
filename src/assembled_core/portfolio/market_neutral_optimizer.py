@@ -25,6 +25,7 @@ _log = logging.getLogger(__name__)
 
 try:
     import cvxpy as cp
+
     CVXPY_AVAILABLE = True
 except ImportError:
     CVXPY_AVAILABLE = False
@@ -91,9 +92,15 @@ def optimize_market_neutral(
 
     if n == 0:
         return MarketNeutralResult(
-            long_weights={}, short_weights={}, net_exposure=0.0,
-            gross_exposure=0.0, portfolio_beta=0.0, expected_return=0.0,
-            expected_risk=0.0, turnover_cost=0.0, solver_status="empty",
+            long_weights={},
+            short_weights={},
+            net_exposure=0.0,
+            gross_exposure=0.0,
+            portfolio_beta=0.0,
+            expected_return=0.0,
+            expected_risk=0.0,
+            turnover_cost=0.0,
+            solver_status="empty",
             method="none",
         )
 
@@ -109,10 +116,9 @@ def optimize_market_neutral(
 
     # Cost vector
     default_cost = 6.0
-    cost_vec = np.array([
-        (per_symbol_cost_bps or {}).get(s, default_cost) / 10_000.0
-        for s in symbols
-    ])
+    cost_vec = np.array(
+        [(per_symbol_cost_bps or {}).get(s, default_cost) / 10_000.0 for s in symbols]
+    )
 
     if CVXPY_AVAILABLE:
         return _optimize_cvxpy_neutral(
@@ -158,22 +164,20 @@ def _optimize_cvxpy_neutral(
 
     # Beta neutrality
     if config.beta_neutral:
-        constraints.append(
-            cp.abs(beta_vec @ w) <= config.beta_neutral_tolerance
-        )
+        constraints.append(cp.abs(beta_vec @ w) <= config.beta_neutral_tolerance)
 
     # Sector neutrality
     if config.sector_neutral and config.sector_mapping:
         sectors = set(config.sector_mapping.values())
         for sector in sectors:
-            mask = np.array([
-                1.0 if config.sector_mapping.get(s) == sector else 0.0
-                for s in symbols
-            ])
+            mask = np.array(
+                [
+                    1.0 if config.sector_mapping.get(s) == sector else 0.0
+                    for s in symbols
+                ]
+            )
             if mask.sum() > 0:
-                constraints.append(
-                    cp.abs(mask @ w) <= config.max_sector_net_exposure
-                )
+                constraints.append(cp.abs(mask @ w) <= config.max_sector_net_exposure)
 
     try:
         prob = cp.Problem(objective, constraints)
@@ -181,13 +185,25 @@ def _optimize_cvxpy_neutral(
 
         if prob.status in ("optimal", "optimal_inaccurate"):
             w_opt = w.value
-            return _build_result(symbols, mu, Sigma, beta_vec, w_opt, w_old, cost_vec, prob.status, "cvxpy")
+            return _build_result(
+                symbols,
+                mu,
+                Sigma,
+                beta_vec,
+                w_opt,
+                w_old,
+                cost_vec,
+                prob.status,
+                "cvxpy",
+            )
         else:
             _log.warning("CVXPY neutral solver: %s — falling back", prob.status)
     except Exception as e:
         _log.warning("CVXPY neutral failed: %s — fallback", e)
 
-    return _optimize_fallback_neutral(symbols, mu, Sigma, beta_vec, w_old, cost_vec, config)
+    return _optimize_fallback_neutral(
+        symbols, mu, Sigma, beta_vec, w_old, cost_vec, config
+    )
 
 
 def _optimize_fallback_neutral(
@@ -230,7 +246,17 @@ def _optimize_fallback_neutral(
             if short_total > 0:
                 w_opt[w_opt < 0] *= (short_total + net) / short_total
 
-    return _build_result(symbols, mu, Sigma, beta_vec, w_opt, w_old, cost_vec, "fallback", "fallback_longshort")
+    return _build_result(
+        symbols,
+        mu,
+        Sigma,
+        beta_vec,
+        w_opt,
+        w_old,
+        cost_vec,
+        "fallback",
+        "fallback_longshort",
+    )
 
 
 def _build_result(
@@ -245,8 +271,12 @@ def _build_result(
     method: str,
 ) -> MarketNeutralResult:
     """Build MarketNeutralResult from optimized weights."""
-    long_w = {s: round(float(w_opt[i]), 6) for i, s in enumerate(symbols) if w_opt[i] > 1e-8}
-    short_w = {s: round(float(w_opt[i]), 6) for i, s in enumerate(symbols) if w_opt[i] < -1e-8}
+    long_w = {
+        s: round(float(w_opt[i]), 6) for i, s in enumerate(symbols) if w_opt[i] > 1e-8
+    }
+    short_w = {
+        s: round(float(w_opt[i]), 6) for i, s in enumerate(symbols) if w_opt[i] < -1e-8
+    }
 
     net = float(w_opt.sum())
     gross = float(np.abs(w_opt).sum())

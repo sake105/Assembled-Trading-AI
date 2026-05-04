@@ -211,8 +211,10 @@ def compute_network_centrality(
     if max_val > 0:
         x = x / max_val
 
-    return {s: round(float(x[node_idx[s]]), 6) if s in node_idx else 0.0
-            for s in target_symbols}
+    return {
+        s: round(float(x[node_idx[s]]), 6) if s in node_idx else 0.0
+        for s in target_symbols
+    }
 
 
 def build_supply_chain_features(
@@ -337,10 +339,14 @@ def propagate_returns_through_chain(
         if total_w < 1e-10:
             continue
 
-        weighted_ret = sum(
-            connected[n] * returns[n].shift(lag_days).fillna(0)
-            for n in connected if n in returns.columns
-        ) / total_w
+        weighted_ret = (
+            sum(
+                connected[n] * returns[n].shift(lag_days).fillna(0)
+                for n in connected
+                if n in returns.columns
+            )
+            / total_w
+        )
 
         result[sym] = weighted_ret
 

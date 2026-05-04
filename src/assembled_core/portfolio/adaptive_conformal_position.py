@@ -5,6 +5,7 @@ alpha_t based on observed coverage errors — self-correcting under distribution
 
 Uses `puncc` if installed; otherwise falls back to a pure numpy ACI implementation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -95,7 +96,9 @@ class AdaptiveConformalSizer:
         # Confidence = 1 / (1 + normalised width)
         max_width = max(1e-9, 4 * np.std(self._residuals) if self._residuals else 1.0)
         confidence = 1.0 / (1.0 + interval_width / max_width)
-        position_size = float(np.clip(confidence * self.max_position, 0, self.max_position))
+        position_size = float(
+            np.clip(confidence * self.max_position, 0, self.max_position)
+        )
 
         return {
             "position_size": position_size,

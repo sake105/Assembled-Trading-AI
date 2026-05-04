@@ -38,16 +38,24 @@ class TestSemanticDedupLexical:
     def test_near_identical_is_duplicate(self):
         d = SemanticDedup(enabled=False)
         d.is_duplicate(_evt("e1", "Russia attacks Ukrainian grid"))
-        assert d.is_duplicate(
-            _evt("e2", "Russia attacks Ukrainian grid"), threshold=0.6,
-        ) is True
+        assert (
+            d.is_duplicate(
+                _evt("e2", "Russia attacks Ukrainian grid"),
+                threshold=0.6,
+            )
+            is True
+        )
 
     def test_different_topic_not_duplicate(self):
         d = SemanticDedup(enabled=False)
         d.is_duplicate(_evt("e1", "Apple unveils new iPhone"))
-        assert d.is_duplicate(
-            _evt("e2", "Russia attacks Ukrainian grid"), threshold=0.6,
-        ) is False
+        assert (
+            d.is_duplicate(
+                _evt("e2", "Russia attacks Ukrainian grid"),
+                threshold=0.6,
+            )
+            is False
+        )
 
     def test_prune_drops_stale_entries(self):
         d = SemanticDedup(enabled=False, retention_hours=1.0)

@@ -29,7 +29,6 @@ from src.assembled_core.risk.attribution import (
     compute_symbol_vol_contributions,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

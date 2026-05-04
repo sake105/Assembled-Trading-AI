@@ -156,12 +156,14 @@ def _apply_risk_controls_to_paper_orders(
 
     # Create a mapping from (symbol, side, qty, price) to order index in filtered_df
     # Use a more robust matching approach: match by symbol, side, qty, and approximate price
-    filtered_set = set(zip(
-        filtered_df["symbol"].astype(str).str.strip().str.upper(),
-        filtered_df["side"].astype(str).str.strip().str.upper(),
-        filtered_df["qty"].astype(float),
-        filtered_df["price"].astype(float),
-    ))
+    filtered_set = set(
+        zip(
+            filtered_df["symbol"].astype(str).str.strip().str.upper(),
+            filtered_df["side"].astype(str).str.strip().str.upper(),
+            filtered_df["qty"].astype(float),
+            filtered_df["price"].astype(float),
+        )
+    )
 
     # Categorize orders
     for order in paper_orders:

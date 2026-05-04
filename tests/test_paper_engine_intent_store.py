@@ -114,8 +114,20 @@ def test_intent_store_pairs_duplicate_symbol_side_by_order_id(tmp_path: Path) ->
     eng = _make_engine(tmp_path, enable_intent_store=True)
     orders = pd.DataFrame(
         [
-            {"symbol": "AAA", "side": "BUY", "qty": 100.0, "price": 100.0, "order_id": "o1"},
-            {"symbol": "AAA", "side": "BUY", "qty": 40.0, "price": 100.0, "order_id": "o2"},
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 100.0,
+                "price": 100.0,
+                "order_id": "o1",
+            },
+            {
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 40.0,
+                "price": 100.0,
+                "order_id": "o2",
+            },
         ]
     )
     keys = eng._record_submit_intents(orders)
@@ -125,13 +137,21 @@ def test_intent_store_pairs_duplicate_symbol_side_by_order_id(tmp_path: Path) ->
     fills = pd.DataFrame(
         [
             {
-                "symbol": "AAA", "side": "BUY", "qty": 100.0,
-                "fill_qty": 100.0, "fill_price": 100.5, "status": "filled",
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 100.0,
+                "fill_qty": 100.0,
+                "fill_price": 100.5,
+                "status": "filled",
                 "order_id": "o1",
             },
             {
-                "symbol": "AAA", "side": "BUY", "qty": 40.0,
-                "fill_qty": 40.0, "fill_price": 100.7, "status": "filled",
+                "symbol": "AAA",
+                "side": "BUY",
+                "qty": 40.0,
+                "fill_qty": 40.0,
+                "fill_price": 100.7,
+                "status": "filled",
                 "order_id": "o2",
             },
         ]
@@ -161,7 +181,9 @@ def test_intent_store_rejected_fill_marks_complete(tmp_path: Path) -> None:
     )
     keys = eng._record_submit_intents(orders)
     # No corresponding fill → rejection.
-    fills = pd.DataFrame(columns=["symbol", "side", "qty", "fill_qty", "fill_price", "status"])
+    fills = pd.DataFrame(
+        columns=["symbol", "side", "qty", "fill_qty", "fill_price", "status"]
+    )
     eng._record_complete_intents(orders, fills, keys)
     records = load_intents(store_path=tmp_path / "intents.jsonl")
     complete = [r for r in records if r["action"] == "ORDER_COMPLETE"][0]

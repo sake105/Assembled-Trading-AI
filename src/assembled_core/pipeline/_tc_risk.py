@@ -53,7 +53,10 @@ def check_risk(
         try:
             policy = load_policy()
         except Exception as _policy_exc:
-            log.warning("[RISK] load_policy() failed — all policy-gated guards disabled: %s", _policy_exc)
+            log.warning(
+                "[RISK] load_policy() failed — all policy-gated guards disabled: %s",
+                _policy_exc,
+            )
             policy = {}
 
     # Fast path: if risk controls are disabled, skip all steps and pass orders through.
@@ -65,7 +68,9 @@ def check_risk(
     # QA gate
     if ctx.qa_block_trading:
         log.warning("QA Gate: Trading blocked - %s", ctx.qa_block_reason or "no reason")
-        result.orders = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        result.orders = pd.DataFrame(
+            columns=["timestamp", "symbol", "side", "qty", "price"]
+        )
         result.orders_filtered = result.orders.copy()
         result.meta["qa_block_trading"] = True
         result.meta["qa_block_reason"] = ctx.qa_block_reason
@@ -74,10 +79,23 @@ def check_risk(
     # Shared pivot for EVT + Copula (compute once, reuse)
     _prices_for_risk = prices_filtered if prices_filtered is not None else ctx.prices
     _shared_rets = None
-    if not orders.empty and _prices_for_risk is not None and not _prices_for_risk.empty and "close" in _prices_for_risk.columns:
+    if (
+        not orders.empty
+        and _prices_for_risk is not None
+        and not _prices_for_risk.empty
+        and "close" in _prices_for_risk.columns
+    ):
         try:
-            _ts_col = "timestamp" if "timestamp" in _prices_for_risk.columns else _prices_for_risk.columns[0]
-            _pivot_risk = _prices_for_risk.pivot_table(index=_ts_col, columns="symbol" if "symbol" in _prices_for_risk.columns else None, values="close")
+            _ts_col = (
+                "timestamp"
+                if "timestamp" in _prices_for_risk.columns
+                else _prices_for_risk.columns[0]
+            )
+            _pivot_risk = _prices_for_risk.pivot_table(
+                index=_ts_col,
+                columns="symbol" if "symbol" in _prices_for_risk.columns else None,
+                values="close",
+            )
             _shared_rets = _pivot_risk.pct_change(fill_method=None).dropna(how="all")
         except Exception:
             _shared_rets = None
@@ -87,6 +105,7 @@ def check_risk(
         if _shared_rets is not None and len(_shared_rets) >= 60:
             import numpy as _np_evt
             from src.assembled_core.risk.evt_tail_var import evt_var
+
             _port_rets = _shared_rets.mean(axis=1).dropna()
             _losses = (-_port_rets).values
             _hist_var_99 = float(_np_evt.quantile(_losses, 0.99))
@@ -94,22 +113,37 @@ def check_risk(
                 _evt_var_99 = evt_var(_losses, alpha=0.99, threshold_pct=0.90)
             except Exception:
                 _evt_var_99 = None
-            if _evt_var_99 is not None and _hist_var_99 > 1e-8 and _evt_var_99 > 2.0 * _hist_var_99:
+            if (
+                _evt_var_99 is not None
+                and _hist_var_99 > 1e-8
+                and _evt_var_99 > 2.0 * _hist_var_99
+            ):
                 orders = orders.copy()
                 orders["qty"] = orders["qty"] * 0.80
-                log.warning("[RISK] EVT VaR %.4f > 2× Hist VaR %.4f — reducing qty by 20%%", _evt_var_99, _hist_var_99)
+                log.warning(
+                    "[RISK] EVT VaR %.4f > 2× Hist VaR %.4f — reducing qty by 20%%",
+                    _evt_var_99,
+                    _hist_var_99,
+                )
     except Exception as e:
         log.debug("evt_tail_var skipped: %s", e)
 
     # Copula tail dependence
     try:
-        if _shared_rets is not None and len(_shared_rets) >= 60 and 1 < _shared_rets.shape[1] <= 30:
+        if (
+            _shared_rets is not None
+            and len(_shared_rets) >= 60
+            and 1 < _shared_rets.shape[1] <= 30
+        ):
             from src.assembled_core.ml.copula_models import compute_portfolio_tail_risk
+
             _cop_metrics = compute_portfolio_tail_risk(_shared_rets)
             if float(_cop_metrics.get("avg_lower_tail_dep", 0.0)) > 0.5:
                 orders = orders.copy()
                 orders["qty"] = orders["qty"] * 0.80
-                log.warning("[RISK] Copula avg_lower_tail_dep > 0.5 — reducing qty by 20%%")
+                log.warning(
+                    "[RISK] Copula avg_lower_tail_dep > 0.5 — reducing qty by 20%%"
+                )
     except Exception as e:
         log.debug("copula_tail_risk skipped: %s", e)
 
@@ -119,19 +153,43 @@ def check_risk(
             build_barbell_allocation,
             compute_tail_risk_score,
         )
+
         _evt_var_meta = result.meta.get("evt_var_99", 0.0) or 0.0
         _hist_var_meta = result.meta.get("hist_var_99", 0.0) or 0.0
-        _cop_ltd_meta = float((result.meta.get("copula_tail_risk") or {}).get("avg_lower_tail_dep", 0.0))
-        _bb_score, _bb_reasons = compute_tail_risk_score(evt_var_99=float(_evt_var_meta), evt_var_99_historical_avg=float(_hist_var_meta), hmm_crisis_prob=0.0, vix_current=0.0, vix_5d_change=0.0, avg_copula_tail_dep=_cop_ltd_meta)
+        _cop_ltd_meta = float(
+            (result.meta.get("copula_tail_risk") or {}).get("avg_lower_tail_dep", 0.0)
+        )
+        _bb_score, _bb_reasons = compute_tail_risk_score(
+            evt_var_99=float(_evt_var_meta),
+            evt_var_99_historical_avg=float(_hist_var_meta),
+            hmm_crisis_prob=0.0,
+            vix_current=0.0,
+            vix_5d_change=0.0,
+            avg_copula_tail_dep=_cop_ltd_meta,
+        )
         if _bb_score > 0.30 and not orders.empty:
             _alpha_scores: dict[str, float] = {}
-            if not result.signals.empty and "symbol" in result.signals.columns and "score" in result.signals.columns:
-                _alpha_scores = dict(zip(result.signals["symbol"], result.signals["score"].fillna(0.0)))
-            _bb_alloc = build_barbell_allocation(tail_risk_score=_bb_score, trigger_reasons=_bb_reasons, alpha_scores=_alpha_scores)
+            if (
+                not result.signals.empty
+                and "symbol" in result.signals.columns
+                and "score" in result.signals.columns
+            ):
+                _alpha_scores = dict(
+                    zip(result.signals["symbol"], result.signals["score"].fillna(0.0))
+                )
+            _bb_alloc = build_barbell_allocation(
+                tail_risk_score=_bb_score,
+                trigger_reasons=_bb_reasons,
+                alpha_scores=_alpha_scores,
+            )
             if _bb_alloc.active:
                 orders = orders.copy()
                 orders["qty"] = orders["qty"] * _bb_alloc.speculative_weight
-                log.warning("[RISK] Barbell ACTIVATED: score=%.3f spec_weight=%.2f", _bb_score, _bb_alloc.speculative_weight)
+                log.warning(
+                    "[RISK] Barbell ACTIVATED: score=%.3f spec_weight=%.2f",
+                    _bb_score,
+                    _bb_alloc.speculative_weight,
+                )
     except Exception as e:
         log.debug("barbell_strategy skipped: %s", e)
 
@@ -169,7 +227,12 @@ def check_risk(
             from src.assembled_core.execution.kill_switch import (
                 activate_kill_switch,
             )
-            activate_kill_switch(throttle_pct=dd_decision["throttle_allowed_pct"], reason=dd_decision["reason"], actor="trading_cycle_v2_auto_dd")
+
+            activate_kill_switch(
+                throttle_pct=dd_decision["throttle_allowed_pct"],
+                reason=dd_decision["reason"],
+                actor="trading_cycle_v2_auto_dd",
+            )
             result.meta["auto_dd_kill_switch"] = dd_decision
             if dd_decision["level"] == "kill":
                 _rej_counts["auto_dd_kill_switch"] = len(result.orders_filtered)
@@ -197,14 +260,33 @@ def check_risk(
                 from src.assembled_core.paper.deadzone_rebalance import (
                     filter_deadzone_orders,
                 )
-                _dz_pos = ctx.current_positions[["symbol", "qty"]].copy() if ctx.current_positions is not None and not ctx.current_positions.empty and "qty" in ctx.current_positions.columns else None
-                result.orders_filtered, _dz_meta = filter_deadzone_orders(result.orders_filtered, _dz_pos, deadzone_pct=float(anti_churn_cfg.get("deadzone_pct", 0.05)))
+
+                _dz_pos = (
+                    ctx.current_positions[["symbol", "qty"]].copy()
+                    if ctx.current_positions is not None
+                    and not ctx.current_positions.empty
+                    and "qty" in ctx.current_positions.columns
+                    else None
+                )
+                result.orders_filtered, _dz_meta = filter_deadzone_orders(
+                    result.orders_filtered,
+                    _dz_pos,
+                    deadzone_pct=float(anti_churn_cfg.get("deadzone_pct", 0.05)),
+                )
                 result.meta["deadzone_rebalance"] = _dz_meta
-            if anti_churn_cfg.get("rebalance_filter_enabled", False) and not result.orders_filtered.empty:
+            if (
+                anti_churn_cfg.get("rebalance_filter_enabled", False)
+                and not result.orders_filtered.empty
+            ):
                 from src.assembled_core.paper.rebalance_filter import (
                     filter_small_rebalances,
                 )
-                result.orders_filtered, _rf_meta = filter_small_rebalances(result.orders_filtered, min_notional=float(anti_churn_cfg.get("min_notional", 500.0)), prices=ctx.prices)
+
+                result.orders_filtered, _rf_meta = filter_small_rebalances(
+                    result.orders_filtered,
+                    min_notional=float(anti_churn_cfg.get("min_notional", 500.0)),
+                    prices=ctx.prices,
+                )
                 result.meta["rebalance_filter"] = _rf_meta
     except Exception as e:
         log.debug("anti_churn filters skipped: %s", e)
@@ -216,11 +298,16 @@ def check_risk(
             from src.assembled_core.execution.fat_finger_guard import (
                 apply_fat_finger_guard_from_policy,
             )
-            _ffg_orders, _ffg_reasons = apply_fat_finger_guard_from_policy(result.orders_filtered, policy)
+
+            _ffg_orders, _ffg_reasons = apply_fat_finger_guard_from_policy(
+                result.orders_filtered, policy
+            )
             n_rejected = len(result.orders_filtered) - len(_ffg_orders)
             result.orders_filtered = _ffg_orders
             if n_rejected:
-                log.warning("[FAT-FINGER] Rejected %d orders: %s", n_rejected, _ffg_reasons[:3])
+                log.warning(
+                    "[FAT-FINGER] Rejected %d orders: %s", n_rejected, _ffg_reasons[:3]
+                )
                 _rej_counts["fat_finger"] = n_rejected
     except Exception as e:
         log.warning("[RISK] fat_finger_guard raised — hard cap not applied: %s", e)
@@ -232,12 +319,22 @@ def check_risk(
                 OrderLifecycleTracker,
                 OrderState,
             )
+
             _olt = OrderLifecycleTracker()
             for _ord_row in result.orders_filtered.itertuples(index=False):
-                _oid = _olt.create(symbol=str(getattr(_ord_row, "symbol", "")), side=str(getattr(_ord_row, "side", "buy")), quantity=float(getattr(_ord_row, "qty", 0) or 0), price=float(getattr(_ord_row, "price", 0) or 0) or None, source="trading_cycle_v2")
+                _oid = _olt.create(
+                    symbol=str(getattr(_ord_row, "symbol", "")),
+                    side=str(getattr(_ord_row, "side", "buy")),
+                    quantity=float(getattr(_ord_row, "qty", 0) or 0),
+                    price=float(getattr(_ord_row, "price", 0) or 0) or None,
+                    source="trading_cycle_v2",
+                )
                 _olt.transition(_oid, OrderState.VALIDATED)
                 _olt.transition(_oid, OrderState.SUBMITTED)
-            result.meta["order_lifecycle"] = {"n_orders_tracked": len(result.orders_filtered), "state": "SUBMITTED"}
+            result.meta["order_lifecycle"] = {
+                "n_orders_tracked": len(result.orders_filtered),
+                "state": "SUBMITTED",
+            }
     except Exception as e:
         log.debug("order_lifecycle tracking skipped: %s", e)
 

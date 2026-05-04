@@ -67,8 +67,12 @@ class TestBrokerOrderTypeField:
     def test_order_type_accepts_new_types(self):
         for otype in ["market", "limit", "stop", "stop_limit", "moc", "loc"]:
             o = BrokerOrder(
-                order_id="id1", symbol="AAPL", side="buy",
-                qty=10.0, order_type=otype, status="pending",
+                order_id="id1",
+                symbol="AAPL",
+                side="buy",
+                qty=10.0,
+                order_type=otype,
+                status="pending",
             )
             assert o.order_type == otype
 

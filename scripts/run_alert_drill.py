@@ -58,8 +58,10 @@ BACKUP_PATH = HEARTBEAT_PATH.with_suffix(".drill_backup.json")
 def _write_stale_heartbeat(stale_minutes: int) -> dict:
     now = datetime.now(timezone.utc)
     stale_ts = now.timestamp() - stale_minutes * 60.0
-    stale_iso = datetime.fromtimestamp(stale_ts, timezone.utc).isoformat().replace(
-        "+00:00", "Z"
+    stale_iso = (
+        datetime.fromtimestamp(stale_ts, timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
     )
     payload = {
         "timestamp_utc": stale_iso,

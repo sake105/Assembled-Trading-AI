@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/certify/."""
+
 from __future__ import annotations
 
 import json
@@ -23,10 +24,10 @@ from assembled_core.certify.generator import (
     verify_certificate,
 )
 
-
 # ---------------------------------------------------------------------------
 # Schema tests
 # ---------------------------------------------------------------------------
+
 
 class TestSchemaDefaults:
     def test_env_fingerprint_defaults(self):
@@ -107,6 +108,7 @@ class TestCertificateSerialization:
 # Generator — hashing utilities
 # ---------------------------------------------------------------------------
 
+
 class TestFileSha256:
     def test_known_file(self, tmp_path):
         f = tmp_path / "test.txt"
@@ -148,6 +150,7 @@ class TestObjectSha256:
 # Generator — environment / git info
 # ---------------------------------------------------------------------------
 
+
 class TestGetGitInfo:
     def test_returns_tuple(self):
         sha, dirty = get_git_info()
@@ -176,6 +179,7 @@ class TestGetEnvironmentFingerprint:
 # ---------------------------------------------------------------------------
 # Generator — build fingerprints
 # ---------------------------------------------------------------------------
+
 
 class TestBuildInputFingerprint:
     def test_existing_files_hashed(self, tmp_path):
@@ -220,6 +224,7 @@ class TestBuildOutputFingerprint:
 # Generator — generate_certificate / save / verify
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateCertificate:
     def test_returns_certificate(self):
         cert = generate_certificate()
@@ -227,6 +232,7 @@ class TestGenerateCertificate:
 
     def test_certificate_id_is_uuid(self):
         import uuid
+
         cert = generate_certificate()
         parsed = uuid.UUID(cert.certificate_id)
         assert parsed.version == 4

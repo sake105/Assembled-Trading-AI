@@ -572,7 +572,11 @@ def _check_zero_volume(
         # Intraday zero-volume: flag symbols where > threshold % of bars have zero volume per day
         intraday_zero_vol_warn = thresholds.get("intraday_zero_vol_warn_pct", 20.0)
         intraday_zero_vol_fail = thresholds.get("intraday_zero_vol_fail_pct", 50.0)
-        ts = pd.to_datetime(prices["timestamp"], utc=True) if "timestamp" in prices.columns else None
+        ts = (
+            pd.to_datetime(prices["timestamp"], utc=True)
+            if "timestamp" in prices.columns
+            else None
+        )
         if ts is not None:
             prices_copy = prices.copy()
             prices_copy["_date"] = ts.dt.normalize()

@@ -1,4 +1,5 @@
 """Tests for SlippageCollector."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -10,11 +11,13 @@ def _fills_df(fill_prices, mid_prices, statuses=None):
     n = len(fill_prices)
     if statuses is None:
         statuses = ["filled"] * n
-    return pd.DataFrame({
-        "fill_price": fill_prices,
-        "mid_price": mid_prices,
-        "status": statuses,
-    })
+    return pd.DataFrame(
+        {
+            "fill_price": fill_prices,
+            "mid_price": mid_prices,
+            "status": statuses,
+        }
+    )
 
 
 def test_record_single():
@@ -29,7 +32,7 @@ def test_record_fills_basic():
     sc.record_fills(fills)
     obs = sc.snapshot()
     assert len(obs) == 2
-    assert abs(obs[0] - 50.0) < 0.01   # (100.5 - 100) / 100 * 10000 = 50
+    assert abs(obs[0] - 50.0) < 0.01  # (100.5 - 100) / 100 * 10000 = 50
     assert abs(obs[1] - (-50.0)) < 0.01  # (99.5 - 100) / 100 * 10000 = -50
 
 
@@ -93,6 +96,7 @@ def test_len():
 
 def test_thread_safety():
     import threading
+
     sc = SlippageCollector()
     threads = [threading.Thread(target=sc.record, args=(float(i),)) for i in range(100)]
     for t in threads:

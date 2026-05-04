@@ -33,8 +33,9 @@ def _ingest_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResul
     t0 = time.monotonic()
     if dry_run:
         logger.info("[SKIP] ingest: dry_run=True")
-        return WorkerResult(worker_name="ingest_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="ingest_worker", status="skip", duration_s=time.monotonic() - t0
+        )
     try:
         import yfinance as yf  # type: ignore
         from src.assembled_core.data.universe_etf import (  # type: ignore
@@ -46,15 +47,21 @@ def _ingest_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResul
         symbols = get_all_symbols(universe)
         if not symbols:
             logger.warning("[SKIP] ingest: no symbols in universe")
-            return WorkerResult(worker_name="ingest_worker", status="skip",
-                                duration_s=time.monotonic() - t0)
+            return WorkerResult(
+                worker_name="ingest_worker",
+                status="skip",
+                duration_s=time.monotonic() - t0,
+            )
 
         # Download last 2 trading days to catch the most recent close
         raw = yf.download(symbols, period="2d", progress=False, auto_adjust=True)
         if raw.empty:
             logger.warning("[WARN] ingest: yfinance returned empty data")
-            return WorkerResult(worker_name="ingest_worker", status="skip",
-                                duration_s=time.monotonic() - t0)
+            return WorkerResult(
+                worker_name="ingest_worker",
+                status="skip",
+                duration_s=time.monotonic() - t0,
+            )
 
         out_path = Path(output_dir) / f"prices_{date_str}.parquet"
         if isinstance(raw.columns, __import__("pandas").MultiIndex):
@@ -63,17 +70,23 @@ def _ingest_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResul
             closes = raw
         closes.to_parquet(str(out_path))
         logger.info("[OK] ingest: saved %d symbols to %s", len(symbols), out_path)
-        return WorkerResult(worker_name="ingest_worker", status="ok",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="ingest_worker", status="ok", duration_s=time.monotonic() - t0
+        )
     except ImportError as exc:
         logger.info("[SKIP] ingest: dependency not available (%s)", exc)
-        return WorkerResult(worker_name="ingest_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="ingest_worker", status="skip", duration_s=time.monotonic() - t0
+        )
     except Exception as exc:
         msg = f"{type(exc).__name__}: {exc}"
         logger.error("[ERROR] ingest: %s", msg)
-        return WorkerResult(worker_name="ingest_worker", status="error",
-                            duration_s=time.monotonic() - t0, error_msg=msg)
+        return WorkerResult(
+            worker_name="ingest_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
 
 
 def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
@@ -81,8 +94,11 @@ def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
     t0 = time.monotonic()
     if dry_run:
         logger.info("[SKIP] post_trade: dry_run=True")
-        return WorkerResult(worker_name="post_trade_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="post_trade_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     try:
         from src.assembled_core.qa import post_trade_analyzer as pta  # type: ignore
 
@@ -91,29 +107,46 @@ def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
         prices_path = Path(output_dir) / f"prices_{date_str}.parquet"
         if not fills_path.exists():
             logger.info("[SKIP] post_trade: no fills file at %s", fills_path)
-            return WorkerResult(worker_name="post_trade_worker", status="skip",
-                                duration_s=time.monotonic() - t0)
+            return WorkerResult(
+                worker_name="post_trade_worker",
+                status="skip",
+                duration_s=time.monotonic() - t0,
+            )
 
         import pandas as pd
+
         fills_df = pd.read_parquet(str(fills_path))
         prices_df = pd.read_parquet(str(prices_path)) if prices_path.exists() else None
 
         report = pta.run_post_trade_analysis(fills_df, prices_df)  # type: ignore[attr-defined]
         report_path = Path(output_dir) / f"post_trade_{date_str}.json"
         import json
-        report_path.write_text(json.dumps(report, default=str, indent=2), encoding="utf-8")
+
+        report_path.write_text(
+            json.dumps(report, default=str, indent=2), encoding="utf-8"
+        )
         logger.info("[OK] post_trade: report written to %s", report_path)
-        return WorkerResult(worker_name="post_trade_worker", status="ok",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="post_trade_worker",
+            status="ok",
+            duration_s=time.monotonic() - t0,
+        )
     except ImportError as exc:
         logger.info("[SKIP] post_trade: not available (%s)", exc)
-        return WorkerResult(worker_name="post_trade_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="post_trade_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     except Exception as exc:
         msg = f"{type(exc).__name__}: {exc}"
         logger.error("[ERROR] post_trade: %s", msg)
-        return WorkerResult(worker_name="post_trade_worker", status="error",
-                            duration_s=time.monotonic() - t0, error_msg=msg)
+        return WorkerResult(
+            worker_name="post_trade_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
 
 
 def _feedback_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
@@ -126,8 +159,11 @@ def _feedback_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRes
     t0 = time.monotonic()
     if dry_run:
         logger.info("[FEEDBACK] dry_run=True — skipping feedback check")
-        return WorkerResult(worker_name="feedback_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="feedback_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     try:
         import pandas as pd
         from src.assembled_core.ml.feedback_loop import (  # type: ignore
@@ -143,12 +179,16 @@ def _feedback_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRes
 
         # Locate learning store — fall back to module default if not in output_dir
         local_store = out_path / "post_trade_learning.jsonl"
-        learning_store_path = local_store if local_store.exists() else Path(DEFAULT_LEARNING_STORE_PATH)
+        learning_store_path = (
+            local_store if local_store.exists() else Path(DEFAULT_LEARNING_STORE_PATH)
+        )
 
         # Locate current model — use a best-effort path; FeedbackLoopController
         # handles a missing model gracefully via its internal guards.
         model_candidates = sorted(out_path.glob("model_*.pkl"), reverse=True)
-        current_model_path = model_candidates[0] if model_candidates else out_path / "model.pkl"
+        current_model_path = (
+            model_candidates[0] if model_candidates else out_path / "model.pkl"
+        )
 
         # Load recent factor panel — use most recent factor_scores parquet if present
         panel_files = sorted(out_path.glob("factor_scores_*.parquet"), reverse=True)
@@ -174,17 +214,25 @@ def _feedback_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRes
             result.new_model_deployed,
             result.report_path,
         )
-        return WorkerResult(worker_name="feedback_worker", status="ok",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="feedback_worker", status="ok", duration_s=time.monotonic() - t0
+        )
     except ImportError as exc:
         logger.info("[FEEDBACK] not available (%s)", exc)
-        return WorkerResult(worker_name="feedback_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="feedback_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     except Exception as exc:
         msg = f"{type(exc).__name__}: {exc}"
         logger.error("[FEEDBACK] error: %s", msg)
-        return WorkerResult(worker_name="feedback_worker", status="error",
-                            duration_s=time.monotonic() - t0, error_msg=msg)
+        return WorkerResult(
+            worker_name="feedback_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
 
 
 def _reconcile_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
@@ -192,8 +240,11 @@ def _reconcile_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRe
     t0 = time.monotonic()
     if dry_run:
         logger.info("[SKIP] reconcile: dry_run=True")
-        return WorkerResult(worker_name="reconcile_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="reconcile_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     try:
         from src.assembled_core.data.ledger_store import LedgerStore  # type: ignore
 
@@ -205,29 +256,52 @@ def _reconcile_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRe
         equity_curve = ledger.load_equity_curve()
 
         import json
+
         report = {
             "date": date_str,
             "cash": cash,
             "n_positions": len(positions),
-            "positions": positions.to_dict(orient="records") if not positions.empty else [],
+            "positions": (
+                positions.to_dict(orient="records") if not positions.empty else []
+            ),
             "equity_curve_rows": len(equity_curve),
-            "last_equity": float(equity_curve["equity"].iloc[-1]) if not equity_curve.empty else cash,
+            "last_equity": (
+                float(equity_curve["equity"].iloc[-1])
+                if not equity_curve.empty
+                else cash
+            ),
         }
         report_path = Path(output_dir) / f"reconcile_{date_str}.json"
-        report_path.write_text(json.dumps(report, default=str, indent=2), encoding="utf-8")
-        logger.info("[OK] reconcile: %d positions, cash=%.2f, written to %s",
-                    len(positions), cash, report_path)
-        return WorkerResult(worker_name="reconcile_worker", status="ok",
-                            duration_s=time.monotonic() - t0)
+        report_path.write_text(
+            json.dumps(report, default=str, indent=2), encoding="utf-8"
+        )
+        logger.info(
+            "[OK] reconcile: %d positions, cash=%.2f, written to %s",
+            len(positions),
+            cash,
+            report_path,
+        )
+        return WorkerResult(
+            worker_name="reconcile_worker",
+            status="ok",
+            duration_s=time.monotonic() - t0,
+        )
     except ImportError as exc:
         logger.info("[SKIP] reconcile: not available (%s)", exc)
-        return WorkerResult(worker_name="reconcile_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="reconcile_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     except Exception as exc:
         msg = f"{type(exc).__name__}: {exc}"
         logger.error("[ERROR] reconcile: %s", msg)
-        return WorkerResult(worker_name="reconcile_worker", status="error",
-                            duration_s=time.monotonic() - t0, error_msg=msg)
+        return WorkerResult(
+            worker_name="reconcile_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
 
 
 def _health_check_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
@@ -253,10 +327,13 @@ def _health_check_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
     else:
         # Check file age
         import os
+
         mtime = os.path.getmtime(str(prices_path))
         age_hours = (time.time() - mtime) / 3600
         if age_hours > 26:
-            issues.append(f"price_data_stale: {prices_path.name} is {age_hours:.1f}h old")
+            issues.append(
+                f"price_data_stale: {prices_path.name} is {age_hours:.1f}h old"
+            )
 
     # 3. Module availability check
     optional_modules = {
@@ -272,7 +349,9 @@ def _health_check_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
             if mod in ("pandas", "numpy"):
                 issues.append(f"critical_module_missing: {mod} ({purpose})")
             else:
-                logger.debug("[HEALTH] optional module unavailable: %s (%s)", mod, purpose)
+                logger.debug(
+                    "[HEALTH] optional module unavailable: %s (%s)", mod, purpose
+                )
 
     if issues:
         msg = "; ".join(issues)
@@ -295,7 +374,9 @@ def _health_check_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
     )
 
 
-def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
+def _retrain_scheduler_worker(
+    date_str: str, output_dir: str, dry_run: bool
+) -> WorkerResult:
     """Run RetrainingScheduler after feedback_worker to evaluate 5 retrain signals.
 
     Reads state from output_dir (equity curve, IC series, regime series) and
@@ -325,9 +406,13 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
         # --- Optional: load equity curve ---
         equity_since_retrain = None
         try:
-            eq_candidates = sorted(out_path.glob("equity_curve_*.parquet"), reverse=True)
+            eq_candidates = sorted(
+                out_path.glob("equity_curve_*.parquet"), reverse=True
+            )
             if not eq_candidates:
-                eq_candidates = sorted(out_path.glob("equity_curve.parquet"), reverse=True)
+                eq_candidates = sorted(
+                    out_path.glob("equity_curve.parquet"), reverse=True
+                )
             if eq_candidates:
                 eq_df = _sched_pd.read_parquet(str(eq_candidates[0]))
                 if "equity" in eq_df.columns:
@@ -362,11 +447,16 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
         try:
             state_file = out_path / "feedback_state" / "feedback_state.json"
             if state_file.exists():
-                state_data = json.loads(state_file.read_text(encoding="ascii", errors="replace"))
+                state_data = json.loads(
+                    state_file.read_text(encoding="ascii", errors="replace")
+                )
                 last_retrain_str = state_data.get("last_retrain_date")
                 if last_retrain_str:
                     from datetime import date as _date
-                    model_last_trained_date = _date.fromisoformat(str(last_retrain_str)[:10])
+
+                    model_last_trained_date = _date.fromisoformat(
+                        str(last_retrain_str)[:10]
+                    )
         except Exception as _e:
             logger.debug("[daily_scheduler] last_retrain_date load skipped: %s", _e)
 
@@ -427,7 +517,9 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
         )
 
 
-def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
+def _factor_curation_worker(
+    date_str: str, output_dir: str, dry_run: bool
+) -> WorkerResult:
     """Quarterly factor curation: compute DSR for all active factors, flag decayed ones.
 
     Only runs when the date is in the first week of a quarter (Jan/Apr/Jul/Oct).
@@ -438,19 +530,26 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
 
     # Quarter check: only run in first 7 days of Jan/Apr/Jul/Oct
     from datetime import date as _date
+
     try:
         d = _date.fromisoformat(date_str)
     except (ValueError, TypeError):
         d = _date.today()
     if d.month not in (1, 4, 7, 10) or d.day > 7:
         logger.debug("[SKIP] factor_curation: not a quarterly curation window")
-        return WorkerResult(worker_name="factor_curation_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="factor_curation_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
 
     if dry_run:
         logger.info("[SKIP] factor_curation: dry_run=True")
-        return WorkerResult(worker_name="factor_curation_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="factor_curation_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
 
     try:
         import json
@@ -465,27 +564,52 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
         # Find most recent factor scores file
         score_files = sorted(out_path.glob("factor_scores_*.parquet"), reverse=True)
         if not score_files:
-            logger.info("[SKIP] factor_curation: no factor score files found in %s", output_dir)
-            return WorkerResult(worker_name="factor_curation_worker", status="skip",
-                                duration_s=time.monotonic() - t0)
+            logger.info(
+                "[SKIP] factor_curation: no factor score files found in %s", output_dir
+            )
+            return WorkerResult(
+                worker_name="factor_curation_worker",
+                status="skip",
+                duration_s=time.monotonic() - t0,
+            )
 
         panel_df = pd.read_parquet(str(score_files[0]))
         if panel_df.empty:
             logger.info("[SKIP] factor_curation: empty factor scores file")
-            return WorkerResult(worker_name="factor_curation_worker", status="skip",
-                                duration_s=time.monotonic() - t0)
+            return WorkerResult(
+                worker_name="factor_curation_worker",
+                status="skip",
+                duration_s=time.monotonic() - t0,
+            )
 
         # Identify factor columns (exclude metadata columns)
-        meta_cols = {"symbol", "timestamp", "date", "returns", "forward_returns",
-                     "target", "close", "open", "high", "low", "volume"}
-        factor_cols = [c for c in panel_df.columns if c not in meta_cols and panel_df[c].dtype in ("float64", "float32")]
+        meta_cols = {
+            "symbol",
+            "timestamp",
+            "date",
+            "returns",
+            "forward_returns",
+            "target",
+            "close",
+            "open",
+            "high",
+            "low",
+            "volume",
+        }
+        factor_cols = [
+            c
+            for c in panel_df.columns
+            if c not in meta_cols and panel_df[c].dtype in ("float64", "float32")
+        ]
 
         curation_report = {"date": date_str, "factors": {}, "flagged_for_removal": []}
         dsr_threshold = 0.5
 
         for factor_col in factor_cols:
             try:
-                ic_curve = compute_ic_decay_curve(panel_df, factor_col, max_horizon_days=60)
+                ic_curve = compute_ic_decay_curve(
+                    panel_df, factor_col, max_horizon_days=60
+                )
                 half_life = compute_factor_half_life(ic_curve)
                 # Approximate DSR from IC stats (simplified: IC_mean / IC_std * sqrt(n))
                 if "ic" in ic_curve.columns:
@@ -494,7 +618,7 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
                         ic_mean = ic_series.mean()
                         ic_std = ic_series.std()
                         n = len(ic_series)
-                        dsr = (ic_mean / ic_std * (n ** 0.5)) if ic_std > 1e-9 else 0.0
+                        dsr = (ic_mean / ic_std * (n**0.5)) if ic_std > 1e-9 else 0.0
                     else:
                         dsr = 0.0
                 else:
@@ -508,7 +632,9 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
                 if dsr < dsr_threshold:
                     curation_report["flagged_for_removal"].append(factor_col)
             except Exception as exc:
-                logger.debug("factor_curation: error processing %s: %s", factor_col, exc)
+                logger.debug(
+                    "factor_curation: error processing %s: %s", factor_col, exc
+                )
                 curation_report["factors"][factor_col] = {
                     "dsr": None,
                     "half_life_days": None,
@@ -517,21 +643,38 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
                 }
 
         report_path = out_path / f"factor_curation_{date_str}.json"
-        report_path.write_text(json.dumps(curation_report, default=str, indent=2), encoding="utf-8")
+        report_path.write_text(
+            json.dumps(curation_report, default=str, indent=2), encoding="utf-8"
+        )
         n_flagged = len(curation_report["flagged_for_removal"])
-        logger.info("[OK] factor_curation: %d factors analyzed, %d flagged (DSR < %.1f), report at %s",
-                    len(factor_cols), n_flagged, dsr_threshold, report_path)
-        return WorkerResult(worker_name="factor_curation_worker", status="ok",
-                            duration_s=time.monotonic() - t0)
+        logger.info(
+            "[OK] factor_curation: %d factors analyzed, %d flagged (DSR < %.1f), report at %s",
+            len(factor_cols),
+            n_flagged,
+            dsr_threshold,
+            report_path,
+        )
+        return WorkerResult(
+            worker_name="factor_curation_worker",
+            status="ok",
+            duration_s=time.monotonic() - t0,
+        )
     except ImportError as exc:
         logger.info("[SKIP] factor_curation: not available (%s)", exc)
-        return WorkerResult(worker_name="factor_curation_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="factor_curation_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     except Exception as exc:
         msg = f"{type(exc).__name__}: {exc}"
         logger.error("[ERROR] factor_curation: %s", msg)
-        return WorkerResult(worker_name="factor_curation_worker", status="error",
-                            duration_s=time.monotonic() - t0, error_msg=msg)
+        return WorkerResult(
+            worker_name="factor_curation_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
 
 
 def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
@@ -544,10 +687,14 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
     t0 = time.monotonic()
     if dry_run:
         logger.info("[ALERT] dry_run=True -- skipping alert health check")
-        return WorkerResult(worker_name="alert_health_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="alert_health_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     try:
         from src.assembled_core.ops.alert_manager import AlertManager
+
         mgr = AlertManager(output_dir=str(Path(output_dir) / "alerts"))
         out_path = Path(output_dir)
 
@@ -556,9 +703,14 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
             from src.assembled_core.execution.kill_switch import (
                 is_kill_switch_engaged,  # type: ignore
             )
+
             if is_kill_switch_engaged():
-                mgr.alert("CRITICAL", "kill_switch", "Kill switch is currently engaged",
-                          details={"date": date_str})
+                mgr.alert(
+                    "CRITICAL",
+                    "kill_switch",
+                    "Kill switch is currently engaged",
+                    details={"date": date_str},
+                )
         except Exception as _ke:
             logger.debug("[ALERT] kill_switch check skipped: %s", _ke)
 
@@ -566,23 +718,33 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
         try:
             error_files = list(out_path.glob("*.error"))
             if error_files:
-                mgr.alert("CRITICAL", "reconciliation",
-                          f"Error files found: {[f.name for f in error_files[:3]]}",
-                          details={"date": date_str, "n_errors": len(error_files)})
+                mgr.alert(
+                    "CRITICAL",
+                    "reconciliation",
+                    f"Error files found: {[f.name for f in error_files[:3]]}",
+                    details={"date": date_str, "n_errors": len(error_files)},
+                )
         except Exception as _re:
             logger.debug("[ALERT] reconciliation error check skipped: %s", _re)
 
         # WARNING: Signal health / IC degradation
         try:
             import json
+
             diag_path = out_path / "diagnostics" / f"signal_health_{date_str}.json"
             if diag_path.exists():
                 diag_data = json.loads(diag_path.read_text(encoding="utf-8"))
                 n_alerts = diag_data.get("n_alerts", 0)
                 if n_alerts > 0:
-                    mgr.alert("WARNING", "signal_diagnostics",
-                              f"IC degradation: {n_alerts} factor alerts",
-                              details={"alerts": diag_data.get("alerts", [])[:5], "date": date_str})
+                    mgr.alert(
+                        "WARNING",
+                        "signal_diagnostics",
+                        f"IC degradation: {n_alerts} factor alerts",
+                        details={
+                            "alerts": diag_data.get("alerts", [])[:5],
+                            "date": date_str,
+                        },
+                    )
         except Exception as _sd:
             logger.debug("[ALERT] signal_health check skipped: %s", _sd)
 
@@ -593,41 +755,64 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
                 model_files = list(out_path.glob("model.pkl"))
             if model_files:
                 import os as _os
-                model_age_days = (time.time() - _os.path.getmtime(str(model_files[0]))) / 86400
+
+                model_age_days = (
+                    time.time() - _os.path.getmtime(str(model_files[0]))
+                ) / 86400
                 if model_age_days > 30:
-                    mgr.alert("WARNING", "model_staleness",
-                              f"Model file is {model_age_days:.0f} days old (>30)",
-                              details={"model": model_files[0].name, "age_days": round(model_age_days, 1)})
+                    mgr.alert(
+                        "WARNING",
+                        "model_staleness",
+                        f"Model file is {model_age_days:.0f} days old (>30)",
+                        details={
+                            "model": model_files[0].name,
+                            "age_days": round(model_age_days, 1),
+                        },
+                    )
         except Exception as _ms:
             logger.debug("[ALERT] model_stale check skipped: %s", _ms)
 
         # INFO: Risk state not WATCH (regime change)
         try:
             import json
+
             kpis_path = out_path / "run_kpis.json"
             if kpis_path.exists():
                 kpis = json.loads(kpis_path.read_text(encoding="utf-8"))
                 risk_state = kpis.get("risk_state")
                 if risk_state and risk_state not in ("WATCH", None):
-                    mgr.alert("INFO", "risk_state_machine",
-                              f"Risk state: {risk_state}",
-                              details={"state": risk_state, "date": date_str})
+                    mgr.alert(
+                        "INFO",
+                        "risk_state_machine",
+                        f"Risk state: {risk_state}",
+                        details={"state": risk_state, "date": date_str},
+                    )
         except Exception as _rse:
             logger.debug("[ALERT] regime_change check skipped: %s", _rse)
 
         alert_file = mgr.flush_to_json()
         logger.info("[ALERT] health check done: date=%s file=%s", date_str, alert_file)
-        return WorkerResult(worker_name="alert_health_worker", status="ok",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="alert_health_worker",
+            status="ok",
+            duration_s=time.monotonic() - t0,
+        )
     except ImportError as exc:
         logger.info("[ALERT] not available (%s)", exc)
-        return WorkerResult(worker_name="alert_health_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="alert_health_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     except Exception as exc:
         msg = f"{type(exc).__name__}: {exc}"
         logger.error("[ALERT] alert_health_worker error: %s", msg)
-        return WorkerResult(worker_name="alert_health_worker", status="error",
-                            duration_s=time.monotonic() - t0, error_msg=msg)
+        return WorkerResult(
+            worker_name="alert_health_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
 
 
 def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
@@ -635,8 +820,11 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
     t0 = time.monotonic()
     if dry_run:
         logger.info("[KPI] dry_run=True -- skipping KPI export")
-        return WorkerResult(worker_name="kpi_export_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="kpi_export_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     try:
         import json
 
@@ -654,12 +842,18 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
                 if "georisk" in mults:
                     metrics["assembled_georisk_multiplier"] = float(mults["georisk"])
                 if "profit_lock" in mults:
-                    metrics["assembled_profit_lock_multiplier"] = float(mults["profit_lock"])
+                    metrics["assembled_profit_lock_multiplier"] = float(
+                        mults["profit_lock"]
+                    )
                 if "final_exposure_multiplier" in mults:
-                    metrics["assembled_exposure_multiplier"] = float(mults["final_exposure_multiplier"])
+                    metrics["assembled_exposure_multiplier"] = float(
+                        mults["final_exposure_multiplier"]
+                    )
                 targets_summary = kpis.get("targets_summary") or {}
                 if "n_targets" in targets_summary:
-                    metrics["assembled_targets_count"] = float(targets_summary["n_targets"])
+                    metrics["assembled_targets_count"] = float(
+                        targets_summary["n_targets"]
+                    )
             except Exception as _kje:
                 logger.debug("[KPI] run_kpis.json parse error: %s", _kje)
 
@@ -682,15 +876,22 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
         if diag_path.exists():
             try:
                 diag = json.loads(diag_path.read_text(encoding="utf-8"))
-                metrics["assembled_signal_health_alerts"] = float(diag.get("n_alerts", 0))
-                metrics["assembled_signal_health_factors"] = float(diag.get("n_factors", 0))
+                metrics["assembled_signal_health_alerts"] = float(
+                    diag.get("n_alerts", 0)
+                )
+                metrics["assembled_signal_health_factors"] = float(
+                    diag.get("n_factors", 0)
+                )
             except Exception as _dge:
                 logger.debug("[KPI] signal_health parse error: %s", _dge)
 
         if not metrics:
             logger.info("[KPI] no metrics available for %s -- skip", date_str)
-            return WorkerResult(worker_name="kpi_export_worker", status="skip",
-                                duration_s=time.monotonic() - t0)
+            return WorkerResult(
+                worker_name="kpi_export_worker",
+                status="skip",
+                duration_s=time.monotonic() - t0,
+            )
 
         metrics_dir = out_path / "metrics"
         export_result = export_metrics(
@@ -698,19 +899,32 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
             labels={"date": date_str},
             path=metrics_dir / "assembled.prom",
         )
-        logger.info("[KPI] exported %d metrics to %s",
-                    export_result.get("metrics_count", 0), export_result.get("file"))
-        return WorkerResult(worker_name="kpi_export_worker", status="ok",
-                            duration_s=time.monotonic() - t0)
+        logger.info(
+            "[KPI] exported %d metrics to %s",
+            export_result.get("metrics_count", 0),
+            export_result.get("file"),
+        )
+        return WorkerResult(
+            worker_name="kpi_export_worker",
+            status="ok",
+            duration_s=time.monotonic() - t0,
+        )
     except ImportError as exc:
         logger.info("[KPI] not available (%s)", exc)
-        return WorkerResult(worker_name="kpi_export_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="kpi_export_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
     except Exception as exc:
         msg = f"{type(exc).__name__}: {exc}"
         logger.error("[KPI] kpi_export_worker error: %s", msg)
-        return WorkerResult(worker_name="kpi_export_worker", status="error",
-                            duration_s=time.monotonic() - t0, error_msg=msg)
+        return WorkerResult(
+            worker_name="kpi_export_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
 
 
 # Default worker registry (callables that accept date_str, output_dir, dry_run)
@@ -718,12 +932,12 @@ _DEFAULT_WORKERS: List[Callable] = [
     _ingest_worker,
     _post_trade_worker,
     _feedback_worker,
-    _retrain_scheduler_worker,   # runs after feedback to evaluate 5 retrain signals
+    _retrain_scheduler_worker,  # runs after feedback to evaluate 5 retrain signals
     _reconcile_worker,
     _health_check_worker,
     _factor_curation_worker,
-    _alert_health_worker,        # Phase 11: alert conditions after health check
-    _kpi_export_worker,          # Phase 11: Prometheus metrics export
+    _alert_health_worker,  # Phase 11: alert conditions after health check
+    _kpi_export_worker,  # Phase 11: Prometheus metrics export
 ]
 
 

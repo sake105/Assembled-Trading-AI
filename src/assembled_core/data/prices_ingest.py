@@ -86,7 +86,9 @@ def load_eod_prices(
     has_ohlcv = all(col in df.columns for col in ["open", "high", "low", "volume"])
 
     if not has_ohlcv:
-        missing_cols = [c for c in ["open", "high", "low", "volume"] if c not in df.columns]
+        missing_cols = [
+            c for c in ["open", "high", "low", "volume"] if c not in df.columns
+        ]
         raise ValueError(
             f"Price file {source_path} is missing OHLCV columns: {missing_cols}. "
             f"Only 'close' is available. Synthetic OHLCV generation has been disabled "
@@ -132,8 +134,11 @@ def load_eod_prices(
     extra_cols = [c for c in df.columns if c not in required_cols]
     if extra_cols:
         import logging as _logging
+
         _logging.getLogger(__name__).debug(
-            "[load_eod_prices] dropping %d non-OHLCV columns: %s", len(extra_cols), extra_cols[:5]
+            "[load_eod_prices] dropping %d non-OHLCV columns: %s",
+            len(extra_cols),
+            extra_cols[:5],
         )
     df = df[required_cols].copy()
 
@@ -147,7 +152,10 @@ def load_eod_prices(
     )
     if invalid.any():
         invalid_count = invalid.sum()
-        logger.warning("[load_eod_prices] %d rows with invalid OHLC relationships (high < low, etc.)", invalid_count)
+        logger.warning(
+            "[load_eod_prices] %d rows with invalid OHLC relationships (high < low, etc.)",
+            invalid_count,
+        )
 
     # Run full validation and log issues
     validation = validate_price_data(df)
@@ -321,6 +329,7 @@ def validate_prices_cross_source(
         and details list.
     """
     import logging
+
     _log = logging.getLogger(__name__)
 
     merged = primary.merge(
@@ -334,31 +343,46 @@ def validate_prices_cross_source(
     s_col = f"{close_col}_secondary"
 
     if merged.empty or p_col not in merged.columns or s_col not in merged.columns:
-        return {"validated": False, "n_checked": 0, "n_flagged": 0, "flagged_symbols": [], "details": []}
+        return {
+            "validated": False,
+            "n_checked": 0,
+            "n_flagged": 0,
+            "flagged_symbols": [],
+            "details": [],
+        }
 
     merged["diff_pct"] = (
         (merged[p_col] - merged[s_col]).abs() / merged[p_col].clip(lower=0.01) * 100
     )
 
     flagged = merged[merged["diff_pct"] > max_diff_pct]
-    flagged_symbols = sorted(flagged[symbol_col].unique().tolist()) if not flagged.empty else []
+    flagged_symbols = (
+        sorted(flagged[symbol_col].unique().tolist()) if not flagged.empty else []
+    )
 
     if flagged_symbols:
-        _log.warning("[PriceValidation] %d symbols with >%.1f%% diff: %s",
-                     len(flagged_symbols), max_diff_pct, flagged_symbols[:10])
+        _log.warning(
+            "[PriceValidation] %d symbols with >%.1f%% diff: %s",
+            len(flagged_symbols),
+            max_diff_pct,
+            flagged_symbols[:10],
+        )
 
     return {
         "validated": len(flagged_symbols) == 0,
         "n_checked": len(merged[symbol_col].unique()),
         "n_flagged": len(flagged_symbols),
         "flagged_symbols": flagged_symbols,
-        "max_diff_pct_observed": round(float(merged["diff_pct"].max()), 2) if not merged.empty else 0.0,
+        "max_diff_pct_observed": (
+            round(float(merged["diff_pct"].max()), 2) if not merged.empty else 0.0
+        ),
     }
 
 
 # ---------------------------------------------------------------------------
 # 10.4  Incremental Data Updates
 # ---------------------------------------------------------------------------
+
 
 def incremental_update(
     existing_path: str | Path,
@@ -390,7 +414,9 @@ def incremental_update(
         combined = combined.drop_duplicates(
             subset=[timestamp_col, symbol_col], keep="last"
         )
-        combined = combined.sort_values([symbol_col, timestamp_col]).reset_index(drop=True)
+        combined = combined.sort_values([symbol_col, timestamp_col]).reset_index(
+            drop=True
+        )
     else:
         combined = new_data.copy()
 

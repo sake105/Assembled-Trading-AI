@@ -20,15 +20,31 @@ def _orders(n: int = 3) -> pd.DataFrame:
 def _prices() -> pd.DataFrame:
     # Long-format with close + volume for ADV estimation
     rows = []
-    for sym, px, vol in [("AAPL", 180.0, 5_000_000), ("MSFT", 420.0, 4_000_000), ("NVDA", 890.0, 8_000_000)]:
+    for sym, px, vol in [
+        ("AAPL", 180.0, 5_000_000),
+        ("MSFT", 420.0, 4_000_000),
+        ("NVDA", 890.0, 8_000_000),
+    ]:
         for i in range(25):
-            rows.append({"symbol": sym, "close": px + i * 0.1, "volume": vol, "timestamp": pd.Timestamp("2026-04-01") + pd.Timedelta(days=i)})
+            rows.append(
+                {
+                    "symbol": sym,
+                    "close": px + i * 0.1,
+                    "volume": vol,
+                    "timestamp": pd.Timestamp("2026-04-01") + pd.Timedelta(days=i),
+                }
+            )
     return pd.DataFrame(rows)
 
 
 def test_disabled_returns_unchanged():
     orders = _orders()
-    policy = {"execution": {"cost_meta": {"enabled": False}, "smart_order_router": {"enabled": False}}}
+    policy = {
+        "execution": {
+            "cost_meta": {"enabled": False},
+            "smart_order_router": {"enabled": False},
+        }
+    }
     out, meta = annotate_execution_cost(orders, _prices(), policy)
     assert len(out) == len(orders)
     assert meta["enabled"] is False
@@ -75,10 +91,12 @@ def test_high_impact_flag_without_enforce():
 
 
 def test_enforce_drops_high_impact():
-    orders = pd.DataFrame([
-        {"symbol": "AAPL", "side": "BUY", "qty": 10_000_000},  # huge
-        {"symbol": "MSFT", "side": "BUY", "qty": 10},          # tiny
-    ])
+    orders = pd.DataFrame(
+        [
+            {"symbol": "AAPL", "side": "BUY", "qty": 10_000_000},  # huge
+            {"symbol": "MSFT", "side": "BUY", "qty": 10},  # tiny
+        ]
+    )
     policy = {
         "execution": {
             "cost_meta": {"enabled": True, "impact_limit_bps": 5.0, "enforce": True},
@@ -98,10 +116,12 @@ def test_missing_price_skipped_gracefully():
 
 
 def test_invalid_qty_skipped():
-    orders = pd.DataFrame([
-        {"symbol": "AAPL", "side": "BUY", "qty": "not_a_number"},
-        {"symbol": "MSFT", "side": "BUY", "qty": 100},
-    ])
+    orders = pd.DataFrame(
+        [
+            {"symbol": "AAPL", "side": "BUY", "qty": "not_a_number"},
+            {"symbol": "MSFT", "side": "BUY", "qty": 100},
+        ]
+    )
     policy = {"execution": {"cost_meta": {"enabled": True}}}
     out, meta = annotate_execution_cost(orders, _prices(), policy)
     assert len(meta["per_order"]) == 1

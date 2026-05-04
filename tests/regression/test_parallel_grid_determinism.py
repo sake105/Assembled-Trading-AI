@@ -56,12 +56,8 @@ def test_derive_seed_formula_stable() -> None:
 def test_serial_vs_parallel_bit_identical() -> None:
     grid = [{"mu": 0.1 * i, "sigma": 1.0} for i in range(6)]
 
-    serial = _extract(
-        run_grid_parallel(grid, _work, master_seed=42, n_jobs=1)
-    )
-    parallel = _extract(
-        run_grid_parallel(grid, _work, master_seed=42, n_jobs=-1)
-    )
+    serial = _extract(run_grid_parallel(grid, _work, master_seed=42, n_jobs=1))
+    parallel = _extract(run_grid_parallel(grid, _work, master_seed=42, n_jobs=-1))
 
     assert len(serial) == len(parallel) == 6
     for s, p in zip(serial, parallel, strict=True):

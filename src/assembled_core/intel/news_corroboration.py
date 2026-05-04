@@ -30,7 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 _TIER_WEIGHT: dict[str, float] = {
-    "T0": 2.0, "T1": 1.5, "T2": 1.0, "T3": 0.5,
+    "T0": 2.0,
+    "T1": 1.5,
+    "T2": 1.0,
+    "T3": 0.5,
 }
 
 
@@ -103,7 +106,9 @@ class CorroborationTracker:
         seen: dict[str, str] = {}  # source_id → tier
         for _ts, src, tier in entries:
             # keep strongest tier seen for this source
-            if src not in seen or _TIER_WEIGHT.get(tier, 1.0) > _TIER_WEIGHT.get(seen[src], 1.0):
+            if src not in seen or _TIER_WEIGHT.get(tier, 1.0) > _TIER_WEIGHT.get(
+                seen[src], 1.0
+            ):
                 seen[src] = tier
         n_sources = len(seen)
         weighted = sum(_TIER_WEIGHT.get(t, 1.0) for t in seen.values())

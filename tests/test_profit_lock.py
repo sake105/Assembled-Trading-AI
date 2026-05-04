@@ -8,7 +8,6 @@ import pytest
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
 from src.assembled_core.risk.profit_lock import compute_profit_lock_multiplier
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

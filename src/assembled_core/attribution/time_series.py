@@ -6,6 +6,7 @@ Provides:
   - Dead-feature detection (IC ≈ 0 sustained over 90 days)
   - Attribution distribution-shift detection (KS test)
 """
+
 from __future__ import annotations
 
 import math
@@ -20,6 +21,7 @@ from assembled_core.attribution.schemas import CompositeAttribution
 # ---------------------------------------------------------------------------
 # IC aggregation
 # ---------------------------------------------------------------------------
+
 
 def attributions_to_df(attrs: list[CompositeAttribution]) -> pd.DataFrame:
     """Convert a list of CompositeAttribution to a flat DataFrame.
@@ -79,9 +81,11 @@ def rolling_dimension_ic(
 
     # Align forward returns
     if isinstance(forward_returns.index, pd.MultiIndex):
-        df = df.set_index(["date", "ticker"]).join(
-            forward_returns.rename("fwd"), how="left"
-        ).reset_index()
+        df = (
+            df.set_index(["date", "ticker"])
+            .join(forward_returns.rename("fwd"), how="left")
+            .reset_index()
+        )
     else:
         fwd_df = forward_returns.rename("fwd").reset_index()
         fwd_df.columns = ["date", "fwd"]
@@ -132,7 +136,7 @@ def _rank(arr: np.ndarray) -> np.ndarray:
 def _pearson(x: np.ndarray, y: np.ndarray) -> float:
     xm = x - x.mean()
     ym = y - y.mean()
-    denom = math.sqrt((xm ** 2).sum() * (ym ** 2).sum())
+    denom = math.sqrt((xm**2).sum() * (ym**2).sum())
     return float((xm * ym).sum() / denom) if denom > 0 else 0.0
 
 
@@ -167,8 +171,7 @@ def detect_dead_features(
     for col in recent.columns:
         vals = recent[col].dropna()
         if len(vals) == 0:
-            result[col] = {"mean_abs_ic": float("nan"), "is_dead": True,
-                           "n_windows": 0}
+            result[col] = {"mean_abs_ic": float("nan"), "is_dead": True, "n_windows": 0}
             continue
         mean_abs = float(vals.abs().mean())
         result[col] = {
@@ -208,6 +211,7 @@ def dead_feature_report(dead_features: dict[str, dict[str, Any]]) -> str:
 # Attribution distribution shift (KS test)
 # ---------------------------------------------------------------------------
 
+
 def detect_attribution_drift(
     recent_attrs: list[CompositeAttribution],
     baseline_attrs: list[CompositeAttribution],
@@ -241,11 +245,14 @@ def detect_attribution_drift(
             return float(stat), float(p)
 
     except ImportError:
+
         def ks_test(a: list[float], b: list[float]) -> tuple[float, float]:
             # Approximate: compare means (weak proxy without scipy)
             ma, mb = float(np.mean(a)), float(np.mean(b))
             diff = abs(ma - mb) / (np.std(a + b, ddof=1) + 1e-9)
-            p_approx = float(np.exp(-2 * diff ** 2 * min(len(a), len(b)) / (len(a) + len(b))))
+            p_approx = float(
+                np.exp(-2 * diff**2 * min(len(a), len(b)) / (len(a) + len(b)))
+            )
             return diff, min(p_approx, 1.0)
 
     result: dict[str, dict[str, Any]] = {}
@@ -253,11 +260,13 @@ def detect_attribution_drift(
         r = recent_d.get(dim, [])
         b = baseline_d.get(dim, [])
         if len(r) < 5 or len(b) < 5:
-            result[dim] = {"ks_statistic": float("nan"), "p_value": float("nan"),
-                           "is_drift": False}
+            result[dim] = {
+                "ks_statistic": float("nan"),
+                "p_value": float("nan"),
+                "is_drift": False,
+            }
             continue
         stat, p = ks_test(r, b)
-        result[dim] = {"ks_statistic": stat, "p_value": p,
-                       "is_drift": p < threshold_p}
+        result[dim] = {"ks_statistic": stat, "p_value": p, "is_drift": p < threshold_p}
 
     return result

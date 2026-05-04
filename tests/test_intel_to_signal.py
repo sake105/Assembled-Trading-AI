@@ -63,7 +63,9 @@ pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="IntelSignalAdapter class archived to observability_graveyard_2026q2/signals/")
+@pytest.mark.skip(
+    reason="IntelSignalAdapter class archived to observability_graveyard_2026q2/signals/"
+)
 class TestIntelSignalAdapter:
     def test_import(self):
         from src.assembled_core.signals.intel_signal_adapter import IntelSignalAdapter
@@ -85,6 +87,7 @@ class TestIntelSignalAdapter:
             symbol_sector_map=SYMBOL_SECTOR_MAP,
         )
         import pandas as pd
+
         assert isinstance(result, pd.DataFrame)
 
     def test_losers_produce_short_candidates(self):
@@ -144,7 +147,9 @@ class TestIntelSignalAdapter:
         # Either empty or all weights near zero
         if len(result) > 0 and "score" in result.columns:
             max_abs_score = result["score"].abs().max()
-            assert max_abs_score <= 1.0  # should not produce extreme signals at low severity
+            assert (
+                max_abs_score <= 1.0
+            )  # should not produce extreme signals at low severity
 
     def test_compute_sector_impact_scores(self):
         from src.assembled_core.signals.intel_signal_adapter import IntelSignalAdapter
@@ -205,6 +210,7 @@ class TestIntelSignalAdapter:
             symbol_sector_map={"AAPL": "TECH", "UNKNOWN": "UNKNOWN_SECTOR_XYZ"},
         )
         import pandas as pd
+
         assert isinstance(result, pd.DataFrame)
 
 
@@ -220,11 +226,21 @@ class TestMultiDomainGdelt:
 
         assert len(GDELT_QUERIES) >= 10
         expected_domains = {
-            "geopolitical", "sanctions", "energy", "shipping",
-            "tech_war", "currency", "cyber", "climate", "military", "finance",
+            "geopolitical",
+            "sanctions",
+            "energy",
+            "shipping",
+            "tech_war",
+            "currency",
+            "cyber",
+            "climate",
+            "military",
+            "finance",
         }
         for domain in expected_domains:
-            assert domain in GDELT_QUERIES, f"Domain '{domain}' missing from GDELT_QUERIES"
+            assert (
+                domain in GDELT_QUERIES
+            ), f"Domain '{domain}' missing from GDELT_QUERIES"
 
     def test_fetch_multi_domain_returns_tuple(self):
         """fetch_gdelt_multi_domain returns (items, failures, stats) tuple."""

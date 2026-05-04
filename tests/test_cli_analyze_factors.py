@@ -166,6 +166,7 @@ def test_analyze_factors_direct_call(
     reset_settings()
     try:
         import src.assembled_core.config.settings as src_settings
+
         src_settings.reset_settings()
     except ImportError:
         pass
@@ -231,6 +232,7 @@ def test_analyze_factors_with_vol_liquidity(
     reset_settings()
     try:
         import src.assembled_core.config.settings as src_settings
+
         src_settings.reset_settings()
     except ImportError:
         pass

@@ -203,14 +203,25 @@ def compute_kelly_weights(
             score_p = pd.Series(0.55, index=long_signals.index)
         p = p.where(p.notna(), score_p).fillna(0.55)
     elif "score" in long_signals.columns:
-        p = (0.5 + long_signals["score"].astype(float) * 0.1).clip(0.0, 1.0).fillna(0.55)
+        p = (
+            (0.5 + long_signals["score"].astype(float) * 0.1)
+            .clip(0.0, 1.0)
+            .fillna(0.55)
+        )
     else:
         p = pd.Series(0.55, index=long_signals.index)
 
     if isinstance(payoff_ratios, (pd.Series, dict)):
-        b = long_signals["symbol"].map(
-            payoff_ratios if isinstance(payoff_ratios, dict) else payoff_ratios.to_dict()
-        ).astype(float).fillna(1.5)
+        b = (
+            long_signals["symbol"]
+            .map(
+                payoff_ratios
+                if isinstance(payoff_ratios, dict)
+                else payoff_ratios.to_dict()
+            )
+            .astype(float)
+            .fillna(1.5)
+        )
     else:
         b = pd.Series(1.5, index=long_signals.index)
 
@@ -218,11 +229,13 @@ def compute_kelly_weights(
     kelly_raw = ((p * b - q) / b.replace(0.0, np.nan)).fillna(0.0)
     kelly_frac = (kelly_raw.clip(lower=0.0) * fraction).clip(upper=max_weight)
 
-    result = pd.DataFrame({
-        "symbol": long_signals["symbol"].values,
-        "kelly_raw": kelly_raw.values,
-        "kelly_frac": kelly_frac.values,
-    })
+    result = pd.DataFrame(
+        {
+            "symbol": long_signals["symbol"].values,
+            "kelly_raw": kelly_raw.values,
+            "kelly_frac": kelly_frac.values,
+        }
+    )
 
     # Normalize weights to sum to <=1
     total_w = result["kelly_frac"].sum()
@@ -276,10 +289,18 @@ def compute_risk_parity_weights(
         volatilities = pd.Series(volatilities)
 
     skipped: list[str] = []
-    vol_mapped = long_signals["symbol"].map(
-        volatilities.to_dict() if isinstance(volatilities, pd.Series) else volatilities
-    ).astype(float)
-    valid_mask = vol_mapped.notna() & np.isfinite(vol_mapped.values) & (vol_mapped >= 1e-8)
+    vol_mapped = (
+        long_signals["symbol"]
+        .map(
+            volatilities.to_dict()
+            if isinstance(volatilities, pd.Series)
+            else volatilities
+        )
+        .astype(float)
+    )
+    valid_mask = (
+        vol_mapped.notna() & np.isfinite(vol_mapped.values) & (vol_mapped >= 1e-8)
+    )
     skipped = long_signals["symbol"][~valid_mask].tolist()
     if skipped:
         logger.warning(
@@ -293,11 +314,13 @@ def compute_risk_parity_weights(
             columns=["symbol", "target_weight", "target_qty", "volatility"]
         )
 
-    result = pd.DataFrame({
-        "symbol": long_signals["symbol"][valid_mask].values,
-        "inv_vol": (1.0 / vol_mapped[valid_mask]).values,
-        "volatility": vol_mapped[valid_mask].values,
-    })
+    result = pd.DataFrame(
+        {
+            "symbol": long_signals["symbol"][valid_mask].values,
+            "inv_vol": (1.0 / vol_mapped[valid_mask]).values,
+            "volatility": vol_mapped[valid_mask].values,
+        }
+    )
     total_inv_vol = result["inv_vol"].sum()
 
     if total_inv_vol > 0:
@@ -360,11 +383,18 @@ def compute_vol_scaled_weights(
     n_positions = len(long_signals)
     sqrt_n = np.sqrt(n_positions) if n_positions > 0 else 1.0
 
-    vol_mapped = long_signals["symbol"].map(
-        volatilities if isinstance(volatilities, dict) else
-        (volatilities.to_dict() if isinstance(volatilities, pd.Series) else {})
-    ).astype(float)
-    valid_mask = vol_mapped.notna() & np.isfinite(vol_mapped.values) & (vol_mapped >= 1e-8)
+    vol_mapped = (
+        long_signals["symbol"]
+        .map(
+            volatilities
+            if isinstance(volatilities, dict)
+            else (volatilities.to_dict() if isinstance(volatilities, pd.Series) else {})
+        )
+        .astype(float)
+    )
+    valid_mask = (
+        vol_mapped.notna() & np.isfinite(vol_mapped.values) & (vol_mapped >= 1e-8)
+    )
     skipped = long_signals["symbol"][~valid_mask].tolist()
     if skipped:
         logger.warning(
@@ -381,11 +411,13 @@ def compute_vol_scaled_weights(
     vols_valid = vol_mapped[valid_mask]
     weights = (target_vol / (sqrt_n * vols_valid)).clip(upper=max_weight)
 
-    result = pd.DataFrame({
-        "symbol": long_signals["symbol"][valid_mask].values,
-        "target_weight": weights.values,
-        "volatility": vols_valid.values,
-    })
+    result = pd.DataFrame(
+        {
+            "symbol": long_signals["symbol"][valid_mask].values,
+            "target_weight": weights.values,
+            "volatility": vols_valid.values,
+        }
+    )
 
     # Normalize if total exceeds 1.0
     total_w = result["target_weight"].sum()
@@ -544,7 +576,9 @@ def compute_max_diversification_weights(
         # Update: weight inversely to marginal risk, scaled by asset vol
         w_new = vols / np.maximum(mrc, 1e-12)
         w_new_sum = w_new.sum()
-        w_new = w_new / w_new_sum if w_new_sum > 1e-12 else np.ones(len(w_new)) / len(w_new)
+        w_new = (
+            w_new / w_new_sum if w_new_sum > 1e-12 else np.ones(len(w_new)) / len(w_new)
+        )
 
         if np.max(np.abs(w_new - w)) < 1e-8:
             break
@@ -586,7 +620,7 @@ def compute_tail_risk_parity_weights(
         marginal_cvar = np.maximum(marginal_cvar, 1e-12)
 
         # Inverse marginal CVaR weighting
-        w_new = (1.0 / marginal_cvar)
+        w_new = 1.0 / marginal_cvar
         w_new = w_new / w_new.sum()
 
         if np.max(np.abs(w_new - w)) < 1e-8:
@@ -643,10 +677,20 @@ def apply_news_sentiment_weight_adjustment(
     if has_sentiment.any():
         delta_series = sentiment_series * max_adjustment
         old_w_series = result["target_weight"].astype(float)
-        new_w_series = (old_w_series + delta_series.fillna(0.0)).clip(lower=0.0, upper=1.0)
+        new_w_series = (old_w_series + delta_series.fillna(0.0)).clip(
+            lower=0.0, upper=1.0
+        )
         for idx in result.index[has_sentiment]:
             sym = sym_upper.loc[idx]
-            adjustments.append({"idx": idx, "symbol": sym, "old_w": float(old_w_series.loc[idx]), "new_w": float(new_w_series.loc[idx]), "delta": float(delta_series.loc[idx])})
+            adjustments.append(
+                {
+                    "idx": idx,
+                    "symbol": sym,
+                    "old_w": float(old_w_series.loc[idx]),
+                    "new_w": float(new_w_series.loc[idx]),
+                    "delta": float(delta_series.loc[idx]),
+                }
+            )
         if not shadow_only:
             result.loc[has_sentiment, "target_weight"] = new_w_series[has_sentiment]
 
@@ -665,7 +709,9 @@ def apply_news_sentiment_weight_adjustment(
         # Distribute old total qty proportionally to new weights (weight × qty is dimensionally wrong)
         if "target_qty" in result.columns:
             old_qty_sum = result["target_qty"].sum()
-            result["target_qty"] = result["target_weight"] * (old_qty_sum if old_qty_sum > 1e-9 else 1.0)
+            result["target_qty"] = result["target_weight"] * (
+                old_qty_sum if old_qty_sum > 1e-9 else 1.0
+            )
 
     return result
 
@@ -726,9 +772,13 @@ def compute_target_positions_with_smoothing(
         name="target_weight",
     )
 
-    smoothed = apply_turnover_smoothing(target, previous_positions, alpha=smoothing_alpha)
+    smoothed = apply_turnover_smoothing(
+        target, previous_positions, alpha=smoothing_alpha
+    )
     if max_turnover is not None:
-        smoothed = enforce_turnover_budget(smoothed, previous_positions, max_turnover=max_turnover)
+        smoothed = enforce_turnover_budget(
+            smoothed, previous_positions, max_turnover=max_turnover
+        )
 
     # Re-apply smoothed weights back to result
     result = result.copy()
@@ -770,6 +820,7 @@ def compute_kelly_weights_with_uncertainty(
     from src.assembled_core.portfolio.kelly_uncertainty import (
         compute_kelly_weights_with_uncertainty as _compute,
     )
+
     return _compute(
         edges=edges,
         variances=variances,

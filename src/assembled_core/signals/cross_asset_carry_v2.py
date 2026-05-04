@@ -1,4 +1,5 @@
 """Cross-asset carry signal v2 — extended to FX rate differentials, commodity roll, crypto funding."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -57,8 +58,12 @@ class UniversalCarrySignal:
                 if not m1_cols:
                     return pd.DataFrame()
                 names = [c.replace("_M1", "") for c in m1_cols]
-                front = futures_curves[m1_cols].rename(columns=dict(zip(m1_cols, names)))
-                second = futures_curves[m2_cols].rename(columns=dict(zip(m2_cols, names)))
+                front = futures_curves[m1_cols].rename(
+                    columns=dict(zip(m1_cols, names))
+                )
+                second = futures_curves[m2_cols].rename(
+                    columns=dict(zip(m2_cols, names))
+                )
         except Exception:
             return pd.DataFrame()
 

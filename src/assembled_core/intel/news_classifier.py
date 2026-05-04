@@ -16,94 +16,295 @@ from dataclasses import dataclass, field
 # ---------------------------------------------------------------------------
 
 _EVENT_KEYWORDS: dict[str, frozenset[str]] = {
-    "sanctions": frozenset({
-        "sanction", "embargo", "ban", "restrict", "freeze assets",
-        "export control", "asset freeze", "blocked", "blacklisted",
-    }),
-    "military_strike": frozenset({
-        "strike", "attack", "bomb", "missile", "explosion", "airstrike",
-        "shelling", "rocket", "mortar", "drone strike", "air raid",
-    }),
-    "war_escalation": frozenset({
-        "war", "escalat", "invasion", "offensive", "frontline", "troops advance",
-        "troops deploy", "ground offensive", "territorial", "occupied",
-    }),
-    "energy_disruption": frozenset({
-        "pipeline", "oil supply", "gas supply", "lng", "shortage",
-        "energy crisis", "supply cut", "energy supply", "fuel supply",
-        "refinery attack", "oil field",
-    }),
-    "central_bank": frozenset({
-        "fed", "federal reserve", "ecb", "boe", "boj", "rate hike", "rate cut",
-        "interest rate", "monetary policy", "inflation", "fomc",
-        "central bank", "quantitative easing", "tapering", "basis points",
-        "pboc", "rba", "snb", "riksbank",
-    }),
-    "trade_policy": frozenset({
-        "tariff", "trade war", "import ban", "export ban", "wto",
-        "customs", "trade deal", "trade agreement", "import duty",
-        "trade barrier", "quota", "trade restriction",
-    }),
-    "political_crisis": frozenset({
-        "coup", "resign", "protest", "riot", "election fraud",
-        "constitutional crisis", "government collapse", "martial law",
-        "impeach", "overthrow", "junta",
-    }),
-    "earnings": frozenset({
-        "earnings", "revenue", "profit", "loss", "quarterly", "eps",
-        "guidance", "beat", "miss", "results", "income", "fiscal year",
-        "q1", "q2", "q3", "q4", "annual results",
-    }),
-    "ma_activity": frozenset({
-        "merger", "acquisition", "takeover", "deal", "buyout",
-        "offer", "bid", "acquir", "merge", "purchase agreement",
-        "strategic acquisition",
-    }),
-    "regulatory": frozenset({
-        "fda", "sec", "ftc", "doj", "antitrust", "approval", "fine",
-        "investigation", "penalty", "probe", "lawsuit", "regulator",
-        "compliance", "violation", "enforcement",
-    }),
-    "cyber_attack": frozenset({
-        "cyber", "hack", "ransomware", "breach", "malware", "zero-day",
-        "phishing", "data breach", "cybersecurity", "intrusion",
-        "compromised", "stolen data",
-    }),
-    "natural_disaster": frozenset({
-        "earthquake", "hurricane", "typhoon", "flood", "wildfire",
-        "storm", "drought", "tsunami", "volcanic", "cyclone",
-        "tornado", "natural disaster",
-    }),
-    "diplomatic": frozenset({
-        "treaty", "summit", "talks", "ceasefire", "peace deal",
-        "agreement", "expelled", "diplomatic", "ambassador", "embassy",
-        "bilateral", "multilateral", "negotiation",
-    }),
-    "market_stress": frozenset({
-        "crash", "rout", "plunge", "sell-off", "circuit breaker",
-        "default", "downgrade", "bankruptcy", "selloff", "meltdown",
-        "market rout", "capitulation", "bear market", "collapse",
-    }),
+    "sanctions": frozenset(
+        {
+            "sanction",
+            "embargo",
+            "ban",
+            "restrict",
+            "freeze assets",
+            "export control",
+            "asset freeze",
+            "blocked",
+            "blacklisted",
+        }
+    ),
+    "military_strike": frozenset(
+        {
+            "strike",
+            "attack",
+            "bomb",
+            "missile",
+            "explosion",
+            "airstrike",
+            "shelling",
+            "rocket",
+            "mortar",
+            "drone strike",
+            "air raid",
+        }
+    ),
+    "war_escalation": frozenset(
+        {
+            "war",
+            "escalat",
+            "invasion",
+            "offensive",
+            "frontline",
+            "troops advance",
+            "troops deploy",
+            "ground offensive",
+            "territorial",
+            "occupied",
+        }
+    ),
+    "energy_disruption": frozenset(
+        {
+            "pipeline",
+            "oil supply",
+            "gas supply",
+            "lng",
+            "shortage",
+            "energy crisis",
+            "supply cut",
+            "energy supply",
+            "fuel supply",
+            "refinery attack",
+            "oil field",
+        }
+    ),
+    "central_bank": frozenset(
+        {
+            "fed",
+            "federal reserve",
+            "ecb",
+            "boe",
+            "boj",
+            "rate hike",
+            "rate cut",
+            "interest rate",
+            "monetary policy",
+            "inflation",
+            "fomc",
+            "central bank",
+            "quantitative easing",
+            "tapering",
+            "basis points",
+            "pboc",
+            "rba",
+            "snb",
+            "riksbank",
+        }
+    ),
+    "trade_policy": frozenset(
+        {
+            "tariff",
+            "trade war",
+            "import ban",
+            "export ban",
+            "wto",
+            "customs",
+            "trade deal",
+            "trade agreement",
+            "import duty",
+            "trade barrier",
+            "quota",
+            "trade restriction",
+        }
+    ),
+    "political_crisis": frozenset(
+        {
+            "coup",
+            "resign",
+            "protest",
+            "riot",
+            "election fraud",
+            "constitutional crisis",
+            "government collapse",
+            "martial law",
+            "impeach",
+            "overthrow",
+            "junta",
+        }
+    ),
+    "earnings": frozenset(
+        {
+            "earnings",
+            "revenue",
+            "profit",
+            "loss",
+            "quarterly",
+            "eps",
+            "guidance",
+            "beat",
+            "miss",
+            "results",
+            "income",
+            "fiscal year",
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "annual results",
+        }
+    ),
+    "ma_activity": frozenset(
+        {
+            "merger",
+            "acquisition",
+            "takeover",
+            "deal",
+            "buyout",
+            "offer",
+            "bid",
+            "acquir",
+            "merge",
+            "purchase agreement",
+            "strategic acquisition",
+        }
+    ),
+    "regulatory": frozenset(
+        {
+            "fda",
+            "sec",
+            "ftc",
+            "doj",
+            "antitrust",
+            "approval",
+            "fine",
+            "investigation",
+            "penalty",
+            "probe",
+            "lawsuit",
+            "regulator",
+            "compliance",
+            "violation",
+            "enforcement",
+        }
+    ),
+    "cyber_attack": frozenset(
+        {
+            "cyber",
+            "hack",
+            "ransomware",
+            "breach",
+            "malware",
+            "zero-day",
+            "phishing",
+            "data breach",
+            "cybersecurity",
+            "intrusion",
+            "compromised",
+            "stolen data",
+        }
+    ),
+    "natural_disaster": frozenset(
+        {
+            "earthquake",
+            "hurricane",
+            "typhoon",
+            "flood",
+            "wildfire",
+            "storm",
+            "drought",
+            "tsunami",
+            "volcanic",
+            "cyclone",
+            "tornado",
+            "natural disaster",
+        }
+    ),
+    "diplomatic": frozenset(
+        {
+            "treaty",
+            "summit",
+            "talks",
+            "ceasefire",
+            "peace deal",
+            "agreement",
+            "expelled",
+            "diplomatic",
+            "ambassador",
+            "embassy",
+            "bilateral",
+            "multilateral",
+            "negotiation",
+        }
+    ),
+    "market_stress": frozenset(
+        {
+            "crash",
+            "rout",
+            "plunge",
+            "sell-off",
+            "circuit breaker",
+            "default",
+            "downgrade",
+            "bankruptcy",
+            "selloff",
+            "meltdown",
+            "market rout",
+            "capitulation",
+            "bear market",
+            "collapse",
+        }
+    ),
     # Gap fill: previously silent capital-structure / labour / sell-side events.
-    "buyback": frozenset({
-        "buyback", "share repurchase", "stock repurchase", "repurchase program",
-        "return of capital", "accelerated repurchase",
-    }),
-    "ipo": frozenset({
-        "ipo", "initial public offering", "public listing", "direct listing",
-        "spac", "going public", "listing debut", "trading debut",
-    }),
-    "layoffs": frozenset({
-        "layoff", "job cut", "headcount reduction", "restructuring plan",
-        "workforce reduction", "redundanc", "staff cut", "mass firing",
-        "reduce workforce", "reduction in force",
-    }),
-    "analyst_rating": frozenset({
-        "upgrade", "downgrade", "price target", "outperform", "underperform",
-        "buy rating", "sell rating", "hold rating", "initiated coverage",
-        "reiterated", "overweight", "underweight", "neutral rating",
-        "raised estimate", "lowered estimate",
-    }),
+    "buyback": frozenset(
+        {
+            "buyback",
+            "share repurchase",
+            "stock repurchase",
+            "repurchase program",
+            "return of capital",
+            "accelerated repurchase",
+        }
+    ),
+    "ipo": frozenset(
+        {
+            "ipo",
+            "initial public offering",
+            "public listing",
+            "direct listing",
+            "spac",
+            "going public",
+            "listing debut",
+            "trading debut",
+        }
+    ),
+    "layoffs": frozenset(
+        {
+            "layoff",
+            "job cut",
+            "headcount reduction",
+            "restructuring plan",
+            "workforce reduction",
+            "redundanc",
+            "staff cut",
+            "mass firing",
+            "reduce workforce",
+            "reduction in force",
+        }
+    ),
+    "analyst_rating": frozenset(
+        {
+            "upgrade",
+            "downgrade",
+            "price target",
+            "outperform",
+            "underperform",
+            "buy rating",
+            "sell rating",
+            "hold rating",
+            "initiated coverage",
+            "reiterated",
+            "overweight",
+            "underweight",
+            "neutral rating",
+            "raised estimate",
+            "lowered estimate",
+        }
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -132,89 +333,276 @@ _TIER_SEVERITY_MULTIPLIER: dict[str, float] = {
 # Market direction keywords
 # ---------------------------------------------------------------------------
 
-_BEARISH_WORDS = frozenset({
-    "war", "sanction", "attack", "crash", "default", "recession", "crisis",
-    "bomb", "invasion", "collapse", "downgrade", "shortage", "rout", "plunge",
-    "sell-off", "selloff", "bankrupt", "missile", "explosion", "coup",
-    "meltdown", "bear market", "downfall", "spiral", "airstrike", "strike",
-    "shelling", "offensive", "escalation", "conflict", "embargo",
-})
+_BEARISH_WORDS = frozenset(
+    {
+        "war",
+        "sanction",
+        "attack",
+        "crash",
+        "default",
+        "recession",
+        "crisis",
+        "bomb",
+        "invasion",
+        "collapse",
+        "downgrade",
+        "shortage",
+        "rout",
+        "plunge",
+        "sell-off",
+        "selloff",
+        "bankrupt",
+        "missile",
+        "explosion",
+        "coup",
+        "meltdown",
+        "bear market",
+        "downfall",
+        "spiral",
+        "airstrike",
+        "strike",
+        "shelling",
+        "offensive",
+        "escalation",
+        "conflict",
+        "embargo",
+    }
+)
 
-_BULLISH_WORDS = frozenset({
-    "deal", "agreement", "stimulus", "recovery", "merger", "approval",
-    "ceasefire", "peace", "rate cut", "earnings beat", "acquisition",
-    "bullish", "surge", "rally", "record high", "buy", "upgrade",
-    "beat expectations", "positive", "growth", "rebound",
-})
+_BULLISH_WORDS = frozenset(
+    {
+        "deal",
+        "agreement",
+        "stimulus",
+        "recovery",
+        "merger",
+        "approval",
+        "ceasefire",
+        "peace",
+        "rate cut",
+        "earnings beat",
+        "acquisition",
+        "bullish",
+        "surge",
+        "rally",
+        "record high",
+        "buy",
+        "upgrade",
+        "beat expectations",
+        "positive",
+        "growth",
+        "rebound",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Time horizon
 # ---------------------------------------------------------------------------
 
-_INTRADAY_WORDS = frozenset({
-    "breaking", "flash", "urgent", "explosion", "missile", "attack",
-    "explosion", "shoot", "bombing", "immediate",
-})
+_INTRADAY_WORDS = frozenset(
+    {
+        "breaking",
+        "flash",
+        "urgent",
+        "explosion",
+        "missile",
+        "attack",
+        "explosion",
+        "shoot",
+        "bombing",
+        "immediate",
+    }
+)
 
-_SHORT_WORDS = frozenset({
-    "sanctions", "coup", "election result", "earnings", "bankruptcy",
-    "vote", "referendum", "result",
-})
+_SHORT_WORDS = frozenset(
+    {
+        "sanctions",
+        "coup",
+        "election result",
+        "earnings",
+        "bankruptcy",
+        "vote",
+        "referendum",
+        "result",
+    }
+)
 
-_MEDIUM_WORDS = frozenset({
-    "trade policy", "tariff", "regulatory", "approval", "merger",
-    "acquisition", "rate decision", "rate hike", "rate cut", "m&a",
-})
+_MEDIUM_WORDS = frozenset(
+    {
+        "trade policy",
+        "tariff",
+        "regulatory",
+        "approval",
+        "merger",
+        "acquisition",
+        "rate decision",
+        "rate hike",
+        "rate cut",
+        "m&a",
+    }
+)
 
-_LONG_WORDS = frozenset({
-    "war resolution", "treaty", "demographic", "structural",
-    "constitutional", "peace agreement", "long-term",
-})
+_LONG_WORDS = frozenset(
+    {
+        "war resolution",
+        "treaty",
+        "demographic",
+        "structural",
+        "constitutional",
+        "peace agreement",
+        "long-term",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Sector keyword maps
 # ---------------------------------------------------------------------------
 
 _SECTOR_KEYWORDS: dict[str, frozenset[str]] = {
-    "energy": frozenset({
-        "oil", "gas", "lng", "pipeline", "opec", "crude", "refin",
-        "energy", "fuel", "coal", "brent", "wti", "petrol",
-    }),
-    "defense": frozenset({
-        "military", "nato", "weapon", "missile", "defense", "army",
-        "navy", "air force", "procurement", "arms", "soldier", "troops",
-        "pentagon", "war", "combat", "aircraft carrier",
-    }),
-    "financials": frozenset({
-        "bank", "fed", "ecb", "interest rate", "credit", "loan",
-        "debt", "bond", "yield", "currency", "forex", "inflation",
-        "monetary", "rate hike", "rate cut", "liquidity",
-    }),
-    "tech": frozenset({
-        "semiconductor", "chip", "ai", "tech", "software", "cyber",
-        "hack", "silicon", "nvidia", "intel", "processor", "cloud",
-        "data center", "quantum",
-    }),
-    "healthcare": frozenset({
-        "fda", "drug", "vaccine", "clinical", "pharma", "cancer",
-        "biotech", "approval", "trial", "therapeutics", "genomic",
-    }),
-    "industrials": frozenset({
-        "supply chain", "shipping", "logistics", "trade", "tariff",
-        "manufacturing", "freight", "factory", "production", "export",
-    }),
-    "materials": frozenset({
-        "gold", "copper", "mining", "rare earth", "lithium", "commodity",
-        "aluminum", "zinc", "nickel", "iron ore", "steel", "cobalt",
-    }),
-    "consumer": frozenset({
-        "retail", "consumer confidence", "spending", "amazon", "walmart",
-        "consumer", "shopping", "e-commerce",
-    }),
-    "utilities": frozenset({
-        "power grid", "electricity", "nuclear power plant", "energy transition",
-        "renewable", "solar", "wind power", "grid",
-    }),
+    "energy": frozenset(
+        {
+            "oil",
+            "gas",
+            "lng",
+            "pipeline",
+            "opec",
+            "crude",
+            "refin",
+            "energy",
+            "fuel",
+            "coal",
+            "brent",
+            "wti",
+            "petrol",
+        }
+    ),
+    "defense": frozenset(
+        {
+            "military",
+            "nato",
+            "weapon",
+            "missile",
+            "defense",
+            "army",
+            "navy",
+            "air force",
+            "procurement",
+            "arms",
+            "soldier",
+            "troops",
+            "pentagon",
+            "war",
+            "combat",
+            "aircraft carrier",
+        }
+    ),
+    "financials": frozenset(
+        {
+            "bank",
+            "fed",
+            "ecb",
+            "interest rate",
+            "credit",
+            "loan",
+            "debt",
+            "bond",
+            "yield",
+            "currency",
+            "forex",
+            "inflation",
+            "monetary",
+            "rate hike",
+            "rate cut",
+            "liquidity",
+        }
+    ),
+    "tech": frozenset(
+        {
+            "semiconductor",
+            "chip",
+            "ai",
+            "tech",
+            "software",
+            "cyber",
+            "hack",
+            "silicon",
+            "nvidia",
+            "intel",
+            "processor",
+            "cloud",
+            "data center",
+            "quantum",
+        }
+    ),
+    "healthcare": frozenset(
+        {
+            "fda",
+            "drug",
+            "vaccine",
+            "clinical",
+            "pharma",
+            "cancer",
+            "biotech",
+            "approval",
+            "trial",
+            "therapeutics",
+            "genomic",
+        }
+    ),
+    "industrials": frozenset(
+        {
+            "supply chain",
+            "shipping",
+            "logistics",
+            "trade",
+            "tariff",
+            "manufacturing",
+            "freight",
+            "factory",
+            "production",
+            "export",
+        }
+    ),
+    "materials": frozenset(
+        {
+            "gold",
+            "copper",
+            "mining",
+            "rare earth",
+            "lithium",
+            "commodity",
+            "aluminum",
+            "zinc",
+            "nickel",
+            "iron ore",
+            "steel",
+            "cobalt",
+        }
+    ),
+    "consumer": frozenset(
+        {
+            "retail",
+            "consumer confidence",
+            "spending",
+            "amazon",
+            "walmart",
+            "consumer",
+            "shopping",
+            "e-commerce",
+        }
+    ),
+    "utilities": frozenset(
+        {
+            "power grid",
+            "electricity",
+            "nuclear power plant",
+            "energy transition",
+            "renewable",
+            "solar",
+            "wind power",
+            "grid",
+        }
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -280,30 +668,69 @@ _COMMODITY_KEYWORDS: dict[str, list[str]] = {
 # (e.g. "sanction" → "sanctions", "sanctioned") are listed in _PREFIX_STEMS and
 # compiled as \bstem\w*. Everything else is compiled as \bword\b.
 
-_PREFIX_STEMS: frozenset[str] = frozenset({
-    # event-type stems
-    "sanction", "attack", "strike", "bomb", "airstrike",
-    "escalat", "invas", "explos",
-    "collaps", "crash", "plunge", "default", "downgrade",
-    "tariff", "protest", "impeach", "resign", "overthrow", "riot",
-    "acquir", "merge", "merger",
-    "regulator", "probe", "approve", "approv", "fine",
-    "cyber", "hack", "breach",
-    "surge", "rebound", "upgrade",
-    "negotiat",
-    "restrict", "bankrupt", "bankruptcy",
-    "disrupt", "storm",
-    "shortage", "shelling", "compromised",
-    # sector prefixes
-    "refin", "semiconductor",
-    # bullish/bearish and severity stems
-    "recession", "meltdown", "rally", "rout", "selloff",
-    "downfall", "spiral",
-    # earnings context
-    "beat", "miss",
-    # fed/federal context (narrow — only in title positions)
-    # "fed" intentionally NOT prefix (too ambiguous); add "federal" explicitly where needed
-})
+_PREFIX_STEMS: frozenset[str] = frozenset(
+    {
+        # event-type stems
+        "sanction",
+        "attack",
+        "strike",
+        "bomb",
+        "airstrike",
+        "escalat",
+        "invas",
+        "explos",
+        "collaps",
+        "crash",
+        "plunge",
+        "default",
+        "downgrade",
+        "tariff",
+        "protest",
+        "impeach",
+        "resign",
+        "overthrow",
+        "riot",
+        "acquir",
+        "merge",
+        "merger",
+        "regulator",
+        "probe",
+        "approve",
+        "approv",
+        "fine",
+        "cyber",
+        "hack",
+        "breach",
+        "surge",
+        "rebound",
+        "upgrade",
+        "negotiat",
+        "restrict",
+        "bankrupt",
+        "bankruptcy",
+        "disrupt",
+        "storm",
+        "shortage",
+        "shelling",
+        "compromised",
+        # sector prefixes
+        "refin",
+        "semiconductor",
+        # bullish/bearish and severity stems
+        "recession",
+        "meltdown",
+        "rally",
+        "rout",
+        "selloff",
+        "downfall",
+        "spiral",
+        # earnings context
+        "beat",
+        "miss",
+        # fed/federal context (narrow — only in title positions)
+        # "fed" intentionally NOT prefix (too ambiguous); add "federal" explicitly where needed
+    }
+)
 
 
 def _compile_keyword_pattern(keywords: frozenset[str] | set[str]) -> re.Pattern[str]:
@@ -581,9 +1008,17 @@ _SOURCE_BIAS: dict[str, dict[str, str]] = {
 }
 
 # T3 (state media) source IDs that carry discount warnings
-_STATE_MEDIA_SOURCE_IDS = frozenset({
-    "xinhua", "cgtn", "rt", "tass", "sputnik", "press_tv", "presstv",
-})
+_STATE_MEDIA_SOURCE_IDS = frozenset(
+    {
+        "xinhua",
+        "cgtn",
+        "rt",
+        "tass",
+        "sputnik",
+        "press_tv",
+        "presstv",
+    }
+)
 
 
 def get_source_bias(source_id: str) -> dict[str, str]:

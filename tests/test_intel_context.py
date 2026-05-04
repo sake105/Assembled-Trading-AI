@@ -76,6 +76,7 @@ def test_custom_min_severity():
 def test_all_curated_topics_map_to_known_shocks():
     # Sanity: every value in TOPIC_TO_SHOCKS must be a SHOCK_BENEFICIARY_MAP key
     import pytest
+
     pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
     from src.assembled_core.signals.intel_signal_adapter import SHOCK_BENEFICIARY_MAP
 
@@ -106,13 +107,15 @@ def test_populate_ctx_active_shocks(tmp_path: Path):
     artifact = tmp_path / "output" / "intel" / "news" / "triggers_latest.json"
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_text(
-        json.dumps({
-            "items": [
-                {"topic_id": "energy_crisis", "severity": 2},
-                {"topic_id": "weather_report", "severity": 3},  # unknown, dropped
-                {"topic_id": "nuclear_risk", "severity": 3},
-            ]
-        }),
+        json.dumps(
+            {
+                "items": [
+                    {"topic_id": "energy_crisis", "severity": 2},
+                    {"topic_id": "weather_report", "severity": 3},  # unknown, dropped
+                    {"topic_id": "nuclear_risk", "severity": 3},
+                ]
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -210,13 +213,15 @@ def test_populate_earnings_calendar_cache_missing(tmp_path: Path):
 def test_populate_earnings_calendar_from_cache(tmp_path: Path):
     cache_dir = tmp_path / "output" / "intel" / "earnings"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cal = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "earnings_date": pd.to_datetime(["2026-05-01", "2026-05-03"]),
-        "eps_estimate": [2.10, 3.00],
-        "eps_actual": [float("nan"), float("nan")],
-        "surprise_pct": [float("nan"), float("nan")],
-    })
+    cal = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "earnings_date": pd.to_datetime(["2026-05-01", "2026-05-03"]),
+            "eps_estimate": [2.10, 3.00],
+            "eps_actual": [float("nan"), float("nan")],
+            "surprise_pct": [float("nan"), float("nan")],
+        }
+    )
     try:
         cal.to_parquet(cache_dir / "calendar_latest.parquet", index=False)
     except Exception:

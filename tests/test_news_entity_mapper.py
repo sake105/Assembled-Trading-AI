@@ -21,7 +21,9 @@ class TestExtractTickersFromTitle:
         assert "NVDA" in tickers
 
     def test_multiple_tickers(self):
-        tickers = extract_tickers_from_title("Microsoft and Google battle for AI dominance")
+        tickers = extract_tickers_from_title(
+            "Microsoft and Google battle for AI dominance"
+        )
         assert "MSFT" in tickers
         assert "GOOGL" in tickers
 
@@ -34,7 +36,9 @@ class TestExtractTickersFromTitle:
         assert "XOM" in tickers
 
     def test_no_match_returns_empty(self):
-        tickers = extract_tickers_from_title("General geopolitical tensions rise in region")
+        tickers = extract_tickers_from_title(
+            "General geopolitical tensions rise in region"
+        )
         assert isinstance(tickers, list)
 
     def test_case_insensitive(self):

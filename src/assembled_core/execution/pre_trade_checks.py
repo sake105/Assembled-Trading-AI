@@ -89,7 +89,9 @@ class PreTradeConfig:
     max_sector_exposure: float | None = None
     max_region_exposure: float | None = None
     max_fx_exposure: float | None = None
-    max_cvar_95: float | None = None  # Max CVaR(95%) as negative fraction (e.g. -0.05 = -5%)
+    max_cvar_95: float | None = (
+        None  # Max CVaR(95%) as negative fraction (e.g. -0.05 = -5%)
+    )
     base_currency: str = "USD"
     missing_security_meta: Literal["raise", "unknown"] = "raise"
 
@@ -119,6 +121,7 @@ class PreTradeCheckResult:
 # updated (filtered_orders, orders_with_notional) DataFrames.
 # ---------------------------------------------------------------------------
 
+
 def _ptc_check_max_weight(
     filtered_orders: pd.DataFrame,
     orders_with_notional: pd.DataFrame,
@@ -146,9 +149,12 @@ def _ptc_check_max_weight(
     except ImportError as e:
         logger.error(
             "PRE_TRADE: max_weight_per_symbol check skipped — cannot import exposure_engine: %s. "
-            "Blocking all orders (fail-safe).", e,
+            "Blocking all orders (fail-safe).",
+            e,
         )
-        blocked_reasons.append(f"max_weight_per_symbol check failed: cannot import exposure_engine: {e}")
+        blocked_reasons.append(
+            f"max_weight_per_symbol check failed: cannot import exposure_engine: {e}"
+        )
         summary["max_weight_per_symbol_check"] = f"import_error: {e}"
         return pd.DataFrame(columns=filtered_orders.columns), orders_with_notional
 
@@ -165,9 +171,14 @@ def _ptc_check_max_weight(
             summary["max_weight_per_symbol_check"] = "skipped_no_qty_column"
             current_positions_df = pd.DataFrame(columns=["symbol", "qty"])
 
-        target_positions = compute_target_positions(current_positions_df, filtered_orders)
+        target_positions = compute_target_positions(
+            current_positions_df, filtered_orders
+        )
         exposures_df, _ = compute_exposures(
-            target_positions, prices_latest, equity, missing_price_handling="raise",
+            target_positions,
+            prices_latest,
+            equity,
+            missing_price_handling="raise",
         )
 
         for _, exposure_row in exposures_df.iterrows():
@@ -180,8 +191,11 @@ def _ptc_check_max_weight(
             if symbol_orders.empty:
                 continue
             current_qty = (
-                current_positions_df[current_positions_df["symbol"] == symbol]["qty"].iloc[0]
-                if not current_positions_df.empty and symbol in current_positions_df["symbol"].values
+                current_positions_df[current_positions_df["symbol"] == symbol][
+                    "qty"
+                ].iloc[0]
+                if not current_positions_df.empty
+                and symbol in current_positions_df["symbol"].values
                 else 0.0
             )
             target_qty = exposure_row["target_qty"]
@@ -193,7 +207,9 @@ def _ptc_check_max_weight(
                 continue
             max_target_notional = config.max_weight_per_symbol * equity
             max_target_qty = max_target_notional / price if price > 0.0 else 0.0
-            max_target_qty = abs(max_target_qty) if target_qty > 0 else -abs(max_target_qty)
+            max_target_qty = (
+                abs(max_target_qty) if target_qty > 0 else -abs(max_target_qty)
+            )
             order_delta_needed = max_target_qty - current_qty
             total_order_delta = symbol_orders.apply(
                 lambda row: row["qty"] if row["side"] == "BUY" else -row["qty"], axis=1
@@ -205,23 +221,35 @@ def _ptc_check_max_weight(
                 original_qty = filtered_orders.loc[idx, "qty"]
                 new_qty = original_qty * scale_factor
                 explain = {
-                    "current_weight": abs(current_qty * price / equity) if current_qty != 0.0 else 0.0,
+                    "current_weight": (
+                        abs(current_qty * price / equity) if current_qty != 0.0 else 0.0
+                    ),
                     "target_weight": abs_weight,
                     "limit": config.max_weight_per_symbol,
                     "reduction_factor": scale_factor,
                 }
                 if new_qty < 1e-10:
                     filtered_orders = filtered_orders.drop(index=idx)
-                    reduced_orders.append({
-                        "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL", "symbol": symbol,
-                        "original_qty": original_qty, "new_qty": 0.0, "explain": explain,
-                    })
+                    reduced_orders.append(
+                        {
+                            "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL",
+                            "symbol": symbol,
+                            "original_qty": original_qty,
+                            "new_qty": 0.0,
+                            "explain": explain,
+                        }
+                    )
                 else:
                     filtered_orders.loc[idx, "qty"] = new_qty
-                    reduced_orders.append({
-                        "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL", "symbol": symbol,
-                        "original_qty": original_qty, "new_qty": new_qty, "explain": explain,
-                    })
+                    reduced_orders.append(
+                        {
+                            "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL",
+                            "symbol": symbol,
+                            "original_qty": original_qty,
+                            "new_qty": new_qty,
+                            "explain": explain,
+                        }
+                    )
     except ValueError as e:
         blocked_reasons.append(
             f"max_weight_per_symbol check failed: {e}. "
@@ -229,8 +257,13 @@ def _ptc_check_max_weight(
         )
         filtered_orders = pd.DataFrame(columns=filtered_orders.columns)
     except Exception as e:
-        logger.error("[PreTrade] max_weight_per_symbol check crashed: %s — blocking all orders (fail-safe).", e)
-        blocked_reasons.append(f"max_weight_per_symbol check errored (fail-closed): {e}")
+        logger.error(
+            "[PreTrade] max_weight_per_symbol check crashed: %s — blocking all orders (fail-safe).",
+            e,
+        )
+        blocked_reasons.append(
+            f"max_weight_per_symbol check errored (fail-closed): {e}"
+        )
         filtered_orders = pd.DataFrame(columns=filtered_orders.columns)
         summary["max_weight_per_symbol_check"] = f"error_fail_closed: {e}"
     return filtered_orders, orders_with_notional
@@ -264,8 +297,13 @@ def _ptc_check_group_exposures(
         )
         from src.assembled_core.risk.group_exposures import compute_group_exposures
     except ImportError as e:
-        logger.error("PRE_TRADE: group exposure check skipped — cannot import modules: %s. Blocking all orders.", e)
-        blocked_reasons.append(f"Group exposure checks failed: cannot import modules: {e}")
+        logger.error(
+            "PRE_TRADE: group exposure check skipped — cannot import modules: %s. Blocking all orders.",
+            e,
+        )
+        blocked_reasons.append(
+            f"Group exposure checks failed: cannot import modules: {e}"
+        )
         summary["group_exposure_check"] = f"import_error: {e}"
         return pd.DataFrame(columns=filtered_orders.columns), orders_with_notional
 
@@ -300,9 +338,14 @@ def _ptc_check_group_exposures(
         else:
             current_positions_df = pd.DataFrame(columns=["symbol", "qty"])
 
-        target_positions_df = compute_target_positions(current_positions_df, filtered_orders)
+        target_positions_df = compute_target_positions(
+            current_positions_df, filtered_orders
+        )
         exposures_df, _ = compute_exposures(
-            target_positions_df, prices_latest, equity, missing_price_handling="raise",
+            target_positions_df,
+            prices_latest,
+            equity,
+            missing_price_handling="raise",
         )
 
         def _apply_group_scale(
@@ -316,7 +359,9 @@ def _ptc_check_group_exposures(
             group_symbols = security_meta_df[
                 security_meta_df[group_type] == group_value
             ]["symbol"].tolist()
-            group_orders = filtered_orders[filtered_orders["symbol"].isin(group_symbols)].copy()
+            group_orders = filtered_orders[
+                filtered_orders["symbol"].isin(group_symbols)
+            ].copy()
             if group_orders.empty:
                 return
             scale_factor = max(0.0, min(1.0, cap / gross_weight))
@@ -329,30 +374,50 @@ def _ptc_check_group_exposures(
                 new_qty = float(round(original_qty * scale_factor))
                 new_qty = -abs(new_qty) if side == "SELL" else abs(new_qty)
                 explain = {
-                    "group_type": group_type, "group_value": group_value,
-                    "cap": cap, "pre_weight": gross_weight, "post_weight": cap,
+                    "group_type": group_type,
+                    "group_value": group_value,
+                    "cap": cap,
+                    "pre_weight": gross_weight,
+                    "post_weight": cap,
                     "scale_factor": scale_factor,
                 }
                 if abs(new_qty) < 1e-10:
                     filtered_orders = filtered_orders.drop(index=idx)
-                    reduced_orders.append({
-                        "reason": reason_tag, "symbol": symbol,
-                        "original_qty": original_qty, "new_qty": 0.0, "explain": explain,
-                    })
+                    reduced_orders.append(
+                        {
+                            "reason": reason_tag,
+                            "symbol": symbol,
+                            "original_qty": original_qty,
+                            "new_qty": 0.0,
+                            "explain": explain,
+                        }
+                    )
                 else:
                     filtered_orders.loc[idx, "qty"] = new_qty
-                    reduced_orders.append({
-                        "reason": reason_tag, "symbol": symbol,
-                        "original_qty": original_qty, "new_qty": new_qty, "explain": explain,
-                    })
+                    reduced_orders.append(
+                        {
+                            "reason": reason_tag,
+                            "symbol": symbol,
+                            "original_qty": original_qty,
+                            "new_qty": new_qty,
+                            "explain": explain,
+                        }
+                    )
 
         if config.max_sector_exposure is not None:
             try:
-                sector_df, _ = compute_group_exposures(exposures_df, security_meta_df, "sector")
+                sector_df, _ = compute_group_exposures(
+                    exposures_df, security_meta_df, "sector"
+                )
                 for _, row in sector_df.iterrows():
                     if row["gross_weight"] > config.max_sector_exposure:
-                        _apply_group_scale("sector", row["group_value"], row["gross_weight"],
-                                           config.max_sector_exposure, "RISK_REDUCE_MAX_SECTOR_EXPOSURE")
+                        _apply_group_scale(
+                            "sector",
+                            row["group_value"],
+                            row["gross_weight"],
+                            config.max_sector_exposure,
+                            "RISK_REDUCE_MAX_SECTOR_EXPOSURE",
+                        )
             except ValueError as e:
                 if config.missing_security_meta == "raise":
                     raise ValueError(f"Sector exposure check failed: {e}") from e
@@ -361,11 +426,18 @@ def _ptc_check_group_exposures(
 
         if config.max_region_exposure is not None:
             try:
-                region_df, _ = compute_group_exposures(exposures_df, security_meta_df, "region")
+                region_df, _ = compute_group_exposures(
+                    exposures_df, security_meta_df, "region"
+                )
                 for _, row in region_df.iterrows():
                     if row["gross_weight"] > config.max_region_exposure:
-                        _apply_group_scale("region", row["group_value"], row["gross_weight"],
-                                           config.max_region_exposure, "RISK_REDUCE_MAX_REGION_EXPOSURE")
+                        _apply_group_scale(
+                            "region",
+                            row["group_value"],
+                            row["gross_weight"],
+                            config.max_region_exposure,
+                            "RISK_REDUCE_MAX_REGION_EXPOSURE",
+                        )
             except ValueError as e:
                 if config.missing_security_meta == "raise":
                     raise ValueError(f"Region exposure check failed: {e}") from e
@@ -376,13 +448,19 @@ def _ptc_check_group_exposures(
             try:
                 if "currency" not in security_meta_df.columns:
                     if config.missing_security_meta == "raise":
-                        raise ValueError("FX exposure check requires currency column in security_meta_df")
+                        raise ValueError(
+                            "FX exposure check requires currency column in security_meta_df"
+                        )
                     else:
                         summary["fx_exposure_check"] = "skipped_missing_currency"
                 else:
-                    non_base = security_meta_df[
-                        security_meta_df["currency"] != config.base_currency
-                    ]["currency"].unique().tolist()
+                    non_base = (
+                        security_meta_df[
+                            security_meta_df["currency"] != config.base_currency
+                        ]["currency"]
+                        .unique()
+                        .tolist()
+                    )
                     if non_base:
                         if config.missing_security_meta == "raise":
                             raise ValueError(
@@ -447,19 +525,33 @@ def _ptc_check_turnover(
         side = filtered_orders.loc[idx, "side"]
         new_qty = float(round(original_qty * scale_factor))
         new_qty = -abs(new_qty) if side == "SELL" else abs(new_qty)
-        explain = {"total_turnover": total_turnover, "cap": config.turnover_cap, "scale_factor": scale_factor}
+        explain = {
+            "total_turnover": total_turnover,
+            "cap": config.turnover_cap,
+            "scale_factor": scale_factor,
+        }
         if abs(new_qty) < 1e-10:
             filtered_orders = filtered_orders.drop(index=idx)
-            reduced_orders.append({
-                "reason": "RISK_REDUCE_TURNOVER_CAP", "symbol": symbol,
-                "original_qty": original_qty, "new_qty": 0.0, "explain": explain,
-            })
+            reduced_orders.append(
+                {
+                    "reason": "RISK_REDUCE_TURNOVER_CAP",
+                    "symbol": symbol,
+                    "original_qty": original_qty,
+                    "new_qty": 0.0,
+                    "explain": explain,
+                }
+            )
         else:
             filtered_orders.loc[idx, "qty"] = new_qty
-            reduced_orders.append({
-                "reason": "RISK_REDUCE_TURNOVER_CAP", "symbol": symbol,
-                "original_qty": original_qty, "new_qty": new_qty, "explain": explain,
-            })
+            reduced_orders.append(
+                {
+                    "reason": "RISK_REDUCE_TURNOVER_CAP",
+                    "symbol": symbol,
+                    "original_qty": original_qty,
+                    "new_qty": new_qty,
+                    "explain": explain,
+                }
+            )
     return filtered_orders, orders_with_notional
 
 
@@ -500,21 +592,34 @@ def _ptc_check_drawdown(
         new_qty = float(round(original_qty * de_risk_scale))
         new_qty = -abs(new_qty) if side == "SELL" else abs(new_qty)
         explain = {
-            "drawdown": drawdown, "threshold": config.drawdown_threshold,
-            "de_risk_scale": de_risk_scale, "current_equity": current_equity, "peak_equity": peak_equity,
+            "drawdown": drawdown,
+            "threshold": config.drawdown_threshold,
+            "de_risk_scale": de_risk_scale,
+            "current_equity": current_equity,
+            "peak_equity": peak_equity,
         }
         if abs(new_qty) < 1e-10:
             filtered_orders = filtered_orders.drop(index=idx)
-            reduced_orders.append({
-                "reason": "RISK_DERISK_DRAWDOWN", "symbol": symbol,
-                "original_qty": original_qty, "new_qty": 0.0, "explain": explain,
-            })
+            reduced_orders.append(
+                {
+                    "reason": "RISK_DERISK_DRAWDOWN",
+                    "symbol": symbol,
+                    "original_qty": original_qty,
+                    "new_qty": 0.0,
+                    "explain": explain,
+                }
+            )
         else:
             filtered_orders.loc[idx, "qty"] = new_qty
-            reduced_orders.append({
-                "reason": "RISK_DERISK_DRAWDOWN", "symbol": symbol,
-                "original_qty": original_qty, "new_qty": new_qty, "explain": explain,
-            })
+            reduced_orders.append(
+                {
+                    "reason": "RISK_DERISK_DRAWDOWN",
+                    "symbol": symbol,
+                    "original_qty": original_qty,
+                    "new_qty": new_qty,
+                    "explain": explain,
+                }
+            )
     return filtered_orders, orders_with_notional
 
 
@@ -570,19 +675,27 @@ def _ptc_check_cvar(
 
     cvar_scale = config.max_cvar_95 / portfolio_cvar if portfolio_cvar != 0 else 0.0
     cvar_scale = max(0.0, min(cvar_scale, 1.0))
-    if cvar_scale < 1.0 and not filtered_orders.empty and "qty" in filtered_orders.columns:
+    if (
+        cvar_scale < 1.0
+        and not filtered_orders.empty
+        and "qty" in filtered_orders.columns
+    ):
         buy_mask = filtered_orders["side"] == "BUY"
-        filtered_orders.loc[buy_mask, "qty"] = filtered_orders.loc[buy_mask, "qty"] * cvar_scale
+        filtered_orders.loc[buy_mask, "qty"] = (
+            filtered_orders.loc[buy_mask, "qty"] * cvar_scale
+        )
         for _, row in filtered_orders[buy_mask].iterrows():
-            reduced_orders.append({
-                "symbol": row.get("symbol", "?"),
-                "reason": "RISK_REDUCE_CVAR_95",
-                "details": {
-                    "portfolio_cvar_95": round(portfolio_cvar, 4),
-                    "limit": config.max_cvar_95,
-                    "scale": round(cvar_scale, 4),
-                },
-            })
+            reduced_orders.append(
+                {
+                    "symbol": row.get("symbol", "?"),
+                    "reason": "RISK_REDUCE_CVAR_95",
+                    "details": {
+                        "portfolio_cvar_95": round(portfolio_cvar, 4),
+                        "limit": config.max_cvar_95,
+                        "scale": round(cvar_scale, 4),
+                    },
+                }
+            )
     summary["cvar_95"] = portfolio_cvar
     summary["cvar_95_limit"] = config.max_cvar_95
     return filtered_orders, orders_with_notional
@@ -656,8 +769,11 @@ def run_pre_trade_checks(
     if orders.empty:
         return (
             PreTradeCheckResult(
-                is_ok=True, blocked_reasons=[],
-                filtered_orders=pd.DataFrame(columns=orders.columns if not orders.empty else []),
+                is_ok=True,
+                blocked_reasons=[],
+                filtered_orders=pd.DataFrame(
+                    columns=orders.columns if not orders.empty else []
+                ),
                 summary={"total_orders": 0, "passed_orders": 0},
             ),
             pd.DataFrame(columns=orders.columns if not orders.empty else []),
@@ -669,7 +785,8 @@ def run_pre_trade_checks(
         blocked_reasons.append(f"Orders missing required columns: {missing_cols}")
         return (
             PreTradeCheckResult(
-                is_ok=False, blocked_reasons=blocked_reasons,
+                is_ok=False,
+                blocked_reasons=blocked_reasons,
                 filtered_orders=pd.DataFrame(columns=orders.columns),
                 summary={"total_orders": len(orders), "passed_orders": 0},
             ),
@@ -683,35 +800,55 @@ def run_pre_trade_checks(
             blocked_reasons.append("QA_BLOCK: QA gates blocked trading")
             return (
                 PreTradeCheckResult(
-                    is_ok=False, blocked_reasons=blocked_reasons,
+                    is_ok=False,
+                    blocked_reasons=blocked_reasons,
                     filtered_orders=pd.DataFrame(columns=orders.columns),
-                    summary={"total_orders": len(orders), "passed_orders": 0, "qa_blocked": True},
+                    summary={
+                        "total_orders": len(orders),
+                        "passed_orders": 0,
+                        "qa_blocked": True,
+                    },
                 ),
                 pd.DataFrame(columns=orders.columns),
             )
 
     orders_with_notional = filtered_orders.copy()
     if "price" in filtered_orders.columns:
-        orders_with_notional["notional"] = (filtered_orders["qty"] * filtered_orders["price"]).abs()
+        orders_with_notional["notional"] = (
+            filtered_orders["qty"] * filtered_orders["price"]
+        ).abs()
     else:
-        if config.max_notional_per_symbol is not None or config.max_gross_exposure is not None:
+        if (
+            config.max_notional_per_symbol is not None
+            or config.max_gross_exposure is not None
+        ):
             blocked_reasons.append(
                 "pre_trade_missing_price: notional/gross-exposure caps configured "
                 "but 'price' column missing from orders — blocking all orders (fail-safe)."
             )
             return (
                 PreTradeCheckResult(
-                    is_ok=False, blocked_reasons=blocked_reasons,
+                    is_ok=False,
+                    blocked_reasons=blocked_reasons,
                     filtered_orders=pd.DataFrame(columns=orders.columns),
-                    summary={"total_orders": len(orders), "passed_orders": 0, "pre_trade_missing_price": True},
+                    summary={
+                        "total_orders": len(orders),
+                        "passed_orders": 0,
+                        "pre_trade_missing_price": True,
+                    },
                 ),
                 pd.DataFrame(columns=orders.columns),
             )
         orders_with_notional["notional"] = 0.0
 
     # max_notional_per_symbol
-    if config.max_notional_per_symbol is not None and "price" in filtered_orders.columns:
-        symbol_notionals = orders_with_notional.groupby("symbol")["notional"].sum().abs()
+    if (
+        config.max_notional_per_symbol is not None
+        and "price" in filtered_orders.columns
+    ):
+        symbol_notionals = (
+            orders_with_notional.groupby("symbol")["notional"].sum().abs()
+        )
         exceeded = symbol_notionals[symbol_notionals > config.max_notional_per_symbol]
         for symbol, notional in exceeded.items():
             blocked_reasons.append(
@@ -719,31 +856,67 @@ def run_pre_trade_checks(
                 f"{notional:.2f}, exceeds limit {config.max_notional_per_symbol:.2f}"
             )
             filtered_orders = filtered_orders[filtered_orders["symbol"] != symbol]
-            orders_with_notional = orders_with_notional[orders_with_notional["symbol"] != symbol]
+            orders_with_notional = orders_with_notional[
+                orders_with_notional["symbol"] != symbol
+            ]
 
     filtered_orders, orders_with_notional = _ptc_check_max_weight(
-        filtered_orders, orders_with_notional, blocked_reasons, reduced_orders, summary, config,
-        current_positions=current_positions, prices_latest=prices_latest, equity=equity,
+        filtered_orders,
+        orders_with_notional,
+        blocked_reasons,
+        reduced_orders,
+        summary,
+        config,
+        current_positions=current_positions,
+        prices_latest=prices_latest,
+        equity=equity,
     )
     filtered_orders, orders_with_notional = _ptc_check_group_exposures(
-        filtered_orders, orders_with_notional, blocked_reasons, reduced_orders, summary, config,
-        current_positions=current_positions, prices_latest=prices_latest, equity=equity,
+        filtered_orders,
+        orders_with_notional,
+        blocked_reasons,
+        reduced_orders,
+        summary,
+        config,
+        current_positions=current_positions,
+        prices_latest=prices_latest,
+        equity=equity,
         security_meta_df=security_meta_df,
     )
     filtered_orders, orders_with_notional = _ptc_check_turnover(
-        filtered_orders, orders_with_notional, blocked_reasons, reduced_orders, summary, config,
+        filtered_orders,
+        orders_with_notional,
+        blocked_reasons,
+        reduced_orders,
+        summary,
+        config,
         equity=equity,
     )
     filtered_orders, orders_with_notional = _ptc_check_drawdown(
-        filtered_orders, orders_with_notional, blocked_reasons, reduced_orders, summary, config,
-        current_equity=current_equity, peak_equity=peak_equity,
+        filtered_orders,
+        orders_with_notional,
+        blocked_reasons,
+        reduced_orders,
+        summary,
+        config,
+        current_equity=current_equity,
+        peak_equity=peak_equity,
     )
     filtered_orders, orders_with_notional = _ptc_check_gross_exposure(
-        filtered_orders, orders_with_notional, blocked_reasons, summary, config,
+        filtered_orders,
+        orders_with_notional,
+        blocked_reasons,
+        summary,
+        config,
         orders_original=orders,
     )
     filtered_orders, orders_with_notional = _ptc_check_cvar(
-        filtered_orders, orders_with_notional, blocked_reasons, reduced_orders, summary, config,
+        filtered_orders,
+        orders_with_notional,
+        blocked_reasons,
+        reduced_orders,
+        summary,
+        config,
         risk_summary=risk_summary,
     )
 
@@ -756,8 +929,11 @@ def run_pre_trade_checks(
         is_ok = True
 
     result = PreTradeCheckResult(
-        is_ok=is_ok, blocked_reasons=blocked_reasons,
-        filtered_orders=filtered_orders, summary=summary, reduced_orders=reduced_orders,
+        is_ok=is_ok,
+        blocked_reasons=blocked_reasons,
+        filtered_orders=filtered_orders,
+        summary=summary,
+        reduced_orders=reduced_orders,
     )
     return result, filtered_orders
 
@@ -865,17 +1041,22 @@ def apply_adv_cap(
 @dataclass
 class StressScenario:
     """A pre-trade stress scenario."""
+
     name: str
-    equity_shock: float = 0.0       # e.g. -0.05 = -5%
-    vix_shock_pct: float = 0.0      # e.g. 0.50 = +50%
+    equity_shock: float = 0.0  # e.g. -0.05 = -5%
+    vix_shock_pct: float = 0.0  # e.g. 0.50 = +50%
     credit_spread_bps: float = 0.0  # e.g. 200 = +200bps
-    rate_shock_bps: float = 0.0     # e.g. 50 = +50bps
+    rate_shock_bps: float = 0.0  # e.g. 50 = +50bps
 
 
 DEFAULT_STRESS_SCENARIOS = [
     StressScenario("mild_selloff", equity_shock=-0.05, vix_shock_pct=0.50),
-    StressScenario("moderate_crash", equity_shock=-0.10, vix_shock_pct=1.00, credit_spread_bps=200),
-    StressScenario("severe_crisis", equity_shock=-0.20, vix_shock_pct=2.00, credit_spread_bps=500),
+    StressScenario(
+        "moderate_crash", equity_shock=-0.10, vix_shock_pct=1.00, credit_spread_bps=200
+    ),
+    StressScenario(
+        "severe_crisis", equity_shock=-0.20, vix_shock_pct=2.00, credit_spread_bps=500
+    ),
     StressScenario("rate_shock", equity_shock=-0.03, rate_shock_bps=100),
 ]
 
@@ -921,12 +1102,14 @@ def run_pre_trade_stress_test(
             portfolio_loss += sym_loss
 
         loss_pct = abs(portfolio_loss)
-        results.append({
-            "scenario": sc.name,
-            "loss_pct": round(loss_pct, 6),
-            "loss_dollars": round(loss_pct * portfolio_value, 2),
-            "breached": loss_pct > max_stress_loss_pct,
-        })
+        results.append(
+            {
+                "scenario": sc.name,
+                "loss_pct": round(loss_pct, 6),
+                "loss_dollars": round(loss_pct * portfolio_value, 2),
+                "breached": loss_pct > max_stress_loss_pct,
+            }
+        )
 
         if loss_pct > worst_loss:
             worst_loss = loss_pct
@@ -937,7 +1120,9 @@ def run_pre_trade_stress_test(
     if not passed:
         logger.warning(
             "[StressTest] FAILED — worst scenario '%s' loss %.1f%% > limit %.1f%%",
-            worst_name, worst_loss * 100, max_stress_loss_pct * 100,
+            worst_name,
+            worst_loss * 100,
+            max_stress_loss_pct * 100,
         )
 
     return {

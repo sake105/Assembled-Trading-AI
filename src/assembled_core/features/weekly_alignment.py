@@ -83,9 +83,7 @@ def add_weekly_alignment(
             s = _weekly_ema_slope(grp[price_col], cfg)
             mask = sym_arr == sym
             slope_col[mask] = s.values
-        out["weekly_ema_slope"] = pd.Series(
-            slope_col, index=out.index
-        ).fillna(0.0)
+        out["weekly_ema_slope"] = pd.Series(slope_col, index=out.index).fillna(0.0)
     else:
         out["weekly_ema_slope"] = _weekly_ema_slope(out[price_col], cfg)
 

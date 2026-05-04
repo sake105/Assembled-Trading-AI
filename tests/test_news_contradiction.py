@@ -68,10 +68,26 @@ class TestContradictionDetector:
         det = ContradictionDetector()
         title = "Russian strikes hit Ukrainian energy infrastructure"
         evts = [
-            _make_event("w1", title, "reuters", market_direction="bearish", severity=7.0),
+            _make_event(
+                "w1", title, "reuters", market_direction="bearish", severity=7.0
+            ),
             _make_event("w2", title, "bbc", market_direction="bearish", severity=7.0),
-            _make_event("s1", title, "rt", SourceTier.T3, market_direction="bullish", severity=5.0),
-            _make_event("s2", title, "tass", SourceTier.T3, market_direction="bullish", severity=5.0),
+            _make_event(
+                "s1",
+                title,
+                "rt",
+                SourceTier.T3,
+                market_direction="bullish",
+                severity=5.0,
+            ),
+            _make_event(
+                "s2",
+                title,
+                "tass",
+                SourceTier.T3,
+                market_direction="bullish",
+                severity=5.0,
+            ),
         ]
         report = det.analyse(evts)
         entries = list(report.values())
@@ -97,9 +113,20 @@ class TestContradictionDetector:
         det = ContradictionDetector()
         title = "Casualty reporting on ongoing conflict"
         evts = [
-            _make_event("w1", title, "reuters", market_direction="bearish", severity=8.0),
-            _make_event("s1", title, "xinhua", SourceTier.T3, market_direction="bearish", severity=2.0),
+            _make_event(
+                "w1", title, "reuters", market_direction="bearish", severity=8.0
+            ),
+            _make_event(
+                "s1",
+                title,
+                "xinhua",
+                SourceTier.T3,
+                market_direction="bearish",
+                severity=2.0,
+            ),
         ]
         report = det.analyse(evts)
         entries = list(report.values())
-        assert any(e.contradicts and e.direction_split == "severity_gap" for e in entries)
+        assert any(
+            e.contradicts and e.direction_split == "severity_gap" for e in entries
+        )

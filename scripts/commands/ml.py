@@ -1,5 +1,6 @@
 # scripts/commands/ml.py
 """ML subcommands: build_ml_dataset, train_meta_model, analyze_factors, ml_validate_factors, ml_model_zoo, factor_report."""
+
 from __future__ import annotations
 
 import argparse
@@ -245,9 +246,7 @@ def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
             elif args.universe:
                 with open(args.universe, "r", encoding="utf-8") as _f:
                     universe_list = [
-                        line.strip().upper()
-                        for line in _f
-                        if line.strip()
+                        line.strip().upper() for line in _f if line.strip()
                     ]
 
             label_params = {

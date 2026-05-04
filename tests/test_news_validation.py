@@ -1,4 +1,5 @@
 """Tests for src/assembled_core/signals/news_validation.py."""
+
 from __future__ import annotations
 
 import json
@@ -28,10 +29,10 @@ from assembled_core.signals.news_validation import (
     run_haiku_zeroshot,
 )
 
-
 # ---------------------------------------------------------------------------
 # Level A — classification_metrics
 # ---------------------------------------------------------------------------
+
 
 class TestClassificationMetrics:
     def _labels(self):
@@ -59,7 +60,7 @@ class TestClassificationMetrics:
 
     def test_mixed_predictions(self):
         y_true = ["positive", "negative", "neutral", "positive", "neutral"]
-        y_pred = ["positive", "neutral",  "neutral", "negative", "neutral"]
+        y_pred = ["positive", "neutral", "neutral", "negative", "neutral"]
         m = classification_metrics(y_true, y_pred)
         assert 0.0 < m["macro_f1"] < 1.0
         assert m["n"] == 5
@@ -97,7 +98,9 @@ class TestCheckLevelA:
 
     def test_own_gold_uses_lower_threshold(self):
         metrics = self._good_metrics()
-        metrics["macro_f1"] = 0.67  # passes own-gold threshold (0.65) but not standard (0.80)
+        metrics["macro_f1"] = (
+            0.67  # passes own-gold threshold (0.65) but not standard (0.80)
+        )
         gate_own = check_level_a(metrics, dataset_name="ata_2026q1")
         gate_std = check_level_a(metrics, dataset_name="fpb_allagree")
         assert gate_own["macro_f1_ge_thresh"] is True
@@ -127,11 +130,14 @@ class TestLoadGoldDataset:
 # Level B — event study
 # ---------------------------------------------------------------------------
 
+
 class TestMarketModel:
     def _make_returns(self, n=200, seed=42):
         rng = np.random.default_rng(seed)
-        mkt = pd.Series(rng.normal(0.0, 0.01, n),
-                        index=pd.date_range("2023-01-01", periods=n, freq="B"))
+        mkt = pd.Series(
+            rng.normal(0.0, 0.01, n),
+            index=pd.date_range("2023-01-01", periods=n, freq="B"),
+        )
         ticker = 0.5 + 1.2 * mkt + pd.Series(rng.normal(0, 0.005, n), index=mkt.index)
         return ticker, mkt
 
@@ -139,14 +145,17 @@ class TestMarketModel:
         ticker_rets, mkt_rets = self._make_returns()
         est_start = ticker_rets.index[0]
         est_end = ticker_rets.index[149]
-        alpha, beta, resid = compute_market_model(ticker_rets, mkt_rets, est_start, est_end)
+        alpha, beta, resid = compute_market_model(
+            ticker_rets, mkt_rets, est_start, est_end
+        )
         assert alpha is not None
         assert 0.8 < beta < 1.5
 
     def test_insufficient_obs_returns_none(self):
         ticker, mkt = self._make_returns(n=50)
         alpha, beta, resid = compute_market_model(
-            ticker, mkt, ticker.index[0], ticker.index[-1], min_obs=100)
+            ticker, mkt, ticker.index[0], ticker.index[-1], min_obs=100
+        )
         assert alpha is None
 
     def test_constant_market_returns_none(self):
@@ -183,10 +192,20 @@ class TestEventStudy:
         aapl = 0.0005 + 1.1 * mkt + rng.normal(0, 0.008, n)
         msft = -0.0002 + 0.9 * mkt + rng.normal(0, 0.007, n)
         returns_df = pd.DataFrame({"AAPL": aapl, "MSFT": msft}, index=idx)
-        events = pd.DataFrame([
-            {"ticker": "AAPL", "event_date": "2022-09-01", "sentiment_label": "positive"},
-            {"ticker": "MSFT", "event_date": "2022-10-01", "sentiment_label": "negative"},
-        ])
+        events = pd.DataFrame(
+            [
+                {
+                    "ticker": "AAPL",
+                    "event_date": "2022-09-01",
+                    "sentiment_label": "positive",
+                },
+                {
+                    "ticker": "MSFT",
+                    "event_date": "2022-10-01",
+                    "sentiment_label": "negative",
+                },
+            ]
+        )
         return events, returns_df, mkt
 
     def test_returns_dataframe(self):
@@ -198,8 +217,11 @@ class TestEventStudy:
     def test_unknown_ticker_skipped(self):
         events, returns_df, mkt = self._setup()
         events = events.copy()
-        events.loc[len(events)] = {"ticker": "UNKNWN", "event_date": "2022-09-05",
-                                   "sentiment_label": "neutral"}
+        events.loc[len(events)] = {
+            "ticker": "UNKNWN",
+            "event_date": "2022-09-05",
+            "sentiment_label": "neutral",
+        }
         es = event_study(events, returns_df, mkt)
         assert "UNKNWN" not in es["ticker"].values
 
@@ -236,6 +258,7 @@ class TestCarSignificance:
 # ---------------------------------------------------------------------------
 # Level C — IC and quantile returns
 # ---------------------------------------------------------------------------
+
 
 class TestComputeIC:
     def test_perfect_positive_correlation(self):
@@ -304,13 +327,16 @@ class TestNetEdgeAfterCosts:
 
     def test_high_cost_eats_edge(self):
         q_rets = pd.Series({0: -0.00001, 4: 0.00001})
-        result = net_edge_after_costs(q_rets, turnover_rate=0.80, cost_bps_per_side=20.0)
+        result = net_edge_after_costs(
+            q_rets, turnover_rate=0.80, cost_bps_per_side=20.0
+        )
         assert result["net_edge_annual_pct"] < 0
 
 
 # ---------------------------------------------------------------------------
 # Production Gate
 # ---------------------------------------------------------------------------
+
 
 class TestProductionGate:
     def _passing(self):
@@ -356,9 +382,11 @@ class TestProductionGate:
 # run_finbert_tone (transformers optional dep)
 # ---------------------------------------------------------------------------
 
+
 class TestRunFinbertTone:
     def test_fallback_without_transformers(self, monkeypatch):
         import sys
+
         # Force ImportError for transformers
         monkeypatch.setitem(sys.modules, "transformers", None)
         result = run_finbert_tone(["Market rallied sharply.", "Stock fell 10%."])
@@ -366,6 +394,7 @@ class TestRunFinbertTone:
 
     def test_returns_list_length_matches(self, monkeypatch):
         import sys
+
         monkeypatch.setitem(sys.modules, "transformers", None)
         texts = ["a", "b", "c"]
         assert len(run_finbert_tone(texts)) == len(texts)
@@ -375,11 +404,15 @@ class TestRunFinbertTone:
         fake_pipe = lambda text: fake_result  # noqa: E731
 
         import types
+
         fake_transformers = types.SimpleNamespace(pipeline=lambda *a, **kw: fake_pipe)
-        monkeypatch.setitem(__import__("sys").modules, "transformers", fake_transformers)
+        monkeypatch.setitem(
+            __import__("sys").modules, "transformers", fake_transformers
+        )
 
         # Direct call with mock
         import assembled_core.signals.news_validation as nv
+
         original = nv.run_finbert_tone
 
         def patched(texts):
@@ -393,9 +426,11 @@ class TestRunFinbertTone:
 # run_haiku_zeroshot
 # ---------------------------------------------------------------------------
 
+
 class TestRunHaikuZeroshot:
     def _mock_client(self, label="positive"):
         from unittest.mock import MagicMock
+
         client = MagicMock()
         msg = MagicMock()
         msg.content = [MagicMock(text=label)]
@@ -419,6 +454,7 @@ class TestRunHaikuZeroshot:
 
     def test_api_error_returns_neutral(self):
         from unittest.mock import MagicMock
+
         client = MagicMock()
         client.messages.create.side_effect = Exception("API error")
         result = run_haiku_zeroshot(["text"], client)
@@ -434,6 +470,7 @@ class TestRunHaikuZeroshot:
 # ---------------------------------------------------------------------------
 # entity_anonymize
 # ---------------------------------------------------------------------------
+
 
 class TestEntityAnonymize:
     def test_ticker_replaced(self):
@@ -464,20 +501,23 @@ class TestEntityAnonymize:
         # 'AAPLS' should NOT be replaced for ticker 'AAPL'
         result = entity_anonymize("AAPLS is not AAPL", "AAPL", "Apple Inc.")
         assert "AAPLS" in result  # not replaced (word boundary)
-        assert "XYZ" in result     # AAPL replaced
+        assert "XYZ" in result  # AAPL replaced
 
 
 # ---------------------------------------------------------------------------
 # build_factor_series
 # ---------------------------------------------------------------------------
 
+
 class TestBuildFactorSeries:
     def _events(self):
-        return pd.DataFrame({
-            "ticker": ["AAPL", "AAPL", "MSFT"],
-            "date": ["2024-01-02", "2024-01-03", "2024-01-02"],
-            "sentiment_numeric": [0.5, -0.3, 0.8],
-        })
+        return pd.DataFrame(
+            {
+                "ticker": ["AAPL", "AAPL", "MSFT"],
+                "date": ["2024-01-02", "2024-01-03", "2024-01-02"],
+                "sentiment_numeric": [0.5, -0.3, 0.8],
+            }
+        )
 
     def _dates(self):
         return pd.date_range("2024-01-02", periods=3, freq="B")

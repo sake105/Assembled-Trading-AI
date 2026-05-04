@@ -13,6 +13,7 @@ Value in [-1, +1]:
     -1  → all size on the ask  → bearish pressure
      0  → balanced book
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ from typing import Any
 @dataclass
 class BookLevel:
     """Single price level in an order book."""
+
     price: float
     size: float
 
@@ -29,30 +31,32 @@ class BookLevel:
 @dataclass
 class OrderBookSnapshot:
     """L2 snapshot for a single instrument at a point in time."""
+
     symbol: str
-    timestamp: float                    # Unix epoch seconds
-    bids: list[BookLevel] = field(default_factory=list)   # sorted best-first
-    asks: list[BookLevel] = field(default_factory=list)   # sorted best-first
+    timestamp: float  # Unix epoch seconds
+    bids: list[BookLevel] = field(default_factory=list)  # sorted best-first
+    asks: list[BookLevel] = field(default_factory=list)  # sorted best-first
 
 
 @dataclass
 class ImbalanceFeatures:
     """All imbalance features derived from one snapshot."""
+
     symbol: str
     timestamp: float
     # Level 1
-    l1_imbalance: float                 # top-of-book imbalance
+    l1_imbalance: float  # top-of-book imbalance
     # Multi-level (first N levels)
-    l5_imbalance: float                 # 5-level imbalance
-    l10_imbalance: float                # 10-level imbalance
+    l5_imbalance: float  # 5-level imbalance
+    l10_imbalance: float  # 10-level imbalance
     # Volume-weighted
-    vw_imbalance: float                 # price-weighted imbalance across all levels
+    vw_imbalance: float  # price-weighted imbalance across all levels
     # Spread
-    spread: float                       # best ask - best bid
-    spread_bps: float                   # spread in basis points relative to mid
+    spread: float  # best ask - best bid
+    spread_bps: float  # spread in basis points relative to mid
     # Pressure ratio
-    bid_depth: float                    # total bid size (top 10)
-    ask_depth: float                    # total ask size (top 10)
+    bid_depth: float  # total bid size (top 10)
+    ask_depth: float  # total ask size (top 10)
     mid_price: float
 
 
@@ -71,6 +75,7 @@ def _volume_weighted_imbalance(bids: list[BookLevel], asks: list[BookLevel]) -> 
 
     Weight = 1 / level_index (rank-based, so best bid/ask have weight 1).
     """
+
     def weighted_size(levels: list[BookLevel]) -> float:
         return sum(lv.size / (i + 1) for i, lv in enumerate(levels))
 
@@ -131,6 +136,7 @@ def imbalance_from_dict(snap_dict: dict[str, Any]) -> ImbalanceFeatures:
           "asks": [{"price": 180.05, "size": 80}, ...],
         }
     """
+
     def parse_levels(raw: list[dict]) -> list[BookLevel]:
         return [BookLevel(price=float(d["price"]), size=float(d["size"])) for d in raw]
 
@@ -162,7 +168,7 @@ def rolling_imbalance_signal(
     feats = [imbalance_from_dict(s) for s in snapshots]
     signals: list[float] = []
     for i, f in enumerate(feats):
-        window = feats[max(0, i - lookback + 1): i + 1]
+        window = feats[max(0, i - lookback + 1) : i + 1]
         avg = sum(w.l5_imbalance for w in window) / len(window)
         signals.append(round(avg, 6))
     return signals

@@ -36,16 +36,20 @@ def test_compute_kelly_weights_with_uncertainty_discount_applied():
     # High uncertainty (half-width equal to reference) → full discount
     half_widths = pd.Series({"AAPL": 0.10})
     weights_discounted = compute_kelly_weights_with_uncertainty(
-        edges, variances,
+        edges,
+        variances,
         conformal_half_widths=half_widths,
         reference_half_width=0.10,
-        fractional_kelly=0.5, normalize=False,
+        fractional_kelly=0.5,
+        normalize=False,
     )
     weights_no_discount = compute_kelly_weights_with_uncertainty(
-        edges, variances,
+        edges,
+        variances,
         conformal_half_widths=None,
         reference_half_width=None,
-        fractional_kelly=0.5, normalize=False,
+        fractional_kelly=0.5,
+        normalize=False,
     )
     assert weights_discounted["AAPL"] == pytest.approx(0.0, abs=1e-9)
     assert abs(weights_no_discount["AAPL"]) > 0.0

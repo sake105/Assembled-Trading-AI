@@ -6,7 +6,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # 5.1 DCC-GARCH Dynamic Covariance
 # ---------------------------------------------------------------------------
@@ -15,16 +14,20 @@ import pandas as pd
 class TestDCCGARCH:
 
     def test_dcc_garch_basic(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.covariance')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.covariance")
         from src.assembled_core.portfolio.covariance import estimate_covariance
 
         np.random.seed(42)
         n = 200
-        returns = pd.DataFrame({
-            "A": np.random.normal(0, 0.01, n),
-            "B": np.random.normal(0, 0.015, n),
-            "C": np.random.normal(0, 0.02, n),
-        })
+        returns = pd.DataFrame(
+            {
+                "A": np.random.normal(0, 0.01, n),
+                "B": np.random.normal(0, 0.015, n),
+                "C": np.random.normal(0, 0.02, n),
+            }
+        )
         cov = estimate_covariance(returns, method="dcc_garch", annualize=False)
         assert cov.shape == (3, 3)
         assert all(cov.index == ["A", "B", "C"])
@@ -33,14 +36,18 @@ class TestDCCGARCH:
             assert cov.iloc[i, i] > 0
 
     def test_dcc_garch_symmetric(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.covariance')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.covariance")
         from src.assembled_core.portfolio.covariance import estimate_covariance
 
         np.random.seed(42)
-        returns = pd.DataFrame({
-            "X": np.random.normal(0, 0.01, 150),
-            "Y": np.random.normal(0, 0.01, 150),
-        })
+        returns = pd.DataFrame(
+            {
+                "X": np.random.normal(0, 0.01, 150),
+                "Y": np.random.normal(0, 0.01, 150),
+            }
+        )
         cov = estimate_covariance(returns, method="dcc_garch", annualize=False)
         assert abs(cov.iloc[0, 1] - cov.iloc[1, 0]) < 1e-10
 
@@ -53,7 +60,9 @@ class TestDCCGARCH:
 class TestTCPenalizedRebalancing:
 
     def test_dead_zone(self):
-        from src.assembled_core.portfolio.position_sizing import apply_tc_penalized_rebalancing
+        from src.assembled_core.portfolio.position_sizing import (
+            apply_tc_penalized_rebalancing,
+        )
 
         target = {"A": 0.30, "B": 0.30, "C": 0.40}
         current = {"A": 0.31, "B": 0.29, "C": 0.40}  # all within 2% dead zone
@@ -63,12 +72,18 @@ class TestTCPenalizedRebalancing:
         assert result["B"] == 0.29
 
     def test_large_trade_penalized(self):
-        from src.assembled_core.portfolio.position_sizing import apply_tc_penalized_rebalancing
+        from src.assembled_core.portfolio.position_sizing import (
+            apply_tc_penalized_rebalancing,
+        )
 
         target = {"A": 0.50}
         current = {"A": 0.10}
         result = apply_tc_penalized_rebalancing(
-            target, current, cost_bps=100.0, tc_penalty_gamma=1.0, dead_zone_pct=0.01,
+            target,
+            current,
+            cost_bps=100.0,
+            tc_penalty_gamma=1.0,
+            dead_zone_pct=0.01,
         )
         # Should be between current and target
         assert 0.10 < result["A"] <= 0.50
@@ -147,7 +162,9 @@ class TestBorrowCostModel:
 class TestPreTradeStressTest:
 
     def test_passes_small_portfolio(self):
-        from src.assembled_core.execution.pre_trade_checks import run_pre_trade_stress_test
+        from src.assembled_core.execution.pre_trade_checks import (
+            run_pre_trade_stress_test,
+        )
 
         result = run_pre_trade_stress_test(
             portfolio_weights={"AAPL": 0.1, "MSFT": 0.1},
@@ -157,7 +174,9 @@ class TestPreTradeStressTest:
         assert len(result["scenario_results"]) > 0
 
     def test_fails_concentrated_portfolio(self):
-        from src.assembled_core.execution.pre_trade_checks import run_pre_trade_stress_test
+        from src.assembled_core.execution.pre_trade_checks import (
+            run_pre_trade_stress_test,
+        )
 
         result = run_pre_trade_stress_test(
             portfolio_weights={"SPY": 1.0},
@@ -178,7 +197,9 @@ class TestPreTradeStressTest:
 class TestLiquidityConstraint:
 
     def test_reduces_illiquid(self):
-        from src.assembled_core.portfolio.position_sizing import apply_liquidity_constraint
+        from src.assembled_core.portfolio.position_sizing import (
+            apply_liquidity_constraint,
+        )
 
         target = {"AAPL": 0.50, "TINY": 0.50}
         adv = {"AAPL": 10_000_000, "TINY": 100_000}  # TINY has tiny ADV
@@ -186,9 +207,13 @@ class TestLiquidityConstraint:
         assert result["TINY"] < result["AAPL"]
 
     def test_zero_adv(self):
-        from src.assembled_core.portfolio.position_sizing import apply_liquidity_constraint
+        from src.assembled_core.portfolio.position_sizing import (
+            apply_liquidity_constraint,
+        )
 
-        result = apply_liquidity_constraint({"X": 0.5}, {"X": 0.0}, total_capital=100000)
+        result = apply_liquidity_constraint(
+            {"X": 0.5}, {"X": 0.0}, total_capital=100000
+        )
         assert result["X"] == 0.0
 
 
@@ -325,12 +350,14 @@ class TestUniverseReconstitution:
     def test_monthly_snapshots(self):
         from src.assembled_core.data.universe import build_monthly_snapshots
 
-        history = pd.DataFrame({
-            "symbol": ["AAPL", "MSFT", "DEAD"],
-            "start_date": ["2020-01-01", "2020-01-01", "2020-01-01"],
-            "end_date": [pd.NaT, pd.NaT, "2020-06-01"],
-            "status": ["active", "active", "delisted"],
-        })
+        history = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "MSFT", "DEAD"],
+                "start_date": ["2020-01-01", "2020-01-01", "2020-01-01"],
+                "end_date": [pd.NaT, pd.NaT, "2020-06-01"],
+                "status": ["active", "active", "delisted"],
+            }
+        )
         snapshots = build_monthly_snapshots(history, "2020-01-01", "2020-12-01")
         assert "2020-01" in snapshots
         assert "AAPL" in snapshots["2020-01"]
@@ -349,32 +376,40 @@ class TestMultiSourceValidation:
     def test_matching_prices(self):
         from src.assembled_core.data.prices_ingest import validate_prices_cross_source
 
-        df1 = pd.DataFrame({
-            "timestamp": ["2024-01-01", "2024-01-02"],
-            "symbol": ["AAPL", "AAPL"],
-            "close": [150.0, 151.0],
-        })
-        df2 = pd.DataFrame({
-            "timestamp": ["2024-01-01", "2024-01-02"],
-            "symbol": ["AAPL", "AAPL"],
-            "close": [150.1, 150.9],
-        })
+        df1 = pd.DataFrame(
+            {
+                "timestamp": ["2024-01-01", "2024-01-02"],
+                "symbol": ["AAPL", "AAPL"],
+                "close": [150.0, 151.0],
+            }
+        )
+        df2 = pd.DataFrame(
+            {
+                "timestamp": ["2024-01-01", "2024-01-02"],
+                "symbol": ["AAPL", "AAPL"],
+                "close": [150.1, 150.9],
+            }
+        )
         result = validate_prices_cross_source(df1, df2)
         assert result["validated"] is True
 
     def test_divergent_prices(self):
         from src.assembled_core.data.prices_ingest import validate_prices_cross_source
 
-        df1 = pd.DataFrame({
-            "timestamp": ["2024-01-01"],
-            "symbol": ["X"],
-            "close": [100.0],
-        })
-        df2 = pd.DataFrame({
-            "timestamp": ["2024-01-01"],
-            "symbol": ["X"],
-            "close": [110.0],  # 10% different
-        })
+        df1 = pd.DataFrame(
+            {
+                "timestamp": ["2024-01-01"],
+                "symbol": ["X"],
+                "close": [100.0],
+            }
+        )
+        df2 = pd.DataFrame(
+            {
+                "timestamp": ["2024-01-01"],
+                "symbol": ["X"],
+                "close": [110.0],  # 10% different
+            }
+        )
         result = validate_prices_cross_source(df1, df2, max_diff_pct=1.0)
         assert result["validated"] is False
         assert "X" in result["flagged_symbols"]
@@ -425,7 +460,9 @@ class TestPolicyConsistency:
 class TestGracefulDegradation:
 
     def test_tracker(self):
-        import pytest; pytest.importorskip('src.assembled_core.pipeline.graceful_degradation')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.pipeline.graceful_degradation")
         from src.assembled_core.pipeline.graceful_degradation import DegradationTracker
 
         t = DegradationTracker()
@@ -436,18 +473,24 @@ class TestGracefulDegradation:
         assert "fred_macro" in t.failed_sources
 
     def test_neutralize(self):
-        import pytest; pytest.importorskip('src.assembled_core.pipeline.graceful_degradation')
-        from src.assembled_core.pipeline.graceful_degradation import neutralize_missing_features
+        import pytest
 
-        df = pd.DataFrame({
-            "vix_level": [25.0, np.nan, 30.0],
-            "vix_zscore": [1.5, 2.0, np.nan],
-            "other": [1, 2, 3],
-        })
+        pytest.importorskip("src.assembled_core.pipeline.graceful_degradation")
+        from src.assembled_core.pipeline.graceful_degradation import (
+            neutralize_missing_features,
+        )
+
+        df = pd.DataFrame(
+            {
+                "vix_level": [25.0, np.nan, 30.0],
+                "vix_zscore": [1.5, 2.0, np.nan],
+                "other": [1, 2, 3],
+            }
+        )
         result = neutralize_missing_features(df, {"vix": "stale data"})
         # vix features should be neutralized
         assert result["vix_level"].iloc[0] == 20.0  # default neutral
-        assert result["vix_zscore"].iloc[0] == 0.0   # default neutral for zscore
+        assert result["vix_zscore"].iloc[0] == 0.0  # default neutral for zscore
         assert result["other"].tolist() == [1, 2, 3]  # unchanged
 
 
@@ -466,7 +509,9 @@ class TestFinBERTIntegration:
         assert isinstance(score, float)
 
     def test_enrich_clusters(self):
-        from src.assembled_core.events.news.clustering import enrich_clusters_with_sentiment
+        from src.assembled_core.events.news.clustering import (
+            enrich_clusters_with_sentiment,
+        )
 
         clusters = [
             {"sample_titles": ["Crisis deepens"], "cluster_id": "c1"},

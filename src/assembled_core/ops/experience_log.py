@@ -171,9 +171,7 @@ def compute_experience_summary(
                 summary["max_drawdown_pct"] = float(drawdown.min() * 100)
 
     if "exit_code" in df.columns:
-        summary["success_rate_pct"] = float(
-            (df["exit_code"] == 0).mean() * 100
-        )
+        summary["success_rate_pct"] = float((df["exit_code"] == 0).mean() * 100)
 
     if "execution_mode" in df.columns:
         summary["mode_counts"] = df["execution_mode"].value_counts().to_dict()

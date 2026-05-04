@@ -3,6 +3,7 @@
 Tracks whether individual elements of a systemic feedback loop
 have been activated across observed event histories.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

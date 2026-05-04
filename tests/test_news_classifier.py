@@ -21,18 +21,26 @@ class TestNewsClassifier:
     """Rule-based news classifier tests."""
 
     def test_sanctions_detected(self):
-        result = classify_news_event("US imposes sanctions on Russia over Ukraine invasion")
+        result = classify_news_event(
+            "US imposes sanctions on Russia over Ukraine invasion"
+        )
         assert "sanctions" in result.event_types
         assert result.market_direction == "bearish"
         assert result.severity >= 4.0
 
     def test_bullish_deal_detected(self):
-        result = classify_news_event("Major trade deal agreement signed between US and EU")
+        result = classify_news_event(
+            "Major trade deal agreement signed between US and EU"
+        )
         assert result.market_direction in ("bullish", "mixed")
-        assert "diplomatic" in result.event_types or "trade_policy" in result.event_types
+        assert (
+            "diplomatic" in result.event_types or "trade_policy" in result.event_types
+        )
 
     def test_military_strike_event_type(self):
-        result = classify_news_event("Israeli airstrike hits targets in Gaza amid escalation")
+        result = classify_news_event(
+            "Israeli airstrike hits targets in Gaza amid escalation"
+        )
         assert "military_strike" in result.event_types
         assert result.market_direction == "bearish"
 
@@ -48,17 +56,23 @@ class TestNewsClassifier:
         assert result.severity <= 3.0
 
     def test_affected_sectors_energy(self):
-        result = classify_news_event("Pipeline explosion disrupts natural gas supply to Europe")
+        result = classify_news_event(
+            "Pipeline explosion disrupts natural gas supply to Europe"
+        )
         assert "energy" in result.affected_sectors
 
     def test_affected_assets_from_country(self):
-        result = classify_news_event("Russia-Ukraine war escalation threatens energy supply", geo_tags=["RU"])
+        result = classify_news_event(
+            "Russia-Ukraine war escalation threatens energy supply", geo_tags=["RU"]
+        )
         # RU geo tag should add RSXJ / OIL
         country_assets = COUNTRY_TO_ASSETS.get("RU", [])
         assert any(a in result.affected_assets for a in country_assets)
 
     def test_time_horizon_intraday_for_breaking(self):
-        result = classify_news_event("BREAKING: Missile strike on capital city reported")
+        result = classify_news_event(
+            "BREAKING: Missile strike on capital city reported"
+        )
         assert result.time_horizon == "intraday"
 
     def test_time_horizon_medium_for_tariff(self):
@@ -67,9 +81,14 @@ class TestNewsClassifier:
 
     def test_multi_label(self):
         """Sanctions + war_escalation can co-occur."""
-        result = classify_news_event("Sanctions imposed after military invasion of neighboring country")
+        result = classify_news_event(
+            "Sanctions imposed after military invasion of neighboring country"
+        )
         assert "sanctions" in result.event_types
-        assert "war_escalation" in result.event_types or "military_strike" in result.event_types
+        assert (
+            "war_escalation" in result.event_types
+            or "military_strike" in result.event_types
+        )
 
     def test_empty_title(self):
         result = classify_news_event("")
@@ -79,17 +98,27 @@ class TestNewsClassifier:
         assert result.confidence == 0.0
 
     def test_t3_severity_discount(self):
-        result_t2 = classify_news_event("War escalation threatens global stability", source_tier="T2")
-        result_t3 = classify_news_event("War escalation threatens global stability", source_tier="T3")
+        result_t2 = classify_news_event(
+            "War escalation threatens global stability", source_tier="T2"
+        )
+        result_t3 = classify_news_event(
+            "War escalation threatens global stability", source_tier="T3"
+        )
         assert result_t3.severity < result_t2.severity
 
     def test_t0_severity_no_discount(self):
-        result_t0 = classify_news_event("Sanctions imposed on major country", source_tier="T0")
-        result_t2 = classify_news_event("Sanctions imposed on major country", source_tier="T2")
+        result_t0 = classify_news_event(
+            "Sanctions imposed on major country", source_tier="T0"
+        )
+        result_t2 = classify_news_event(
+            "Sanctions imposed on major country", source_tier="T2"
+        )
         assert result_t0.severity >= result_t2.severity
 
     def test_market_direction_mixed(self):
-        result = classify_news_event("Trade deal signed but war escalation crashes markets")
+        result = classify_news_event(
+            "Trade deal signed but war escalation crashes markets"
+        )
         assert result.market_direction == "mixed"
 
     def test_market_direction_neutral(self):
@@ -97,17 +126,23 @@ class TestNewsClassifier:
         assert result.market_direction == "neutral"
 
     def test_central_bank_financials_sector(self):
-        result = classify_news_event("Federal Reserve raises interest rate by 25 basis points")
+        result = classify_news_event(
+            "Federal Reserve raises interest rate by 25 basis points"
+        )
         assert "central_bank" in result.event_types
         assert "financials" in result.affected_sectors
 
     def test_ma_activity_bullish(self):
-        result = classify_news_event("Microsoft acquires gaming company in major takeover deal")
+        result = classify_news_event(
+            "Microsoft acquires gaming company in major takeover deal"
+        )
         assert "ma_activity" in result.event_types
         assert result.market_direction in ("bullish", "mixed")
 
     def test_cyber_attack_tech_sector(self):
-        result = classify_news_event("Major ransomware attack compromises semiconductor chip manufacturer")
+        result = classify_news_event(
+            "Major ransomware attack compromises semiconductor chip manufacturer"
+        )
         assert "cyber_attack" in result.event_types
         assert "tech" in result.affected_sectors
 
@@ -119,11 +154,15 @@ class TestNewsClassifier:
         assert any(a in result.affected_assets for a in energy_etfs)
 
     def test_natural_disaster_detected(self):
-        result = classify_news_event("Massive earthquake strikes coast causing widespread flooding")
+        result = classify_news_event(
+            "Massive earthquake strikes coast causing widespread flooding"
+        )
         assert "natural_disaster" in result.event_types
 
     def test_earnings_detected(self):
-        result = classify_news_event("Apple reports record quarterly earnings beat expectations")
+        result = classify_news_event(
+            "Apple reports record quarterly earnings beat expectations"
+        )
         assert "earnings" in result.event_types
 
     def test_confidence_range(self):
@@ -137,7 +176,9 @@ class TestNewsClassifier:
         ]
         for title in titles:
             result = classify_news_event(title)
-            assert 0.0 <= result.confidence <= 1.0, f"Confidence out of range for: {title!r}"
+            assert (
+                0.0 <= result.confidence <= 1.0
+            ), f"Confidence out of range for: {title!r}"
 
     def test_classify_batch(self):
         titles = [
@@ -177,7 +218,9 @@ class TestNewsClassifier:
         assert result.market_direction in ("bullish", "mixed")
 
     def test_regulatory_event_type(self):
-        result = classify_news_event("SEC launches antitrust investigation into tech giant")
+        result = classify_news_event(
+            "SEC launches antitrust investigation into tech giant"
+        )
         assert "regulatory" in result.event_types
 
     def test_affected_assets_deduped(self):

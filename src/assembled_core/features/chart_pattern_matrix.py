@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 def _try_stumpy():
     try:
         import stumpy
+
         return stumpy
     except ImportError:
         logger.warning("stumpy not installed — pip install stumpy==1.14.0")
@@ -31,6 +32,7 @@ def _try_stumpy():
 def _try_dtai():
     try:
         from dtaidistance import dtw
+
         return dtw
     except ImportError:
         logger.warning("dtaidistance not installed — pip install dtaidistance==2.3.13")
@@ -38,11 +40,11 @@ def _try_dtai():
 
 
 class MatrixProfileResult(NamedTuple):
-    mp: np.ndarray       # matrix profile distances
-    mpi: np.ndarray      # matrix profile indices (nearest neighbor)
-    motif_idx: int       # index of best motif (most repeated pattern)
-    discord_idx: int     # index of anomaly (most unusual pattern)
-    anomaly_score: float # normalized discord distance
+    mp: np.ndarray  # matrix profile distances
+    mpi: np.ndarray  # matrix profile indices (nearest neighbor)
+    motif_idx: int  # index of best motif (most repeated pattern)
+    discord_idx: int  # index of anomaly (most unusual pattern)
+    anomaly_score: float  # normalized discord distance
 
 
 def compute_matrix_profile(
@@ -65,12 +67,16 @@ def compute_matrix_profile(
     arr = np.asarray(series, dtype=float)
     arr = arr[np.isfinite(arr)]
     if len(arr) < window * 2:
-        logger.debug("Insufficient data for matrix profile: %d bars (need %d)", len(arr), window * 2)
+        logger.debug(
+            "Insufficient data for matrix profile: %d bars (need %d)",
+            len(arr),
+            window * 2,
+        )
         return None
 
     mp_result = stumpy.stump(arr, m=window)
     mp = mp_result[:, 0].astype(float)  # profile distances
-    mpi = mp_result[:, 1].astype(int)   # nearest neighbor indices
+    mpi = mp_result[:, 1].astype(int)  # nearest neighbor indices
 
     motif_idx = int(np.argmin(mp))
     discord_idx = int(np.argmax(mp))
@@ -78,8 +84,10 @@ def compute_matrix_profile(
     anomaly_score = float(mp[discord_idx] / (max_distance + 1e-9))
 
     return MatrixProfileResult(
-        mp=mp, mpi=mpi,
-        motif_idx=motif_idx, discord_idx=discord_idx,
+        mp=mp,
+        mpi=mpi,
+        motif_idx=motif_idx,
+        discord_idx=discord_idx,
         anomaly_score=anomaly_score,
     )
 

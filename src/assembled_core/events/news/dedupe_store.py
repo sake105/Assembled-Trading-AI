@@ -46,8 +46,7 @@ class DedupeStoreSQLite:
         if current != SCHEMA_VERSION:
             cur.execute("DROP INDEX IF EXISTS idx_seen_events_fp_bucket;")
             cur.execute("DROP TABLE IF EXISTS seen_events;")
-            cur.execute(
-                """
+            cur.execute("""
                 CREATE TABLE seen_events(
                     canonical_url TEXT PRIMARY KEY,
                     fp64 INTEGER,
@@ -57,14 +56,11 @@ class DedupeStoreSQLite:
                     published_utc TEXT,
                     ingested_utc TEXT
                 );
-                """
-            )
-            cur.execute(
-                """
+                """)
+            cur.execute("""
                 CREATE INDEX idx_seen_events_fp_bucket
                 ON seen_events(fp_bucket);
-                """
-            )
+                """)
             cur.execute(
                 "INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?);",
                 ("schema_version", SCHEMA_VERSION),

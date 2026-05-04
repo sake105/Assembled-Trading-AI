@@ -235,9 +235,13 @@ def generate_multifactor_long_short_signals(
     _n_timestamps = mf_df["timestamp"].nunique() if "timestamp" in mf_df.columns else 0
     if _n_timestamps <= 1:
         mf_df_rebalance = mf_df.copy()
-        logger.info("Snapshot mode detected (single timestamp): skipping rebalance-date filter")
+        logger.info(
+            "Snapshot mode detected (single timestamp): skipping rebalance-date filter"
+        )
     else:
-        logger.info(f"Filtering to rebalancing dates (freq: {config.rebalance_freq})...")
+        logger.info(
+            f"Filtering to rebalancing dates (freq: {config.rebalance_freq})..."
+        )
         if config.rebalance_freq.upper() == "M":
             # Detect first trading day of each month from the actual date series
             # (avoids day==1 failing when the 1st falls on a weekend/holiday)
@@ -249,7 +253,11 @@ def generate_multifactor_long_short_signals(
                 if ym != prev_ym:
                     first_td_of_month.add(pd.Timestamp(ts).normalize())
                     prev_ym = ym
-            rebalance_mask = pd.to_datetime(mf_df["timestamp"]).dt.normalize().isin(first_td_of_month)
+            rebalance_mask = (
+                pd.to_datetime(mf_df["timestamp"])
+                .dt.normalize()
+                .isin(first_td_of_month)
+            )
         else:
             rebalance_mask = mf_df["timestamp"].apply(
                 lambda ts: _is_rebalance_date(ts, config.rebalance_freq)
@@ -355,16 +363,22 @@ def generate_multifactor_long_short_signals(
 
     if regime_state_df is None:
         # Fast path: no regime overlay — fully vectorized, no Python row loop
-        long_rows = mf_df_rebalance[mf_df_rebalance["mf_long_flag"] == 1][_base_cols].copy()
+        long_rows = mf_df_rebalance[mf_df_rebalance["mf_long_flag"] == 1][
+            _base_cols
+        ].copy()
         long_rows["direction"] = "LONG"
-        short_rows = mf_df_rebalance[mf_df_rebalance["mf_short_flag"] == 1][_base_cols].copy()
+        short_rows = mf_df_rebalance[mf_df_rebalance["mf_short_flag"] == 1][
+            _base_cols
+        ].copy()
         short_rows["direction"] = "SHORT"
         signals_df = pd.concat([long_rows, short_rows], ignore_index=True).rename(
             columns={"mf_score": "score"}
         )
     else:
         # Regime path: per-timestamp lookup, but inner symbol loop replaced with concat
-        from src.assembled_core.signals.multifactor_signal import extract_regime_posteriors
+        from src.assembled_core.signals.multifactor_signal import (
+            extract_regime_posteriors,
+        )
 
         _regime_by_ts = (
             {ts: grp for ts, grp in regime_state_df.groupby("timestamp", sort=False)}
@@ -379,11 +393,17 @@ def generate_multifactor_long_short_signals(
             regime_for_ts = _regime_by_ts.get(timestamp, pd.DataFrame())
             if not regime_for_ts.empty:
                 regime_label = regime_for_ts["regime_label"].iloc[0]
-                regime_posteriors = extract_regime_posteriors(regime_state_df, timestamp)
+                regime_posteriors = extract_regime_posteriors(
+                    regime_state_df, timestamp
+                )
 
-            long_rows = timestamp_df[timestamp_df["mf_long_flag"] == 1][_base_cols].copy()
+            long_rows = timestamp_df[timestamp_df["mf_long_flag"] == 1][
+                _base_cols
+            ].copy()
             long_rows["direction"] = "LONG"
-            short_rows = timestamp_df[timestamp_df["mf_short_flag"] == 1][_base_cols].copy()
+            short_rows = timestamp_df[timestamp_df["mf_short_flag"] == 1][
+                _base_cols
+            ].copy()
             short_rows["direction"] = "SHORT"
             ts_df = pd.concat([long_rows, short_rows], ignore_index=True).rename(
                 columns={"mf_score": "score"}
@@ -394,7 +414,9 @@ def generate_multifactor_long_short_signals(
                 ts_df["regime_posteriors"] = [regime_posteriors] * len(ts_df)
             ts_frames.append(ts_df)
 
-        signals_df = pd.concat(ts_frames, ignore_index=True) if ts_frames else pd.DataFrame()
+        signals_df = (
+            pd.concat(ts_frames, ignore_index=True) if ts_frames else pd.DataFrame()
+        )
 
     # Store regime_state_df as attribute for position sizing function
     if regime_state_df is not None:
@@ -533,22 +555,30 @@ def compute_multifactor_long_short_positions(
 
     # Long positions: equal-weighted within long side (scalar broadcast — no loop needed)
     if not long_signals.empty:
-        long_weight_per_symbol = ((max_gross_exp / 2.0) + (target_net_exp / 2.0)) / len(long_signals)
-        _long_df = pd.DataFrame({
-            "symbol": long_signals[group_col].values,
-            "target_weight": long_weight_per_symbol,
-            "target_qty": long_weight_per_symbol * capital,
-        })
+        long_weight_per_symbol = ((max_gross_exp / 2.0) + (target_net_exp / 2.0)) / len(
+            long_signals
+        )
+        _long_df = pd.DataFrame(
+            {
+                "symbol": long_signals[group_col].values,
+                "target_weight": long_weight_per_symbol,
+                "target_qty": long_weight_per_symbol * capital,
+            }
+        )
         _parts.append(_long_df)
 
     # Short positions: equal-weighted within short side — negative weights
     if not short_signals.empty:
-        short_weight_per_symbol = -((max_gross_exp / 2.0) - (target_net_exp / 2.0)) / len(short_signals)
-        _short_df = pd.DataFrame({
-            "symbol": short_signals[group_col].values,
-            "target_weight": short_weight_per_symbol,
-            "target_qty": short_weight_per_symbol * capital,
-        })
+        short_weight_per_symbol = -(
+            (max_gross_exp / 2.0) - (target_net_exp / 2.0)
+        ) / len(short_signals)
+        _short_df = pd.DataFrame(
+            {
+                "symbol": short_signals[group_col].values,
+                "target_weight": short_weight_per_symbol,
+                "target_qty": short_weight_per_symbol * capital,
+            }
+        )
         _parts.append(_short_df)
 
     positions_df = pd.concat(_parts, ignore_index=True) if _parts else pd.DataFrame()

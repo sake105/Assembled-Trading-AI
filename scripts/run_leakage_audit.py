@@ -1,8 +1,10 @@
 """Leakage audit for ML v3 features. Saves JSON report to output/."""
+
 import sys
 import json
 import datetime
 import warnings
+
 warnings.filterwarnings("ignore")
 
 import pandas as pd
@@ -25,7 +27,11 @@ rows = []
 for sym, grp in prices.groupby("symbol", sort=False):
     grp = grp.sort_values("timestamp").copy()
     c = grp["close"].astype(float)
-    v = grp["volume"].astype(float) if "volume" in grp.columns else pd.Series(np.nan, index=grp.index)
+    v = (
+        grp["volume"].astype(float)
+        if "volume" in grp.columns
+        else pd.Series(np.nan, index=grp.index)
+    )
     ts = grp["timestamp"]
     n = len(grp)
 
@@ -58,7 +64,9 @@ for sym, grp in prices.groupby("symbol", sort=False):
     if "high" in grp.columns and "low" in grp.columns:
         h = grp["high"].astype(float)
         lo = grp["low"].astype(float)
-        tr = pd.concat([h - lo, (h - c.shift()).abs(), (lo - c.shift()).abs()], axis=1).max(axis=1)
+        tr = pd.concat(
+            [h - lo, (h - c.shift()).abs(), (lo - c.shift()).abs()], axis=1
+        ).max(axis=1)
     else:
         tr = (c - c.shift()).abs()
     atr14 = tr.ewm(span=14, adjust=False).mean()
@@ -69,9 +77,13 @@ for sym, grp in prices.groupby("symbol", sort=False):
         lo = grp["low"].astype(float)
         dm_plus = (h - h.shift()).clip(lower=0)
         dm_minus = (lo.shift() - lo).clip(lower=0)
-        di_plus = dm_plus.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan) * 100
-        di_minus = dm_minus.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan) * 100
-        dx = ((di_plus - di_minus).abs() / (di_plus + di_minus).replace(0, np.nan) * 100)
+        di_plus = (
+            dm_plus.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan) * 100
+        )
+        di_minus = (
+            dm_minus.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan) * 100
+        )
+        dx = (di_plus - di_minus).abs() / (di_plus + di_minus).replace(0, np.nan) * 100
         adx = dx.ewm(span=14, adjust=False).mean()
     else:
         adx = pd.Series(np.nan, index=grp.index)
@@ -94,48 +106,65 @@ for sym, grp in prices.groupby("symbol", sort=False):
     ret20 = c.pct_change(20)
     fwd_ret5 = ret5.shift(-5)
 
-    tmp = pd.DataFrame({
-        "timestamp": ts.values,
-        "symbol": sym,
-        "ta_log_return_v1": lr.values,
-        "ta_rsi_14_v1": rsi.values,
-        "ta_macd_hist_v1": macd_hist.values,
-        "ta_bb_pctb_v1": bb_pctb.values,
-        "ta_bb_bandwidth_v1": bb_bw.values,
-        "ta_adx_v1": adx.values,
-        "ta_atr_14_v1": atr14.values,
-        "rv_20": rv20.values,
-        "rv_60": rv60.values,
-        "vov_20_60": vov.values,
-        "volume_zscore": vol_z.values,
-        "amihud_illiq_20d": amihud20.values,
-        "ret_5d": ret5.values,
-        "ret_20d": ret20.values,
-        "fwd_ret_5d": fwd_ret5.values,
-    })
+    tmp = pd.DataFrame(
+        {
+            "timestamp": ts.values,
+            "symbol": sym,
+            "ta_log_return_v1": lr.values,
+            "ta_rsi_14_v1": rsi.values,
+            "ta_macd_hist_v1": macd_hist.values,
+            "ta_bb_pctb_v1": bb_pctb.values,
+            "ta_bb_bandwidth_v1": bb_bw.values,
+            "ta_adx_v1": adx.values,
+            "ta_atr_14_v1": atr14.values,
+            "rv_20": rv20.values,
+            "rv_60": rv60.values,
+            "vov_20_60": vov.values,
+            "volume_zscore": vol_z.values,
+            "amihud_illiq_20d": amihud20.values,
+            "ret_5d": ret5.values,
+            "ret_20d": ret20.values,
+            "fwd_ret_5d": fwd_ret5.values,
+        }
+    )
     rows.append(tmp)
 
 feat = pd.concat(rows, ignore_index=True)
 feat["timestamp"] = pd.to_datetime(feat["timestamp"], utc=True)
 feat = feat.dropna()
-print(f"Features computed: {len(feat)} samples, {feat['symbol'].nunique()} symbols", flush=True)
+print(
+    f"Features computed: {len(feat)} samples, {feat['symbol'].nunique()} symbols",
+    flush=True,
+)
 
 ml_cols = [
-    "ta_log_return_v1","ta_rsi_14_v1","ta_macd_hist_v1","ta_bb_pctb_v1",
-    "ta_bb_bandwidth_v1","ta_adx_v1","ta_atr_14_v1","rv_20","rv_60",
-    "vov_20_60","volume_zscore","amihud_illiq_20d","ret_5d","ret_20d",
+    "ta_log_return_v1",
+    "ta_rsi_14_v1",
+    "ta_macd_hist_v1",
+    "ta_bb_pctb_v1",
+    "ta_bb_bandwidth_v1",
+    "ta_adx_v1",
+    "ta_atr_14_v1",
+    "rv_20",
+    "rv_60",
+    "vov_20_60",
+    "volume_zscore",
+    "amihud_illiq_20d",
+    "ret_5d",
+    "ret_20d",
 ]
 
 train_cutoff = pd.Timestamp("2024-01-01", tz="UTC")
 train_f = feat[feat["timestamp"] < train_cutoff][ml_cols]
-test_f  = feat[feat["timestamp"] >= train_cutoff][ml_cols]
+test_f = feat[feat["timestamp"] >= train_cutoff][ml_cols]
 target_train = feat[feat["timestamp"] < train_cutoff]["fwd_ret_5d"]
 all_features = feat[ml_cols]
-all_target   = feat["fwd_ret_5d"]
+all_target = feat["fwd_ret_5d"]
 
 print(f"Train: {len(train_f)}, Test: {len(test_f)}", flush=True)
 
 from src.assembled_core.qa.leakage_analyzer import LeakageAnalyzer
+
 la = LeakageAnalyzer()
 
 print("Running check_lookahead...", flush=True)
@@ -205,7 +234,10 @@ out = Path("output/leakage_report_ml_features_2026-05-03.json")
 out.parent.mkdir(exist_ok=True)
 out.write_text(json.dumps(report, indent=2, ensure_ascii=True), encoding="utf-8")
 print(f"Report saved: {out}", flush=True)
-print(f"Summary: lookahead={len(r1)} recursive={len(r2)} normalization={len(r3)}", flush=True)
+print(
+    f"Summary: lookahead={len(r1)} recursive={len(r2)} normalization={len(r3)}",
+    flush=True,
+)
 
 if r3:
     print("\nNormalization findings:", flush=True)

@@ -8,6 +8,7 @@ Or manually:
     from assembled_core.api.middleware import request_id_middleware
     app.middleware("http")(request_id_middleware)
 """
+
 from __future__ import annotations
 
 import time

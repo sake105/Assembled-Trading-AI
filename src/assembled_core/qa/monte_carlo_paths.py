@@ -5,6 +5,7 @@ equity-curve metrics under random trade sequencing. Separates 'edge'
 (mean trade return > 0) from 'lucky sequencing' (specific order of
 wins/losses produced low MDD).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -66,7 +67,9 @@ def monte_carlo_trade_paths(
         # Sharpe (using trade returns, not daily)
         ret = np.diff(equity) / np.where(equity[:-1] == 0, 1.0, equity[:-1])
         std = ret.std(ddof=1)
-        sharpe = float(ret.mean() / std * np.sqrt(annual_trading_days)) if std > 0 else 0.0
+        sharpe = (
+            float(ret.mean() / std * np.sqrt(annual_trading_days)) if std > 0 else 0.0
+        )
         sharpe_list.append(sharpe)
 
         # CAGR

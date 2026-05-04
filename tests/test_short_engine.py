@@ -23,12 +23,17 @@ pytestmark = pytest.mark.phase12
 
 def _universe(symbols=("SPY", "QQQ", "AAPL", "MSFT")) -> pd.DataFrame:
     """Simple universe DataFrame with symbol + sector columns."""
-    sector_map = {"SPY": "BROAD", "QQQ": "TECH", "SH": "BROAD", "PSQ": "TECH",
-                  "AAPL": "TECH", "MSFT": "TECH"}
-    return pd.DataFrame([
-        {"symbol": s, "sector": sector_map.get(s, "OTHER")}
-        for s in symbols
-    ])
+    sector_map = {
+        "SPY": "BROAD",
+        "QQQ": "TECH",
+        "SH": "BROAD",
+        "PSQ": "TECH",
+        "AAPL": "TECH",
+        "MSFT": "TECH",
+    }
+    return pd.DataFrame(
+        [{"symbol": s, "sector": sector_map.get(s, "OTHER")} for s in symbols]
+    )
 
 
 def _prices(symbols=("SPY", "QQQ", "AAPL", "MSFT"), n_days=60) -> pd.DataFrame:
@@ -36,7 +41,9 @@ def _prices(symbols=("SPY", "QQQ", "AAPL", "MSFT"), n_days=60) -> pd.DataFrame:
     dates = pd.date_range("2024-01-01", periods=n_days, freq="D", tz="UTC")
     rows = []
     for sym in symbols:
-        base = {"SPY": 450.0, "QQQ": 380.0, "AAPL": 185.0, "MSFT": 380.0}.get(sym, 100.0)
+        base = {"SPY": 450.0, "QQQ": 380.0, "AAPL": 185.0, "MSFT": 380.0}.get(
+            sym, 100.0
+        )
         for i, d in enumerate(dates):
             # declining last 20 days → should trigger bearish signals
             if i >= n_days - 20:
@@ -208,7 +215,9 @@ class TestCrashPredictionEngine:
 
 class TestShortSignalGenerator:
     def test_import_v2(self):
-        import pytest; pytest.importorskip('src.assembled_core.signals.short_signals')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.short_signals")
         from src.assembled_core.signals.short_signals import ShortSignalGenerator
 
         gen = ShortSignalGenerator(policy=_short_policy())
@@ -216,7 +225,9 @@ class TestShortSignalGenerator:
 
     def test_no_shorts_below_threshold(self):
         """Below min_crash_probability no shorts should be generated."""
-        import pytest; pytest.importorskip('src.assembled_core.signals.short_signals')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.short_signals")
         from src.assembled_core.signals.crash_prediction import CrashSignal
         from src.assembled_core.signals.short_signals import ShortSignalGenerator
 
@@ -241,7 +252,9 @@ class TestShortSignalGenerator:
 
     def test_shorts_generated_above_threshold(self):
         """Above threshold in bear regime → some shorts generated."""
-        import pytest; pytest.importorskip('src.assembled_core.signals.short_signals')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.short_signals")
         from src.assembled_core.signals.crash_prediction import CrashSignal
         from src.assembled_core.signals.short_signals import ShortSignalGenerator
 
@@ -271,7 +284,9 @@ class TestShortSignalGenerator:
 
     def test_no_shorts_in_bull_regime(self):
         """Bull regime → 0.0 scaling → no shorts regardless of crash signal."""
-        import pytest; pytest.importorskip('src.assembled_core.signals.short_signals')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.short_signals")
         from src.assembled_core.signals.crash_prediction import CrashSignal
         from src.assembled_core.signals.short_signals import ShortSignalGenerator
 
@@ -302,7 +317,9 @@ class TestShortSignalGenerator:
 
 class TestShortRiskManager:
     def test_import_v3(self):
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
         from src.assembled_core.risk.short_risk import ShortRiskManager
 
         mgr = ShortRiskManager(policy=_short_policy())
@@ -310,13 +327,22 @@ class TestShortRiskManager:
 
     def test_validate_returns_short_risk_check(self):
         """validate_short_targets returns a ShortRiskCheck dataclass."""
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
         from src.assembled_core.risk.short_risk import ShortRiskCheck, ShortRiskManager
 
         mgr = ShortRiskManager(policy=_short_policy())
         targets = pd.DataFrame(
-            [{"symbol": "SH", "direction": "SHORT", "target_weight": -0.08,
-              "confidence": 0.80, "stop_loss_pct": 0.10}]
+            [
+                {
+                    "symbol": "SH",
+                    "direction": "SHORT",
+                    "target_weight": -0.08,
+                    "confidence": 0.80,
+                    "stop_loss_pct": 0.10,
+                }
+            ]
         )
         result = mgr.validate_short_targets(targets, regime="bear")
         assert isinstance(result, ShortRiskCheck)
@@ -325,13 +351,22 @@ class TestShortRiskManager:
 
     def test_rejects_leveraged_inverse_etf(self):
         """2x/3x inverse ETFs must produce a violation."""
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
         from src.assembled_core.risk.short_risk import ShortRiskManager
 
         mgr = ShortRiskManager(policy=_short_policy())
         targets = pd.DataFrame(
-            [{"symbol": "SPXS", "direction": "SHORT", "target_weight": -0.05,
-              "confidence": 0.80, "stop_loss_pct": 0.10}]
+            [
+                {
+                    "symbol": "SPXS",
+                    "direction": "SHORT",
+                    "target_weight": -0.05,
+                    "confidence": 0.80,
+                    "stop_loss_pct": 0.10,
+                }
+            ]
         )
         result = mgr.validate_short_targets(targets, regime="bear")
         # Must not pass — leveraged product violation
@@ -340,7 +375,9 @@ class TestShortRiskManager:
 
     def test_enforces_max_per_position_via_regime_scaling(self):
         """enforce_regime_scaling scales down shorts when total exceeds cap."""
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
         from src.assembled_core.risk.short_risk import ShortRiskManager
 
         policy = _short_policy()
@@ -348,9 +385,16 @@ class TestShortRiskManager:
         mgr = ShortRiskManager(policy={"shorts": policy})
         # 5 positions × 10% = 50% > 30% crisis cap
         targets = pd.DataFrame(
-            [{"symbol": f"SH{i}", "direction": "SHORT", "target_weight": -0.10,
-              "confidence": 0.80, "stop_loss_pct": 0.10}
-             for i in range(5)]
+            [
+                {
+                    "symbol": f"SH{i}",
+                    "direction": "SHORT",
+                    "target_weight": -0.10,
+                    "confidence": 0.80,
+                    "stop_loss_pct": 0.10,
+                }
+                for i in range(5)
+            ]
         )
         scaled = mgr.enforce_regime_scaling(targets, regime="bear")
         total_short = scaled["target_weight"].abs().sum()
@@ -359,13 +403,22 @@ class TestShortRiskManager:
 
     def test_regime_scaling_bull_zeros_shorts(self):
         """In bull regime enforce_regime_scaling zeros out all shorts."""
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
         from src.assembled_core.risk.short_risk import ShortRiskManager
 
         mgr = ShortRiskManager(policy={"shorts": _short_policy()})
         targets = pd.DataFrame(
-            [{"symbol": "SH", "direction": "SHORT", "target_weight": -0.10,
-              "confidence": 0.80, "stop_loss_pct": 0.10}]
+            [
+                {
+                    "symbol": "SH",
+                    "direction": "SHORT",
+                    "target_weight": -0.10,
+                    "confidence": 0.80,
+                    "stop_loss_pct": 0.10,
+                }
+            ]
         )
         scaled = mgr.enforce_regime_scaling(targets, regime="bull")
         total = scaled["target_weight"].abs().sum()
@@ -373,14 +426,16 @@ class TestShortRiskManager:
 
     def test_squeeze_risk_check(self):
         """High short-interest symbol should be flagged."""
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
         from src.assembled_core.risk.short_risk import ShortRiskManager
 
         mgr = ShortRiskManager(policy=_short_policy())
         result = mgr.check_short_squeeze_risk(
             symbol="GME",
             short_interest_pct=0.40,  # 40% float short → high squeeze risk
-            days_to_cover=12.0,        # > 10 days threshold
+            days_to_cover=12.0,  # > 10 days threshold
         )
         assert result is True  # high squeeze risk detected
 
@@ -425,9 +480,9 @@ class TestInverseETFSelector:
             )
             if instrument and instrument in INVERSE_ETF_PROFILES:
                 profile = INVERSE_ETF_PROFILES[instrument]
-                assert abs(profile.leverage) <= 1, (
-                    f"{instrument} has leverage {profile.leverage} — should not be selected"
-                )
+                assert (
+                    abs(profile.leverage) <= 1
+                ), f"{instrument} has leverage {profile.leverage} — should not be selected"
 
     def test_decay_adjusted_return(self):
         from src.assembled_core.portfolio.inverse_etf_selector import InverseETFSelector
@@ -446,14 +501,18 @@ class TestInverseETFSelector:
 
 class TestLongShortBalancer:
     def test_import_v5(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.long_short_balance')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.long_short_balance")
         from src.assembled_core.portfolio.long_short_balance import LongShortBalancer
 
         balancer = LongShortBalancer.from_policy(_short_policy())
         assert balancer is not None
 
     def test_compute_exposure_long_only(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.long_short_balance')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.long_short_balance")
         from src.assembled_core.portfolio.long_short_balance import LongShortBalancer
 
         balancer = LongShortBalancer.from_policy(_short_policy())
@@ -471,7 +530,9 @@ class TestLongShortBalancer:
         assert metrics.gross_exposure == pytest.approx(0.45)
 
     def test_compute_exposure_long_short(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.long_short_balance')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.long_short_balance")
         from src.assembled_core.portfolio.long_short_balance import LongShortBalancer
 
         balancer = LongShortBalancer.from_policy(_short_policy())
@@ -489,7 +550,9 @@ class TestLongShortBalancer:
         assert metrics.gross_exposure == pytest.approx(0.48)
 
     def test_enforce_gross_exposure_limit(self):
-        import pytest; pytest.importorskip('src.assembled_core.portfolio.long_short_balance')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.portfolio.long_short_balance")
         from src.assembled_core.portfolio.long_short_balance import LongShortBalancer
 
         balancer = LongShortBalancer.from_policy(_short_policy())
@@ -515,8 +578,12 @@ class TestLongShortBalancer:
 class TestShortEnginePipeline:
     def test_full_pipeline_bear_regime(self):
         """Full pipeline: crash signal → short targets → risk validation."""
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
-        import pytest; pytest.importorskip('src.assembled_core.signals.short_signals')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
+        import pytest
+
+        pytest.importorskip("src.assembled_core.signals.short_signals")
         from src.assembled_core.signals.crash_prediction import (
             CrashPredictionEngine,
         )
@@ -554,7 +621,9 @@ class TestShortEnginePipeline:
 
     def test_no_leveraged_products_in_pipeline(self):
         """No 3x leveraged inverse ETFs should pass validation check."""
-        import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
+        import pytest
+
+        pytest.importorskip("src.assembled_core.risk.short_risk")
         from src.assembled_core.risk.short_risk import (
             LEVERAGED_INVERSE_ETFS,
             ShortRiskManager,
@@ -563,15 +632,23 @@ class TestShortEnginePipeline:
         mgr = ShortRiskManager(policy=_short_policy())
         target_syms = list(LEVERAGED_INVERSE_ETFS)[:5]
         targets = pd.DataFrame(
-            [{"symbol": sym, "direction": "SHORT", "target_weight": -0.05,
-              "confidence": 0.80, "stop_loss_pct": 0.10}
-             for sym in target_syms]
+            [
+                {
+                    "symbol": sym,
+                    "direction": "SHORT",
+                    "target_weight": -0.05,
+                    "confidence": 0.80,
+                    "stop_loss_pct": 0.10,
+                }
+                for sym in target_syms
+            ]
         )
         result = mgr.validate_short_targets(targets, regime="crisis")
         # Leveraged ETF rule must be violated — check should fail
         assert result.passed is False, "Leveraged ETF targets should fail validation"
         leveraged_violations = [
-            v for v in result.violations
+            v
+            for v in result.violations
             if "Rule 2" in v or "leveraged" in v.lower() or "Leveraged" in v
         ]
         assert len(leveraged_violations) > 0

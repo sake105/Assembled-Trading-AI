@@ -12,6 +12,7 @@ Target: cross-sectional rank > 0.5 (same as v4 for apples-to-apples AUC comparis
 Usage:
     python scripts/training/train_meta_model_v5.py
 """
+
 import sys
 import warnings
 from pathlib import Path
@@ -76,7 +77,9 @@ def _normalize_date(df: pd.DataFrame, col: str = "date") -> pd.DataFrame:
     return df
 
 
-def _load_news_features(panel_dates: pd.Series, panel_symbols: pd.Series) -> pd.DataFrame:
+def _load_news_features(
+    panel_dates: pd.Series, panel_symbols: pd.Series
+) -> pd.DataFrame:
     """Load and merge news sentiment features with 1-day lag for PIT safety."""
     if not NEWS_FILE.exists():
         print(f"[v5] News file not found: {NEWS_FILE} — news features skipped")
@@ -90,7 +93,9 @@ def _load_news_features(panel_dates: pd.Series, panel_symbols: pd.Series) -> pd.
     # Near-zero-variance features from sparse news degrade model AUC
     n_dates = news["date"].nunique() if "date" in news.columns else 0
     if n_dates < 60:
-        print(f"[v5] News: only {n_dates} unique dates -- too sparse, skipping (need >=60)")
+        print(
+            f"[v5] News: only {n_dates} unique dates -- too sparse, skipping (need >=60)"
+        )
         return pd.DataFrame()
 
     # 1-day lag: merge today's panel with yesterday's sentiment
@@ -98,17 +103,21 @@ def _load_news_features(panel_dates: pd.Series, panel_symbols: pd.Series) -> pd.
 
     # Compute 3-day rolling from the raw news
     news = news.sort_values(["symbol", "date"])
-    news["sentiment_3d_avg"] = (
-        news.groupby("symbol")["sentiment_score"]
-        .transform(lambda x: x.rolling(3, min_periods=1).mean())
+    news["sentiment_3d_avg"] = news.groupby("symbol")["sentiment_score"].transform(
+        lambda x: x.rolling(3, min_periods=1).mean()
     )
-    news["sentiment_count_3d"] = (
-        news.groupby("symbol")["count"]
-        .transform(lambda x: x.rolling(3, min_periods=1).sum())
+    news["sentiment_count_3d"] = news.groupby("symbol")["count"].transform(
+        lambda x: x.rolling(3, min_periods=1).sum()
     )
 
     news_features = news.rename(columns={"sentiment_score": "sentiment_score_lag1"})[
-        ["merge_date", "symbol", "sentiment_score_lag1", "sentiment_3d_avg", "sentiment_count_3d"]
+        [
+            "merge_date",
+            "symbol",
+            "sentiment_score_lag1",
+            "sentiment_3d_avg",
+            "sentiment_count_3d",
+        ]
     ]
     print(
         f"[v5] News: {len(news_features)} rows, "
@@ -118,10 +127,14 @@ def _load_news_features(panel_dates: pd.Series, panel_symbols: pd.Series) -> pd.
     return news_features
 
 
-def _load_earnings_features(panel_dates: pd.Series, panel_symbols: pd.Series) -> pd.DataFrame:
+def _load_earnings_features(
+    panel_dates: pd.Series, panel_symbols: pd.Series
+) -> pd.DataFrame:
     """Load earnings surprise + days-since-earnings with 1-day lag."""
     if not EARNINGS_FILE.exists():
-        print(f"[v5] Earnings file not found: {EARNINGS_FILE} — earnings features skipped")
+        print(
+            f"[v5] Earnings file not found: {EARNINGS_FILE} — earnings features skipped"
+        )
         return pd.DataFrame()
 
     earn = pd.read_parquet(EARNINGS_FILE)
@@ -153,17 +166,20 @@ def _load_earnings_features(panel_dates: pd.Series, panel_symbols: pd.Series) ->
             past = [x for x in sym_earn_dates if x <= d]
             if past:
                 days_ago = (d - max(past)).days
-                rows.append({"date": d, "symbol": sym, "days_since_earnings": float(days_ago)})
+                rows.append(
+                    {"date": d, "symbol": sym, "days_since_earnings": float(days_ago)}
+                )
 
-    days_df = pd.DataFrame(rows) if rows else pd.DataFrame(
-        columns=["date", "symbol", "days_since_earnings"]
+    days_df = (
+        pd.DataFrame(rows)
+        if rows
+        else pd.DataFrame(columns=["date", "symbol", "days_since_earnings"])
     )
 
     merged = earn_features.rename(columns={"merge_date": "date"})
     result = days_df.merge(merged, on=["date", "symbol"], how="left")
     print(
-        f"[v5] Earnings: {len(result)} rows, "
-        f"{result['symbol'].nunique()} symbols"
+        f"[v5] Earnings: {len(result)} rows, " f"{result['symbol'].nunique()} symbols"
     )
     return result
 
@@ -184,7 +200,9 @@ def _load_fundamentals_features() -> pd.DataFrame:
         keep.append("ps_ratio_lag1")
     if not keep:
         return pd.DataFrame()
-    result = fund[["merge_date", "symbol"] + keep].rename(columns={"merge_date": "date"})
+    result = fund[["merge_date", "symbol"] + keep].rename(
+        columns={"merge_date": "date"}
+    )
     print(f"[v5] Fundamentals: {len(result)} rows, features: {keep}")
     return result
 
@@ -231,7 +249,9 @@ def main():
     peer_counts = df.groupby("date")["symbol"].transform("count")
     df = df[peer_counts >= MIN_PEERS].copy()
     df["target"] = (df["cs_target_rank"] > 0.5).astype(int)
-    print(f"[v5] After peer filter: {len(df):,} rows, target rate={df['target'].mean():.3f}")
+    print(
+        f"[v5] After peer filter: {len(df):,} rows, target rate={df['target'].mean():.3f}"
+    )
 
     # Merge news features
     news_df = _load_news_features(df["date"], df["symbol"])
@@ -282,6 +302,7 @@ def main():
 
     try:
         from src.assembled_core.qa.cpcv_validation import purged_train_test_split
+
         X_train, X_val, y_train, y_val = purged_train_test_split(
             X, y, test_size=test_size, embargo_bars=EMBARGO_BARS
         )
@@ -291,7 +312,9 @@ def main():
         X_train, X_val = X.iloc[:n_split], X.iloc[n_split:]
         y_train, y_val = y.iloc[:n_split], y.iloc[n_split:]
 
-    print(f"[v5] Train: {len(X_train):,} | Embargo: {EMBARGO_BARS} | Val: {len(X_val):,}")
+    print(
+        f"[v5] Train: {len(X_train):,} | Embargo: {EMBARGO_BARS} | Val: {len(X_val):,}"
+    )
 
     try:
         import lightgbm as lgb

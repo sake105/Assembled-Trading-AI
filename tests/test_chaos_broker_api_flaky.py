@@ -106,10 +106,7 @@ class FlakyAdapter(BrokerAdapter):
 
 def _orders_df(n: int) -> pd.DataFrame:
     return pd.DataFrame(
-        [
-            {"symbol": f"SYM{i}", "side": "buy", "qty": 1.0 + i}
-            for i in range(n)
-        ]
+        [{"symbol": f"SYM{i}", "side": "buy", "qty": 1.0 + i} for i in range(n)]
     )
 
 

@@ -49,11 +49,15 @@ def fetch_stooq_eod(
     try:
         from pandas_datareader import data as pdr
     except ImportError:
-        logger.warning("pandas-datareader not installed — pip install pandas-datareader")
+        logger.warning(
+            "pandas-datareader not installed — pip install pandas-datareader"
+        )
         return pd.DataFrame()
 
     try:
-        df = pdr.DataReader(ticker, "stooq", start=str(start), end=str(end or date.today()))
+        df = pdr.DataReader(
+            ticker, "stooq", start=str(start), end=str(end or date.today())
+        )
         if df.empty:
             return pd.DataFrame()
         df = df.sort_index()
@@ -95,16 +99,56 @@ def build_euro_stoxx50_tickers_stooq() -> list[str]:
     Hardcoded list — update when index composition changes.
     """
     return [
-        "AIR.PA", "ALV.DE", "ADS.DE", "AD.AS", "ASML.AS",
-        "ATO.PA", "CS.PA", "AXA.PA", "BNP.PA", "BAS.DE",
-        "BAYN.DE", "BMW.DE", "CAP.PA", "CRH.DE", "DAI.DE",
-        "DAN.PA", "DB1.DE", "DTE.DE", "ENEL.MI", "ENI.MI",
-        "EL.PA", "FRE.DE", "IBE.MC", "IFX.DE", "INGA.AS",
-        "ISP.MI", "KER.PA", "LIN.DE", "LOR.PA", "MC.PA",
-        "MUV2.DE", "OR.PA", "ORA.PA", "PHIA.AS", "PRX.AS",
-        "RWE.DE", "SGO.PA", "SAN.MC", "SU.PA", "SAF.PA",
-        "SAP.DE", "SIE.DE", "STLA.MI", "TEF.MC", "TOTF.PA",
-        "UCG.MI", "UNA.AS", "URW.PA", "VIV.PA", "VOW3.DE",
+        "AIR.PA",
+        "ALV.DE",
+        "ADS.DE",
+        "AD.AS",
+        "ASML.AS",
+        "ATO.PA",
+        "CS.PA",
+        "AXA.PA",
+        "BNP.PA",
+        "BAS.DE",
+        "BAYN.DE",
+        "BMW.DE",
+        "CAP.PA",
+        "CRH.DE",
+        "DAI.DE",
+        "DAN.PA",
+        "DB1.DE",
+        "DTE.DE",
+        "ENEL.MI",
+        "ENI.MI",
+        "EL.PA",
+        "FRE.DE",
+        "IBE.MC",
+        "IFX.DE",
+        "INGA.AS",
+        "ISP.MI",
+        "KER.PA",
+        "LIN.DE",
+        "LOR.PA",
+        "MC.PA",
+        "MUV2.DE",
+        "OR.PA",
+        "ORA.PA",
+        "PHIA.AS",
+        "PRX.AS",
+        "RWE.DE",
+        "SGO.PA",
+        "SAN.MC",
+        "SU.PA",
+        "SAF.PA",
+        "SAP.DE",
+        "SIE.DE",
+        "STLA.MI",
+        "TEF.MC",
+        "TOTF.PA",
+        "UCG.MI",
+        "UNA.AS",
+        "URW.PA",
+        "VIV.PA",
+        "VOW3.DE",
     ]
 
 

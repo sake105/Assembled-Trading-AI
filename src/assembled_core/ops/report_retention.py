@@ -45,7 +45,8 @@ def purge_old_dated_reports(
         if not d.exists() or not d.is_dir():
             return 0
         candidates = [
-            p for p in d.iterdir()
+            p
+            for p in d.iterdir()
             if p.is_file() and p.name.startswith(prefix) and p.name.endswith(suffix)
         ]
         if len(candidates) <= keep_last_n:
@@ -62,7 +63,10 @@ def purge_old_dated_reports(
         if n_deleted:
             logger.info(
                 "[retention] %s%s: purged %d old files (kept %d)",
-                prefix, suffix, n_deleted, keep_last_n,
+                prefix,
+                suffix,
+                n_deleted,
+                keep_last_n,
             )
         return n_deleted
     except Exception as exc:

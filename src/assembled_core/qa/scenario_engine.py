@@ -243,7 +243,9 @@ def _apply_equity_crash(
         if baseline.empty:
             post = symbol_data[symbol_data["timestamp"] >= shock_start]
             baseline_price = (
-                post["close"].iloc[0] if not post.empty else symbol_data["close"].iloc[0]
+                post["close"].iloc[0]
+                if not post.empty
+                else symbol_data["close"].iloc[0]
             )
         else:
             baseline_price = baseline["close"].iloc[-1]
@@ -258,7 +260,9 @@ def _apply_equity_crash(
             )
 
             # Also update other price columns if present
-            ohlc_cols = [c for c in ["open", "high", "low"] if c in shocked_prices.columns]
+            ohlc_cols = [
+                c for c in ["open", "high", "low"] if c in shocked_prices.columns
+            ]
             if ohlc_cols:
                 shocked_prices.loc[shock_idx, ohlc_cols] = (
                     shocked_prices.loc[shock_idx, ohlc_cols] * price_ratio
@@ -288,12 +292,7 @@ def _apply_vol_spike(
     # For each symbol, compute returns and apply volatility multiplier
     for symbol, _sym_orig in shocked_prices.groupby("symbol", sort=False):
         sym_idx = _sym_orig.index
-        symbol_data = (
-            _sym_orig
-            .copy()
-            .sort_values("timestamp")
-            .reset_index(drop=True)
-        )
+        symbol_data = _sym_orig.copy().sort_values("timestamp").reset_index(drop=True)
 
         # Compute log returns
         symbol_data["log_return"] = np.log(
@@ -321,7 +320,9 @@ def _apply_vol_spike(
             shocked_prices.loc[sym_idx, "close"] = symbol_data["close"].values
 
             # Also update other price columns if present (simplified: scale by same ratio)
-            ohlc_cols = [c for c in ["open", "high", "low"] if c in shocked_prices.columns]
+            ohlc_cols = [
+                c for c in ["open", "high", "low"] if c in shocked_prices.columns
+            ]
             if ohlc_cols:
                 old_close = prices.loc[sym_idx, "close"].values
                 new_close = symbol_data["close"].values
@@ -616,15 +617,15 @@ def _apply_sector_shock(
         boost = mults.get("energy_boost", 1.5)
         drag = mults.get("market_drag", 0.5)
         primary_mag = abs(base_mag) * boost  # positive
-        other_mag = -abs(base_mag) * drag    # negative
+        other_mag = -abs(base_mag) * drag  # negative
     elif shock_type == "gold_flight":
         boost = mults.get("gold_boost", 2.0)
         primary_mag = abs(base_mag) * boost  # positive
-        other_mag = -abs(base_mag) * 0.5     # mild negative
+        other_mag = -abs(base_mag) * 0.5  # mild negative
     elif shock_type == "defense_surge":
         boost = mults.get("defense_boost", 1.0)
         primary_mag = abs(base_mag) * boost  # positive
-        other_mag = 0.0                      # neutral
+        other_mag = 0.0  # neutral
     else:
         primary_mag = base_mag
         other_mag = base_mag
@@ -645,14 +646,18 @@ def _apply_sector_shock(
         baseline_row = symbol_data[symbol_data["timestamp"] < shock_start]
         if baseline_row.empty:
             shock_rows = symbol_data[symbol_data["timestamp"] >= shock_start]
-            baseline_price = shock_rows["close"].iloc[0] if not shock_rows.empty else 1.0
+            baseline_price = (
+                shock_rows["close"].iloc[0] if not shock_rows.empty else 1.0
+            )
         else:
             baseline_price = float(baseline_row["close"].iloc[-1])
 
         shocked_baseline = baseline_price * (1.0 + mag)
         price_ratio = shocked_baseline / baseline_price if baseline_price != 0 else 1.0
 
-        ohlc_cols = [c for c in ["open", "high", "low", "close"] if c in shocked_prices.columns]
+        ohlc_cols = [
+            c for c in ["open", "high", "low", "close"] if c in shocked_prices.columns
+        ]
         shocked_prices.loc[shock_mask, ohlc_cols] = (
             shocked_prices.loc[shock_mask, ohlc_cols] * price_ratio
         )
@@ -717,7 +722,9 @@ def _apply_geopolitical_shock(
         baseline_row = symbol_data[symbol_data["timestamp"] < shock_start]
         if baseline_row.empty:
             shock_rows = symbol_data[symbol_data["timestamp"] >= shock_start]
-            baseline_price = shock_rows["close"].iloc[0] if not shock_rows.empty else 1.0
+            baseline_price = (
+                shock_rows["close"].iloc[0] if not shock_rows.empty else 1.0
+            )
         else:
             baseline_price = float(baseline_row["close"].iloc[-1])
 
@@ -843,9 +850,7 @@ def run_crisis_scenarios(
     """
     if crisis_type not in _CRISIS_SCENARIO_DEFINITIONS:
         valid = list(_CRISIS_SCENARIO_DEFINITIONS.keys())
-        raise ValueError(
-            f"Unknown crisis_type '{crisis_type}'. Valid options: {valid}"
-        )
+        raise ValueError(f"Unknown crisis_type '{crisis_type}'. Valid options: {valid}")
 
     results: dict[str, pd.DataFrame] = {}
     for spec in _CRISIS_SCENARIO_DEFINITIONS[crisis_type]:
@@ -927,12 +932,15 @@ def compare_crisis_scenarios(
             }
         )
 
-    return pd.DataFrame(rows, columns=["scenario_name", "total_return", "max_drawdown", "sharpe"])
+    return pd.DataFrame(
+        rows, columns=["scenario_name", "total_return", "max_drawdown", "sharpe"]
+    )
 
 
 # ---------------------------------------------------------------------------
 # 9.8  Multi-Asset Correlated Stress Tests
 # ---------------------------------------------------------------------------
+
 
 def run_correlated_stress_test(
     weights: dict[str, float],
@@ -985,7 +993,10 @@ def run_correlated_stress_test(
         L = np.linalg.cholesky(cov)
     except np.linalg.LinAlgError:
         import logging as _log
-        _log.getLogger(__name__).warning("[scenario_engine] Cholesky failed — falling back to diagonal vols")
+
+        _log.getLogger(__name__).warning(
+            "[scenario_engine] Cholesky failed — falling back to diagonal vols"
+        )
         L = np.diag(np.sqrt(np.diag(cov)))
 
     # Simulate using isolated RNG (reproducible with seed)
@@ -1075,7 +1086,8 @@ def load_scenarios_from_yaml(path: str) -> list[Scenario]:
         if shock_type not in valid_types:
             log.warning(
                 "[scenario_engine] skipping scenario %r: unknown shock_type=%r",
-                row.get("name"), shock_type,
+                row.get("name"),
+                shock_type,
             )
             continue
         try:
@@ -1108,10 +1120,14 @@ def load_scenarios_from_yaml(path: str) -> list[Scenario]:
                 shock_end=_parse(row.get("shock_end")),
                 affected_symbols=list(row.get("affected_symbols") or []),
                 sector_mapping=dict(row.get("sector_mapping") or {}),
-                sector_impact_multipliers=dict(row.get("sector_impact_multipliers") or {}),
+                sector_impact_multipliers=dict(
+                    row.get("sector_impact_multipliers") or {}
+                ),
             )
         except Exception as exc:  # noqa: BLE001
-            log.warning("[scenario_engine] skipping scenario %r: %s", row.get("name"), exc)
+            log.warning(
+                "[scenario_engine] skipping scenario %r: %s", row.get("name"), exc
+            )
             continue
         out.append(scenario)
 

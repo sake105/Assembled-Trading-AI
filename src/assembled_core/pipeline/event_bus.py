@@ -24,6 +24,7 @@ Usage::
     with streamed_phase(bus, "eod_pipeline", {"date": "2024-01-15"}):
         run_eod_pipeline()
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 _REDIS_AVAILABLE = False
 try:
     import redis  # type: ignore[import]
+
     _REDIS_AVAILABLE = True
 except ImportError:
     pass
@@ -135,7 +137,10 @@ class EventBus:
             pipe = self._client.pipeline(transaction=False)
             for event_type, payload in events:
                 key = f"{self._prefix}:{event_type}"
-                fields: dict[str, str] = {"event_type": event_type, "ts": str(time.time())}
+                fields: dict[str, str] = {
+                    "event_type": event_type,
+                    "ts": str(time.time()),
+                }
                 for k, v in payload.items():
                     fields[str(k)] = str(v)
                 pipe.xadd(key, fields, maxlen=self._maxlen, approximate=True)

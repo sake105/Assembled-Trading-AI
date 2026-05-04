@@ -28,26 +28,59 @@ logger = logging.getLogger(__name__)
 class ContradictionEntry:
     story_key: str
     contradicts: bool
-    western_direction: str = "neutral"    # majority direction among Western mainstream
-    state_direction: str = "neutral"      # majority direction among state media
-    severity_delta: float = 0.0           # max severity gap between camps
-    direction_split: str = ""             # e.g. "bearish_vs_bullish"
+    western_direction: str = "neutral"  # majority direction among Western mainstream
+    state_direction: str = "neutral"  # majority direction among state media
+    severity_delta: float = 0.0  # max severity gap between camps
+    direction_split: str = ""  # e.g. "bearish_vs_bullish"
     sources: list[str] = field(default_factory=list)
 
 
 # Source camps — informational labels, not value judgements.
 # H11: add European, Japanese, Arab, Asian non-state outlets that
 # previously fell through to "other" and silenced contradiction signals.
-_WESTERN_MAINSTREAM = frozenset({
-    "reuters", "ap", "apnews", "bbc", "bbc_world", "cnn", "nyt", "wsj",
-    "ft", "guardian", "bloomberg", "wapo", "npr", "axios", "politico",
-    "sky_news", "cnbc", "marketwatch", "dw", "france24",
-    # H11 additions (non-state European / Asian / global outlets)
-    "handelsblatt", "le_monde", "lemonde", "nikkei", "scmp",
-    "spiegel", "faz", "zeit", "tagesschau", "reuters_de",
-    "el_pais", "elpais", "corriere", "repubblica",
-    "economist", "forbes", "barrons", "yahoo_finance",
-})
+_WESTERN_MAINSTREAM = frozenset(
+    {
+        "reuters",
+        "ap",
+        "apnews",
+        "bbc",
+        "bbc_world",
+        "cnn",
+        "nyt",
+        "wsj",
+        "ft",
+        "guardian",
+        "bloomberg",
+        "wapo",
+        "npr",
+        "axios",
+        "politico",
+        "sky_news",
+        "cnbc",
+        "marketwatch",
+        "dw",
+        "france24",
+        # H11 additions (non-state European / Asian / global outlets)
+        "handelsblatt",
+        "le_monde",
+        "lemonde",
+        "nikkei",
+        "scmp",
+        "spiegel",
+        "faz",
+        "zeit",
+        "tagesschau",
+        "reuters_de",
+        "el_pais",
+        "elpais",
+        "corriere",
+        "repubblica",
+        "economist",
+        "forbes",
+        "barrons",
+        "yahoo_finance",
+    }
+)
 
 
 def _source_camp(source_id: str) -> str:
@@ -108,25 +141,36 @@ class ContradictionDetector:
                 state_sev.append(severity)
 
         if not west_dirs or not state_dirs:
-            return ContradictionEntry(story_key=key, contradicts=False, sources=sorted(sources))
+            return ContradictionEntry(
+                story_key=key, contradicts=False, sources=sorted(sources)
+            )
 
         west_majority = _majority(west_dirs)
         state_majority = _majority(state_dirs)
 
         contradicts = False
         split = ""
-        if west_majority != state_majority and "neutral" not in (west_majority, state_majority):
+        if west_majority != state_majority and "neutral" not in (
+            west_majority,
+            state_majority,
+        ):
             contradicts = True
             split = f"{west_majority}_vs_{state_majority}"
-        elif abs((sum(west_sev) / len(west_sev)) - (sum(state_sev) / len(state_sev))) >= 3.0:
+        elif (
+            abs((sum(west_sev) / len(west_sev)) - (sum(state_sev) / len(state_sev)))
+            >= 3.0
+        ):
             contradicts = True
             split = "severity_gap"
 
         sev_delta = 0.0
         if west_sev and state_sev:
-            sev_delta = round(abs(
-                (sum(west_sev) / len(west_sev)) - (sum(state_sev) / len(state_sev))
-            ), 2)
+            sev_delta = round(
+                abs(
+                    (sum(west_sev) / len(west_sev)) - (sum(state_sev) / len(state_sev))
+                ),
+                2,
+            )
 
         return ContradictionEntry(
             story_key=key,

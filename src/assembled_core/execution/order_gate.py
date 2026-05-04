@@ -5,6 +5,7 @@ From 41_PDT_REGEL_INTRADAY_MARGIN.md §4.1.
 Checks whether an order may be submitted before sending to the broker.
 Currently enforces PDT rules; extensible to margin, kill-switch, etc.
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,7 +70,11 @@ class OrderGate:
             return False
         open_ts, _, _, open_side = self.rt_detector.open_positions[ticker]
         today_utc = datetime.now(timezone.utc).date()
-        open_date = open_ts.astimezone(timezone.utc).date() if open_ts.tzinfo else open_ts.date()
+        open_date = (
+            open_ts.astimezone(timezone.utc).date()
+            if open_ts.tzinfo
+            else open_ts.date()
+        )
         if open_date != today_utc:
             return False
         return (open_side == "long" and side == "sell") or (

@@ -30,18 +30,45 @@ logger = logging.getLogger(__name__)
 
 ETF_CORE: list[str] = [
     # US-Broad
-    "SPY", "VOO", "IVV", "QQQ", "IWM", "VTI", "DIA",
+    "SPY",
+    "VOO",
+    "IVV",
+    "QQQ",
+    "IWM",
+    "VTI",
+    "DIA",
     # Int-Developed
-    "VGK", "VEA", "EFA", "IEFA", "VXUS",
+    "VGK",
+    "VEA",
+    "EFA",
+    "IEFA",
+    "VXUS",
     # Emerging
-    "EEM", "VWO", "IEMG",
+    "EEM",
+    "VWO",
+    "IEMG",
     # Sectors
-    "XLK", "XLF", "XLE", "XLV", "XLY", "XLP",
-    "XLI", "XLB", "XLRE", "XLU", "XLC",
+    "XLK",
+    "XLF",
+    "XLE",
+    "XLV",
+    "XLY",
+    "XLP",
+    "XLI",
+    "XLB",
+    "XLRE",
+    "XLU",
+    "XLC",
     # Commodities
-    "GLD", "SLV", "USO", "UNG", "DBC",
+    "GLD",
+    "SLV",
+    "USO",
+    "UNG",
+    "DBC",
     # Bonds
-    "TLT", "HYG", "LQD",
+    "TLT",
+    "HYG",
+    "LQD",
     # Vol
     "VXX",
     # Crypto spot ETF (post 2024)
@@ -53,16 +80,56 @@ ETF_CORE: list[str] = [
 # ---------------------------------------------------------------------------
 
 EURO_STOXX_50: list[str] = [
-    "AIR.PA", "ALV.DE", "ADS.DE", "AD.AS", "ASML.AS",
-    "ATO.PA", "CS.PA", "AXA.PA", "BNP.PA", "BAS.DE",
-    "BAYN.DE", "BMW.DE", "CAP.PA", "CRH.DE", "DAI.DE",
-    "DAN.PA", "DB1.DE", "DTE.DE", "ENEL.MI", "ENI.MI",
-    "EL.PA", "FRE.DE", "IBE.MC", "IFX.DE", "INGA.AS",
-    "ISP.MI", "KER.PA", "LIN.DE", "LOR.PA", "MC.PA",
-    "MUV2.DE", "OR.PA", "ORA.PA", "PHIA.AS", "PRX.AS",
-    "RWE.DE", "SGO.PA", "SAN.MC", "SU.PA", "SAF.PA",
-    "SAP.DE", "SIE.DE", "STLA.MI", "TEF.MC", "TOTF.PA",
-    "UCG.MI", "UNA.AS", "URW.PA", "VIV.PA", "VOW3.DE",
+    "AIR.PA",
+    "ALV.DE",
+    "ADS.DE",
+    "AD.AS",
+    "ASML.AS",
+    "ATO.PA",
+    "CS.PA",
+    "AXA.PA",
+    "BNP.PA",
+    "BAS.DE",
+    "BAYN.DE",
+    "BMW.DE",
+    "CAP.PA",
+    "CRH.DE",
+    "DAI.DE",
+    "DAN.PA",
+    "DB1.DE",
+    "DTE.DE",
+    "ENEL.MI",
+    "ENI.MI",
+    "EL.PA",
+    "FRE.DE",
+    "IBE.MC",
+    "IFX.DE",
+    "INGA.AS",
+    "ISP.MI",
+    "KER.PA",
+    "LIN.DE",
+    "LOR.PA",
+    "MC.PA",
+    "MUV2.DE",
+    "OR.PA",
+    "ORA.PA",
+    "PHIA.AS",
+    "PRX.AS",
+    "RWE.DE",
+    "SGO.PA",
+    "SAN.MC",
+    "SU.PA",
+    "SAF.PA",
+    "SAP.DE",
+    "SIE.DE",
+    "STLA.MI",
+    "TEF.MC",
+    "TOTF.PA",
+    "UCG.MI",
+    "UNA.AS",
+    "URW.PA",
+    "VIV.PA",
+    "VOW3.DE",
 ]
 
 
@@ -107,7 +174,11 @@ def get_russell2000_tickers() -> list[str]:
         df = pd.read_csv(url, skiprows=9, dtype=str)
         tickers = df["Ticker"].dropna().tolist()
         # Filter out non-equity rows
-        tickers = [t for t in tickers if isinstance(t, str) and t.isalpha() and 1 <= len(t) <= 5]
+        tickers = [
+            t
+            for t in tickers
+            if isinstance(t, str) and t.isalpha() and 1 <= len(t) <= 5
+        ]
         logger.info("Russell 2000 from iShares: %d tickers", len(tickers))
         return tickers
     except Exception as exc:
@@ -118,6 +189,7 @@ def get_russell2000_tickers() -> list[str]:
 # ---------------------------------------------------------------------------
 # Liquidity Filter — §14.4
 # ---------------------------------------------------------------------------
+
 
 def liquidity_filter(
     ticker_data: dict[str, Any],
@@ -153,6 +225,7 @@ def liquidity_filter(
 # Priority Score — §14.8
 # ---------------------------------------------------------------------------
 
+
 def priority_score(
     ticker: str,
     news_velocity: float = 0.0,
@@ -170,6 +243,7 @@ def priority_score(
         Priority score (higher = process first).
     """
     import math
+
     base = (
         0.4 * news_velocity
         + 0.3 * abs(last_ta_score)
@@ -194,9 +268,26 @@ def get_top_n_tickers(
 # ---------------------------------------------------------------------------
 
 _SP500_FALLBACK: list[str] = [
-    "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG",
-    "BRK-B", "LLY", "JPM", "XOM", "V", "UNH", "TSLA", "AVGO",
-    "PG", "MA", "COST", "JNJ", "HD",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMZN",
+    "META",
+    "GOOGL",
+    "GOOG",
+    "BRK-B",
+    "LLY",
+    "JPM",
+    "XOM",
+    "V",
+    "UNH",
+    "TSLA",
+    "AVGO",
+    "PG",
+    "MA",
+    "COST",
+    "JNJ",
+    "HD",
 ]
 
 

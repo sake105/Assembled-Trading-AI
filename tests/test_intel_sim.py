@@ -14,7 +14,6 @@ from src.assembled_core.risk.state_machine import (
     VERSION,
 )
 
-
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 
 

@@ -5,6 +5,7 @@ From 51_INCIDENT_PLAYBOOK.md.
 Provides a lightweight, file-backed incident registry so that SEV1/SEV2
 events are recorded and auditable without requiring a running database.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,10 +17,10 @@ from pathlib import Path
 
 
 class Severity(str, Enum):
-    SEV1 = "SEV1"   # money-impacting, immediate action required
-    SEV2 = "SEV2"   # system stopped, 1-hour window
-    SEV3 = "SEV3"   # signal quality degraded, 24-hour window
-    SEV4 = "SEV4"   # cosmetic / monitoring noise, next business day
+    SEV1 = "SEV1"  # money-impacting, immediate action required
+    SEV2 = "SEV2"  # system stopped, 1-hour window
+    SEV3 = "SEV3"  # signal quality degraded, 24-hour window
+    SEV4 = "SEV4"  # cosmetic / monitoring noise, next business day
 
 
 @dataclass
@@ -33,7 +34,7 @@ class IncidentRecord:
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: datetime | None = None
     incident_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    runbook_ref: str = ""      # e.g. "docs/runbooks/01_broker_api_unreachable.md"
+    runbook_ref: str = ""  # e.g. "docs/runbooks/01_broker_api_unreachable.md"
     action_items: list[str] = field(default_factory=list)
     notes: str = ""
 
@@ -124,9 +125,13 @@ class IncidentTracker:
         if not path.exists():
             raise FileNotFoundError(f"Incident {incident_id!r} not found at {path}")
         try:
-            return IncidentRecord.from_dict(json.loads(path.read_text(encoding="utf-8")))
+            return IncidentRecord.from_dict(
+                json.loads(path.read_text(encoding="utf-8"))
+            )
         except json.JSONDecodeError as exc:
-            raise ValueError(f"[IncidentTracker] Corrupt incident file {path}: {exc}") from exc
+            raise ValueError(
+                f"[IncidentTracker] Corrupt incident file {path}: {exc}"
+            ) from exc
 
     def list_open(self) -> list[IncidentRecord]:
         """Return all incidents that are not yet resolved."""
@@ -146,12 +151,14 @@ class IncidentTracker:
             else "OPEN"
         )
         duration = (
-            f"{record.duration_minutes:.0f} min" if record.duration_minutes else "ongoing"
+            f"{record.duration_minutes:.0f} min"
+            if record.duration_minutes
+            else "ongoing"
         )
 
-        action_lines = "\n".join(
-            f"- [ ] {item}" for item in record.action_items
-        ) or "- [ ] TBD"
+        action_lines = (
+            "\n".join(f"- [ ] {item}" for item in record.action_items) or "- [ ] TBD"
+        )
 
         return f"""# Post-Mortem: {record.title}
 
@@ -201,8 +208,15 @@ class IncidentTracker:
         records = []
         for p in self.incidents_dir.glob("????????.json"):
             try:
-                records.append(IncidentRecord.from_dict(json.loads(p.read_text(encoding="utf-8"))))
+                records.append(
+                    IncidentRecord.from_dict(json.loads(p.read_text(encoding="utf-8")))
+                )
             except Exception as exc:  # noqa: BLE001
                 import logging as _logging
-                _logging.getLogger(__name__).warning("[IncidentTracker] Skipping corrupt incident file %s: %s", p.name, exc)
+
+                _logging.getLogger(__name__).warning(
+                    "[IncidentTracker] Skipping corrupt incident file %s: %s",
+                    p.name,
+                    exc,
+                )
         return records

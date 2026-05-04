@@ -11,7 +11,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytest.importorskip('src.assembled_core.ops.dashboard_data')
+pytest.importorskip("src.assembled_core.ops.dashboard_data")
 from src.assembled_core.ops.dashboard_data import (
     DashboardSnapshot,
     build_pnl_curve,
@@ -25,8 +25,10 @@ from src.assembled_core.ops.dashboard_data import (
 @pytest.mark.phase12
 class TestPnLCurve:
     def test_basic(self):
-        equity = pd.Series([100000, 100500, 101000, 100800],
-                           index=pd.date_range("2026-01-01", periods=4))
+        equity = pd.Series(
+            [100000, 100500, 101000, 100800],
+            index=pd.date_range("2026-01-01", periods=4),
+        )
         pnl = build_pnl_curve(equity, initial_capital=100000)
         assert len(pnl) == 4
         assert pnl[str(equity.index[0])] == 0.0

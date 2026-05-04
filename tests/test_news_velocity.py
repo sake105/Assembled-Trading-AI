@@ -39,7 +39,9 @@ class TestVelocityTracker:
     def test_no_surge_with_few_events(self):
         from src.assembled_core.intel.news_velocity import VelocityTracker
 
-        tracker = VelocityTracker(short_window_min=15, long_window_min=60, surge_threshold=2.5)
+        tracker = VelocityTracker(
+            short_window_min=15, long_window_min=60, surge_threshold=2.5
+        )
         events = [_make_event(f"ev{i}", hours_ago=0.1) for i in range(2)]
         result = tracker.update(events)
         assert not result.is_surge
@@ -47,7 +49,9 @@ class TestVelocityTracker:
     def test_surge_detected_on_acceleration(self):
         from src.assembled_core.intel.news_velocity import VelocityTracker
 
-        tracker = VelocityTracker(short_window_min=15, long_window_min=60, surge_threshold=2.0)
+        tracker = VelocityTracker(
+            short_window_min=15, long_window_min=60, surge_threshold=2.0
+        )
 
         # Add sparse background events (in prior window)
         for i in range(2):
@@ -64,7 +68,11 @@ class TestVelocityTracker:
         from src.assembled_core.intel.news_velocity import VelocityTracker
 
         tracker = VelocityTracker()
-        events = [_make_event("ev1", affected_sectors=["energy"], event_types=["war_escalation"])]
+        events = [
+            _make_event(
+                "ev1", affected_sectors=["energy"], event_types=["war_escalation"]
+            )
+        ]
         result = tracker.update(events)
         assert hasattr(result, "velocity")
         assert hasattr(result, "is_surge")
@@ -104,7 +112,9 @@ class TestVelocityTracker:
     def test_surge_sectors_populated_on_surge(self):
         from src.assembled_core.intel.news_velocity import VelocityTracker
 
-        tracker = VelocityTracker(short_window_min=15, long_window_min=60, surge_threshold=1.5)
+        tracker = VelocityTracker(
+            short_window_min=15, long_window_min=60, surge_threshold=1.5
+        )
         # Fill prior window lightly
         tracker.update([_make_event("bg1", hours_ago=0.9)])
 

@@ -34,11 +34,16 @@ class TestTickerVelocityTracker:
     def test_surge_detection(self):
         now = datetime.now(tz=timezone.utc)
         vt = TickerVelocityTracker(
-            short_window_min=15, long_window_min=60,
-            surge_threshold=2.0, min_short_events=2,
+            short_window_min=15,
+            long_window_min=60,
+            surge_threshold=2.0,
+            min_short_events=2,
         )
         # one prior event in long window
-        vt.update([_evt("old", ["AAPL"], now - timedelta(minutes=50))], now=now - timedelta(minutes=50))
+        vt.update(
+            [_evt("old", ["AAPL"], now - timedelta(minutes=50))],
+            now=now - timedelta(minutes=50),
+        )
         # burst of 4 events in short window
         burst = [_evt(f"e{i}", ["AAPL"], now - timedelta(minutes=2)) for i in range(4)]
         signals = vt.update(burst, now=now)
@@ -61,7 +66,10 @@ class TestTickerVelocityTracker:
     def test_buffer_cleanup_removes_stale_tickers(self):
         now = datetime.now(tz=timezone.utc)
         vt = TickerVelocityTracker(short_window_min=5, long_window_min=10)
-        vt.update([_evt("e1", ["TSLA"], now - timedelta(minutes=100))], now=now - timedelta(minutes=100))
+        vt.update(
+            [_evt("e1", ["TSLA"], now - timedelta(minutes=100))],
+            now=now - timedelta(minutes=100),
+        )
         # Advance time far beyond long window
         signals = vt.update([], now=now + timedelta(hours=5))
         assert all(s.ticker != "TSLA" for s in signals)

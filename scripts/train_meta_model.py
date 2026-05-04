@@ -173,11 +173,14 @@ def save_model(model: object, metrics: dict, path: Path) -> None:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    parser = argparse.ArgumentParser(description="Train meta-model for signal filtering")
+    parser = argparse.ArgumentParser(
+        description="Train meta-model for signal filtering"
+    )
     parser.add_argument("--data-dir", type=Path, default=ROOT / "output" / "runs")
     parser.add_argument("--out", type=Path, default=DEFAULT_MODEL_PATH)
-    parser.add_argument("--synthetic", action="store_true",
-                        help="Use synthetic data for smoke testing")
+    parser.add_argument(
+        "--synthetic", action="store_true", help="Use synthetic data for smoke testing"
+    )
     parser.add_argument("--n-samples", type=int, default=2000)
     args = parser.parse_args(argv)
 
@@ -194,8 +197,10 @@ def main(argv: list[str] | None = None) -> int:
 
     model, metrics = train(X, y)
     save_model(model, metrics, args.out)
-    print(f"[OK] Meta-model trained: AUC={metrics['mean_auc']:.3f} "
-          f"({metrics['n_folds_evaluated']} folds, {metrics['n_samples']} samples)")
+    print(
+        f"[OK] Meta-model trained: AUC={metrics['mean_auc']:.3f} "
+        f"({metrics['n_folds_evaluated']} folds, {metrics['n_samples']} samples)"
+    )
     return 0
 
 

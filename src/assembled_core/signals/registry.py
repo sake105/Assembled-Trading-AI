@@ -43,7 +43,9 @@ class SignalRegistry:
                 cls = ep.load()
                 inst: BaseSignal = cls()
                 if inst.name in self._signals:
-                    logger.warning("Duplicate signal name %r from %s — skipped", inst.name, ep.name)
+                    logger.warning(
+                        "Duplicate signal name %r from %s — skipped", inst.name, ep.name
+                    )
                     continue
                 self._signals[inst.name] = inst
                 logger.info("Loaded signal: %s v%s", inst.name, inst.version)

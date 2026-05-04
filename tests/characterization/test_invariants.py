@@ -9,6 +9,7 @@ These tests verify properties that must ALWAYS hold, regardless of input:
   - higher commission → lower or equal final equity
   - longer lookback period → fewer early signals
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,11 +20,14 @@ from tests.characterization.test_golden_equity import _run_minimal_backtest
 
 
 @pytest.mark.characterization
-@pytest.mark.parametrize("tickers,days", [
-    (["AAPL"], 30),
-    (["AAPL", "MSFT"], 60),
-    (["AAPL", "MSFT", "NVDA", "GOOG"], 90),
-])
+@pytest.mark.parametrize(
+    "tickers,days",
+    [
+        (["AAPL"], 30),
+        (["AAPL", "MSFT"], 60),
+        (["AAPL", "MSFT", "NVDA", "GOOG"], 90),
+    ],
+)
 def test_invariant_equity_always_finite(tickers, days):
     """Equity is always finite regardless of ticker count or period."""
     bars = make_ohlcv(tickers, "2024-01-01", f"2024-{1 + days // 30:02d}-28", seed=42)
@@ -38,9 +42,9 @@ def test_invariant_higher_commission_lower_equity():
     bars = make_ohlcv(["AAPL", "MSFT"], "2024-01-01", "2024-06-30", seed=42)
     result_low = _run_minimal_backtest(bars, commission_bps=1.0)
     result_high = _run_minimal_backtest(bars, commission_bps=50.0)
-    assert result_high.iloc[-1]["equity"] <= result_low.iloc[-1]["equity"], (
-        "Higher commission should not increase final equity"
-    )
+    assert (
+        result_high.iloc[-1]["equity"] <= result_low.iloc[-1]["equity"]
+    ), "Higher commission should not increase final equity"
 
 
 @pytest.mark.characterization
@@ -49,7 +53,9 @@ def test_invariant_zero_commission_equals_no_cost():
     bars = make_ohlcv(["AAPL"], "2024-01-01", "2024-03-31", seed=42)
     r1 = _run_minimal_backtest(bars, commission_bps=0.0)
     r2 = _run_minimal_backtest(bars, commission_bps=0.0)
-    np.testing.assert_array_almost_equal(r1["equity"].values, r2["equity"].values, decimal=6)
+    np.testing.assert_array_almost_equal(
+        r1["equity"].values, r2["equity"].values, decimal=6
+    )
 
 
 @pytest.mark.characterization
@@ -76,6 +82,6 @@ def test_invariant_equity_row_count():
     bars = make_ohlcv(["AAPL", "MSFT"], "2024-01-01", "2024-03-31", seed=42)
     n_dates = bars["Date"].nunique()
     result = _run_minimal_backtest(bars)
-    assert len(result) == n_dates, (
-        f"Expected {n_dates} rows (one per date), got {len(result)}"
-    )
+    assert (
+        len(result) == n_dates
+    ), f"Expected {n_dates} rows (one per date), got {len(result)}"

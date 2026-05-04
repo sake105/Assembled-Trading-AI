@@ -80,31 +80,31 @@ TIMELINE: list[tuple[str, float, int, bool, bool]] = [
     # Feb 20-28: Italy outbreak, market collapses, VIX spikes
     ("2020-02-20", 1.9, 4, False, False),
     ("2020-02-21", 2.0, 4, False, False),  # SPY -3.3% in one day
-    ("2020-02-24", 2.2, 5, False, True),   # SPY -3.3%, VIX >30 — TRIGGER ZONE
-    ("2020-02-25", 2.4, 5, False, True),   # SPY -3.0%
-    ("2020-02-26", 2.5, 5, False, True),   # SPY -4.4%
-    ("2020-02-27", 2.6, 5, False, True),   # SPY -4.4%
-    ("2020-02-28", 2.7, 5, False, True),   # SPY worst week since 2008
+    ("2020-02-24", 2.2, 5, False, True),  # SPY -3.3%, VIX >30 — TRIGGER ZONE
+    ("2020-02-25", 2.4, 5, False, True),  # SPY -3.0%
+    ("2020-02-26", 2.5, 5, False, True),  # SPY -4.4%
+    ("2020-02-27", 2.6, 5, False, True),  # SPY -4.4%
+    ("2020-02-28", 2.7, 5, False, True),  # SPY worst week since 2008
     # March 2020: Full crisis mode, VIX peaks at 85 on March 16-18
     ("2020-03-02", 2.8, 6, False, True),
     ("2020-03-03", 2.8, 6, False, True),
     ("2020-03-04", 2.7, 6, False, True),
     ("2020-03-05", 2.7, 6, False, True),
     ("2020-03-06", 2.8, 6, False, True),
-    ("2020-03-09", 2.9, 7, False, True),   # Oil war added, circuit breaker
+    ("2020-03-09", 2.9, 7, False, True),  # Oil war added, circuit breaker
     ("2020-03-10", 2.9, 7, False, True),
-    ("2020-03-11", 3.0, 7, False, True),   # WHO declares pandemic
-    ("2020-03-12", 3.0, 7, False, True),   # Circuit breaker again
+    ("2020-03-11", 3.0, 7, False, True),  # WHO declares pandemic
+    ("2020-03-12", 3.0, 7, False, True),  # Circuit breaker again
     ("2020-03-13", 3.0, 7, False, True),
-    ("2020-03-16", 3.0, 7, False, True),   # VIX peak ~85
+    ("2020-03-16", 3.0, 7, False, True),  # VIX peak ~85
     ("2020-03-17", 3.0, 7, False, True),
-    ("2020-03-18", 2.9, 7, False, True),   # SPY bottom zone
+    ("2020-03-18", 2.9, 7, False, True),  # SPY bottom zone
     ("2020-03-19", 2.8, 7, False, True),
     ("2020-03-20", 2.7, 6, False, True),
-    ("2020-03-23", 2.6, 6, False, True),   # Actual SPY low (Mar 23)
+    ("2020-03-23", 2.6, 6, False, True),  # Actual SPY low (Mar 23)
     ("2020-03-24", 2.4, 6, False, True),
     ("2020-03-25", 2.2, 5, False, True),
-    ("2020-03-26", 2.0, 5, False, True),   # CARES Act passed
+    ("2020-03-26", 2.0, 5, False, True),  # CARES Act passed
     ("2020-03-27", 1.8, 5, False, True),
     # April 2020: Recovery begins, scores declining
     ("2020-03-30", 1.6, 4, False, True),
@@ -133,51 +133,275 @@ TIMELINE: list[tuple[str, float, int, bool, bool]] = [
 
 DAILY_RETURNS: dict[str, dict[str, float]] = {
     # Feb 20-28 — crash begins
-    "2020-02-20": {"SPY": -0.033, "GLD": +0.012, "TLT": +0.013, "SHY": +0.001, "SH": +0.033, "VIXY": +0.08},
-    "2020-02-21": {"SPY": -0.012, "GLD": +0.005, "TLT": +0.007, "SHY": +0.001, "SH": +0.012, "VIXY": +0.04},
-    "2020-02-24": {"SPY": -0.034, "GLD": +0.017, "TLT": +0.019, "SHY": +0.001, "SH": +0.034, "VIXY": +0.12},
-    "2020-02-25": {"SPY": -0.030, "GLD": +0.010, "TLT": +0.012, "SHY": +0.001, "SH": +0.030, "VIXY": +0.10},
-    "2020-02-26": {"SPY": -0.043, "GLD": -0.003, "TLT": +0.020, "SHY": +0.002, "SH": +0.043, "VIXY": +0.15},
-    "2020-02-27": {"SPY": -0.044, "GLD": +0.001, "TLT": +0.021, "SHY": +0.002, "SH": +0.044, "VIXY": +0.18},
-    "2020-02-28": {"SPY": -0.011, "GLD": -0.038, "TLT": +0.015, "SHY": +0.001, "SH": +0.011, "VIXY": +0.05},
+    "2020-02-20": {
+        "SPY": -0.033,
+        "GLD": +0.012,
+        "TLT": +0.013,
+        "SHY": +0.001,
+        "SH": +0.033,
+        "VIXY": +0.08,
+    },
+    "2020-02-21": {
+        "SPY": -0.012,
+        "GLD": +0.005,
+        "TLT": +0.007,
+        "SHY": +0.001,
+        "SH": +0.012,
+        "VIXY": +0.04,
+    },
+    "2020-02-24": {
+        "SPY": -0.034,
+        "GLD": +0.017,
+        "TLT": +0.019,
+        "SHY": +0.001,
+        "SH": +0.034,
+        "VIXY": +0.12,
+    },
+    "2020-02-25": {
+        "SPY": -0.030,
+        "GLD": +0.010,
+        "TLT": +0.012,
+        "SHY": +0.001,
+        "SH": +0.030,
+        "VIXY": +0.10,
+    },
+    "2020-02-26": {
+        "SPY": -0.043,
+        "GLD": -0.003,
+        "TLT": +0.020,
+        "SHY": +0.002,
+        "SH": +0.043,
+        "VIXY": +0.15,
+    },
+    "2020-02-27": {
+        "SPY": -0.044,
+        "GLD": +0.001,
+        "TLT": +0.021,
+        "SHY": +0.002,
+        "SH": +0.044,
+        "VIXY": +0.18,
+    },
+    "2020-02-28": {
+        "SPY": -0.011,
+        "GLD": -0.038,
+        "TLT": +0.015,
+        "SHY": +0.001,
+        "SH": +0.011,
+        "VIXY": +0.05,
+    },
     # March week 1
-    "2020-03-02": {"SPY": +0.046, "GLD": +0.012, "TLT": +0.011, "SHY": +0.001, "SH": -0.046, "VIXY": -0.10},
-    "2020-03-03": {"SPY": -0.029, "GLD": +0.025, "TLT": +0.035, "SHY": +0.003, "SH": +0.029, "VIXY": +0.08},
-    "2020-03-04": {"SPY": +0.043, "GLD": -0.001, "TLT": -0.005, "SHY": +0.001, "SH": -0.043, "VIXY": -0.09},
-    "2020-03-05": {"SPY": -0.018, "GLD": +0.008, "TLT": +0.016, "SHY": +0.002, "SH": +0.018, "VIXY": +0.06},
-    "2020-03-06": {"SPY": -0.017, "GLD": +0.010, "TLT": +0.025, "SHY": +0.002, "SH": +0.017, "VIXY": +0.07},
+    "2020-03-02": {
+        "SPY": +0.046,
+        "GLD": +0.012,
+        "TLT": +0.011,
+        "SHY": +0.001,
+        "SH": -0.046,
+        "VIXY": -0.10,
+    },
+    "2020-03-03": {
+        "SPY": -0.029,
+        "GLD": +0.025,
+        "TLT": +0.035,
+        "SHY": +0.003,
+        "SH": +0.029,
+        "VIXY": +0.08,
+    },
+    "2020-03-04": {
+        "SPY": +0.043,
+        "GLD": -0.001,
+        "TLT": -0.005,
+        "SHY": +0.001,
+        "SH": -0.043,
+        "VIXY": -0.09,
+    },
+    "2020-03-05": {
+        "SPY": -0.018,
+        "GLD": +0.008,
+        "TLT": +0.016,
+        "SHY": +0.002,
+        "SH": +0.018,
+        "VIXY": +0.06,
+    },
+    "2020-03-06": {
+        "SPY": -0.017,
+        "GLD": +0.010,
+        "TLT": +0.025,
+        "SHY": +0.002,
+        "SH": +0.017,
+        "VIXY": +0.07,
+    },
     # March week 2 — oil war + pandemic fears peak
-    "2020-03-09": {"SPY": -0.076, "GLD": -0.003, "TLT": +0.033, "SHY": +0.003, "SH": +0.076, "VIXY": +0.28},
-    "2020-03-10": {"SPY": +0.049, "GLD": +0.015, "TLT": -0.010, "SHY": +0.001, "SH": -0.049, "VIXY": -0.12},
-    "2020-03-11": {"SPY": -0.047, "GLD": -0.020, "TLT": +0.014, "SHY": +0.002, "SH": +0.047, "VIXY": +0.15},
-    "2020-03-12": {"SPY": -0.097, "GLD": -0.029, "TLT": -0.006, "SHY": +0.001, "SH": +0.097, "VIXY": +0.35},
-    "2020-03-13": {"SPY": +0.093, "GLD": +0.004, "TLT": +0.012, "SHY": +0.001, "SH": -0.093, "VIXY": -0.12},
+    "2020-03-09": {
+        "SPY": -0.076,
+        "GLD": -0.003,
+        "TLT": +0.033,
+        "SHY": +0.003,
+        "SH": +0.076,
+        "VIXY": +0.28,
+    },
+    "2020-03-10": {
+        "SPY": +0.049,
+        "GLD": +0.015,
+        "TLT": -0.010,
+        "SHY": +0.001,
+        "SH": -0.049,
+        "VIXY": -0.12,
+    },
+    "2020-03-11": {
+        "SPY": -0.047,
+        "GLD": -0.020,
+        "TLT": +0.014,
+        "SHY": +0.002,
+        "SH": +0.047,
+        "VIXY": +0.15,
+    },
+    "2020-03-12": {
+        "SPY": -0.097,
+        "GLD": -0.029,
+        "TLT": -0.006,
+        "SHY": +0.001,
+        "SH": +0.097,
+        "VIXY": +0.35,
+    },
+    "2020-03-13": {
+        "SPY": +0.093,
+        "GLD": +0.004,
+        "TLT": +0.012,
+        "SHY": +0.001,
+        "SH": -0.093,
+        "VIXY": -0.12,
+    },
     # March week 3 — VIX peak ~85
-    "2020-03-16": {"SPY": -0.120, "GLD": -0.004, "TLT": +0.006, "SHY": +0.002, "SH": +0.120, "VIXY": +0.40},
-    "2020-03-17": {"SPY": -0.050, "GLD": -0.031, "TLT": +0.003, "SHY": +0.001, "SH": +0.050, "VIXY": +0.10},
-    "2020-03-18": {"SPY": -0.051, "GLD": +0.005, "TLT": +0.004, "SHY": +0.002, "SH": +0.051, "VIXY": +0.08},
-    "2020-03-19": {"SPY": -0.004, "GLD": +0.020, "TLT": +0.008, "SHY": +0.001, "SH": +0.004, "VIXY": -0.05},
-    "2020-03-20": {"SPY": -0.045, "GLD": +0.001, "TLT": -0.002, "SHY": +0.001, "SH": +0.045, "VIXY": +0.03},
+    "2020-03-16": {
+        "SPY": -0.120,
+        "GLD": -0.004,
+        "TLT": +0.006,
+        "SHY": +0.002,
+        "SH": +0.120,
+        "VIXY": +0.40,
+    },
+    "2020-03-17": {
+        "SPY": -0.050,
+        "GLD": -0.031,
+        "TLT": +0.003,
+        "SHY": +0.001,
+        "SH": +0.050,
+        "VIXY": +0.10,
+    },
+    "2020-03-18": {
+        "SPY": -0.051,
+        "GLD": +0.005,
+        "TLT": +0.004,
+        "SHY": +0.002,
+        "SH": +0.051,
+        "VIXY": +0.08,
+    },
+    "2020-03-19": {
+        "SPY": -0.004,
+        "GLD": +0.020,
+        "TLT": +0.008,
+        "SHY": +0.001,
+        "SH": +0.004,
+        "VIXY": -0.05,
+    },
+    "2020-03-20": {
+        "SPY": -0.045,
+        "GLD": +0.001,
+        "TLT": -0.002,
+        "SHY": +0.001,
+        "SH": +0.045,
+        "VIXY": +0.03,
+    },
     # March week 4 — actual SPY low, CARES Act
-    "2020-03-23": {"SPY": -0.030, "GLD": +0.014, "TLT": +0.001, "SHY": +0.001, "SH": +0.030, "VIXY": -0.02},
-    "2020-03-24": {"SPY": +0.093, "GLD": -0.005, "TLT": -0.015, "SHY": +0.001, "SH": -0.093, "VIXY": -0.20},
-    "2020-03-25": {"SPY": -0.034, "GLD": +0.005, "TLT": +0.010, "SHY": +0.001, "SH": +0.034, "VIXY": -0.05},
-    "2020-03-26": {"SPY": +0.063, "GLD": +0.003, "TLT": +0.004, "SHY": +0.001, "SH": -0.063, "VIXY": -0.15},
-    "2020-03-27": {"SPY": -0.037, "GLD": +0.011, "TLT": +0.011, "SHY": +0.001, "SH": +0.037, "VIXY": -0.03},
+    "2020-03-23": {
+        "SPY": -0.030,
+        "GLD": +0.014,
+        "TLT": +0.001,
+        "SHY": +0.001,
+        "SH": +0.030,
+        "VIXY": -0.02,
+    },
+    "2020-03-24": {
+        "SPY": +0.093,
+        "GLD": -0.005,
+        "TLT": -0.015,
+        "SHY": +0.001,
+        "SH": -0.093,
+        "VIXY": -0.20,
+    },
+    "2020-03-25": {
+        "SPY": -0.034,
+        "GLD": +0.005,
+        "TLT": +0.010,
+        "SHY": +0.001,
+        "SH": +0.034,
+        "VIXY": -0.05,
+    },
+    "2020-03-26": {
+        "SPY": +0.063,
+        "GLD": +0.003,
+        "TLT": +0.004,
+        "SHY": +0.001,
+        "SH": -0.063,
+        "VIXY": -0.15,
+    },
+    "2020-03-27": {
+        "SPY": -0.037,
+        "GLD": +0.011,
+        "TLT": +0.011,
+        "SHY": +0.001,
+        "SH": +0.037,
+        "VIXY": -0.03,
+    },
     # April — recovery, declining VIXY
-    "2020-03-30": {"SPY": +0.031, "GLD": +0.004, "TLT": +0.003, "SHY": +0.001, "SH": -0.031, "VIXY": -0.08},
-    "2020-03-31": {"SPY": -0.016, "GLD": +0.001, "TLT": +0.001, "SHY": +0.001, "SH": +0.016, "VIXY": -0.02},
-    "2020-04-01": {"SPY": -0.044, "GLD": +0.007, "TLT": +0.008, "SHY": +0.001, "SH": +0.044, "VIXY": +0.03},
-    "2020-04-02": {"SPY": +0.025, "GLD": -0.003, "TLT": -0.001, "SHY": +0.001, "SH": -0.025, "VIXY": -0.05},
-    "2020-04-03": {"SPY": -0.016, "GLD": +0.004, "TLT": +0.005, "SHY": +0.001, "SH": +0.016, "VIXY": -0.03},
+    "2020-03-30": {
+        "SPY": +0.031,
+        "GLD": +0.004,
+        "TLT": +0.003,
+        "SHY": +0.001,
+        "SH": -0.031,
+        "VIXY": -0.08,
+    },
+    "2020-03-31": {
+        "SPY": -0.016,
+        "GLD": +0.001,
+        "TLT": +0.001,
+        "SHY": +0.001,
+        "SH": +0.016,
+        "VIXY": -0.02,
+    },
+    "2020-04-01": {
+        "SPY": -0.044,
+        "GLD": +0.007,
+        "TLT": +0.008,
+        "SHY": +0.001,
+        "SH": +0.044,
+        "VIXY": +0.03,
+    },
+    "2020-04-02": {
+        "SPY": +0.025,
+        "GLD": -0.003,
+        "TLT": -0.001,
+        "SHY": +0.001,
+        "SH": -0.025,
+        "VIXY": -0.05,
+    },
+    "2020-04-03": {
+        "SPY": -0.016,
+        "GLD": +0.004,
+        "TLT": +0.005,
+        "SHY": +0.001,
+        "SH": +0.016,
+        "VIXY": -0.03,
+    },
 }
 
 # Portfolio weights when ACTIVE (max_weight per basket definition)
 BASKET_WEIGHTS: dict[str, float] = {
-    "GLD":  0.20,
-    "TLT":  0.20,
-    "SHY":  0.15,
-    "SH":   0.10,
+    "GLD": 0.20,
+    "TLT": 0.20,
+    "SHY": 0.15,
+    "SH": 0.10,
     "VIXY": 0.05,
     # Remaining 30% stays in cash (no return)
 }
@@ -205,7 +429,9 @@ def run_simulation() -> None:
     transitions: list[tuple[str, str, str, str]] = []  # date, from, to, reason
     active_dates: list[str] = []
 
-    print(f"{'Date':<12} {'State':<12} {'geo_score':>9} {'sources':>7} {'mkt_stress':>10} {'Note'}")
+    print(
+        f"{'Date':<12} {'State':<12} {'geo_score':>9} {'sources':>7} {'mkt_stress':>10} {'Note'}"
+    )
     print("-" * 70)
 
     for date_str, geo_score, geo_sources, social_only, market_stress_ok in TIMELINE:
@@ -225,7 +451,9 @@ def run_simulation() -> None:
         new_state = compute_next_crisis_state(ctx, policy, now_utc, prev_state)
 
         if new_state.state != prev_state.state:
-            transitions.append((date_str, prev_state.state, new_state.state, new_state.reason))
+            transitions.append(
+                (date_str, prev_state.state, new_state.state, new_state.reason)
+            )
             note = f"*** {prev_state.state} -> {new_state.state} ***"
         else:
             note = ""
@@ -257,8 +485,8 @@ def run_simulation() -> None:
     print("BASKET P&L SIMULATION (ACTIVE days only)")
     print("=" * 70)
 
-    _basket_equity = 1.0   # normalized to 1.0 at start (unused tracker)
-    _spy_equity = 1.0       # SPY benchmark, tracks all dates (unused tracker)
+    _basket_equity = 1.0  # normalized to 1.0 at start (unused tracker)
+    _spy_equity = 1.0  # SPY benchmark, tracks all dates (unused tracker)
     basket_active_equity = 1.0
     spy_active_equity = 1.0
     active_trading_days = 0
@@ -270,7 +498,9 @@ def run_simulation() -> None:
 
     all_dates_in_returns = sorted(DAILY_RETURNS.keys())
 
-    print(f"  {'Date':<12} {'State':<10} {'Basket':>8} {'SPY':>8} {'Basket Cum':>12} {'SPY Cum':>10}")
+    print(
+        f"  {'Date':<12} {'State':<10} {'Basket':>8} {'SPY':>8} {'Basket Cum':>12} {'SPY Cum':>10}"
+    )
     print(f"  {'-'*12} {'-'*10} {'-'*8} {'-'*8} {'-'*12} {'-'*10}")
 
     for date_str in all_dates_in_returns:
@@ -284,7 +514,7 @@ def run_simulation() -> None:
                 current_state = to_s
 
         if date_str >= first_signal_date:
-            spy_full_from_feb20 *= (1 + spy_r)
+            spy_full_from_feb20 *= 1 + spy_r
 
         if current_state == "ACTIVE":
             # Compute weighted basket return
@@ -292,8 +522,8 @@ def run_simulation() -> None:
                 BASKET_WEIGHTS.get(sym, 0.0) * rets.get(sym, 0.0)
                 for sym in BASKET_WEIGHTS
             )
-            basket_active_equity *= (1 + basket_r)
-            spy_active_equity *= (1 + spy_r)
+            basket_active_equity *= 1 + basket_r
+            spy_active_equity *= 1 + spy_r
             active_trading_days += 1
 
             print(
@@ -315,9 +545,7 @@ def run_simulation() -> None:
     print("=" * 70)
     print()
 
-    first_transition = next(
-        (t for t in transitions if t[2] == "ACTIVE"), None
-    )
+    first_transition = next((t for t in transitions if t[2] == "ACTIVE"), None)
     if first_transition:
         print(f"  TRIGGERED: YES — first WATCH->ACTIVE on {first_transition[0]}")
     else:
@@ -336,7 +564,9 @@ def run_simulation() -> None:
 
         if basket_pnl > 0:
             alpha = basket_pnl - spy_pnl_active_window
-            print(f"  RESULT: POSITIVE P&L (+{basket_pnl:.2%}) vs SPY ({spy_pnl_active_window:+.2%})")
+            print(
+                f"  RESULT: POSITIVE P&L (+{basket_pnl:.2%}) vs SPY ({spy_pnl_active_window:+.2%})"
+            )
             print(f"          Alpha vs SPY: {alpha:+.2%}")
             print()
             print("  CONCLUSION: Crisis-Alpha would have TRIGGERED and generated")
@@ -353,7 +583,9 @@ def run_simulation() -> None:
     print("  - All data synthetic but calibrated to known COVID-19 price history.")
     print("  - Real validation requires actual GLD/TLT/SH/VIXY/SPY daily prices.")
     print("  - VIXY returns are volatile; small sizing (5%) limits impact.")
-    print("  - The trigger date depends on when geo_score reaches 2.0 + market_stress_ok.")
+    print(
+        "  - The trigger date depends on when geo_score reaches 2.0 + market_stress_ok."
+    )
     print("    In this simulation: Feb 24, 2020 (Italy outbreak + VIX > 30 day).")
     print()
 
