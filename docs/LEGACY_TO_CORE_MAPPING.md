@@ -1,6 +1,6 @@
 # Legacy to Core Mapping - Assembled Trading AI
 
-**Letzte Aktualisierung:** 2026-05-05
+**Letzte Aktualisierung:** 2026-05-05 (ECB FX + CoinGecko OHLC implementiert)
 
 ## Ziel
 
@@ -28,8 +28,8 @@ Dieses Dokument mappt Legacy-Flows (alte PowerShell-Jobs, Skripte, etc.) auf die
 | **Parameter-Sweep** | Legacy Parameter-Sweep | `scripts/batch_runner.py --max-workers N` | ✅ **Fertig** | ProcessPoolExecutor, YAML-Config, Manifest-Tracking |
 | **Cost-Grid** | Legacy Cost-Grid | `scripts/batch_runner.py` mit `cost_model`-Parameter | ✅ **Fertig** | Cost-Varianten via YAML-Batch-Config sweepbar |
 | **Rehydrate** | Legacy Rehydrate (Feature-Reload) | `src/assembled_core/data/factor_store.py` — `load_factors()` | ✅ **Fertig** | Append-Mode + Partition-basiertes Laden |
-| **CoinGecko OHLC-Pull** | Legacy CoinGecko OHLC-Pull | — | ❓ **Nicht migriert** | Crypto-Scope außerhalb aktuellem Fokus |
-| **ECB FX-Pull** | Legacy ECB FX-Pull | `src/assembled_core/data/sources/stooq_source.py` (FX via Stooq) | ⚠️ **Teilweise** | Stooq-Source vorhanden; dedizierter ECB-XML-Client nicht implementiert |
+| **CoinGecko OHLC-Pull** | Legacy CoinGecko OHLC-Pull | `src/assembled_core/data/crypto.py` — `fetch_coingecko_ohlc()` | ✅ **Fertig** | Free-Tier Public API; kein Key nötig; rate-limited; OHLC + market_chart + coin list (2026-05-05) |
+| **ECB FX-Pull** | Legacy ECB FX-Pull | `src/assembled_core/data/fx.py` — `fetch_ecb_fx_rates()` | ✅ **Fertig** | ECB SDMX-CSV API; kein Key nötig; long + wide format; 22 EUR-Paare (2026-05-05) |
 | **Congress-Daten** | Congress-Member-Trades als Feature | `src/assembled_core/features/congress_features.py` | ✅ **Fertig** | Quiver Quant API-kompatibel (2026-04-29) |
 | **Insider-Daten** | Insider-Trades als Feature | `src/assembled_core/data/altdata/` + `output/insider_trading.parquet` | ✅ **Fertig** | Via yfinance/Finnhub; Datenqualität: alle `transaction_type='unknown'` |
 | **News-Feeds** | News-Sentiment + Trigger-Signale | `src/assembled_core/intel/` (rss_fetcher, news_sentiment_drift, finbert_sentiment) | ✅ **Fertig** | FinBERT-Wrapper mit VADER/Keyword-Fallback (2026-05-05) |
@@ -67,8 +67,8 @@ Dieses Dokument mappt Legacy-Flows (alte PowerShell-Jobs, Skripte, etc.) auf die
 - ✅ Insider-Daten → `src/assembled_core/data/altdata/`
 - ✅ Shipping-Daten → `src/assembled_core/features/shipping_features.py`
 - ✅ News-Feeds → `src/assembled_core/intel/`
-- ⚠️ ECB FX → Stooq-Source vorhanden; dedizierter ECB-Client offen
-- ❓ CoinGecko OHLC → außerhalb Scope (Crypto)
+- ✅ ECB FX → `src/assembled_core/data/fx.py` — `fetch_ecb_fx_rates()` + `fetch_ecb_fx_wide()` (2026-05-05)
+- ✅ CoinGecko OHLC → `src/assembled_core/data/crypto.py` — `fetch_coingecko_ohlc()` + market_chart (2026-05-05)
 
 ## Legacy → Core Ersetzungs-Strategie
 
