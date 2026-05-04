@@ -80,3 +80,13 @@ datensammlungen/**/*.parquet
 *profile_out*.txt
 *.prof
 F:*
+
+# Coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+
+# Local planning docs
+autonome_weiterarbeit/
+
+autonomous/
