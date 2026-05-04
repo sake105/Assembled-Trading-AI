@@ -69,11 +69,11 @@ from src.assembled_core.pipeline._tc_sizing import (  # noqa: F401
 from src.assembled_core.pipeline._tc_risk import check_risk
 from src.assembled_core.pipeline._tc_execution import book_fills, route_orders
 from src.assembled_core.execution.transaction_costs import (
-    add_cost_columns_to_trades,
-)  # A8 wiring — re-export for tests  # noqa: F401
+    add_cost_columns_to_trades,  # noqa: F401
+)  # A8 wiring — re-export for tests
 from src.assembled_core.risk.georisk_overlay import (
-    compute_exposure_multiplier,
-)  # re-export for tests  # noqa: F401
+    compute_exposure_multiplier,  # noqa: F401
+)  # re-export for tests
 
 if TYPE_CHECKING:
     pass

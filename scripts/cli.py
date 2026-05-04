@@ -59,9 +59,9 @@ _COMMAND_MODULES = [
 from scripts.commands.info import print_version
 from scripts.commands.ml import _run_backtest_for_ml_dataset  # noqa: F401
 from scripts.commands.paper import (
-    run_paper_experiment_subcommand,
-    summarize_intel_activity_subcommand,
-)  # noqa: F401
+    run_paper_experiment_subcommand,  # noqa: F401
+    summarize_intel_activity_subcommand,  # noqa: F401
+)
 from scripts.commands.backtest import batch_backtest_subcommand  # noqa: F401
 
 

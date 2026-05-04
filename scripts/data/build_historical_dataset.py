@@ -73,9 +73,9 @@ def load_sp500_historical_members(
         for row in changes.itertuples(index=False):
             try:
                 date_raw = row[0]
-                added_sym = (
+                added_sym = (  # noqa: F841
                     str(row[1]).replace(".", "-") if pd.notna(row[1]) else None
-                )  # noqa: F841
+                )
                 removed_sym = (
                     str(row[2]).replace(".", "-") if pd.notna(row[2]) else None
                 )

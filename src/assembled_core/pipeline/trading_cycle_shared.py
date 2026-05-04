@@ -19,8 +19,8 @@ import pandas as pd
 
 # Import existing modules (no duplication)
 from src.assembled_core.config import (
-    get_base_dir,
-)  # re-export for test monkeypatching  # noqa: F401
+    get_base_dir,  # noqa: F401
+)  # re-export for test monkeypatching
 from src.assembled_core.config.models import (
     FeatureConfig,
     ensure_feature_config,
