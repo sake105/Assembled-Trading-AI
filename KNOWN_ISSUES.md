@@ -1,6 +1,6 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-05-03
+**Letzte Aktualisierung:** 2026-05-05
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 
@@ -71,9 +71,9 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ### 1.6 Live-Trading-Mode
 
-- [ ] **[enhancement]** Live-Trading-Mode (Environment.LIVE)  
-  **Datei:** `src/assembled_core/config/settings.py` (Zeile ~28)  
-  **Beschreibung:** Live-Trading-Mode ist als Kommentar markiert ("Future: Live trading mode (not yet implemented)").
+- [x] **[DONE 2026-05-05]** `Environment.LIVE` Enum-Wert hinzugefügt  
+  **Datei:** `src/assembled_core/config/settings.py`  
+  **Beschreibung:** `LIVE = "LIVE"` jetzt aktives Enum-Mitglied (war auskommentiert). Aktivierbar via `ASSEMBLED_ENVIRONMENT=LIVE`. Broker-Integration + Kill-Switch-Konfiguration für Produktion noch erforderlich — Enum ist Voraussetzung dafür.
 
 ---
 
@@ -85,9 +85,8 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
   **Dateien:** `docs/LEGACY_OVERVIEW.md`, `docs/LEGACY_TO_CORE_MAPPING.md`  
   **Beschreibung:** Viele Legacy-Skripte (z.B. `sprint9_dashboard.ps1`, `sprint9_cost_grid.ps1`, `sprint10_param_sweep.ps1`) sind noch vorhanden, aber nicht in die neue Core-Architektur migriert. Status: "TODO: Phase 5/6".
 
-- [ ] **[tech-debt]** Intraday-Resampling in Core-Architektur integrieren  
-  **Datei:** `docs/LEGACY_TO_CORE_MAPPING.md` (Zeile ~23)  
-  **Beschreibung:** Resampling 1m → 5m ist in Legacy-Skripten vorhanden (`scripts/50_resample_intraday.ps1`), aber noch nicht als Core-Modul (`src/assembled_core/data/resample.py`) implementiert.
+- [x] **[DONE 2026-05-05]** Intraday-Resampling als Core-Modul implementiert  
+  **Datei:** `src/assembled_core/data/resample.py` — Multi-Timeframe-Resampling (1m → 5m/15m/1h/1d) vollständig implementiert.
 
 ### 2.2 Meta-Model-Training
 
@@ -134,13 +133,13 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ### 4.1 Erweiterte Strategien
 
-- [ ] **[enhancement]** Mean-Reversion-Strategien  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.1)  
-  **Beschreibung:** RSI-basierte Mean-Reversion, Bollinger-Band-Mean-Reversion, Pairs-Trading.
+- [x] **[DONE 2026-05-04]** Mean-Reversion / Pairs-Trading  
+  **Datei:** `scripts/backtest_pairs_trading.py`, `src/assembled_core/strategies/pairs_trading.py`  
+  **Ergebnis:** Pairs A/B ACTIVATION GO — Sharpe 1.023, MDD -0.22%, 54 Trades, entry_z=1.8.
 
-- [ ] **[enhancement]** Breakout-Strategien  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.1)  
-  **Beschreibung:** Bollinger-Band-Breakouts, Support/Resistance-Breakouts.
+- [x] **[DONE 2026-05-05]** Breakout-Strategie implementiert  
+  **Datei:** `src/assembled_core/signals/breakout_signal.py`  
+  **Beschreibung:** Donchian-Channel-Breakout mit ATR-Filter, Confirmation-Window und Cross-sectional-Z-Score. Funktionen: `compute_breakout_signal()` (single-symbol) + `compute_breakout_signals_panel()` (Panel).
 
 - [ ] **[enhancement]** Multi-Timeframe-Trend  
   **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.1)  
@@ -148,17 +147,17 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ### 4.2 Erweiterte Alt-Daten
 
-- [ ] **[enhancement]** Congress-Trading-Daten  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.2)  
-  **Beschreibung:** Congress-Member-Trades als Feature integrieren.
+- [x] **[DONE 2026-04-29]** Congress-Trading-Daten als Feature integriert  
+  **Datei:** `src/assembled_core/features/congress_features.py`  
+  **Beschreibung:** Congress-Member-Trades als Alpha-Feature implementiert (QUIVERS QUANT API-kompatibel).
 
-- [ ] **[enhancement]** News-Sentiment-Scoring  
+- [ ] **[enhancement]** News-Sentiment-Scoring (FinBERT)  
   **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.2)  
-  **Beschreibung:** FinBERT oder ähnliches für News-Sentiment verwenden.
+  **Beschreibung:** FinBERT oder ähnliches für News-Sentiment — erfordert Modell-Download oder API. Aktuell: rule-based News-Sentiment via `src/assembled_core/intel/news_sentiment_drift.py`.
 
-- [ ] **[enhancement]** Makro-Daten  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.2)  
-  **Beschreibung:** Economic-Indicators (CPI, Unemployment), Fed-Announcements.
+- [x] **[DONE 2026-05-04]** Makro-Daten integriert  
+  **Datei:** `src/assembled_core/features/macro_features.py`, `scripts/training/train_meta_model_v6.py`  
+  **Beschreibung:** VIX, Yield-Curve (2Y/10Y-Spread), Recession-Probability als Features. In ML-Meta-Modell v6 genutzt.
 
 ### 4.3 ML-Experimente
 
@@ -321,17 +320,17 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
 
 #### Offene Verbesserungen
 
-- [ ] **[enhancement]** Feature-Selection-Pipeline  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.3)  
-  **Beschreibung:** Automatische Feature-Selection für Meta-Modelle (Univariate, RFE, L1-Regularization).
+- [x] **[DONE 2026-05-05]** Feature-Selection-Pipeline implementiert  
+  **Datei:** `src/assembled_core/ml/feature_selection.py` (aus Archive wiederhergestellt)  
+  **Beschreibung:** IC-Prescreen + Collinearity-Filter + Stability-Filter + Mutual-Information-Ranking + Conditional-MI. Wiederhergestellt aus `archive/observability_graveyard_2026q2/ml/`.
 
-- [ ] **[enhancement]** SHAP-Explainability  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.3)  
-  **Beschreibung:** SHAP-Values für Meta-Modelle berechnen und visualisieren.
+- [x] **[DONE 2026-04-29]** SHAP-Explainability implementiert  
+  **Datei:** `src/assembled_core/ops/shap_explainer.py`  
+  **Beschreibung:** SHAP-Values für LightGBM-Meta-Modelle, Feature-Importance-Plots.
 
-- [ ] **[enhancement]** Walk-Forward-Analyse-Tool  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.4)  
-  **Beschreibung:** Walk-Forward-Analyse-Tool für robuste Validierung.
+- [x] **[DONE 2026-04-29]** Walk-Forward-Analyse-Tool implementiert  
+  **Datei:** `src/assembled_core/qa/walk_forward_optuna.py`, `scripts/training/walk_forward_hpo.py`  
+  **Beschreibung:** Purged Walk-Forward mit Optuna HPO, expandierendem Trainingsfenster.
 
 ### 4.4 Visualisierung
 
@@ -339,9 +338,9 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
   **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.4)  
   **Beschreibung:** Strategy-Comparison-Reports, Regime-Analysis-Reports, Feature-Importance-Reports.
 
-- [ ] **[enhancement]** Bessere Visualisierung  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.4)  
-  **Beschreibung:** Equity-Curve-Plots mit Drawdowns, Trade-Distribution-Plots, Feature-Correlation-Matrix.
+- [x] **[DONE 2026-05-05]** Equity-Curve mit Drawdown-Plot implementiert  
+  **Datei:** `scripts/plot_equity_drawdown.py`  
+  **Beschreibung:** Zwei-Panel-Plot: oben normierte Equity-Kurve, unten rollender Drawdown in %. Unterstützt JSON/Parquet/CSV, mehrere Curves vergleichbar (`--labels`), PNG-Export (`--out`).
 
 ---
 

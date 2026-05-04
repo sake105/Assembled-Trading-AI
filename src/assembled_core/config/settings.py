@@ -29,7 +29,9 @@ class Environment(str, Enum):
     BACKTEST = "BACKTEST"  # Offline backtesting mode
     PAPER = "PAPER"  # Paper trading mode (simulated execution)
     DEV = "DEV"  # Development mode
-    # LIVE = "LIVE"  # Future: Live trading mode (not yet implemented)
+    LIVE = (
+        "LIVE"  # Live trading mode (requires broker integration + kill-switch active)
+    )
 
 
 class RuntimeProfile(str, Enum):
@@ -62,7 +64,8 @@ class Settings(BaseSettings):
 
     # Environment mode
     environment: Environment = Field(
-        default=Environment.DEV, description="Environment mode: BACKTEST, PAPER, or DEV"
+        default=Environment.DEV,
+        description="Environment mode: BACKTEST, PAPER, DEV, or LIVE",
     )
 
     # Base directory (auto-detected from file location)
