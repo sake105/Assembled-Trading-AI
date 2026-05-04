@@ -178,13 +178,24 @@ def _prd_make_strategy_fns(
         target_invested_pct = float(strategy_cfg.get("target_invested_pct") or 0.80)
         equal_weight = bool(strategy_cfg.get("equal_weight", False))
 
+        # Shared exit state: signal fn writes, sizing fn reads so that exits
+        # force zero-weight targets even when signals are empty (e.g. bear regime).
+        _exit_state: dict = {"full": set(), "partial": {}, "prices": {}}  # sym → price
+
         def _mf_signal_fn(df: pd.DataFrame) -> pd.DataFrame:
+            _exit_state["full"] = set()
+            _exit_state["partial"] = {}
+            _exit_state["prices"] = {}
             signals = mf_compute_signals(df, strategy_cfg=strategy_cfg)
             if ledger_state and (ledger_state.get("positions") or {}):
                 prices_latest_exit = None
                 if df is not None and not df.empty and "close" in df.columns:
                     prices_latest_exit = (
                         df.groupby("symbol", group_keys=False)["close"].last().reset_index()
+                    )
+                    # Store current prices for accurate hold-target computation
+                    _exit_state["prices"] = dict(
+                        zip(prices_latest_exit["symbol"], prices_latest_exit["close"])
                     )
                 exit_signals = mf_check_exits(
                     ledger_state.get("positions", {}), prices_latest_exit, strategy_cfg,
@@ -193,11 +204,13 @@ def _prd_make_strategy_fns(
                     full_exits = exit_signals[exit_signals["exit_qty_pct"] >= 1.0]
                     if not full_exits.empty:
                         exit_syms = set(full_exits["symbol"])
+                        _exit_state["full"] = exit_syms
                         if not signals.empty:
                             signals = signals[~signals["symbol"].isin(exit_syms)]
                         for ex in full_exits.itertuples(index=False):
                             log.info("%s EXIT signal: %s — %s", _mf_tag, ex.symbol, ex.exit_reason)
                     for ex in exit_signals[exit_signals["exit_qty_pct"] < 1.0].itertuples(index=False):
+                        _exit_state["partial"][ex.symbol] = float(ex.exit_qty_pct)
                         log.info(
                             "%s PARTIAL EXIT signal: %s (%.0f%%) — %s",
                             _mf_tag, ex.symbol, ex.exit_qty_pct * 100, ex.exit_reason,
@@ -205,10 +218,63 @@ def _prd_make_strategy_fns(
             return signals
 
         def _mf_sizing(sig: pd.DataFrame, cap: float) -> pd.DataFrame:
-            return mf_compute_targets(
+            targets = mf_compute_targets(
                 sig, cap, equal_weight=equal_weight, max_positions=max_positions,
                 min_position_weight=min_position_weight, target_invested_pct=target_invested_pct,
             )
+            positions = (ledger_state or {}).get("positions", {})
+            syms_in_targets = set(targets["symbol"].astype(str)) if not targets.empty else set()
+            exit_syms_all = {str(s) for s in _exit_state.get("full", set())} | {str(s) for s in _exit_state.get("partial", {})}
+            extra_rows: list[dict] = []
+
+            # 1. Full exits → target_qty=0 → SELL entire position
+            for sym in _exit_state.get("full", set()):
+                if str(sym) not in syms_in_targets:
+                    extra_rows.append({"symbol": sym, "target_weight": 0.0, "target_qty": 0.0})
+                    log.debug("%s injecting zero target for full exit: %s", _mf_tag, sym)
+
+            # 2. Partial exits → target_qty = remaining notional after partial sell
+            for sym, exit_pct in _exit_state.get("partial", {}).items():
+                if str(sym) in syms_in_targets:
+                    continue
+                pos = positions.get(sym, {})
+                current_qty = float(pos.get("qty", 0.0))
+                avg_price = float(pos.get("avg_price", 0.0))
+                if current_qty > 0 and avg_price > 0:
+                    remaining_qty = current_qty * (1.0 - exit_pct)
+                    remaining_notional = remaining_qty * avg_price
+                    extra_rows.append({
+                        "symbol": sym,
+                        "target_weight": remaining_notional / cap if cap > 0 else 0.0,
+                        "target_qty": remaining_notional,
+                    })
+                    log.debug("%s injecting partial target for %s: qty=%.2f→%.2f", _mf_tag, sym, current_qty, remaining_qty)
+
+            # 3. Hold targets → preserve non-exit positions that are absent from targets
+            #    using current_price so delta = current_qty * px / px = current_qty → 0 order.
+            current_prices = _exit_state.get("prices", {})
+            for sym, pos in positions.items():
+                current_qty = float(pos.get("qty", 0.0))
+                avg_price = float(pos.get("avg_price", 0.0))
+                if current_qty <= 1e-6 or avg_price <= 0:
+                    continue
+                if str(sym) in syms_in_targets or str(sym) in exit_syms_all:
+                    continue
+                # Use current_price if available; fall back to avg_price
+                cur_px = float(current_prices.get(sym, avg_price))
+                hold_notional = current_qty * cur_px  # target_qty / cur_px = current_qty → Δ = 0
+                extra_rows.append({
+                    "symbol": sym,
+                    "target_weight": hold_notional / cap if cap > 0 else 0.0,
+                    "target_qty": hold_notional,
+                })
+                log.debug("%s injecting hold target for %s (qty=%.2f @ %.2f)", _mf_tag, sym, current_qty, cur_px)
+
+            if extra_rows:
+                targets = pd.concat(
+                    [targets, pd.DataFrame(extra_rows)], ignore_index=True
+                )
+            return targets
 
         return _mf_signal_fn, _mf_sizing
 

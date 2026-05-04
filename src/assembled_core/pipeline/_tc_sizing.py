@@ -869,6 +869,24 @@ def size_positions(
     do_rebal, rebal_reason = _sp_check_rebalance(target_positions, ctx, policy, meta, log)
     if not do_rebal:
         log.info("REBALANCE SKIPPED: %s — no orders generated", rebal_reason)
+        # Override: force rebalance if current positions have symbols not in target
+        # (stop-loss / take-profit exits must execute regardless of drift threshold)
+        if ctx.current_positions is not None and not ctx.current_positions.empty and "symbol" in ctx.current_positions.columns:
+            try:
+                _cur_qty = ctx.current_positions.get("qty") if hasattr(ctx.current_positions, "get") else ctx.current_positions.get("qty", None)
+                _cur_df = ctx.current_positions
+                if "qty" in _cur_df.columns:
+                    _held = set(_cur_df.loc[_cur_df["qty"].abs() > 1e-6, "symbol"].astype(str))
+                else:
+                    _held = set(_cur_df["symbol"].astype(str))
+                _tgt_syms = set(target_positions["symbol"].astype(str)) if not target_positions.empty else set()
+                _exits_needed = _held - _tgt_syms
+                if _exits_needed:
+                    do_rebal = True
+                    log.info("[size_positions] exit override: rebalance forced for %d position(s) not in target: %s",
+                             len(_exits_needed), sorted(_exits_needed))
+            except Exception as _e:
+                log.debug("[size_positions] exit override check failed: %s", _e)
 
     target_positions = _sp_apply_cost_aware(target_positions, ctx, policy, log)
 
