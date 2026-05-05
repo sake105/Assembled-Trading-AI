@@ -1,9 +1,9 @@
 """CBOE Public Data Source — VIX term structure and Put/Call Ratio.
 
 Downloads freely available CBOE market data:
-- VIX (CBOE Volatility Index) via FRED (VIXCLS series)
-- VIX3M (3-month VIX) via FRED (VXVCLS series)
-- CBOE Equity Put/Call Ratio via CBOE public CSV
+- VIX (CBOE Volatility Index) via yfinance (^VIX ticker)
+- VIX3M (3-month VIX) via yfinance (^VIX3M ticker)
+- CBOE Equity Put/Call Ratio via CBOE public CSV (CDN-gated; may be unavailable)
 
 All data is fetched point-in-time (no look-ahead). Results are cached
 to avoid redundant network calls within the same Python session.
@@ -26,11 +26,14 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# FRED series IDs for VIX variants
-_FRED_VIX_SERIES = "VIXCLS"
-_FRED_VIX3M_SERIES = "VXVCLS"
+# yfinance tickers for VIX variants (replaces FRED / pandas_datareader)
+_YF_VIX = "^VIX"
+_YF_VIX3M = "^VIX3M"
 
-# CBOE public equity put/call ratio CSV endpoint (daily data)
+# CBOE public equity put/call ratio CSV endpoint.
+# Note: CBOE CDN (cdn.cboe.com) blocks programmatic access via Cloudflare
+# bot-management. Fetches return 403 even with browser User-Agent headers.
+# PCR data is treated as optional; absence degrades regime detection slightly.
 _CBOE_PCR_URL = (
     "https://cdn.cboe.com/api/global/us_indices/daily_prices/PCALL_History.csv"
 )
@@ -62,56 +65,74 @@ class CBOESource:
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> pd.DataFrame:
-        """Fetch VIX and VIX3M (VXVCLS) from FRED.
+        """Fetch VIX and VIX3M via yfinance (^VIX, ^VIX3M tickers).
 
         Args:
-            start_date: ISO date string (e.g. "2020-01-01"). Default: 10 years ago.
+            start_date: ISO date string (e.g. "2020-01-01"). Default: 2015-01-01.
             end_date: ISO date string. Default: today.
 
         Returns:
             DataFrame with columns: timestamp, vix, vix3m.
-            Missing values (weekends/holidays) are dropped.
         """
         try:
-            import pandas_datareader.data as web  # type: ignore
+            import yfinance as yf  # type: ignore
         except ImportError:
-            logger.warning(
-                "[CBOE] pandas_datareader not installed — cannot fetch VIX from FRED"
-            )
+            logger.warning("[CBOE] yfinance not installed — cannot fetch VIX")
             return pd.DataFrame(columns=["timestamp", "vix", "vix3m"])
 
         start = start_date or "2015-01-01"
         end = end_date or datetime.today().strftime("%Y-%m-%d")
 
         try:
-            vix = web.DataReader(_FRED_VIX_SERIES, "fred", start, end)
-            vix.columns = ["vix"]
-        except Exception as exc:
-            logger.warning("[CBOE] Failed to fetch VIX from FRED: %s", exc)
-            vix = pd.DataFrame(columns=["vix"])
+            raw = yf.download(
+                [_YF_VIX, _YF_VIX3M],
+                start=start,
+                end=end,
+                progress=False,
+                auto_adjust=True,
+            )
+            if raw.empty:
+                return pd.DataFrame(columns=["timestamp", "vix", "vix3m"])
 
-        try:
-            vix3m = web.DataReader(_FRED_VIX3M_SERIES, "fred", start, end)
-            vix3m.columns = ["vix3m"]
-        except Exception as exc:
-            logger.warning("[CBOE] Failed to fetch VIX3M from FRED: %s", exc)
-            vix3m = pd.DataFrame(columns=["vix3m"])
+            # Multi-index: (price_type, ticker) → extract Close
+            closes = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw
+            closes = closes.reset_index()
+            # Rename Date index and ticker columns
+            col0 = closes.columns[0]
+            if str(col0).lower() in ("date", "datetime", "index"):
+                closes = closes.rename(columns={col0: "timestamp"})
+            else:
+                closes.insert(0, "timestamp", closes.pop(col0))
+            closes["timestamp"] = pd.to_datetime(closes["timestamp"])
 
-        if vix.empty and vix3m.empty:
+            rename_map: dict = {}
+            for col in closes.columns:
+                s = str(col)
+                if "VIX3M" in s.upper():
+                    rename_map[col] = "vix3m"
+                elif "VIX" in s.upper() and "vix3m" not in rename_map.values():
+                    rename_map[col] = "vix"
+            closes = closes.rename(columns=rename_map)
+
+            for col in ("vix", "vix3m"):
+                if col not in closes.columns:
+                    closes[col] = float("nan")
+
+            df = closes[["timestamp", "vix", "vix3m"]].dropna(
+                how="all", subset=["vix", "vix3m"]
+            )
+            df = df.sort_values("timestamp").reset_index(drop=True)
+            self._vix_cache = df
+            logger.info(
+                "[CBOE] Fetched VIX data via yfinance: %d rows (%s to %s)",
+                len(df),
+                start,
+                end,
+            )
+            return df
+        except Exception as exc:
+            logger.warning("[CBOE] Failed to fetch VIX via yfinance: %s", exc)
             return pd.DataFrame(columns=["timestamp", "vix", "vix3m"])
-
-        df = pd.concat([vix, vix3m], axis=1).dropna(how="all")
-        df.index = pd.to_datetime(df.index)
-        df = df.reset_index().rename(
-            columns={"DATE": "timestamp", "index": "timestamp"}
-        )
-        if "DATE" not in df.columns and df.columns[0] != "timestamp":
-            df = df.rename(columns={df.columns[0]: "timestamp"})
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
-        df = df.sort_values("timestamp").reset_index(drop=True)
-        self._vix_cache = df
-        logger.info("[CBOE] Fetched VIX data: %d rows (%s to %s)", len(df), start, end)
-        return df
 
     # ------------------------------------------------------------------
     # Put/Call Ratio
@@ -132,9 +153,32 @@ class CBOESource:
             DataFrame with columns: timestamp, put_call_ratio.
         """
         try:
-            raw = pd.read_csv(_CBOE_PCR_URL, dtype=str)
+            import requests as _req
+
+            resp = _req.get(
+                _CBOE_PCR_URL,
+                timeout=15,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "text/csv,text/plain,*/*",
+                    "Referer": "https://www.cboe.com/",
+                },
+            )
+            if resp.status_code != 200:
+                # CBOE CDN (Cloudflare-gated) blocks programmatic access.
+                logger.debug(
+                    "[CBOE] PCR endpoint returned HTTP %d — data unavailable",
+                    resp.status_code,
+                )
+                return pd.DataFrame(columns=["timestamp", "put_call_ratio"])
+            import io as _io
+
+            raw = pd.read_csv(_io.StringIO(resp.text), dtype=str)
         except Exception as exc:
-            logger.warning("[CBOE] Failed to fetch put/call ratio from CBOE: %s", exc)
+            logger.debug("[CBOE] PCR fetch failed: %s", exc)
             return pd.DataFrame(columns=["timestamp", "put_call_ratio"])
 
         # CBOE CSV columns vary; normalise

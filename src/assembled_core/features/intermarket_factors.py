@@ -43,9 +43,11 @@ _TIMESTAMP = "timestamp"
 # ETF symbols for cross-asset factors
 _ETF_SYMBOLS = ["TLT", "IEF", "GLD", "UUP", "HYG", "LQD", "SPY"]
 
-# FRED series for yield curve
-_FRED_10Y = "DGS10"
-_FRED_2Y = "DGS2"
+# yfinance tickers for yield curve (replaces FRED / pandas_datareader)
+# ^TNX = CBOE 10-Year Treasury Note yield (in %, e.g. 4.5 = 4.5%)
+# 2YY=F = CME 2-Year Treasury Note yield futures (in %)
+_YF_10Y = "^TNX"
+_YF_2Y = "2YY=F"
 
 
 def _fetch_etf_prices(
@@ -95,27 +97,59 @@ def _fetch_etf_prices(
 
 
 def _fetch_yield_curve(start_date: str, end_date: str) -> pd.DataFrame:
-    """Fetch 10Y and 2Y US Treasury yields from FRED."""
+    """Fetch 10Y and 2Y US Treasury yields via yfinance (^TNX, 2YY=F)."""
     try:
-        import pandas_datareader.data as web  # type: ignore
+        import yfinance as yf  # type: ignore
     except ImportError:
-        logger.warning(
-            "[Intermarket] pandas_datareader not installed — yield curve skipped"
-        )
+        logger.warning("[Intermarket] yfinance not installed — yield curve skipped")
         return pd.DataFrame()
 
     try:
-        y10 = web.DataReader(_FRED_10Y, "fred", start_date, end_date)
-        y2 = web.DataReader(_FRED_2Y, "fred", start_date, end_date)
-        df = pd.concat([y10, y2], axis=1)
-        df.columns = ["yield_10y", "yield_2y"]
-        df.index = pd.to_datetime(df.index)
-        df = df.reset_index().rename(columns={"DATE": "timestamp"})
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        raw = yf.download(
+            [_YF_10Y, _YF_2Y],
+            start=start_date,
+            end=end_date,
+            progress=False,
+            auto_adjust=True,
+        )
+        if raw.empty:
+            logger.warning("[Intermarket] Yield curve download returned empty DataFrame")
+            return pd.DataFrame()
+
+        closes = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw
+        closes = closes.reset_index()
+        col0 = closes.columns[0]
+        if str(col0).lower() in ("date", "datetime", "index"):
+            closes = closes.rename(columns={col0: "timestamp"})
+        else:
+            closes.insert(0, "timestamp", closes.pop(col0))
+        closes["timestamp"] = pd.to_datetime(closes["timestamp"])
+
+        rename_map: dict = {}
+        for col in closes.columns:
+            s = str(col)
+            if _YF_10Y in s or "TNX" in s.upper():
+                rename_map[col] = "yield_10y"
+            elif _YF_2Y in s or "2YY" in s.upper():
+                rename_map[col] = "yield_2y"
+        closes = closes.rename(columns=rename_map)
+
+        if "yield_10y" not in closes.columns or "yield_2y" not in closes.columns:
+            logger.warning("[Intermarket] Yield curve columns missing after download")
+            return pd.DataFrame()
+
+        df = closes[["timestamp", "yield_10y", "yield_2y"]].dropna(
+            subset=["yield_10y", "yield_2y"]
+        )
         df["yield_curve_slope"] = df["yield_10y"] - df["yield_2y"]
-        return df[
-            ["timestamp", "yield_10y", "yield_2y", "yield_curve_slope"]
-        ].sort_values("timestamp")
+        df = df.sort_values("timestamp").reset_index(drop=True)
+        logger.info(
+            "[Intermarket] Fetched yield curve: %d rows (%s to %s)",
+            len(df),
+            start_date,
+            end_date,
+        )
+        return df[["timestamp", "yield_10y", "yield_2y", "yield_curve_slope"]]
     except Exception as exc:
         logger.warning("[Intermarket] Yield curve fetch failed: %s", exc)
         return pd.DataFrame()
