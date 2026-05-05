@@ -518,3 +518,10 @@ Aus `scripts/run_paper_pilot.py`:
 - GFC_2008: Threshold auf -40% kalibriert (AI-Tech-Sektor, 19 Symbole 2008, S&P -50%)
 - Inflation_2022: Threshold auf -22% kalibriert (S&P war -25%)
 - COVID_2020: VIX-Cap behebt -33.65% → -20.40%
+
+**Bekannte Limitation: Yield-Curve-Cap bei Inflation_2022**
+Der Yield-Curve-Inversions-Cap (Slope < 0 für ≥65% der letzten 30 Tage → Exposure ≤ 60%) greift rückblickend
+**nicht** für den Peak-Drawdown der Inflation_2022-Periode: Die US-Kurve invertierte erst ab Juli 2022,
+während der Drawdown-Peak Jan–Jun 2022 lag (VIX 25–35, noch keine persistente Inversion).
+Der Cap ist korrekt für **Live-Trading** konzipiert und schützt vor langsamer Stagflations-Blutung bei
+niedrigem VIX. Die Kalibrierung des Inflation_2022-Thresholds auf -22% ist die operative Absicherung.
