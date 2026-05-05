@@ -63,10 +63,64 @@ from src.assembled_core.strategies.multifactor_v1 import (
     compute_target_positions as _v1_compute_target_positions,
 )
 
+import datetime as _dt
+import threading
+
 logger = logging.getLogger(__name__)
 
 STRATEGY_VERSION = "v2"
-VERSION = "multifactor_v2.3.0"
+VERSION = "multifactor_v2.4.0"
+
+# ---------------------------------------------------------------------------
+# Drawdown self-damper — module-level state updated by paper runner / backtest
+# ---------------------------------------------------------------------------
+_DD_LOCK = threading.Lock()
+_DD_DAMPER: dict[str, Any] = {
+    "peak_equity": 1.0,
+    "current_equity": 1.0,
+    "damper_active": False,
+    "damper_until": None,  # datetime.date
+    "mdd_threshold": 0.12,
+    "damper_days": 30,
+    "damper_factor": 0.5,
+}
+
+
+def update_drawdown_damper(current_equity: float, as_of: "_dt.date | None" = None) -> bool:
+    """Update the module-level drawdown damper state.
+
+    Call this daily from paper runner or backtest after equity is updated.
+    Returns True if damper just activated.
+    """
+    today = as_of or _dt.date.today()
+    with _DD_LOCK:
+        state = _DD_DAMPER
+        if current_equity > state["peak_equity"]:
+            state["peak_equity"] = current_equity
+        state["current_equity"] = current_equity
+
+        # Deactivate expired damper
+        if state["damper_active"] and state["damper_until"] and today > state["damper_until"]:
+            state["damper_active"] = False
+            state["damper_until"] = None
+            logger.info("[MF-V2] Drawdown damper expired — exposure restored")
+
+        # Activate if MDD threshold breached and damper not already running
+        peak = state["peak_equity"]
+        if peak > 0:
+            mdd = (peak - current_equity) / peak
+            if mdd >= state["mdd_threshold"] and not state["damper_active"]:
+                state["damper_active"] = True
+                state["damper_until"] = today + _dt.timedelta(days=state["damper_days"])
+                logger.warning(
+                    "[MF-V2] MDD %.1f%% >= %.1f%% — damper ON (×%.1f) until %s",
+                    mdd * 100,
+                    state["mdd_threshold"] * 100,
+                    state["damper_factor"],
+                    state["damper_until"],
+                )
+                return True
+    return False
 
 # ---------------------------------------------------------------------------
 # Default v2 factor weights (used when regime weights file is unavailable)
@@ -852,6 +906,42 @@ def compute_signals(
                     "[MF-V2] VIX=%.1f → exposure capped %.2f→%.2f", _vix_val, exposure_mult, _vix_cap
                 )
                 exposure_mult = _vix_cap
+
+    # Yield-curve inversion cap — protects against slow stagflation bleeding
+    # (VIX-cap alone misses low-VIX bear markets like 2022)
+    if "yield_curve_slope" in latest.columns:
+        _yc_vals = pd.to_numeric(latest["yield_curve_slope"], errors="coerce").dropna()
+        if len(_yc_vals) > 0 and float(_yc_vals.median()) < 0:
+            # Confirm persistence: require >= 20 of last 30 trading dates inverted
+            _yc_persistent = False
+            if "yield_curve_slope" in df.columns:
+                _yc_hist = df.sort_values("timestamp").drop_duplicates("timestamp", keep="last")
+                _yc_recent = pd.to_numeric(
+                    _yc_hist["yield_curve_slope"].tail(30), errors="coerce"
+                ).dropna()
+                if len(_yc_recent) >= 15 and (_yc_recent < 0).sum() >= min(20, len(_yc_recent) * 0.65):
+                    _yc_persistent = True
+            else:
+                _yc_persistent = True  # no history → trust current reading
+            if _yc_persistent:
+                _yc_cap = float(cfg.get("yield_curve_inversion_cap", 0.60))
+                if _yc_cap < exposure_mult:
+                    logger.info(
+                        "[MF-V2] Yield-curve inverted (persistent) → exposure capped %.2f→%.2f",
+                        exposure_mult, _yc_cap,
+                    )
+                    exposure_mult = _yc_cap
+
+    # Drawdown self-damper — halves exposure for 30 days after MDD > 12%
+    with _DD_LOCK:
+        if _DD_DAMPER["damper_active"]:
+            _damp = float(_DD_DAMPER["damper_factor"])
+            if _damp < 1.0:
+                logger.info(
+                    "[MF-V2] DD damper active → exposure scaled ×%.2f (until %s)",
+                    _damp, _DD_DAMPER["damper_until"],
+                )
+                exposure_mult = exposure_mult * _damp
 
     composite = composite * exposure_mult
 

@@ -575,6 +575,14 @@ def _prd_paper_fills_and_ledger(
     equity_after = mark_to_market_equity(state_after, prices_for_fills)
     now_iso = pd.Timestamp.now("UTC").isoformat()
     append_equity_curve_deduped(state_after, now_iso, equity_after)
+
+    # Update drawdown damper in multifactor_v2 strategy layer
+    try:
+        from src.assembled_core.strategies.multifactor_v2 import update_drawdown_damper
+
+        update_drawdown_damper(float(equity_after), as_of_ts.date())
+    except Exception:
+        pass
     report = build_reconcile_report(
         as_of_utc=now_iso,
         ledger_before=ledger_before,
