@@ -28,10 +28,19 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from typing import Any
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Module-level TTL cache for FRED fetches (6-hour TTL)
+# Key: (series_id, start_date, end_date)  →  (fetch_timestamp, DataFrame)
+# ---------------------------------------------------------------------------
+_FRED_CACHE: dict[str, tuple[float, Any]] = {}
+_FRED_CACHE_TTL: float = 21600.0  # 6 hours in seconds
 
 
 def _get_api_key() -> str | None:
@@ -115,8 +124,16 @@ def fetch_fred_series(
         return _empty
 
     frames: list[pd.DataFrame] = []
+    now = time.time()
     for sid in series_ids:
-        df = _fetch_single_series(sid, start_date, end_date, fred)
+        cache_key = f"{sid}|{start_date}|{end_date}"
+        cached = _FRED_CACHE.get(cache_key)
+        if cached is not None and (now - cached[0]) < _FRED_CACHE_TTL:
+            logger.debug("[OK] fred: cache hit for %s", sid)
+            df = cached[1]
+        else:
+            df = _fetch_single_series(sid, start_date, end_date, fred)
+            _FRED_CACHE[cache_key] = (now, df)
         if df is not None and not df.empty:
             frames.append(df)
 

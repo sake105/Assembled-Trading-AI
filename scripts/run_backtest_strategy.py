@@ -2588,6 +2588,13 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 mj_data["bootstrap_ci"] = bci
                 with open(mj, "w", encoding="utf-8") as _f:
                     _json.dump(mj_data, _f, indent=2)
+                # Save standalone bootstrap artifact to output/qa/
+                _qa_dir = Path(output_dir).parent.parent / "qa"
+                _qa_dir.mkdir(parents=True, exist_ok=True)
+                _bt_run_id = run_id or f"{args.strategy}_{args.freq}"
+                _bt_path = _qa_dir / f"bootstrap_{_bt_run_id}.json"
+                with open(_bt_path, "w", encoding="utf-8") as _f:
+                    _json.dump(bci, _f, indent=2)
                 logger.info(
                     "[bootstrap] Sharpe %.3f  95%%CI [%.3f – %.3f]  p(Sharpe>0)=%.0f%%",
                     bci["sharpe"],
@@ -2615,6 +2622,13 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     mj_data["monte_carlo"] = mc
                     with open(mj, "w", encoding="utf-8") as _f:
                         _json.dump(mj_data, _f, indent=2)
+                    # Save standalone monte carlo artifact to output/qa/
+                    _qa_dir = Path(output_dir).parent.parent / "qa"
+                    _qa_dir.mkdir(parents=True, exist_ok=True)
+                    _mc_run_id = run_id or f"{args.strategy}_{args.freq}"
+                    _mc_path = _qa_dir / f"monte_carlo_{_mc_run_id}.json"
+                    with open(_mc_path, "w", encoding="utf-8") as _f:
+                        _json.dump(mc, _f, indent=2)
                     logger.info(
                         "[monte_carlo] Sharpe P50=%.3f P10=%.3f  MDD P99=%.2f%%",
                         mc["sharpe"]["p50"],

@@ -76,20 +76,42 @@ _NYSE_HOLIDAYS = frozenset(
 
 
 def _is_market_hours(now: datetime) -> bool:
+    """Return True if *now* falls within NYSE regular trading hours (09:30–16:00 ET).
+
+    Uses ``pandas_market_calendars`` when available; falls back to the hardcoded
+    ``_NYSE_HOLIDAYS`` frozenset if the package is not importable.
+    """
     try:
-        from zoneinfo import ZoneInfo
+        import pandas as pd
+        import pandas_market_calendars as mcal  # type: ignore[import]
 
-        et = now.astimezone(ZoneInfo("America/New_York"))
-    except ImportError:
+        nyse = mcal.get_calendar("NYSE")
+        date_str = now.strftime("%Y-%m-%d")
+        schedule = nyse.schedule(start_date=date_str, end_date=date_str)
+        if schedule.empty:
+            return False
+        market_open = schedule.iloc[0]["market_open"]
+        market_close = schedule.iloc[0]["market_close"]
         import datetime as _dt
+        now_utc = now if now.tzinfo is not None else now.replace(tzinfo=_dt.timezone.utc)
+        now_ts = pd.Timestamp(now_utc)
+        return bool(market_open <= now_ts < market_close)
+    except Exception:
+        # Fallback: hardcoded holiday list + simple ET offset logic
+        try:
+            from zoneinfo import ZoneInfo
 
-        et_offset = _dt.timezone(_dt.timedelta(hours=-4))
-        et = now.astimezone(et_offset)
-    if et.weekday() >= 5:
-        return False
-    if et.strftime("%Y-%m-%d") in _NYSE_HOLIDAYS:
-        return False
-    return (et.hour, et.minute) >= (9, 30) and (et.hour, et.minute) < (16, 0)
+            et = now.astimezone(ZoneInfo("America/New_York"))
+        except ImportError:
+            import datetime as _dt
+
+            et_offset = _dt.timezone(_dt.timedelta(hours=-4))
+            et = now.astimezone(et_offset)
+        if et.weekday() >= 5:
+            return False
+        if et.strftime("%Y-%m-%d") in _NYSE_HOLIDAYS:
+            return False
+        return (et.hour, et.minute) >= (9, 30) and (et.hour, et.minute) < (16, 0)
 
 
 def _write_cycle_summary(cycle_id: str, result: dict) -> None:

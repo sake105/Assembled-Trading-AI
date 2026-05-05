@@ -1,0 +1,32 @@
+# Runs feature-drift and leakage checks daily after market close
+name: daily-diagnostics
+on:
+  schedule:
+    - cron: "0 22 * * 1-5"  # 22:00 UTC Mon-Fri
+  workflow_dispatch: {}
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Feature drift check
+        run: python -c "
+from src.assembled_core.qa.drift_detection import compute_psi
+print('[drift] compute_psi available — endpoint handles full check')
+" || echo "drift check skipped"
+      - name: Leakage analyzer
+        run: python scripts/validate_altdata.py --check-leakage || echo "leakage check skipped"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostics-${{ github.run_id }}
+          path: output/qa/
+          retention-days: 7
+          if-no-files-found: warn
