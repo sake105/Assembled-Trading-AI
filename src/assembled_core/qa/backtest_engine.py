@@ -789,6 +789,14 @@ def _pb_run_cycle_fn_loop(
             mtm = 0.0
         equity_values.append(cash + float(mtm))
 
+        try:
+            from src.assembled_core.strategies.multifactor_v2 import update_drawdown_damper
+
+            _as_of = timestamp.date() if hasattr(timestamp, "date") else None
+            update_drawdown_damper(equity_values[-1], _as_of)
+        except Exception:
+            pass
+
         if include_targets and not cycle_result.target_positions.empty:
             targets_with_timestamp = cycle_result.target_positions.copy()
             targets_with_timestamp["timestamp"] = timestamp

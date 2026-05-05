@@ -2093,6 +2093,44 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 logger.warning("[mfv2] VIX join failed: %s — no exposure cap", _e)
 
         # ------------------------------------------------------------------ #
+        # Yield-curve join for mfv2 inversion cap
+        # ------------------------------------------------------------------ #
+        if (
+            args.strategy == "multifactor_v2"
+            and precomputed_prices_with_features is not None
+            and not precomputed_prices_with_features.empty
+            and "yield_curve_slope" not in precomputed_prices_with_features.columns
+        ):
+            try:
+                from src.assembled_core.features.intermarket_factors import (
+                    build_intermarket_factors,
+                )
+
+                _yc_start = getattr(args, "start_date", None) or "2007-01-01"
+                _yc_df = build_intermarket_factors(start_date=_yc_start)
+                if not _yc_df.empty and "yield_curve_slope" in _yc_df.columns:
+                    _yc_df = _yc_df[["timestamp", "yield_curve_slope"]].copy()
+                    _yc_ts = pd.to_datetime(_yc_df["timestamp"])
+                    if _yc_ts.dt.tz is not None:
+                        _yc_ts = _yc_ts.dt.tz_convert(None)
+                    _yc_df["_ts_norm"] = _yc_ts.dt.normalize()
+                    _yc_df = _yc_df.drop(columns=["timestamp"])
+                    _panel_ts = pd.to_datetime(precomputed_prices_with_features["timestamp"])
+                    if _panel_ts.dt.tz is not None:
+                        _panel_ts = _panel_ts.dt.tz_convert(None)
+                    precomputed_prices_with_features["_ts_norm"] = _panel_ts.dt.normalize()
+                    precomputed_prices_with_features = precomputed_prices_with_features.merge(
+                        _yc_df.drop_duplicates("_ts_norm"), on="_ts_norm", how="left"
+                    ).drop(columns=["_ts_norm"])
+                    logger.info(
+                        "[mfv2] Yield-curve joined: %d/%d rows with slope data",
+                        precomputed_prices_with_features["yield_curve_slope"].notna().sum(),
+                        len(precomputed_prices_with_features),
+                    )
+            except Exception as _e:
+                logger.warning("[mfv2] Yield-curve join failed: %s — no inversion cap", _e)
+
+        # ------------------------------------------------------------------ #
         # Altdata enrichment: earnings surprise + macro regime + news sentiment
         # ------------------------------------------------------------------ #
         if (
