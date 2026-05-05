@@ -68,7 +68,7 @@ def cmd_run_day() -> int:
     import subprocess
 
     result = subprocess.run(
-        [sys.executable, "scripts/run_live_paper.py", "--once"],
+        [sys.executable, "scripts/run_live_paper.py", "once"],
         capture_output=True,
         text=True,
         timeout=300,

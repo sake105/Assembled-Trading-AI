@@ -2316,9 +2316,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 include_signals=False,
                 include_targets=False,
                 rebalance_freq=(
-                    args.freq
-                    if args.strategy != "multifactor_long_short"
-                    else args.rebalance_freq
+                    args.rebalance_freq
+                    if args.strategy in ("multifactor_long_short", "multifactor_v2")
+                    else args.freq
                 ),
                 compute_features=False,  # Features already precomputed once and passed via ctx_template.precomputed_prices_with_features
                 # Meta-model ensemble parameters (not supported with cycle_fn for now - features/signals computed per timestamp)
