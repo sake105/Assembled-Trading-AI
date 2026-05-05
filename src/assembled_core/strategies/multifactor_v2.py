@@ -390,10 +390,13 @@ def _compute_earnings_insider_factors(
         )
 
         as_of = pd.Timestamp.now().normalize()
-        # Need earnings_df and filings_df from data sources
-        # These are PIT-safe wrappers — pass empty frames if no data
-        earnings_df = pd.DataFrame(columns=["symbol", "filing_date", "surprise_pct"])
-        filings_df = pd.DataFrame(columns=["symbol", "filing_date", "shares_delta"])
+        from src.assembled_core.data.altdata_loader import (  # noqa: PLC0415
+            load_earnings_history,
+            load_insider_filings,
+        )
+
+        earnings_df = load_earnings_history(latest_symbols, as_of, lookback_days=90)
+        filings_df = load_insider_filings(latest_symbols, as_of, lookback_days=90)
         result = compute_earnings_insider_factors(
             as_of, latest_symbols, earnings_df, filings_df
         )
@@ -419,8 +422,13 @@ def _compute_news_macro_factors(
         )
 
         as_of = pd.Timestamp.now().normalize()
-        news_df = pd.DataFrame(columns=["symbol", "timestamp", "sentiment_score"])
-        macro_df = pd.DataFrame(columns=["timestamp", "macro_code", "value", "country"])
+        from src.assembled_core.data.altdata_loader import (  # noqa: PLC0415
+            load_macro_indicators,
+            load_news_sentiment,
+        )
+
+        news_df = load_news_sentiment(latest_symbols, as_of, lookback_days=30)
+        macro_df = load_macro_indicators(as_of, lookback_days=365)
         out = compute_news_macro_factors(as_of, latest_symbols, news_df, macro_df)
         if out is not None and not out.empty:
             for col in [
