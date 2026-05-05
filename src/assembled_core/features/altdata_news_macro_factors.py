@@ -479,16 +479,25 @@ def build_macro_regime_factors(
     # Prepare prices DataFrame
     result = prices.copy()
 
-    # Ensure timestamps are UTC-aware datetime
-    if not pd.api.types.is_datetime64_any_dtype(result[timestamp_col]):
-        result[timestamp_col] = pd.to_datetime(result[timestamp_col], utc=True)
+    # Normalize macro timestamps to match result's timezone (preserve prices tz)
+    def _match_tz(series, ref: pd.Series):
+        s = pd.to_datetime(series, errors="coerce")
+        ref_s = pd.to_datetime(ref, errors="coerce")
+        ref_tz = ref_s.dt.tz
+        s_tz = s.tz if isinstance(s, pd.DatetimeIndex) else s.dt.tz
+        if ref_tz is None and s_tz is not None:
+            s = s.tz_convert(None) if isinstance(s, pd.DatetimeIndex) else s.dt.tz_convert(None)
+        elif ref_tz is not None and s_tz is None:
+            s = s.tz_localize(str(ref_tz)) if isinstance(s, pd.DatetimeIndex) else s.dt.tz_localize(str(ref_tz))
+        elif ref_tz is not None and s_tz is not None:
+            s = s.tz_convert(str(ref_tz)) if isinstance(s, pd.DatetimeIndex) else s.dt.tz_convert(str(ref_tz))
+        return s
 
     if not macro_series.empty:
-        if not pd.api.types.is_datetime64_any_dtype(macro_series[timestamp_col]):
-            macro_series = macro_series.copy()
-            macro_series[timestamp_col] = pd.to_datetime(
-                macro_series[timestamp_col], utc=True
-            )
+        macro_series = macro_series.copy()
+        macro_series[timestamp_col] = _match_tz(
+            macro_series[timestamp_col], result[timestamp_col]
+        )
 
     # Sort by symbol and timestamp
     result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
@@ -516,26 +525,22 @@ def build_macro_regime_factors(
     # Sort macro series by timestamp
     macro_series = macro_series.sort_values(timestamp_col).reset_index(drop=True)
 
-    # Compute growth regime from GDP, unemployment, PMI, etc.
-    # Growth regime: +1 = expansion, -1 = recession, 0 = neutral
-    growth_indicators = ["GDP", "UNEMPLOYMENT", "PMI", "INDUSTRIAL_PRODUCTION"]
-    growth_data = macro_series[
-        macro_series["macro_code"].isin([c.upper() for c in growth_indicators])
-    ].copy()
+    # Normalize macro_code to uppercase for substring matching
+    macro_series = macro_series.copy()
+    _codes_upper = macro_series["macro_code"].str.upper()
 
-    # Compute inflation regime from CPI, PPI, etc.
-    # Inflation regime: +1 = high inflation, -1 = low/deflation, 0 = neutral
-    inflation_indicators = ["CPI", "PPI", "INFLATION", "CORE_CPI"]
-    inflation_data = macro_series[
-        macro_series["macro_code"].isin([c.upper() for c in inflation_indicators])
-    ].copy()
+    def _matches_any(keywords: list[str]) -> "pd.Series":
+        pattern = "|".join(keywords)
+        return _codes_upper.str.contains(pattern, regex=True, na=False)
 
-    # Compute risk aversion proxy from VIX, Fed rate, etc.
-    # Risk aversion: +1 = risk-off, -1 = risk-on, 0 = neutral
-    risk_indicators = ["FED_RATE", "VIX", "TREASURY_10Y", "CREDIT_SPREAD"]
-    risk_data = macro_series[
-        macro_series["macro_code"].isin([c.upper() for c in risk_indicators])
-    ].copy()
+    # Compute growth regime — GDP, unemployment, PMI, industrial production
+    growth_data = macro_series[_matches_any(["GDP", "UNEMPLOY", "PMI", "INDUSTRIAL"])].copy()
+
+    # Compute inflation regime — CPI, PPI, inflation indicators
+    inflation_data = macro_series[_matches_any(["CPI", "PPI", "INFLATION"])].copy()
+
+    # Compute risk aversion proxy — VIX, treasury yields, credit spreads
+    risk_data = macro_series[_matches_any(["VIX", "TNX", "TYX", "TREASURY", "YIELD", "CREDIT", "FED"])].copy()
 
     # Aggregate macro indicators by date — vectorized via pivot_table
     all_dates = sorted(macro_series[timestamp_col].dt.date.unique())
@@ -608,7 +613,7 @@ def build_macro_regime_factors(
     regime_df = (
         pd.DataFrame(
             {
-                timestamp_col: pd.to_datetime(date_index, utc=True),
+                timestamp_col: _match_tz(pd.to_datetime(date_index), result[timestamp_col]),
                 "macro_growth_regime": growth_regime_arr,
                 "macro_inflation_regime": inflation_regime_arr,
                 "macro_risk_aversion_proxy": risk_aversion_arr,

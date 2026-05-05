@@ -836,7 +836,17 @@ def compute_signals(
         _vix_vals = latest["vix"].dropna()
         if len(_vix_vals) > 0:
             _vix_val = float(_vix_vals.median())
-            _vix_cap = 0.40 if _vix_val > 30 else (0.70 if _vix_val >= 20 else 1.0)
+            # Tiered VIX cap: 4-tier coverage from moderate to extreme vol regimes
+            if _vix_val > 40:
+                _vix_cap = 0.25   # extreme panic (GFC/COVID peak)
+            elif _vix_val > 30:
+                _vix_cap = 0.40   # crisis (GFC, COVID March)
+            elif _vix_val > 22:
+                _vix_cap = 0.55   # elevated stress (Inflation 2022, Euro crisis)
+            elif _vix_val >= 18:
+                _vix_cap = 0.75   # mild caution
+            else:
+                _vix_cap = 1.0
             if _vix_cap < exposure_mult:
                 logger.info(
                     "[MF-V2] VIX=%.1f → exposure capped %.2f→%.2f", _vix_val, exposure_mult, _vix_cap
