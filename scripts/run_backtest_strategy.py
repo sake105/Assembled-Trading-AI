@@ -2014,6 +2014,47 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     f"[multifactor] Factor pre-computation failed: {_e} — signals may degrade"
                 )
 
+        # For multifactor_v2: precompute full TA features on the entire panel so
+        # that the snapshot passed to signal_fn already has all ta_ columns.
+        if (
+            args.strategy == "multifactor_v2"
+            and precomputed_prices_with_features is not None
+            and not precomputed_prices_with_features.empty
+        ):
+            try:
+                from src.assembled_core.features.ta_features import add_all_features
+
+                ta_cols_present = [
+                    c
+                    for c in precomputed_prices_with_features.columns
+                    if c.startswith("ta_")
+                ]
+                if len(ta_cols_present) < 5:
+                    logger.info(
+                        "[mfv2] Precomputing TA features on full panel (%d rows)...",
+                        len(precomputed_prices_with_features),
+                    )
+                    precomputed_prices_with_features = add_all_features(
+                        precomputed_prices_with_features
+                    )
+                    ta_count = len(
+                        [
+                            c
+                            for c in precomputed_prices_with_features.columns
+                            if c.startswith("ta_")
+                        ]
+                    )
+                    logger.info("[mfv2] TA features computed: %d ta_ cols", ta_count)
+                else:
+                    logger.info(
+                        "[mfv2] TA features already present (%d ta_ cols) — skipping precomputation",
+                        len(ta_cols_present),
+                    )
+            except Exception as _e:
+                logger.warning(
+                    "[mfv2] TA precomputation failed: %s — signals may degrade", _e
+                )
+
         # ------------------------------------------------------------------ #
         # Altdata enrichment: earnings surprise + macro regime + news sentiment
         # ------------------------------------------------------------------ #

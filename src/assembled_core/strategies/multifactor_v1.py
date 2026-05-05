@@ -192,9 +192,13 @@ def compute_signals(
     factor_df = scores[factor_cols].astype(float)
     means = factor_df.mean()
     stds = factor_df.std()
-    valid = stds > 1e-10
-    normalized = (factor_df - means) / stds.where(valid, 1.0)
-    scores[factor_cols] = normalized.where(valid, 0.0).clip(-3.0, 3.0)
+    # safe_stds: NaN where std ≈ 0 → normalized becomes NaN → fillna(0.0).
+    # Avoid .where(valid, 0.0) with a column-indexed boolean Series: pandas 2.x
+    # aligns it against the row index (not column axis), zeroing every cell.
+    safe_stds = stds.copy()
+    safe_stds[stds <= 1e-10] = np.nan
+    normalized = (factor_df - means) / safe_stds
+    scores[factor_cols] = normalized.fillna(0.0).clip(-3.0, 3.0)
 
     # --- Weighted composite score ---
     # Mirror the v2 guard (multifactor_v2.py:694): only count a factor into

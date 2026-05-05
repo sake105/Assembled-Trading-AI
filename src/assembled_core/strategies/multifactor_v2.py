@@ -797,9 +797,13 @@ def compute_signals(
     else:
         means = factor_df.mean()
         stds = factor_df.std(ddof=0)
-        valid = stds > 1e-10
-        normalized = (factor_df - means) / stds.where(valid, 1.0)
-        scores[factor_cols] = normalized.where(valid, 0.0).clip(-3.0, 3.0)
+        # Divide by std; set to NaN where std ≈ 0 (zero-variance factor), then
+        # fill NaN → 0.0.  Avoid .where(valid, 0.0) with a column-indexed
+        # boolean Series: pandas 2.x aligns it against the row index, not the
+        # column axis, silently zeroing every cell.
+        safe_stds = stds.replace(0.0, np.nan).where(stds > 1e-10, other=np.nan)
+        normalized = (factor_df - means) / safe_stds
+        scores[factor_cols] = normalized.fillna(0.0).clip(-3.0, 3.0)
 
     # --- Weighted composite with regime-conditional weights ---
     # Fix 20: Only count factors that contributed non-zero values to avoid
