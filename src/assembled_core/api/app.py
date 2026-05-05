@@ -8,6 +8,7 @@ import time
 from fastapi import FastAPI
 from src.assembled_core.api.middleware import add_middleware
 from src.assembled_core.api.routers import (
+    diagnostics,
     monitoring,
     oms,
     orders,
@@ -17,6 +18,7 @@ from src.assembled_core.api.routers import (
     qa,
     risk,
     signals,
+    trades,
 )
 
 _APP_START_TIME: float = time.time()
@@ -113,5 +115,7 @@ def create_app() -> FastAPI:
         paper_trading.router, prefix="/api/v1/paper", tags=["paper-trading"]
     )
     app.include_router(oms.router, prefix="/api/v1/oms", tags=["oms"])
+    app.include_router(trades.router, prefix="/api/v1", tags=["trades"])
+    app.include_router(diagnostics.router, prefix="/api/v1", tags=["diagnostics"])
 
     return app

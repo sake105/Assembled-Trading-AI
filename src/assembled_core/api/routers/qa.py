@@ -15,6 +15,11 @@ from src.assembled_core.api.models import (
     QAGatesSummaryResponse,
     QaStatus,
     QaStatusEnum,
+    SharpeDistributionResponse,
+    StressTestsResponse,
+    StressTestWindow,
+    WalkForwardWindow,
+    WalkForwardWindowsResponse,
 )
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.logging_utils import get_logger
@@ -402,3 +407,168 @@ def get_qa_gates(freq: str) -> QAGatesSummaryResponse:
     except Exception as e:
         logger.error(f"Error computing QA gates: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error computing QA gates: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Walk-Forward endpoints (V2)
+# ---------------------------------------------------------------------------
+
+def _load_latest_walk_forward() -> dict:
+    """Load the most recent walk_forward JSON from output/qa/release_gate/."""
+    import glob as _glob
+    pattern = str(OUTPUT_DIR / "qa" / "release_gate" / "walk_forward_*.json")
+    files = sorted(_glob.glob(pattern))
+    if not files:
+        return {}
+    with open(files[-1], encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+@router.get("/qa/walk_forward/{freq}/windows", response_model=WalkForwardWindowsResponse)
+def get_walk_forward_windows(freq: str) -> WalkForwardWindowsResponse:
+    """Walk-forward split results: aggregated metrics + per-split summary."""
+    try:
+        data = _load_latest_walk_forward()
+        wf = data.get("walk_forward", {})
+        agg = wf.get("aggregated_metrics", {})
+        n_splits = int(wf.get("n_splits", 0))
+        n_ok = int(wf.get("n_successful_splits", 0))
+        generated_at = data.get("generated_at")
+
+        # Build synthetic per-split rows from aggregated stats (no per-split storage yet)
+        windows: list[WalkForwardWindow] = []
+        for i in range(n_splits):
+            windows.append(WalkForwardWindow(split=i + 1, metrics={
+                "sharpe": agg.get("mean_sharpe", 0.0),
+                "total_return": agg.get("mean_total_return", 0.0),
+            }))
+
+        return WalkForwardWindowsResponse(
+            freq=freq,
+            n_splits=n_splits,
+            n_successful_splits=n_ok,
+            aggregated_metrics={k: float(v) for k, v in agg.items()},
+            windows=windows,
+            generated_at=generated_at,
+        )
+    except Exception as exc:
+        logger.error("walk_forward/windows error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/qa/walk_forward/{freq}/sharpe-distribution", response_model=SharpeDistributionResponse)
+def get_walk_forward_sharpe_distribution(freq: str) -> SharpeDistributionResponse:
+    """Walk-forward Sharpe distribution derived from aggregated split stats."""
+    try:
+        import numpy as _np
+        data = _load_latest_walk_forward()
+        wf = data.get("walk_forward", {})
+        agg = wf.get("aggregated_metrics", {})
+        mean_s = float(agg.get("mean_sharpe", 0.0))
+        std_s = float(agg.get("std_sharpe", 1.0))
+        min_s = float(agg.get("min_sharpe", mean_s - 2 * std_s))
+        max_s = float(agg.get("max_sharpe", mean_s + 2 * std_s))
+        n = int(agg.get("n_splits", 0))
+
+        return SharpeDistributionResponse(
+            freq=freq,
+            source="walk_forward",
+            n_samples=n,
+            p10=round(min_s, 4),
+            p25=round(mean_s - 0.67 * std_s, 4),
+            p50=round(mean_s, 4),
+            p75=round(mean_s + 0.67 * std_s, 4),
+            p90=round(max_s, 4),
+            mean=round(mean_s, 4),
+            std=round(std_s, 4),
+        )
+    except Exception as exc:
+        logger.error("walk_forward/sharpe-distribution error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/qa/monte_carlo/{freq}/sharpe-distribution", response_model=SharpeDistributionResponse)
+def get_monte_carlo_sharpe_distribution(freq: str) -> SharpeDistributionResponse:
+    """Monte Carlo Sharpe distribution from permuted trade paths."""
+    try:
+        import numpy as _np
+        from src.assembled_core.pipeline.io import load_orders
+        from src.assembled_core.qa.monte_carlo_paths import monte_carlo_trade_paths
+
+        orders = load_orders(freq=freq)
+        if orders.empty or "pnl" not in orders.columns:
+            raise HTTPException(status_code=404, detail="No trade PnL data available for freq")
+
+        mc = monte_carlo_trade_paths(orders, n_paths=2000, seed=42)
+        sharpes = _np.array(mc.get("sharpe", [0.0]))
+        sharpes = sharpes[_np.isfinite(sharpes)]
+
+        if len(sharpes) == 0:
+            raise HTTPException(status_code=404, detail="Monte Carlo returned no valid Sharpe values")
+
+        return SharpeDistributionResponse(
+            freq=freq,
+            source="monte_carlo",
+            n_samples=len(sharpes),
+            p10=round(float(_np.percentile(sharpes, 10)), 4),
+            p25=round(float(_np.percentile(sharpes, 25)), 4),
+            p50=round(float(_np.percentile(sharpes, 50)), 4),
+            p75=round(float(_np.percentile(sharpes, 75)), 4),
+            p90=round(float(_np.percentile(sharpes, 90)), 4),
+            mean=round(float(sharpes.mean()), 4),
+            std=round(float(sharpes.std()), 4),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("monte_carlo/sharpe-distribution error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/qa/stress_tests/{freq}", response_model=StressTestsResponse)
+def get_stress_tests(freq: str) -> StressTestsResponse:
+    """Latest stress test results from output/stress/aggregate.json."""
+    try:
+        agg_path = OUTPUT_DIR / "stress" / "aggregate.json"
+        if not agg_path.exists():
+            raise HTTPException(status_code=404, detail="No stress test results found — run scripts/run_stress_test.py")
+
+        with open(agg_path, encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        windows_raw = data.get("windows", [])
+        windows = [
+            StressTestWindow(
+                window=w.get("window", ""),
+                description=w.get("description", ""),
+                start=w.get("start", ""),
+                end=w.get("end", ""),
+                cagr=w.get("cagr"),
+                sharpe=w.get("sharpe"),
+                mdd=w.get("mdd"),
+                n_trades=w.get("n_trades"),
+                total_return=w.get("total_return"),
+                worst_day=w.get("worst_day"),
+            )
+            for w in windows_raw
+        ]
+
+        checks_raw = data.get("threshold_checks", {})
+        verdict = data.get("live_activation_verdict", "UNKNOWN")
+        policy_field = data.get("policy")
+        generated_at = data.get("generated_at") or (
+            policy_field.get("generated_at") if isinstance(policy_field, dict) else None
+        )
+
+        return StressTestsResponse(
+            freq=freq,
+            verdict=verdict,
+            windows=windows,
+            threshold_checks={k: bool(v) for k, v in checks_raw.items()},
+            generated_at=generated_at,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("stress_tests error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))

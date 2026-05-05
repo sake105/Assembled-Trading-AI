@@ -872,3 +872,144 @@ class OmsRoute(BaseModel):
             }
         }
     )
+
+
+# ============================================================================
+# Walk-Forward / Monte Carlo / Stress Test Models (V2 endpoints)
+# ============================================================================
+
+
+class WalkForwardWindow(BaseModel):
+    """Single walk-forward split result."""
+
+    split: int = Field(..., description="Split index (1-based)")
+    metrics: dict[str, float] = Field(default_factory=dict)
+
+
+class WalkForwardWindowsResponse(BaseModel):
+    """Walk-forward windows response."""
+
+    freq: str
+    n_splits: int
+    n_successful_splits: int
+    aggregated_metrics: dict[str, float] = Field(default_factory=dict)
+    windows: list[WalkForwardWindow] = Field(default_factory=list)
+    generated_at: Optional[str] = None
+
+
+class SharpeDistributionResponse(BaseModel):
+    """Sharpe ratio distribution (walk-forward or Monte Carlo)."""
+
+    freq: str
+    source: str = Field(..., description="'walk_forward' or 'monte_carlo'")
+    n_samples: int
+    p10: float
+    p25: float
+    p50: float
+    p75: float
+    p90: float
+    mean: float
+    std: float
+
+
+class StressTestWindow(BaseModel):
+    """Single stress test window result."""
+
+    window: str
+    description: str = ""
+    start: str = ""
+    end: str = ""
+    cagr: Optional[float] = None
+    sharpe: Optional[float] = None
+    mdd: Optional[float] = None
+    n_trades: Optional[int] = None
+    total_return: Optional[float] = None
+    worst_day: Optional[float] = None
+
+
+class StressTestsResponse(BaseModel):
+    """Stress test results response."""
+
+    freq: str
+    verdict: str = Field(..., description="'PASS' or 'FAIL'")
+    windows: list[StressTestWindow] = Field(default_factory=list)
+    threshold_checks: dict[str, bool] = Field(default_factory=dict)
+    generated_at: Optional[str] = None
+
+
+# ============================================================================
+# Trade Journal / Explanation Models (V2 endpoints)
+# ============================================================================
+
+
+class TradeJournalEntry(BaseModel):
+    """Single trade journal entry."""
+
+    trade_id: Optional[str] = None
+    timestamp_utc: Optional[str] = None
+    symbol: Optional[str] = None
+    side: Optional[str] = None
+    qty: Optional[float] = None
+    fill_price: Optional[float] = None
+    notional: Optional[float] = None
+    signal_score: Optional[float] = None
+    signal_reason: Optional[str] = None
+    run_id: Optional[str] = None
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class TradeJournalResponse(BaseModel):
+    """Paginated trade journal response."""
+
+    total: int
+    limit: int
+    offset: int = 0
+    entries: list[TradeJournalEntry] = Field(default_factory=list)
+
+
+class TradeExplanationResponse(BaseModel):
+    """Trade explanation — factors, risk-gates, reasoning."""
+
+    trade_id: str
+    found: bool
+    symbol: Optional[str] = None
+    timestamp: Optional[str] = None
+    side: Optional[str] = None
+    reasoning_text: str = ""
+    factors: dict[str, Any] = Field(default_factory=dict)
+
+
+# ============================================================================
+# Diagnostics Models (V2 endpoints)
+# ============================================================================
+
+
+class ModuleStatus(BaseModel):
+    """Status of a single backend module."""
+
+    module: str
+    status: str = Field(..., description="'wired', 'canary', 'orphan', or 'phantom'")
+    callers: int = 0
+    path: Optional[str] = None
+
+
+class ModulesResponse(BaseModel):
+    """Module wiring diagnostic response."""
+
+    total: int
+    wired: int
+    canary: int
+    orphan: int
+    phantom: int
+    modules: list[ModuleStatus] = Field(default_factory=list)
+    generated_at: Optional[str] = None
+
+
+class FeatureDriftResponse(BaseModel):
+    """Feature drift diagnostic response."""
+
+    as_of: str
+    n_features: int
+    n_drifted: int
+    overall_severity: str = Field(..., description="'NONE', 'MODERATE', or 'SEVERE'")
+    features: list[FeatureDriftItem] = Field(default_factory=list)
