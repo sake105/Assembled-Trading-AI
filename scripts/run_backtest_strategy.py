@@ -572,13 +572,13 @@ def create_multifactor_v2_signal_fn(strategy_cfg: dict | None = None):
 
 
 def create_multifactor_v2_position_sizing_fn(
-    max_long_positions: int = 15,
-    max_short_positions: int = 15,
-    min_signal_threshold: float = 0.1,
+    max_positions: int = 15,
+    min_position_weight: float = 0.03,
+    target_invested_pct: float = 0.9,
 ):
     """Create a position sizing function for multifactor_v2.
 
-    Long-only above min_signal_threshold, equal-weighted by default.
+    Delegates to v1's compute_target_positions (equal-weighted, long-only).
     """
     from src.assembled_core.strategies.multifactor_v2 import (  # noqa: PLC0415
         compute_target_positions,
@@ -588,9 +588,9 @@ def create_multifactor_v2_position_sizing_fn(
         return compute_target_positions(
             signals_df,
             capital,
-            max_long_positions=max_long_positions,
-            max_short_positions=max_short_positions,
-            min_signal_threshold=min_signal_threshold,
+            max_positions=max_positions,
+            min_position_weight=min_position_weight,
+            target_invested_pct=target_invested_pct,
         )
 
     return position_sizing_fn
