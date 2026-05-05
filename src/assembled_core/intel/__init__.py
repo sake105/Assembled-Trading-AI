@@ -6,6 +6,10 @@ from .disclosures_triggers_loader import (
     DisclosuresTriggerSnapshot,
     load_disclosures_triggers,
 )
+from .news_triggers_loader import (
+    NewsTriggerSnapshot,
+    load_news_triggers,
+)
 from .news_alerts import AlertEngine, NewsAlert  # noqa: F401
 from .news_archiver import NewsArchiver  # noqa: F401
 from .news_entity_graph import EntityCoGraph, EntityStat  # noqa: F401
@@ -39,6 +43,8 @@ from .geo_event_logger import (  # noqa: F401
 __all__ = [
     "DisclosuresTriggerSnapshot",
     "load_disclosures_triggers",
+    "NewsTriggerSnapshot",
+    "load_news_triggers",
     # EDCL modules
     "TriggerBasket",
     "build_trigger_basket",

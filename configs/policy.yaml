@@ -378,14 +378,14 @@ hmm_regime_overlay:
 # DO NOT enable until paper-trading validation complete.
 # ---------------------------------------------------------------------------
 edcl_conviction_overlay:
-  enabled: false                   # Phase A: disabled until paper-run validation
+  enabled: true                    # Paper-Trading validation phase (2026-05-05)
   conviction_threshold: 0.70      # minimum conviction to trigger upscaling
   max_multiplier: 2.0             # hard ceiling on EDCL multiplier
   allow_in_backtest: false        # do not apply live-fetch signals in backtest
   use_historical_beta: true       # Phase C: enrich conviction with event-beta from FeatureStore
   # Phase E: conformal sizing for EDCL-triggered trades
   edcl_sizing:
-    enabled: false                # enable after paper-run validation
+    enabled: true                 # active during paper-run validation
     model_path: "models/conformal_position_v3.joblib"
     target_coverage: 0.85        # 85% coverage target for EDCL positions
     max_edcl_weight: 0.30        # max single-asset weight in EDCL-driven trade
