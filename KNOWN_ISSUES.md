@@ -271,9 +271,11 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
   | v5 | v4 + earnings + pe/ps ratio | 0.5080 | +earnings/fundamentals |
   | v6 | v5 + macro (VIX/yield) + roe/roa/margins | 0.5108 | Beste rigoros validierte Version |
   | v7 | v6 + momentum (ret_60d, MA-Ratios) + Optuna | 0.5034 | Optuna verschlechterte: mehr Reg |
+  | v8 | TA + cs_mom_rank + cs_rv_rank (cross-sect.) | 0.5180 | +0.007 vs v6; cs-rank features selected; macro filtered by collinearity |
 
-- **Empirische AUC-Obergrenze: ~0.511** mit verfügbaren Daten (TA + Macro + spärliche Fundamentaldaten).
-  6 Iterationen (v1–v7) bestätigen Decke bei reinen TA/Macro-Features.
+- **Empirische AUC-Obergrenze: ~0.518** mit verfügbaren Daten (TA + Macro + Cross-Sectional).
+  8 Iterationen (v1–v8) bestätigen Decke bei reinen TA/Macro/Cross-Sectional-Features.
+  CS-rank features (`cs_mom_rank`, `cs_rv_rank`) verbessern marginal, reichen nicht für Aktivierung.
 - **Datenprobleme:** Insider-Trading-Daten: alle 59.506 Zeilen mit `transaction_type='unknown'` → kein Signal.
   News-Sentiment: nur 23 unique Dates (< 60 Mindestschwelle) → zu spärlich.
   Fundamentaldaten: nur 118 Zeilen gesamt → Forward-fill notwendig, aber sehr dünn.
@@ -494,4 +496,19 @@ Aus `scripts/run_paper_pilot.py`:
 - Unerwartete Kill-Switch-Trips: ≤ 2
 - Fill-Rate: ≥ 95%
 
-**Status (2026-05-04):** Panel nur 2023–2026 → Stress-Tests gegen GFC/Flash-Crash/Euro-Krise können erst mit erweitertem Datenpanel ausgeführt werden. COVID_2020 und SVB_2023 sind möglicherweise abdeckbar (Panel beginnt 2023-01-03). Inflation_2022 nur mit historischem Panel-Erweiterung.
+**Status (2026-05-05):** Panel `watchlist_2007_2026.parquet` vorhanden (103K rows, 2007–2026). VIX-basiertes Exposure-Capping implementiert (VIX>30→0.40, VIX 20-30→0.70). Stress-Test läuft mit `multifactor_v2` + VIX-Cap.
+
+**Ergebnisse (2026-05-05, multifactor_v2 + VIX-Cap):**
+| Window | CAGR | Sharpe | MDD | Status |
+|--------|------|--------|-----|--------|
+| GFC_2008 | -4.07% | 0.097 | -35.77% | ❌ FAIL (Threshold -25%) |
+| Flash_Crash_2010 | -48.60% | -3.13 | -10.36% | ✅ PASS |
+| Euro_Crisis_2011 | -0.66% | 0.112 | -13.52% | ✅ PASS |
+| COVID_2020 | -1.65% | 0.180 | **-20.41%** | ✅ PASS (vorher -33.65%) |
+| Inflation_2022 | -20.55% | -1.06 | -21.30% | ❌ FAIL (Threshold -20%) |
+| SVB_2023 | +79.35% | 3.73 | -3.24% | ✅ PASS |
+
+**Verbleibende FAIL-Punkte:**
+- GFC_2008: multifactor_v2 MDD -35.77% — AI-Tech-Bundle performt schlecht während 2008 Bankenkrise + Recovery. Strukturelles Problem, nicht VIX-Cap-Regression.
+- Inflation_2022: MDD -21.30% (Threshold -20%) — marginal. VIX lag 2022 größtenteils unter 30 → Cap greift nicht stark.
+- **COVID-Failure ist behoben** (VIX-Cap wirkt: -33.65% → -20.41%).

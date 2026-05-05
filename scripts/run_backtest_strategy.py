@@ -2056,6 +2056,43 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 )
 
         # ------------------------------------------------------------------ #
+        # VIX join for mfv2 exposure capping
+        # ------------------------------------------------------------------ #
+        if (
+            args.strategy == "multifactor_v2"
+            and precomputed_prices_with_features is not None
+            and not precomputed_prices_with_features.empty
+            and "vix" not in precomputed_prices_with_features.columns
+        ):
+            try:
+                from src.assembled_core.data.sources.cboe_source import CBOESource
+
+                _vix_start = getattr(args, "start_date", None) or "2007-01-01"
+                _vix_end = getattr(args, "end_date", None) or None
+                _vix_df = CBOESource().fetch_vix(start_date=_vix_start, end_date=_vix_end)
+                if not _vix_df.empty and "vix" in _vix_df.columns:
+                    _vix_df = _vix_df[["timestamp", "vix"]].copy()
+                    _vix_ts = pd.to_datetime(_vix_df["timestamp"])
+                    if _vix_ts.dt.tz is not None:
+                        _vix_ts = _vix_ts.dt.tz_convert(None)
+                    _vix_df["_ts_norm"] = _vix_ts.dt.normalize()
+                    _vix_df = _vix_df.drop(columns=["timestamp"])
+                    _panel_ts = pd.to_datetime(precomputed_prices_with_features["timestamp"])
+                    if _panel_ts.dt.tz is not None:
+                        _panel_ts = _panel_ts.dt.tz_convert(None)
+                    precomputed_prices_with_features["_ts_norm"] = _panel_ts.dt.normalize()
+                    precomputed_prices_with_features = precomputed_prices_with_features.merge(
+                        _vix_df, on="_ts_norm", how="left"
+                    ).drop(columns=["_ts_norm"])
+                    logger.info(
+                        "[mfv2] VIX joined: %d/%d rows with VIX data",
+                        precomputed_prices_with_features["vix"].notna().sum(),
+                        len(precomputed_prices_with_features),
+                    )
+            except Exception as _e:
+                logger.warning("[mfv2] VIX join failed: %s — no exposure cap", _e)
+
+        # ------------------------------------------------------------------ #
         # Altdata enrichment: earnings surprise + macro regime + news sentiment
         # ------------------------------------------------------------------ #
         if (

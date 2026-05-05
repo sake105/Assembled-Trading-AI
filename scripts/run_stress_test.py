@@ -27,7 +27,12 @@ logger = logging.getLogger(__name__)
 
 
 def _run_window(
-    window: dict, policy: str, out_dir: Path, price_file: str | None = None
+    window: dict,
+    policy: str,
+    out_dir: Path,
+    price_file: str | None = None,
+    strategy: str = "multifactor_v2",
+    bundle_path: str | None = None,
 ) -> dict | None:
     name = window["name"]
     out_path = out_dir / name
@@ -46,7 +51,11 @@ def _run_window(
         policy,
         "--freq",
         "1d",
+        "--strategy",
+        strategy,
     ]
+    if bundle_path:
+        cmd += ["--bundle-path", bundle_path]
     if price_file:
         cmd += ["--price-file", price_file]
 
@@ -145,9 +154,21 @@ def main() -> int:
     parser.add_argument("--stress-config", default="configs/stress_windows.yaml")
     parser.add_argument("--out-dir", default="output/stress")
     parser.add_argument(
-        "--price-file", default="", help="Explicit price parquet to pass to backtest"
+        "--price-file",
+        default="data/sample/watchlist_2007_2026.parquet",
+        help="Explicit price parquet to pass to backtest",
     )
     parser.add_argument("--windows", nargs="*", help="Subset of window names to run")
+    parser.add_argument(
+        "--strategy",
+        default="multifactor_v2",
+        help="Strategy to run for each stress window (default: multifactor_v2)",
+    )
+    parser.add_argument(
+        "--bundle-path",
+        default="configs/factor_bundles/ai_tech_core_ml_bundle.yaml",
+        help="Factor bundle for multifactor_v2",
+    )
     args = parser.parse_args()
 
     cfg_path = Path(args.stress_config)
@@ -172,7 +193,14 @@ def main() -> int:
     price_file = args.price_file or None
     results = []
     for window in windows:
-        r = _run_window(window, args.policy, out_dir, price_file=price_file)
+        r = _run_window(
+            window,
+            args.policy,
+            out_dir,
+            price_file=price_file,
+            strategy=args.strategy,
+            bundle_path=args.bundle_path,
+        )
         if r:
             results.append(r)
             logger.info(

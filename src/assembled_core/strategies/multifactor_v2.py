@@ -830,6 +830,19 @@ def compute_signals(
     regime_mult = REGIME_EXPOSURE.get(regime_label, 0.70)
     crash_mult = _crash_prediction_multiplier(df, cfg)
     exposure_mult = regime_mult * crash_mult
+
+    # VIX hard cap — overrides regime/crash multiplier during vol spikes
+    if "vix" in latest.columns:
+        _vix_vals = latest["vix"].dropna()
+        if len(_vix_vals) > 0:
+            _vix_val = float(_vix_vals.median())
+            _vix_cap = 0.40 if _vix_val > 30 else (0.70 if _vix_val >= 20 else 1.0)
+            if _vix_cap < exposure_mult:
+                logger.info(
+                    "[MF-V2] VIX=%.1f → exposure capped %.2f→%.2f", _vix_val, exposure_mult, _vix_cap
+                )
+                exposure_mult = _vix_cap
+
     composite = composite * exposure_mult
 
     # --- Build output signals ---
