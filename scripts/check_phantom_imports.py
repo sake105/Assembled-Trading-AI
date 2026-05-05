@@ -21,24 +21,24 @@ REPO_ROOT = Path(__file__).parent.parent
 SCAN_DIRS = ["src", "scripts"]
 
 # Modules known to be archived or intentionally missing
+# Restored from archive (now importable — remove from this set when fixed):
 KNOWN_ARCHIVED = {
-    "src.assembled_core.risk.disclosures_confirm",
+    # portfolio sizing alternatives — all in try/except, degrade gracefully
     "src.assembled_core.portfolio.covariance",
-    "src.assembled_core.signals.short_signals",
-    "src.assembled_core.signals.mean_reversion",
-    "src.assembled_core.signals.signal_diagnostics",
-    "src.assembled_core.risk.short_risk",
-    "src.assembled_core.risk.circuit_breaker",
-    "src.assembled_core.features.behavioral_features",
-    "src.assembled_core.features.cross_sectional",
-    "src.assembled_core.features.seasonal_features",
     "src.assembled_core.portfolio.risk_budgeting",
     "src.assembled_core.portfolio.hrp_sizing",
     "src.assembled_core.portfolio.bl_sizing",
     "src.assembled_core.portfolio.barbell_strategy",
+    # risk overlays — in try/except, degrade gracefully
+    "src.assembled_core.risk.disclosures_confirm",
+    "src.assembled_core.risk.short_risk",
     "src.assembled_core.risk.evt_tail_var",
     "src.assembled_core.risk.factor_risk_model",
+    # signals — in try/except, degrade gracefully
+    "src.assembled_core.signals.short_signals",
+    "src.assembled_core.signals.mean_reversion",
     "src.assembled_core.signals.earnings_integration",
+    # ml — all in try/except; advanced features not in base install
     "src.assembled_core.ml.conformal",
     "src.assembled_core.ml.evt_models",
     "src.assembled_core.ml.feedback_loop",
@@ -47,6 +47,7 @@ KNOWN_ARCHIVED = {
     "src.assembled_core.ml.nlp_sentiment",
     "src.assembled_core.ml.quantile_models",
     "src.assembled_core.ml.retraining_scheduler",
+    # ops
     "src.assembled_core.ops.shadow_recorder",
 }
 

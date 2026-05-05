@@ -536,6 +536,66 @@ def create_multifactor_long_short_position_sizing_fn(
     return position_sizing_fn
 
 
+def create_multifactor_v2_signal_fn(strategy_cfg: dict | None = None):
+    """Create a signal function for the multifactor_v2 (30-factor) strategy.
+
+    multifactor_v2 operates on any price panel with TA features precomputed.
+    It computes 30 factors (TA, momentum, vol, news, earnings, insider, macro,
+    intermarket, congress) and weights them regime-conditionally.
+
+    Args:
+        strategy_cfg: Optional override dict for strategy config (ema_fast,
+                      ema_slow, min_signal_score, etc.).
+
+    Returns:
+        Callable that takes prices_with_features DataFrame and returns signals.
+    """
+    from src.assembled_core.features.ta_features import add_all_features  # noqa: PLC0415
+    from src.assembled_core.strategies.multifactor_v2 import (  # noqa: PLC0415
+        compute_signals,
+    )
+
+    cfg = strategy_cfg or {}
+
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        df = prices_df.copy()
+        # Ensure TA features are present (backtest may pass raw price slice)
+        ta_cols = [c for c in df.columns if c.startswith("ta_")]
+        if len(ta_cols) < 5:
+            try:
+                df = add_all_features(df)
+            except Exception as exc:
+                logger.warning("[MF-V2-BT] add_all_features failed: %s", exc)
+        return compute_signals(df, strategy_cfg=cfg)
+
+    return signal_fn
+
+
+def create_multifactor_v2_position_sizing_fn(
+    max_long_positions: int = 15,
+    max_short_positions: int = 15,
+    min_signal_threshold: float = 0.1,
+):
+    """Create a position sizing function for multifactor_v2.
+
+    Long-only above min_signal_threshold, equal-weighted by default.
+    """
+    from src.assembled_core.strategies.multifactor_v2 import (  # noqa: PLC0415
+        compute_target_positions,
+    )
+
+    def position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
+        return compute_target_positions(
+            signals_df,
+            capital,
+            max_long_positions=max_long_positions,
+            max_short_positions=max_short_positions,
+            min_signal_threshold=min_signal_threshold,
+        )
+
+    return position_sizing_fn
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -634,6 +694,7 @@ Examples:
             "trend_baseline",
             "event_insider_shipping",
             "multifactor_long_short",
+            "multifactor_v2",
             "trend_baseline_rsi_filter",
             "trend_baseline_vol_filter",
             "trend_baseline_regime_gate",
@@ -641,7 +702,7 @@ Examples:
             "trend_baseline_liquidity_filter",
             "trend_baseline_rsi_vol_combo_filter",
         ],
-        help="Strategy: trend_baseline, event, multifactor, trend_*_filter, trend_*_regime_gate, trend_*_rsi_vol_combo",
+        help="Strategy: trend_baseline, event, multifactor_long_short, multifactor_v2, trend_*_filter",
     )
 
     parser.add_argument(
@@ -1634,10 +1695,18 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 bundle_path=str(bundle_path),
                 max_gross_exposure=args.max_gross_exposure,
             )
+        elif args.strategy == "multifactor_v2":
+            logger.info("Multi-Factor V2 Strategy (30-factor, regime-conditional)")
+            print("Multifactor V2 Strategy", flush=True)
+
+            strategy_cfg: dict = {}
+            signal_fn = create_multifactor_v2_signal_fn(strategy_cfg=strategy_cfg)
+            position_sizing_fn = create_multifactor_v2_position_sizing_fn()
         else:
             logger.error(f"Unknown strategy: {args.strategy}")
             logger.info(
-                "Supported strategies: trend_baseline, event_insider_shipping, multifactor_long_short"
+                "Supported strategies: trend_baseline, event_insider_shipping, "
+                "multifactor_long_short, multifactor_v2"
             )
             return 1
 

@@ -19,7 +19,7 @@ paper_runner:
     trailing_stop_pct: 0.10     # 10% trailing stop below HWM
     take_profit_pct: 0.15       # 15% profit -> sell 50%
   intel:
-    mode: "sim"            # real | sim | none
+    mode: "real"           # real | sim | none
     run_news_pipeline: true
     run_disclosures_pipeline: true
     news:
