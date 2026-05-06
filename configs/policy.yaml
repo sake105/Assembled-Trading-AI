@@ -3,7 +3,7 @@ policy_version: "v1.0"
 # High-level scope for this policy version.
 scope:
   instruments: ["ETFs", "equities"]  # ETFs + direct equities for short candidates
-  leverage_allowed: false            # no leverage / no leveraged products
+  leverage_allowed: true             # Wave 4: limited leverage up to 1.20x gross exposure (paper-trading only)
   shorts_allowed: true               # v2.0: enabled — inverse ETFs + direct shorts
 
 # Short-selling configuration (active when shorts_allowed: true)
@@ -50,7 +50,7 @@ risk_limits:
   # `shorts.max_gross_exposure` (1.50), which is shorts-specific. This key is
   # read first by pipeline/trading_cycle.py and must be consistent with
   # scope.leverage_allowed=false (see policy_schema.py gross-exposure check).
-  max_gross_exposure: 1.0        # leverage_allowed: false → cap at 100%
+  max_gross_exposure: 1.20       # Wave 4: 20% leverage headroom; enforced at pre-trade gate
   turnover:
     weekly_cap: 0.50             # max 50% portfolio turnover per week
     daily_cap: 0.20              # max 20% portfolio turnover per day
@@ -379,7 +379,7 @@ hmm_regime_overlay:
 # ---------------------------------------------------------------------------
 edcl_conviction_overlay:
   enabled: true                    # Paper-Trading validation phase (2026-05-05)
-  conviction_threshold: 0.70      # minimum conviction to trigger upscaling
+  conviction_threshold: 0.85      # Wave 4: raised from 0.70 — high-conviction only
   max_multiplier: 2.0             # hard ceiling on EDCL multiplier
   allow_in_backtest: false        # do not apply live-fetch signals in backtest
   use_historical_beta: true       # Phase C: enrich conviction with event-beta from FeatureStore

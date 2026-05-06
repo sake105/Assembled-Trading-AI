@@ -525,3 +525,14 @@ Der Yield-Curve-Inversions-Cap (Slope < 0 für ≥65% der letzten 30 Tage → Ex
 während der Drawdown-Peak Jan–Jun 2022 lag (VIX 25–35, noch keine persistente Inversion).
 Der Cap ist korrekt für **Live-Trading** konzipiert und schützt vor langsamer Stagflations-Blutung bei
 niedrigem VIX. Die Kalibrierung des Inflation_2022-Thresholds auf -22% ist die operative Absicherung.
+
+### 7.3 Paper-Pilot v1 — abgebrochen nach Tag 4/30
+
+**Status (2026-05-06):** Pilot v1 nach 4 Tagen abgebrochen.
+
+**Grund:** Waves 1–4 (Universe-Expansion, News-Taxonomie, RSS-Feeds, Leverage-Freigabe)
+müssen vor einem aussagekräftigen 30-Tage-Pilot implementiert sein.
+
+**Artefakt:** `output/pilot/pilot_manifest_v1_aborted_2026-05-06.json`
+
+**Pilot v2:** Wird nach Abschluss aller Waves (1–4) neu gestartet.
