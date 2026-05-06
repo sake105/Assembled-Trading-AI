@@ -29,7 +29,8 @@
     "intermarket_yield_curve": 0.0,
     "options_put_call_extreme": 0.0,
     "vix_regime_score": 0.08665121515924636,
-    "congress_activity": 0.0
+    "congress_activity": 0.0,
+    "geo_risk_composite": 0.02
   },
   "sideways": {
     "trend_ema_spread": 0.0,
@@ -61,7 +62,8 @@
     "intermarket_yield_curve": 0.0,
     "options_put_call_extreme": 0.03629599076574306,
     "vix_regime_score": 0.03377236226796176,
-    "congress_activity": 0.1690171355310061
+    "congress_activity": 0.1690171355310061,
+    "geo_risk_composite": 0.04
   },
   "bear": {
     "trend_ema_spread": 0.03558629037799779,
@@ -93,7 +95,8 @@
     "intermarket_yield_curve": 0.0,
     "options_put_call_extreme": 0.14052877931716187,
     "vix_regime_score": 0.07695936695545537,
-    "congress_activity": 0.0
+    "congress_activity": 0.0,
+    "geo_risk_composite": 0.07
   },
   "crisis": {
     "trend_ema_spread": 0.0,
@@ -125,6 +128,7 @@
     "intermarket_yield_curve": 0.0,
     "options_put_call_extreme": 0.008248264300162182,
     "vix_regime_score": 0.31049437833700827,
-    "congress_activity": 0.014512455126920204
+    "congress_activity": 0.014512455126920204,
+    "geo_risk_composite": 0.12
   }
 }

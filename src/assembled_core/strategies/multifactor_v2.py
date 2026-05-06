@@ -681,25 +681,33 @@ def _compute_geo_risk_composite(
         logger.debug("[MF-V2] geo composite (panel): val=%.2f z=%.2f", composite_val, geo_z)
         return result
 
-    # Path 2: fetch live GPR from FRED
+    # Path 2: fetch live GPR from FRED (GPRC = historical, monthly series)
     try:
+        import datetime as _dt
         from src.assembled_core.features.geopolitical_features import (
             compute_gpr_from_fred,
         )
-        from src.assembled_core.data.sources.fred_source import FREDSource
+        from src.assembled_core.data.sources.fred_source import fetch_fred_series
 
-        fred = FREDSource()
-        gpr_raw = fred.fetch_series("GPRC_US")  # type: ignore[attr-defined]
-        if gpr_raw is not None and len(gpr_raw) > 0:
-            gpr_series = pd.Series(gpr_raw).dropna()
-            gpr_z = compute_gpr_from_fred(gpr_series, rolling_window=252)
-            if gpr_z is not None and len(gpr_z) > 0:
-                current_z = float(gpr_z.iloc[-1])
-                result["geo_risk_composite"] = pd.Series(
-                    -current_z, index=sym_idx.values
-                )
-                logger.debug("[MF-V2] geo composite (FRED): z=%.2f", current_z)
-                return result
+        _end = _dt.date.today().isoformat()
+        _start = ((_dt.date.today()).replace(year=_dt.date.today().year - 5)).isoformat()
+        _fred_df = fetch_fred_series(["GPRC"], _start, _end)
+        if not _fred_df.empty:
+            _gpr_vals = (
+                _fred_df[_fred_df["series_id"] == "GPRC"]
+                .set_index("timestamp")["value"]
+                .sort_index()
+                .dropna()
+            )
+            if len(_gpr_vals) >= 30:
+                gpr_features = compute_gpr_from_fred(_gpr_vals, rolling_window=252)
+                if not gpr_features.empty and "gpr_zscore" in gpr_features.columns:
+                    current_z = float(gpr_features["gpr_zscore"].dropna().iloc[-1])
+                    result["geo_risk_composite"] = pd.Series(
+                        -current_z, index=sym_idx.values
+                    )
+                    logger.debug("[MF-V2] geo composite (FRED): z=%.2f", current_z)
+                    return result
     except Exception as exc:
         logger.debug("[MF-V2] geo composite FRED fetch failed: %s", exc)
 
