@@ -127,7 +127,13 @@ def cmd_evaluate() -> int:
     if ledger_path.exists():
         try:
             ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
-            equity_curve = ledger.get("equity_curve", [])
+            equity_curve_raw = ledger.get("equity_curve", [])
+            # equity_curve may be list of floats or list of dicts {"utc":..., "equity":...}
+            equity_curve = [
+                e["equity"] if isinstance(e, dict) else float(e)
+                for e in equity_curve_raw
+                if (isinstance(e, dict) and "equity" in e) or isinstance(e, (int, float))
+            ]
             if len(equity_curve) > 1:
                 import statistics
 
@@ -194,7 +200,7 @@ def cmd_evaluate() -> int:
     print(f"PILOT VERDICT: {decision}")
     print(f"{'='*50}")
     for k, v in criteria_results.items():
-        icon = "✓" if v.get("pass") else "✗"
+        icon = "[OK]" if v.get("pass") else "[FAIL]"
         print(f"  {icon} {k}: {v.get('value')}")
     print(f"\nNext action: {next_action}")
     print(f"Report: {report_path}")
