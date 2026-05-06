@@ -89,6 +89,44 @@ def _ingest_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResul
         )
 
 
+def _news_fetch_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
+    """Run news worker + RSS→sentiment bridge + sentiment fusion."""
+    t0 = time.monotonic()
+    import subprocess
+    import sys as _sys
+
+    steps = [
+        # 1. Refresh RSS events
+        [_sys.executable, "scripts/run_news_worker.py", "--once"],
+        # 2. Bridge RSS events → sentiment parquet
+        [_sys.executable, "scripts/convert_rss_events_to_sentiment.py"],
+        # 3. Fuse all sources
+        [_sys.executable, "scripts/fuse_news_sentiment.py", "--update-primary"],
+    ]
+    if dry_run:
+        return WorkerResult(worker_name="news_fetch_worker", status="skip",
+                            duration_s=time.monotonic() - t0)
+
+    errors = []
+    for cmd in steps:
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if res.returncode != 0:
+                errors.append(f"{cmd[1]}: rc={res.returncode}")
+        except Exception as exc:
+            errors.append(f"{cmd[1]}: {exc}")
+
+    if errors:
+        return WorkerResult(
+            worker_name="news_fetch_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg="; ".join(errors),
+        )
+    return WorkerResult(worker_name="news_fetch_worker", status="ok",
+                        duration_s=time.monotonic() - t0)
+
+
 def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
     """Run post-trade analysis and write report to output_dir."""
     t0 = time.monotonic()
@@ -929,6 +967,7 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
 
 # Default worker registry (callables that accept date_str, output_dir, dry_run)
 _DEFAULT_WORKERS: List[Callable] = [
+    _news_fetch_worker,  # refresh RSS events + sentiment fusion (runs first)
     _ingest_worker,
     _post_trade_worker,
     _feedback_worker,

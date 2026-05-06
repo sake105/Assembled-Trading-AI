@@ -85,6 +85,22 @@ TICKER_NAMES: dict[str, str] = {
 GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc"
 _REQUEST_DELAY = 3.0  # seconds between requests
 
+# Positive/negative keywords for artlist mode sentiment scoring
+_POS_WORDS = {"beat", "surge", "growth", "profit", "gain", "upgrade", "rally", "soar",
+               "rise", "approved", "record", "strong", "bullish", "deal", "win"}
+_NEG_WORDS = {"miss", "fall", "slump", "loss", "cut", "layoff", "lawsuit", "downgrade",
+               "drop", "decline", "warn", "recall", "probe", "investigation", "default",
+               "bearish", "weak", "risk", "concern"}
+
+
+def _keyword_sentiment(text: str) -> float:
+    t = text.lower()
+    pos = sum(1 for w in _POS_WORDS if w in t)
+    neg = sum(1 for w in _NEG_WORDS if w in t)
+    if pos == neg:
+        return 0.0
+    return round(min(max((pos - neg) / max(pos + neg, 1), -1.0), 1.0), 4)
+
 
 def _gdelt_url(query: str, mode: str, start: str, end: str) -> str:
     import urllib.parse
@@ -97,6 +113,88 @@ def _gdelt_url(query: str, mode: str, start: str, end: str) -> str:
         "format": "json",
     }
     return GDELT_BASE + "?" + urllib.parse.urlencode(params)
+
+
+def _gdelt_artlist_url(query: str, start: str, end: str, max_records: int = 250) -> str:
+    """Article-list API URL — returns article titles + tones, less rate-limited than timeline."""
+    import urllib.parse
+    params = {
+        "query": query,
+        "mode": "artlist",
+        "startdatetime": start,
+        "enddatetime": end,
+        "maxrecords": str(min(max_records, 250)),
+        "sort": "DateDesc",
+        "format": "json",
+    }
+    return GDELT_BASE + "?" + urllib.parse.urlencode(params)
+
+
+def fetch_gdelt_artlist(
+    ticker: str,
+    start_date: str,
+    end_date: str,
+    max_records: int = 250,
+) -> pd.DataFrame:
+    """Fetch article list from GDELT (artlist mode) — more reliable than timeline.
+
+    Returns DataFrame with columns: timestamp, symbol, sentiment_score,
+    sentiment_volume, count.
+    """
+    name = TICKER_NAMES.get(ticker, ticker)
+    query = f'"{name}" sourcelang:eng'
+
+    start_dt = start_date.replace("-", "") + "000000"
+    end_dt = end_date.replace("-", "") + "235959"
+    url = _gdelt_artlist_url(query, start_dt, end_dt, max_records)
+
+    data = _fetch_json(url)
+    time.sleep(_REQUEST_DELAY)
+
+    if data is None:
+        return pd.DataFrame()
+
+    articles = data.get("articles", [])
+    if not articles:
+        return pd.DataFrame()
+
+    rows = []
+    for art in articles:
+        date_str = art.get("seendate", "")
+        title = art.get("title", "") or ""
+        # GDELT tone: -100..+100, positive = positive sentiment
+        tone_raw = art.get("tone", None)
+        if tone_raw is not None:
+            try:
+                sentiment_score = float(np.tanh(float(tone_raw) / 5.0))
+            except (TypeError, ValueError):
+                sentiment_score = _keyword_sentiment(title)
+        else:
+            sentiment_score = _keyword_sentiment(title)
+
+        try:
+            # seendate format: YYYYMMDDTHHMMSSZ
+            ts = pd.Timestamp(date_str[:8], tz="UTC")
+        except Exception:
+            continue
+
+        rows.append({"timestamp": ts, "symbol": ticker, "sentiment_score": round(sentiment_score, 4)})
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    # Aggregate to daily
+    daily = (
+        df.groupby(["timestamp", "symbol"])
+        .agg(
+            sentiment_score=("sentiment_score", "mean"),
+            count=("sentiment_score", "count"),
+        )
+        .reset_index()
+    )
+    daily["sentiment_volume"] = np.log1p(daily["count"]).clip(1, 10).round(2)
+    return daily[["timestamp", "symbol", "sentiment_score", "sentiment_volume", "count"]]
 
 
 def _fetch_json(url: str, timeout: int = 30, max_retries: int = 3) -> dict | None:
@@ -415,6 +513,26 @@ def main() -> None:
         help="Seconds between GDELT requests (default: 3)",
     )
     parser.add_argument(
+        "--mode",
+        choices=["timeline", "artlist"],
+        default="artlist",
+        help=(
+            "GDELT fetch mode: 'artlist' (default) returns article titles+tone, "
+            "less rate-limited than 'timeline'. Use 'timeline' for weekly aggregates."
+        ),
+    )
+    parser.add_argument(
+        "--max-records",
+        type=int,
+        default=250,
+        help="Max articles per symbol in artlist mode (max 250)",
+    )
+    parser.add_argument(
+        "--gdelt-out",
+        default="output/news_sentiment_gdelt.parquet",
+        help="Output path for GDELT-only parquet (before merging)",
+    )
+    parser.add_argument(
         "--use-price-proxy",
         action="store_true",
         help=(
@@ -448,39 +566,49 @@ def main() -> None:
             sys.exit(1)
     else:
         # --- GDELT mode ---
+        mode = getattr(args, "mode", "artlist")
         log.info(
-            "Fetching GDELT sentiment for %d symbols, %s → %s",
-            len(symbols),
-            args.start_date,
-            args.end_date,
+            "Fetching GDELT (%s mode) for %d symbols, %s to %s",
+            mode, len(symbols), args.start_date, args.end_date,
         )
 
         all_frames = []
         for i, ticker in enumerate(symbols, 1):
             log.info("[%d/%d] %s ...", i, len(symbols), ticker)
             try:
-                raw = fetch_gdelt_sentiment(ticker, args.start_date, args.end_date)
-                if raw.empty:
-                    log.info("  → no data for %s", ticker)
-                    continue
-                normalized = normalize_sentiment(raw)
-                daily = resample_to_daily(normalized)
-                log.info(
-                    "  → %d weekly → %d daily rows, tone range [%.2f, %.2f]",
-                    len(raw),
-                    len(daily),
-                    normalized["sentiment_score"].min(),
-                    normalized["sentiment_score"].max(),
-                )
-                all_frames.append(daily)
+                if mode == "artlist":
+                    daily = fetch_gdelt_artlist(
+                        ticker, args.start_date, args.end_date,
+                        max_records=getattr(args, "max_records", 250),
+                    )
+                    if daily.empty:
+                        log.info("  no data for %s", ticker)
+                        continue
+                    log.info("  %d daily rows", len(daily))
+                    all_frames.append(daily)
+                else:
+                    raw = fetch_gdelt_sentiment(ticker, args.start_date, args.end_date)
+                    if raw.empty:
+                        log.info("  no data for %s", ticker)
+                        continue
+                    normalized = normalize_sentiment(raw)
+                    daily = resample_to_daily(normalized)
+                    log.info("  %d weekly -> %d daily rows", len(raw), len(daily))
+                    all_frames.append(daily)
             except Exception as exc:
-                log.warning("  → failed for %s: %s", ticker, exc)
+                log.warning("  failed for %s: %s", ticker, exc)
 
         if not all_frames:
             log.error("No data fetched from GDELT. Try --use-price-proxy as fallback.")
             sys.exit(1)
 
         new_df = pd.concat(all_frames, ignore_index=True)
+
+        # Save GDELT-only output for fusion
+        gdelt_out = Path(getattr(args, "gdelt_out", "output/news_sentiment_gdelt.parquet"))
+        gdelt_out.parent.mkdir(parents=True, exist_ok=True)
+        new_df.to_parquet(gdelt_out, index=False)
+        log.info("[OK] GDELT standalone: %d rows -> %s", len(new_df), gdelt_out)
         new_df["timestamp"] = pd.to_datetime(new_df["timestamp"], utc=True)
         new_df = new_df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
 
