@@ -27,6 +27,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
+load_dotenv(ROOT / ".env")
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
@@ -40,7 +43,8 @@ _DELAY_BETWEEN_CALLS = 13.0  # safe for 25 calls/day (~5 calls/min free tier)
 
 
 def _get_api_key() -> str | None:
-    return os.environ.get("ALPHAVANTAGE_API_KEY")
+    # alphavantage_source.py uses ALPHAVANTAGE_KEY (no _API_ suffix)
+    return os.environ.get("ALPHAVANTAGE_KEY") or os.environ.get("ALPHAVANTAGE_API_KEY")
 
 
 def fetch_ticker_news(
@@ -162,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
 
     api_key = _get_api_key()
     if not api_key or api_key.startswith("your_"):
-        log.error("[ERROR] ALPHAVANTAGE_API_KEY not set. Get a free key at alphavantage.co")
+        log.error("[ERROR] ALPHAVANTAGE_KEY not set. Get a free key at alphavantage.co")
         return 1
 
     # Build ticker list
