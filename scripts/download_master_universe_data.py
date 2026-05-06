@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     PANEL_OUT.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"[START] Downloading {len(symbols)} symbols ({args.start} → {end})")
+    print(f"[START] Downloading {len(symbols)} symbols ({args.start} to {end})")
 
     ok, fail = 0, 0
     for i, sym in enumerate(symbols, 1):
