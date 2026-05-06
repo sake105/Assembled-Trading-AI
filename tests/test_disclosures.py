@@ -888,11 +888,11 @@ def test_context_sets_degraded_flag(tmp_path: Path) -> None:
     }
     with (
         patch(
-            "src.assembled_core.pipeline.trading_cycle.load_policy",
+            "src.assembled_core.pipeline.trading_cycle_v2.load_policy",
             return_value=policy_with_intel,
         ),
         patch(
-            "src.assembled_core.pipeline.trading_cycle.get_base_dir",
+            "src.assembled_core.pipeline.trading_cycle_v2.get_base_dir",
             return_value=tmp_path,
         ),
     ):

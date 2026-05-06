@@ -407,10 +407,13 @@ class TestSizePositions:
 
     def test_sizing_fn_returning_none_yields_empty_targets(self):
         # size_positions is resilient: None → empty DataFrame (no raise)
+        # Mock load_policy to force default sizing so position_sizing_fn is used directly.
+        from unittest.mock import patch
         ctx = _make_ctx()
         ctx.position_sizing_fn = lambda s, c: None  # type: ignore[arg-type]
         signals = self._make_signals()
-        targets, _, _meta = size_positions(signals, ctx)
+        with patch("src.assembled_core.pipeline._tc_sizing.load_policy", return_value={}):
+            targets, _, _meta = size_positions(signals, ctx)
         assert isinstance(targets, pd.DataFrame)
         assert targets.empty
 
