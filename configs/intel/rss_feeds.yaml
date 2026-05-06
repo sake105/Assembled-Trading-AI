@@ -829,3 +829,297 @@ feeds:
   #   channel: "@legitimniy"
   #   tier: T3
   #   focus: ukraine_geopolitical
+
+  # ==========================================================================
+  # Wave 3 additions — economic/financial focus rebalancing (40 new feeds)
+  # ==========================================================================
+
+  # --- Wirtschaftsmedien (15 feeds) ---
+
+  - id: cnbc_economy
+    name: "CNBC Economy"
+    url: "https://www.cnbc.com/id/20910258/device/rss/rss.html"
+    tier: T1
+    focus: economic
+    enabled: true
+
+  - id: marketwatch_top
+    name: "MarketWatch Top Stories"
+    url: "https://feeds.marketwatch.com/marketwatch/topstories"
+    tier: T1
+    focus: financial_economic
+    enabled: true
+
+  - id: ft_markets
+    name: "Financial Times Markets"
+    url: "https://www.ft.com/markets?format=rss"
+    tier: T1
+    focus: financial_economic
+    enabled: true
+
+  - id: wsj_markets
+    name: "WSJ Markets"
+    url: "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"
+    tier: T1
+    focus: financial_economic
+    enabled: true
+
+  - id: ecb_press
+    name: "ECB Press Releases"
+    url: "https://www.ecb.europa.eu/rss/press.html"
+    tier: T1
+    focus: central_bank_policy
+    enabled: true
+
+  - id: fed_speeches
+    name: "Federal Reserve Speeches"
+    url: "https://www.federalreserve.gov/feeds/speeches.xml"
+    tier: T1
+    focus: central_bank_policy
+    enabled: true
+
+  - id: boe_news
+    name: "Bank of England News"
+    url: "https://www.bankofengland.co.uk/rss/news"
+    tier: T1
+    focus: central_bank_policy
+    enabled: true
+
+  - id: imf_news
+    name: "IMF News"
+    url: "https://www.imf.org/en/News/rss?language=eng"
+    tier: T1
+    focus: economic_policy
+    enabled: true
+
+  - id: bis_speeches
+    name: "BIS Speeches"
+    url: "https://www.bis.org/doclist/speeches.rss"
+    tier: T1
+    focus: central_bank_policy
+    enabled: true
+
+  - id: zerohedge_markets
+    name: "ZeroHedge Markets"
+    url: "https://feeds.feedburner.com/zerohedge/feed"
+    tier: T3
+    focus: financial_alternative
+    enabled: false
+
+  - id: bloomberg_economics
+    name: "Bloomberg Economics"
+    url: "https://feeds.bloomberg.com/economics/news.rss"
+    tier: T1
+    focus: economic
+    enabled: true
+
+  - id: economist_finance
+    name: "The Economist Finance"
+    url: "https://www.economist.com/finance-and-economics/rss.xml"
+    tier: T1
+    focus: financial_economic
+    enabled: true
+
+  - id: wsj_economy
+    name: "WSJ Economy"
+    url: "https://feeds.a.dj.com/rss/RSSEconomy.xml"
+    tier: T1
+    focus: economic
+    enabled: true
+
+  - id: seeking_alpha_macro
+    name: "Seeking Alpha Macro View"
+    url: "https://seekingalpha.com/feed/tag/macro-view.xml"
+    tier: T2
+    focus: financial_economic
+    enabled: true
+
+  - id: calculated_risk
+    name: "Calculated Risk"
+    url: "https://www.calculatedriskblog.com/feeds/posts/default"
+    tier: T2
+    focus: economic
+    enabled: true
+
+  # --- Technology feeds (8 feeds) ---
+
+  - id: techcrunch_main
+    name: "TechCrunch"
+    url: "https://techcrunch.com/feed/"
+    tier: T2
+    focus: technology_industry
+    enabled: true
+
+  - id: wired_business
+    name: "Wired Business"
+    url: "https://www.wired.com/feed/category/business/latest/rss"
+    tier: T2
+    focus: technology_business
+    enabled: true
+
+  - id: ieee_spectrum
+    name: "IEEE Spectrum"
+    url: "https://spectrum.ieee.org/rss"
+    tier: T2
+    focus: technology_science
+    enabled: true
+
+  - id: mit_tech_review
+    name: "MIT Technology Review"
+    url: "https://www.technologyreview.com/feed/"
+    tier: T2
+    focus: technology_science
+    enabled: true
+
+  - id: ars_technica_tech
+    name: "Ars Technica Technology Lab"
+    url: "https://feeds.arstechnica.com/arstechnica/technology-lab"
+    tier: T2
+    focus: technology_industry
+    enabled: true
+
+  - id: semiconductor_today
+    name: "Semiconductor Today"
+    url: "https://www.semiconductor-today.com/rss/news.xml"
+    tier: T2
+    focus: technology_semiconductors
+    enabled: true
+
+  - id: the_register_hardware
+    name: "The Register Hardware"
+    url: "https://www.theregister.com/hardware/headlines.atom"
+    tier: T2
+    focus: technology_industry
+    enabled: false
+
+  - id: ai_business_news
+    name: "AI Business"
+    url: "https://aibusiness.com/feed"
+    tier: T2
+    focus: technology_ai
+    enabled: true
+
+  # --- Energy / Rohstoffe (7 feeds) ---
+
+  - id: oilprice_main
+    name: "OilPrice.com"
+    url: "https://oilprice.com/rss/main"
+    tier: T2
+    focus: energy_commodities
+    enabled: true
+
+  - id: reuters_energy
+    name: "Reuters Energy"
+    url: "https://feeds.reuters.com/reuters/energy"
+    tier: T1
+    focus: energy_commodities
+    enabled: true
+
+  - id: pv_magazine
+    name: "PV Magazine"
+    url: "https://www.pv-magazine.com/feed/"
+    tier: T2
+    focus: energy_renewables
+    enabled: true
+
+  - id: mining_com
+    name: "Mining.com"
+    url: "https://www.mining.com/feed/"
+    tier: T2
+    focus: mining_commodities
+    enabled: true
+
+  - id: natural_gas_intel
+    name: "Natural Gas Intelligence"
+    url: "https://www.naturalgasintel.com/feed/"
+    tier: T2
+    focus: energy_natural_gas
+    enabled: true
+
+  - id: eia_updates
+    name: "EIA Today in Energy"
+    url: "https://www.eia.gov/rss/todayinenergy.xml"
+    tier: T1
+    focus: energy_statistics
+    enabled: true
+
+  - id: commodity_weather
+    name: "Commodity Weather Group"
+    url: "https://www.commodityweathergroup.com/feed/"
+    tier: T3
+    focus: energy_weather
+    enabled: false
+
+  # --- Earnings / Corporate (5 feeds) ---
+
+  - id: seeking_alpha_earnings
+    name: "Seeking Alpha Earnings"
+    url: "https://seekingalpha.com/feed/tag/earnings.xml"
+    tier: T2
+    focus: earnings_corporate
+    enabled: true
+
+  - id: zacks_earnings
+    name: "Zacks Earnings"
+    url: "https://www.zacks.com/rss/earnings.xml"
+    tier: T2
+    focus: earnings_corporate
+    enabled: true
+
+  - id: benzinga_earnings
+    name: "Benzinga Earnings"
+    url: "https://www.benzinga.com/feeds/earnings"
+    tier: T2
+    focus: earnings_corporate
+    enabled: true
+
+  - id: edgar_rss
+    name: "SEC EDGAR Latest Filings"
+    url: "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=40&search_text=&output=atom"
+    tier: T1
+    focus: earnings_corporate_filings
+    enabled: true
+
+  - id: briefing_earnings
+    name: "Briefing.com Earnings"
+    url: "https://www.briefing.com/rss/US_Earnings.xml"
+    tier: T2
+    focus: earnings_corporate
+    enabled: false
+
+  # --- Defense / Aerospace (5 feeds) ---
+
+  - id: defense_news_main
+    name: "Defense News"
+    url: "https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml"
+    tier: T2
+    focus: defense_military
+    enabled: true
+
+  - id: breaking_defense
+    name: "Breaking Defense"
+    url: "https://breakingdefense.com/feed/"
+    tier: T2
+    focus: defense_military
+    enabled: true
+
+  - id: c4isrnet
+    name: "C4ISRNet"
+    url: "https://www.c4isrnet.com/arc/outboundfeeds/rss/?outputType=xml"
+    tier: T2
+    focus: defense_technology
+    enabled: true
+
+  - id: janes_defence
+    name: "Janes Defence News"
+    url: "https://www.janes.com/feeds/news"
+    tier: T2
+    focus: defense_military
+    enabled: false
+
+  - id: war_on_the_rocks
+    name: "War on the Rocks"
+    url: "https://warontherocks.com/feed/"
+    tier: T2
+    focus: defense_strategy
+    enabled: true
