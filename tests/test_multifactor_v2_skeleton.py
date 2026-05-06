@@ -178,11 +178,11 @@ def test_v2_produces_signals_like_v1() -> None:
 def test_v2_default_weights_shape_and_sum() -> None:
     """DEFAULT_V2_WEIGHTS must have 18 active factors summing to ~1.0.
 
-    All 30 factors are now actively wired after M15 alpha activation.
+    All 31 factors are now actively wired after Pfad B geo_risk_composite addition.
     """
     weights = multifactor_v2.DEFAULT_V2_WEIGHTS
     assert isinstance(weights, dict)
-    assert len(weights) == 30, f"expected 30 active factors, got {len(weights)}"
+    assert len(weights) == 31, f"expected 31 active factors, got {len(weights)}"
 
     total = sum(weights.values())
     assert (

@@ -33,6 +33,14 @@ def apply_disclosures_confirm(ctx: object, policy: dict) -> None:
         add_conf = float(boost_cfg.get("add_confidence", 0.0))
         max_conf = float(boost_cfg.get("max_confidence", 1.0))
 
+        # Degraded intel health blocks all paths
+        _degraded = (getattr(ctx, "intel_health_flags", {}) or {}).get(
+            "intel_disclosures_triggers"
+        )
+        if _degraded == "DEGRADED":
+            logger.debug("[SKIP] disclosures_confirm: intel_health DEGRADED")
+            return
+
         max_severity: int | None = None
 
         # Path 1: use ctx.disclosures_triggers if available
@@ -42,12 +50,6 @@ def apply_disclosures_confirm(ctx: object, policy: dict) -> None:
             max_severity = int(summary.get("max_severity", 0))
         else:
             # Path 2: read from file
-            _degraded = (getattr(ctx, "intel_health_flags", {}) or {}).get(
-                "intel_disclosures_triggers"
-            )
-            if _degraded == "DEGRADED":
-                logger.debug("[SKIP] disclosures_confirm: intel_health DEGRADED")
-                return
 
             if not _DISCLOSURES_PATH.exists():
                 logger.debug("[SKIP] disclosures_confirm: %s not found", _DISCLOSURES_PATH)

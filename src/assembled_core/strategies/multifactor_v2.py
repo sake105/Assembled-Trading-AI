@@ -1,6 +1,6 @@
-"""STRATEGY-V2: 30-factor multi-factor strategy with regime-conditional weights.
+"""STRATEGY-V2: 31-factor multi-factor strategy with regime-conditional weights.
 
-Active factors (30):
+Active factors (31):
   - Trend (1-4): EMA spread, MA200 position, ADX strength, MACD histogram
   - Momentum (5-7): RSI centered, volume-weighted momentum, OBV trend
   - Mean-reversion (8-9, 16-17): Bollinger %B, Stochastic, 3d reversal, RSI extreme
@@ -13,6 +13,7 @@ Active factors (30):
   - Intermarket (25-27): bond-equity divergence, credit spread, yield curve
   - Options (28-29): put-call extreme, VIX regime score
   - Congress (30): congressional trading activity
+  - Geo (31): geo-political risk composite (GPR index + ACLED intensity)
 
 Crash probability is applied as a multiplicative scaler on the composite score,
 not as a z-scored additive factor.
@@ -127,46 +128,51 @@ def update_drawdown_damper(current_equity: float, as_of: "_dt.date | None" = Non
 # ---------------------------------------------------------------------------
 
 DEFAULT_V2_WEIGHTS: dict[str, float] = {
-    # --- v1 factors (re-calibrated) ---
-    "trend_ema_spread": 0.10,
-    "trend_ma200_position": 0.07,
-    "trend_adx_strength": 0.05,
-    "trend_macd_hist": 0.05,
-    "mom_rsi_centered": 0.06,
-    "mom_volume_weighted": 0.05,
+    # --- TA factors (1-17): 60% total (Pfad B: reduced from 73%) ---
+    "trend_ema_spread": 0.08,       # was 0.10
+    "trend_ma200_position": 0.06,   # was 0.07
+    "trend_adx_strength": 0.04,     # was 0.05
+    "trend_macd_hist": 0.04,        # was 0.05
+    "mom_rsi_centered": 0.05,       # was 0.06
+    "mom_volume_weighted": 0.04,    # was 0.05
     "mom_obv_trend": 0.03,
-    "mr_bollinger_pctb": 0.04,
+    "mr_bollinger_pctb": 0.03,      # was 0.04
     "mr_stoch_oversold": 0.03,
-    "vol_abnormal": 0.03,
-    "vol_tick_imbalance": 0.03,
+    "vol_abnormal": 0.02,           # was 0.03
+    "vol_tick_imbalance": 0.02,     # was 0.03
     "vola_regime_score": 0.03,
     "vola_vov_penalty": 0.03,
-    "breadth_above_ma": 0.04,
+    "breadth_above_ma": 0.03,       # was 0.04
     "breadth_ad_line": 0.03,
-    # --- v2 factors (16-18) ---
-    "mr_zscore_reversal_3d": 0.03,
-    "mr_rsi_extreme_uptrend": 0.03,
+    "mr_zscore_reversal_3d": 0.02,  # was 0.03
+    "mr_rsi_extreme_uptrend": 0.02, # was 0.03
+    # --- Sector (18) ---
     "sector_rotation_bias": 0.04,
     # --- Earnings/Insider (19-20) ---
     "earnings_surprise_z": 0.03,
     "insider_activity_score": 0.02,
-    # --- News/Macro (21-24) ---
-    "news_sentiment_7d": 0.02,
-    "news_volume_spike": 0.01,
-    "macro_growth_momentum": 0.02,
-    "macro_inflation_surprise": 0.01,
-    # --- Intermarket (25-27) ---
-    "intermarket_bond_equity": 0.02,
-    "intermarket_credit_spread": 0.02,
+    # --- News/Macro (21-24): 8% total (was 3%) ---
+    "news_sentiment_7d": 0.05,      # was 0.02
+    "news_volume_spike": 0.03,      # was 0.01
+    "macro_growth_momentum": 0.03,  # was 0.02
+    "macro_inflation_surprise": 0.02, # was 0.01
+    # --- Intermarket (25-27): 8% total (was 6%) ---
+    "intermarket_bond_equity": 0.03,  # was 0.02
+    "intermarket_credit_spread": 0.03, # was 0.02
     "intermarket_yield_curve": 0.02,
     # --- Options (28-29) ---
     "options_put_call_extreme": 0.02,
-    "vix_regime_score": 0.02,
+    "vix_regime_score": 0.01,       # was 0.02
     # --- Congress (30) ---
     "congress_activity": 0.02,
+    # --- Geo composite (31): NEW — Pfad B ---
+    "geo_risk_composite": 0.05,
     # NOTE: crash_probability_inverse is applied as a multiplicative scaler
     # on the final composite, not as an additive factor.
-    # Sum = 1.00
+    # Sum = 1.00  (TA=0.60, sector=0.04, earn+ins=0.05, news/macro=0.10,
+    #              intermarket=0.08, options=0.03, congress=0.02, geo=0.05)
+    # Pfad B 2026-05-05: news+macro 3%→10%, intermarket 6%→8%, geo +5%,
+    #                    TA reduced 73%→60%, vix_regime 2%→1%.
 }
 
 # ---------------------------------------------------------------------------
@@ -633,6 +639,76 @@ def _compute_congress_factors(
     return result
 
 
+def _compute_geo_risk_composite(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factor 31: geo-political risk composite (Pfad B).
+
+    Priority:
+    1. Pre-merged panel columns: gpr_index, acled_intensity, geo_risk_score.
+    2. Live fetch via compute_gpr_from_fred (FRED API, may be slow/rate-limited).
+    3. Zero-fill (graceful degradation).
+
+    Sign convention: positive score = higher geopolitical risk → bearish signal
+    for equities. Negated before return so that high risk → negative factor input.
+    """
+    result: dict[str, pd.Series] = {}
+    sym_idx = (
+        latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    )
+
+    # Path 1: pre-merged columns (populated by trading_cycle or panel build)
+    gpr_cols = {
+        "gpr_index": 1.0,        # Caldara-Iacoviello GPR index (higher = more risk)
+        "acled_intensity": 0.5,   # ACLED conflict intensity (supplementary)
+        "geo_risk_score": 1.0,    # generic geo risk column
+    }
+    composite_val: float | None = None
+    for col, col_weight in gpr_cols.items():
+        if col in latest.columns:
+            vals = pd.to_numeric(latest[col], errors="coerce").fillna(0.0)
+            if vals.abs().sum() > 1e-10:
+                raw = float(vals.mean()) * col_weight
+                composite_val = (composite_val or 0.0) + raw
+
+    if composite_val is not None:
+        # Normalize: GPR index ~100 at baseline; z-score it roughly
+        geo_z = composite_val / 50.0  # ~100 → z≈2, 50 → z≈1
+        geo_z = float(np.clip(geo_z, -3.0, 3.0))
+        # Negate: high geo risk → bearish for equities
+        result["geo_risk_composite"] = pd.Series(-geo_z, index=sym_idx.values)
+        logger.debug("[MF-V2] geo composite (panel): val=%.2f z=%.2f", composite_val, geo_z)
+        return result
+
+    # Path 2: fetch live GPR from FRED
+    try:
+        from src.assembled_core.features.geopolitical_features import (
+            compute_gpr_from_fred,
+        )
+        from src.assembled_core.data.sources.fred_source import FREDSource
+
+        fred = FREDSource()
+        gpr_raw = fred.fetch_series("GPRC_US")  # type: ignore[attr-defined]
+        if gpr_raw is not None and len(gpr_raw) > 0:
+            gpr_series = pd.Series(gpr_raw).dropna()
+            gpr_z = compute_gpr_from_fred(gpr_series, rolling_window=252)
+            if gpr_z is not None and len(gpr_z) > 0:
+                current_z = float(gpr_z.iloc[-1])
+                result["geo_risk_composite"] = pd.Series(
+                    -current_z, index=sym_idx.values
+                )
+                logger.debug("[MF-V2] geo composite (FRED): z=%.2f", current_z)
+                return result
+    except Exception as exc:
+        logger.debug("[MF-V2] geo composite FRED fetch failed: %s", exc)
+
+    # Path 3: zero-fill (factor excluded from composite by zero-variance guard)
+    logger.debug("[MF-V2] geo composite: no data, zero-fill")
+    result["geo_risk_composite"] = pd.Series(0.0, index=sym_idx.values)
+    return result
+
+
 def _compute_crash_prob_inverse(df: pd.DataFrame, cfg: dict[str, Any]) -> float:
     """Factor 29: inverse crash probability (1 - crash_prob)."""
     crash_mult = _crash_prediction_multiplier(df, cfg)
@@ -832,6 +908,16 @@ def compute_signals(
         .map(congress.get("congress_activity", pd.Series(dtype=float)))
         .fillna(0.0)
         if "congress_activity" in congress
+        else 0.0
+    )
+
+    # Factor 31: Geo-political risk composite (Pfad B)
+    geo = _compute_geo_risk_composite(latest_symbols, latest)
+    scores["geo_risk_composite"] = (
+        scores["symbol"]
+        .map(geo.get("geo_risk_composite", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "geo_risk_composite" in geo
         else 0.0
     )
 
