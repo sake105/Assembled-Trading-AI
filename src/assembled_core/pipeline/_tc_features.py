@@ -446,4 +446,74 @@ def build_features(
     except Exception as e:
         log.debug("[NEWS-FEATURES] news_features skipped: %s", e)
 
+    # --- Step 2.17: Macro intermarket enrichment from local macro.parquet ---
+    # Broadcasts yield_curve_slope, credit_spread_change_5d,
+    # bond_equity_divergence_flag, and vix into the per-symbol panel so that
+    # _compute_intermarket_factors() and _compute_options_factors() can use
+    # Path 1 (pre-merged columns) without a live FRED API key.
+    try:
+        macro_cfg = (policy.get("features") or {}).get("macro_panel") or {}
+        macro_path = macro_cfg.get("path", "output/macro.parquet")
+        import pathlib as _pl
+
+        if macro_cfg.get("enabled", True) and _pl.Path(macro_path).exists() and not pwf.empty and "timestamp" in pwf.columns:
+            import numpy as _np
+
+            _macro = pd.read_parquet(macro_path)
+            _macro["timestamp"] = pd.to_datetime(_macro["timestamp"], utc=True).dt.normalize()
+            _macro = _macro.sort_values("timestamp").drop_duplicates("timestamp", keep="last")
+
+            # Derive intermarket factor columns
+            _im = pd.DataFrame({"timestamp": _macro["timestamp"]})
+
+            # yield_curve_slope: 10y - 2y (or pre-computed yield_curve_spread)
+            if "yield_curve_spread" in _macro.columns:
+                _im["yield_curve_slope"] = _macro["yield_curve_spread"].values
+            elif "treasury_10y" in _macro.columns and "treasury_2y" in _macro.columns:
+                _im["yield_curve_slope"] = (
+                    pd.to_numeric(_macro["treasury_10y"], errors="coerce")
+                    - pd.to_numeric(_macro["treasury_2y"], errors="coerce")
+                )
+
+            # credit_spread_change_5d: 5-day pct-change of hy_spread proxy
+            if "hy_spread" in _macro.columns:
+                _hy = pd.to_numeric(_macro["hy_spread"], errors="coerce")
+                _im["credit_spread_change_5d"] = _hy.pct_change(5).fillna(0.0).values
+
+            # bond_equity_divergence_flag: bonds up + equities down in last 5 days
+            if "sp500_close" in _macro.columns and "treasury_bond_futures" in _macro.columns:
+                _sp = pd.to_numeric(_macro["sp500_close"], errors="coerce")
+                _tb = pd.to_numeric(_macro["treasury_bond_futures"], errors="coerce")
+                _sp_ret = _sp.pct_change(5).fillna(0.0)
+                _tb_ret = _tb.pct_change(5).fillna(0.0)
+                _im["bond_equity_divergence_flag"] = (
+                    (_sp_ret < -0.01) & (_tb_ret > 0.01)
+                ).astype(float).values
+
+            # vix: used by VIX cap in multifactor_v2 and options factors
+            if "vix" in _macro.columns:
+                _im["vix"] = pd.to_numeric(_macro["vix"], errors="coerce").values
+            elif "vix_close" in _macro.columns:
+                _im["vix"] = pd.to_numeric(_macro["vix_close"], errors="coerce").values
+
+            _im = _im.dropna(subset=["timestamp"])
+
+            # Normalize pwf timestamps to date for merge
+            _pwf_ts = pd.to_datetime(pwf["timestamp"], utc=True).dt.normalize()
+            _new_cols = [c for c in _im.columns if c != "timestamp" and c not in pwf.columns]
+            if _new_cols:
+                _im_sub = _im[["timestamp"] + _new_cols].copy()
+                _pwf_idx = pd.DataFrame({"timestamp": _pwf_ts, "_row_idx": range(len(pwf))})
+                _merged = _pwf_idx.merge(_im_sub, on="timestamp", how="left")
+                for col in _new_cols:
+                    if col in _merged.columns:
+                        pwf = pwf.copy()
+                        pwf[col] = _merged[col].values
+                log.debug(
+                    "[MACRO-PANEL] merged %d macro cols into panel (%d rows)",
+                    len(_new_cols), len(pwf),
+                )
+    except Exception as e:
+        log.debug("[MACRO-PANEL] macro_panel enrichment skipped: %s", e)
+
     return pwf, prices_latest_update
