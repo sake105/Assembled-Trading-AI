@@ -1,0 +1,240 @@
+# Full US Trading Universe — Wave 1 expansion (200 symbols)
+# All symbols are US-listed (NYSE/NASDAQ), yfinance-compatible.
+# Generated: 2026-05-06
+# Usage: load_master_universe("configs/universes/full_us_universe.yaml")
+
+metadata:
+  version: "1.0"
+  total_symbols: 200
+  source: yfinance
+  created: "2026-05-06"
+  note: "US-only, large+mid cap focus, sector-diversified"
+
+sectors:
+  technology:
+    description: "Software, semiconductors, cloud, hardware"
+    symbols:
+      - {ticker: NVDA, cap: large, mcap_b: 3100, type: equity}
+      - {ticker: MSFT, cap: large, mcap_b: 3050, type: equity}
+      - {ticker: AAPL, cap: large, mcap_b: 3250, type: equity}
+      - {ticker: GOOGL, cap: large, mcap_b: 2000, type: equity}
+      - {ticker: META, cap: large, mcap_b: 1400, type: equity}
+      - {ticker: AVGO, cap: large, mcap_b: 900,  type: equity}
+      - {ticker: AMD,  cap: large, mcap_b: 250,  type: equity}
+      - {ticker: QCOM, cap: large, mcap_b: 170,  type: equity}
+      - {ticker: INTC, cap: large, mcap_b: 100,  type: equity}
+      - {ticker: MU,   cap: large, mcap_b: 110,  type: equity}
+      - {ticker: ANET, cap: large, mcap_b: 110,  type: equity}
+      - {ticker: ORCL, cap: large, mcap_b: 420,  type: equity}
+      - {ticker: ADBE, cap: large, mcap_b: 200,  type: equity}
+      - {ticker: CRM,  cap: large, mcap_b: 240,  type: equity}
+      - {ticker: NOW,  cap: large, mcap_b: 200,  type: equity}
+      - {ticker: PLTR, cap: large, mcap_b: 230,  type: equity}
+      - {ticker: SNOW, cap: mid,   mcap_b: 55,   type: equity}
+      - {ticker: DDOG, cap: mid,   mcap_b: 45,   type: equity}
+      - {ticker: CRWD, cap: large, mcap_b: 80,   type: equity}
+      - {ticker: PANW, cap: large, mcap_b: 120,  type: equity}
+      - {ticker: FTNT, cap: large, mcap_b: 65,   type: equity}
+      - {ticker: ACN,  cap: large, mcap_b: 210,  type: equity}
+      - {ticker: IBM,  cap: large, mcap_b: 165,  type: equity}
+      - {ticker: DELL, cap: large, mcap_b: 55,   type: equity}
+      - {ticker: HPE,  cap: large, mcap_b: 20,   type: equity}
+      - {ticker: SMCI, cap: mid,   mcap_b: 18,   type: equity}
+      - {ticker: AMAT, cap: large, mcap_b: 140,  type: equity}
+      - {ticker: KLAC, cap: large, mcap_b: 90,   type: equity}
+      - {ticker: LRCX, cap: large, mcap_b: 100,  type: equity}
+      - {ticker: MRVL, cap: large, mcap_b: 60,   type: equity}
+      - {ticker: MSTR, cap: mid,   mcap_b: 70,   type: equity}
+      - {ticker: NET,  cap: mid,   mcap_b: 38,   type: equity}
+      - {ticker: OKTA, cap: mid,   mcap_b: 18,   type: equity}
+      - {ticker: U,    cap: mid,   mcap_b: 12,   type: equity}
+      - {ticker: DBX,  cap: mid,   mcap_b: 9,    type: equity}
+
+  healthcare_biotech:
+    description: "Pharma, biotech, medical devices, health services"
+    symbols:
+      - {ticker: LLY,  cap: large, mcap_b: 700,  type: equity}
+      - {ticker: JNJ,  cap: large, mcap_b: 380,  type: equity}
+      - {ticker: UNH,  cap: large, mcap_b: 460,  type: equity}
+      - {ticker: ABBV, cap: large, mcap_b: 310,  type: equity}
+      - {ticker: MRK,  cap: large, mcap_b: 260,  type: equity}
+      - {ticker: PFE,  cap: large, mcap_b: 145,  type: equity}
+      - {ticker: TMO,  cap: large, mcap_b: 220,  type: equity}
+      - {ticker: ABT,  cap: large, mcap_b: 195,  type: equity}
+      - {ticker: DHR,  cap: large, mcap_b: 170,  type: equity}
+      - {ticker: AMGN, cap: large, mcap_b: 155,  type: equity}
+      - {ticker: GILD, cap: large, mcap_b: 115,  type: equity}
+      - {ticker: REGN, cap: large, mcap_b: 85,   type: equity}
+      - {ticker: VRTX, cap: large, mcap_b: 115,  type: equity}
+      - {ticker: ISRG, cap: large, mcap_b: 185,  type: equity}
+      - {ticker: SYK,  cap: large, mcap_b: 135,  type: equity}
+      - {ticker: ZBH,  cap: large, mcap_b: 24,   type: equity}
+      - {ticker: ELV,  cap: large, mcap_b: 95,   type: equity}
+      - {ticker: CVS,  cap: large, mcap_b: 70,   type: equity}
+      - {ticker: CI,   cap: large, mcap_b: 75,   type: equity}
+      - {ticker: HUM,  cap: large, mcap_b: 38,   type: equity}
+      - {ticker: MRNA, cap: large, mcap_b: 16,   type: equity}
+      - {ticker: BIIB, cap: large, mcap_b: 28,   type: equity}
+      - {ticker: INCY, cap: mid,   mcap_b: 14,   type: equity}
+      - {ticker: ALNY, cap: mid,   mcap_b: 25,   type: equity}
+      - {ticker: BMRN, cap: mid,   mcap_b: 12,   type: equity}
+      - {ticker: EXAS, cap: mid,   mcap_b: 14,   type: equity}
+      - {ticker: IDXX, cap: large, mcap_b: 48,   type: equity}
+      - {ticker: MTD,  cap: large, mcap_b: 22,   type: equity}
+      - {ticker: BIO,  cap: mid,   mcap_b: 8,    type: equity}
+      - {ticker: HOLX, cap: mid,   mcap_b: 16,   type: equity}
+
+  energy_resources:
+    description: "Oil & gas, renewables, mining, utilities"
+    symbols:
+      - {ticker: XOM,  cap: large, mcap_b: 480,  type: equity}
+      - {ticker: CVX,  cap: large, mcap_b: 280,  type: equity}
+      - {ticker: COP,  cap: large, mcap_b: 130,  type: equity}
+      - {ticker: EOG,  cap: large, mcap_b: 70,   type: equity}
+      - {ticker: PXD,  cap: large, mcap_b: 55,   type: equity}
+      - {ticker: MPC,  cap: large, mcap_b: 55,   type: equity}
+      - {ticker: VLO,  cap: large, mcap_b: 45,   type: equity}
+      - {ticker: PSX,  cap: large, mcap_b: 52,   type: equity}
+      - {ticker: SLB,  cap: large, mcap_b: 55,   type: equity}
+      - {ticker: HAL,  cap: large, mcap_b: 28,   type: equity}
+      - {ticker: OKE,  cap: large, mcap_b: 50,   type: equity}
+      - {ticker: KMI,  cap: large, mcap_b: 23,   type: equity}
+      - {ticker: WMB,  cap: large, mcap_b: 55,   type: equity}
+      - {ticker: NEE,  cap: large, mcap_b: 135,  type: equity}
+      - {ticker: DUK,  cap: large, mcap_b: 72,   type: equity}
+      - {ticker: SO,   cap: large, mcap_b: 73,   type: equity}
+      - {ticker: AEP,  cap: large, mcap_b: 52,   type: equity}
+      - {ticker: D,    cap: large, mcap_b: 45,   type: equity}
+      - {ticker: ENPH, cap: mid,   mcap_b: 10,   type: equity}
+      - {ticker: FSLR, cap: large, mcap_b: 22,   type: equity}
+      - {ticker: PLUG, cap: small, mcap_b: 1,    type: equity}
+      - {ticker: ALB,  cap: large, mcap_b: 10,   type: equity}
+      - {ticker: MP,   cap: mid,   mcap_b: 2,    type: equity}
+      - {ticker: FCX,  cap: large, mcap_b: 55,   type: equity}
+      - {ticker: NEM,  cap: large, mcap_b: 52,   type: equity}
+      - {ticker: AA,   cap: mid,   mcap_b: 10,   type: equity}
+      - {ticker: CLF,  cap: mid,   mcap_b: 4,    type: equity}
+      - {ticker: XPEV, cap: mid,   mcap_b: 9,    type: equity}
+      - {ticker: RIVN, cap: mid,   mcap_b: 12,   type: equity}
+      - {ticker: BE,   cap: mid,   mcap_b: 4,    type: equity}
+
+  defense_aerospace:
+    description: "Defense contractors, aerospace, cybersecurity"
+    symbols:
+      - {ticker: LMT,  cap: large, mcap_b: 135,  type: equity}
+      - {ticker: RTX,  cap: large, mcap_b: 155,  type: equity}
+      - {ticker: NOC,  cap: large, mcap_b: 72,   type: equity}
+      - {ticker: GD,   cap: large, mcap_b: 80,   type: equity}
+      - {ticker: BA,   cap: large, mcap_b: 115,  type: equity}
+      - {ticker: HII,  cap: large, mcap_b: 10,   type: equity}
+      - {ticker: L3H,  cap: large, mcap_b: 45,   type: equity}
+      - {ticker: AXON, cap: large, mcap_b: 40,   type: equity}
+      - {ticker: LDOS, cap: large, mcap_b: 20,   type: equity}
+      - {ticker: BAH,  cap: large, mcap_b: 15,   type: equity}
+      - {ticker: SAIC, cap: large, mcap_b: 7,    type: equity}
+      - {ticker: CACI, cap: mid,   mcap_b: 8,    type: equity}
+      - {ticker: HXL,  cap: mid,   mcap_b: 3,    type: equity}
+      - {ticker: TDG,  cap: large, mcap_b: 75,   type: equity}
+      - {ticker: HEI,  cap: large, mcap_b: 28,   type: equity}
+      - {ticker: TXT,  cap: large, mcap_b: 15,   type: equity}
+      - {ticker: SPR,  cap: mid,   mcap_b: 3,    type: equity}
+      - {ticker: KTOS, cap: mid,   mcap_b: 5,    type: equity}
+      - {ticker: RCAT, cap: small, mcap_b: 1,    type: equity}
+      - {ticker: JOBY, cap: small, mcap_b: 4,    type: equity}
+      - {ticker: ACHR, cap: small, mcap_b: 3,    type: equity}
+      - {ticker: IONQ, cap: small, mcap_b: 4,    type: equity}
+      - {ticker: QBTS, cap: small, mcap_b: 2,    type: equity}
+      - {ticker: RGX,  cap: small, mcap_b: 1,    type: equity}
+      - {ticker: SPIR, cap: small, mcap_b: 1,    type: equity}
+
+  consumer_financial:
+    description: "Consumer, retail, finance, fintech, banks"
+    symbols:
+      - {ticker: AMZN, cap: large, mcap_b: 2100, type: equity}
+      - {ticker: TSLA, cap: large, mcap_b: 700,  type: equity}
+      - {ticker: WMT,  cap: large, mcap_b: 700,  type: equity}
+      - {ticker: HD,   cap: large, mcap_b: 370,  type: equity}
+      - {ticker: COST, cap: large, mcap_b: 370,  type: equity}
+      - {ticker: TGT,  cap: large, mcap_b: 60,   type: equity}
+      - {ticker: NKE,  cap: large, mcap_b: 70,   type: equity}
+      - {ticker: MCD,  cap: large, mcap_b: 215,  type: equity}
+      - {ticker: SBUX, cap: large, mcap_b: 95,   type: equity}
+      - {ticker: DIS,  cap: large, mcap_b: 200,  type: equity}
+      - {ticker: NFLX, cap: large, mcap_b: 390,  type: equity}
+      - {ticker: SPOT, cap: large, mcap_b: 90,   type: equity}
+      - {ticker: JPM,  cap: large, mcap_b: 700,  type: equity}
+      - {ticker: BAC,  cap: large, mcap_b: 340,  type: equity}
+      - {ticker: WFC,  cap: large, mcap_b: 230,  type: equity}
+      - {ticker: GS,   cap: large, mcap_b: 180,  type: equity}
+      - {ticker: MS,   cap: large, mcap_b: 195,  type: equity}
+      - {ticker: BLK,  cap: large, mcap_b: 130,  type: equity}
+      - {ticker: V,    cap: large, mcap_b: 600,  type: equity}
+      - {ticker: MA,   cap: large, mcap_b: 490,  type: equity}
+      - {ticker: PYPL, cap: large, mcap_b: 73,   type: equity}
+      - {ticker: SQ,   cap: mid,   mcap_b: 45,   type: equity}
+      - {ticker: SOFI, cap: mid,   mcap_b: 9,    type: equity}
+      - {ticker: SPGI, cap: large, mcap_b: 155,  type: equity}
+      - {ticker: MCO,  cap: large, mcap_b: 90,   type: equity}
+      - {ticker: ICE,  cap: large, mcap_b: 90,   type: equity}
+      - {ticker: CME,  cap: large, mcap_b: 82,   type: equity}
+      - {ticker: UAA,  cap: mid,   mcap_b: 3,    type: equity}
+      - {ticker: LULU, cap: large, mcap_b: 30,   type: equity}
+      - {ticker: TJX,  cap: large, mcap_b: 140,  type: equity}
+      - {ticker: ROST, cap: large, mcap_b: 55,   type: equity}
+      - {ticker: BKNG, cap: large, mcap_b: 150,  type: equity}
+      - {ticker: ABNB, cap: large, mcap_b: 78,   type: equity}
+      - {ticker: UBER, cap: large, mcap_b: 165,  type: equity}
+      - {ticker: LYFT, cap: mid,   mcap_b: 6,    type: equity}
+
+  industrials_materials:
+    description: "Industrials, transport, chemicals, materials"
+    symbols:
+      - {ticker: CAT,  cap: large, mcap_b: 180,  type: equity}
+      - {ticker: DE,   cap: large, mcap_b: 110,  type: equity}
+      - {ticker: HON,  cap: large, mcap_b: 145,  type: equity}
+      - {ticker: GE,   cap: large, mcap_b: 200,  type: equity}
+      - {ticker: MMM,  cap: large, mcap_b: 65,   type: equity}
+      - {ticker: EMR,  cap: large, mcap_b: 65,   type: equity}
+      - {ticker: ROK,  cap: large, mcap_b: 28,   type: equity}
+      - {ticker: ITW,  cap: large, mcap_b: 75,   type: equity}
+      - {ticker: PH,   cap: large, mcap_b: 75,   type: equity}
+      - {ticker: DOV,  cap: large, mcap_b: 25,   type: equity}
+      - {ticker: XYL,  cap: large, mcap_b: 21,   type: equity}
+      - {ticker: UPS,  cap: large, mcap_b: 110,  type: equity}
+      - {ticker: FDX,  cap: large, mcap_b: 72,   type: equity}
+      - {ticker: DAL,  cap: large, mcap_b: 36,   type: equity}
+      - {ticker: UAL,  cap: large, mcap_b: 19,   type: equity}
+      - {ticker: AAL,  cap: mid,   mcap_b: 10,   type: equity}
+      - {ticker: LUV,  cap: large, mcap_b: 18,   type: equity}
+      - {ticker: CSX,  cap: large, mcap_b: 62,   type: equity}
+      - {ticker: UNP,  cap: large, mcap_b: 130,  type: equity}
+      - {ticker: NSC,  cap: large, mcap_b: 67,   type: equity}
+      - {ticker: DD,   cap: large, mcap_b: 33,   type: equity}
+      - {ticker: LYB,  cap: large, mcap_b: 20,   type: equity}
+      - {ticker: PPG,  cap: large, mcap_b: 27,   type: equity}
+      - {ticker: APD,  cap: large, mcap_b: 55,   type: equity}
+      - {ticker: SHW,  cap: large, mcap_b: 88,   type: equity}
+
+  etfs_macro:
+    description: "Broad market and sector ETFs for hedging and macro exposure"
+    symbols:
+      - {ticker: SPY,  cap: large, mcap_b: 600,  type: etf}
+      - {ticker: QQQ,  cap: large, mcap_b: 320,  type: etf}
+      - {ticker: IWM,  cap: large, mcap_b: 60,   type: etf}
+      - {ticker: EFA,  cap: large, mcap_b: 45,   type: etf}
+      - {ticker: EEM,  cap: large, mcap_b: 35,   type: etf}
+      - {ticker: VT,   cap: large, mcap_b: 45,   type: etf}
+      - {ticker: ACWI, cap: large, mcap_b: 25,   type: etf}
+      - {ticker: AGG,  cap: large, mcap_b: 90,   type: etf}
+      - {ticker: TLT,  cap: large, mcap_b: 50,   type: etf}
+      - {ticker: HYG,  cap: large, mcap_b: 20,   type: etf}
+      - {ticker: GLD,  cap: large, mcap_b: 70,   type: etf}
+      - {ticker: SLV,  cap: large, mcap_b: 12,   type: etf}
+      - {ticker: DBC,  cap: large, mcap_b: 5,    type: etf}
+      - {ticker: VNQ,  cap: large, mcap_b: 33,   type: etf}
+      - {ticker: XLE,  cap: large, mcap_b: 40,   type: etf}
+      - {ticker: XLK,  cap: large, mcap_b: 65,   type: etf}
+      - {ticker: XLF,  cap: large, mcap_b: 50,   type: etf}
+      - {ticker: XLV,  cap: large, mcap_b: 40,   type: etf}
+      - {ticker: XLI,  cap: large, mcap_b: 30,   type: etf}
+      - {ticker: ARKK, cap: mid,   mcap_b: 7,    type: etf}
