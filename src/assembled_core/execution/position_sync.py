@@ -95,7 +95,7 @@ def sync_positions_from_broker(
         ledger_cash=ledger_cash,
         broker_positions_df=broker_df,
         broker_cash=broker_cash,
-        cash_tol=0.01,  # 1 cent tolerance for real broker
+        cash_tol=1.0,  # $1 tolerance: paper accounts accumulate fractional-share rounding
         qty_tol=0.001,  # fractional share tolerance
         fail_fast=False,  # return result dict, don't raise
     )

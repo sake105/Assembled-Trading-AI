@@ -1199,6 +1199,12 @@ def load_price_data(
         logger.info(
             f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols"
         )
+    # Save full-range prices for universe history building (before date filter).
+    # The PIT universe cache must reflect the symbol's true first appearance in the
+    # panel, not the (shorter) backtest window — otherwise historical backtests get
+    # all signals PIT-filtered to empty because cached start_date > as_of.
+    _prices_full_range = prices.copy() if not prices.empty else prices
+
     # Apply start/end date filter for all loading paths (old-style loaders ignore these args)
     _cli_start = getattr(args, "start_date", None)
     _cli_end = getattr(args, "end_date", None)
@@ -2316,17 +2322,44 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             _universe_name = Path(_price_file).stem if _price_file else "default"
             _universe_csv = _universe_root / f"{_universe_name}.csv"
 
+            # Always build from full-range prices so the cached start_date reflects
+            # the symbol's true first row in the panel — not the (shorter) backtest window.
+            # This prevents the PIT filter from zeroing out signals when a historical
+            # backtest range starts earlier than the cache was built for.
+            _prices_for_pit = _prices_full_range if "_prices_full_range" in dir() and not _prices_full_range.empty else prices
+
             if _universe_csv.exists():
                 _pit_history = load_universe_history(
                     universe_name=_universe_name, root=_universe_root
                 )
-                logger.info(
-                    "[PIT] Loaded universe history: %s (%d symbols)",
-                    _universe_csv,
-                    len(_pit_history),
-                )
+                # Invalidate stale cache: if cached start_date > backtest start, rebuild.
+                if not prices.empty and "timestamp" in prices.columns:
+                    _bt_start = pd.to_datetime(prices["timestamp"].min(), utc=True)
+                    _cached_min_start = pd.to_datetime(
+                        _pit_history["start_date"].min(), utc=True, errors="coerce"
+                    )
+                    if pd.notna(_cached_min_start) and _cached_min_start > _bt_start:
+                        logger.info(
+                            "[PIT] Cache stale (cached start %s > backtest start %s) — rebuilding",
+                            _cached_min_start.date(), _bt_start.date(),
+                        )
+                        _pit_history = build_universe_history_from_prices(_prices_for_pit)
+                        store_universe_history(
+                            _pit_history, universe_name=_universe_name,
+                            root=_universe_root, format="csv",
+                        )
+                    else:
+                        logger.info(
+                            "[PIT] Loaded universe history: %s (%d symbols)",
+                            _universe_csv, len(_pit_history),
+                        )
+                else:
+                    logger.info(
+                        "[PIT] Loaded universe history: %s (%d symbols)",
+                        _universe_csv, len(_pit_history),
+                    )
             else:
-                _pit_history = build_universe_history_from_prices(prices)
+                _pit_history = build_universe_history_from_prices(_prices_for_pit)
                 store_universe_history(
                     _pit_history,
                     universe_name=_universe_name,
