@@ -8,17 +8,18 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ## 0. Bekannte Datenqualitäts-Risiken (AUDIT A10)
 
-### 0.1 Survivorship-Bias: PIT-Universe — TEILWEISE BEHOBEN (2026-05-03)
+### 0.1 Survivorship-Bias: PIT-Universe — BEHOBEN (2026-05-06)
 
 **Schwere:** reduziert (war: AKUT)  
 **Entdeckt:** 2026-04-26 (Audit A10)  
-**Status:** ✅ Architektur gewired — data-derived PIT aktiv. ⚠️ Kommerzieller Index-Membership-Feed fehlt weiterhin.
+**Status:** ✅ Architektur gewired — data-derived PIT aktiv + Cache-Invalidierung implementiert. ⚠️ Kommerzieller Index-Membership-Feed fehlt weiterhin.
 
 **Was getan wurde:**
 - `build_universe_history_from_prices(prices_df)` in `universe.py` — leitet `start_date`/`end_date` direkt aus dem Panel ab.
 - `wrap_signal_fn_with_pit_filter(signal_fn, universe_history)` — filtert Signale per Datum gegen die abgeleitete History.
 - `scripts/run_backtest_strategy.py` — baut/lädt Universe-History automatisch vor jedem Backtest-Lauf, schreibt nach `data/universe/<panel-stem>.csv`.
 - 8 Tests in `tests/test_universe_pit_wire.py` — alle grün.
+- **2026-05-06 (d5630b6):** Kritischer Bug behoben — Cache-Invalidierung: wenn `cached start_date > backtest_start`, wird Cache aus `_prices_full_range` (vor Date-Filter) neu gebaut. Verhindert 0-Trades für alle Perioden vor 2025 (root cause: Cache wurde nach 2025-2026-Lauf mit `start_date=2025-01-02` für alle Symbole gebaut).
 
 **Was noch offen bleibt:**
 - Vollständige Index-Membership-Daten (z. B. S&P500-Zusammensetzung 2010–2026) — verhindert echten Survivorship-Bias für Aufnahmen/Abgänge innerhalb des Panels.
