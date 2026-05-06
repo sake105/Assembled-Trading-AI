@@ -191,6 +191,12 @@ class NewsEventEnricher:
                 evt.time_horizon = clf.time_horizon
                 evt.affected_sectors = clf.affected_sectors
                 evt.affected_assets = list({*clf.affected_assets, *tickers})
+                # Taxonomy category
+                try:
+                    from src.assembled_core.intel.news_taxonomy import categorize_event
+                    evt.category = categorize_event(event_types=clf.event_types)
+                except Exception:
+                    pass
                 source_id = getattr(evt, "source_id", "")
                 evt.news_confidence = apply_source_bias_discount(
                     clf.confidence, source_id

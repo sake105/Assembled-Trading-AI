@@ -398,3 +398,16 @@ def compute_earnings_proximity_boost(
 
     df["earnings_proximity_boost"] = boosts
     return df
+
+
+def compute_news_category_features(
+    events_df: "pd.DataFrame",
+    window_hours: int = 24,
+) -> "pd.DataFrame":
+    """Return per-(date, symbol) category count features from NewsEvent records.
+
+    Wraps news_taxonomy.aggregate_categories_by_window().
+    """
+    from src.assembled_core.intel.news_taxonomy import aggregate_categories_by_window
+
+    return aggregate_categories_by_window(events_df, window_hours=window_hours)
