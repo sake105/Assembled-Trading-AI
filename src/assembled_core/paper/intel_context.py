@@ -311,6 +311,72 @@ def _populate_historical_scores(
     log.info("[INTEL-CTX] populated signal_historical_scores (%d points)", len(series))
 
 
+def _populate_news_events(ctx: Any, root: Path) -> None:
+    """Set ctx.news_events from news_sentiment_daily parquet (PIT-safe)."""
+    fpath = root / "news_sentiment_daily.parquet"
+    if not fpath.exists():
+        fpath = root / "output" / "news_sentiment_daily.parquet"
+    if not fpath.exists():
+        log.debug("[INTEL-CTX] news_events: file not found, skipping")
+        return
+    try:
+        df = pd.read_parquet(fpath)
+        if df.empty:
+            return
+        as_of = getattr(ctx, "as_of", None)
+        if as_of is not None:
+            ts_col = next((c for c in ("timestamp", "date", "event_date") if c in df.columns), None)
+            if ts_col:
+                df[ts_col] = pd.to_datetime(df[ts_col], utc=True, errors="coerce")
+                as_of_ts = pd.Timestamp(as_of, tz="UTC") if getattr(as_of, "tzinfo", None) is None else pd.Timestamp(as_of)
+                df = df[df[ts_col] <= as_of_ts]
+        ctx.news_events = df
+        log.debug("[INTEL-CTX] populated news_events (%d rows)", len(df))
+    except Exception as exc:
+        log.debug("[INTEL-CTX] news_events load failed: %s", exc)
+
+
+def _populate_insider_data(ctx: Any, root: Path) -> None:
+    """Set ctx.insider_data from insider_trading parquet (PIT-safe)."""
+    fpath = root / "insider_trading.parquet"
+    if not fpath.exists():
+        fpath = root / "output" / "insider_trading.parquet"
+    if not fpath.exists():
+        log.debug("[INTEL-CTX] insider_data: file not found, skipping")
+        return
+    try:
+        df = pd.read_parquet(fpath)
+        if df.empty:
+            return
+        as_of = getattr(ctx, "as_of", None)
+        if as_of is not None and "filing_date" in df.columns:
+            df["filing_date"] = pd.to_datetime(df["filing_date"], utc=True, errors="coerce")
+            as_of_ts = pd.Timestamp(as_of, tz="UTC") if getattr(as_of, "tzinfo", None) is None else pd.Timestamp(as_of)
+            df = df[df["filing_date"] <= as_of_ts]
+        ctx.insider_data = df
+        log.debug("[INTEL-CTX] populated insider_data (%d rows)", len(df))
+    except Exception as exc:
+        log.debug("[INTEL-CTX] insider_data load failed: %s", exc)
+
+
+def _populate_macro_data(ctx: Any, root: Path) -> None:
+    """Set ctx.macro_data from macro parquet."""
+    fpath = root / "macro.parquet"
+    if not fpath.exists():
+        fpath = root / "output" / "macro.parquet"
+    if not fpath.exists():
+        log.debug("[INTEL-CTX] macro_data: file not found, skipping")
+        return
+    try:
+        df = pd.read_parquet(fpath)
+        if df.empty:
+            return
+        ctx.macro_data = df
+        log.debug("[INTEL-CTX] populated macro_data (%d rows)", len(df))
+    except Exception as exc:
+        log.debug("[INTEL-CTX] macro_data load failed: %s", exc)
+
+
 def populate_ctx_from_artifacts(
     ctx: Any,
     root: Path,
@@ -323,11 +389,17 @@ def populate_ctx_from_artifacts(
 
     Each sub-populator is independently defensive — a failure in one path
     does not block the others. Downstream code gates on ``getattr(ctx, ..., None)``.
+
+    Sets: intel_active_shocks, sector_rotation_scores, earnings_calendar,
+          signal_historical_scores, news_events, insider_data, macro_data.
     """
     _populate_active_shocks(ctx, root, news_triggers_path)
     _populate_sector_rotation_scores(ctx)
     _populate_earnings_calendar(ctx, root, earnings_cache_path)
     _populate_historical_scores(ctx, root, historical_scores_path)
+    _populate_news_events(ctx, root)
+    _populate_insider_data(ctx, root)
+    _populate_macro_data(ctx, root)
 
 
 def persist_historical_scores(

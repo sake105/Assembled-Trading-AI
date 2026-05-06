@@ -29,15 +29,15 @@ _MODULE_REGISTRY: list[dict] = [
     {"module": "garch_vol_forecast", "status": "canary", "callers": 1, "path": "src/assembled_core/features/garch_vol.py"},
     {"module": "profit_targets", "status": "canary", "callers": 0, "path": "src/assembled_core/execution/profit_targets.py"},
     {"module": "edgar_source", "status": "canary", "callers": 1, "path": "src/assembled_core/data/edgar_source.py"},
+    # canary (newly promoted from phantom — files exist, not yet in hot path)
+    {"module": "disclosures_confirm", "status": "canary", "callers": 1, "path": "src/assembled_core/risk/disclosures_confirm.py"},
+    {"module": "quantile_models", "status": "canary", "callers": 1, "path": "src/assembled_core/ml/quantile_models.py"},
+    {"module": "retraining_scheduler", "status": "canary", "callers": 1, "path": "src/assembled_core/ml/retraining_scheduler.py"},
+    {"module": "lime_explainer", "status": "canary", "callers": 1, "path": "src/assembled_core/ml/lime_explainer.py"},
+    {"module": "covariance", "status": "canary", "callers": 4, "path": "src/assembled_core/portfolio/covariance.py"},
     # orphan
     {"module": "bootstrap_metrics", "status": "orphan", "callers": 0, "path": "src/assembled_core/qa/bootstrap_metrics.py"},
     {"module": "monte_carlo_paths", "status": "orphan", "callers": 0, "path": "src/assembled_core/qa/monte_carlo_paths.py"},
-    # phantom
-    {"module": "disclosures_confirm", "status": "phantom", "callers": 1, "path": None},
-    {"module": "quantile_models", "status": "phantom", "callers": 1, "path": None},
-    {"module": "retraining_scheduler", "status": "phantom", "callers": 1, "path": None},
-    {"module": "lime_explainer", "status": "phantom", "callers": 1, "path": None},
-    {"module": "covariance", "status": "phantom", "callers": 4, "path": None},
 ]
 
 
