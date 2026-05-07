@@ -138,6 +138,38 @@ def build_features(
 
     log.debug("Features: %d columns (was %d)", len(pwf.columns), len(prices.columns))
 
+    # --- Step 2.3: Data freshness check (Backlog Item 26) ---
+    # Skip in backtest mode — historical data is always "stale" by design.
+    if ctx.mode in ("eod", "paper", "live") and not pwf.empty:
+        try:
+            from datetime import datetime, timedelta, timezone as _tz
+            _stale_threshold_h = 8
+            _ts_col = "timestamp" if "timestamp" in pwf.columns else None
+            if _ts_col:
+                _latest_ts = pd.to_datetime(pwf[_ts_col]).max()
+                if _latest_ts.tzinfo is None:
+                    _latest_ts = _latest_ts.replace(tzinfo=_tz.utc)
+                _now = datetime.now(_tz.utc)
+                _age_h = (_now - _latest_ts).total_seconds() / 3600
+                _n_syms = pwf["symbol"].nunique() if "symbol" in pwf.columns else 0
+                if _age_h > _stale_threshold_h:
+                    log.warning(
+                        "[DATA-FRESHNESS] Stale data detected: latest timestamp %s is %.1fh old "
+                        "(threshold %dh). Trading on stale data — signals may be wrong.",
+                        _latest_ts.isoformat(),
+                        _age_h,
+                        _stale_threshold_h,
+                    )
+                else:
+                    log.info(
+                        "[DATA-FRESHNESS] OK: latest %s (%.1fh old, %d symbols)",
+                        _latest_ts.date(),
+                        _age_h,
+                        _n_syms,
+                    )
+        except Exception as _fe:
+            log.debug("[DATA-FRESHNESS] freshness check skipped: %s", _fe)
+
     # --- Step 2.5 HMM: D3 regime detection → sets ctx.regime_state ---
     try:
         regime_cfg = policy.get("regime_detection", {})

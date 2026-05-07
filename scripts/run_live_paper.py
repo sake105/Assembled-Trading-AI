@@ -557,6 +557,16 @@ def cmd_rebuild_ledger(args):
 
 
 def main():
+    # Fast-fail if required broker credentials are missing — before any
+    # broker adapter or network call is attempted.
+    try:
+        from src.assembled_core.config.env_validator import validate_env
+
+        validate_env()
+    except RuntimeError as _env_err:
+        print(f"[ENV] {_env_err}", file=sys.stderr)
+        sys.exit(1)
+
     parser = argparse.ArgumentParser(
         description="Live Paper Trading Runner — Alpaca broker integration"
     )

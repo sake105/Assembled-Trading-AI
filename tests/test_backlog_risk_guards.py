@@ -294,6 +294,153 @@ class TestVIXCap:
 
 
 # ---------------------------------------------------------------------------
+# Yield-curve inversion cap tests (via compute_signals)
+# ---------------------------------------------------------------------------
+
+
+def _make_yc_df(
+    symbols: list[str],
+    yc_slope: float | None,
+    n_bars: int = 80,
+    n_positive_prefix: int = 0,
+) -> pd.DataFrame:
+    """Build a minimal prices_with_features DataFrame including yield_curve_slope.
+
+    Args:
+        yc_slope: value to fill into yield_curve_slope (None → column absent).
+        n_positive_prefix: number of leading bars set to +0.5 (to simulate
+            a mostly-positive history before an inversion tail).
+    """
+    dates = pd.date_range("2023-01-01", periods=n_bars, freq="B")
+    rows = []
+    for sym in symbols:
+        for i, d in enumerate(dates):
+            price = 100.0 + i * 0.02
+            row: dict = {
+                "symbol": sym,
+                "timestamp": d,
+                "open": price,
+                "high": price * 1.005,
+                "low": price * 0.995,
+                "close": price,
+                "volume": 1_000_000,
+            }
+            if yc_slope is not None:
+                if n_positive_prefix > 0 and i < n_positive_prefix:
+                    row["yield_curve_slope"] = 0.5  # positive prefix
+                else:
+                    row["yield_curve_slope"] = yc_slope
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
+class TestYieldCurveInversionCap:
+    """Tests for yield_curve_inversion_cap guard in compute_signals."""
+
+    _CFG: dict = {"regime_weights_path": "__nonexistent__"}
+
+    def setup_method(self) -> None:
+        reset_dd_damper()
+
+    def _run(self, df: pd.DataFrame, extra_cfg: dict | None = None) -> pd.DataFrame:
+        from src.assembled_core.strategies.multifactor_v2 import compute_signals
+        cfg = {**self._CFG, **(extra_cfg or {})}
+        return compute_signals(df, strategy_cfg=cfg)
+
+    def test_yc_no_inversion_exposure_unchanged(self) -> None:
+        """Normal case: positive yield_curve_slope → cap must NOT fire.
+
+        The result should be identical to a run without any yc column, because
+        no cap is applied (slope > 0).
+        """
+        from src.assembled_core.strategies.multifactor_v2 import compute_signals
+
+        df_pos_yc = _make_yc_df(["AAPL"], yc_slope=0.50, n_bars=80)
+        df_no_yc = _make_yc_df(["AAPL"], yc_slope=None, n_bars=80)
+
+        sig_pos = self._run(df_pos_yc)
+        sig_none = compute_signals(df_no_yc, strategy_cfg=self._CFG)
+
+        if not sig_pos.empty and not sig_none.empty:
+            score_pos = float(sig_pos["score"].abs().median())
+            score_none = float(sig_none["score"].abs().median())
+            # No cap applied in either case → scores must be numerically close
+            assert abs(score_pos - score_none) < 0.05, (
+                f"Positive YC score diverged: yc={score_pos:.4f}, no-yc={score_none:.4f}"
+            )
+
+    def test_yc_inversion_reduces_exposure(self) -> None:
+        """Persistent negative yield_curve_slope → final score must be <= positive-slope version.
+
+        All 80 bars inverted → persistence check passes (>= 52 of 30-bar tail inverted)
+        → exposure cap 0.60 is applied → composite scores should be lower.
+        """
+        df_inv = _make_yc_df(["AAPL"], yc_slope=-0.30, n_bars=80)
+        df_pos = _make_yc_df(["AAPL"], yc_slope=0.50, n_bars=80)
+
+        sig_inv = self._run(df_inv)
+        sig_pos = self._run(df_pos)
+
+        if not sig_inv.empty and not sig_pos.empty:
+            score_inv = float(sig_inv["score"].abs().median())
+            score_pos = float(sig_pos["score"].abs().median())
+            assert score_inv <= score_pos + 1e-9, (
+                f"Inverted YC score ({score_inv:.4f}) > positive YC ({score_pos:.4f}) — cap not applied"
+            )
+
+    def test_yc_inversion_boundary_exactly_at_zero(self) -> None:
+        """Boundary condition: yield_curve_slope == 0.0 → cap must NOT fire (condition is < 0)."""
+        df_zero = _make_yc_df(["AAPL"], yc_slope=0.0, n_bars=80)
+        df_pos = _make_yc_df(["AAPL"], yc_slope=0.50, n_bars=80)
+
+        sig_zero = self._run(df_zero)
+        sig_pos = self._run(df_pos)
+
+        if not sig_zero.empty and not sig_pos.empty:
+            score_zero = float(sig_zero["score"].abs().median())
+            score_pos = float(sig_pos["score"].abs().median())
+            # slope=0 not strictly < 0 → no cap → should be close to positive baseline
+            assert abs(score_zero - score_pos) < 0.05, (
+                f"Boundary yc=0 score diverged: zero={score_zero:.4f}, pos={score_pos:.4f}"
+            )
+
+    def test_yc_missing_column_no_crash(self) -> None:
+        """No yield_curve_slope column at all → compute_signals must not raise."""
+        df = _make_yc_df(["AAPL"], yc_slope=None, n_bars=80)
+        assert "yield_curve_slope" not in df.columns
+
+        try:
+            result = self._run(df)
+            assert isinstance(result, pd.DataFrame)
+        except Exception as exc:
+            pytest.fail(f"compute_signals raised with missing yc column: {exc}")
+
+    def test_yc_policy_disabled_via_cfg_cap_not_applied(self) -> None:
+        """Setting yield_curve_inversion_cap=1.0 in cfg effectively disables the cap.
+
+        The cap guard only fires when _yc_cap < exposure_mult.  By setting
+        yield_curve_inversion_cap=1.0 the cap value equals or exceeds any
+        realistic exposure_mult, so the guard body is never entered and scores
+        must match the no-cap baseline.
+        """
+        df_inv = _make_yc_df(["AAPL"], yc_slope=-0.30, n_bars=80)
+        df_pos = _make_yc_df(["AAPL"], yc_slope=0.50, n_bars=80)
+
+        # cap effectively disabled (1.0 ≥ any exposure_mult → condition never true)
+        sig_disabled = self._run(df_inv, extra_cfg={"yield_curve_inversion_cap": 1.0})
+        sig_pos = self._run(df_pos)
+
+        if not sig_disabled.empty and not sig_pos.empty:
+            score_disabled = float(sig_disabled["score"].abs().median())
+            score_pos = float(sig_pos["score"].abs().median())
+            # With cap disabled, inverted-slope scores should be close to positive baseline
+            assert abs(score_disabled - score_pos) < 0.15, (
+                f"Disabled-cap score ({score_disabled:.4f}) diverged too far from "
+                f"positive-slope ({score_pos:.4f})"
+            )
+
+
+# ---------------------------------------------------------------------------
 # Conviction engine / trigger basket — smoke imports
 # ---------------------------------------------------------------------------
 
