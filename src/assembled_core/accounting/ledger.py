@@ -541,6 +541,20 @@ def check_margin_requirements(
             maintenance_req,
             margin_call_amount,
         )
+        try:
+            from src.assembled_core.risk.margin_call_handler import handle_margin_call
+
+            handle_margin_call(
+                {
+                    "equity": equity,
+                    "maintenance_required": maintenance_req,
+                    "margin_call_amount": margin_call_amount,
+                    "positions": positions,
+                    "prices": prices,
+                }
+            )
+        except Exception as _mc_exc:
+            logger.error("[Margin] margin_call_handler error: %s", _mc_exc)
 
     return {
         "total_position_value": round(total_position_value, 2),

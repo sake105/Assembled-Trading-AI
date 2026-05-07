@@ -1097,6 +1097,18 @@ class UnifiedPaperEngine:
         else:
             _sig_arr = [0.0] * _n_orders
 
+        # Per-symbol LULD halt support: if orders carry a ``symbol_5min_return``
+        # column (e.g. injected by an intraday feed) and circuit-breaker is
+        # enabled, skip fills for halted symbols.  The column is optional — when
+        # absent every value is None and the per-symbol check is a no-op.
+        _enable_sym_cb = (
+            bool(self.config.enable_circuit_breaker) and _HAS_CIRCUIT_BREAKER
+        )
+        if _enable_sym_cb and "symbol_5min_return" in orders.columns:
+            _ret5_arr = orders["symbol_5min_return"].tolist()
+        else:
+            _ret5_arr = [None] * _n_orders
+
         for _i in range(_n_orders):
             sym = _sym_arr[_i]
             side = _side_arr[_i]
@@ -1111,6 +1123,48 @@ class UnifiedPaperEngine:
             if mid <= 0:
                 logger.warning("[PAPER] No valid price for %s — skipping fill", sym)
                 continue
+
+            # Per-symbol LULD halt check (only when circuit breaker enabled and
+            # 5min return data is available for this symbol).
+            if _enable_sym_cb:
+                ret5 = _ret5_arr[_i]
+                if ret5 is not None:
+                    try:
+                        _halted, _halt_reason = check_circuit_breaker(
+                            market_return_today=0.0,
+                            symbol_5min_return=float(ret5),
+                        )
+                        if _halted:
+                            logger.warning(
+                                "[fill_model] symbol %s is halted — skipping order (%s)",
+                                sym,
+                                _halt_reason,
+                            )
+                            fills.append(
+                                {
+                                    "symbol": sym,
+                                    "side": side,
+                                    "qty": qty,
+                                    "fill_qty": 0.0,
+                                    "remaining_qty": qty,
+                                    "fill_price": mid,
+                                    "mid_price": mid,
+                                    "notional": 0.0,
+                                    "spread_cost_bps": 0.0,
+                                    "impact_cost_bps": 0.0,
+                                    "total_cost_bps": 0.0,
+                                    "status": "rejected",
+                                    "reject_reason": "SYMBOL_HALT",
+                                    "order_id": order_id,
+                                }
+                            )
+                            continue
+                    except Exception as _cb_exc:
+                        logger.error(
+                            "[fill_model] per-symbol circuit breaker error for %s: %s",
+                            sym,
+                            _cb_exc,
+                        )
 
             adv_known = sym in adv_map and adv_map[sym] > 0
             adv = adv_map.get(sym, default_adv)

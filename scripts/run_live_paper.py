@@ -271,16 +271,57 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
     except Exception as exc:
         logger.warning("[run_live_paper] drawdown check failed: %s", exc)
 
-    # Open orders check
+    # Stale open-order cleanup: cancel orders older than 5 minutes that survived
+    # a prior crashed or interrupted run.  Orders submitted within the last 5
+    # minutes are left alone — they may still be working normally.
     try:
         open_orders = adapter.get_open_orders()
         if open_orders:
-            logger.warning(
-                "[run_live_paper] %d open orders found — consider cancelling first",
-                len(open_orders),
-            )
+            now_utc = datetime.now(timezone.utc)
+            stale_ids: list[str] = []
+            recent_count = 0
+            for o in open_orders:
+                submitted_str = o.submitted_at
+                if submitted_str:
+                    try:
+                        submitted_dt = datetime.fromisoformat(
+                            submitted_str.replace("Z", "+00:00")
+                        )
+                        if submitted_dt.tzinfo is None:
+                            from datetime import timezone as _tz
+                            submitted_dt = submitted_dt.replace(tzinfo=_tz.utc)
+                        age_seconds = (now_utc - submitted_dt).total_seconds()
+                        if age_seconds > 300:  # 5 minutes
+                            stale_ids.append(o.order_id)
+                        else:
+                            recent_count += 1
+                    except Exception:
+                        # Cannot parse timestamp — treat as stale to be safe
+                        stale_ids.append(o.order_id)
+                else:
+                    # No timestamp — treat as stale
+                    stale_ids.append(o.order_id)
+
+            if stale_ids:
+                logger.warning(
+                    "[run_live_paper] cancelling %d stale open order(s) (>5min old) — "
+                    "%d recent order(s) left untouched",
+                    len(stale_ids),
+                    recent_count,
+                )
+                cancelled = adapter.cancel_all_orders()
+                logger.warning(
+                    "[run_live_paper] stale order cleanup: %d order(s) cancelled",
+                    cancelled,
+                )
+            elif recent_count:
+                logger.info(
+                    "[run_live_paper] %d recent open order(s) found — all within 5min, "
+                    "no cleanup needed",
+                    recent_count,
+                )
     except Exception as exc:
-        logger.warning("[run_live_paper] open orders check failed: %s", exc)
+        logger.warning("[run_live_paper] open orders cleanup failed: %s", exc)
 
     # Pending intent check (crash recovery)
     try:

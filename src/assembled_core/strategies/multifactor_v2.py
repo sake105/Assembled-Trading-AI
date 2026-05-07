@@ -216,6 +216,31 @@ def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | N
         return None
 
 
+def clear_regime_cache() -> None:
+    """Invalidate the regime-weights cache so next call reloads from disk.
+
+    Call this after updating the regime weights JSON file at runtime so
+    the new weights take effect without restarting the process.
+    """
+    global _REGIME_WEIGHTS_CACHE  # noqa: PLW0603
+    _REGIME_WEIGHTS_CACHE = None
+    logger.info("[MF-V2] Regime weights cache cleared — will reload on next call")
+
+
+def reset_dd_damper() -> None:
+    """Reset the module-level drawdown damper to its initial state.
+
+    Useful between isolated backtest runs in the same Python process to
+    prevent cross-contamination of damper state.
+    """
+    with _DD_LOCK:
+        _DD_DAMPER["peak_equity"] = 1.0
+        _DD_DAMPER["current_equity"] = 1.0
+        _DD_DAMPER["damper_active"] = False
+        _DD_DAMPER["damper_until"] = None
+    logger.info("[MF-V2] Drawdown damper reset to initial state")
+
+
 def _get_weights_for_regime(
     regime_label: str,
     cfg: dict[str, Any],
@@ -1432,4 +1457,11 @@ def _momentum_intact(prices_latest: pd.DataFrame, symbol: str) -> bool:
         return False
 
 
-__all__ = ["compute_signals", "compute_target_positions", "check_exit_signals"]
+__all__ = [
+    "compute_signals",
+    "compute_target_positions",
+    "check_exit_signals",
+    "clear_regime_cache",
+    "reset_dd_damper",
+    "update_drawdown_damper",
+]

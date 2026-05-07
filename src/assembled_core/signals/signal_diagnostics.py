@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -145,7 +145,7 @@ def save_signal_health_artifact(
     Returns:
         Path to saved artifact.
     """
-    run_date = run_date or datetime.now().strftime("%Y-%m-%d")
+    run_date = run_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
