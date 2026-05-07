@@ -1014,7 +1014,7 @@ def _sp_apply_turnover_gate(
                         * _cp["symbol"].map(_price_s).fillna(0)
                     ).sum()
                 )
-                _invested_pct = _inv / ctx.capital
+                _invested_pct = _inv / ctx.capital if ctx.capital else 0.0
             target_positions, _scale = apply_turnover_gate(
                 target_positions,
                 ctx.current_positions,

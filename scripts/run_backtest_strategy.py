@@ -1029,6 +1029,13 @@ Examples:
         help="Override policy YAML path (sets ASSEMBLED_POLICY_PATH; useful for A/B experiments)",
     )
 
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Global random seed for reproducibility (default: 42)",
+    )
+
     return parser.parse_args()
 
 
@@ -1319,6 +1326,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
+    from src.assembled_core.utils.random_state import set_global_seed
+
+    set_global_seed(getattr(args, "seed", 42))
+
     # Initialize experiment tracking if enabled
     experiment_run = None
     if args.track_experiment:
@@ -2928,6 +2939,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
 def main() -> int:
     """Main entry point for strategy backtest CLI (standalone script)."""
     args = parse_args()
+    from src.assembled_core.utils.random_state import set_global_seed
+
+    set_global_seed(args.seed)
     if getattr(args, "policy_path", None):
         import os as _os
 
