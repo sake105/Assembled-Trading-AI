@@ -1,4 +1,4 @@
-"""Daily Pilot Review — generates a structured markdown summary for paper pilot monitoring.
+"""Daily Pilot Review - generates a structured markdown summary for paper pilot monitoring.
 
 Run after US market close (22:30 CET / 16:30 ET):
     python scripts/daily_pilot_review.py
@@ -130,7 +130,7 @@ def main() -> None:
     sharpe_warn = days_elapsed >= 14 and sharpe_7d is not None and sharpe_7d < min_sharpe_14d
 
     lines: list[str] = [
-        f"# Pilot Daily Review — {today}",
+        f"# Pilot Daily Review - {today}",
         "",
         f"**Pilot day:** {days_elapsed}  |  **Start equity:** ${start_equity:,.2f}",
         "",
@@ -141,7 +141,7 @@ def main() -> None:
         f"| Total return | **{total_return_pct:+.2f}%** |",
         f"| Peak equity | ${peak_equity:,.2f} |",
         f"| Current drawdown | {current_dd_pct:.2f}% |",
-        f"| Rolling 7d Sharpe | {f'{sharpe_7d:.2f}' if sharpe_7d is not None else 'N/A (< 8 data points)'} |",
+        f"| Rolling 7d Sharpe | {f'{sharpe_7d:.2f}' if sharpe_7d is not None else 'N/A (insufficient data)'} |",
         "",
         "## Operations",
         f"| Metric | Value |",
@@ -156,17 +156,17 @@ def main() -> None:
 
     if hard_stop_triggered:
         lines += [
-            f"⚠️  **HARD STOP TRIGGERED** — drawdown {current_dd_pct:.2f}% ≤ limit {max_dd_limit:.1f}%",
+            f"[!!! HARD STOP TRIGGERED] drawdown {current_dd_pct:.2f}% <= limit {max_dd_limit:.1f}%",
             f"Action required: {hard_stop.get('kill_switch_action', 'halt_trading')}",
         ]
     elif sharpe_warn:
         lines += [
-            f"⚠️  **SHARPE WARNING** — rolling 7d Sharpe {sharpe_7d:.2f} < {min_sharpe_14d} after day {days_elapsed}",
+            f"[WARN] Rolling 7d Sharpe {sharpe_7d:.2f} < {min_sharpe_14d} after day {days_elapsed}",
         ]
     else:
         dd_room = current_dd_pct - max_dd_limit
         lines += [
-            f"✓ OK — drawdown {current_dd_pct:.2f}% (room: {dd_room:.1f}pp to hard stop)",
+            f"[OK] Drawdown {current_dd_pct:.2f}% (room: {dd_room:.1f}pp to hard stop)",
         ]
 
     lines += [
@@ -174,9 +174,9 @@ def main() -> None:
         "## Success Criteria Progress",
         f"| Criterion | Target | Current | Status |",
         f"|-----------|--------|---------|--------|",
-        f"| CAGR | ≥{success.get('min_cagr_pct', 20)}% | (needs full period) | — |",
-        f"| Sharpe | ≥{success.get('min_sharpe', 1.5)} | {f'{sharpe_7d:.2f}' if sharpe_7d else '—'} | {'✓' if sharpe_7d and sharpe_7d >= success.get('min_sharpe', 1.5) else '—'} |",
-        f"| MDD | ≥{success.get('max_mdd_pct', -10)}% | {current_dd_pct:.2f}% | {'✓' if current_dd_pct > success.get('max_mdd_pct', -10) else '✗'} |",
+        f"| CAGR | >={success.get('min_cagr_pct', 20)}% | (needs full period) | - |",
+        f"| Sharpe | >={success.get('min_sharpe', 1.5)} | {f'{sharpe_7d:.2f}' if sharpe_7d else '--'} | {'PASS' if sharpe_7d and sharpe_7d >= success.get('min_sharpe', 1.5) else '--'} |",
+        f"| MDD | >={success.get('max_mdd_pct', -10)}% | {current_dd_pct:.2f}% | {'PASS' if current_dd_pct > success.get('max_mdd_pct', -10) else 'FAIL'} |",
         "",
         "---",
         f"*Generated at {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}*",

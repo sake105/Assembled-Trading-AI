@@ -516,4 +516,44 @@ def build_features(
     except Exception as e:
         log.debug("[MACRO-PANEL] macro_panel enrichment skipped: %s", e)
 
+    # ------------------------------------------------------------------
+    # Step 2.18: News sentiment enrichment — per-symbol per-date features
+    # Source: output/news_sentiment_daily.parquet (Finnhub/NewsAPI/Polygon/RSS)
+    # Columns added: fetched_sentiment_score, fetched_sentiment_volume
+    # ------------------------------------------------------------------
+    try:
+        import pathlib as _pl
+        _news_path = _pl.Path("output") / "news_sentiment_daily.parquet"
+        if _news_path.exists():
+            _ns = pd.read_parquet(_news_path)
+            # Normalize timestamp to date (UTC midnight)
+            _ns["timestamp"] = pd.to_datetime(_ns["timestamp"], utc=True).dt.normalize()
+            _ns = _ns.rename(
+                columns={
+                    "sentiment_score": "fetched_sentiment_score",
+                    "sentiment_volume": "fetched_sentiment_volume",
+                }
+            )
+            _ns_cols = ["fetched_sentiment_score", "fetched_sentiment_volume"]
+            _ns_sub = _ns[["timestamp", "symbol"] + _ns_cols].drop_duplicates(
+                subset=["timestamp", "symbol"], keep="last"
+            )
+
+            # Merge per (timestamp, symbol)
+            _pwf_ts2 = pd.to_datetime(pwf["timestamp"], utc=True).dt.normalize()
+            _pwf_idx2 = pd.DataFrame(
+                {"timestamp": _pwf_ts2, "symbol": pwf["symbol"], "_row_idx2": range(len(pwf))}
+            )
+            _merged2 = _pwf_idx2.merge(_ns_sub, on=["timestamp", "symbol"], how="left")
+            for col in _ns_cols:
+                if col not in pwf.columns and col in _merged2.columns:
+                    pwf = pwf.copy()
+                    pwf[col] = _merged2[col].values
+            log.debug(
+                "[NEWS-PANEL] merged news sentiment cols into panel (%d rows)",
+                len(pwf),
+            )
+    except Exception as e:
+        log.debug("[NEWS-PANEL] news_sentiment enrichment skipped: %s", e)
+
     return pwf, prices_latest_update
