@@ -1495,8 +1495,6 @@ class UnifiedPaperEngine:
         # Fat finger guard
         if self.config.enable_fat_finger and _HAS_FAT_FINGER:
             try:
-                # Build history from current positions for dynamic cap
-                cost_basis = self._state.get("cost_basis", {})  # noqa: F841
                 history_qty = {
                     sym: abs(float(qty))
                     for sym, qty in self._state.get("positions", {}).items()
