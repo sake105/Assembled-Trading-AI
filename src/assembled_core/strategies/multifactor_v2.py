@@ -487,7 +487,8 @@ def _compute_earnings_insider_factors(
         )
         if result is not None and not result.empty:
             earn_z = result.get("earnings_surprise_z", pd.Series(dtype=float))
-            insider = result.get("insider_activity_z", pd.Series(dtype=float))
+            # Column is "insider_activity_score" (not "insider_activity_z")
+            insider = result.get("insider_activity_score", pd.Series(dtype=float))
             return earn_z, insider
     except Exception as exc:
         logger.debug("[MF-V2] earnings/insider factors unavailable: %s", exc)
