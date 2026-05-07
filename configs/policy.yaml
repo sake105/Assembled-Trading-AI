@@ -336,7 +336,7 @@ signal_generation:
 # Position sizing (Phase 0C)
 # ---------------------------------------------------------------------------
 position_sizing:
-  method: "black_litterman"    # "equal_weight" | "score_weighted" | "vol_scaled" | "black_litterman" | "cost_aware"
+  method: "black_litterman"    # "equal_weight" | "score_weighted" | "vol_scaled" | "black_litterman" | "cost_aware" | "hrp"
   black_litterman:
     risk_aversion: 2.5
     tau: 0.05
@@ -358,6 +358,16 @@ position_sizing:
   conformal:
     enabled: false                 # v3 A/B (2023-26, post-rebalance-fix): CAGR -3.99pp, Sharpe -0.175, MDD +0.07pp -- K4 NOT met
     model_path: "models/conformal_position_v3.joblib"
+  # HRP sizing config — activate by setting method: "hrp" above.
+  # OFF by default; uses Lopez de Prado HRP blended with score-based baseline.
+  # hrp_sizing module: src/assembled_core/portfolio/hrp_sizing.py
+  hrp:
+    enabled: false               # set true when method: "hrp" is active (informational flag)
+    lookback_days: 60            # rolling return window for covariance estimation
+    blend: 0.7                   # HRP weight share (0.7 = 70% HRP, 30% score-based)
+    min_weight: 0.0              # per-asset weight floor
+    max_weight: 1.0              # per-asset weight cap
+    target_invested_pct: 1.0    # gross exposure normalisation target
 
 # ---------------------------------------------------------------------------
 # HMM Regime Overlay — portfolio exposure multiplier based on detected regime
