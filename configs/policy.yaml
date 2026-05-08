@@ -57,6 +57,13 @@ risk_limits:
   concentration_guard:
     max_sector_weight: 0.40      # max 40% in correlated sector ETFs
     max_corr_cluster_weight: 0.50 # max 50% in highly correlated cluster
+  # Item 69: Buying-power utilization limit.
+  # When ctx.buying_power is explicitly set (live broker value), positions are scaled
+  # down if gross_weight > this fraction. Set buying_power_from_capital=true to
+  # activate the check even without an explicit broker buying_power attribute (uses
+  # ctx.capital as proxy — useful for paper trading with capital enforcement).
+  buying_power_utilization_limit: 0.95
+  buying_power_from_capital: false  # false = only activate when broker sets buying_power
 
 # Auto-DD kill-switch thresholds read by trading_cycle_shared.py.
 # More conservative than risk_limits.max_drawdown (benchmark-style) to trigger
@@ -144,7 +151,47 @@ disclosures_confirm:
 execution_policy:
   mode_default: "paper"          # v1.x: Paper-Track als Default; Live kommt später
   idempotency_required: true     # kritische Worker müssen idempotent sein
-  reconcile_as_truth: true       # Reconcile-Ergebnis gilt als „source of truth“ für Zustand
+  reconcile_as_truth: true       # Reconcile-Ergebnis gilt als „source of truth" für Zustand
+  # Item 56: Extended-hours policy — skip avoids wide pre/post-market spreads (5-10x normal).
+  # Options: "skip" (default, safest for pilot), "use" (extended hours allowed), "adaptive" (future).
+  # "use" requires additional liquidity check before submit (spread guard not yet implemented).
+  extended_hours_policy: "skip"  # Pre- and post-market orders are discarded, not resubmitted.
+
+  # ---------------------------------------------------------------------------
+  # Item 105: enforce_market_hours — global default + per-strategy overrides.
+  #
+  # The global setting (enforce_market_hours: true) is the safety default. It is
+  # read by execution/broker_adapter.py (AlpacaAdapter constructor) and rejects
+  # orders submitted outside NYSE regular session (09:30–16:00 ET).
+  #
+  # Per-strategy overrides live under execution_policy.strategy_overrides.<name>.
+  # They are NOT currently read by broker_adapter.py or any pipeline code —
+  # the override pattern is documented here so callers can implement it:
+  #
+  #   policy = yaml.safe_load(open("configs/policy.yaml"))
+  #   ep = policy.get("execution_policy", {})
+  #   global_emh = ep.get("enforce_market_hours", True)
+  #   strategy_emh = (
+  #       ep.get("strategy_overrides", {})
+  #         .get(strategy_name, {})
+  #         .get("enforce_market_hours", global_emh)
+  #   )
+  #   adapter = AlpacaAdapter(enforce_market_hours=strategy_emh)
+  #
+  # Rule: global must remain true; set a per-strategy override to false only for
+  # strategies that explicitly handle extended-hours liquidity risk themselves
+  # (e.g. an event-driven strategy that must act on earnings releases after close).
+  # ---------------------------------------------------------------------------
+  enforce_market_hours: true          # global default — always true for pilot
+
+  # Per-strategy overrides (all unset = inherit global default = true).
+  # Only add a strategy here if you have a specific, documented reason to
+  # deviate from the global default.
+  strategy_overrides:
+    # Example — uncomment and adjust if a strategy needs extended-hours access:
+    # event_driven_v1:
+    #   enforce_market_hours: false   # reason: acts on after-hours earnings prints
+    #                                 # risk: wider spreads; requires spread_guard (not yet implemented)
 
 # Part B deeper wiring (2026-04-22): pre-trade execution cost layer.
 # Activated via paper_runner → annotate_execution_cost, which writes per-order
@@ -222,6 +269,36 @@ vol_targeting:
   target_vol_annual: 0.15     # 15% annualized target; tune before enabling
   min_scale: 0.50             # floor: never reduce below 50% exposure
   max_scale: 1.00             # no amplification; consistent with leverage_allowed: false
+
+# ---------------------------------------------------------------------------
+# Macro Event Calendar (Item 82) — FOMC/CPI/NFP exposure reduction.
+# On scheduled macro event days (FOMC decision, CPI release, NFP), reduce
+# overall exposure to avoid gap risk from surprise prints.
+# Source: news_macro_calendar.py (fomc, cpi, nfp, ppi event types).
+# ---------------------------------------------------------------------------
+macro_event_calendar:
+  enabled: true
+  fomc:
+    exposure_scale: 0.50          # Reduce to 50% exposure 60min before/120min after decision
+    window_before_min: 60         # minutes before event to reduce exposure
+    window_after_min: 120         # minutes after event to restore exposure
+  cpi:
+    exposure_scale: 0.70          # Less aggressive reduction for CPI
+    window_before_min: 30
+    window_after_min: 60
+  nfp:
+    exposure_scale: 0.70          # NFP (Non-Farm Payrolls) first Friday of month
+    window_before_min: 30
+    window_after_min: 60
+
+# ---------------------------------------------------------------------------
+# M&A Exclusion (Item 85) — Remove symbols with active M&A events from trading.
+# Symbols set via ctx.ma_symbols are excluded from target_positions.
+# ---------------------------------------------------------------------------
+ma_exclusion:
+  enabled: true
+  exclude_days: 60               # Exclude symbol for 60 days after M&A announcement
+  news_categories: ["ma_activity", "merger", "acquisition"]  # trigger categories
 
 market_stress:
   enabled: true
@@ -370,6 +447,28 @@ position_sizing:
     target_invested_pct: 1.0    # gross exposure normalisation target
 
 # ---------------------------------------------------------------------------
+# Trailing Stops configuration (Item 76)
+# Source of truth for trailing_stops.py and _tc_sizing.py stop-loss logic.
+# atr_multiplier: stop = max(min_stop_pct, atr_20d * atr_multiplier)
+# Behaviour: volatile symbols (high ATR) get wider stops, stable symbols get tighter.
+# ---------------------------------------------------------------------------
+trailing_stops:
+  enabled: true
+  atr_multiplier: 2.5         # stop = max(min_stop_pct, atr_20d * 2.5) — e.g. NVDA 3% ATR -> 7.5%
+  min_stop_pct: 0.05          # absolute floor regardless of ATR (5%)
+  max_stop_pct: 0.35          # absolute ceiling (35%) — prevents stops that never trigger
+  # Per-regime overrides: tighten stops in crisis (reduce loss capture time)
+  regime_overrides:
+    crisis:
+      atr_multiplier: 2.0     # tighter in crisis — exit faster
+    bear:
+      atr_multiplier: 2.2
+    sideways:
+      atr_multiplier: 2.5     # default
+    bull:
+      atr_multiplier: 2.5     # default
+
+# ---------------------------------------------------------------------------
 # HMM Regime Overlay — portfolio exposure multiplier based on detected regime
 # ---------------------------------------------------------------------------
 hmm_regime_overlay:
@@ -477,6 +576,9 @@ ml:
   drift_detection:
     enabled: true
     p_value_threshold: 0.01       # KS p-value < this → feature drifted
+  retrain_schedule: weekly        # Options: daily, weekly, monthly, manual
+  retrain_trigger: drift          # Options: time, drift, manual
+  model_max_age_days: 14          # Alert if deployed model older than this
 
 # ---------------------------------------------------------------------------
 # Signal meta-model confidence scoring (Step 3.7 — shadow only)
@@ -626,3 +728,13 @@ strategies:
         weight: 0.10
         regime_aware: false
     min_consensus: 0.30
+
+# ---------------------------------------------------------------------------
+# Quarter-End High-Friction Days (Item 84) — March 31, June 30, Sep 30, Dec 31
+# Window-dressing and fund rebalancing cause 2-3× higher slippage.
+# ---------------------------------------------------------------------------
+quarter_end_guard:
+  enabled: true
+  days_before: 2                  # flag window: 2 trading days before quarter-end
+  slippage_multiplier: 2.0        # applied to estimated slippage for sizing
+  max_position_size_pct: 0.50     # cap individual positions at 50% of normal max

@@ -632,7 +632,6 @@ def get_data_quality(
     Reads from the most recent price data file and reports staleness.
     """
     try:
-        import os as _os
         from datetime import datetime as _dt
         from pathlib import Path as _Path
 
@@ -642,7 +641,7 @@ def get_data_quality(
             return {"status": "unavailable", "message": "No price files found"}
 
         latest = price_files[0]
-        mtime = _os.path.getmtime(str(latest))
+        mtime = latest.stat().st_mtime
         age_hours = (time.time() - mtime) / 3600
         freshness = "fresh" if age_hours < 26 else "stale"
 

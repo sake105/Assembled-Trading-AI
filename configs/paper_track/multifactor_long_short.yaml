@@ -43,7 +43,9 @@ strategy_type: "multifactor_long_short"
 # Path is relative to repo root or config file directory (searched in that order).
 # IMPORTANT: Universe symbols must be available in the factor bundle data.
 universe:
-  file: "watchlist.txt"  # Path to universe file (relative to repo root or config file directory)
+  # Item 80/119: upgraded from watchlist.txt (29 symbols) to full_us_universe.txt (195 symbols).
+  # The full universe file was confirmed to exist at configs/universes/full_us_universe.txt.
+  file: "configs/universes/full_us_universe.txt"  # 195-symbol production universe (Welle stand)
 
 # Trading parameters
 trading:

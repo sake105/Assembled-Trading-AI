@@ -10,7 +10,8 @@ Usage::
     cb = CircuitBreaker(drop_threshold_pct=3.0, window_minutes=15)
     cb.observe(price=100.0, timestamp=t0)
     cb.observe(price=96.5, timestamp=t1)   # -3.5% in window -> TRIPPED
-    assert cb.is_tripped
+    if not cb.is_tripped:
+        raise ValueError("Expected circuit breaker to be tripped")
 """
 
 from __future__ import annotations
@@ -83,8 +84,13 @@ class CircuitBreaker:
                 "[CircuitBreaker] TRIPPED: %.1f%% drop in %d-min window "
                 "(high=%.2f, current=%.2f, threshold=%.1f%%). "
                 "Trading halted for %d minutes. Trip #%d.",
-                drop_pct, self.window_minutes, window_high, price,
-                self.drop_threshold_pct, self.cooldown_minutes, self._trip_count,
+                drop_pct,
+                self.window_minutes,
+                window_high,
+                price,
+                self.drop_threshold_pct,
+                self.cooldown_minutes,
+                self._trip_count,
             )
             return True
 
@@ -177,8 +183,8 @@ class VolCircuitBreaker:
         if len(seq) < self.long_window or self.long_window < 2 or self.short_window < 2:
             return False
 
-        long_slice = seq[-self.long_window:]
-        short_slice = seq[-self.short_window:]
+        long_slice = seq[-self.long_window :]
+        short_slice = seq[-self.short_window :]
 
         try:
             long_vol = statistics.pstdev(long_slice)
@@ -199,8 +205,13 @@ class VolCircuitBreaker:
                 "[VolCircuitBreaker] TRIPPED: short/long vol ratio=%.3f "
                 "(short=%.5f over %d bars, long=%.5f over %d bars, threshold=%.2f). "
                 "Trip #%d.",
-                ratio, short_vol, self.short_window, long_vol, self.long_window,
-                self.ratio_threshold, self._trip_count,
+                ratio,
+                short_vol,
+                self.short_window,
+                long_vol,
+                self.long_window,
+                self.ratio_threshold,
+                self._trip_count,
             )
             return True
 

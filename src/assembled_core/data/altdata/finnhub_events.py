@@ -54,7 +54,7 @@ def fetch_earnings_events(
     params = {"from": from_str, "to": to_str, "token": api_key}
 
     try:
-        response = session.get(url, params=params)
+        response = session.get(url, params=params, timeout=10.0)
         response.raise_for_status()
         data = response.json()
     except Exception as exc:
@@ -137,7 +137,7 @@ def fetch_insider_events(
         params = {"symbol": sym, "from": from_str, "to": to_str, "token": api_key}
 
         try:
-            response = session.get(url, params=params)
+            response = session.get(url, params=params, timeout=10.0)
             response.raise_for_status()
             data = response.json()
         except Exception as exc:

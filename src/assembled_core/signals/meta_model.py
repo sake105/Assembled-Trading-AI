@@ -484,6 +484,12 @@ def load_meta_model(path: str | pathlib.Path) -> MetaModel:
         raise FileNotFoundError(f"Model file not found: {path}")
 
     try:
+        try:
+            from src.assembled_core.ml.model_registry import verify_model_hash
+
+            verify_model_hash(path)
+        except Exception:
+            pass
         meta_model = joblib.load(path)
     except (EOFError, Exception) as exc:
         raise RuntimeError(

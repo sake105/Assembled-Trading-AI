@@ -7,7 +7,6 @@ Free read-only API — no auth required.
 from __future__ import annotations
 
 import logging
-import time
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -15,11 +14,33 @@ logger = logging.getLogger(__name__)
 POLYMARKET_API = "https://gamma-api.polymarket.com/markets"
 
 RELEVANT_MARKET_KEYWORDS: list[str] = [
-    "iran", "hormuz", "russia", "ukraine", "taiwan", "china",
-    "tariff", "fed", "federal reserve", "recession", "inflation",
-    "oil", "opec", "sanction", "war", "conflict", "escalation",
-    "rate", "gdp", "default", "debt ceiling", "election",
-    "trade", "semiconductor", "chips act", "nato", "israel",
+    "iran",
+    "hormuz",
+    "russia",
+    "ukraine",
+    "taiwan",
+    "china",
+    "tariff",
+    "fed",
+    "federal reserve",
+    "recession",
+    "inflation",
+    "oil",
+    "opec",
+    "sanction",
+    "war",
+    "conflict",
+    "escalation",
+    "rate",
+    "gdp",
+    "default",
+    "debt ceiling",
+    "election",
+    "trade",
+    "semiconductor",
+    "chips act",
+    "nato",
+    "israel",
 ]
 
 
@@ -88,7 +109,11 @@ def fetch_polymarket_markets(
             prices_raw = market.get("outcomePrices")
             if prices_raw:
                 try:
-                    prices = json.loads(prices_raw) if isinstance(prices_raw, str) else prices_raw
+                    prices = (
+                        json.loads(prices_raw)
+                        if isinstance(prices_raw, str)
+                        else prices_raw
+                    )
                     yes_prob = float(prices[0])
                 except Exception:
                     yes_prob = 0.0
@@ -111,7 +136,7 @@ def fetch_polymarket_markets(
     return results
 
 
-def polymarket_to_dataframe(markets: list[dict]) -> "pd.DataFrame":  # type: ignore[name-defined]
+def polymarket_to_dataframe(markets: list[dict]) -> "pd.DataFrame":  # type: ignore[name-defined]  # noqa: F821
     """Convert fetch_polymarket_markets() output to a DataFrame."""
     import pandas as pd
 

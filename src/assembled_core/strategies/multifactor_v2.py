@@ -39,11 +39,40 @@ from __future__ import annotations
 
 import json
 import logging
-import os
+from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from src.assembled_core.strategies.multifactor_v2_constants import (
+    DD_DAMPER_DAYS,
+    DD_DAMPER_FACTOR,
+    DD_MDD_THRESHOLD,
+    FACTOR_CLIP_MAX,
+    FACTOR_CLIP_MIN,
+    FACTOR_ZERO_VARIANCE_EPS,
+    GPR_BASELINE_NORM,
+    HMM_CACHE_MAXSIZE,
+    RANK_NORM_SCALE,
+    REGIME_CACHE_MAX_CONFIGS,
+    SAFE_DIVIDE_DEFAULT,
+    SAFE_DIVIDE_EPS,
+    SMALL_UNIVERSE_THRESHOLD,
+    STD_ZERO_REPLACE,
+    YIELD_CURVE_CAP_DEFAULT,
+    YIELD_CURVE_INVERSION_FRACTION,
+    YIELD_CURVE_INVERSION_MIN_HISTORY,
+    YIELD_CURVE_LOOKBACK_DAYS,
+    VIX_CAP_ELEVATED,
+    VIX_CAP_EXTREME,
+    VIX_CAP_CRISIS,
+    VIX_CAP_MILD,
+    VIX_THRESHOLD_ELEVATED,
+    VIX_THRESHOLD_EXTREME,
+    VIX_THRESHOLD_CRISIS,
+    VIX_THRESHOLD_MILD,
+)
 from src.assembled_core.strategies.multifactor_v1 import (
     REGIME_EXPOSURE,
     _abnormal_volume_score,
@@ -72,22 +101,99 @@ logger = logging.getLogger(__name__)
 STRATEGY_VERSION = "v2"
 VERSION = "multifactor_v2.4.0"
 
+
+# ---------------------------------------------------------------------------
+# Utility: safe division (avoids ZeroDivisionError on tiny denominators)
+# ---------------------------------------------------------------------------
+
+
+def safe_divide(
+    num: float,
+    denom: float,
+    default: float = SAFE_DIVIDE_DEFAULT,
+) -> float:
+    """Divide num by denom; return *default* when |denom| < SAFE_DIVIDE_EPS.
+
+    Use this wherever inline division could silently produce inf/NaN when
+    feed data is missing or degenerate.  Returning 0.0 (neutral) is
+    consistent with the project-wide fillna(0) policy for missing factors.
+    """
+    if abs(denom) < SAFE_DIVIDE_EPS:
+        return default
+    return num / denom
+
+
+# ---------------------------------------------------------------------------
+# Bounded LRU cache for HMM market-return computations (Item 3)
+# ---------------------------------------------------------------------------
+
+
+class _BoundedCache:
+    """Thread-safe bounded dict with LRU eviction.
+
+    Replaces a plain dict that would grow without bound when the universe
+    cycles through many (model_path, symbols) combinations over a long
+    process lifetime.  maxsize matches HMM_CACHE_MAXSIZE from constants.
+    """
+
+    def __init__(self, maxsize: int = HMM_CACHE_MAXSIZE) -> None:
+        self._maxsize = maxsize
+        self._store: OrderedDict = OrderedDict()
+        self._lock = __import__("threading").Lock()
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        with self._lock:
+            if key not in self._store:
+                return default
+            self._store.move_to_end(key)
+            return self._store[key]
+
+    def set(self, key: Any, value: Any) -> None:
+        with self._lock:
+            if key in self._store:
+                self._store.move_to_end(key)
+            self._store[key] = value
+            if len(self._store) > self._maxsize:
+                self._store.popitem(last=False)  # evict oldest
+
+    def clear(self) -> None:
+        with self._lock:
+            self._store.clear()
+
+    def __contains__(self, key: Any) -> bool:
+        with self._lock:
+            return key in self._store
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._store)
+
+
 # ---------------------------------------------------------------------------
 # Drawdown self-damper — module-level state updated by paper runner / backtest
 # ---------------------------------------------------------------------------
+# IMPORTANT (Item 6): _DD_DAMPER is module-global state shared across all
+# callers in the same Python process.  This design is intentional for the
+# single-strategy paper runner, but it means:
+#   - Concurrent backtests in the same process contaminate each other.
+#   - Always call reset_dd_damper() between isolated backtest runs.
+# If multi-strategy support is needed, move damper state into a per-instance
+# context object (e.g. ctx.strategy_state["dd_damper"]).
 _DD_LOCK = threading.Lock()
 _DD_DAMPER: dict[str, Any] = {
     "peak_equity": 1.0,
     "current_equity": 1.0,
     "damper_active": False,
     "damper_until": None,  # datetime.date
-    "mdd_threshold": 0.12,
-    "damper_days": 30,
-    "damper_factor": 0.5,
+    "mdd_threshold": DD_MDD_THRESHOLD,
+    "damper_days": DD_DAMPER_DAYS,
+    "damper_factor": DD_DAMPER_FACTOR,
 }
 
 
-def update_drawdown_damper(current_equity: float, as_of: "_dt.date | None" = None) -> bool:
+def update_drawdown_damper(
+    current_equity: float, as_of: "_dt.date | None" = None
+) -> bool:
     """Update the module-level drawdown damper state.
 
     Call this daily from paper runner or backtest after equity is updated.
@@ -101,7 +207,11 @@ def update_drawdown_damper(current_equity: float, as_of: "_dt.date | None" = Non
         state["current_equity"] = current_equity
 
         # Deactivate expired damper
-        if state["damper_active"] and state["damper_until"] and today > state["damper_until"]:
+        if (
+            state["damper_active"]
+            and state["damper_until"]
+            and today > state["damper_until"]
+        ):
             state["damper_active"] = False
             state["damper_until"] = None
             logger.info("[MF-V2] Drawdown damper expired — exposure restored")
@@ -123,46 +233,47 @@ def update_drawdown_damper(current_equity: float, as_of: "_dt.date | None" = Non
                 return True
     return False
 
+
 # ---------------------------------------------------------------------------
 # Default v2 factor weights (used when regime weights file is unavailable)
 # ---------------------------------------------------------------------------
 
 DEFAULT_V2_WEIGHTS: dict[str, float] = {
     # --- TA factors (1-17): 60% total (Pfad B: reduced from 73%) ---
-    "trend_ema_spread": 0.08,       # was 0.10
-    "trend_ma200_position": 0.06,   # was 0.07
-    "trend_adx_strength": 0.04,     # was 0.05
-    "trend_macd_hist": 0.04,        # was 0.05
-    "mom_rsi_centered": 0.05,       # was 0.06
-    "mom_volume_weighted": 0.04,    # was 0.05
+    "trend_ema_spread": 0.08,  # was 0.10
+    "trend_ma200_position": 0.06,  # was 0.07
+    "trend_adx_strength": 0.04,  # was 0.05
+    "trend_macd_hist": 0.04,  # was 0.05
+    "mom_rsi_centered": 0.05,  # was 0.06
+    "mom_volume_weighted": 0.04,  # was 0.05
     "mom_obv_trend": 0.03,
-    "mr_bollinger_pctb": 0.03,      # was 0.04
+    "mr_bollinger_pctb": 0.03,  # was 0.04
     "mr_stoch_oversold": 0.03,
-    "vol_abnormal": 0.02,           # was 0.03
-    "vol_tick_imbalance": 0.02,     # was 0.03
+    "vol_abnormal": 0.02,  # was 0.03
+    "vol_tick_imbalance": 0.02,  # was 0.03
     "vola_regime_score": 0.03,
     "vola_vov_penalty": 0.03,
-    "breadth_above_ma": 0.03,       # was 0.04
+    "breadth_above_ma": 0.03,  # was 0.04
     "breadth_ad_line": 0.03,
     "mr_zscore_reversal_3d": 0.02,  # was 0.03
-    "mr_rsi_extreme_uptrend": 0.02, # was 0.03
+    "mr_rsi_extreme_uptrend": 0.02,  # was 0.03
     # --- Sector (18) ---
     "sector_rotation_bias": 0.04,
     # --- Earnings/Insider (19-20) ---
     "earnings_surprise_z": 0.03,
     "insider_activity_score": 0.02,
     # --- News/Macro (21-24): 8% total (was 3%) ---
-    "news_sentiment_7d": 0.05,      # was 0.02
-    "news_volume_spike": 0.03,      # was 0.01
+    "news_sentiment_7d": 0.05,  # was 0.02
+    "news_volume_spike": 0.03,  # was 0.01
     "macro_growth_momentum": 0.03,  # was 0.02
-    "macro_inflation_surprise": 0.02, # was 0.01
+    "macro_inflation_surprise": 0.02,  # was 0.01
     # --- Intermarket (25-27): 8% total (was 6%) ---
     "intermarket_bond_equity": 0.03,  # was 0.02
-    "intermarket_credit_spread": 0.03, # was 0.02
+    "intermarket_credit_spread": 0.03,  # was 0.02
     "intermarket_yield_curve": 0.02,
     # --- Options (28-29) ---
     "options_put_call_extreme": 0.02,
-    "vix_regime_score": 0.01,       # was 0.02
+    "vix_regime_score": 0.01,  # was 0.02
     # --- Congress (30) ---
     "congress_activity": 0.02,
     # --- Geo composite (31): NEW — Pfad B ---
@@ -176,25 +287,43 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
 }
 
 # ---------------------------------------------------------------------------
-# Regime weights cache
+# Regime weights cache (Item 2)
 # ---------------------------------------------------------------------------
+# The cache is keyed by (config_path, file_mtime) so that:
+#   a) stale entries are evicted when the JSON file changes on disk, and
+#   b) the cache is bounded (REGIME_CACHE_MAX_CONFIGS entries max) to
+#      prevent unlimited growth when many distinct paths are used.
+#
+# clear_regime_cache() is still provided for explicit runtime invalidation
+# (e.g. from tests or after a weights retrain).
 
-_REGIME_WEIGHTS_CACHE: dict[str, dict[str, float]] | None = None
+_REGIME_WEIGHTS_CACHE: _BoundedCache = _BoundedCache(maxsize=REGIME_CACHE_MAX_CONFIGS)
 
 
 def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | None:
     """Load regime-conditional factor weights from JSON file.
 
     Returns None if the file is missing or unparseable (defensive).
-    """
-    global _REGIME_WEIGHTS_CACHE  # noqa: PLW0603
-    if _REGIME_WEIGHTS_CACHE is not None:
-        return _REGIME_WEIGHTS_CACHE
 
+    Cache key = (path, mtime) so the cache auto-invalidates when the
+    weights file is updated on disk without requiring an explicit clear.
+    """
     path = cfg.get("regime_weights_path", "configs/factor_weights_by_regime.json")
-    if not os.path.isfile(path):
+    _p = Path(path)
+    if not _p.is_file():
         logger.debug("[MF-V2] Regime weights file not found: %s", path)
         return None
+
+    try:
+        mtime = _p.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    cache_key = (path, mtime)
+
+    cached = _REGIME_WEIGHTS_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
@@ -206,7 +335,7 @@ def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | N
         }
         if not regimes:
             return None
-        _REGIME_WEIGHTS_CACHE = regimes
+        _REGIME_WEIGHTS_CACHE.set(cache_key, regimes)
         logger.info(
             "[MF-V2] Loaded regime weights for regimes: %s", list(regimes.keys())
         )
@@ -221,9 +350,10 @@ def clear_regime_cache() -> None:
 
     Call this after updating the regime weights JSON file at runtime so
     the new weights take effect without restarting the process.
+    Note: mtime-based auto-invalidation handles routine file updates;
+    call this explicitly only when the path itself changes or in tests.
     """
-    global _REGIME_WEIGHTS_CACHE  # noqa: PLW0603
-    _REGIME_WEIGHTS_CACHE = None
+    _REGIME_WEIGHTS_CACHE.clear()
     logger.info("[MF-V2] Regime weights cache cleared — will reload on next call")
 
 
@@ -278,7 +408,7 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
                 _mkt = df.set_index("timestamp")["close"]
             _mkt = _mkt.sort_index().dropna()
             _log_ret = np.log((_mkt / _mkt.shift(1)).clip(lower=1e-10)).dropna()
-            _vol_20d = _log_ret.rolling(20).std().dropna()
+            _vol_20d = _log_ret.rolling(20, min_periods=20).std().dropna()
             _log_ret = _log_ret.loc[_vol_20d.index]
             if len(_log_ret) >= 20:
                 _feat = pd.DataFrame(
@@ -406,7 +536,7 @@ def _compute_sector_rotation_bias(
     """
     try:
         meta_path = cfg.get("security_meta_path", "configs/security_meta.csv")
-        if not os.path.isfile(meta_path):
+        if not Path(meta_path).is_file():
             return pd.Series(0.0, index=latest_symbols)
 
         meta = pd.read_csv(meta_path, dtype={"symbol": str, "sector": str})
@@ -686,9 +816,9 @@ def _compute_geo_risk_composite(
 
     # Path 1: pre-merged columns (populated by trading_cycle or panel build)
     gpr_cols = {
-        "gpr_index": 1.0,        # Caldara-Iacoviello GPR index (higher = more risk)
-        "acled_intensity": 0.5,   # ACLED conflict intensity (supplementary)
-        "geo_risk_score": 1.0,    # generic geo risk column
+        "gpr_index": 1.0,  # Caldara-Iacoviello GPR index (higher = more risk)
+        "acled_intensity": 0.5,  # ACLED conflict intensity (supplementary)
+        "geo_risk_score": 1.0,  # generic geo risk column
     }
     composite_val: float | None = None
     for col, col_weight in gpr_cols.items():
@@ -700,11 +830,14 @@ def _compute_geo_risk_composite(
 
     if composite_val is not None:
         # Normalize: GPR index ~100 at baseline; z-score it roughly
-        geo_z = composite_val / 50.0  # ~100 → z≈2, 50 → z≈1
-        geo_z = float(np.clip(geo_z, -3.0, 3.0))
+        # GPR_BASELINE_NORM: index ≈ 100 at baseline → z ≈ 2 (see constants)
+        geo_z = safe_divide(composite_val, GPR_BASELINE_NORM, default=0.0)
+        geo_z = float(np.clip(geo_z, FACTOR_CLIP_MIN, FACTOR_CLIP_MAX))
         # Negate: high geo risk → bearish for equities
         result["geo_risk_composite"] = pd.Series(-geo_z, index=sym_idx.values)
-        logger.debug("[MF-V2] geo composite (panel): val=%.2f z=%.2f", composite_val, geo_z)
+        logger.debug(
+            "[MF-V2] geo composite (panel): val=%.2f z=%.2f", composite_val, geo_z
+        )
         return result
 
     # Path 2: fetch live GPR from FRED (GPRC = historical, monthly series)
@@ -716,7 +849,9 @@ def _compute_geo_risk_composite(
         from src.assembled_core.data.sources.fred_source import fetch_fred_series
 
         _end = _dt.date.today().isoformat()
-        _start = ((_dt.date.today()).replace(year=_dt.date.today().year - 5)).isoformat()
+        _start = (
+            (_dt.date.today()).replace(year=_dt.date.today().year - 5)
+        ).isoformat()
         _fred_df = fetch_fred_series(["GPRC"], _start, _end)
         if not _fred_df.empty:
             _gpr_vals = (
@@ -740,6 +875,178 @@ def _compute_geo_risk_composite(
     # Path 3: zero-fill (factor excluded from composite by zero-variance guard)
     logger.debug("[MF-V2] geo composite: no data, zero-fill")
     result["geo_risk_composite"] = pd.Series(0.0, index=sym_idx.values)
+    return result
+
+
+def _compute_insider_cluster_factor(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factor 32: Insider cluster buy/sell score (Cohen et al. 2012).
+
+    Uses signals/insider_cluster.py which detects ≥3 insiders buying/selling
+    within 30 days — a documented +2-4% p.a. alpha source.
+    Reads pre-computed panel columns if available; falls back to live fetch.
+    """
+    result: dict[str, pd.Series] = {}
+    sym_idx = (
+        latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    )
+    try:
+        # Prefer pre-computed panel columns (populated by altdata pipeline)
+        if "insider_cluster_score" in latest.columns:
+            result["insider_cluster_score"] = pd.Series(
+                pd.to_numeric(latest["insider_cluster_score"], errors="coerce")
+                .fillna(0.0)
+                .values,
+                index=sym_idx.values,
+            )
+            return result
+
+        # Fallback: call signal module directly (slow, one-by-one)
+        from src.assembled_core.signals.insider_cluster import (
+            cluster_buy_score,
+        )  # noqa: PLC0415
+
+        scores: dict[str, float] = {}
+        for sym in latest_symbols[
+            :20
+        ]:  # limit live calls to top 20 to avoid rate limit
+            try:
+                val = cluster_buy_score(sym, days=30)
+                scores[sym] = float(val) if val is not None else 0.0
+            except Exception:
+                scores[sym] = 0.0
+        result["insider_cluster_score"] = pd.Series(scores)
+        logger.debug("[MF-V2] insider cluster factor: %d symbols", len(scores))
+    except Exception as exc:
+        logger.debug("[MF-V2] insider cluster factor unavailable: %s", exc)
+    return result
+
+
+def _compute_pead_sue_factor(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factor 33: PEAD/SUE — Post-Earnings-Announcement Drift via Standardized Unexpected Earnings.
+
+    Bernard & Thomas (1989): one of the most robust market anomalies.
+    +3-5% p.a. for long top decile / short bottom decile.
+    """
+    result: dict[str, pd.Series] = {}
+    sym_idx = (
+        latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    )
+    try:
+        # Prefer pre-computed panel columns
+        if "sue_score" in latest.columns:
+            result["pead_sue_score"] = pd.Series(
+                pd.to_numeric(latest["sue_score"], errors="coerce").fillna(0.0).values,
+                index=sym_idx.values,
+            )
+            return result
+
+        from src.assembled_core.signals.pead_sue import batch_sue  # noqa: PLC0415
+        from src.assembled_core.data.altdata_loader import (
+            load_earnings_history,
+        )  # noqa: PLC0415
+
+        as_of = pd.Timestamp.now().normalize()
+        earnings_df = load_earnings_history(latest_symbols, as_of, lookback_days=90)
+        if earnings_df is not None and not earnings_df.empty:
+            sue_series = batch_sue(earnings_df, latest_symbols)
+            if sue_series is not None:
+                result["pead_sue_score"] = sue_series.reindex(
+                    latest_symbols, fill_value=0.0
+                )
+                logger.debug(
+                    "[MF-V2] PEAD/SUE: %d symbols with data",
+                    (sue_series != 0).sum(),
+                )
+    except Exception as exc:
+        logger.debug("[MF-V2] PEAD/SUE factor unavailable: %s", exc)
+    return result
+
+
+def _compute_buyback_drift_factor(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factor 34: Buyback drift (Ikenberry et al.) — 60-90 day post-announcement momentum.
+
+    +1-2% p.a. after 8-K buyback announcements. Orthogonal to insider signals.
+    """
+    result: dict[str, pd.Series] = {}
+    sym_idx = (
+        latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+    )
+    try:
+        if "buyback_drift_score" in latest.columns:
+            result["buyback_drift_score"] = pd.Series(
+                pd.to_numeric(latest["buyback_drift_score"], errors="coerce")
+                .fillna(0.0)
+                .values,
+                index=sym_idx.values,
+            )
+            return result
+
+        from src.assembled_core.signals.buyback_drift import (
+            buyback_signal_score,
+        )  # noqa: PLC0415
+
+        scores: dict[str, float] = {}
+        for sym in latest_symbols[:30]:
+            try:
+                val = buyback_signal_score(sym)
+                scores[sym] = float(val) if val is not None else 0.0
+            except Exception:
+                scores[sym] = 0.0
+        result["buyback_drift_score"] = pd.Series(scores)
+        logger.debug("[MF-V2] buyback drift factor: %d symbols", len(scores))
+    except Exception as exc:
+        logger.debug("[MF-V2] buyback drift factor unavailable: %s", exc)
+    return result
+
+
+def _compute_options_iv_factor(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factor 35 (Item 106): Options IV-skew score — ML feature, zero-weighted by default.
+
+    IV-skew = implied vol of puts relative to calls.  Elevated skew signals
+    institutional hedging activity — a forward-looking fear indicator orthogonal
+    to TA / news factors.
+
+    To activate in composite: add ``"options_iv_skew_score": 0.02`` to
+    PFAD_B_WEIGHTS and reduce ``geo_risk_composite`` from 0.05 → 0.03.
+
+    Data priority:
+    1. Pre-computed ``options_iv_skew_score`` / ``iv_skew`` column in ``latest``.
+    2. Live computation via ``signals/options_iv.iv_skew()`` (needs py_vollib).
+    3. Zero-fill.
+    """
+    sym_idx = pd.Index(latest_symbols)
+    result: dict[str, pd.Series] = {}
+
+    for col in ("options_iv_skew_score", "iv_skew", "options_iv_skew"):
+        if col in latest.columns:
+            result["options_iv_skew_score"] = pd.Series(
+                pd.to_numeric(latest[col], errors="coerce").values,
+                index=sym_idx,
+            ).fillna(0.0)
+            return result
+
+    try:
+        from src.assembled_core.signals.options_iv import iv_skew  # noqa: PLC0415
+
+        scores = [float(iv_skew(sym, None) or 0.0) for sym in latest_symbols]
+        result["options_iv_skew_score"] = pd.Series(scores, index=sym_idx)
+    except Exception as exc:
+        logger.debug("[MF-V2] options_iv factor unavailable: %s", exc)
+
+    if "options_iv_skew_score" not in result:
+        result["options_iv_skew_score"] = pd.Series(0.0, index=sym_idx)
     return result
 
 
@@ -955,19 +1262,64 @@ def compute_signals(
         else 0.0
     )
 
+    # Factor 32: Insider cluster buy/sell (Cohen et al. 2012, +2-4% p.a. alpha)
+    insider_cl = _compute_insider_cluster_factor(latest_symbols, latest)
+    scores["insider_cluster_score"] = (
+        scores["symbol"]
+        .map(insider_cl.get("insider_cluster_score", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "insider_cluster_score" in insider_cl
+        else 0.0
+    )
+
+    # Factor 33: PEAD/SUE — post-earnings drift (Bernard & Thomas 1989)
+    pead = _compute_pead_sue_factor(latest_symbols, latest)
+    scores["pead_sue_score"] = (
+        scores["symbol"]
+        .map(pead.get("pead_sue_score", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "pead_sue_score" in pead
+        else 0.0
+    )
+
+    # Factor 34: Buyback drift (Ikenberry et al., 60-90d post-announcement)
+    buyback = _compute_buyback_drift_factor(latest_symbols, latest)
+    scores["buyback_drift_score"] = (
+        scores["symbol"]
+        .map(buyback.get("buyback_drift_score", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "buyback_drift_score" in buyback
+        else 0.0
+    )
+
+    # Factor 35 (Item 106): Options IV-skew — institutional hedging signal.
+    # Zero-weighted in composite by default; available as ML feature.
+    opts_iv = _compute_options_iv_factor(latest_symbols, latest)
+    scores["options_iv_skew_score"] = (
+        scores["symbol"]
+        .map(opts_iv.get("options_iv_skew_score", pd.Series(dtype=float)))
+        .fillna(0.0)
+        if "options_iv_skew_score" in opts_iv
+        else 0.0
+    )
+
     # Crash probability inverse -- not z-scored (scalar → zero variance).
     # Applied as multiplier post-composite via _crash_prediction_multiplier.
 
     # --- Cross-sectional z-score per factor (vectorized across all columns) ---
     # Use ddof=0 (population std) to avoid NaN for single-row universes.
-    # For very small universes (< 5 symbols), z-scoring is statistically
-    # meaningless, so use rank-normalization instead.
+    # For very small universes (< SMALL_UNIVERSE_THRESHOLD symbols), z-scoring
+    # is statistically meaningless, so use rank-normalization instead.
     factor_cols = [c for c in scores.columns if c != "symbol"]
     n_rows = len(scores)
-    factor_df = scores[factor_cols].astype(float)
-    if n_rows < 5:
+    # Item 48: fillna(0.0) BEFORE clip — missing factors treated as neutral (0).
+    # This prevents NaN from propagating through rank/z-score into the composite.
+    factor_df = scores[factor_cols].astype(float).fillna(0.0)
+    if n_rows < SMALL_UNIVERSE_THRESHOLD:
         ranks = factor_df.rank(method="average", na_option="bottom")
-        scores[factor_cols] = (((ranks / max(n_rows, 1)) - 0.5) * 2.0).clip(-3.0, 3.0)
+        scores[factor_cols] = (((ranks / max(n_rows, 1)) - 0.5) * RANK_NORM_SCALE).clip(
+            FACTOR_CLIP_MIN, FACTOR_CLIP_MAX
+        )
     else:
         means = factor_df.mean()
         stds = factor_df.std(ddof=0)
@@ -975,26 +1327,33 @@ def compute_signals(
         # fill NaN → 0.0.  Avoid .where(valid, 0.0) with a column-indexed
         # boolean Series: pandas 2.x aligns it against the row index, not the
         # column axis, silently zeroing every cell.
-        safe_stds = stds.replace(0.0, np.nan).where(stds > 1e-10, other=np.nan)
+        safe_stds = stds.replace(0.0, np.nan).where(
+            stds > STD_ZERO_REPLACE, other=np.nan
+        )
         normalized = (factor_df - means) / safe_stds
-        scores[factor_cols] = normalized.fillna(0.0).clip(-3.0, 3.0)
+        # fillna(0.0): zero-variance factors and any residual NaN → neutral
+        scores[factor_cols] = normalized.fillna(0.0).clip(
+            FACTOR_CLIP_MIN, FACTOR_CLIP_MAX
+        )
 
     # --- Weighted composite with regime-conditional weights ---
     # Fix 20: Only count factors that contributed non-zero values to avoid
     # dead factors diluting the composite via their weight in total_weight.
+    # Item 47: Use safe_divide for the total_weight normalisation to guard
+    # against the edge case where every factor is zero-variance.
     composite = pd.Series(0.0, index=scores.index)
     total_weight = 0.0
     used_factors = []
     for factor_name, weight in weights.items():
         if factor_name in scores.columns:
             factor_vals = scores[factor_name].fillna(0.0)
-            if factor_vals.abs().sum() > 1e-10:
+            if factor_vals.abs().sum() > FACTOR_ZERO_VARIANCE_EPS:
                 composite += weight * factor_vals
                 total_weight += weight
                 used_factors.append(factor_name)
 
-    if total_weight > 0:
-        composite = composite / total_weight
+    # safe_divide: if no live factors (all zero-variance), composite stays 0.0
+    composite = composite * safe_divide(1.0, total_weight, default=0.0)
 
     # --- Regime + crash exposure multiplier ---
     # crash_probability is applied ONLY via _crash_prediction_multiplier as a
@@ -1011,19 +1370,23 @@ def compute_signals(
         if len(_vix_vals) > 0:
             _vix_val = float(_vix_vals.median())
             # Tiered VIX cap: 4-tier coverage from moderate to extreme vol regimes
-            if _vix_val > 40:
-                _vix_cap = 0.25   # extreme panic (GFC/COVID peak)
-            elif _vix_val > 30:
-                _vix_cap = 0.40   # crisis (GFC, COVID March)
-            elif _vix_val > 22:
-                _vix_cap = 0.55   # elevated stress (Inflation 2022, Euro crisis)
-            elif _vix_val >= 18:
-                _vix_cap = 0.75   # mild caution
+            # Thresholds from multifactor_v2_constants (calibrated vs stress tests)
+            if _vix_val > VIX_THRESHOLD_EXTREME:
+                _vix_cap = VIX_CAP_EXTREME  # extreme panic (GFC/COVID peak)
+            elif _vix_val > VIX_THRESHOLD_CRISIS:
+                _vix_cap = VIX_CAP_CRISIS  # crisis (GFC, COVID March)
+            elif _vix_val > VIX_THRESHOLD_ELEVATED:
+                _vix_cap = VIX_CAP_ELEVATED  # elevated stress (2022 inflation)
+            elif _vix_val >= VIX_THRESHOLD_MILD:
+                _vix_cap = VIX_CAP_MILD  # mild caution
             else:
                 _vix_cap = 1.0
             if _vix_cap < exposure_mult:
                 logger.info(
-                    "[MF-V2] VIX=%.1f → exposure capped %.2f→%.2f", _vix_val, exposure_mult, _vix_cap
+                    "[MF-V2] VIX=%.1f → exposure capped %.2f→%.2f",
+                    _vix_val,
+                    exposure_mult,
+                    _vix_cap,
                 )
                 exposure_mult = _vix_cap
 
@@ -1032,23 +1395,32 @@ def compute_signals(
     if "yield_curve_slope" in latest.columns:
         _yc_vals = pd.to_numeric(latest["yield_curve_slope"], errors="coerce").dropna()
         if len(_yc_vals) > 0 and float(_yc_vals.median()) < 0:
-            # Confirm persistence: require >= 20 of last 30 trading dates inverted
+            # Confirm persistence: require YIELD_CURVE_INVERSION_FRACTION of
+            # last YIELD_CURVE_LOOKBACK_DAYS trading dates inverted
             _yc_persistent = False
             if "yield_curve_slope" in df.columns:
-                _yc_hist = df.sort_values("timestamp").drop_duplicates("timestamp", keep="last")
+                _yc_hist = df.sort_values("timestamp").drop_duplicates(
+                    "timestamp", keep="last"
+                )
                 _yc_recent = pd.to_numeric(
-                    _yc_hist["yield_curve_slope"].tail(30), errors="coerce"
+                    _yc_hist["yield_curve_slope"].tail(YIELD_CURVE_LOOKBACK_DAYS),
+                    errors="coerce",
                 ).dropna()
-                if len(_yc_recent) >= 15 and (_yc_recent < 0).sum() >= min(20, len(_yc_recent) * 0.65):
+                if len(_yc_recent) >= YIELD_CURVE_INVERSION_MIN_HISTORY and (
+                    _yc_recent < 0
+                ).sum() >= min(20, len(_yc_recent) * YIELD_CURVE_INVERSION_FRACTION):
                     _yc_persistent = True
             else:
                 _yc_persistent = True  # no history → trust current reading
             if _yc_persistent:
-                _yc_cap = float(cfg.get("yield_curve_inversion_cap", 0.60))
+                _yc_cap = float(
+                    cfg.get("yield_curve_inversion_cap", YIELD_CURVE_CAP_DEFAULT)
+                )
                 if _yc_cap < exposure_mult:
                     logger.info(
                         "[MF-V2] Yield-curve inverted (persistent) → exposure capped %.2f→%.2f",
-                        exposure_mult, _yc_cap,
+                        exposure_mult,
+                        _yc_cap,
                     )
                     exposure_mult = _yc_cap
 
@@ -1059,7 +1431,8 @@ def compute_signals(
             if _damp < 1.0:
                 logger.info(
                     "[MF-V2] DD damper active → exposure scaled ×%.2f (until %s)",
-                    _damp, _DD_DAMPER["damper_until"],
+                    _damp,
+                    _DD_DAMPER["damper_until"],
                 )
                 exposure_mult = exposure_mult * _damp
 
@@ -1145,7 +1518,7 @@ def _apply_meta_model_filter(
 ) -> pd.DataFrame:
     """Load classifier, compute confidence, filter / scale signals."""
     model_path = meta_cfg.get("model_path")
-    if not model_path or not os.path.exists(model_path):
+    if not model_path or not Path(model_path).exists():
         raise FileNotFoundError(f"meta_model path missing: {model_path}")
 
     min_conf = float(meta_cfg.get("min_confidence", 0.55))

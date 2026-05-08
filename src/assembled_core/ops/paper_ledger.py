@@ -13,6 +13,7 @@ import json
 import logging
 import shutil
 from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -230,11 +231,17 @@ def simulate_fills(
 def apply_fills_to_ledger(
     state: dict[str, Any], fills: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    """Update cash and positions from fills. Positions: qty and avg_price (weighted). Returns new state (copy)."""
+    """Update cash and positions from fills. Positions: qty and avg_price (weighted). Returns new state (copy).
+
+    Item 41: Cash accumulation uses Decimal arithmetic to avoid float drift across many fills.
+    Cash is converted back to float on output so the rest of the system is unaffected.
+    """
+    # Use Decimal for cash to prevent accumulated float rounding error (Item 41)
+    _cash_d = Decimal(str(state.get("cash") or 0))
     out = {
         "schema_version": state.get("schema_version") or SCHEMA_VERSION,
         "updated_utc": state.get("updated_utc"),
-        "cash": float(state.get("cash", 0)),
+        "cash": None,  # set from _cash_d at the end
         "positions": {k: dict(v) for k, v in (state.get("positions") or {}).items()},
         "equity_curve": list(state.get("equity_curve") or []),
     }
@@ -254,6 +261,7 @@ def apply_fills_to_ledger(
         pos_qty = pos["qty"]
         pos_avg = pos["avg_price"]
         pos_hwm = pos.get("hwm", pos_avg)
+        _notional = Decimal(str(qty)) * Decimal(str(price))
         if side == "BUY":
             new_qty = pos_qty + qty
             new_avg = (pos_avg * pos_qty + price * qty) / new_qty if new_qty else 0.0
@@ -263,14 +271,14 @@ def apply_fills_to_ledger(
                 "avg_price": new_avg,
                 "hwm": new_hwm,
             }
-            out["cash"] -= qty * price
+            _cash_d -= _notional
         else:
             new_qty = pos_qty - qty
             if new_qty <= 0:
                 # Full close (or oversell): sell all held shares at fill_price
                 sell_qty = min(qty, pos_qty)
                 out["positions"].pop(symbol, None)
-                out["cash"] += sell_qty * price
+                _cash_d += Decimal(str(sell_qty)) * Decimal(str(price))
             else:
                 # Partial sell: reduce position, keep avg_price and hwm
                 out["positions"][symbol] = {
@@ -278,7 +286,8 @@ def apply_fills_to_ledger(
                     "avg_price": pos_avg,
                     "hwm": pos_hwm,
                 }
-                out["cash"] += qty * price
+                _cash_d += _notional
+    out["cash"] = float(_cash_d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     return out
 
 

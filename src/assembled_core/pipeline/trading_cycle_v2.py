@@ -68,6 +68,8 @@ from src.assembled_core.pipeline._tc_sizing import (  # noqa: F401
 )
 from src.assembled_core.pipeline._tc_risk import check_risk
 from src.assembled_core.pipeline._tc_execution import book_fills, route_orders
+from src.assembled_core.ops.audit_trail import log_trade_decision  # Item 102
+from src.assembled_core.ops.decision_log import DecisionLogger  # Item 103
 from src.assembled_core.execution.transaction_costs import (
     add_cost_columns_to_trades,  # noqa: F401
 )  # A8 wiring — re-export for tests
@@ -614,10 +616,108 @@ def run_trading_cycle(
         result.orders = orders
         _pub("routing_end", n_orders=len(orders) if orders is not None else 0)
 
+        # Audit trail — Item 102: record each routed order's decision context
+        try:
+            _at_edcl = getattr(ctx, "edcl_state", None) or {}
+            _at_conviction = float(_at_edcl.get("conviction", 0.0))
+            _at_edcl_trigger = _at_conviction > 0.0
+            _at_run_id = str(getattr(ctx, "run_id", None) or "")
+            _at_as_of = getattr(ctx, "as_of", None)
+            _at_as_of_str = str(_at_as_of) if _at_as_of else None
+            _at_sig_lookup: dict[str, float] = {}
+            if (
+                signals is not None
+                and not signals.empty
+                and "score" in signals.columns
+                and "symbol" in signals.columns
+            ):
+                _at_sig_lookup = signals.set_index("symbol")["score"].to_dict()
+            if orders is not None and not orders.empty:
+                for _at_row in orders.itertuples(index=False):
+                    _at_sym = str(_at_row.symbol)
+                    log_trade_decision(
+                        symbol=_at_sym,
+                        signal_score=float(_at_sig_lookup.get(_at_sym, 0.0)),
+                        sizing_cap_hit=bool(
+                            result.meta.get("vol_targeting", {}).get("capped", False)
+                        ),
+                        edcl_trigger=_at_edcl_trigger,
+                        order_type=str(getattr(_at_row, "side", "unknown")),
+                        reasoning={
+                            "edcl_conviction": _at_conviction,
+                            "source": _at_edcl.get("source", ""),
+                        },
+                        as_of=_at_as_of_str,
+                        run_id=_at_run_id or None,
+                    )
+        except Exception as _at_exc:
+            log.debug("[audit_trail] order logging skipped: %s", _at_exc)
+
+        # Decision log — Item 103: per-order decision reasoning (top factors, EDCL triggers)
+        try:
+            _dl_edcl = getattr(ctx, "edcl_state", None) or {}
+            _dl_conviction = (
+                float(_dl_edcl.get("conviction", 0.0)) if _dl_edcl else None
+            )
+            _dl_basket = _dl_edcl.get("basket", {}) or {}
+            _dl_trigger_ids: list[str] = [
+                str(name) for name, _ in (_dl_basket.get("fired_triggers") or [])
+            ]
+            _dl_date = str(getattr(ctx, "as_of", ""))[:10] or "unknown"
+            _dl_sig_scores: dict[str, float] = {}
+            if (
+                signals is not None
+                and not signals.empty
+                and "symbol" in signals.columns
+                and "score" in signals.columns
+            ):
+                _dl_sig_scores = signals.set_index("symbol")["score"].to_dict()
+            _dl_sizing_notes = ""
+            _dl_vt = result.meta.get("vol_targeting") if result.meta else None
+            if _dl_vt and isinstance(_dl_vt, dict):
+                _dl_sizing_notes = f"vol_target={_dl_vt.get('target_vol', ''):.2%} capped={_dl_vt.get('capped', False)}"
+            if orders is not None and not orders.empty:
+                _dlog = DecisionLogger()
+                for _dl_row in orders.itertuples(index=False):
+                    _dl_sym = str(_dl_row.symbol)
+                    _dl_score = float(_dl_sig_scores.get(_dl_sym, 0.0))
+                    _dlog.record(
+                        cycle_date=_dl_date,
+                        symbol=_dl_sym,
+                        side=str(getattr(_dl_row, "side", "unknown")),
+                        conviction=_dl_conviction,
+                        top_factors=(
+                            [("composite_score", _dl_score)]
+                            if _dl_score != 0.0
+                            else None
+                        ),
+                        edcl_trigger_ids=_dl_trigger_ids or None,
+                        sizing_notes=_dl_sizing_notes or None,
+                    )
+                _dlog.flush()
+        except Exception as _dl_exc:
+            log.debug("[decision_log] skipped: %s", _dl_exc)
+
         result = check_risk(
             orders, result, ctx, prices_filtered=result.prices_filtered, log=log
         )
         _pub("risk_checked", status=result.status)
+        # Audit trail — log when risk gate halts the cycle
+        if result.status == "halted":
+            try:
+                _halt_as_of = getattr(ctx, "as_of", None)
+                log_trade_decision(
+                    symbol="__cycle__",
+                    signal_score=0.0,
+                    sizing_cap_hit=True,
+                    edcl_trigger=False,
+                    order_type="risk_halt",
+                    reasoning={"error": result.error_message or "risk_halt"},
+                    as_of=str(_halt_as_of) if _halt_as_of else None,
+                    run_id=str(getattr(ctx, "run_id", None) or "") or None,
+                )
+            except Exception as _at_exc2:
+                log.debug("[audit_trail] risk_halt logging skipped: %s", _at_exc2)
 
         result = book_fills(result, ctx, log=log)
         _pub("fills_booked")

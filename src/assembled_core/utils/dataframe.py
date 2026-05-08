@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Union
+
+import numpy as np
 import pandas as pd
 
 
@@ -50,3 +53,48 @@ def coerce_price_types(df: pd.DataFrame) -> pd.DataFrame:
             n_before,
         )
     return df
+
+
+# ---------------------------------------------------------------------------
+# Item 47: safe division helpers
+# ---------------------------------------------------------------------------
+
+_Numeric = Union[float, int, "np.floating", "np.integer"]
+
+
+def safe_divide(
+    numerator: Union["_Numeric", "np.ndarray", "pd.Series"],
+    denominator: Union["_Numeric", "np.ndarray", "pd.Series"],
+    default: float = 0.0,
+) -> Union[float, "np.ndarray", "pd.Series"]:
+    """Divide *numerator* by *denominator*, returning *default* when denom is 0 or NaN.
+
+    Works element-wise for scalars, numpy arrays, and pandas Series.
+
+    Args:
+        numerator:   Dividend — scalar, ndarray, or Series.
+        denominator: Divisor  — scalar, ndarray, or Series.
+        default:     Value to return wherever denominator is 0 or NaN (default 0.0).
+
+    Returns:
+        Scalar float, ndarray, or Series depending on the input types.
+    """
+    if isinstance(denominator, (pd.Series, np.ndarray)):
+        denom = np.asarray(denominator, dtype=float)
+        numer = np.asarray(numerator, dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = np.where(
+                (denom == 0) | ~np.isfinite(denom),
+                default,
+                numer / np.where(denom == 0, 1.0, denom),
+            )
+        if isinstance(denominator, pd.Series):
+            return pd.Series(result, index=denominator.index)
+        return result
+
+    # Scalar path
+    den = float(denominator) if denominator is not None else float("nan")
+    if den == 0.0 or not np.isfinite(den):
+        return default
+    num = float(numerator) if numerator is not None else float("nan")
+    return num / den

@@ -8,7 +8,7 @@ is not installed or unavailable (M7 hardening).
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime, time, timezone
 
 import pandas as pd
 
@@ -94,6 +94,87 @@ def is_weekday(dt: date | pd.Timestamp) -> bool:
 def calendar_mode() -> str:
     """Return the active calendar mode: 'nyse' or 'fallback'."""
     return _CALENDAR_MODE
+
+
+def is_market_open_now(as_of: datetime | None = None) -> bool:
+    """Return True if NYSE is currently in a regular trading session.
+
+    DST-safe: uses 'America/New_York' zoneinfo, so spring-forward / fall-back
+    transitions are handled automatically regardless of the server's local timezone.
+
+    Covers regular session only: 09:30–16:00 ET on a trading day.
+    Early-close days (e.g. day before Thanksgiving) are handled via the
+    exchange_calendars session data when available.
+
+    Args:
+        as_of: UTC datetime to check (defaults to now). Passing a non-UTC
+            tz-aware datetime is supported — it is converted to UTC first.
+
+    Returns:
+        True during regular NYSE session, False otherwise.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+    except ImportError:
+        try:
+            from backports.zoneinfo import ZoneInfo  # type: ignore[no-redef]
+        except ImportError:
+            ZoneInfo = None  # type: ignore[misc, assignment]
+
+    if as_of is None:
+        as_of = datetime.now(tz=timezone.utc)
+    elif as_of.tzinfo is None:
+        as_of = as_of.replace(tzinfo=timezone.utc)
+
+    # Convert to NYSE local time (handles US DST correctly)
+    if ZoneInfo is not None:
+        nyse_tz = ZoneInfo("America/New_York")
+        local_dt = as_of.astimezone(nyse_tz)
+    else:
+        # ZoneInfo unavailable — rough UTC-4/UTC-5 offset; less precise during DST transitions
+        logger.warning(
+            "[calendar] zoneinfo not available — DST handling is approximate (±1h risk)"
+        )
+        utc_offset_hours = -4  # assume EDT (DST active); will be wrong for EST period
+        from datetime import timedelta
+
+        local_dt = as_of + timedelta(hours=utc_offset_hours)
+
+    session_open = time(9, 30)
+    session_close = time(16, 0)
+    local_time = local_dt.time()
+
+    if not (session_open <= local_time < session_close):
+        return False
+
+    # Check it's a trading day (not weekend or holiday)
+    return is_trading_day_safe(local_dt.date())
+
+
+def minutes_to_market_open(as_of: datetime | None = None) -> int | None:
+    """Return minutes until next NYSE open, or None if market is open now.
+
+    Useful for scheduling: sleep until NYSE opens.
+    Returns 0 if market is currently open.
+    """
+    if as_of is None:
+        as_of = datetime.now(tz=timezone.utc)
+
+    if is_market_open_now(as_of):
+        return 0
+
+    # Find next session open
+    if _NYSE is not None:
+        try:
+            ts = pd.Timestamp(as_of, tz="UTC")
+            # Get next session after current time
+            next_open = _NYSE.next_open(ts)
+            delta = next_open - ts
+            return max(0, int(delta.total_seconds() / 60))
+        except Exception as exc:
+            logger.debug("[calendar] minutes_to_market_open fallback: %s", exc)
+
+    return None
 
 
 def is_trading_day_safe(dt: date | pd.Timestamp) -> bool:
@@ -236,3 +317,18 @@ def validate_dates_against_calendar(
         "missing_pct": round(missing_pct, 2),
         "valid": len(non_trading) == 0 and missing_pct <= tolerance_missing_pct,
     }
+
+
+__all__ = [
+    "is_trading_day",
+    "is_trading_day_safe",
+    "is_weekday",
+    "is_market_open_now",
+    "minutes_to_market_open",
+    "session_close_utc",
+    "trading_sessions",
+    "calendar_mode",
+    "filter_prices_to_trading_days",
+    "normalize_as_of_to_session_close",
+    "get_nyse_calendar",
+]

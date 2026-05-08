@@ -30,7 +30,10 @@
     "options_put_call_extreme": 0.0,
     "vix_regime_score": 0.08665121515924636,
     "congress_activity": 0.0,
-    "geo_risk_composite": 0.02
+    "geo_risk_composite": 0.02,
+    "insider_cluster_score": 0.03,
+    "pead_sue_score": 0.03,
+    "buyback_drift_score": 0.02
   },
   "sideways": {
     "trend_ema_spread": 0.0,
@@ -63,7 +66,10 @@
     "options_put_call_extreme": 0.03629599076574306,
     "vix_regime_score": 0.03377236226796176,
     "congress_activity": 0.1690171355310061,
-    "geo_risk_composite": 0.04
+    "geo_risk_composite": 0.04,
+    "insider_cluster_score": 0.02,
+    "pead_sue_score": 0.04,
+    "buyback_drift_score": 0.02
   },
   "bear": {
     "trend_ema_spread": 0.03558629037799779,
@@ -96,7 +102,10 @@
     "options_put_call_extreme": 0.14052877931716187,
     "vix_regime_score": 0.07695936695545537,
     "congress_activity": 0.0,
-    "geo_risk_composite": 0.07
+    "geo_risk_composite": 0.07,
+    "insider_cluster_score": 0.02,
+    "pead_sue_score": 0.03,
+    "buyback_drift_score": 0.01
   },
   "crisis": {
     "trend_ema_spread": 0.0,
@@ -129,6 +138,9 @@
     "options_put_call_extreme": 0.008248264300162182,
     "vix_regime_score": 0.31049437833700827,
     "congress_activity": 0.014512455126920204,
-    "geo_risk_composite": 0.12
+    "geo_risk_composite": 0.12,
+    "insider_cluster_score": 0.01,
+    "pead_sue_score": 0.01,
+    "buyback_drift_score": 0.0
   }
 }

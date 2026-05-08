@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import xml.etree.ElementTree as ET
 
 import pandas as pd
@@ -27,6 +28,10 @@ _EMPTY = pd.DataFrame(
 )
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 _USER_AGENT = "Assembled-Trading-AI/1.0 research@assembled-trading-ai.local"
+
+# Item 165: SEC EDGAR rate limit — 10 req/sec max; enforce 0.11s between calls.
+_EDGAR_MIN_INTERVAL_S: float = 0.11
+_EDGAR_LAST_CALL: float = 0.0
 # SEC EDGAR full-text search for Form 4 filings by company ticker
 _EDGAR_SEARCH_URL = "https://efts.sec.gov/LATEST/search-index?q=%22{ticker}%22&dateRange=custom&startdt={start}&enddt={end}&forms=4"
 # EDGAR company search Atom feed
@@ -58,6 +63,13 @@ def fetch_insider_trades(
     except ImportError:
         logger.error("[ERROR] requests not installed.")
         return _EMPTY.copy()
+
+    # Item 165: Rate-limit guard — respect SEC 10 req/sec ceiling.
+    global _EDGAR_LAST_CALL
+    elapsed = time.monotonic() - _EDGAR_LAST_CALL
+    if elapsed < _EDGAR_MIN_INTERVAL_S:
+        time.sleep(_EDGAR_MIN_INTERVAL_S - elapsed)
+    _EDGAR_LAST_CALL = time.monotonic()
 
     url = _EDGAR_ATOM_URL.format(ticker=ticker.upper(), count=max_results)
     headers = {"User-Agent": _USER_AGENT}

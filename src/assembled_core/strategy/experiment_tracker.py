@@ -14,7 +14,10 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.assembled_core.strategy.config import StrategyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +123,7 @@ def start_run(
 
 def log_strategy_config(
     run,
-    config: "StrategyConfig | dict",  # noqa: F821
+    config: StrategyConfig | dict,
 ) -> None:
     """Flatten a StrategyConfig into MLflow/local params."""
     data = config.to_dict() if hasattr(config, "to_dict") else config

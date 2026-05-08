@@ -35,6 +35,7 @@ def compute_conviction_score(
     as_of: datetime | None = None,
     policy: dict[str, Any] | None = None,
     feature_store_root: str | None = None,
+    options_iv_skew_z: float | None = None,
 ) -> float:
     """Compute a calibrated EDCL conviction score [0, 1].
 
@@ -44,13 +45,19 @@ def compute_conviction_score(
        for each fired trigger type (asset response in 5-day window).
     3. Apply diversity bonus: more fired triggers → slightly higher conviction.
     4. Apply source-diversity bonus if basket has n_high_conviction > 1.
-    5. Clamp to [0, 1].
+    5. (Item 106) IV-skew pillar: elevated put/call skew signals institutional
+       hedging → boost conviction by up to 3% when skew_z > 1.0.
+    6. Clamp to [0, 1].
 
     Args:
         basket: TriggerBasket from build_trigger_basket() (Phase B).
         as_of: Inference timestamp for PIT-safe feature lookup. Defaults to now.
         policy: Policy dict — reads edcl_conviction_overlay sub-dict.
         feature_store_root: Override for FeatureStore root path.
+        options_iv_skew_z: Optional IV put/call skew as z-score vs. 20d baseline.
+            Positive = puts expensive vs calls (bearish hedging). Boosts conviction
+            when > 1.0 (institutional hedging activity detected). Pass via
+            ctx.options_iv_skew_z in the trading cycle.
 
     Returns:
         Calibrated conviction score in [0, 1].
@@ -72,15 +79,27 @@ def compute_conviction_score(
     n_high = getattr(basket, "n_high_conviction", 0)
     corroboration = 0.05 * min(n_high, 3) if n_high > 1 else 0.0
 
-    raw = base * (1.0 + beta_boost) + diversity_bonus + corroboration
+    # 5th pillar (Item 106): IV-skew — institutional hedging via options market
+    # Elevated put/call skew (skew_z > 1.0) indicates market fear → conviction boost
+    iv_skew_bonus = 0.0
+    _iv_z = options_iv_skew_z
+    if _iv_z is None:
+        # Also accept from basket context (set by trading cycle via ctx.options_iv_skew_z)
+        _iv_z = getattr(basket, "options_iv_skew_z", None)
+    if _iv_z is not None and _iv_z == _iv_z:  # not NaN
+        iv_skew_bonus = min(0.03, max(0.0, (float(_iv_z) - 1.0) * 0.015))
+
+    raw = base * (1.0 + beta_boost) + diversity_bonus + corroboration + iv_skew_bonus
     score = min(1.0, max(0.0, raw))
 
     log.debug(
-        "[EDCL-CONVICTION] base=%.3f beta_boost=%.3f diversity=%.3f corroboration=%.3f → %.3f",
+        "[EDCL-CONVICTION] base=%.3f beta_boost=%.3f diversity=%.3f "
+        "corroboration=%.3f iv_skew_bonus=%.3f → %.3f",
         base,
         beta_boost,
         diversity_bonus,
         corroboration,
+        iv_skew_bonus,
         score,
     )
     return score
@@ -227,7 +246,19 @@ def compute_edcl_position_size(
 
     # Default: no scaling (conformal model unavailable)
     conformal_factor = 1.0
-    stop_loss_pct = 0.05  # 5% fallback
+    # ATR-aware fallback: stop_loss_pct = max(0.05, atr_20d * 2.5)
+    # Volatile symbols get wider stops (e.g. BBAI 12% ATR → 30%), stable get tighter
+    _atr_20d: float | None = None
+    if feature_row is not None:
+        for _atr_col in ("ta_atr_20_v1", "ta_atr_14_v1", "atr_norm", "ta_atr"):
+            _v = feature_row.get(_atr_col) if hasattr(feature_row, "get") else None
+            if _v is not None and float(_v) == float(_v) and float(_v) > 0:
+                _atr_20d = float(_v)
+                break
+    if _atr_20d is not None:
+        stop_loss_pct = max(0.05, _atr_20d * 2.5)
+    else:
+        stop_loss_pct = 0.05  # flat fallback when no ATR feature available
 
     model_path = conformal_model_path or sizing_cfg.get("model_path")
     if model_path:

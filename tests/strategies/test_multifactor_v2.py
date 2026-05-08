@@ -183,10 +183,10 @@ def test_get_weights_known_regime_with_file(tmp_path: Path) -> None:
     }
     weights_file.write_text(json.dumps(test_weights))
 
-    # Clear cache
-    import src.assembled_core.strategies.multifactor_v2 as v2mod
+    # Clear cache using the public API (cache is now a _BoundedCache, not None-able)
+    from src.assembled_core.strategies.multifactor_v2 import clear_regime_cache
 
-    v2mod._REGIME_WEIGHTS_CACHE = None
+    clear_regime_cache()
 
     result = _get_weights_for_regime(
         "test_regime", {"regime_weights_path": str(weights_file)}
@@ -194,7 +194,7 @@ def test_get_weights_known_regime_with_file(tmp_path: Path) -> None:
     assert result["trend_ema_spread"] == 0.5
 
     # Cleanup cache
-    v2mod._REGIME_WEIGHTS_CACHE = None
+    clear_regime_cache()
 
 
 # ---------------------------------------------------------------------------

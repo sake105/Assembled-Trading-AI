@@ -247,13 +247,13 @@ def _quarantine(
     df: pd.DataFrame, ticker: str, quarantine_dir: str, result: QualityResult
 ) -> None:
     """Save bad data to quarantine directory."""
-    import os
     from datetime import datetime, timezone
+    from pathlib import Path
 
     ts = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
-    out_dir = os.path.join(quarantine_dir, ticker)
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, f"{ts}_quarantine.parquet")
+    out_dir = Path(quarantine_dir) / ticker
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{ts}_quarantine.parquet"
     try:
         df.to_parquet(path)
         result.metadata["quarantine_path"] = path

@@ -41,9 +41,11 @@ import argparse
 import json
 import logging
 import os
+import smtplib
 import subprocess
 import sys
 from datetime import datetime, timezone
+from email.mime.text import MIMEText
 from pathlib import Path
 from urllib import error, request
 
@@ -109,6 +111,39 @@ def _post_discord(webhook: str, content: str) -> bool:
         return False
 
 
+def _post_email_fallback(subject: str, body: str) -> bool:
+    """Send alert via SMTP email — used as Discord failover.
+
+    Reads from ENV: SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_PORT (default 587),
+    ALERT_EMAIL_TO.  Silently skips if any credential is missing.
+    """
+    smtp_host = os.environ.get("SMTP_HOST", "").strip()
+    smtp_user = os.environ.get("SMTP_USER", "").strip()
+    smtp_pass = os.environ.get("SMTP_PASS", "").strip()
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    to_addr = os.environ.get("ALERT_EMAIL_TO", "").strip()
+
+    if not all([smtp_host, smtp_user, smtp_pass, to_addr]):
+        logger.info("[DRILL] email failover skipped — SMTP credentials not configured")
+        return False
+
+    try:
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = smtp_user
+        msg["To"] = to_addr
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [to_addr], msg.as_string())
+        logger.info("[DRILL] email fallback delivered to %s", to_addr)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[DRILL] email fallback failed: %s", exc)
+        return False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -121,6 +156,11 @@ def main(argv: list[str] | None = None) -> int:
         "--no-discord",
         action="store_true",
         help="Skip the Discord notification even if DISCORD_WEBHOOK is set.",
+    )
+    parser.add_argument(
+        "--no-email",
+        action="store_true",
+        help="Skip email fallback even if SMTP credentials are configured.",
     )
     parser.add_argument(
         "--receipt-dir",
@@ -175,18 +215,39 @@ def main(argv: list[str] | None = None) -> int:
         receipt_path.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
         logger.info("[DRILL] receipt → %s", receipt_path)
 
-        # --- 5. Discord (optional, CI-only)
+        # --- 5. Discord (primary channel) with email fallback (item 163)
         webhook = os.environ.get("DISCORD_WEBHOOK", "").strip()
+        discord_ok: bool | None = None
+        email_ok: bool | None = None
+        notification_msg = (
+            f"[DRILL] {outcome} — alert-drill receipt "
+            f"`{receipt_path.name}`. Detector rc={detector_rc}. "
+            f"Scheduled test (P1 A13), no action required on pass. "
+            f"On FAIL, the scheduler-health detector is broken."
+        )
         if webhook and not args.no_discord:
-            msg = (
-                f"[DRILL] {outcome} — alert-drill receipt "
-                f"`{receipt_path.name}`. Detector rc={detector_rc}. "
-                f"This is a scheduled test (P1 A13), no action required "
-                f"on pass. On FAIL, the scheduler-health detector is "
-                f"broken — investigate immediately."
-            )
-            ok = _post_discord(webhook, msg)
-            logger.info("[DRILL] Discord post delivered=%s", ok)
+            discord_ok = _post_discord(webhook, notification_msg)
+            logger.info("[DRILL] Discord post delivered=%s", discord_ok)
+            if not discord_ok:
+                logger.warning("[DRILL] Discord failed — triggering email failover")
+
+        # Email failover: send when Discord is absent, failed, or explicitly disabled
+        if not args.no_email:
+            should_email = discord_ok is False or (  # Discord present but failed
+                webhook == "" and discord_ok is None
+            )  # Discord not configured
+            if should_email:
+                email_ok = _post_email_fallback(
+                    subject=f"[Trading Alert Drill] {outcome}",
+                    body=notification_msg,
+                )
+                receipt["email_fallback_delivered"] = email_ok
+
+        receipt["discord_delivered"] = discord_ok
+        receipt["email_fallback_delivered"] = email_ok
+
+        # Re-write receipt with channel delivery status
+        receipt_path.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
 
         return 0 if drill_ok else 1
 

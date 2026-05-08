@@ -15,6 +15,10 @@ REDDIT_MAX_REQ_PER_MINUTE: int = 60  # PRAW enforces this
 SEC_EDGAR_MAX_REQ_PER_SEC: int = 10  # Official limit — violations cause bans
 FINNHUB_MAX_REQ_PER_MINUTE: int = 60  # Free-tier limit
 ALPACA_MAX_REQ_PER_MINUTE: int = 200  # Free-tier Alpaca
+NEWSAPI_ORG_MAX_REQ_PER_DAY: int = 100  # Free-tier newsapi.org — not newsapi.ai
+NEWSAPI_AI_MAX_REQ_PER_DAY: int = 1000  # newsapi.ai default free plan
+POLYGON_MAX_REQ_PER_MINUTE: int = 5  # Free-tier Polygon.io
+ALPHA_VANTAGE_MAX_REQ_PER_MINUTE: int = 5  # Free-tier Alpha Vantage
 
 # ── source licences ─────────────────────────────────────────────────────────
 # Allowed for personal-use (no re-sale, no redistribution)
@@ -56,5 +60,9 @@ def get_min_delay_seconds(source: str) -> float:
         "sec_edgar": 1 / SEC_EDGAR_MAX_REQ_PER_SEC,
         "finnhub_free": 60 / FINNHUB_MAX_REQ_PER_MINUTE,
         "alpaca": 60 / ALPACA_MAX_REQ_PER_MINUTE,
+        "newsapi_org": 86400 / NEWSAPI_ORG_MAX_REQ_PER_DAY,  # 864s between calls
+        "newsapi_ai": 86400 / NEWSAPI_AI_MAX_REQ_PER_DAY,  # 86.4s between calls
+        "polygon_free": 60 / POLYGON_MAX_REQ_PER_MINUTE,
+        "alpha_vantage_free": 60 / ALPHA_VANTAGE_MAX_REQ_PER_MINUTE,
     }
     return mapping.get(source, 0.0)

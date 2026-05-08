@@ -68,6 +68,7 @@ system_check/runs/*/
 
 # Model artifacts (not versioned — use Git LFS or external storage if needed)
 /models/
+!/models/registry.json
 
 # Historical price data — not versioned; download via scripts/download_all_universes_robust.py
 # Exception: tests/fixtures/*.parquet (small smoke-test fixtures) are tracked

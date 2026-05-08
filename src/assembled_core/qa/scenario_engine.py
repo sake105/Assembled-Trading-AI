@@ -1041,12 +1041,12 @@ def load_scenarios_from_yaml(path: str) -> list[Scenario]:
     decides whether that is fatal.
     """
     import logging
-    import os
     from datetime import timezone
+    from pathlib import Path
 
     log = logging.getLogger(__name__)
 
-    if not os.path.exists(path):
+    if not Path(path).exists():
         log.warning("[scenario_engine] yaml not found: %s", path)
         return []
 

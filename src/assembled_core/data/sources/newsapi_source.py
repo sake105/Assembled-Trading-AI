@@ -23,8 +23,12 @@ Usage::
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import threading
+from datetime import date
+from pathlib import Path
 
 import pandas as pd
 
@@ -34,6 +38,42 @@ _EMPTY = pd.DataFrame(
     columns=["timestamp", "title", "description", "source", "url", "query"]
 )
 _BASE_URL = "https://newsapi.ai/api/v1/article/getArticles"
+
+# Item 152: Daily call-count guard (free tier = 100 calls/day).
+# Counter persists to .newsapi_call_counter.json so restarts don't reset the count.
+_DAILY_CALL_LIMIT: int = int(os.environ.get("NEWSAPI_DAILY_LIMIT", "100"))
+_COUNTER_PATH: Path = Path(
+    os.environ.get("NEWSAPI_COUNTER_PATH", ".newsapi_call_counter.json")
+)
+_COUNTER_LOCK: threading.Lock = threading.Lock()
+
+
+def _load_counter() -> tuple[str, int]:
+    """Return (date_str, count) from the counter file."""
+    try:
+        if _COUNTER_PATH.exists():
+            data = json.loads(_COUNTER_PATH.read_text())
+            return data.get("date", ""), int(data.get("count", 0))
+    except Exception:
+        pass
+    return "", 0
+
+
+def _save_counter(date_str: str, count: int) -> None:
+    try:
+        _COUNTER_PATH.write_text(json.dumps({"date": date_str, "count": count}))
+    except Exception as exc:
+        logger.debug("[newsapi] counter save failed: %s", exc)
+
+
+def _increment_counter() -> tuple[int, int]:
+    """Increment daily counter; return (current_count, limit)."""
+    today = date.today().isoformat()
+    with _COUNTER_LOCK:
+        stored_date, stored_count = _load_counter()
+        count = (stored_count + 1) if stored_date == today else 1
+        _save_counter(today, count)
+    return count, _DAILY_CALL_LIMIT
 
 
 def _get_api_key() -> str | None:
@@ -82,6 +122,15 @@ def fetch_news_headlines(
     frames: list[pd.DataFrame] = []
 
     for query in keywords:
+        count, limit = _increment_counter()
+        if count > limit:
+            logger.warning(
+                "[WARN] newsapi: daily call limit reached (%d/%d) — skipping query '%s'",
+                count,
+                limit,
+                query,
+            )
+            continue
         try:
             payload = {
                 "apiKey": api_key,

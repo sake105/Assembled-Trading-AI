@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -183,10 +184,13 @@ def write_daily_summary(
 
     positions = ledger_state.get("positions") or {}
     cash = float(ledger_state.get("cash", 0))
-    invested = sum(
-        float(p.get("qty", 0)) * float(p.get("avg_price", 0))
-        for p in positions.values()
-    )
+    # Item 41: accumulate position notionals with Decimal to avoid float drift
+    _invested_d = Decimal("0")
+    for p in positions.values():
+        _qty = Decimal(str(float(p.get("qty", 0))))
+        _avg = Decimal(str(float(p.get("avg_price", 0))))
+        _invested_d += _qty * _avg
+    invested = float(_invested_d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     invested_pct = invested / equity * 100 if equity > 0 else 0
     total_return = (
         (equity - start_capital) / start_capital * 100 if start_capital > 0 else 0

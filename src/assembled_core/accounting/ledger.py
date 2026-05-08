@@ -611,7 +611,7 @@ def compute_cash_drag(
 def compute_daily_interest_accrual(
     short_notionals: dict[str, float],
     margin_balance: float = 0.0,
-    borrow_rate_annual: float = 0.0025,
+    borrow_rate_annual: float = 0.015,  # 1.5% conservative large-cap default (was 0.25% — too low)
     margin_rate_annual: float = 0.06,
     trading_days: int = 252,
 ) -> dict:

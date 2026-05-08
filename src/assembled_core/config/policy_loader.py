@@ -41,7 +41,7 @@ def load_policy(
     if cache_key in _POLICY_CACHE:
         cached_data, cached_mtime = _POLICY_CACHE[cache_key]
         try:
-            if os.path.getmtime(p) == cached_mtime:
+            if p.stat().st_mtime == cached_mtime:
                 return cached_data
         except OSError:
             return cached_data
@@ -65,7 +65,7 @@ def load_policy(
             logger.debug("policy schema validation skipped: %s", e)
 
     try:
-        _POLICY_CACHE[cache_key] = (data, os.path.getmtime(p))
+        _POLICY_CACHE[cache_key] = (data, p.stat().st_mtime)
     except OSError:
         _POLICY_CACHE[cache_key] = (data, 0.0)
     return data

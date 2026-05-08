@@ -104,8 +104,11 @@ def _news_fetch_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
         [_sys.executable, "scripts/fuse_news_sentiment.py", "--update-primary"],
     ]
     if dry_run:
-        return WorkerResult(worker_name="news_fetch_worker", status="skip",
-                            duration_s=time.monotonic() - t0)
+        return WorkerResult(
+            worker_name="news_fetch_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
 
     errors = []
     for cmd in steps:
@@ -123,8 +126,9 @@ def _news_fetch_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
             duration_s=time.monotonic() - t0,
             error_msg="; ".join(errors),
         )
-    return WorkerResult(worker_name="news_fetch_worker", status="ok",
-                        duration_s=time.monotonic() - t0)
+    return WorkerResult(
+        worker_name="news_fetch_worker", status="ok", duration_s=time.monotonic() - t0
+    )
 
 
 def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
@@ -364,9 +368,7 @@ def _health_check_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
         issues.append(f"price_data_missing: {prices_path.name} not found")
     else:
         # Check file age
-        import os
-
-        mtime = os.path.getmtime(str(prices_path))
+        mtime = prices_path.stat().st_mtime
         age_hours = (time.time() - mtime) / 3600
         if age_hours > 26:
             issues.append(
@@ -792,11 +794,7 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
             if not model_files:
                 model_files = list(out_path.glob("model.pkl"))
             if model_files:
-                import os as _os
-
-                model_age_days = (
-                    time.time() - _os.path.getmtime(str(model_files[0]))
-                ) / 86400
+                model_age_days = (time.time() - model_files[0].stat().st_mtime) / 86400
                 if model_age_days > 30:
                     mgr.alert(
                         "WARNING",

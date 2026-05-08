@@ -189,6 +189,30 @@ After running:
 
 ---
 
+## Hard-Stop-Kriterien Pre-Commitment (Item 120)
+
+These criteria are **pre-committed** before pilot start. They must not be changed
+during the pilot run — doing so defeats the purpose of the commitment device.
+
+| Criterion | Value | Action if triggered |
+|-----------|-------|---------------------|
+| Max drawdown | **-8%** | Halt immediately via `run_live_paper.py halt` |
+| Min Sharpe after day 14 | **0.5** | Review and halt if below for 3 consecutive days |
+| Max consecutive loss days | **7** | Halt and move to cash |
+| Kill-switch action | `halt_trading_send_alert` | Discord alert + trading stopped |
+
+**Source of truth:** `output/pilot/pilot_manifest.json` → `hard_stop_criteria`
+
+**Rule:** If you are considering overriding a hard stop, you are in the Disposition Effect.
+Follow the rule. The pilot can be restarted after review; real capital cannot be un-lost.
+
+**Verification command:**
+```bash
+python -c "import json; m=json.load(open('output/pilot/pilot_manifest.json')); print(m['hard_stop_criteria'])"
+```
+
+---
+
 ## Emergency Contacts
 
 - Alpaca status: https://status.alpaca.markets

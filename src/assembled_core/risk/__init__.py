@@ -50,6 +50,7 @@ from src.assembled_core.risk.garch_vol_forecast import (  # noqa: F401
     forecast_garch_vol,
     garch_vol_target_size,
 )
+from src.assembled_core.risk.margin_call_handler import handle_margin_call  # noqa: F401
 
 __all__ = [
     # Regime Models (D1)
@@ -83,4 +84,6 @@ __all__ = [
     "compute_vol_forecasts",
     "forecast_garch_vol",
     "garch_vol_target_size",
+    # Margin Call Handler (Item 42)
+    "handle_margin_call",
 ]

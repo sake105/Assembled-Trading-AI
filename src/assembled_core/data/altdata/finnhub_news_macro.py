@@ -55,7 +55,7 @@ def fetch_news(
             url = f"{FINNHUB_BASE_URL}/company-news"
             params = {"symbol": sym, "from": from_str, "to": to_str, "token": api_key}
             try:
-                response = session.get(url, params=params)
+                response = session.get(url, params=params, timeout=10.0)
                 response.raise_for_status()
                 items = response.json()
             except Exception as exc:
@@ -68,7 +68,7 @@ def fetch_news(
         url = f"{FINNHUB_BASE_URL}/news"
         params = {"category": "general", "token": api_key}
         try:
-            response = session.get(url, params=params)
+            response = session.get(url, params=params, timeout=10.0)
             response.raise_for_status()
             items = response.json()
         except Exception as exc:
@@ -184,7 +184,7 @@ def fetch_macro_series(
     params = {"from": from_str, "to": to_str, "token": api_key}
 
     try:
-        response = session.get(url, params=params)
+        response = session.get(url, params=params, timeout=10.0)
         response.raise_for_status()
         data = response.json()
     except Exception as exc:

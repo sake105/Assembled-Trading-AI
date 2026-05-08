@@ -3,7 +3,7 @@
 From 42_EVENT_REPLAY_SYSTEM.md — Clock Protocol.
 
 All time-dependent code should accept a Clock instead of calling
-datetime.utcnow() directly. This makes replay deterministic: the
+the wall clock directly. This makes replay deterministic: the
 ReplayClock is driven by ClockTick events rather than wall time.
 """
 

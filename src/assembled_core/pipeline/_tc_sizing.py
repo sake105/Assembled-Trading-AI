@@ -7,8 +7,10 @@ import logging
 import numpy as np
 import pandas as pd
 
-# Module-level cache: market-return series derived from panel (keyed by panel path)
+# Module-level cache: market-return series derived from panel (keyed by panel path).
+# Item 3: bounded to _MAX_HMM_CACHE_ENTRIES to prevent memory leak during walk-forward runs.
 _HMM_MKT_RET_CACHE: dict[str, pd.Series] = {}
+_MAX_HMM_CACHE_ENTRIES = 4
 from src.assembled_core.config.policy_loader import load_policy
 from src.assembled_core.pipeline.trading_cycle_shared import (
     TradingContext,
@@ -651,6 +653,8 @@ def _sp_compute_final_multiplier(
                 if _panel_path.exists():
                     try:
                         if _panel_key not in _HMM_MKT_RET_CACHE:
+                            if len(_HMM_MKT_RET_CACHE) >= _MAX_HMM_CACHE_ENTRIES:
+                                _HMM_MKT_RET_CACHE.pop(next(iter(_HMM_MKT_RET_CACHE)))
                             _panel = pd.read_parquet(_panel_path)
                             _close_col = (
                                 "close" if "close" in _panel.columns else "adj_close"
@@ -664,11 +668,10 @@ def _sp_compute_final_multiplier(
                                 values=_close_col,
                                 aggfunc="last",
                             )
+                            _px_mean = _px_full.mean(axis=1)
+                            _px_mean_lag = _px_mean.shift(1).replace(0, np.nan)
                             _HMM_MKT_RET_CACHE[_panel_key] = np.log(
-                                (
-                                    _px_full.mean(axis=1)
-                                    / _px_full.mean(axis=1).shift(1)
-                                ).clip(lower=1e-10)
+                                (_px_mean / _px_mean_lag).clip(lower=1e-10)
                             ).dropna()
                             log.info(
                                 "[HMM-REGIME] Panel market-return series cached (%d days)",
@@ -713,7 +716,7 @@ def _sp_compute_final_multiplier(
                             )
                         ).dropna()
                 if _mkt_ret is not None and len(_mkt_ret) >= 20:
-                    _mkt_vol = _mkt_ret.rolling(20).std().dropna()
+                    _mkt_vol = _mkt_ret.rolling(20, min_periods=20).std().dropna()
                     _mkt_ret = _mkt_ret.loc[_mkt_vol.index]
                     if len(_mkt_ret) >= 20:
                         _feat = pd.DataFrame(
@@ -1122,7 +1125,7 @@ def _sp_apply_crash_cap(
                 )
                 scale = (
                     min(cap_val / current_long_gross, 1.0)
-                    if current_long_gross > 0.0
+                    if current_long_gross > 1e-9  # Item 47: guard ZeroDivisionError
                     else 1.0
                 )
                 cp_shadow = is_shadow_only(policy, "crash_prediction")
@@ -1708,5 +1711,177 @@ def size_positions(
                         )
     except Exception as e:
         log.debug("[CONFORMAL] quantile sizing skipped: %s", e)
+
+    # --- Item 43: Halt-check — remove halted symbols from final target positions ---
+    # Uses ctx.kill_switch_state if populated (set by paper_runner / risk controls).
+    # A per-symbol halt registry is a TODO (60s-refresh cache); for now we filter
+    # symbols present in a halt-set stored on the context under `halted_symbols`.
+    # TODO: wire a 60s-refresh symbol-level halt cache here when halt feed is available.
+    try:
+        _raw_halted = getattr(ctx, "halted_symbols", None)
+        if _raw_halted is None:
+            log.debug(
+                "[size_positions] halt-check: ctx.halted_symbols absent (halt feed not wired)"
+            )
+        _halted: set[str] = set(_raw_halted or ())
+        if (
+            _halted
+            and not target_positions.empty
+            and "symbol" in target_positions.columns
+        ):
+            _before_syms: set[str] = set(target_positions["symbol"].tolist())
+            _halted_in_target = _halted & _before_syms
+            target_positions = target_positions[
+                ~target_positions["symbol"].isin(_halted)
+            ].copy()
+            if _halted_in_target:
+                log.warning(
+                    "[size_positions] halt-check: dropped %d halted symbol(s): %s",
+                    len(_halted_in_target),
+                    sorted(_halted_in_target),
+                )
+    except Exception as _halt_err:
+        log.debug("[size_positions] halt-check skipped: %s", _halt_err)
+
+    # --- Item 69: Buying-power pre-check — skip orders that exceed 95% of available capital ---
+    # Only activates when ctx.buying_power is explicitly provided (live broker value).
+    # Falls back to capital only when the policy flag buying_power_from_capital=true is set.
+    # Without explicit buying_power, the check is a no-op (avoids scaling backtest weights).
+    try:
+        if not target_positions.empty and "target_weight" in target_positions.columns:
+            _raw_bp = getattr(ctx, "buying_power", None)
+            _bp_from_capital: bool = bool(
+                (policy or {})
+                .get("risk_limits", {})
+                .get("buying_power_from_capital", False)
+            )
+            _buying_power: float = float(
+                _raw_bp
+                if _raw_bp is not None
+                else (ctx.capital if _bp_from_capital else 0.0)
+            )
+            if _buying_power > 0:
+                _BP_LIMIT: float = float(
+                    (policy or {})
+                    .get("risk_limits", {})
+                    .get("buying_power_utilization_limit", 0.95)
+                )
+                _gross_weight = float(target_positions["target_weight"].abs().sum())
+                if _gross_weight > _BP_LIMIT:
+                    _scale_bp = _BP_LIMIT / _gross_weight
+                    target_positions = target_positions.copy()
+                    target_positions["target_weight"] = (
+                        target_positions["target_weight"] * _scale_bp
+                    )
+                    if "target_qty" in target_positions.columns:
+                        target_positions["target_qty"] = (
+                            target_positions["target_qty"] * _scale_bp
+                        )
+                    log.warning(
+                        "[size_positions] buying-power pre-check: gross weight %.3f exceeds %.0f%% "
+                        "of capital — scaled down by %.4f",
+                        _gross_weight,
+                        _BP_LIMIT * 100,
+                        _scale_bp,
+                    )
+    except Exception as _bp_err:
+        log.debug("[size_positions] buying-power pre-check skipped: %s", _bp_err)
+
+    # --- Item 81: Pre-earnings size reduction (50% for symbols with earnings tomorrow) ---
+    # AAPL/NVDA earnings = 5-15% gap at next open. Daily EOD cycle can't hedge intraday.
+    # Reduce position to 50% for symbols with earnings within 1 trading day.
+    # Uses panel column 'earnings_next_day' (bool) if available — no live API call.
+    try:
+        if not target_positions.empty and "symbol" in target_positions.columns:
+            _earnings_col = "earnings_next_day"  # pre-computed in altdata_loader
+            _pre_earnings_scale: float = float(
+                (policy or {})
+                .get("risk_limits", {})
+                .get("pre_earnings_size_factor", 0.50)
+            )
+            if _earnings_col in target_positions.columns:
+                _near_earnings = (
+                    target_positions[_earnings_col].fillna(False).astype(bool)
+                )
+                if _near_earnings.any():
+                    _earnings_syms = target_positions.loc[
+                        _near_earnings, "symbol"
+                    ].tolist()
+                    target_positions = target_positions.copy()
+                    _wt_col = (
+                        "target_weight"
+                        if "target_weight" in target_positions.columns
+                        else None
+                    )
+                    _qty_col = (
+                        "target_qty"
+                        if "target_qty" in target_positions.columns
+                        else None
+                    )
+                    if _wt_col:
+                        target_positions.loc[
+                            _near_earnings, _wt_col
+                        ] *= _pre_earnings_scale
+                    if _qty_col:
+                        target_positions.loc[
+                            _near_earnings, _qty_col
+                        ] *= _pre_earnings_scale
+                    log.info(
+                        "[size_positions] pre-earnings: reduced %d symbol(s) by %.0f%%: %s",
+                        len(_earnings_syms),
+                        (1 - _pre_earnings_scale) * 100,
+                        _earnings_syms[:10],
+                    )
+    except Exception as _earn_err:
+        log.debug("[size_positions] pre-earnings check skipped: %s", _earn_err)
+
+    # Item 85: M&A exclusion — drop symbols with active M&A events from target positions.
+    # When a Cash-deal M&A is announced the target stock moves to deal price and stays there;
+    # factor signals no longer apply.  Symbols flagged via ctx.ma_symbols or the
+    # `ma_activity` news category are dropped to avoid holding stagnant cash-deal targets.
+    try:
+        _ma_syms: set[str] = set()
+        _raw_ma = getattr(ctx, "ma_symbols", None)
+        if _raw_ma:
+            _ma_syms = {str(s).upper() for s in _raw_ma}
+
+        if not _ma_syms and "symbol" in target_positions.columns:
+            # Opportunistically detect from news_category column if present
+            _nc_col = next(
+                (
+                    c
+                    for c in target_positions.columns
+                    if "news_cat" in c.lower() or "category" in c.lower()
+                ),
+                None,
+            )
+            if _nc_col is not None:
+                _ma_mask = (
+                    target_positions[_nc_col]
+                    .astype(str)
+                    .str.contains(
+                        "ma_activity|merger|acquisition", case=False, na=False
+                    )
+                )
+                _ma_syms = set(target_positions.loc[_ma_mask, "symbol"].tolist())
+
+        if (
+            _ma_syms
+            and not target_positions.empty
+            and "symbol" in target_positions.columns
+        ):
+            _before_ma = set(target_positions["symbol"].tolist())
+            _ma_in_target = _ma_syms & _before_ma
+            if _ma_in_target:
+                target_positions = target_positions[
+                    ~target_positions["symbol"].isin(_ma_in_target)
+                ].copy()
+                log.warning(
+                    "[size_positions] M&A exclusion: dropped %d symbol(s) with active M&A event: %s",
+                    len(_ma_in_target),
+                    sorted(_ma_in_target)[:10],
+                )
+    except Exception as _ma_err:
+        log.debug("[size_positions] M&A filter skipped: %s", _ma_err)
 
     return target_positions, do_rebal, meta

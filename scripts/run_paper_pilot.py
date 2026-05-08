@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +28,182 @@ sys.path.insert(0, str(ROOT))
 
 PILOT_DIR = ROOT / "output" / "pilot"
 PILOT_MANIFEST = PILOT_DIR / "pilot_manifest.json"
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Item 80 — Stale open-order cancellation on restart
+# ---------------------------------------------------------------------------
+
+
+def cancel_all_stale_orders(older_than_minutes: int = 5) -> int:
+    """Cancel all open broker orders older than *older_than_minutes*.
+
+    Returns the number of orders cancelled.
+    Requires alpaca-py to be installed and ALPACA_API_KEY / ALPACA_API_SECRET
+    in the environment (via .env).  Non-fatal: any error is logged and ignored.
+    """
+    cancelled = 0
+    try:
+        from src.assembled_core.execution.alpaca_adapter import AlpacaAdapter
+
+        adapter = AlpacaAdapter()
+        open_orders = (
+            adapter.get_open_orders() if hasattr(adapter, "get_open_orders") else []
+        )
+        if not open_orders:
+            logger.info("[pilot-startup] No open orders found — nothing to cancel.")
+            return 0
+
+        now = datetime.now(timezone.utc)
+        stale_ids = []
+        for order in open_orders:
+            submitted_at = getattr(order, "submitted_at", None) or getattr(
+                order, "created_at", None
+            )
+            if submitted_at is None:
+                continue
+            age_minutes = (now - submitted_at).total_seconds() / 60
+            if age_minutes >= older_than_minutes:
+                stale_ids.append(getattr(order, "id", str(order)))
+
+        if not stale_ids:
+            logger.info(
+                "[pilot-startup] %d open orders found, none older than %dm.",
+                len(open_orders),
+                older_than_minutes,
+            )
+            return 0
+
+        logger.warning(
+            "[pilot-startup] Cancelling %d stale orders (>%dm old): %s",
+            len(stale_ids),
+            older_than_minutes,
+            stale_ids,
+        )
+        for order_id in stale_ids:
+            try:
+                if hasattr(adapter, "cancel_order"):
+                    adapter.cancel_order(order_id)
+                cancelled += 1
+                logger.info("[pilot-startup] Cancelled order %s", order_id)
+            except Exception as exc:
+                logger.warning(
+                    "[pilot-startup] Failed to cancel order %s: %s", order_id, exc
+                )
+
+    except Exception as exc:
+        logger.warning(
+            "[pilot-startup] cancel_all_stale_orders failed (non-fatal): %s", exc
+        )
+
+    return cancelled
+
+
+# ---------------------------------------------------------------------------
+# Item 68 — Position-state recovery check on restart
+# ---------------------------------------------------------------------------
+
+_INTENT_STATE_PATH = ROOT / "output" / "runs" / "_paper_ledger" / "intent_state.json"
+
+
+def check_state_recovery() -> None:
+    """Compare disk intent-state with broker open positions and log discrepancies.
+
+    Minimal implementation per spec: no automatic reconciliation — just clear
+    warnings so the operator can decide.  Runs on each pilot startup.
+    """
+    # 1. Load disk intent-state (if present)
+    disk_symbols: set[str] = set()
+    if _INTENT_STATE_PATH.exists():
+        try:
+            intent_data = json.loads(_INTENT_STATE_PATH.read_text(encoding="utf-8"))
+            if isinstance(intent_data, dict):
+                disk_symbols = {
+                    sym
+                    for sym, qty in intent_data.get("positions", {}).items()
+                    if float(qty) != 0.0
+                }
+            logger.info(
+                "[pilot-startup] Disk intent-state loaded: %d open symbols.",
+                len(disk_symbols),
+            )
+        except Exception as exc:
+            logger.warning(
+                "[pilot-startup] Could not read intent state from disk: %s", exc
+            )
+    else:
+        logger.info(
+            "[pilot-startup] No disk intent-state found at %s.", _INTENT_STATE_PATH
+        )
+
+    # 2. Fetch broker open positions
+    broker_symbols: set[str] = set()
+    try:
+        from src.assembled_core.execution.alpaca_adapter import AlpacaAdapter
+
+        adapter = AlpacaAdapter()
+        positions = adapter.get_positions() if hasattr(adapter, "get_positions") else []
+        broker_symbols = {
+            getattr(p, "symbol", str(p))
+            for p in positions
+            if float(getattr(p, "qty", 0)) != 0.0
+        }
+        logger.info(
+            "[pilot-startup] Broker reports %d open positions: %s",
+            len(broker_symbols),
+            sorted(broker_symbols),
+        )
+    except Exception as exc:
+        logger.warning(
+            "[pilot-startup] Could not fetch broker positions (non-fatal): %s", exc
+        )
+
+    # 3. Detect and log discrepancies
+    if disk_symbols or broker_symbols:
+        only_on_disk = disk_symbols - broker_symbols
+        only_at_broker = broker_symbols - disk_symbols
+
+        if only_on_disk:
+            logger.warning(
+                "[pilot-startup] STATE DISCREPANCY — symbols in disk-state but NOT at broker "
+                "(possible missed fills or stale intents): %s",
+                sorted(only_on_disk),
+            )
+        if only_at_broker:
+            logger.warning(
+                "[pilot-startup] STATE DISCREPANCY — symbols at broker but NOT in disk-state "
+                "(possible out-of-band trades or state loss): %s",
+                sorted(only_at_broker),
+            )
+        if not only_on_disk and not only_at_broker:
+            logger.info(
+                "[pilot-startup] Disk-state and broker positions are consistent."
+            )
+
+
+def run_startup_checks() -> None:
+    """Run all startup safety checks before the daily pilot cycle.
+
+    Called at the top of cmd_run_day().  Non-fatal: logs warnings but never
+    blocks the trading cycle — operator must review logs.
+    """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    )
+    logger.info("[pilot-startup] Running startup safety checks…")
+    # Item 68: position state recovery
+    check_state_recovery()
+    # Item 80: cancel stale orders
+    n_cancelled = cancel_all_stale_orders(older_than_minutes=5)
+    if n_cancelled:
+        logger.warning(
+            "[pilot-startup] Cancelled %d stale orders before trading cycle.",
+            n_cancelled,
+        )
+    logger.info("[pilot-startup] Startup checks complete.")
+
 
 PILOT_CONFIG = {
     "duration_days": 30,
@@ -56,6 +233,9 @@ def _save_manifest(m: dict) -> None:
 
 def cmd_run_day() -> int:
     """Run one paper-live cycle and append daily summary to manifest."""
+    # Items 68 + 80: startup safety checks (state recovery + stale order cancel)
+    run_startup_checks()
+
     m = _load_manifest()
     if not m.get("started_at"):
         m["started_at"] = datetime.now(timezone.utc).isoformat()
@@ -132,7 +312,8 @@ def cmd_evaluate() -> int:
             equity_curve = [
                 e["equity"] if isinstance(e, dict) else float(e)
                 for e in equity_curve_raw
-                if (isinstance(e, dict) and "equity" in e) or isinstance(e, (int, float))
+                if (isinstance(e, dict) and "equity" in e)
+                or isinstance(e, (int, float))
             ]
             if len(equity_curve) > 1:
                 import statistics

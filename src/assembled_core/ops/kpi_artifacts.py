@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict
 
@@ -66,7 +67,10 @@ def write_run_kpis(
     turnover_meta = (getattr(result, "meta", {}) or {}).get("turnover_budget") or {}
     turnover_scale = _safe_float(turnover_meta.get("scale_factor")) or 1.0
 
-    final_exposure_mult = float(georisk_mult) * float(profit_lock_mult)
+    # Item 41: use Decimal for multiplier product to avoid float compounding error
+    final_exposure_mult = float(
+        Decimal(str(georisk_mult)) * Decimal(str(profit_lock_mult))
+    )
 
     # Risk-state related
     risk_state = getattr(ctx, "risk_state", None)
@@ -230,7 +234,8 @@ def write_reasons_artifact(
 
     profit_lock_mult = _safe_float(profit_lock_meta.get("multiplier")) or 1.0
     turnover_scale = _safe_float(turnover_meta.get("scale_factor")) or 1.0
-    final_mult = float(georisk_mult) * float(profit_lock_mult)
+    # Item 41: Decimal product for compounded multiplier
+    final_mult = float(Decimal(str(georisk_mult)) * Decimal(str(profit_lock_mult)))
 
     # Risk state + reasons
     risk_state_obj = getattr(ctx, "risk_state", None)
