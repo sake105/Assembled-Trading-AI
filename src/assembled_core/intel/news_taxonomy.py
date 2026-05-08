@@ -175,7 +175,9 @@ def aggregate_categories_by_window(
     df = events_df.copy()
 
     # Normalize timestamp column
-    ts_col = next((c for c in ["published_at", "timestamp", "date"] if c in df.columns), None)
+    ts_col = next(
+        (c for c in ["published_at", "timestamp", "date"] if c in df.columns), None
+    )
     if ts_col is None:
         return pd.DataFrame()
     df["_ts"] = pd.to_datetime(df[ts_col], utc=True, errors="coerce")
@@ -183,7 +185,9 @@ def aggregate_categories_by_window(
     df["_date"] = df["_ts"].dt.normalize()
 
     # Normalize symbol column
-    sym_col = next((c for c in ["symbol", "ticker", "tickers"] if c in df.columns), None)
+    sym_col = next(
+        (c for c in ["symbol", "ticker", "tickers"] if c in df.columns), None
+    )
     if sym_col is None:
         df["_symbol"] = "MARKET"
     else:

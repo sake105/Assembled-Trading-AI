@@ -194,6 +194,7 @@ class NewsEventEnricher:
                 # Taxonomy category
                 try:
                     from src.assembled_core.intel.news_taxonomy import categorize_event
+
                     evt.category = categorize_event(event_types=clf.event_types)
                 except Exception:
                     pass

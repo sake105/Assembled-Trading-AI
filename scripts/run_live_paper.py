@@ -289,6 +289,7 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
                         )
                         if submitted_dt.tzinfo is None:
                             from datetime import timezone as _tz
+
                             submitted_dt = submitted_dt.replace(tzinfo=_tz.utc)
                         age_seconds = (now_utc - submitted_dt).total_seconds()
                         if age_seconds > 300:  # 5 minutes

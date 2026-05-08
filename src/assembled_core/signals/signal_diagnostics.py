@@ -51,6 +51,7 @@ def compute_signal_health(
             # IC (Spearman)
             try:
                 from scipy.stats import spearmanr
+
                 ic, _ = spearmanr(valid[fcol], valid[forward_returns_col])
             except Exception:
                 ic = np.nan
@@ -59,13 +60,15 @@ def compute_signal_health(
             agree = (valid[fcol] * valid[forward_returns_col]) > 0
             hit_rate = float(agree.mean())
 
-            records.append({
-                "timestamp": ts,
-                "factor": fcol,
-                "ic": round(float(ic), 6) if pd.notna(ic) else np.nan,
-                "hit_rate": round(hit_rate, 4),
-                "n_obs": len(valid),
-            })
+            records.append(
+                {
+                    "timestamp": ts,
+                    "factor": fcol,
+                    "ic": round(float(ic), 6) if pd.notna(ic) else np.nan,
+                    "hit_rate": round(hit_rate, 4),
+                    "n_obs": len(valid),
+                }
+            )
 
     if not records:
         return pd.DataFrame()
@@ -118,12 +121,14 @@ def generate_signal_health_alerts(
 
         recent_ic = recent["rolling_ic"].dropna()
         if len(recent_ic) > 0 and float(recent_ic.mean()) < ic_alert_threshold:
-            alerts.append({
-                "factor": factor,
-                "alert_type": "LOW_IC",
-                "details": f"Rolling IC {float(recent_ic.mean()):.4f} < {ic_alert_threshold} "
-                           f"over last {len(recent_ic)} periods",
-            })
+            alerts.append(
+                {
+                    "factor": factor,
+                    "alert_type": "LOW_IC",
+                    "details": f"Rolling IC {float(recent_ic.mean()):.4f} < {ic_alert_threshold} "
+                    f"over last {len(recent_ic)} periods",
+                }
+            )
 
     return alerts
 

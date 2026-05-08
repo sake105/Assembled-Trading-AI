@@ -25,10 +25,10 @@ from src.assembled_core.strategies.multifactor_v2 import (
     update_drawdown_damper,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fresh_state() -> None:
     """Reset damper between tests — prevents cross-contamination."""
@@ -46,7 +46,7 @@ class TestDDDamper:
 
     def test_dd_damper_activates_at_threshold(self) -> None:
         """Drop equity 12.5% from peak → damper_active becomes True."""
-        update_drawdown_damper(1.0)          # establish peak
+        update_drawdown_damper(1.0)  # establish peak
         activated = update_drawdown_damper(0.875)  # 12.5% drawdown (>= 12%)
         assert activated is True
         assert _DD_DAMPER["damper_active"] is True
@@ -54,7 +54,7 @@ class TestDDDamper:
     def test_dd_damper_not_activated_below_threshold(self) -> None:
         """Drop equity only 10% → damper must NOT activate."""
         update_drawdown_damper(1.0)
-        activated = update_drawdown_damper(0.90)   # 10% drawdown (< 12%)
+        activated = update_drawdown_damper(0.90)  # 10% drawdown (< 12%)
         assert activated is False
         assert _DD_DAMPER["damper_active"] is False
 
@@ -66,12 +66,12 @@ class TestDDDamper:
         """
         today = dt.date(2025, 1, 1)
         update_drawdown_damper(1.0, as_of=today)
-        update_drawdown_damper(0.875, as_of=today)   # activate (MDD=12.5%)
+        update_drawdown_damper(0.875, as_of=today)  # activate (MDD=12.5%)
         assert _DD_DAMPER["damper_active"] is True
 
         # Advance past expiry with equity fully recovered — MDD=0% → no re-arm
         future = today + dt.timedelta(days=31)
-        update_drawdown_damper(1.0, as_of=future)    # equity restored to peak
+        update_drawdown_damper(1.0, as_of=future)  # equity restored to peak
         assert _DD_DAMPER["damper_active"] is False
 
     def test_dd_damper_still_active_before_expiry(self) -> None:
@@ -140,13 +140,13 @@ class TestDDDamper:
         # Another call with even lower equity — already active, no re-arm
         tomorrow = today + dt.timedelta(days=1)
         activated_again = update_drawdown_damper(0.80, as_of=tomorrow)
-        assert activated_again is False                    # not re-armed
+        assert activated_again is False  # not re-armed
         assert _DD_DAMPER["damper_until"] == until_first  # expiry unchanged
 
     def test_dd_damper_peak_tracks_new_highs(self) -> None:
         """Peak equity must update when new equity exceeds current peak."""
         update_drawdown_damper(1.0)
-        update_drawdown_damper(1.20)     # new high
+        update_drawdown_damper(1.20)  # new high
         assert _DD_DAMPER["peak_equity"] == pytest.approx(1.20)
 
         # Now drop 12.5% from 1.20 → 1.05; MDD = (1.20-1.05)/1.20 = 12.5%
@@ -168,7 +168,9 @@ def _make_minimal_df(
     dates = pd.date_range("2023-01-01", periods=n_bars, freq="B")
     rows = []
     for sym in symbols:
-        prices = pd.Series(100.0, index=range(n_bars)) * (1 + 0.0002 * pd.Series(range(n_bars)))
+        prices = pd.Series(100.0, index=range(n_bars)) * (
+            1 + 0.0002 * pd.Series(range(n_bars))
+        )
         for i, d in enumerate(dates):
             row: dict = {
                 "symbol": sym,
@@ -211,16 +213,18 @@ class TestVIXCap:
         score_high = self._get_exposure_mult(df_high_vix)
 
         # VIX=45 cap is 0.25, VIX=12 cap is 1.0 → high-VIX composite must be lower
-        assert score_high <= score_low + 1e-9, (
-            f"Expected high-VIX ({score_high:.4f}) <= low-VIX ({score_low:.4f})"
-        )
+        assert (
+            score_high <= score_low + 1e-9
+        ), f"Expected high-VIX ({score_high:.4f}) <= low-VIX ({score_low:.4f})"
 
     def test_vix_cap_extreme_tier_at_40_plus(self) -> None:
         """VIX=42 hits extreme tier (cap=0.25) — signals must complete without error."""
         from src.assembled_core.strategies.multifactor_v2 import compute_signals
 
         df = _make_minimal_df(["SPY"], vix=42.0)
-        result = compute_signals(df, strategy_cfg={"regime_weights_path": "__nonexistent__"})
+        result = compute_signals(
+            df, strategy_cfg={"regime_weights_path": "__nonexistent__"}
+        )
         assert isinstance(result, pd.DataFrame)
 
     def test_vix_cap_not_triggered_low_vix(self) -> None:
@@ -238,9 +242,9 @@ class TestVIXCap:
             s_no = float(sig_no["score"].iloc[0])
             s_low = float(sig_low["score"].iloc[0])
             # Both should be numerically identical (no cap applied at VIX<18)
-            assert abs(s_no - s_low) < 0.05, (
-                f"Low-VIX score diverged unexpectedly: no_vix={s_no:.4f}, low_vix={s_low:.4f}"
-            )
+            assert (
+                abs(s_no - s_low) < 0.05
+            ), f"Low-VIX score diverged unexpectedly: no_vix={s_no:.4f}, low_vix={s_low:.4f}"
 
     def test_vix_cap_zero_capital_safe(self) -> None:
         """DataFrame with VIX=25 and constant-zero prices must not raise."""
@@ -248,18 +252,22 @@ class TestVIXCap:
 
         n = 80
         dates = pd.date_range("2023-01-01", periods=n, freq="B")
-        df = pd.DataFrame({
-            "symbol": "TEST",
-            "timestamp": dates,
-            "open": 0.0,
-            "high": 0.0,
-            "low": 0.0,
-            "close": 0.0,
-            "volume": 0.0,
-            "vix": 25.0,
-        })
+        df = pd.DataFrame(
+            {
+                "symbol": "TEST",
+                "timestamp": dates,
+                "open": 0.0,
+                "high": 0.0,
+                "low": 0.0,
+                "close": 0.0,
+                "volume": 0.0,
+                "vix": 25.0,
+            }
+        )
         try:
-            result = compute_signals(df, strategy_cfg={"regime_weights_path": "__nonexistent__"})
+            result = compute_signals(
+                df, strategy_cfg={"regime_weights_path": "__nonexistent__"}
+            )
             assert isinstance(result, pd.DataFrame)
         except Exception as exc:
             pytest.fail(f"compute_signals raised with zero prices: {exc}")
@@ -269,7 +277,9 @@ class TestVIXCap:
         from src.assembled_core.strategies.multifactor_v2 import compute_signals
 
         df = _make_minimal_df(["AAPL"], vix=None)
-        result = compute_signals(df, strategy_cfg={"regime_weights_path": "__nonexistent__"})
+        result = compute_signals(
+            df, strategy_cfg={"regime_weights_path": "__nonexistent__"}
+        )
         assert isinstance(result, pd.DataFrame)
 
     def test_vix_tiered_thresholds_ordering(self) -> None:
@@ -344,6 +354,7 @@ class TestYieldCurveInversionCap:
 
     def _run(self, df: pd.DataFrame, extra_cfg: dict | None = None) -> pd.DataFrame:
         from src.assembled_core.strategies.multifactor_v2 import compute_signals
+
         cfg = {**self._CFG, **(extra_cfg or {})}
         return compute_signals(df, strategy_cfg=cfg)
 
@@ -365,9 +376,9 @@ class TestYieldCurveInversionCap:
             score_pos = float(sig_pos["score"].abs().median())
             score_none = float(sig_none["score"].abs().median())
             # No cap applied in either case → scores must be numerically close
-            assert abs(score_pos - score_none) < 0.05, (
-                f"Positive YC score diverged: yc={score_pos:.4f}, no-yc={score_none:.4f}"
-            )
+            assert (
+                abs(score_pos - score_none) < 0.05
+            ), f"Positive YC score diverged: yc={score_pos:.4f}, no-yc={score_none:.4f}"
 
     def test_yc_inversion_reduces_exposure(self) -> None:
         """Persistent negative yield_curve_slope → final score must be <= positive-slope version.
@@ -384,9 +395,9 @@ class TestYieldCurveInversionCap:
         if not sig_inv.empty and not sig_pos.empty:
             score_inv = float(sig_inv["score"].abs().median())
             score_pos = float(sig_pos["score"].abs().median())
-            assert score_inv <= score_pos + 1e-9, (
-                f"Inverted YC score ({score_inv:.4f}) > positive YC ({score_pos:.4f}) — cap not applied"
-            )
+            assert (
+                score_inv <= score_pos + 1e-9
+            ), f"Inverted YC score ({score_inv:.4f}) > positive YC ({score_pos:.4f}) — cap not applied"
 
     def test_yc_inversion_boundary_exactly_at_zero(self) -> None:
         """Boundary condition: yield_curve_slope == 0.0 → cap must NOT fire (condition is < 0)."""
@@ -400,9 +411,9 @@ class TestYieldCurveInversionCap:
             score_zero = float(sig_zero["score"].abs().median())
             score_pos = float(sig_pos["score"].abs().median())
             # slope=0 not strictly < 0 → no cap → should be close to positive baseline
-            assert abs(score_zero - score_pos) < 0.05, (
-                f"Boundary yc=0 score diverged: zero={score_zero:.4f}, pos={score_pos:.4f}"
-            )
+            assert (
+                abs(score_zero - score_pos) < 0.05
+            ), f"Boundary yc=0 score diverged: zero={score_zero:.4f}, pos={score_pos:.4f}"
 
     def test_yc_missing_column_no_crash(self) -> None:
         """No yield_curve_slope column at all → compute_signals must not raise."""
@@ -481,6 +492,4 @@ class TestTriggerBasketSmoke:
             mod = importlib.import_module(self.MODULE_PATH)
             assert mod is not None
         except ImportError:
-            pytest.skip(
-                "trigger_basket not found — module not yet implemented"
-            )
+            pytest.skip("trigger_basket not found — module not yet implemented")

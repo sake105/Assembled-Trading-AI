@@ -790,7 +790,9 @@ def _pb_run_cycle_fn_loop(
         equity_values.append(cash + float(mtm))
 
         try:
-            from src.assembled_core.strategies.multifactor_v2 import update_drawdown_damper
+            from src.assembled_core.strategies.multifactor_v2 import (
+                update_drawdown_damper,
+            )
 
             _as_of = timestamp.date() if hasattr(timestamp, "date") else None
             update_drawdown_damper(equity_values[-1], _as_of)

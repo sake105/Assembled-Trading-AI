@@ -113,7 +113,9 @@ def _fetch_yield_curve(start_date: str, end_date: str) -> pd.DataFrame:
             auto_adjust=True,
         )
         if raw.empty:
-            logger.warning("[Intermarket] Yield curve download returned empty DataFrame")
+            logger.warning(
+                "[Intermarket] Yield curve download returned empty DataFrame"
+            )
             return pd.DataFrame()
 
         closes = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw

@@ -28,7 +28,9 @@ PANEL_OUT = ROOT / "data" / "sample" / "master_universe_panel.parquet"
 def fetch_one(symbol: str, start: str, end: str) -> pd.DataFrame | None:
     """Download OHLCV for one symbol via yfinance."""
     try:
-        raw = yf.download(symbol, start=start, end=end, auto_adjust=True, progress=False)
+        raw = yf.download(
+            symbol, start=start, end=end, auto_adjust=True, progress=False
+        )
         if raw.empty:
             return None
         # Flatten multi-index columns if present
@@ -38,12 +40,18 @@ def fetch_one(symbol: str, start: str, end: str) -> pd.DataFrame | None:
             raw.columns = [c.lower() for c in raw.columns]
         # Normalize column names
         col_map = {
-            "open": "open", "high": "high", "low": "low",
-            "close": "close", "volume": "volume",
-            "adj close": "close", "adj_close": "close",
+            "open": "open",
+            "high": "high",
+            "low": "low",
+            "close": "close",
+            "volume": "volume",
+            "adj close": "close",
+            "adj_close": "close",
         }
         raw = raw.rename(columns=col_map)
-        keep = [c for c in ["open", "high", "low", "close", "volume"] if c in raw.columns]
+        keep = [
+            c for c in ["open", "high", "low", "close", "volume"] if c in raw.columns
+        ]
         df = raw[keep].copy()
         df.index = pd.to_datetime(df.index)
         df.index.name = "date"
@@ -75,12 +83,18 @@ def consolidate(symbols: list[str]) -> pd.DataFrame:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Bulk yfinance downloader for master universe")
+    parser = argparse.ArgumentParser(
+        description="Bulk yfinance downloader for master universe"
+    )
     parser.add_argument("--universe", default="configs/universes/full_us_universe.yaml")
     parser.add_argument("--start", default="2021-01-01")
     parser.add_argument("--end", default=None)
-    parser.add_argument("--refresh-only", default=None, help="Comma-separated subset to refresh")
-    parser.add_argument("--delay", type=float, default=0.3, help="Seconds between API calls")
+    parser.add_argument(
+        "--refresh-only", default=None, help="Comma-separated subset to refresh"
+    )
+    parser.add_argument(
+        "--delay", type=float, default=0.3, help="Seconds between API calls"
+    )
     args = parser.parse_args(argv)
 
     end = args.end or pd.Timestamp.now().strftime("%Y-%m-%d")
@@ -115,7 +129,9 @@ def main(argv: list[str] | None = None) -> int:
     panel = consolidate(symbols)
     if not panel.empty:
         panel.to_parquet(PANEL_OUT, index=False)
-        print(f"[OK] Panel saved: {PANEL_OUT} — {len(panel):,} rows, {panel['symbol'].nunique()} symbols")
+        print(
+            f"[OK] Panel saved: {PANEL_OUT} — {len(panel):,} rows, {panel['symbol'].nunique()} symbols"
+        )
     else:
         print("[WARN] No data to consolidate")
 

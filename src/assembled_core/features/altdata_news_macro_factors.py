@@ -486,11 +486,23 @@ def build_macro_regime_factors(
         ref_tz = ref_s.dt.tz
         s_tz = s.tz if isinstance(s, pd.DatetimeIndex) else s.dt.tz
         if ref_tz is None and s_tz is not None:
-            s = s.tz_convert(None) if isinstance(s, pd.DatetimeIndex) else s.dt.tz_convert(None)
+            s = (
+                s.tz_convert(None)
+                if isinstance(s, pd.DatetimeIndex)
+                else s.dt.tz_convert(None)
+            )
         elif ref_tz is not None and s_tz is None:
-            s = s.tz_localize(str(ref_tz)) if isinstance(s, pd.DatetimeIndex) else s.dt.tz_localize(str(ref_tz))
+            s = (
+                s.tz_localize(str(ref_tz))
+                if isinstance(s, pd.DatetimeIndex)
+                else s.dt.tz_localize(str(ref_tz))
+            )
         elif ref_tz is not None and s_tz is not None:
-            s = s.tz_convert(str(ref_tz)) if isinstance(s, pd.DatetimeIndex) else s.dt.tz_convert(str(ref_tz))
+            s = (
+                s.tz_convert(str(ref_tz))
+                if isinstance(s, pd.DatetimeIndex)
+                else s.dt.tz_convert(str(ref_tz))
+            )
         return s
 
     if not macro_series.empty:
@@ -534,13 +546,17 @@ def build_macro_regime_factors(
         return _codes_upper.str.contains(pattern, regex=True, na=False)
 
     # Compute growth regime — GDP, unemployment, PMI, industrial production
-    growth_data = macro_series[_matches_any(["GDP", "UNEMPLOY", "PMI", "INDUSTRIAL"])].copy()
+    growth_data = macro_series[
+        _matches_any(["GDP", "UNEMPLOY", "PMI", "INDUSTRIAL"])
+    ].copy()
 
     # Compute inflation regime — CPI, PPI, inflation indicators
     inflation_data = macro_series[_matches_any(["CPI", "PPI", "INFLATION"])].copy()
 
     # Compute risk aversion proxy — VIX, treasury yields, credit spreads
-    risk_data = macro_series[_matches_any(["VIX", "TNX", "TYX", "TREASURY", "YIELD", "CREDIT", "FED"])].copy()
+    risk_data = macro_series[
+        _matches_any(["VIX", "TNX", "TYX", "TREASURY", "YIELD", "CREDIT", "FED"])
+    ].copy()
 
     # Aggregate macro indicators by date — vectorized via pivot_table
     all_dates = sorted(macro_series[timestamp_col].dt.date.unique())
@@ -613,7 +629,9 @@ def build_macro_regime_factors(
     regime_df = (
         pd.DataFrame(
             {
-                timestamp_col: _match_tz(pd.to_datetime(date_index), result[timestamp_col]),
+                timestamp_col: _match_tz(
+                    pd.to_datetime(date_index), result[timestamp_col]
+                ),
                 "macro_growth_regime": growth_regime_arr,
                 "macro_inflation_regime": inflation_regime_arr,
                 "macro_risk_aversion_proxy": risk_aversion_arr,

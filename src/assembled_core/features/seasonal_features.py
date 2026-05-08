@@ -54,12 +54,11 @@ def _is_pre_holiday(dates: pd.DatetimeIndex) -> np.ndarray:
     """
     try:
         from pandas.tseries.holiday import USFederalHolidayCalendar
+
         cal = USFederalHolidayCalendar()
         holidays = cal.holidays(start=dates.min(), end=dates.max())
         # Day before holiday
         pre_holiday_dates = holidays - pd.Timedelta(days=1)
-        # Adjust for weekends
-        pre_holiday_bdays = pd.bdate_range(start=dates.min(), end=dates.max())  # noqa: F841
         result = np.isin(dates.normalize(), pre_holiday_dates.normalize()).astype(float)
     except Exception:
         result = np.zeros(len(dates))
@@ -100,8 +99,18 @@ def _month_of_year_signal(dates: pd.DatetimeIndex) -> np.ndarray:
     Weak: Feb, May, Jun, Sep
     """
     month_scores = {
-        1: 0.6, 2: -0.2, 3: 0.1, 4: 0.5, 5: -0.3, 6: -0.2,
-        7: 0.3, 8: 0.0, 9: -0.5, 10: 0.1, 11: 0.5, 12: 0.6,
+        1: 0.6,
+        2: -0.2,
+        3: 0.1,
+        4: 0.5,
+        5: -0.3,
+        6: -0.2,
+        7: 0.3,
+        8: 0.0,
+        9: -0.5,
+        10: 0.1,
+        11: 0.5,
+        12: 0.6,
     }
     return np.array([month_scores.get(m, 0.0) for m in dates.month])
 
@@ -137,7 +146,11 @@ def build_seasonal_features(
     result["seasonal_day_of_week"] = _day_of_week_signal(idx)
     result["seasonal_month_score"] = _month_of_year_signal(idx)
 
-    logger.info("[Seasonal] Built %d features for %d dates", len(get_seasonal_feature_names()), len(idx))
+    logger.info(
+        "[Seasonal] Built %d features for %d dates",
+        len(get_seasonal_feature_names()),
+        len(idx),
+    )
     return result
 
 

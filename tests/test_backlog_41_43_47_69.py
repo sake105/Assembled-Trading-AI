@@ -14,7 +14,6 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Item 41 — paper_ledger: Decimal cash accumulation
 # ---------------------------------------------------------------------------

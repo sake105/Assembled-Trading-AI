@@ -41,14 +41,19 @@ class RetrainingScheduler:
             try:
                 import yaml
                 from pathlib import Path
-                raw = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+
+                raw = (
+                    yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+                )
                 merged = {**self._cfg, **raw}
                 merged["auto_deploy"] = False  # never allow auto-deploy from config
                 self._cfg = merged
             except Exception as exc:
                 logger.debug("[WARN] RetrainingScheduler config load failed: %s", exc)
 
-    def adapt_hyperparameters_via_bandit(self, state_path: Optional[str] = None) -> None:
+    def adapt_hyperparameters_via_bandit(
+        self, state_path: Optional[str] = None
+    ) -> None:
         """No-op stub: bandit-based HPO adaptation placeholder."""
         logger.debug("[SKIP] adapt_hyperparameters_via_bandit: not yet implemented")
 
@@ -69,24 +74,36 @@ class RetrainingScheduler:
             today = datetime.now(timezone.utc).date()
             days_since = (today - model_last_trained_date).days
         s1_fired = days_since is not None and days_since >= 30
-        details.append(SignalDetail(
-            name="days_since_retrain",
-            fired=s1_fired,
-            reason=f"days_since_retrain={days_since}" if days_since is not None else "no training date",
-            value=float(days_since) if days_since is not None else -1.0,
-        ))
+        details.append(
+            SignalDetail(
+                name="days_since_retrain",
+                fired=s1_fired,
+                reason=(
+                    f"days_since_retrain={days_since}"
+                    if days_since is not None
+                    else "no training date"
+                ),
+                value=float(days_since) if days_since is not None else -1.0,
+            )
+        )
 
         # Signal 2: IC decay
         ic_mean = None
         if ic_series is not None and len(ic_series) >= 20:
             ic_mean = float(ic_series.iloc[-20:].mean())
         s2_fired = ic_mean is not None and ic_mean < 0.02
-        details.append(SignalDetail(
-            name="ic_decay",
-            fired=s2_fired,
-            reason=f"ic_mean_last20={ic_mean:.4f}" if ic_mean is not None else "insufficient ic data",
-            value=float(ic_mean) if ic_mean is not None else float("nan"),
-        ))
+        details.append(
+            SignalDetail(
+                name="ic_decay",
+                fired=s2_fired,
+                reason=(
+                    f"ic_mean_last20={ic_mean:.4f}"
+                    if ic_mean is not None
+                    else "insufficient ic data"
+                ),
+                value=float(ic_mean) if ic_mean is not None else float("nan"),
+            )
+        )
 
         # Signal 3: equity MDD
         mdd = None
@@ -97,24 +114,32 @@ class RetrainingScheduler:
                 drawdowns = (eq - roll_max) / roll_max.replace(0, float("nan"))
                 mdd = float(drawdowns.min())
         s3_fired = mdd is not None and mdd < -0.15
-        details.append(SignalDetail(
-            name="equity_mdd",
-            fired=s3_fired,
-            reason=f"mdd={mdd:.4f}" if mdd is not None else "no equity data",
-            value=float(mdd) if mdd is not None else float("nan"),
-        ))
+        details.append(
+            SignalDetail(
+                name="equity_mdd",
+                fired=s3_fired,
+                reason=f"mdd={mdd:.4f}" if mdd is not None else "no equity data",
+                value=float(mdd) if mdd is not None else float("nan"),
+            )
+        )
 
         # Signal 4: regime shift
         n_regimes = None
         if regime_series is not None and len(regime_series) >= 10:
             n_regimes = int(regime_series.iloc[-10:].nunique())
         s4_fired = n_regimes is not None and n_regimes > 2
-        details.append(SignalDetail(
-            name="regime_shift",
-            fired=s4_fired,
-            reason=f"distinct_regimes_last10={n_regimes}" if n_regimes is not None else "no regime data",
-            value=float(n_regimes) if n_regimes is not None else float("nan"),
-        ))
+        details.append(
+            SignalDetail(
+                name="regime_shift",
+                fired=s4_fired,
+                reason=(
+                    f"distinct_regimes_last10={n_regimes}"
+                    if n_regimes is not None
+                    else "no regime data"
+                ),
+                value=float(n_regimes) if n_regimes is not None else float("nan"),
+            )
+        )
 
         signals_fired = sum(d.fired for d in details)
 
@@ -126,9 +151,17 @@ class RetrainingScheduler:
             decision = "HOLD"
 
         fired_names = [d.name for d in details if d.fired]
-        notes = f"Fired: {fired_names}" if fired_names else "No signals fired — model appears healthy."
+        notes = (
+            f"Fired: {fired_names}"
+            if fired_names
+            else "No signals fired — model appears healthy."
+        )
 
-        logger.debug("[OK] RetrainingScheduler: decision=%s signals_fired=%d", decision, signals_fired)
+        logger.debug(
+            "[OK] RetrainingScheduler: decision=%s signals_fired=%d",
+            decision,
+            signals_fired,
+        )
 
         return RetrainingRecommendation(
             checked_at=checked_at,

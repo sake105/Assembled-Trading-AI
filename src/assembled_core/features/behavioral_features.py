@@ -44,8 +44,9 @@ def capital_gains_overhang(
     Reference: Grinblatt & Han (2005), Frazzini (2006)
     Alpha: +60-120 bps/year
     """
-    vwap = (prices * volumes).rolling(lookback, min_periods=20).sum() / \
-           volumes.rolling(lookback, min_periods=20).sum().replace(0, np.nan)
+    vwap = (prices * volumes).rolling(lookback, min_periods=20).sum() / volumes.rolling(
+        lookback, min_periods=20
+    ).sum().replace(0, np.nan)
     cgo = (prices - vwap) / prices.replace(0, np.nan)
     return cgo.fillna(0)
 
@@ -210,13 +211,14 @@ def compute_behavioral_composite(
 
     df = pd.DataFrame(factors)
     # Z-score each factor
-    z_scores = (df - df.rolling(252, min_periods=60).mean()) / \
-               (df.rolling(252, min_periods=60).std() + 1e-10)
+    z_scores = (df - df.rolling(252, min_periods=60).mean()) / (
+        df.rolling(252, min_periods=60).std() + 1e-10
+    )
 
     # Weighted composite
-    composite = sum(
-        weights.get(k, 0) * z_scores[k] for k in factors
-    ) / sum(weights.values())
+    composite = sum(weights.get(k, 0) * z_scores[k] for k in factors) / sum(
+        weights.values()
+    )
 
     return composite.fillna(0)
 

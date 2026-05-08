@@ -92,7 +92,9 @@ def zscore_cross_sectional(
                 z = z.clip(lower=-winsorize_std, upper=winsorize_std)
             return z
 
-        result[new_col] = result.groupby(timestamp_col, group_keys=False)[col].transform(_zscore)
+        result[new_col] = result.groupby(timestamp_col, group_keys=False)[
+            col
+        ].transform(_zscore)
     return result
 
 

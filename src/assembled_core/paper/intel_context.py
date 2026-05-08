@@ -325,10 +325,17 @@ def _populate_news_events(ctx: Any, root: Path) -> None:
             return
         as_of = getattr(ctx, "as_of", None)
         if as_of is not None:
-            ts_col = next((c for c in ("timestamp", "date", "event_date") if c in df.columns), None)
+            ts_col = next(
+                (c for c in ("timestamp", "date", "event_date") if c in df.columns),
+                None,
+            )
             if ts_col:
                 df[ts_col] = pd.to_datetime(df[ts_col], utc=True, errors="coerce")
-                as_of_ts = pd.Timestamp(as_of, tz="UTC") if getattr(as_of, "tzinfo", None) is None else pd.Timestamp(as_of)
+                as_of_ts = (
+                    pd.Timestamp(as_of, tz="UTC")
+                    if getattr(as_of, "tzinfo", None) is None
+                    else pd.Timestamp(as_of)
+                )
                 df = df[df[ts_col] <= as_of_ts]
         ctx.news_events = df
         log.debug("[INTEL-CTX] populated news_events (%d rows)", len(df))
@@ -350,8 +357,14 @@ def _populate_insider_data(ctx: Any, root: Path) -> None:
             return
         as_of = getattr(ctx, "as_of", None)
         if as_of is not None and "filing_date" in df.columns:
-            df["filing_date"] = pd.to_datetime(df["filing_date"], utc=True, errors="coerce")
-            as_of_ts = pd.Timestamp(as_of, tz="UTC") if getattr(as_of, "tzinfo", None) is None else pd.Timestamp(as_of)
+            df["filing_date"] = pd.to_datetime(
+                df["filing_date"], utc=True, errors="coerce"
+            )
+            as_of_ts = (
+                pd.Timestamp(as_of, tz="UTC")
+                if getattr(as_of, "tzinfo", None) is None
+                else pd.Timestamp(as_of)
+            )
             df = df[df["filing_date"] <= as_of_ts]
         ctx.insider_data = df
         log.debug("[INTEL-CTX] populated insider_data (%d rows)", len(df))

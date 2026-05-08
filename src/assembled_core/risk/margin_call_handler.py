@@ -205,9 +205,7 @@ def _send_discord_alert(
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310
-            logger.info(
-                "[MarginCall] Discord alert sent (status=%d)", resp.getcode()
-            )
+            logger.info("[MarginCall] Discord alert sent (status=%d)", resp.getcode())
     except Exception as exc:
         logger.warning("[MarginCall] Discord alert failed (non-fatal): %s", exc)
 

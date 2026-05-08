@@ -27,7 +27,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-
 # ─── Item 67: DST-safe market calendar ───────────────────────────────────────
 
 

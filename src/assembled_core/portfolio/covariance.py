@@ -19,7 +19,9 @@ def returns_from_prices(prices: pd.DataFrame, log_returns: bool = True) -> pd.Da
 
     if "symbol" in prices.columns and "close" in prices.columns:
         ts_col = "timestamp" if "timestamp" in prices.columns else prices.columns[0]
-        wide = prices.pivot_table(index=ts_col, columns="symbol", values="close", aggfunc="last")
+        wide = prices.pivot_table(
+            index=ts_col, columns="symbol", values="close", aggfunc="last"
+        )
     else:
         wide = prices.copy()
 
@@ -32,7 +34,9 @@ def returns_from_prices(prices: pd.DataFrame, log_returns: bool = True) -> pd.Da
     return ret.dropna(how="all")
 
 
-def _ewm_covariance(ret: pd.DataFrame, halflife: int = 30, min_periods: int | None = None) -> np.ndarray:
+def _ewm_covariance(
+    ret: pd.DataFrame, halflife: int = 30, min_periods: int | None = None
+) -> np.ndarray:
     """Compute EWM covariance matrix from returns DataFrame.
 
     Returns zero matrix if fewer than min_periods rows available.
@@ -82,7 +86,10 @@ def estimate_covariance(
     annualize: multiply result by 252 (daily→annual)
     """
     if returns is None or returns.empty or returns.shape[1] < 2:
-        logger.debug("[SKIP] estimate_covariance: insufficient data (shape=%s)", getattr(returns, "shape", None))
+        logger.debug(
+            "[SKIP] estimate_covariance: insufficient data (shape=%s)",
+            getattr(returns, "shape", None),
+        )
         return pd.DataFrame()
 
     clean = returns.dropna(axis=1, how="all").fillna(0.0)
@@ -102,13 +109,17 @@ def estimate_covariance(
             try:
                 if method == "ledoit_wolf":
                     from sklearn.covariance import LedoitWolf
+
                     cov = LedoitWolf().fit(X).covariance_
                 else:
                     from sklearn.covariance import OAS
+
                     cov = OAS().fit(X).covariance_
                 result_df = pd.DataFrame(cov, index=cols, columns=cols)
             except ImportError:
-                logger.debug("[WARN] sklearn not available, falling back to sample covariance")
+                logger.debug(
+                    "[WARN] sklearn not available, falling back to sample covariance"
+                )
                 cov = np.cov(X, rowvar=False)
                 result_df = pd.DataFrame(cov, index=cols, columns=cols)
         else:

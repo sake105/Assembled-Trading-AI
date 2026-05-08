@@ -6,6 +6,7 @@ resolve without AttributeError. Tests that patch this module affect the
 trading_cycle namespace, not trading_cycle_v2's local namespace; for those
 tests the real behavior is exercised directly.
 """
+
 from src.assembled_core.pipeline.trading_cycle_v2 import (  # noqa: F401
     run_trading_cycle,
     TradingCycleResult,

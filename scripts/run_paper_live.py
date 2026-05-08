@@ -93,7 +93,10 @@ def _is_market_hours(now: datetime) -> bool:
         market_open = schedule.iloc[0]["market_open"]
         market_close = schedule.iloc[0]["market_close"]
         import datetime as _dt
-        now_utc = now if now.tzinfo is not None else now.replace(tzinfo=_dt.timezone.utc)
+
+        now_utc = (
+            now if now.tzinfo is not None else now.replace(tzinfo=_dt.timezone.utc)
+        )
         now_ts = pd.Timestamp(now_utc)
         return bool(market_open <= now_ts < market_close)
     except Exception:
