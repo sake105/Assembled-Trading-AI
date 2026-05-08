@@ -8,7 +8,7 @@ from assembled_core.config.env_validator import validate_env
 validate_env()
 
 # Validate only a specific subset:
-validate_env(required={"ALPACA_API_KEY": "Alpaca API key"})
+validate_env(required={"ALPACA_API_KEY": "Alpaca API key"})  # pragma: allowlist secret
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 # Required vars — absence raises RuntimeError at startup.
 # ---------------------------------------------------------------------------
 REQUIRED_VARS: dict[str, str] = {
-    "ALPACA_API_KEY": "Alpaca trading API key (paper or live account)",
-    "ALPACA_API_SECRET": "Alpaca trading API secret",
+    "ALPACA_API_KEY": "Alpaca trading API key (paper or live account)",  # pragma: allowlist secret
+    "ALPACA_API_SECRET": "Alpaca trading API secret",  # pragma: allowlist secret
 }
 
 # ---------------------------------------------------------------------------
@@ -31,32 +31,32 @@ REQUIRED_VARS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 OPTIONAL_VARS: dict[str, str] = {
     # Data sources
-    "ASSEMBLED_FINNHUB_API_KEY": "Finnhub news/earnings data (degrades to zero-fill if missing)",
-    "FINNHUB_API_KEY": "Finnhub key (alternate name used in some scripts)",
-    "ALPHAVANTAGE_KEY": "Alpha Vantage daily OHLCV (degrades to zero-fill if missing)",
-    "ALPHAVANTAGE_API_KEY": "Alpha Vantage key (alternate name used in some scripts)",
-    "ASSEMBLED_TWELVE_DATA_API_KEY": "Twelve Data price feed fallback",
-    "POLYGON_API_KEY": "Polygon.io price and news data",
-    "NEWSAPI_KEY": "NewsAPI.org news pipeline",
-    "FRED_API_KEY": "FRED macro data (GDP, CPI, VIX, GPR)",
-    "NOAA_CDO_TOKEN": "NOAA Climate Data Online — weather/climate features",
-    "ANTHROPIC_API_KEY": "Anthropic Claude — news_rag summarization",
+    "ASSEMBLED_FINNHUB_API_KEY": "Finnhub news/earnings data (degrades to zero-fill if missing)",  # pragma: allowlist secret
+    "FINNHUB_API_KEY": "Finnhub key (alternate name used in some scripts)",  # pragma: allowlist secret
+    "ALPHAVANTAGE_KEY": "Alpha Vantage daily OHLCV (degrades to zero-fill if missing)",  # pragma: allowlist secret
+    "ALPHAVANTAGE_API_KEY": "Alpha Vantage key (alternate name used in some scripts)",  # pragma: allowlist secret
+    "ASSEMBLED_TWELVE_DATA_API_KEY": "Twelve Data price feed fallback",  # pragma: allowlist secret
+    "POLYGON_API_KEY": "Polygon.io price and news data",  # pragma: allowlist secret
+    "NEWSAPI_KEY": "NewsAPI.org news pipeline",  # pragma: allowlist secret
+    "FRED_API_KEY": "FRED macro data (GDP, CPI, VIX, GPR)",  # pragma: allowlist secret
+    "NOAA_CDO_TOKEN": "NOAA Climate Data Online — weather/climate features",  # pragma: allowlist secret
+    "ANTHROPIC_API_KEY": "Anthropic Claude — news_rag summarization",  # pragma: allowlist secret
     # Monitoring / alerting
     "SENTRY_DSN": "Sentry error tracking",
     "DISCORD_WEBHOOK_URL": "Discord trade/alert notifications",
     "DISCORD_WEBHOOK": "Discord webhook (alternate name)",
-    "TELEGRAM_BOT_TOKEN": "Telegram alert bot token",
+    "TELEGRAM_BOT_TOKEN": "Telegram alert bot token",  # pragma: allowlist secret
     "TELEGRAM_CHAT_ID": "Telegram target chat/channel ID",
     "ALERT_EMAIL_TO": "Alert email recipient",
     "SMTP_HOST": "SMTP server host for email alerts",
-    "SMTP_USER": "SMTP username",
-    "SMTP_PASS": "SMTP password",
+    "SMTP_USER": "SMTP username",  # pragma: allowlist secret
+    "SMTP_PASS": "SMTP password",  # pragma: allowlist secret
     "MLFLOW_TRACKING_URI": "MLflow tracking server URI",
     # Infrastructure
     "QUESTDB_HOST": "QuestDB host (tick store)",
     "QUESTDB_PORT": "QuestDB port",
-    "QUESTDB_USER": "QuestDB username",
-    "QUESTDB_PASS": "QuestDB password",
+    "QUESTDB_USER": "QuestDB username",  # pragma: allowlist secret
+    "QUESTDB_PASS": "QuestDB password",  # pragma: allowlist secret
     "QUESTDB_DB": "QuestDB database name",
     "REDIS_URL": "Redis URL — EventBus side-channel and cache",
     # System / runtime
