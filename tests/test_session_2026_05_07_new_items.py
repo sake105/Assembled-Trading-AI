@@ -4697,6 +4697,8 @@ class TestCPCVValidation:
     def test_cpcv_produces_valid_score(self):
         import numpy as np
         import pandas as pd
+
+        pytest.importorskip("sklearn")
         from sklearn.linear_model import LogisticRegression
         from src.assembled_core.qa.cpcv_validation import combinatorial_purged_cv
 
@@ -5060,6 +5062,7 @@ class TestModelRegistryVersioning:
     """Item 24/73/74: ModelRegistry tracks version, path, and hash for auditability."""
 
     def _make_model(self):
+        pytest.importorskip("sklearn")
         from sklearn.linear_model import LogisticRegression
 
         return LogisticRegression()
