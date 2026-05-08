@@ -37,6 +37,7 @@ tmp_*.py
 # Secrets & Environment Variables
 .env
 .env.*
+!.env.example
 *.env
 .env.local
 .env.dev
