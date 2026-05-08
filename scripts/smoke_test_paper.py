@@ -26,7 +26,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 log = logging.getLogger(__name__)
 
 CHECKS = {
@@ -41,13 +43,19 @@ CHECKS = {
 def check_news_triggers(triggers_path: Path) -> tuple[bool, str]:
     try:
         from src.assembled_core.intel.news_triggers_loader import load_news_triggers
+
         snap = load_news_triggers(triggers_path)
         if triggers_path.exists():
-            log.info("[SMOKE-1] News triggers: loaded %d triggers, max_sev=%d",
-                     len(snap.triggers), snap.summary.get("max_severity", 0))
+            log.info(
+                "[SMOKE-1] News triggers: loaded %d triggers, max_sev=%d",
+                len(snap.triggers),
+                snap.summary.get("max_severity", 0),
+            )
             return True, f"{len(snap.triggers)} triggers loaded"
         else:
-            log.info("[SMOKE-1] News triggers: file not found — empty snapshot (non-fatal)")
+            log.info(
+                "[SMOKE-1] News triggers: file not found — empty snapshot (non-fatal)"
+            )
             return True, "no trigger file — empty snapshot OK"
     except Exception as exc:
         return False, f"load_news_triggers failed: {exc}"
@@ -56,30 +64,39 @@ def check_news_triggers(triggers_path: Path) -> tuple[bool, str]:
 def check_edcl_conviction(policy: dict) -> tuple[bool, str]:
     try:
         from scripts.validate_edcl_conviction import run_validation
-        result = run_validation.__wrapped__(policy) if hasattr(run_validation, '__wrapped__') else None
+
+        result = (
+            run_validation.__wrapped__(policy)
+            if hasattr(run_validation, "__wrapped__")
+            else None
+        )
     except Exception:
         result = None
 
     if result is None:
         try:
             import importlib.util
+
             spec = importlib.util.spec_from_file_location(
                 "validate_edcl", str(ROOT / "scripts" / "validate_edcl_conviction.py")
             )
-            mod = importlib.util.load_from_spec(spec)  # type: ignore
+            importlib.util.load_from_spec(spec)  # type: ignore
         except Exception:
             pass
 
     # Run inline simulation
     try:
         from scripts.validate_edcl_conviction import run_validation
+
         result = run_validation(output_path=None)
         firing_rate = result.get("firing_rate_above_threshold", 0)
         verdict = result.get("verdict", "FAIL")
-        log.info("[SMOKE-2] EDCL firing rate: %.1f%% (threshold: conviction≥%.2f) — %s",
-                 firing_rate,
-                 result.get("conviction_threshold", 0.70),
-                 verdict)
+        log.info(
+            "[SMOKE-2] EDCL firing rate: %.1f%% (threshold: conviction≥%.2f) — %s",
+            firing_rate,
+            result.get("conviction_threshold", 0.70),
+            verdict,
+        )
         return verdict != "FAIL", f"firing_rate={firing_rate:.1f}% verdict={verdict}"
     except Exception as exc:
         log.warning("[SMOKE-2] EDCL validation error: %s", exc)
@@ -88,14 +105,22 @@ def check_edcl_conviction(policy: dict) -> tuple[bool, str]:
 
 def check_ml_features(price_file: str | None) -> tuple[bool, str]:
     try:
-        pf = Path(price_file) if price_file else ROOT / "data" / "sample" / "watchlist_2007_2026.parquet"
+        pf = (
+            Path(price_file)
+            if price_file
+            else ROOT / "data" / "sample" / "watchlist_2007_2026.parquet"
+        )
         if not pf.exists():
             pf = next((ROOT / "data").rglob("*.parquet"), None)
         if pf is None:
             return True, "no panel file found — skipped"
 
         df = pd.read_parquet(pf).tail(500)
-        ml_cols = [c for c in df.columns if any(x in c for x in ["rsi", "ema", "momentum", "vix", "slope"])]
+        ml_cols = [
+            c
+            for c in df.columns
+            if any(x in c for x in ["rsi", "ema", "momentum", "vix", "slope"])
+        ]
         if not ml_cols:
             return True, "no ML feature columns in panel — skipped"
 
@@ -105,8 +130,12 @@ def check_ml_features(price_file: str | None) -> tuple[bool, str]:
         total_inf = int(inf_counts.sum())
         nan_rate = total_nan / max(len(df) * len(ml_cols), 1)
 
-        log.info("[SMOKE-3] ML features: %d cols checked, NaN rate=%.1f%%, Inf=%d",
-                 len(ml_cols), nan_rate * 100, total_inf)
+        log.info(
+            "[SMOKE-3] ML features: %d cols checked, NaN rate=%.1f%%, Inf=%d",
+            len(ml_cols),
+            nan_rate * 100,
+            total_inf,
+        )
 
         if total_inf > 0:
             return False, f"{total_inf} Inf values in ML features"
@@ -133,13 +162,19 @@ def check_kill_switch() -> tuple[bool, str]:
         assert not is_kill_switch_engaged(), "Kill switch should be OFF before test"
 
         # Activate with test reason
-        activate_kill_switch(throttle_pct=0.0, reason="smoke_test_injection", actor="smoke_test")
+        activate_kill_switch(
+            throttle_pct=0.0, reason="smoke_test_injection", actor="smoke_test"
+        )
         assert is_kill_switch_engaged(), "Kill switch did not activate"
 
         # Verify orders are blocked
-        dummy_orders = pd.DataFrame({"symbol": ["AAPL", "MSFT"], "qty": [10, -5], "price": [180.0, 400.0]})
+        dummy_orders = pd.DataFrame(
+            {"symbol": ["AAPL", "MSFT"], "qty": [10, -5], "price": [180.0, 400.0]}
+        )
         guarded = guard_orders_with_kill_switch(dummy_orders)
-        assert len(guarded) == 0, f"Kill switch should block all orders, got {len(guarded)}"
+        assert (
+            len(guarded) == 0
+        ), f"Kill switch should block all orders, got {len(guarded)}"
 
         # Deactivate and verify restored
         deactivate_kill_switch()
@@ -172,7 +207,12 @@ def check_position_sizes(policy: dict) -> tuple[bool, str]:
             scores = pd.to_numeric(sigs["score"], errors="coerce")
             n_nan = int(scores.isna().sum())
             n_inf = int(np.isinf(scores.dropna()).sum())
-            log.info("[SMOKE-5] Position scores: %d signals, NaN=%d, Inf=%d", len(sigs), n_nan, n_inf)
+            log.info(
+                "[SMOKE-5] Position scores: %d signals, NaN=%d, Inf=%d",
+                len(sigs),
+                n_nan,
+                n_inf,
+            )
             if n_inf > 0:
                 return False, f"{n_inf} Inf values in signal scores"
             return True, f"{len(sigs)} signals, NaN={n_nan}, Inf={n_inf}"
@@ -194,6 +234,7 @@ def main() -> int:
     policy: dict = {}
     try:
         import yaml
+
         with open(args.policy, encoding="utf-8") as f:
             policy = yaml.safe_load(f) or {}
     except Exception as exc:
@@ -206,9 +247,9 @@ def main() -> int:
 
     checks_and_fns = [
         ("news_triggers_loaded", lambda: check_news_triggers(Path(args.triggers))),
-        ("edcl_firing_rate_ok",  lambda: check_edcl_conviction(policy)),
-        ("ml_features_no_nan",   lambda: check_ml_features(args.price_file)),
-        ("kill_switch_fires",    check_kill_switch),
+        ("edcl_firing_rate_ok", lambda: check_edcl_conviction(policy)),
+        ("ml_features_no_nan", lambda: check_ml_features(args.price_file)),
+        ("kill_switch_fires", check_kill_switch),
         ("position_sizes_valid", lambda: check_position_sizes(policy)),
     ]
 
@@ -227,7 +268,9 @@ def main() -> int:
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps({"verdict": verdict, "checks": results}, indent=2), encoding="utf-8")
+    out_path.write_text(
+        json.dumps({"verdict": verdict, "checks": results}, indent=2), encoding="utf-8"
+    )
     log.info("Report: %s", out_path)
 
     return 0 if all_pass else 1

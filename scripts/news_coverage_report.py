@@ -17,21 +17,43 @@ sys.path.insert(0, str(ROOT))
 import yaml
 
 _ECONOMIC_FOCUSES = {
-    "economic", "financial_economic", "central_bank_policy", "economic_policy",
-    "financial_alternative", "earnings_corporate", "earnings_corporate_filings",
-    "technology_industry", "technology_business", "technology_ai",
-    "technology_semiconductors", "technology_science",
-    "energy_commodities", "energy_renewables", "energy_natural_gas",
-    "energy_statistics", "mining_commodities",
+    "economic",
+    "financial_economic",
+    "central_bank_policy",
+    "economic_policy",
+    "financial_alternative",
+    "earnings_corporate",
+    "earnings_corporate_filings",
+    "technology_industry",
+    "technology_business",
+    "technology_ai",
+    "technology_semiconductors",
+    "technology_science",
+    "energy_commodities",
+    "energy_renewables",
+    "energy_natural_gas",
+    "energy_statistics",
+    "mining_commodities",
 }
 
 _GEO_FOCUSES = {
-    "geopolitical", "geopolitical_alternative", "geopolitical_analysis",
-    "middle_east_geopolitical", "ukraine_russia_conflict", "conflict_military",
-    "asia_geopolitical", "china_geopolitical", "south_asia_geopolitical",
-    "africa_geopolitical", "political", "political_economic",
-    "national_security_legal", "defense_military", "defense_technology",
-    "defense_strategy", "shipping_maritime",
+    "geopolitical",
+    "geopolitical_alternative",
+    "geopolitical_analysis",
+    "middle_east_geopolitical",
+    "ukraine_russia_conflict",
+    "conflict_military",
+    "asia_geopolitical",
+    "china_geopolitical",
+    "south_asia_geopolitical",
+    "africa_geopolitical",
+    "political",
+    "political_economic",
+    "national_security_legal",
+    "defense_military",
+    "defense_technology",
+    "defense_strategy",
+    "shipping_maritime",
 }
 
 
@@ -70,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
 
     enabled_total = len(enabled)
     print(f"\n{'='*50}")
-    print(f"NEWS COVERAGE REPORT")
+    print("NEWS COVERAGE REPORT")
     print(f"{'='*50}")
     print(f"Total feeds registered : {total}")
     print(f"Enabled                : {enabled_total}")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -63,7 +63,9 @@ def predict_quantiles(
 ) -> list[QuantilePrediction]:
     """Return empirical quantile predictions per symbol from historical target_col values."""
     if df is None or df.empty or target_col not in df.columns:
-        logger.debug("[SKIP] predict_quantiles: empty df or missing target_col=%s", target_col)
+        logger.debug(
+            "[SKIP] predict_quantiles: empty df or missing target_col=%s", target_col
+        )
         return []
 
     if "symbol" not in df.columns:
@@ -78,10 +80,16 @@ def predict_quantiles(
         q05, q25, q50, q75, q95 = (
             float(np.nanpercentile(series, p)) for p in (5, 25, 50, 75, 95)
         )
-        results.append(QuantilePrediction(
-            symbol=str(sym),
-            q05=q05, q25=q25, q50=q50, q75=q75, q95=q95,
-        ))
+        results.append(
+            QuantilePrediction(
+                symbol=str(sym),
+                q05=q05,
+                q25=q25,
+                q50=q50,
+                q75=q75,
+                q95=q95,
+            )
+        )
 
     logger.debug("[OK] predict_quantiles: %d symbols processed", len(results))
     return results

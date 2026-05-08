@@ -33,8 +33,29 @@ EVENTS_FILE = ROOT / "output" / "intel" / "news" / "events_latest.json"
 SENTIMENT_OUT = ROOT / "output" / "news_sentiment_rss.parquet"
 
 # Positive/negative keyword scorer (fallback when classifier has no sentiment)
-_POS = {"beat", "growth", "profit", "upgrade", "rally", "soar", "rise", "gain", "approved"}
-_NEG = {"miss", "loss", "fall", "drop", "recall", "probe", "layoff", "cut", "decline", "warn"}
+_POS = {
+    "beat",
+    "growth",
+    "profit",
+    "upgrade",
+    "rally",
+    "soar",
+    "rise",
+    "gain",
+    "approved",
+}
+_NEG = {
+    "miss",
+    "loss",
+    "fall",
+    "drop",
+    "recall",
+    "probe",
+    "layoff",
+    "cut",
+    "decline",
+    "warn",
+}
 
 
 def _keyword_sentiment(text: str) -> float:
@@ -64,6 +85,7 @@ def _classify_and_extract(events: list[dict]) -> list[dict]:
     """Run classifier on events; extract (symbol, published_at, sentiment_score)."""
     try:
         from src.assembled_core.intel.news_classifier import classify_news_event
+
         classifier_available = True
     except ImportError:
         classifier_available = False
@@ -77,7 +99,9 @@ def _classify_and_extract(events: list[dict]) -> list[dict]:
             continue
 
         published_str = (
-            evt.get("published_utc") or evt.get("published_at") or evt.get("fetched_utc", "")
+            evt.get("published_utc")
+            or evt.get("published_at")
+            or evt.get("fetched_utc", "")
         )
         try:
             published_at = datetime.fromisoformat(
@@ -133,7 +157,7 @@ def _classify_and_extract(events: list[dict]) -> list[dict]:
     return results
 
 
-def results_to_daily(results: list[dict]) -> "pd.DataFrame":
+def results_to_daily(results: list[dict]) -> "pd.DataFrame":  # noqa: F821
     import pandas as pd
 
     if not results:
@@ -156,7 +180,9 @@ def results_to_daily(results: list[dict]) -> "pd.DataFrame":
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="RSS events → sentiment parquet bridge")
+    parser = argparse.ArgumentParser(
+        description="RSS events → sentiment parquet bridge"
+    )
     parser.add_argument("--events-file", default=str(EVENTS_FILE))
     parser.add_argument(
         "--also-run-fetch",
@@ -176,7 +202,11 @@ def main(argv: list[str] | None = None) -> int:
             cwd=ROOT,
         )
         if result.returncode != 0:
-            log.warning("[WARN] news worker exited %d: %s", result.returncode, result.stderr[:300])
+            log.warning(
+                "[WARN] news worker exited %d: %s",
+                result.returncode,
+                result.stderr[:300],
+            )
         else:
             log.info("[OK] news worker done")
 
@@ -189,9 +219,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     results = _classify_and_extract(events)
-    log.info("[OK] Extracted %d symbol-article rows from %d events", len(results), len(events))
+    log.info(
+        "[OK] Extracted %d symbol-article rows from %d events",
+        len(results),
+        len(events),
+    )
 
-    import pandas as pd
     daily = results_to_daily(results)
 
     if daily.empty:
@@ -203,7 +236,9 @@ def main(argv: list[str] | None = None) -> int:
     daily.to_parquet(out_path, index=False)
     log.info(
         "[OK] RSS sentiment: %d rows, %d symbols → %s",
-        len(daily), daily["symbol"].nunique(), out_path,
+        len(daily),
+        daily["symbol"].nunique(),
+        out_path,
     )
     return 0
 

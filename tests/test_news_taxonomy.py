@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.intel.news_taxonomy import (
-    CATEGORIES,
     aggregate_categories_by_window,
     categorize_event,
 )
@@ -36,7 +34,9 @@ class TestCategorizeEvent:
 
     def test_voting_majority_financial(self):
         # 2 financial + 1 military → FINANZEN
-        result = categorize_event(event_types=["banking_crisis", "rate_surprise", "war_escalation"])
+        result = categorize_event(
+            event_types=["banking_crisis", "rate_surprise", "war_escalation"]
+        )
         assert result == "FINANZEN"
 
     def test_voting_single_label(self):
@@ -88,11 +88,20 @@ class TestAggregateCategories:
 
     def test_unique_date_symbol_pairs(self):
         result = aggregate_categories_by_window(self._make_events())
-        assert len(result) == 3  # (2026-05-01, AAPL), (2026-05-01, NVDA), (2026-05-02, AAPL)
+        assert (
+            len(result) == 3
+        )  # (2026-05-01, AAPL), (2026-05-01, NVDA), (2026-05-02, AAPL)
 
     def test_category_columns_present(self):
         result = aggregate_categories_by_window(self._make_events())
-        for cat in ["finanzen", "konflikte", "geopolitik", "rohstoffe", "technologie", "politik"]:
+        for cat in [
+            "finanzen",
+            "konflikte",
+            "geopolitik",
+            "rohstoffe",
+            "technologie",
+            "politik",
+        ]:
             col = f"news_count_{cat}_24h"
             assert col in result.columns, f"Missing column: {col}"
 

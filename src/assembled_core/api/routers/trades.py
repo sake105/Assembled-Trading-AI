@@ -4,7 +4,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
-from src.assembled_core.api.models import TradeExplanationResponse, TradeJournalEntry, TradeJournalResponse
+from src.assembled_core.api.models import (
+    TradeExplanationResponse,
+    TradeJournalEntry,
+    TradeJournalResponse,
+)
 from src.assembled_core.logging_utils import get_logger
 
 router = APIRouter()
@@ -21,11 +25,14 @@ def get_trade_journal(
     """Load trade journal entries with optional pagination and filtering."""
     try:
         from src.assembled_core.ops.trade_journal import load_trade_journal
+
         entries_raw = load_trade_journal(days=days)
 
         if symbol:
             sym_upper = symbol.upper()
-            entries_raw = [e for e in entries_raw if e.get("symbol", "").upper() == sym_upper]
+            entries_raw = [
+                e for e in entries_raw if e.get("symbol", "").upper() == sym_upper
+            ]
 
         total = len(entries_raw)
         page = entries_raw[offset : offset + limit]
@@ -33,25 +40,37 @@ def get_trade_journal(
         entries = []
         for raw in page:
             known = {
-                "trade_id", "timestamp_utc", "symbol", "side", "qty",
-                "fill_price", "notional", "signal_score", "signal_reason", "run_id",
+                "trade_id",
+                "timestamp_utc",
+                "symbol",
+                "side",
+                "qty",
+                "fill_price",
+                "notional",
+                "signal_score",
+                "signal_reason",
+                "run_id",
             }
             extra = {k: v for k, v in raw.items() if k not in known}
-            entries.append(TradeJournalEntry(
-                trade_id=raw.get("trade_id"),
-                timestamp_utc=raw.get("timestamp_utc"),
-                symbol=raw.get("symbol"),
-                side=raw.get("side"),
-                qty=raw.get("qty"),
-                fill_price=raw.get("fill_price"),
-                notional=raw.get("notional"),
-                signal_score=raw.get("signal_score"),
-                signal_reason=raw.get("signal_reason"),
-                run_id=raw.get("run_id"),
-                extra=extra,
-            ))
+            entries.append(
+                TradeJournalEntry(
+                    trade_id=raw.get("trade_id"),
+                    timestamp_utc=raw.get("timestamp_utc"),
+                    symbol=raw.get("symbol"),
+                    side=raw.get("side"),
+                    qty=raw.get("qty"),
+                    fill_price=raw.get("fill_price"),
+                    notional=raw.get("notional"),
+                    signal_score=raw.get("signal_score"),
+                    signal_reason=raw.get("signal_reason"),
+                    run_id=raw.get("run_id"),
+                    extra=extra,
+                )
+            )
 
-        return TradeJournalResponse(total=total, limit=limit, offset=offset, entries=entries)
+        return TradeJournalResponse(
+            total=total, limit=limit, offset=offset, entries=entries
+        )
 
     except HTTPException:
         raise
@@ -65,7 +84,6 @@ def get_trade_explanation(trade_id: str) -> TradeExplanationResponse:
     """Return factor attribution and reasoning for a specific trade."""
     try:
         from src.assembled_core.ops.trade_journal import load_trade_journal
-        from pathlib import Path
         import json
 
         # Search in trade_journal (JSONL) first
@@ -75,11 +93,17 @@ def get_trade_explanation(trade_id: str) -> TradeExplanationResponse:
         if match is None:
             # Also search journal JSONL files in output/
             from src.assembled_core.config import OUTPUT_DIR
-            for jf in sorted((OUTPUT_DIR / "trade_journal").rglob("*.jsonl"), reverse=True):
+
+            for jf in sorted(
+                (OUTPUT_DIR / "trade_journal").rglob("*.jsonl"), reverse=True
+            ):
                 for line in jf.read_text(encoding="utf-8").splitlines():
                     try:
                         e = json.loads(line)
-                        if e.get("trade_id") == trade_id or e.get("order_id") == trade_id:
+                        if (
+                            e.get("trade_id") == trade_id
+                            or e.get("order_id") == trade_id
+                        ):
                             match = e
                             break
                     except Exception:
@@ -108,8 +132,12 @@ def get_trade_explanation(trade_id: str) -> TradeExplanationResponse:
         if match.get("signal_score") is not None:
             lines.append(f"Signal score: {match['signal_score']:.4f}")
 
-        factor_keys = [k for k in match if k.startswith("factor_") or k in (
-            "regime", "risk_state", "exposure_mult", "conviction")]
+        factor_keys = [
+            k
+            for k in match
+            if k.startswith("factor_")
+            or k in ("regime", "risk_state", "exposure_mult", "conviction")
+        ]
         factors = {k: match[k] for k in factor_keys}
 
         return TradeExplanationResponse(

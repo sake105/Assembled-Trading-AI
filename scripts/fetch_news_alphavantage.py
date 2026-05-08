@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(ROOT / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -70,7 +71,9 @@ def fetch_ticker_news(
 
     url = AV_BASE + "?" + urllib.parse.urlencode(params)
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "AssembledTradingAI/1.0"})
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "AssembledTradingAI/1.0"}
+        )
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
@@ -78,7 +81,9 @@ def fetch_ticker_news(
         return []
 
     if "Note" in data or "Information" in data:
-        log.warning("[WARN] AV rate limit hit: %s", data.get("Note") or data.get("Information"))
+        log.warning(
+            "[WARN] AV rate limit hit: %s", data.get("Note") or data.get("Information")
+        )
         return []
 
     articles = data.get("feed", [])
@@ -128,7 +133,7 @@ def fetch_ticker_news(
     return results
 
 
-def articles_to_daily_sentiment(articles: list[dict]) -> "pd.DataFrame":
+def articles_to_daily_sentiment(articles: list[dict]) -> "pd.DataFrame":  # noqa: F821
     """Aggregate article-level sentiment to daily (date, symbol) rows."""
     import pandas as pd
 
@@ -160,7 +165,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tickers", help="Comma-separated tickers")
     parser.add_argument("--universe", help="Path to flat ticker file (one per line)")
     parser.add_argument("--limit", type=int, default=_DEFAULT_LIMIT)
-    parser.add_argument("--days-back", type=int, default=7, help="How many days to look back")
+    parser.add_argument(
+        "--days-back", type=int, default=7, help="How many days to look back"
+    )
     parser.add_argument("--delay", type=float, default=_DELAY_BETWEEN_CALLS)
     args = parser.parse_args(argv)
 
@@ -177,14 +184,17 @@ def main(argv: list[str] | None = None) -> int:
         uni_path = ROOT / args.universe
         if uni_path.exists():
             tickers = [
-                l.strip().upper()
-                for l in uni_path.read_text(encoding="utf-8").splitlines()
-                if l.strip() and not l.startswith("#")
+                ln.strip().upper()
+                for ln in uni_path.read_text(encoding="utf-8").splitlines()
+                if ln.strip() and not ln.startswith("#")
             ]
     else:
         # Default: load master universe
         try:
-            from src.assembled_core.data.master_universe_loader import load_master_universe
+            from src.assembled_core.data.master_universe_loader import (
+                load_master_universe,
+            )
+
             tickers, _ = load_master_universe()
         except Exception:
             tickers = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN"]
@@ -198,10 +208,14 @@ def main(argv: list[str] | None = None) -> int:
     all_articles: list[dict] = []
     total = len(tickers)
 
-    log.info("[START] Alpha Vantage news: %d tickers, %d days back", total, args.days_back)
+    log.info(
+        "[START] Alpha Vantage news: %d tickers, %d days back", total, args.days_back
+    )
 
     for i, ticker in enumerate(tickers, 1):
-        articles = fetch_ticker_news(ticker, api_key, limit=args.limit, time_from=time_from)
+        articles = fetch_ticker_news(
+            ticker, api_key, limit=args.limit, time_from=time_from
+        )
         all_articles.extend(articles)
         log.info("  [%d/%d] %s: %d articles", i, total, ticker, len(articles))
         if i < total:
@@ -212,21 +226,24 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # Save raw articles
-    raw_path = OUTPUT_DIR / f"articles_{datetime.now(timezone.utc).strftime('%Y%m%d')}.json"
+    raw_path = (
+        OUTPUT_DIR / f"articles_{datetime.now(timezone.utc).strftime('%Y%m%d')}.json"
+    )
     raw_path.write_text(
         json.dumps(all_articles, indent=2, default=str), encoding="utf-8"
     )
     log.info("[OK] Raw articles: %d → %s", len(all_articles), raw_path)
 
     # Save daily sentiment parquet
-    import pandas as pd
     daily = articles_to_daily_sentiment(all_articles)
     if not daily.empty:
         SENTIMENT_OUT.parent.mkdir(parents=True, exist_ok=True)
         daily.to_parquet(SENTIMENT_OUT, index=False)
         log.info(
             "[OK] Daily sentiment: %d rows, %d symbols → %s",
-            len(daily), daily["symbol"].nunique(), SENTIMENT_OUT,
+            len(daily),
+            daily["symbol"].nunique(),
+            SENTIMENT_OUT,
         )
 
     return 0

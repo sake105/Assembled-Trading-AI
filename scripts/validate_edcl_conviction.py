@@ -22,35 +22,164 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 log = logging.getLogger(__name__)
 
 CONVICTION_BINS = [0.0, 0.10, 0.30, 0.50, 0.70, 0.90, 1.01]
-BIN_LABELS = ["[0.0,0.1)", "[0.1,0.3)", "[0.3,0.5)", "[0.5,0.7)", "[0.7,0.9)", "[0.9,1.0]"]
+BIN_LABELS = [
+    "[0.0,0.1)",
+    "[0.1,0.3)",
+    "[0.3,0.5)",
+    "[0.5,0.7)",
+    "[0.7,0.9)",
+    "[0.9,1.0]",
+]
 
 SYNTHETIC_EVENTS = [
     # SVB March 2023
-    {"severity": 2, "source": "news", "n_triggers": 2, "n_high_conviction": 1, "base_conviction": 0.45},
-    {"severity": 1, "source": "gdelt", "n_triggers": 1, "n_high_conviction": 0, "base_conviction": 0.20},
-    {"severity": 3, "source": "news", "n_triggers": 3, "n_high_conviction": 2, "base_conviction": 0.72},
-    {"severity": 1, "source": "news", "n_triggers": 1, "n_high_conviction": 0, "base_conviction": 0.15},
-    {"severity": 2, "source": "gdelt", "n_triggers": 2, "n_high_conviction": 1, "base_conviction": 0.38},
-    {"severity": 0, "source": "news", "n_triggers": 0, "n_high_conviction": 0, "base_conviction": 0.00},
-    {"severity": 0, "source": "news", "n_triggers": 0, "n_high_conviction": 0, "base_conviction": 0.00},
-    {"severity": 1, "source": "news", "n_triggers": 1, "n_high_conviction": 0, "base_conviction": 0.12},
-    {"severity": 3, "source": "news", "n_triggers": 4, "n_high_conviction": 3, "base_conviction": 0.85},
-    {"severity": 2, "source": "gdelt", "n_triggers": 2, "n_high_conviction": 1, "base_conviction": 0.41},
+    {
+        "severity": 2,
+        "source": "news",
+        "n_triggers": 2,
+        "n_high_conviction": 1,
+        "base_conviction": 0.45,
+    },
+    {
+        "severity": 1,
+        "source": "gdelt",
+        "n_triggers": 1,
+        "n_high_conviction": 0,
+        "base_conviction": 0.20,
+    },
+    {
+        "severity": 3,
+        "source": "news",
+        "n_triggers": 3,
+        "n_high_conviction": 2,
+        "base_conviction": 0.72,
+    },
+    {
+        "severity": 1,
+        "source": "news",
+        "n_triggers": 1,
+        "n_high_conviction": 0,
+        "base_conviction": 0.15,
+    },
+    {
+        "severity": 2,
+        "source": "gdelt",
+        "n_triggers": 2,
+        "n_high_conviction": 1,
+        "base_conviction": 0.38,
+    },
+    {
+        "severity": 0,
+        "source": "news",
+        "n_triggers": 0,
+        "n_high_conviction": 0,
+        "base_conviction": 0.00,
+    },
+    {
+        "severity": 0,
+        "source": "news",
+        "n_triggers": 0,
+        "n_high_conviction": 0,
+        "base_conviction": 0.00,
+    },
+    {
+        "severity": 1,
+        "source": "news",
+        "n_triggers": 1,
+        "n_high_conviction": 0,
+        "base_conviction": 0.12,
+    },
+    {
+        "severity": 3,
+        "source": "news",
+        "n_triggers": 4,
+        "n_high_conviction": 3,
+        "base_conviction": 0.85,
+    },
+    {
+        "severity": 2,
+        "source": "gdelt",
+        "n_triggers": 2,
+        "n_high_conviction": 1,
+        "base_conviction": 0.41,
+    },
     # Inflation / rate-hike 2022
-    {"severity": 1, "source": "macro", "n_triggers": 1, "n_high_conviction": 0, "base_conviction": 0.18},
-    {"severity": 1, "source": "macro", "n_triggers": 1, "n_high_conviction": 0, "base_conviction": 0.22},
-    {"severity": 2, "source": "macro", "n_triggers": 2, "n_high_conviction": 0, "base_conviction": 0.31},
-    {"severity": 0, "source": "macro", "n_triggers": 0, "n_high_conviction": 0, "base_conviction": 0.00},
-    {"severity": 0, "source": "macro", "n_triggers": 0, "n_high_conviction": 0, "base_conviction": 0.00},
-    {"severity": 2, "source": "macro", "n_triggers": 2, "n_high_conviction": 1, "base_conviction": 0.44},
-    {"severity": 1, "source": "news", "n_triggers": 1, "n_high_conviction": 0, "base_conviction": 0.09},
-    {"severity": 1, "source": "news", "n_triggers": 1, "n_high_conviction": 0, "base_conviction": 0.17},
-    {"severity": 3, "source": "news", "n_triggers": 3, "n_high_conviction": 2, "base_conviction": 0.68},
-    {"severity": 0, "source": "news", "n_triggers": 0, "n_high_conviction": 0, "base_conviction": 0.00},
+    {
+        "severity": 1,
+        "source": "macro",
+        "n_triggers": 1,
+        "n_high_conviction": 0,
+        "base_conviction": 0.18,
+    },
+    {
+        "severity": 1,
+        "source": "macro",
+        "n_triggers": 1,
+        "n_high_conviction": 0,
+        "base_conviction": 0.22,
+    },
+    {
+        "severity": 2,
+        "source": "macro",
+        "n_triggers": 2,
+        "n_high_conviction": 0,
+        "base_conviction": 0.31,
+    },
+    {
+        "severity": 0,
+        "source": "macro",
+        "n_triggers": 0,
+        "n_high_conviction": 0,
+        "base_conviction": 0.00,
+    },
+    {
+        "severity": 0,
+        "source": "macro",
+        "n_triggers": 0,
+        "n_high_conviction": 0,
+        "base_conviction": 0.00,
+    },
+    {
+        "severity": 2,
+        "source": "macro",
+        "n_triggers": 2,
+        "n_high_conviction": 1,
+        "base_conviction": 0.44,
+    },
+    {
+        "severity": 1,
+        "source": "news",
+        "n_triggers": 1,
+        "n_high_conviction": 0,
+        "base_conviction": 0.09,
+    },
+    {
+        "severity": 1,
+        "source": "news",
+        "n_triggers": 1,
+        "n_high_conviction": 0,
+        "base_conviction": 0.17,
+    },
+    {
+        "severity": 3,
+        "source": "news",
+        "n_triggers": 3,
+        "n_high_conviction": 2,
+        "base_conviction": 0.68,
+    },
+    {
+        "severity": 0,
+        "source": "news",
+        "n_triggers": 0,
+        "n_high_conviction": 0,
+        "base_conviction": 0.00,
+    },
 ]
 
 
@@ -92,10 +221,13 @@ def _try_live_conviction(event: dict, policy: dict) -> float | None:
         return None
 
 
-def run_validation(policy_path: str = "configs/policy.yaml", output_path: str | None = None) -> dict:
+def run_validation(
+    policy_path: str = "configs/policy.yaml", output_path: str | None = None
+) -> dict:
     policy: dict = {}
     try:
         import yaml
+
         with open(policy_path, encoding="utf-8") as f:
             policy = yaml.safe_load(f) or {}
     except Exception as exc:
@@ -115,7 +247,12 @@ def run_validation(policy_path: str = "configs/policy.yaml", output_path: str | 
         else:
             score = _simulate_conviction(event, policy)
         scores.append(score)
-        log.debug("Event %02d: base=%.2f → conviction=%.3f", i, event.get("base_conviction", 0), score)
+        log.debug(
+            "Event %02d: base=%.2f → conviction=%.3f",
+            i,
+            event.get("base_conviction", 0),
+            score,
+        )
 
     scores_arr = np.array(scores)
     counts, _ = np.histogram(scores_arr, bins=CONVICTION_BINS)
@@ -128,29 +265,41 @@ def run_validation(policy_path: str = "configs/policy.yaml", output_path: str | 
         bar = "#" * int(pct / 2)
         log.info("  %-15s %3d events (%5.1f%%) %s", label, count, pct, bar)
 
-    pct_low    = float((scores_arr < 0.30).sum()) / total * 100
-    pct_mid    = float(((scores_arr >= 0.30) & (scores_arr < 0.70)).sum()) / total * 100
-    pct_high   = float((scores_arr >= 0.70).sum()) / total * 100
-    above_thr  = float((scores_arr >= conviction_threshold).sum()) / total * 100
+    pct_low = float((scores_arr < 0.30).sum()) / total * 100
+    pct_mid = float(((scores_arr >= 0.30) & (scores_arr < 0.70)).sum()) / total * 100
+    pct_high = float((scores_arr >= 0.70).sum()) / total * 100
+    above_thr = float((scores_arr >= conviction_threshold).sum()) / total * 100
 
     log.info("")
     log.info("  Low  (< 0.30):       %5.1f%%  (expected ≥ 70%%)", pct_low)
     log.info("  Mid  (0.30–0.69):    %5.1f%%  (expected 15–25%%)", pct_mid)
     log.info("  High (≥ 0.70):       %5.1f%%  (expected ≤ 10%%)", pct_high)
-    log.info("  Above threshold %.2f: %5.1f%%  (firing rate)", conviction_threshold, above_thr)
-    log.info("  Engine: %s", "live conviction_engine" if live_used else "simulation fallback")
+    log.info(
+        "  Above threshold %.2f: %5.1f%%  (firing rate)",
+        conviction_threshold,
+        above_thr,
+    )
+    log.info(
+        "  Engine: %s", "live conviction_engine" if live_used else "simulation fallback"
+    )
 
     # Verdict
     verdict = "PASS"
     warnings = []
     if pct_low < 60:
-        warnings.append(f"Too many mid/high scores — pct_low={pct_low:.1f}% < 60% → EDCL fires too often → recalibrate base conviction")
+        warnings.append(
+            f"Too many mid/high scores — pct_low={pct_low:.1f}% < 60% → EDCL fires too often → recalibrate base conviction"
+        )
         verdict = "WARN"
     if pct_high > 20:
-        warnings.append(f"Too many high-conviction events — pct_high={pct_high:.1f}% > 20% → reduce corroboration bonus or raise threshold")
+        warnings.append(
+            f"Too many high-conviction events — pct_high={pct_high:.1f}% > 20% → reduce corroboration bonus or raise threshold"
+        )
         verdict = "WARN"
     if above_thr > 15:
-        warnings.append(f"Firing rate {above_thr:.1f}% > 15% — EDCL would be too aggressive in paper pilot → raise conviction_threshold")
+        warnings.append(
+            f"Firing rate {above_thr:.1f}% > 15% — EDCL would be too aggressive in paper pilot → raise conviction_threshold"
+        )
         verdict = "FAIL"
 
     log.info("")
@@ -167,7 +316,7 @@ def run_validation(policy_path: str = "configs/policy.yaml", output_path: str | 
         "pct_high": round(pct_high, 1),
         "firing_rate_above_threshold": round(above_thr, 1),
         "conviction_threshold": conviction_threshold,
-        "histogram": {l: int(c) for l, c in zip(BIN_LABELS, counts)},
+        "histogram": {lb: int(c) for lb, c in zip(BIN_LABELS, counts)},
         "verdict": verdict,
         "warnings": warnings,
     }
@@ -182,7 +331,9 @@ def run_validation(policy_path: str = "configs/policy.yaml", output_path: str | 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate EDCL conviction score distribution")
+    parser = argparse.ArgumentParser(
+        description="Validate EDCL conviction score distribution"
+    )
     parser.add_argument("--policy", default="configs/policy.yaml")
     parser.add_argument("--out", default="output/edcl_conviction_validation.json")
     args = parser.parse_args()

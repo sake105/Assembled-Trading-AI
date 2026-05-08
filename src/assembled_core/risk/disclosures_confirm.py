@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ def apply_disclosures_confirm(ctx: object, policy: dict) -> None:
         max_confidence: float — ceiling for geo_confidence after boost
     """
     try:
-        cfg = (policy.get("disclosures_confirm") or {})
+        cfg = policy.get("disclosures_confirm") or {}
         if not cfg.get("enabled", False):
             return
 
@@ -52,7 +51,9 @@ def apply_disclosures_confirm(ctx: object, policy: dict) -> None:
             # Path 2: read from file
 
             if not _DISCLOSURES_PATH.exists():
-                logger.debug("[SKIP] disclosures_confirm: %s not found", _DISCLOSURES_PATH)
+                logger.debug(
+                    "[SKIP] disclosures_confirm: %s not found", _DISCLOSURES_PATH
+                )
                 return
             try:
                 with open(_DISCLOSURES_PATH, "r", encoding="utf-8") as fh:
@@ -63,7 +64,9 @@ def apply_disclosures_confirm(ctx: object, policy: dict) -> None:
 
             universe = getattr(ctx, "universe", []) or []
             universe_set = set(universe)
-            disclosures = data if isinstance(data, list) else data.get("disclosures", [])
+            disclosures = (
+                data if isinstance(data, list) else data.get("disclosures", [])
+            )
             for item in disclosures:
                 try:
                     sym = item.get("symbol") or item.get("ticker", "")
@@ -89,7 +92,9 @@ def apply_disclosures_confirm(ctx: object, policy: dict) -> None:
             }
             logger.debug(
                 "[OK] disclosures_confirm: geo_confidence %.2f → %.2f (sev=%d)",
-                old_conf, new_conf, max_severity,
+                old_conf,
+                new_conf,
+                max_severity,
             )
 
         ctx.disclosures_confirmed = True  # type: ignore[attr-defined]

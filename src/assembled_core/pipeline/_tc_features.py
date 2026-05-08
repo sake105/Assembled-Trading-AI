@@ -142,7 +142,8 @@ def build_features(
     # Skip in backtest mode — historical data is always "stale" by design.
     if ctx.mode in ("eod", "paper", "live") and not pwf.empty:
         try:
-            from datetime import datetime, timedelta, timezone as _tz
+            from datetime import datetime, timezone as _tz
+
             _stale_threshold_h = 8
             _ts_col = "timestamp" if "timestamp" in pwf.columns else None
             if _ts_col:
@@ -488,12 +489,20 @@ def build_features(
         macro_path = macro_cfg.get("path", "output/macro.parquet")
         import pathlib as _pl
 
-        if macro_cfg.get("enabled", True) and _pl.Path(macro_path).exists() and not pwf.empty and "timestamp" in pwf.columns:
-            import numpy as _np
+        if (
+            macro_cfg.get("enabled", True)
+            and _pl.Path(macro_path).exists()
+            and not pwf.empty
+            and "timestamp" in pwf.columns
+        ):
 
             _macro = pd.read_parquet(macro_path)
-            _macro["timestamp"] = pd.to_datetime(_macro["timestamp"], utc=True).dt.normalize()
-            _macro = _macro.sort_values("timestamp").drop_duplicates("timestamp", keep="last")
+            _macro["timestamp"] = pd.to_datetime(
+                _macro["timestamp"], utc=True
+            ).dt.normalize()
+            _macro = _macro.sort_values("timestamp").drop_duplicates(
+                "timestamp", keep="last"
+            )
 
             # Derive intermarket factor columns
             _im = pd.DataFrame({"timestamp": _macro["timestamp"]})
@@ -502,10 +511,9 @@ def build_features(
             if "yield_curve_spread" in _macro.columns:
                 _im["yield_curve_slope"] = _macro["yield_curve_spread"].values
             elif "treasury_10y" in _macro.columns and "treasury_2y" in _macro.columns:
-                _im["yield_curve_slope"] = (
-                    pd.to_numeric(_macro["treasury_10y"], errors="coerce")
-                    - pd.to_numeric(_macro["treasury_2y"], errors="coerce")
-                )
+                _im["yield_curve_slope"] = pd.to_numeric(
+                    _macro["treasury_10y"], errors="coerce"
+                ) - pd.to_numeric(_macro["treasury_2y"], errors="coerce")
 
             # credit_spread_change_5d: 5-day pct-change of hy_spread proxy
             if "hy_spread" in _macro.columns:
@@ -513,14 +521,17 @@ def build_features(
                 _im["credit_spread_change_5d"] = _hy.pct_change(5).fillna(0.0).values
 
             # bond_equity_divergence_flag: bonds up + equities down in last 5 days
-            if "sp500_close" in _macro.columns and "treasury_bond_futures" in _macro.columns:
+            if (
+                "sp500_close" in _macro.columns
+                and "treasury_bond_futures" in _macro.columns
+            ):
                 _sp = pd.to_numeric(_macro["sp500_close"], errors="coerce")
                 _tb = pd.to_numeric(_macro["treasury_bond_futures"], errors="coerce")
                 _sp_ret = _sp.pct_change(5).fillna(0.0)
                 _tb_ret = _tb.pct_change(5).fillna(0.0)
                 _im["bond_equity_divergence_flag"] = (
-                    (_sp_ret < -0.01) & (_tb_ret > 0.01)
-                ).astype(float).values
+                    ((_sp_ret < -0.01) & (_tb_ret > 0.01)).astype(float).values
+                )
 
             # vix: used by VIX cap in multifactor_v2 and options factors
             if "vix" in _macro.columns:
@@ -532,10 +543,14 @@ def build_features(
 
             # Normalize pwf timestamps to date for merge
             _pwf_ts = pd.to_datetime(pwf["timestamp"], utc=True).dt.normalize()
-            _new_cols = [c for c in _im.columns if c != "timestamp" and c not in pwf.columns]
+            _new_cols = [
+                c for c in _im.columns if c != "timestamp" and c not in pwf.columns
+            ]
             if _new_cols:
                 _im_sub = _im[["timestamp"] + _new_cols].copy()
-                _pwf_idx = pd.DataFrame({"timestamp": _pwf_ts, "_row_idx": range(len(pwf))})
+                _pwf_idx = pd.DataFrame(
+                    {"timestamp": _pwf_ts, "_row_idx": range(len(pwf))}
+                )
                 _merged = _pwf_idx.merge(_im_sub, on="timestamp", how="left")
                 for col in _new_cols:
                     if col in _merged.columns:
@@ -543,7 +558,8 @@ def build_features(
                         pwf[col] = _merged[col].values
                 log.debug(
                     "[MACRO-PANEL] merged %d macro cols into panel (%d rows)",
-                    len(_new_cols), len(pwf),
+                    len(_new_cols),
+                    len(pwf),
                 )
     except Exception as e:
         log.debug("[MACRO-PANEL] macro_panel enrichment skipped: %s", e)
@@ -555,6 +571,7 @@ def build_features(
     # ------------------------------------------------------------------
     try:
         import pathlib as _pl
+
         _news_path = _pl.Path("output") / "news_sentiment_daily.parquet"
         if _news_path.exists():
             _ns = pd.read_parquet(_news_path)
@@ -574,7 +591,11 @@ def build_features(
             # Merge per (timestamp, symbol)
             _pwf_ts2 = pd.to_datetime(pwf["timestamp"], utc=True).dt.normalize()
             _pwf_idx2 = pd.DataFrame(
-                {"timestamp": _pwf_ts2, "symbol": pwf["symbol"], "_row_idx2": range(len(pwf))}
+                {
+                    "timestamp": _pwf_ts2,
+                    "symbol": pwf["symbol"],
+                    "_row_idx2": range(len(pwf)),
+                }
             )
             _merged2 = _pwf_idx2.merge(_ns_sub, on=["timestamp", "symbol"], how="left")
             for col in _ns_cols:

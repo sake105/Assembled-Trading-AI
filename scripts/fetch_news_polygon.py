@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(ROOT / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -45,14 +46,48 @@ def _get_api_key() -> str | None:
 
 # Simple keyword-based sentiment scorer for articles without explicit score
 _POSITIVE_WORDS = {
-    "beat", "beats", "surpassed", "record", "growth", "profit", "gain",
-    "upgrade", "bullish", "strong", "rally", "soared", "climbed", "raised",
-    "raised guidance", "partnership", "win", "won", "approved", "breakthrough",
+    "beat",
+    "beats",
+    "surpassed",
+    "record",
+    "growth",
+    "profit",
+    "gain",
+    "upgrade",
+    "bullish",
+    "strong",
+    "rally",
+    "soared",
+    "climbed",
+    "raised",
+    "raised guidance",
+    "partnership",
+    "win",
+    "won",
+    "approved",
+    "breakthrough",
 }
 _NEGATIVE_WORDS = {
-    "miss", "missed", "fell", "slumped", "loss", "losses", "cut", "layoff",
-    "lawsuit", "downgrade", "bearish", "dropped", "declined", "warning",
-    "recall", "probe", "investigation", "default", "bankruptcy", "weak",
+    "miss",
+    "missed",
+    "fell",
+    "slumped",
+    "loss",
+    "losses",
+    "cut",
+    "layoff",
+    "lawsuit",
+    "downgrade",
+    "bearish",
+    "dropped",
+    "declined",
+    "warning",
+    "recall",
+    "probe",
+    "investigation",
+    "default",
+    "bankruptcy",
+    "weak",
 }
 
 
@@ -88,7 +123,9 @@ def fetch_ticker_news(
 
     url = POLYGON_BASE + "?" + urllib.parse.urlencode(params)
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "AssembledTradingAI/1.0"})
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "AssembledTradingAI/1.0"}
+        )
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
@@ -114,9 +151,11 @@ def fetch_ticker_news(
         for insight in insights:
             if insight.get("ticker") == ticker:
                 stype = insight.get("sentiment", "neutral").lower()
-                sentiment_score = {"positive": 0.6, "negative": -0.6, "neutral": 0.0}.get(
-                    stype, 0.0
-                )
+                sentiment_score = {
+                    "positive": 0.6,
+                    "negative": -0.6,
+                    "neutral": 0.0,
+                }.get(stype, 0.0)
                 break
         else:
             # Fallback: keyword scoring on title
@@ -142,7 +181,7 @@ def fetch_ticker_news(
     return results
 
 
-def articles_to_daily_sentiment(articles: list[dict]) -> "pd.DataFrame":
+def articles_to_daily_sentiment(articles: list[dict]) -> "pd.DataFrame":  # noqa: F821
     """Aggregate article-level data to daily (timestamp, symbol) rows."""
     import pandas as pd
 
@@ -183,7 +222,10 @@ def main(argv: list[str] | None = None) -> int:
         tickers = [t.strip().upper() for t in args.tickers.split(",")]
     else:
         try:
-            from src.assembled_core.data.master_universe_loader import load_master_universe
+            from src.assembled_core.data.master_universe_loader import (
+                load_master_universe,
+            )
+
             tickers, _ = load_master_universe()
         except Exception:
             tickers = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN"]
@@ -196,7 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     log.info("[START] Polygon news: %d tickers, %d days back", total, args.days_back)
 
     for i, ticker in enumerate(tickers, 1):
-        articles = fetch_ticker_news(ticker, api_key, limit=args.limit, published_utc_gte=cutoff)
+        articles = fetch_ticker_news(
+            ticker, api_key, limit=args.limit, published_utc_gte=cutoff
+        )
         all_articles.extend(articles)
         if articles:
             log.info("  [%d/%d] %s: %d articles", i, total, ticker, len(articles))
@@ -207,18 +251,23 @@ def main(argv: list[str] | None = None) -> int:
         log.warning("[WARN] No articles fetched")
         return 0
 
-    raw_path = OUTPUT_DIR / f"articles_{datetime.now(timezone.utc).strftime('%Y%m%d')}.json"
-    raw_path.write_text(json.dumps(all_articles, indent=2, default=str), encoding="utf-8")
+    raw_path = (
+        OUTPUT_DIR / f"articles_{datetime.now(timezone.utc).strftime('%Y%m%d')}.json"
+    )
+    raw_path.write_text(
+        json.dumps(all_articles, indent=2, default=str), encoding="utf-8"
+    )
     log.info("[OK] Raw articles: %d → %s", len(all_articles), raw_path)
 
-    import pandas as pd
     daily = articles_to_daily_sentiment(all_articles)
     if not daily.empty:
         SENTIMENT_OUT.parent.mkdir(parents=True, exist_ok=True)
         daily.to_parquet(SENTIMENT_OUT, index=False)
         log.info(
             "[OK] Daily sentiment: %d rows, %d symbols → %s",
-            len(daily), daily["symbol"].nunique(), SENTIMENT_OUT,
+            len(daily),
+            daily["symbol"].nunique(),
+            SENTIMENT_OUT,
         )
 
     return 0

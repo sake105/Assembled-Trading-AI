@@ -86,11 +86,44 @@ GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc"
 _REQUEST_DELAY = 3.0  # seconds between requests
 
 # Positive/negative keywords for artlist mode sentiment scoring
-_POS_WORDS = {"beat", "surge", "growth", "profit", "gain", "upgrade", "rally", "soar",
-               "rise", "approved", "record", "strong", "bullish", "deal", "win"}
-_NEG_WORDS = {"miss", "fall", "slump", "loss", "cut", "layoff", "lawsuit", "downgrade",
-               "drop", "decline", "warn", "recall", "probe", "investigation", "default",
-               "bearish", "weak", "risk", "concern"}
+_POS_WORDS = {
+    "beat",
+    "surge",
+    "growth",
+    "profit",
+    "gain",
+    "upgrade",
+    "rally",
+    "soar",
+    "rise",
+    "approved",
+    "record",
+    "strong",
+    "bullish",
+    "deal",
+    "win",
+}
+_NEG_WORDS = {
+    "miss",
+    "fall",
+    "slump",
+    "loss",
+    "cut",
+    "layoff",
+    "lawsuit",
+    "downgrade",
+    "drop",
+    "decline",
+    "warn",
+    "recall",
+    "probe",
+    "investigation",
+    "default",
+    "bearish",
+    "weak",
+    "risk",
+    "concern",
+}
 
 
 def _keyword_sentiment(text: str) -> float:
@@ -104,6 +137,7 @@ def _keyword_sentiment(text: str) -> float:
 
 def _gdelt_url(query: str, mode: str, start: str, end: str) -> str:
     import urllib.parse
+
     params = {
         "query": query,
         "mode": mode,
@@ -118,6 +152,7 @@ def _gdelt_url(query: str, mode: str, start: str, end: str) -> str:
 def _gdelt_artlist_url(query: str, start: str, end: str, max_records: int = 250) -> str:
     """Article-list API URL — returns article titles + tones, less rate-limited than timeline."""
     import urllib.parse
+
     params = {
         "query": query,
         "mode": "artlist",
@@ -178,7 +213,13 @@ def fetch_gdelt_artlist(
         except Exception:
             continue
 
-        rows.append({"timestamp": ts, "symbol": ticker, "sentiment_score": round(sentiment_score, 4)})
+        rows.append(
+            {
+                "timestamp": ts,
+                "symbol": ticker,
+                "sentiment_score": round(sentiment_score, 4),
+            }
+        )
 
     if not rows:
         return pd.DataFrame()
@@ -194,11 +235,12 @@ def fetch_gdelt_artlist(
         .reset_index()
     )
     daily["sentiment_volume"] = np.log1p(daily["count"]).clip(1, 10).round(2)
-    return daily[["timestamp", "symbol", "sentiment_score", "sentiment_volume", "count"]]
+    return daily[
+        ["timestamp", "symbol", "sentiment_score", "sentiment_volume", "count"]
+    ]
 
 
 def _fetch_json(url: str, timeout: int = 30, max_retries: int = 3) -> dict | None:
-    import http.client
     for attempt in range(max_retries):
         try:
             req = urllib.request.Request(
@@ -274,7 +316,9 @@ def fetch_gdelt_sentiment(
     count_df = df[df.columns.intersection(["timestamp", "symbol", "count"])].copy()
 
     if "tone" in tone_df.columns and "count" in count_df.columns:
-        merged = tone_df.merge(count_df.drop(columns="symbol"), on="timestamp", how="outer")
+        merged = tone_df.merge(
+            count_df.drop(columns="symbol"), on="timestamp", how="outer"
+        )
     elif "tone" in tone_df.columns:
         merged = tone_df.rename(columns={"tone": "tone"})
         merged["count"] = 1.0
@@ -298,7 +342,9 @@ def normalize_sentiment(df: pd.DataFrame) -> pd.DataFrame:
     out["sentiment_score"] = np.tanh(tone_raw / 5.0).round(4)
 
     # sentiment_volume: log-scaled count, clipped to 1..10
-    count_raw = pd.to_numeric(out.get("count", 1), errors="coerce").fillna(1.0).clip(lower=1)
+    count_raw = (
+        pd.to_numeric(out.get("count", 1), errors="coerce").fillna(1.0).clip(lower=1)
+    )
     out["sentiment_volume"] = np.log1p(count_raw).clip(1, 10).round(2)
     out["count"] = count_raw.round(0).astype(int)
 
@@ -359,7 +405,9 @@ def merge_with_existing(
     )
 
     if new_before.empty:
-        log.info("No new rows to prepend — existing data already covers the full range.")
+        log.info(
+            "No new rows to prepend — existing data already covers the full range."
+        )
         return existing
 
     combined = pd.concat([new_before, existing], ignore_index=True)
@@ -428,7 +476,15 @@ def build_price_proxy_sentiment(
                 panel = panel.rename(columns={"date": "timestamp"})
     except Exception as exc:
         log.error("Cannot read panel: %s", exc)
-        return pd.DataFrame(columns=["timestamp", "symbol", "sentiment_score", "sentiment_volume", "count"])
+        return pd.DataFrame(
+            columns=[
+                "timestamp",
+                "symbol",
+                "sentiment_score",
+                "sentiment_volume",
+                "count",
+            ]
+        )
 
     panel["timestamp"] = pd.to_datetime(panel["timestamp"], utc=True)
     start_ts = pd.Timestamp(start_date, tz="UTC")
@@ -439,7 +495,15 @@ def build_price_proxy_sentiment(
         panel = panel[panel["symbol"].isin(sym_set)].copy()
     else:
         log.error("Panel has no 'symbol' column")
-        return pd.DataFrame(columns=["timestamp", "symbol", "sentiment_score", "sentiment_volume", "count"])
+        return pd.DataFrame(
+            columns=[
+                "timestamp",
+                "symbol",
+                "sentiment_score",
+                "sentiment_volume",
+                "count",
+            ]
+        )
 
     rows = []
     for sym, grp in panel.groupby("symbol"):
@@ -460,16 +524,26 @@ def build_price_proxy_sentiment(
         sentiment = np.tanh(grp["_ret"].values / 0.05)  # tanh(ret/5%)
         volume = (1.0 + np.abs(grp["_ret"].values) * 20).clip(1, 10)
         for i, (ts, s, v) in enumerate(zip(grp["timestamp"], sentiment, volume)):
-            rows.append({
-                "timestamp": ts,
-                "symbol": sym,
-                "sentiment_score": round(float(s), 4),
-                "sentiment_volume": round(float(v), 2),
-                "count": 1,
-            })
+            rows.append(
+                {
+                    "timestamp": ts,
+                    "symbol": sym,
+                    "sentiment_score": round(float(s), 4),
+                    "sentiment_volume": round(float(v), 2),
+                    "count": 1,
+                }
+            )
 
     if not rows:
-        return pd.DataFrame(columns=["timestamp", "symbol", "sentiment_score", "sentiment_volume", "count"])
+        return pd.DataFrame(
+            columns=[
+                "timestamp",
+                "symbol",
+                "sentiment_score",
+                "sentiment_volume",
+                "count",
+            ]
+        )
     df = pd.DataFrame(rows)
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     log.info(
@@ -487,9 +561,7 @@ def main() -> None:
     parser.add_argument(
         "--start-date", default="2025-01-01", help="Start date YYYY-MM-DD"
     )
-    parser.add_argument(
-        "--end-date", default="2025-12-21", help="End date YYYY-MM-DD"
-    )
+    parser.add_argument("--end-date", default="2025-12-21", help="End date YYYY-MM-DD")
     parser.add_argument(
         "--output",
         default="output/news_sentiment_daily.parquet",
@@ -569,7 +641,10 @@ def main() -> None:
         mode = getattr(args, "mode", "artlist")
         log.info(
             "Fetching GDELT (%s mode) for %d symbols, %s to %s",
-            mode, len(symbols), args.start_date, args.end_date,
+            mode,
+            len(symbols),
+            args.start_date,
+            args.end_date,
         )
 
         all_frames = []
@@ -578,7 +653,9 @@ def main() -> None:
             try:
                 if mode == "artlist":
                     daily = fetch_gdelt_artlist(
-                        ticker, args.start_date, args.end_date,
+                        ticker,
+                        args.start_date,
+                        args.end_date,
                         max_records=getattr(args, "max_records", 250),
                     )
                     if daily.empty:
@@ -605,7 +682,9 @@ def main() -> None:
         new_df = pd.concat(all_frames, ignore_index=True)
 
         # Save GDELT-only output for fusion
-        gdelt_out = Path(getattr(args, "gdelt_out", "output/news_sentiment_gdelt.parquet"))
+        gdelt_out = Path(
+            getattr(args, "gdelt_out", "output/news_sentiment_gdelt.parquet")
+        )
         gdelt_out.parent.mkdir(parents=True, exist_ok=True)
         new_df.to_parquet(gdelt_out, index=False)
         log.info("[OK] GDELT standalone: %d rows -> %s", len(new_df), gdelt_out)

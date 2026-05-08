@@ -550,7 +550,9 @@ def create_multifactor_v2_signal_fn(strategy_cfg: dict | None = None):
     Returns:
         Callable that takes prices_with_features DataFrame and returns signals.
     """
-    from src.assembled_core.features.ta_features import add_all_features  # noqa: PLC0415
+    from src.assembled_core.features.ta_features import (
+        add_all_features,
+    )  # noqa: PLC0415
     from src.assembled_core.strategies.multifactor_v2 import (  # noqa: PLC0415
         compute_signals,
     )
@@ -2086,7 +2088,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
 
                 _vix_start = getattr(args, "start_date", None) or "2007-01-01"
                 _vix_end = getattr(args, "end_date", None) or None
-                _vix_df = CBOESource().fetch_vix(start_date=_vix_start, end_date=_vix_end)
+                _vix_df = CBOESource().fetch_vix(
+                    start_date=_vix_start, end_date=_vix_end
+                )
                 if not _vix_df.empty and "vix" in _vix_df.columns:
                     _vix_df = _vix_df[["timestamp", "vix"]].copy()
                     _vix_ts = pd.to_datetime(_vix_df["timestamp"])
@@ -2094,13 +2098,19 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                         _vix_ts = _vix_ts.dt.tz_convert(None)
                     _vix_df["_ts_norm"] = _vix_ts.dt.normalize()
                     _vix_df = _vix_df.drop(columns=["timestamp"])
-                    _panel_ts = pd.to_datetime(precomputed_prices_with_features["timestamp"])
+                    _panel_ts = pd.to_datetime(
+                        precomputed_prices_with_features["timestamp"]
+                    )
                     if _panel_ts.dt.tz is not None:
                         _panel_ts = _panel_ts.dt.tz_convert(None)
-                    precomputed_prices_with_features["_ts_norm"] = _panel_ts.dt.normalize()
-                    precomputed_prices_with_features = precomputed_prices_with_features.merge(
-                        _vix_df, on="_ts_norm", how="left"
-                    ).drop(columns=["_ts_norm"])
+                    precomputed_prices_with_features["_ts_norm"] = (
+                        _panel_ts.dt.normalize()
+                    )
+                    precomputed_prices_with_features = (
+                        precomputed_prices_with_features.merge(
+                            _vix_df, on="_ts_norm", how="left"
+                        ).drop(columns=["_ts_norm"])
+                    )
                     logger.info(
                         "[mfv2] VIX joined: %d/%d rows with VIX data",
                         precomputed_prices_with_features["vix"].notna().sum(),
@@ -2132,20 +2142,32 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                         _yc_ts = _yc_ts.dt.tz_convert(None)
                     _yc_df["_ts_norm"] = _yc_ts.dt.normalize()
                     _yc_df = _yc_df.drop(columns=["timestamp"])
-                    _panel_ts = pd.to_datetime(precomputed_prices_with_features["timestamp"])
+                    _panel_ts = pd.to_datetime(
+                        precomputed_prices_with_features["timestamp"]
+                    )
                     if _panel_ts.dt.tz is not None:
                         _panel_ts = _panel_ts.dt.tz_convert(None)
-                    precomputed_prices_with_features["_ts_norm"] = _panel_ts.dt.normalize()
-                    precomputed_prices_with_features = precomputed_prices_with_features.merge(
-                        _yc_df.drop_duplicates("_ts_norm"), on="_ts_norm", how="left"
-                    ).drop(columns=["_ts_norm"])
+                    precomputed_prices_with_features["_ts_norm"] = (
+                        _panel_ts.dt.normalize()
+                    )
+                    precomputed_prices_with_features = (
+                        precomputed_prices_with_features.merge(
+                            _yc_df.drop_duplicates("_ts_norm"),
+                            on="_ts_norm",
+                            how="left",
+                        ).drop(columns=["_ts_norm"])
+                    )
                     logger.info(
                         "[mfv2] Yield-curve joined: %d/%d rows with slope data",
-                        precomputed_prices_with_features["yield_curve_slope"].notna().sum(),
+                        precomputed_prices_with_features["yield_curve_slope"]
+                        .notna()
+                        .sum(),
                         len(precomputed_prices_with_features),
                     )
             except Exception as _e:
-                logger.warning("[mfv2] Yield-curve join failed: %s — no inversion cap", _e)
+                logger.warning(
+                    "[mfv2] Yield-curve join failed: %s — no inversion cap", _e
+                )
 
         # ------------------------------------------------------------------ #
         # Altdata enrichment: earnings surprise + macro regime + news sentiment
@@ -2337,7 +2359,12 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             # the symbol's true first row in the panel — not the (shorter) backtest window.
             # This prevents the PIT filter from zeroing out signals when a historical
             # backtest range starts earlier than the cache was built for.
-            _prices_for_pit = _prices_full_range if "_prices_full_range" in dir() and not _prices_full_range.empty else prices
+            _prices_for_pit = (
+                _prices_full_range  # noqa: F821
+                if "_prices_full_range" in dir()
+                and not _prices_full_range.empty  # noqa: F821
+                else prices
+            )
 
             if _universe_csv.exists():
                 _pit_history = load_universe_history(
@@ -2352,22 +2379,29 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     if pd.notna(_cached_min_start) and _cached_min_start > _bt_start:
                         logger.info(
                             "[PIT] Cache stale (cached start %s > backtest start %s) — rebuilding",
-                            _cached_min_start.date(), _bt_start.date(),
+                            _cached_min_start.date(),
+                            _bt_start.date(),
                         )
-                        _pit_history = build_universe_history_from_prices(_prices_for_pit)
+                        _pit_history = build_universe_history_from_prices(
+                            _prices_for_pit
+                        )
                         store_universe_history(
-                            _pit_history, universe_name=_universe_name,
-                            root=_universe_root, format="csv",
+                            _pit_history,
+                            universe_name=_universe_name,
+                            root=_universe_root,
+                            format="csv",
                         )
                     else:
                         logger.info(
                             "[PIT] Loaded universe history: %s (%d symbols)",
-                            _universe_csv, len(_pit_history),
+                            _universe_csv,
+                            len(_pit_history),
                         )
                 else:
                     logger.info(
                         "[PIT] Loaded universe history: %s (%d symbols)",
-                        _universe_csv, len(_pit_history),
+                        _universe_csv,
+                        len(_pit_history),
                     )
             else:
                 _pit_history = build_universe_history_from_prices(_prices_for_pit)

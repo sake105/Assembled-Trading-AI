@@ -188,6 +188,7 @@ def test_registry_register_and_list(tmp_path):
 
     pytest.importorskip("src.assembled_core.ml.model_registry")
     pytest.importorskip("joblib")
+    pytest.importorskip("sklearn")
     from sklearn.linear_model import Ridge
 
     from src.assembled_core.ml.model_registry import ModelRegistry

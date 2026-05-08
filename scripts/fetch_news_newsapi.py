@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(ROOT / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -39,25 +40,74 @@ _DELAY = 2.0  # 100 calls/day → ~1 per 14 min; but burst is fine
 
 # Ticker → company name for better search queries
 _TICKER_TO_NAME: dict[str, str] = {
-    "AAPL": "Apple", "MSFT": "Microsoft", "NVDA": "NVIDIA", "GOOGL": "Google Alphabet",
-    "META": "Meta Facebook", "AMZN": "Amazon", "TSLA": "Tesla", "AVGO": "Broadcom",
-    "AMD": "AMD Advanced Micro Devices", "QCOM": "Qualcomm", "INTC": "Intel",
-    "ORCL": "Oracle", "CRM": "Salesforce", "NOW": "ServiceNow", "ADBE": "Adobe",
-    "PLTR": "Palantir", "CRWD": "CrowdStrike", "PANW": "Palo Alto Networks",
-    "JPM": "JPMorgan Chase", "BAC": "Bank of America", "GS": "Goldman Sachs",
-    "V": "Visa", "MA": "Mastercard", "LLY": "Eli Lilly", "JNJ": "Johnson Johnson",
-    "XOM": "ExxonMobil", "CVX": "Chevron", "NEE": "NextEra Energy",
-    "LMT": "Lockheed Martin", "RTX": "Raytheon", "NOC": "Northrop Grumman",
-    "SPY": "S&P 500 ETF", "QQQ": "Nasdaq ETF", "GLD": "Gold ETF",
+    "AAPL": "Apple",
+    "MSFT": "Microsoft",
+    "NVDA": "NVIDIA",
+    "GOOGL": "Google Alphabet",
+    "META": "Meta Facebook",
+    "AMZN": "Amazon",
+    "TSLA": "Tesla",
+    "AVGO": "Broadcom",
+    "AMD": "AMD Advanced Micro Devices",
+    "QCOM": "Qualcomm",
+    "INTC": "Intel",
+    "ORCL": "Oracle",
+    "CRM": "Salesforce",
+    "NOW": "ServiceNow",
+    "ADBE": "Adobe",
+    "PLTR": "Palantir",
+    "CRWD": "CrowdStrike",
+    "PANW": "Palo Alto Networks",
+    "JPM": "JPMorgan Chase",
+    "BAC": "Bank of America",
+    "GS": "Goldman Sachs",
+    "V": "Visa",
+    "MA": "Mastercard",
+    "LLY": "Eli Lilly",
+    "JNJ": "Johnson Johnson",
+    "XOM": "ExxonMobil",
+    "CVX": "Chevron",
+    "NEE": "NextEra Energy",
+    "LMT": "Lockheed Martin",
+    "RTX": "Raytheon",
+    "NOC": "Northrop Grumman",
+    "SPY": "S&P 500 ETF",
+    "QQQ": "Nasdaq ETF",
+    "GLD": "Gold ETF",
 }
 
 _POSITIVE_WORDS = {
-    "beat", "surpass", "record", "growth", "profit", "gain", "upgrade",
-    "rally", "soar", "climb", "raise", "approve", "breakthrough", "win",
+    "beat",
+    "surpass",
+    "record",
+    "growth",
+    "profit",
+    "gain",
+    "upgrade",
+    "rally",
+    "soar",
+    "climb",
+    "raise",
+    "approve",
+    "breakthrough",
+    "win",
 }
 _NEGATIVE_WORDS = {
-    "miss", "fall", "slump", "loss", "cut", "layoff", "lawsuit", "downgrade",
-    "drop", "decline", "warn", "recall", "probe", "investigation", "default",
+    "miss",
+    "fall",
+    "slump",
+    "loss",
+    "cut",
+    "layoff",
+    "lawsuit",
+    "downgrade",
+    "drop",
+    "decline",
+    "warn",
+    "recall",
+    "probe",
+    "investigation",
+    "default",
 }
 
 
@@ -83,7 +133,9 @@ def fetch_ticker_news(
     """Search NewsAPI for articles about a ticker/company."""
     company = _TICKER_TO_NAME.get(ticker, ticker)
     query = f'"{ticker}" OR "{company}"'
-    from_dt = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    from_dt = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime(
+        "%Y-%m-%d"
+    )
 
     params = {
         "q": query,
@@ -96,7 +148,9 @@ def fetch_ticker_news(
     url = NEWSAPI_BASE + "?" + urllib.parse.urlencode(params)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "AssembledTradingAI/1.0"})
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "AssembledTradingAI/1.0"}
+        )
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
@@ -134,7 +188,7 @@ def fetch_ticker_news(
     return results
 
 
-def articles_to_daily_sentiment(articles: list[dict]) -> "pd.DataFrame":
+def articles_to_daily_sentiment(articles: list[dict]) -> "pd.DataFrame":  # noqa: F821
     import pandas as pd
 
     if not articles:
@@ -173,7 +227,10 @@ def main(argv: list[str] | None = None) -> int:
         tickers = [t.strip().upper() for t in args.tickers.split(",")]
     else:
         try:
-            from src.assembled_core.data.master_universe_loader import load_master_universe
+            from src.assembled_core.data.master_universe_loader import (
+                load_master_universe,
+            )
+
             tickers, _ = load_master_universe()
             # NewsAPI: 100 calls/day → limit to top 80 by importance
             tickers = tickers[:80]
@@ -186,8 +243,9 @@ def main(argv: list[str] | None = None) -> int:
     log.info("[START] NewsAPI: %d tickers, %d days back", total, args.days_back)
 
     for i, ticker in enumerate(tickers, 1):
-        articles = fetch_ticker_news(ticker, api_key, days_back=args.days_back,
-                                      page_size=args.page_size)
+        articles = fetch_ticker_news(
+            ticker, api_key, days_back=args.days_back, page_size=args.page_size
+        )
         all_articles.extend(articles)
         if articles:
             log.info("  [%d/%d] %s: %d articles", i, total, ticker, len(articles))
@@ -198,17 +256,24 @@ def main(argv: list[str] | None = None) -> int:
         log.warning("[WARN] No articles fetched")
         return 0
 
-    raw_path = OUTPUT_DIR / f"articles_{datetime.now(timezone.utc).strftime('%Y%m%d')}.json"
-    raw_path.write_text(json.dumps(all_articles, indent=2, default=str), encoding="utf-8")
+    raw_path = (
+        OUTPUT_DIR / f"articles_{datetime.now(timezone.utc).strftime('%Y%m%d')}.json"
+    )
+    raw_path.write_text(
+        json.dumps(all_articles, indent=2, default=str), encoding="utf-8"
+    )
     log.info("[OK] %d articles → %s", len(all_articles), raw_path)
 
-    import pandas as pd
     daily = articles_to_daily_sentiment(all_articles)
     if not daily.empty:
         SENTIMENT_OUT.parent.mkdir(parents=True, exist_ok=True)
         daily.to_parquet(SENTIMENT_OUT, index=False)
-        log.info("[OK] Daily sentiment: %d rows, %d symbols → %s",
-                 len(daily), daily["symbol"].nunique(), SENTIMENT_OUT)
+        log.info(
+            "[OK] Daily sentiment: %d rows, %d symbols → %s",
+            len(daily),
+            daily["symbol"].nunique(),
+            SENTIMENT_OUT,
+        )
 
     return 0
 

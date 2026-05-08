@@ -413,9 +413,11 @@ def get_qa_gates(freq: str) -> QAGatesSummaryResponse:
 # Walk-Forward endpoints (V2)
 # ---------------------------------------------------------------------------
 
+
 def _load_latest_walk_forward() -> dict:
     """Load the most recent walk_forward JSON from output/qa/release_gate/."""
     import glob as _glob
+
     pattern = str(OUTPUT_DIR / "qa" / "release_gate" / "walk_forward_*.json")
     files = sorted(_glob.glob(pattern))
     if not files:
@@ -424,7 +426,9 @@ def _load_latest_walk_forward() -> dict:
         return json.load(fh)
 
 
-@router.get("/qa/walk_forward/{freq}/windows", response_model=WalkForwardWindowsResponse)
+@router.get(
+    "/qa/walk_forward/{freq}/windows", response_model=WalkForwardWindowsResponse
+)
 def get_walk_forward_windows(freq: str) -> WalkForwardWindowsResponse:
     """Walk-forward split results: aggregated metrics + per-split summary."""
     try:
@@ -438,10 +442,15 @@ def get_walk_forward_windows(freq: str) -> WalkForwardWindowsResponse:
         # Build synthetic per-split rows from aggregated stats (no per-split storage yet)
         windows: list[WalkForwardWindow] = []
         for i in range(n_splits):
-            windows.append(WalkForwardWindow(split=i + 1, metrics={
-                "sharpe": agg.get("mean_sharpe", 0.0),
-                "total_return": agg.get("mean_total_return", 0.0),
-            }))
+            windows.append(
+                WalkForwardWindow(
+                    split=i + 1,
+                    metrics={
+                        "sharpe": agg.get("mean_sharpe", 0.0),
+                        "total_return": agg.get("mean_total_return", 0.0),
+                    },
+                )
+            )
 
         return WalkForwardWindowsResponse(
             freq=freq,
@@ -456,11 +465,13 @@ def get_walk_forward_windows(freq: str) -> WalkForwardWindowsResponse:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.get("/qa/walk_forward/{freq}/sharpe-distribution", response_model=SharpeDistributionResponse)
+@router.get(
+    "/qa/walk_forward/{freq}/sharpe-distribution",
+    response_model=SharpeDistributionResponse,
+)
 def get_walk_forward_sharpe_distribution(freq: str) -> SharpeDistributionResponse:
     """Walk-forward Sharpe distribution derived from aggregated split stats."""
     try:
-        import numpy as _np
         data = _load_latest_walk_forward()
         wf = data.get("walk_forward", {})
         agg = wf.get("aggregated_metrics", {})
@@ -487,7 +498,10 @@ def get_walk_forward_sharpe_distribution(freq: str) -> SharpeDistributionRespons
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.get("/qa/monte_carlo/{freq}/sharpe-distribution", response_model=SharpeDistributionResponse)
+@router.get(
+    "/qa/monte_carlo/{freq}/sharpe-distribution",
+    response_model=SharpeDistributionResponse,
+)
 def get_monte_carlo_sharpe_distribution(freq: str) -> SharpeDistributionResponse:
     """Monte Carlo Sharpe distribution from permuted trade paths."""
     try:
@@ -497,14 +511,18 @@ def get_monte_carlo_sharpe_distribution(freq: str) -> SharpeDistributionResponse
 
         orders = load_orders(freq=freq)
         if orders.empty or "pnl" not in orders.columns:
-            raise HTTPException(status_code=404, detail="No trade PnL data available for freq")
+            raise HTTPException(
+                status_code=404, detail="No trade PnL data available for freq"
+            )
 
         mc = monte_carlo_trade_paths(orders, n_paths=2000, seed=42)
         sharpes = _np.array(mc.get("sharpe", [0.0]))
         sharpes = sharpes[_np.isfinite(sharpes)]
 
         if len(sharpes) == 0:
-            raise HTTPException(status_code=404, detail="Monte Carlo returned no valid Sharpe values")
+            raise HTTPException(
+                status_code=404, detail="Monte Carlo returned no valid Sharpe values"
+            )
 
         return SharpeDistributionResponse(
             freq=freq,
@@ -531,7 +549,10 @@ def get_stress_tests(freq: str) -> StressTestsResponse:
     try:
         agg_path = OUTPUT_DIR / "stress" / "aggregate.json"
         if not agg_path.exists():
-            raise HTTPException(status_code=404, detail="No stress test results found — run scripts/run_stress_test.py")
+            raise HTTPException(
+                status_code=404,
+                detail="No stress test results found — run scripts/run_stress_test.py",
+            )
 
         with open(agg_path, encoding="utf-8") as fh:
             data = json.load(fh)

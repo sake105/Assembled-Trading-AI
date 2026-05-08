@@ -5,6 +5,7 @@ when 8 threads call update_drawdown_damper() simultaneously.
 
 Item 14 — backlog.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -12,7 +13,6 @@ import math
 import threading
 from typing import Any
 
-import pytest
 
 from src.assembled_core.strategies.multifactor_v2 import (
     reset_dd_damper,
@@ -92,7 +92,9 @@ class TestDDDamperConcurrency:
         assert state["peak_equity"] > 0, "peak_equity must be positive"
 
         # current_equity must be a finite float
-        assert isinstance(state["current_equity"], float), "current_equity must be float"
+        assert isinstance(
+            state["current_equity"], float
+        ), "current_equity must be float"
         assert math.isfinite(state["current_equity"]), "current_equity must be finite"
 
         # damper_active must be bool
@@ -133,9 +135,9 @@ class TestDDDamperConcurrency:
             t.join(timeout=10.0)
 
         state = _mfv2._DD_DAMPER
-        assert state["peak_equity"] >= expected_peak, (
-            f"peak_equity {state['peak_equity']} < expected {expected_peak}"
-        )
+        assert (
+            state["peak_equity"] >= expected_peak
+        ), f"peak_equity {state['peak_equity']} < expected {expected_peak}"
 
     def test_reset_clears_state(self) -> None:
         """reset_dd_damper must restore the initial state regardless of prior calls."""

@@ -46,7 +46,7 @@ _SOURCES: list[tuple[Path, float, str]] = [
 FUSED_OUT = ROOT / "output" / "news_sentiment_fused.parquet"
 
 
-def _load_source(path: Path, label: str) -> "pd.DataFrame | None":
+def _load_source(path: Path, label: str) -> "pd.DataFrame | None":  # noqa: F821
     import pandas as pd
 
     if not path.exists():
@@ -80,10 +80,21 @@ def _load_source(path: Path, label: str) -> "pd.DataFrame | None":
     df["timestamp"] = df["timestamp"].dt.normalize()
     df["symbol"] = df["symbol"].str.upper()
     df["_source"] = label
-    return df[["timestamp", "symbol", "sentiment_score", "sentiment_volume", "count", "_source"]]
+    return df[
+        [
+            "timestamp",
+            "symbol",
+            "sentiment_score",
+            "sentiment_volume",
+            "count",
+            "_source",
+        ]
+    ]
 
 
-def fuse(dry_run: bool = False, out_path: Path = FUSED_OUT) -> "pd.DataFrame":
+def fuse(
+    dry_run: bool = False, out_path: Path = FUSED_OUT
+) -> "pd.DataFrame":  # noqa: F821
     import pandas as pd
 
     frames: list[pd.DataFrame] = []
@@ -92,7 +103,12 @@ def fuse(dry_run: bool = False, out_path: Path = FUSED_OUT) -> "pd.DataFrame":
         if df is not None:
             df["_weight"] = weight
             frames.append(df)
-            log.info("  [loaded] %s: %d rows, %d symbols", label, len(df), df["symbol"].nunique())
+            log.info(
+                "  [loaded] %s: %d rows, %d symbols",
+                label,
+                len(df),
+                df["symbol"].nunique(),
+            )
 
     if not frames:
         log.warning("[WARN] No source files found")
@@ -101,16 +117,22 @@ def fuse(dry_run: bool = False, out_path: Path = FUSED_OUT) -> "pd.DataFrame":
     combined = pd.concat(frames, ignore_index=True)
 
     # Weighted average sentiment per (timestamp, symbol)
-    combined["_weighted_score"] = combined["sentiment_score"] * combined["_weight"] * combined["count"]
+    combined["_weighted_score"] = (
+        combined["sentiment_score"] * combined["_weight"] * combined["count"]
+    )
     combined["_total_weight"] = combined["_weight"] * combined["count"]
 
-    agg = combined.groupby(["timestamp", "symbol"]).agg(
-        _weighted_score_sum=("_weighted_score", "sum"),
-        _total_weight_sum=("_total_weight", "sum"),
-        sentiment_volume=("sentiment_volume", "sum"),
-        count=("count", "sum"),
-        sources=("_source", lambda x: "|".join(sorted(set(x)))),
-    ).reset_index()
+    agg = (
+        combined.groupby(["timestamp", "symbol"])
+        .agg(
+            _weighted_score_sum=("_weighted_score", "sum"),
+            _total_weight_sum=("_total_weight", "sum"),
+            sentiment_volume=("sentiment_volume", "sum"),
+            count=("count", "sum"),
+            sources=("_source", lambda x: "|".join(sorted(set(x)))),
+        )
+        .reset_index()
+    )
 
     agg["sentiment_score"] = (
         agg["_weighted_score_sum"] / agg["_total_weight_sum"].clip(lower=1e-9)
@@ -153,7 +175,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not fused.empty and args.update_primary and not args.dry_run:
         primary = ROOT / "output" / "news_sentiment_daily.parquet"
-        fused.drop(columns=["sources"], errors="ignore").to_parquet(primary, index=False)
+        fused.drop(columns=["sources"], errors="ignore").to_parquet(
+            primary, index=False
+        )
         log.info("[OK] Primary updated → %s (%d rows)", primary, len(fused))
 
     return 0 if not fused.empty else 1

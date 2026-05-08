@@ -45,12 +45,13 @@ def _load_trades(n_days: int = 7) -> list[dict]:
     if not path.exists():
         return []
     import csv
+
     rows = []
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             rows.append(row)
-    cutoff = (datetime.now(timezone.utc).date().toordinal() - n_days)
+    cutoff = datetime.now(timezone.utc).date().toordinal() - n_days
     recent = []
     for r in rows:
         try:
@@ -88,7 +89,8 @@ def main() -> None:
     # Filter pilot rows (broker mode, after pilot start)
     pilot_start_str = manifest.get("started_at", "")[:10]
     pilot_rows = [
-        r for r in rows
+        r
+        for r in rows
         if r.get("execution_mode") == "broker"
         and r.get("cycle_date", "") >= pilot_start_str
     ]
@@ -107,7 +109,9 @@ def main() -> None:
     peak_equity = max(equities) if equities else start_equity
 
     total_return_pct = (current_equity - start_equity) / start_equity * 100
-    current_dd_pct = (current_equity - peak_equity) / peak_equity * 100 if peak_equity > 0 else 0.0
+    current_dd_pct = (
+        (current_equity - peak_equity) / peak_equity * 100 if peak_equity > 0 else 0.0
+    )
 
     days_elapsed = len(set(r.get("cycle_date", "") for r in pilot_rows))
     sharpe_7d = _sharpe_rolling(equities, window=min(7, len(equities) - 1))
@@ -127,7 +131,9 @@ def main() -> None:
     max_dd_limit = hard_stop.get("max_drawdown_pct", -8.0)
     min_sharpe_14d = hard_stop.get("min_sharpe_after_14d", 0.5)
     hard_stop_triggered = current_dd_pct <= max_dd_limit
-    sharpe_warn = days_elapsed >= 14 and sharpe_7d is not None and sharpe_7d < min_sharpe_14d
+    sharpe_warn = (
+        days_elapsed >= 14 and sharpe_7d is not None and sharpe_7d < min_sharpe_14d
+    )
 
     lines: list[str] = [
         f"# Pilot Daily Review - {today}",
@@ -135,8 +141,8 @@ def main() -> None:
         f"**Pilot day:** {days_elapsed}  |  **Start equity:** ${start_equity:,.2f}",
         "",
         "## Equity Summary",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Current equity | **${current_equity:,.2f}** |",
         f"| Total return | **{total_return_pct:+.2f}%** |",
         f"| Peak equity | ${peak_equity:,.2f} |",
@@ -144,8 +150,8 @@ def main() -> None:
         f"| Rolling 7d Sharpe | {f'{sharpe_7d:.2f}' if sharpe_7d is not None else 'N/A (insufficient data)'} |",
         "",
         "## Operations",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Reconcile OK | {ok_count} |",
         f"| Reconcile FAIL | {fail_count} |",
         f"| Crash days | {len(crashed)} |",
@@ -172,8 +178,8 @@ def main() -> None:
     lines += [
         "",
         "## Success Criteria Progress",
-        f"| Criterion | Target | Current | Status |",
-        f"|-----------|--------|---------|--------|",
+        "| Criterion | Target | Current | Status |",
+        "|-----------|--------|---------|--------|",
         f"| CAGR | >={success.get('min_cagr_pct', 20)}% | (needs full period) | - |",
         f"| Sharpe | >={success.get('min_sharpe', 1.5)} | {f'{sharpe_7d:.2f}' if sharpe_7d else '--'} | {'PASS' if sharpe_7d and sharpe_7d >= success.get('min_sharpe', 1.5) else '--'} |",
         f"| MDD | >={success.get('max_mdd_pct', -10)}% | {current_dd_pct:.2f}% | {'PASS' if current_dd_pct > success.get('max_mdd_pct', -10) else 'FAIL'} |",

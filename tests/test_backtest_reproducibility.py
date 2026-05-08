@@ -1,8 +1,8 @@
 """Tests for global random seed reproducibility (backlog item 13 + 75)."""
+
 import random
 
 import numpy as np
-import pytest
 
 from src.assembled_core.utils.random_state import set_global_seed
 
