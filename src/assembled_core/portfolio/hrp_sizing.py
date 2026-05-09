@@ -119,7 +119,7 @@ def apply_hrp_sizing(
         )
         return _fallback_normalized()
 
-    all_symbols = set(score_weights) | set(hrp_raw)
+    all_symbols = set(score_weights)  # restrict to signal-selected symbols only
     blended: dict[str, float] = {}
     for sym in all_symbols:
         hrp_w = hrp_raw.get(sym, 0.0)

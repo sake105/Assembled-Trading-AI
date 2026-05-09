@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 
 import pandas as pd
 
@@ -80,7 +81,7 @@ def apply_splits_for_research_prices(
 
         for split_row in sym_splits.itertuples(index=False):
             ratio = float(split_row.split_ratio)
-            if ratio <= 0:
+            if not math.isfinite(ratio) or ratio <= 0:
                 continue
             # Rows before the split effective date get divided by split_ratio
             pre_split = sym_ts < split_row.effective_date

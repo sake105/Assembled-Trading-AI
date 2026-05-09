@@ -673,7 +673,11 @@ def _ptc_check_cvar(
     if portfolio_cvar >= config.max_cvar_95:
         return filtered_orders, orders_with_notional
 
-    cvar_scale = config.max_cvar_95 / portfolio_cvar if portfolio_cvar != 0 else 0.0
+    # portfolio_cvar == 0.0 means no positions (cash-only) → no tail risk → pass through
+    if portfolio_cvar == 0.0:
+        return filtered_orders, orders_with_notional
+
+    cvar_scale = config.max_cvar_95 / portfolio_cvar
     cvar_scale = max(0.0, min(cvar_scale, 1.0))
     if (
         cvar_scale < 1.0

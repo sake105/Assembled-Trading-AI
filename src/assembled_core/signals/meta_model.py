@@ -339,8 +339,10 @@ def train_meta_model(
     sort_col = next((c for c in ("timestamp", "date") if c in df.columns), None)
     if sort_col is not None:
         df = df.sort_values(sort_col).reset_index(drop=True)
-    if not df.index.is_monotonic_increasing:
-        raise RuntimeError("DataFrame index must be monotonic after temporal sort")
+        if not df[sort_col].is_monotonic_increasing:
+            raise RuntimeError(
+                f"DataFrame not sorted by {sort_col} after sort_values()"
+            )
 
     # Extract features and labels
     X = df[feature_cols].copy()
