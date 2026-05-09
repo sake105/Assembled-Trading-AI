@@ -781,10 +781,12 @@ def _pb_run_cycle_fn_loop(
             _px_cache.update(prices_at_ts.set_index("symbol")["close"].to_dict())
         if not current_positions.empty:
             qty_series = current_positions.set_index("symbol")["qty"]
+            # Use last known cached price; skip symbols with no price history entirely
+            # (0.0 would silently understate equity for delisted/missing symbols)
             filled_px = pd.Series(
-                {sym: _px_cache.get(sym, 0.0) for sym in qty_series.index}
+                {sym: _px_cache[sym] for sym in qty_series.index if sym in _px_cache}
             )
-            mtm = float((qty_series * filled_px).sum())
+            mtm = float((qty_series.reindex(filled_px.index) * filled_px).sum())
         else:
             mtm = 0.0
         equity_values.append(cash + float(mtm))

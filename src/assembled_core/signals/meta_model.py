@@ -496,7 +496,11 @@ def load_meta_model(path: str | pathlib.Path) -> MetaModel:
         try:
             from src.assembled_core.ml.model_registry import verify_model_hash
 
-            verify_model_hash(path)
+            if not verify_model_hash(path):
+                logger.warning(
+                    "[meta_model] Hash mismatch for %s — loading anyway (non-strict)",
+                    path.name,
+                )
         except Exception:
             pass
         meta_model = joblib.load(path)

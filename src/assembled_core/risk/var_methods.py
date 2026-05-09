@@ -29,10 +29,13 @@ The module depends only on numpy and pandas — no scipy.
 
 from __future__ import annotations
 
+import logging
 import math
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Hand-table of z_alpha (one-sided, standard normal inverse CDF).
 # Keys are the confidence level alpha in (0, 1).
@@ -78,6 +81,11 @@ def _z_from_alpha(alpha: float) -> float:
         # Mirror around 0.5 for tiny alphas.
         return -_z_from_alpha(1.0 - alpha) if alpha < 0.5 else _Z_TABLE[keys[0]]
     if alpha > keys[-1]:
+        logger.warning(
+            "[var_methods] alpha=%.6f exceeds table max %.3f — clamping z-value (precision loss)",
+            alpha,
+            keys[-1],
+        )
         return _Z_TABLE[keys[-1]]
 
     for i in range(len(keys) - 1):

@@ -97,7 +97,7 @@ def ingest_data(
 
     Real steps included (see 3-criteria rule in module docstring):
       - input validation (raises ValueError on bad ctx)
-      - risk state machine: sets ctx.risk_state (read by check_risk)
+      - risk state machine: sets ctx.risk_state (used by _tc_signals for regime)
       - intel loading: disclosures triggers (ctx.disclosures_triggers),
         crisis state (ctx.crisis_state_intel, ctx.news_geo),
         market stress (ctx.market_stress)

@@ -65,7 +65,7 @@ class PurgedKFold:
         if fold_size == 0:
             return []
 
-        embargo_days = max(self.label_horizon, 1)
+        embargo_days = max(int(self.embargo_pct * fold_size), self.label_horizon, 1)
 
         splits = []
         for k in range(1, self.n_splits + 1):

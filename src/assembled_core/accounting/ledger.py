@@ -200,6 +200,11 @@ def events_from_orders(
         elif row["side"] == "BUY":
             qty = abs(qty)  # BUY is positive
         else:
+            logger.warning(
+                "[ledger] Unrecognized order side=%r for symbol=%s — setting qty=0.0",
+                row["side"],
+                symbol,
+            )
             qty = 0.0
 
         # Normalize price

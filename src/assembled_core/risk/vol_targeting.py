@@ -125,7 +125,13 @@ def compute_vol_targeting_result(
     target_vol = float(vt.get("target_vol_annual", 0.20) or 0.20)
     lookback_days = int(vt.get("lookback_days", 20) or 20)
     min_scale = float(vt.get("min_scale", 0.0) or 0.0)
-    max_scale = float(vt.get("max_scale", 1.5) or 1.5)
+    leverage_allowed = bool(
+        (policy or {}).get("scope", {}).get("leverage_allowed", True)
+    )
+    default_max = 1.5 if leverage_allowed else 1.0
+    max_scale = float(vt.get("max_scale", default_max) or default_max)
+    if not leverage_allowed and max_scale > 1.0:
+        max_scale = 1.0
     annualize_factor = float(vt.get("annualize_factor", 252.0) or 252.0)
     min_observations = int(vt.get("min_observations", 5) or 5)
 
