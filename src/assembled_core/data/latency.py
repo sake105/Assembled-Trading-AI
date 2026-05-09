@@ -181,6 +181,6 @@ def filter_events_as_of(
         filter_col = timestamp_col
 
     col_series = pd.to_datetime(events[filter_col], utc=True)
-    # Normalize as_of to midnight for date-level comparison.
-    as_of_norm = as_of.normalize()
-    return events[col_series.dt.normalize() <= as_of_norm].copy()
+    # Compare directly (no normalization) to preserve intraday PIT safety.
+    # Date-only columns are stored as midnight UTC, so they compare correctly.
+    return events[col_series <= as_of].copy()

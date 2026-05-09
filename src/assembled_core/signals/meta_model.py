@@ -335,6 +335,13 @@ def train_meta_model(
         f"Feature columns: {feature_cols[:10]}{'...' if len(feature_cols) > 10 else ''}"
     )
 
+    # Sort chronologically so train/val split is temporally ordered.
+    sort_col = next((c for c in ("timestamp", "date") if c in df.columns), None)
+    if sort_col is not None:
+        df = df.sort_values(sort_col).reset_index(drop=True)
+    if not df.index.is_monotonic_increasing:
+        raise RuntimeError("DataFrame index must be monotonic after temporal sort")
+
     # Extract features and labels
     X = df[feature_cols].copy()
     y = df[label_col].copy()

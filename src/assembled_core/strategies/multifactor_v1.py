@@ -377,7 +377,7 @@ def compute_target_positions(
             {
                 "symbol": sym,
                 "target_weight": w,
-                "target_qty": available_capital * weights[sym],  # NOTIONAL
+                "target_qty": available_capital * w,  # NOTIONAL (post-cap weight)
             }
         )
 

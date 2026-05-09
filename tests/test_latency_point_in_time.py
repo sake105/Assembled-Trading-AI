@@ -270,8 +270,12 @@ def test_pit_filtering_excludes_before_same_day() -> None:
     )
 
 
-def test_pit_filtering_time_of_day_ignored() -> None:
-    """Test that time-of-day is ignored (normalized to end-of-day)."""
+def test_pit_filtering_intraday_look_ahead_blocked() -> None:
+    """Test that intraday look-ahead is prevented (no timestamp normalization).
+
+    A disclosure at 10:00 AM must NOT be visible at 08:00 AM as_of — the old
+    normalization-based approach was silently allowing this look-ahead bias.
+    """
     # Event disclosed at 10:00 AM on 2025-01-08
     events = pd.DataFrame(
         {
@@ -282,18 +286,23 @@ def test_pit_filtering_time_of_day_ignored() -> None:
         }
     )
 
-    # Filter for same date but earlier time (2025-01-08 08:00 AM)
-    # After normalization, both become 2025-01-08 00:00:00, so should be included
+    # At 08:00 AM the 10:00 AM disclosure has not happened yet — must be excluded.
     as_of_early_time = pd.Timestamp("2025-01-08 08:00:00", tz="UTC")
     filtered = filter_events_as_of(
         events, as_of_early_time, disclosure_col="disclosure_date"
     )
+    assert (
+        len(filtered) == 0
+    ), "disclosure_date=10:00 must be excluded when as_of=08:00 (intraday PIT)"
 
-    # Should be included (normalized dates are equal: 2025-01-08 <= 2025-01-08)
-    assert len(filtered) == 1, (
-        "Time-of-day should be ignored: disclosure_date normalized to 2025-01-08 "
-        "should match as_of normalized to 2025-01-08 (inclusive)"
+    # At or after 10:00 AM the disclosure is available.
+    as_of_after = pd.Timestamp("2025-01-08 10:00:00", tz="UTC")
+    filtered_after = filter_events_as_of(
+        events, as_of_after, disclosure_col="disclosure_date"
     )
+    assert (
+        len(filtered_after) == 1
+    ), "disclosure_date=10:00 must be included when as_of>=10:00"
 
 
 def test_pit_filtering_strict_less_equal_semantics() -> None:

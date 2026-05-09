@@ -23,10 +23,13 @@ def dedupe_events(events: Iterable[NewsEvent]) -> List[NewsEvent]:
             by_key[key] = ev
             continue
 
-        # Compare published_utc lexicographically (ISO strings are orderable)
-        if ev.published_utc < existing.published_utc:
+        # Compare published_utc lexicographically (ISO strings are orderable).
+        # Guard against None: treat missing timestamp as "" (sorts before any real date).
+        ev_utc = ev.published_utc or ""
+        ex_utc = existing.published_utc or ""
+        if ev_utc < ex_utc:
             better = ev
-        elif ev.published_utc > existing.published_utc:
+        elif ev_utc > ex_utc:
             better = existing
         else:
             # Same published time: prefer longer summary (if any)

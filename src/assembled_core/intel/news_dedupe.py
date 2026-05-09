@@ -84,9 +84,9 @@ def content_fingerprint(title: str, source: str) -> str:
     takes first 60 chars, appends source, returns sha256[:12].
     """
     translator = str.maketrans("", "", string.punctuation)
-    normalized = title.lower().translate(translator)
+    normalized = (title or "").lower().translate(translator)
     normalized = re.sub(r"\s+", " ", normalized).strip()
-    key = normalized[:60] + "|" + source.lower()
+    key = normalized[:60] + "|" + (source or "").lower()
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
