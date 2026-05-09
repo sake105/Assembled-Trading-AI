@@ -648,6 +648,14 @@ def run_single_backtest(
     """
     # Set random seeds for reproducibility (before any random operations)
     set_random_seeds(seed)
+    # Reset multifactor_v2 DD damper so that module-global state from a previous
+    # batch run in the same process does not contaminate this run's signal scaling.
+    try:
+        from src.assembled_core.strategies.multifactor_v2 import reset_dd_damper
+
+        reset_dd_damper()
+    except Exception:
+        pass
     # Each run gets its own directory: output/batch/<run_id>/
     run_output_dir = batch_output_root / run_cfg.id
     # Create directory atomically to avoid race conditions

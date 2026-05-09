@@ -74,13 +74,18 @@ def build_event_feature_panel(
     # Route to vectorized implementation if requested (Sprint 11.E1)
     if method == "vectorized":
         if build_event_feature_panel_vectorized is None:
-            raise ImportError(
-                "Vectorized implementation not available. "
-                "Use method='legacy' or ensure event_features_vectorized module is available."
+            import logging as _logging
+
+            _logging.getLogger(__name__).warning(
+                "[event_features] Vectorized implementation not available "
+                "(event_features_vectorized not installed) — falling back to legacy. "
+                "Install the module or pass method='legacy' to suppress this warning."
             )
-        return build_event_feature_panel_vectorized(
-            events_df, prices_df, as_of, lookback_days, feature_prefix
-        )
+            method = "legacy"
+        else:
+            return build_event_feature_panel_vectorized(
+                events_df, prices_df, as_of, lookback_days, feature_prefix
+            )
 
     # Legacy implementation (default)
 

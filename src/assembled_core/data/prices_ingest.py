@@ -110,8 +110,11 @@ def load_eod_prices(
         # must distinguish pre-existing NaN (already missing) from coerce-from-
         # junk (feed corruption) and raise on the latter.
         raw_volume = pd.to_numeric(df["volume"], errors="coerce")
-        pre_existing_nan = df["volume"].isna()
-        coerced_to_nan = raw_volume.isna() & ~pre_existing_nan
+        # Cast to plain numpy bool before bitwise ops — nullable-dtype Series (Int64,
+        # Float64, ArrowDtype) can produce pd.NA through ~ and & , which makes
+        # coerced_to_nan.sum() unreliable and can raise a false-positive ValueError.
+        pre_existing_nan = df["volume"].isna().to_numpy(dtype=bool)
+        coerced_to_nan = raw_volume.isna().to_numpy(dtype=bool) & ~pre_existing_nan
         n_bad = int(coerced_to_nan.sum())
         if n_bad > 0:
             bad_sample = df.loc[coerced_to_nan, "volume"].head(5).tolist()

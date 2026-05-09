@@ -125,6 +125,14 @@ def route_orders(
         log.debug("group_exposures skipped: %s", e)
 
     if not orders.empty and "qty" in orders.columns:
+        _neg_mask = orders["qty"] < 0
+        if _neg_mask.any():
+            log.warning(
+                "[_tc_execution] %d order(s) have negative qty — taking abs(). "
+                "Short orders must use positive qty + side='SELL'; "
+                "remove this guard when short-side order format is confirmed.",
+                int(_neg_mask.sum()),
+            )
         orders = orders.copy()
         orders["qty"] = orders["qty"].abs()
 
