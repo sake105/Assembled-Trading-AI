@@ -1265,6 +1265,16 @@ def _apply_risk_controls_default(
     if orders.empty or not ctx.enable_risk_controls:
         return orders.copy()
 
+    # Geo-risk PAUSE gate: state machine output is authoritative — block immediately.
+    # Note: enable_risk_controls=False bypasses this via the early-return above.
+    if ctx.risk_state is not None and ctx.risk_state.get("state") == "PAUSE":
+        log = ctx.logger if ctx.logger is not None else logger
+        log.warning(
+            "[RISK] risk_state=PAUSE — blocking ALL %d orders (geo-risk gate)",
+            len(orders),
+        )
+        return pd.DataFrame(columns=list(orders.columns))
+
     try:
         # Prepare current positions for risk controls
         # Convert current_positions to expected format (symbol, qty)
@@ -1450,4 +1460,4 @@ def _apply_risk_controls_default(
             e,
             len(orders),
         )
-        return []
+        return pd.DataFrame(columns=list(orders.columns))

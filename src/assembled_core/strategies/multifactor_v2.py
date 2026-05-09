@@ -597,6 +597,7 @@ def _compute_sector_rotation_bias(
 def _compute_earnings_insider_factors(
     latest_symbols: list[str],
     cfg: dict[str, Any],
+    as_of: pd.Timestamp | None = None,
 ) -> tuple[pd.Series, pd.Series]:
     """Factors 19-20: earnings surprise z, insider activity score."""
     try:
@@ -604,7 +605,7 @@ def _compute_earnings_insider_factors(
             compute_earnings_insider_factors,
         )
 
-        as_of = pd.Timestamp.now().normalize()
+        as_of = (as_of or pd.Timestamp.now()).normalize()
         from src.assembled_core.data.altdata_loader import (  # noqa: PLC0415
             load_earnings_history,
             load_insider_filings,
@@ -629,6 +630,7 @@ def _compute_earnings_insider_factors(
 def _compute_news_macro_factors(
     latest_symbols: list[str],
     cfg: dict[str, Any],
+    as_of: pd.Timestamp | None = None,
 ) -> dict[str, pd.Series]:
     """Factors 21-24: news sentiment, volume spike, macro growth, inflation."""
     result: dict[str, pd.Series] = {}
@@ -637,7 +639,7 @@ def _compute_news_macro_factors(
             compute_news_macro_factors,
         )
 
-        as_of = pd.Timestamp.now().normalize()
+        as_of = (as_of or pd.Timestamp.now()).normalize()
         from src.assembled_core.data.altdata_loader import (  # noqa: PLC0415
             load_macro_indicators,
             load_news_sentiment,
@@ -927,6 +929,7 @@ def _compute_insider_cluster_factor(
 def _compute_pead_sue_factor(
     latest_symbols: list[str],
     latest: pd.DataFrame,
+    as_of: pd.Timestamp | None = None,
 ) -> dict[str, pd.Series]:
     """Factor 33: PEAD/SUE — Post-Earnings-Announcement Drift via Standardized Unexpected Earnings.
 
@@ -951,7 +954,7 @@ def _compute_pead_sue_factor(
             load_earnings_history,
         )  # noqa: PLC0415
 
-        as_of = pd.Timestamp.now().normalize()
+        as_of = (as_of or pd.Timestamp.now()).normalize()
         earnings_df = load_earnings_history(latest_symbols, as_of, lookback_days=90)
         if earnings_df is not None and not earnings_df.empty:
             sue_series = batch_sue(earnings_df, latest_symbols)
@@ -1095,6 +1098,9 @@ def compute_signals(
         return _empty_signals()
 
     latest_symbols = latest["symbol"].tolist()
+    # Bar date: use latest timestamp in the panel as PIT anchor for altdata lookups.
+    # This prevents Timestamp.now() look-ahead in backtest mode (factors 19-24, 33).
+    _bar_as_of = pd.Timestamp(latest["timestamp"].max())
 
     # --- Detect regime ---
     regime_label = _detect_regime(df, cfg)
@@ -1180,7 +1186,9 @@ def compute_signals(
     )
 
     # Factors 19-20: Earnings + Insider
-    earn_z, insider_z = _compute_earnings_insider_factors(latest_symbols, cfg)
+    earn_z, insider_z = _compute_earnings_insider_factors(
+        latest_symbols, cfg, as_of=_bar_as_of
+    )
     scores["earnings_surprise_z"] = (
         scores["symbol"].map(earn_z).fillna(0.0) if not earn_z.empty else 0.0
     )
@@ -1189,7 +1197,7 @@ def compute_signals(
     )
 
     # Factors 21-24: News + Macro
-    news_macro = _compute_news_macro_factors(latest_symbols, cfg)
+    news_macro = _compute_news_macro_factors(latest_symbols, cfg, as_of=_bar_as_of)
     scores["news_sentiment_7d"] = (
         scores["symbol"]
         .map(news_macro.get("news_sentiment_7d_z", pd.Series(dtype=float)))
@@ -1291,7 +1299,7 @@ def compute_signals(
     )
 
     # Factor 33: PEAD/SUE — post-earnings drift (Bernard & Thomas 1989)
-    pead = _compute_pead_sue_factor(latest_symbols, latest)
+    pead = _compute_pead_sue_factor(latest_symbols, latest, as_of=_bar_as_of)
     scores["pead_sue_score"] = (
         scores["symbol"]
         .map(pead.get("pead_sue_score", pd.Series(dtype=float)))

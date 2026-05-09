@@ -526,7 +526,9 @@ class TestPilotV2Manifest:
     def test_manifest_has_hard_stops(self, manifest):
         hs = manifest.get("hard_stop_criteria", {})
         assert hs, "hard_stop_criteria missing"
-        assert hs.get("max_drawdown_pct") == pytest.approx(8.0)
+        assert hs.get("max_drawdown_pct") == pytest.approx(
+            15.0
+        )  # recalibrated from 8% per Aktion-3
 
     def test_manifest_consecutive_loss_limit(self, manifest):
         hs = manifest["hard_stop_criteria"]
