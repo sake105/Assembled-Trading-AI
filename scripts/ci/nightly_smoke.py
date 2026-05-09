@@ -4,6 +4,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Expose repo-root AND src/ so both `assembled_core.*` and
+# `src.assembled_core.*` import styles work (codebase uses both internally).
+_repo_root = Path(__file__).parent.parent.parent
+for _p in [str(_repo_root), str(_repo_root / "src")]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 MODULES = [
     "assembled_core.signals.meta_model",
     "assembled_core.accounting.ledger",
