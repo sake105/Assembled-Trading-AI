@@ -8,8 +8,8 @@
 # To regenerate: pip-compile pyproject.toml -o requirements.txt
 # ============================================================
 
-pandas==2.3.3
-numpy==2.3.3
+pandas==2.2.3
+numpy==2.2.6
 pyarrow==21.0.0
 fastparquet==2024.11.0
 python-dateutil==2.9.0.post0
