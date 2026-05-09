@@ -2502,6 +2502,52 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         if result.trades is not None and not result.trades.empty:
             logger.info(f"Generated {len(result.trades)} trades")
 
+        # Delisting exit audit: warn if any positions were held through known delistings.
+        # Uses output/corporate_actions.csv when present; no-op otherwise.
+        try:
+            from src.assembled_core.data.corporate_actions import (
+                apply_delisting_exits,
+                load_corporate_actions,
+            )
+
+            _ca_default = Path("output/corporate_actions.csv")
+            _ca_path = getattr(args, "corporate_actions_path", None) or (
+                str(_ca_default) if _ca_default.exists() else None
+            )
+            if _ca_path and result.trades is not None and not result.trades.empty:
+                _ca_actions = load_corporate_actions(_ca_path)
+                # Reconstruct net positions from trades
+                _net = (
+                    result.trades.assign(
+                        _signed_qty=lambda df: df["qty"]
+                        * df["side"].map({"BUY": 1, "SELL": -1}).fillna(0)
+                    )
+                    .groupby("symbol")["_signed_qty"]
+                    .sum()
+                    .reset_index()
+                    .rename(columns={"_signed_qty": "qty"})
+                )
+                _net = _net[_net["qty"].abs() > 0.01]
+                if not _net.empty:
+                    _dl_exits = apply_delisting_exits(
+                        positions=_net,
+                        actions=_ca_actions,
+                        prices=prices,
+                    )
+                    if not _dl_exits.empty:
+                        logger.warning(
+                            "[DELIST-AUDIT] %d position(s) held through known delistings: %s. "
+                            "Backtest PnL may be overstated — these should have been force-exited.",
+                            len(_dl_exits),
+                            list(_dl_exits["symbol"].unique()),
+                        )
+                    else:
+                        logger.info(
+                            "[DELIST-AUDIT] No open positions held through delistings."
+                        )
+        except Exception as _dl_err:
+            logger.debug("[DELIST-AUDIT] Skipped: %s", _dl_err)
+
         # Write TCA Report (always, even if trades are empty)
         logger.info("")
         logger.info("Writing TCA report...")

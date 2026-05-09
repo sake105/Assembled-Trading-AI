@@ -28,6 +28,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 OUTPUT = Path("output")
+
+
+def _stamp(df: "pd.DataFrame") -> "pd.DataFrame":
+    """Add _fetched_at column (ISO-8601 UTC) so factor_store can detect stale data."""
+    df = df.copy()
+    df["_fetched_at"] = datetime.now(timezone.utc).isoformat()
+    return df
+
+
 OUTPUT.mkdir(exist_ok=True)
 
 UNIVERSE_FILE = Path("configs/universes/universe_ai_tech_tickers.txt")
@@ -207,7 +216,7 @@ def download_fred_macro() -> pd.DataFrame:
     macro = macro.reset_index().rename(columns={"date": "timestamp"})
     # Forward-fill daily (macro releases are infrequent)
     macro = macro.set_index("timestamp").ffill().reset_index()
-    macro.to_parquet(OUTPUT / "macro.parquet", index=False)
+    _stamp(macro).to_parquet(OUTPUT / "macro.parquet", index=False)
     log.info("[MACRO] Saved: %d rows, %d series", len(macro), len(FRED_SERIES))
     return macro
 
@@ -298,7 +307,7 @@ def download_fundamentals(tickers: list[str]) -> pd.DataFrame:
         return pd.DataFrame()
 
     df = pd.DataFrame(rows)
-    df.to_parquet(OUTPUT / "fundamentals.parquet", index=False)
+    _stamp(df).to_parquet(OUTPUT / "fundamentals.parquet", index=False)
     log.info("[FUNDAMENTALS] Saved: %d symbols", len(df))
     return df
 
@@ -357,7 +366,7 @@ def download_earnings(tickers: list[str]) -> pd.DataFrame:
     df = pd.DataFrame(rows)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    df.to_parquet(OUTPUT / "events_earnings.parquet", index=False)
+    _stamp(df).to_parquet(OUTPUT / "events_earnings.parquet", index=False)
     log.info(
         "[EARNINGS] Saved: %d events across %d symbols", len(df), df["symbol"].nunique()
     )
@@ -402,7 +411,7 @@ def download_dividends(tickers: list[str]) -> pd.DataFrame:
         .sort_values(["symbol", "timestamp"])
         .reset_index(drop=True)
     )
-    df.to_parquet(OUTPUT / "dividends.parquet", index=False)
+    _stamp(df).to_parquet(OUTPUT / "dividends.parquet", index=False)
     log.info("[DIVIDENDS] Saved: %d dividend events", len(df))
     return df
 
@@ -507,7 +516,7 @@ def download_news_sentiment(tickers: list[str]) -> pd.DataFrame:
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
     # Save raw news
-    df.to_parquet(OUTPUT / "news_raw.parquet", index=False)
+    _stamp(df).to_parquet(OUTPUT / "news_raw.parquet", index=False)
 
     # Build daily sentiment aggregate per symbol
     df["date"] = df["timestamp"].dt.normalize()
@@ -522,7 +531,7 @@ def download_news_sentiment(tickers: list[str]) -> pd.DataFrame:
         .rename(columns={"date": "timestamp"})
     )
     daily["timestamp"] = pd.to_datetime(daily["timestamp"], utc=True)
-    daily.to_parquet(OUTPUT / "news_sentiment_daily.parquet", index=False)
+    _stamp(daily).to_parquet(OUTPUT / "news_sentiment_daily.parquet", index=False)
 
     log.info(
         "[NEWS] Saved: %d raw articles, %d daily sentiment rows across %d symbols",
@@ -615,7 +624,7 @@ def download_insider_trading(tickers: list[str]) -> pd.DataFrame:
         .sort_values(["symbol", "timestamp"])
         .reset_index(drop=True)
     )
-    df.to_parquet(OUTPUT / "insider_trading.parquet", index=False)
+    _stamp(df).to_parquet(OUTPUT / "insider_trading.parquet", index=False)
     log.info(
         "[INSIDER] Saved: %d filings across %d symbols (%d found CIK)",
         len(df),
@@ -683,7 +692,7 @@ def download_macro_etf_proxies() -> pd.DataFrame:
         df = df.merge(fred, on="timestamp", how="outer").sort_values("timestamp")
         df = df.ffill().reset_index(drop=True)
 
-    df.to_parquet(OUTPUT / "macro.parquet", index=False)
+    _stamp(df).to_parquet(OUTPUT / "macro.parquet", index=False)
     log.info(
         "[MACRO-ETF] Saved: %d rows with %d macro columns", len(df), len(df.columns) - 1
     )

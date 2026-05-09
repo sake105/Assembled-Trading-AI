@@ -70,10 +70,19 @@ class PDTTracker:
 
     @staticmethod
     def _business_days_ago(reference: date, n: int) -> date:
-        bday_range = pd.bdate_range(end=reference, periods=n + 1)
-        return bday_range[0].date()
+        from src.assembled_core.utils.market_calendar import is_trading_day
+
+        cur = pd.Timestamp(reference)
+        counted = 0
+        while counted < n:
+            cur -= pd.Timedelta(days=1)
+            if is_trading_day(cur):
+                counted += 1
+        return cur.date()
 
     def days_until_pdt_reset(self, reference_date: date | None = None) -> int:
+        from src.assembled_core.utils.market_calendar import trading_days_between
+
         if reference_date is None:
             reference_date = datetime.now(timezone.utc).date()
         recent = [
@@ -84,7 +93,7 @@ class PDTTracker:
         if not recent:
             return 0
         oldest = min(t.trade_date for t in recent)
-        days_since_oldest = len(pd.bdate_range(start=oldest, end=reference_date))
+        days_since_oldest = trading_days_between(oldest, reference_date)
         return max(0, 5 - days_since_oldest)
 
 
