@@ -64,6 +64,28 @@ def load_policy(
         except Exception as e:
             logger.debug("policy schema validation skipped: %s", e)
 
+    # Conflict guard: warn if a no-leverage policy file exists alongside an active
+    # policy that has leverage_allowed=true — prevents silent mode mismatch.
+    _no_lev_path = p.parent / "policy_no_leverage.yaml"
+    if _no_lev_path.exists() and str(p.resolve()) != str(_no_lev_path.resolve()):
+        try:
+            import yaml as _yaml  # noqa: PLC0415
+
+            with _no_lev_path.open("r", encoding="utf-8") as _f:
+                _no_lev = _yaml.safe_load(_f) or {}
+            _active_lev = data.get("scope", {}).get("leverage_allowed", False)
+            _nolev_lev = _no_lev.get("scope", {}).get("leverage_allowed", True)
+            if bool(_active_lev) != bool(_nolev_lev):
+                logger.warning(
+                    "[POLICY] Conflict detected: active policy leverage_allowed=%s "
+                    "but %s has leverage_allowed=%s. Verify the correct policy file is loaded.",
+                    _active_lev,
+                    _no_lev_path.name,
+                    _nolev_lev,
+                )
+        except Exception:
+            pass
+
     try:
         _POLICY_CACHE[cache_key] = (data, p.stat().st_mtime)
     except OSError:

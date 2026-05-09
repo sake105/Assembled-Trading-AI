@@ -27,7 +27,7 @@ def add_congress_features(
     prices: pd.DataFrame,
     events: pd.DataFrame,
     as_of: pd.Timestamp | None = None,
-    disclosure_latency_days: int = 10,
+    disclosure_latency_days: int = 45,
 ) -> pd.DataFrame:
     """Add congressional trading features to price DataFrame (PIT-safe).
 
@@ -49,8 +49,9 @@ def add_congress_features(
             Optional: event_date, disclosure_date (if missing, derived from timestamp)
         as_of: Optional point-in-time cutoff (pd.Timestamp, UTC)
             Only events with disclosure_date <= as_of are used. If None, all events are used.
-        disclosure_latency_days: Number of days between event_date and disclosure_date (default: 10)
-            Used if disclosure_date is missing (typical for Congress PTR: 10-30 days delay)
+        disclosure_latency_days: Minimum days between event_date and disclosure_date (default: 45).
+            House PTR under STOCK Act requires filing within 45 days; Senate within 30 days.
+            Used if disclosure_date is missing from the events data.
 
     Returns:
         Copy of prices DataFrame with additional columns:

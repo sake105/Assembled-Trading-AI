@@ -1330,6 +1330,7 @@ class UnifiedPaperEngine:
                     "remaining_qty": remaining_qty,
                     "fill_price": fill_price,
                     "mid_price": mid,
+                    "arrival_price": mid,
                     "notional": notional,
                     "spread_cost_bps": spread_cost_bps,
                     "impact_cost_bps": impact_cost_bps,

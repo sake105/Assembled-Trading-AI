@@ -9,7 +9,7 @@ Set enabled=False after Alpaca migrates to intraday-margin (expected 4 June 2026
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List
 
 import pandas as pd
@@ -56,7 +56,7 @@ class PDTTracker:
 
     def count_recent_day_trades(self, reference_date: date | None = None) -> int:
         if reference_date is None:
-            reference_date = date.today()
+            reference_date = datetime.now(timezone.utc).date()
         cutoff = self._business_days_ago(reference_date, 5)
         return sum(1 for t in self.day_trades if t.trade_date > cutoff)
 
@@ -75,7 +75,7 @@ class PDTTracker:
 
     def days_until_pdt_reset(self, reference_date: date | None = None) -> int:
         if reference_date is None:
-            reference_date = date.today()
+            reference_date = datetime.now(timezone.utc).date()
         recent = [
             t
             for t in self.day_trades

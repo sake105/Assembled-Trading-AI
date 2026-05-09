@@ -1099,6 +1099,24 @@ def compute_signals(
     # --- Detect regime ---
     regime_label = _detect_regime(df, cfg)
     weights = _get_weights_for_regime(regime_label, cfg)
+
+    # --- Signal decay gate (policy-gated, shadow mode by default) ---
+    from src.assembled_core.strategies.signal_decay_gate import (
+        apply_multipliers as _apply_decay,
+    )
+
+    _decay_cfg = cfg.get("signal_decay", {}) or {}
+    weights, _decay_multipliers = _apply_decay(
+        dict(weights),
+        enabled=bool(_decay_cfg.get("enabled", False)),
+        stale_multiplier=float(_decay_cfg.get("stale_multiplier", 0.0)),
+        report_path=(
+            None
+            if _decay_cfg.get("report_path") is None
+            else __import__("pathlib").Path(_decay_cfg["report_path"])
+        ),
+    )
+
     logger.info(
         "[MF-V2] Regime=%s, %d weight entries, universe=%d symbols",
         regime_label,

@@ -189,6 +189,7 @@ def _pymc_sharpe_posterior(
                 progressbar=False,
                 return_inferencedata=True,
                 target_accept=0.90,
+                random_seed=42,
             )
 
     mu_samples = trace.posterior["mu"].values.flatten()
@@ -303,6 +304,7 @@ def _pymc_hierarchical_comparison(
                 progressbar=False,
                 return_inferencedata=True,
                 target_accept=0.90,
+                random_seed=42,
             )
 
     mu_samples = trace.posterior["mu_strat"].values.reshape(-1, n_strats)
