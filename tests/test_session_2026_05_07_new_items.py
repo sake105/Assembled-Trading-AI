@@ -1534,9 +1534,7 @@ class TestDecisionLogger:
         n = dlog.flush()
         assert n == 2, f"Expected 2 entries written, got {n}"
 
-        from datetime import datetime, timezone
-
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        date_str = "20260508"  # matches cycle_date passed to record()
         log_file = tmp_path / f"decision_log_{date_str}.jsonl"
         assert log_file.exists(), "Log file not created"
         lines = [
@@ -1550,14 +1548,13 @@ class TestDecisionLogger:
     def test_query_by_symbol(self, tmp_path):
         """query() filters by symbol."""
         from src.assembled_core.ops.decision_log import DecisionLogger
-        from datetime import datetime, timezone
 
         dlog = DecisionLogger(log_dir=tmp_path, auto_flush=False)
         for sym in ["NVDA", "AAPL", "NVDA"]:
             dlog.record(cycle_date="2026-05-08", symbol=sym, side="buy", conviction=0.7)
         dlog.flush()
 
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        date_str = "20260508"  # matches cycle_date passed to record()
         results = dlog.query(date_str=date_str, symbol="NVDA")
         assert len(results) == 2, f"Expected 2 NVDA entries, got {len(results)}"
 
@@ -1756,11 +1753,7 @@ class TestDecisionLoggerWiring:
         )
         dlog.flush()
 
-        import datetime
-
-        date_str = datetime.datetime.now(__import__("datetime").timezone.utc).strftime(
-            "%Y%m%d"
-        )
+        date_str = "20260508"  # matches cycle_date passed to record()
         entries = dlog.read_log(date_str)
         assert len(entries) == 1
         e = entries[0]
@@ -1781,11 +1774,7 @@ class TestDecisionLoggerWiring:
         )
         dlog.flush()
 
-        import datetime
-
-        date_str = datetime.datetime.now(__import__("datetime").timezone.utc).strftime(
-            "%Y%m%d"
-        )
+        date_str = "20260508"  # matches cycle_date passed to record()
         high_conv = dlog.query(date_str=date_str, min_conviction=0.80)
         assert len(high_conv) == 1
         assert high_conv[0]["symbol"] == "AAPL"
