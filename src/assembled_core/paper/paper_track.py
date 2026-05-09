@@ -154,6 +154,17 @@ class PaperTrackConfig:
     ranking_hold_n: int = 7
     price_file: Path | None = None
 
+    def __post_init__(self) -> None:
+        if not self.georisk_gate_enabled:
+            logger.warning(
+                "[PaperTrack] georisk_gate_enabled=False — geo-risk overlay is DISABLED. "
+                "Orders will NOT be filtered by geo-risk state."
+            )
+        if self.intel_mode not in ("none", "real"):
+            raise ValueError(
+                f"[PaperTrack] intel_mode must be 'none' or 'real', got {self.intel_mode!r}"
+            )
+
 
 @dataclass
 class PaperTrackState:

@@ -244,6 +244,29 @@ def filter_orders_with_risk_controls(
                 total_orders_after=0,
             )
             return empty_orders, result
+    else:
+        # crisis_alpha enabled but ctx not passed — fall back to file-based state check
+        try:
+            from src.assembled_core.execution.kill_switch import get_kill_switch_state
+
+            _ks = get_kill_switch_state()
+            if _ks.get("active", False) and _ks.get("reason", "").startswith(
+                "crisis_alpha"
+            ):
+                logger.warning(
+                    "[WARN] crisis_alpha PAUSE detected via kill-switch state (crisis_alpha_ctx not passed)"
+                )
+                empty_orders = pd.DataFrame(columns=list(orders.columns))
+                result = RiskControlResult(
+                    filtered_orders=empty_orders,
+                    pre_trade_result=None,
+                    kill_switch_engaged=True,
+                    total_orders_before=total_orders_before,
+                    total_orders_after=0,
+                )
+                return empty_orders, result
+        except Exception as _e:
+            logger.debug("[SKIP] crisis_alpha file-based fallback failed: %s", _e)
 
     # Step 0: Graduated drawdown exposure caps (from risk state machine)
     # Applies BEFORE pre-trade checks so all downstream logic sees reduced orders.

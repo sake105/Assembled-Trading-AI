@@ -692,6 +692,9 @@ features:
     long_window: 30
   enhanced_factors:
     enabled: true
+  realized_volatility:
+    enabled: true
+    windows: [20, 60]            # rv_20 and rv_60; required by macro_world_etfs_core_bundle
   behavioral_features:
     enabled: true
     min_rows: 60                  # min history per symbol to compute composite

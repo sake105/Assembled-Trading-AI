@@ -101,12 +101,19 @@ def build_core_ta_factors(
 
     # Compute factors in sequence (each builds on previous)
 
-    # 1. Multi-Horizon Returns
+    # 1. Multi-Horizon Returns (forward-looking — used as backtest labels)
     result = _add_multi_horizon_returns(
         result,
         price_col=price_col,
         group_col=group_col,
         timestamp_col=timestamp_col,
+    )
+
+    # 1b. Trailing momentum factors (lookback-based — safe for live/paper signal use)
+    result = _add_trailing_momentum_factors(
+        result,
+        price_col=price_col,
+        group_col=group_col,
     )
 
     # 2. Time-Series Trend Strength
@@ -128,6 +135,43 @@ def build_core_ta_factors(
         f"Built core TA factors for {result[group_col].nunique()} symbols, "
         f"{len(result)} rows. Added factor columns."
     )
+
+    return result
+
+
+def _add_trailing_momentum_factors(
+    df: pd.DataFrame,
+    price_col: str,
+    group_col: str,
+) -> pd.DataFrame:
+    """Add trailing (lookback-based) momentum factors safe for signal use.
+
+    These are the Fama-French/AQR-style momentum factors — computed from
+    past prices only, with no look-ahead. Use these in factor bundles and
+    live/paper signal generation instead of the forward-looking returns.
+
+    Added columns:
+        - trailing_returns_12m: log return over past 252 trading days
+        - trailing_momentum_12m_excl_1m: 12m return excluding the most recent month
+          (12m ago to 1m ago), the standard cross-sectional momentum factor
+    """
+    result = df.copy()
+    grouped = result.groupby(group_col, group_keys=False)[price_col]
+    current = result[price_col]
+
+    # Trailing 12-month return: log(close[t] / close[t-252])
+    past_12m = grouped.shift(252)
+    mask_12m = past_12m.notna() & (past_12m > 0) & (current > 0)
+    result["trailing_returns_12m"] = np.where(
+        mask_12m, np.log(np.clip(current / past_12m, 1e-10, None)), np.nan
+    ).astype("float64")
+
+    # Trailing momentum excluding last month: log(close[t-21] / close[t-252])
+    past_1m = grouped.shift(21)
+    mask_mom = past_12m.notna() & past_1m.notna() & (past_12m > 0) & (past_1m > 0)
+    result["trailing_momentum_12m_excl_1m"] = np.where(
+        mask_mom, np.log(np.clip(past_1m / past_12m, 1e-10, None)), np.nan
+    ).astype("float64")
 
     return result
 

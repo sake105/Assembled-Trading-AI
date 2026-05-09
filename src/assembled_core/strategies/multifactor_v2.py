@@ -1429,7 +1429,9 @@ def compute_signals(
                 ).sum() >= min(20, len(_yc_recent) * YIELD_CURVE_INVERSION_FRACTION):
                     _yc_persistent = True
             else:
-                _yc_persistent = True  # no history → trust current reading
+                _yc_persistent = (
+                    False  # no panel history → cannot confirm persistence; skip cap
+                )
             if _yc_persistent:
                 _yc_cap = float(
                     cfg.get("yield_curve_inversion_cap", YIELD_CURVE_CAP_DEFAULT)
