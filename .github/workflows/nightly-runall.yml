@@ -1,25 +1,17 @@
-# Nightly workflow — core smoke-test (replaced deprecated run_all_sprint10 full-run)
-#
-# Purpose: Verify core pipeline imports and CLI respond correctly on Windows.
-# Triggers: Scheduled (03:00 UTC daily) + manual dispatch
 name: Nightly RunAll
 
 on:
   schedule:
-    - cron: "0 3 * * *"   # täglich 03:00 UTC
+    - cron: "0 3 * * *"
   workflow_dispatch: {}
 
 jobs:
   runall:
     runs-on: windows-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -28,36 +20,9 @@ jobs:
         run: |
           python -m venv .venv
           .\.venv\Scripts\python -m pip install --upgrade pip --quiet
-          if (Test-Path requirements.txt) {
-            .\.venv\Scripts\pip install -r requirements.txt --quiet
-          }
+          if (Test-Path requirements.txt) { .\.venv\Scripts\pip install -r requirements.txt --quiet }
           .\.venv\Scripts\pip install -e . --no-deps --quiet
 
       - name: Nightly smoke-test
         shell: pwsh
-        run: |
-          $py = ".\.venv\Scripts\python.exe"
-          & $py -c @"
-import sys
-modules = [
-    'assembled_core.signals.meta_model',
-    'assembled_core.accounting.ledger',
-    'assembled_core.config.env_validator',
-    'assembled_core.features.seasonal_features',
-]
-failed = []
-for m in modules:
-    try:
-        __import__(m)
-        print(f'  OK  {m}')
-    except Exception as e:
-        print(f'  ERR {m}: {e}')
-        failed.append(m)
-if failed:
-    sys.exit(1)
-print('All core imports OK')
-"@
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-          & $py scripts/cli.py --help | Out-Null
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-          Write-Host "Nightly smoke-test PASSED"
+        run: .\.venv\Scripts\python scripts/ci/nightly_smoke.py
