@@ -108,7 +108,7 @@ class DecisionLogger:
             self.flush()
 
     def flush(self) -> int:
-        """Write all pending entries to disk.
+        """Write all pending entries to disk, grouped by cycle_date.
 
         Returns:
             Number of entries written.
@@ -116,20 +116,30 @@ class DecisionLogger:
         if not self._pending:
             return 0
 
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
-        log_path = self._log_dir / _LOG_FILENAME_FMT.format(date=date_str)
+        # Group by cycle_date so entries land in the right dated file.
+        by_date: dict[str, list[dict]] = {}
+        for entry in self._pending:
+            raw = entry.get(
+                "cycle_date", datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            )
+            date_key = raw.replace("-", "")
+            by_date.setdefault(date_key, []).append(entry)
 
-        try:
-            with log_path.open("a", encoding="utf-8") as fh:
-                for entry in self._pending:
-                    fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
-            n = len(self._pending)
-            log.debug("[DecisionLog] Wrote %d entries to %s", n, log_path)
-            self._pending.clear()
-            return n
-        except OSError as exc:
-            log.error("[DecisionLog] Failed to write log %s: %s", log_path, exc)
-            return 0
+        n = 0
+        for date_str, entries in by_date.items():
+            log_path = self._log_dir / _LOG_FILENAME_FMT.format(date=date_str)
+            try:
+                with log_path.open("a", encoding="utf-8") as fh:
+                    for entry in entries:
+                        fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                n += len(entries)
+                log.debug(
+                    "[DecisionLog] Wrote %d entries to %s", len(entries), log_path
+                )
+            except OSError as exc:
+                log.error("[DecisionLog] Failed to write log %s: %s", log_path, exc)
+        self._pending.clear()
+        return n
 
     def __del__(self) -> None:
         if self._pending:
