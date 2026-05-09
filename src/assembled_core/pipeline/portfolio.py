@@ -262,12 +262,7 @@ def simulate_with_costs(
     eq = pd.DataFrame({"timestamp": tl, "equity": equity, "cash": cash_end})
     # simple Kennzahlen
     pf = float(equity[-1] / equity[0]) if equity.size else 1.0
-    ret = (
-        pd.Series(equity)
-        .pct_change(fill_method=None)
-        .replace([np.inf, -np.inf], np.nan)
-        .dropna()
-    )
+    ret = pd.Series(equity).pct_change().replace([np.inf, -np.inf], np.nan).dropna()
     sharpe = (
         float(ret.mean() / ret.std() * np.sqrt(252 if freq == "1d" else 252 * 78))
         if len(ret) > 5 and ret.std() > 0

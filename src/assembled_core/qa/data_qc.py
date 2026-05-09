@@ -503,7 +503,7 @@ def _check_outlier_returns(
         symbol_data = symbol_data.sort_values("timestamp").reset_index(drop=True)
 
         # Calculate daily returns
-        returns = symbol_data["close"].pct_change(fill_method=None)
+        returns = symbol_data["close"].pct_change()
 
         # Vectorized outlier detection: find all rows above threshold at once
         abs_returns = returns.abs()

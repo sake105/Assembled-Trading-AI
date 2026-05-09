@@ -35,7 +35,7 @@ def compute_basic_features(data: pd.DataFrame) -> dict[str, float]:
     if len(close) < 5:
         return {}
 
-    returns = close.pct_change(fill_method=None).dropna()
+    returns = close.pct_change().dropna()
     features: dict[str, float] = {
         "ret_1d": float(returns.iloc[-1]) if len(returns) > 0 else 0.0,
         "ret_5d": (

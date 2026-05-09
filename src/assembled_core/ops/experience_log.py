@@ -157,7 +157,7 @@ def compute_experience_summary(
 
             # Simple return series
             if len(eq) > 1:
-                returns = eq.pct_change(fill_method=None).dropna()
+                returns = eq.pct_change().dropna()
                 summary["avg_daily_return_pct"] = float(returns.mean() * 100)
                 summary["win_rate_pct"] = float((returns > 0).mean() * 100)
                 if returns.std() > 0:

@@ -337,7 +337,7 @@ def add_amihud_illiquidity(
         return result
 
     abs_ret = result.groupby(group_col)[close_col].transform(
-        lambda x: x.pct_change(fill_method=None).abs()
+        lambda x: x.pct_change().abs()
     )
     dollar_vol = (result[close_col] * result[volume_col]).replace(0, np.nan)
     result["_amihud_daily"] = (abs_ret / dollar_vol).astype("float64")
@@ -371,7 +371,7 @@ def add_roll_spread_estimate(
         return result
 
     ret = result.groupby(group_col)[close_col].transform(
-        lambda x: x.pct_change(fill_method=None).fillna(0.0)
+        lambda x: x.pct_change().fillna(0.0)
     )
     result["_ret"] = ret
 
@@ -407,7 +407,7 @@ def add_kyle_lambda_proxy(
         return result
 
     abs_ret = result.groupby(group_col)[close_col].transform(
-        lambda x: x.pct_change(fill_method=None).abs()
+        lambda x: x.pct_change().abs()
     )
     dollar_vol_sqrt = (result[close_col] * result[volume_col]).clip(lower=1e-9) ** 0.5
     result["_lambda_daily"] = (abs_ret / dollar_vol_sqrt).astype("float64")

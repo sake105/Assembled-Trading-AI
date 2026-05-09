@@ -55,7 +55,7 @@ def _get_returns(ticker: str, period: str = "3mo") -> pd.Series:
         if hist.empty:
             return pd.Series(dtype=float)
         prices = hist["Close"]
-        return prices.pct_change(fill_method=None).dropna()
+        return prices.pct_change().dropna()
     except Exception as exc:
         logger.debug("yfinance fetch failed for %s: %s", ticker, exc)
         return pd.Series(dtype=float)

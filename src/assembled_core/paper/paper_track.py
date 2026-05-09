@@ -549,9 +549,7 @@ def compute_paper_performance_panel(
 
     # Compute returns
     equity_series = pd.to_numeric(df["equity"], errors="coerce")
-    returns = equity_series.pct_change(fill_method=None).replace(
-        [np.inf, -np.inf], np.nan
-    )
+    returns = equity_series.pct_change().replace([np.inf, -np.inf], np.nan)
 
     # Default rolling windows by frequency
     if windows is None:
@@ -1443,7 +1441,7 @@ def _compute_rolling_sharpe(
         ec = pd.read_parquet(ec_path) if fmt == "parquet" else pd.read_csv(ec_path)
         if "equity" not in ec.columns or len(ec) < 2:
             return None
-        rets = ec["equity"].pct_change(fill_method=None).dropna()
+        rets = ec["equity"].pct_change().dropna()
         if len(rets) < 2:
             return None
         std = float(rets.std(ddof=1))

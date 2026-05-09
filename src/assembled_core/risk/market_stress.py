@@ -61,7 +61,7 @@ def compute_market_stress(
             },
         }
 
-    returns = close.pct_change(fill_method=None).dropna()
+    returns = close.pct_change().dropna()
     if returns.empty:
         return {
             "stress_ok": if_data_missing,

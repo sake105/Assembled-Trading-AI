@@ -321,8 +321,8 @@ class CrashPredictionEngine:
         close = market_data["close"]
         if len(close) < 60:
             return 0.0
-        recent_vol = close.pct_change(fill_method=None).rolling(10).std().iloc[-1]
-        hist_vol = close.pct_change(fill_method=None).rolling(60).std().iloc[-1]
+        recent_vol = close.pct_change().rolling(10).std().iloc[-1]
+        hist_vol = close.pct_change().rolling(60).std().iloc[-1]
         if pd.isna(recent_vol) or pd.isna(hist_vol) or hist_vol == 0:
             return 0.0
         vol_ratio = recent_vol / hist_vol

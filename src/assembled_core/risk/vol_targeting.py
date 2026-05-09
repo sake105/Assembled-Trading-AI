@@ -153,7 +153,7 @@ def compute_vol_targeting_result(
     if len(curve) < 2:
         return 1.0, float("nan"), target_vol
 
-    returns = curve.pct_change(fill_method=None)
+    returns = curve.pct_change()
     realized_vol = compute_realized_vol(
         returns,
         lookback_days=lookback_days,

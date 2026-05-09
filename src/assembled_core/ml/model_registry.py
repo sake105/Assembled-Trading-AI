@@ -18,13 +18,18 @@ logger = logging.getLogger(__name__)
 _REGISTRY_PATH = Path(__file__).parent.parent.parent.parent / "models" / "registry.json"
 
 
-def _verify_model_file_hash(path: Path, expected: str) -> bool:
-    """Return True if the SHA256 of *path* matches *expected*."""
+def _hash_file(path: Path) -> str:
+    """Compute SHA256 of *path* using 64 KB streaming to avoid OOM on large models."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
-    return h.hexdigest() == expected
+    return h.hexdigest()
+
+
+def _verify_model_file_hash(path: Path, expected: str) -> bool:
+    """Return True if the SHA256 of *path* matches *expected*."""
+    return _hash_file(path) == expected
 
 
 _registry_cache: dict | None = None
@@ -66,6 +71,10 @@ def verify_model_hash(model_path: str | Path, *, strict: bool = False) -> bool:
     registry = _load_registry()
 
     if not registry:
+        logger.warning(
+            "[MODEL-REGISTRY] Registry is empty or missing — hash checks disabled for %s",
+            path.name,
+        )
         return True
 
     entry = registry.get(path.name)
@@ -86,19 +95,18 @@ def verify_model_hash(model_path: str | Path, *, strict: bool = False) -> bool:
     if not expected:
         return True
 
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    if actual != expected:
+    matches = _verify_model_file_hash(path, expected)
+    if not matches:
         msg = (
             f"[MODEL-REGISTRY] Hash mismatch for {path.name}: "
-            f"expected {expected[:16]}... got {actual[:16]}... "
-            f"— model may have been replaced or corrupted"
+            f"expected {expected[:16]}... — model may have been replaced or corrupted"
         )
         if strict:
             raise RuntimeError(msg)
         logger.warning(msg)
         return False
 
-    logger.debug("[MODEL-REGISTRY] Hash OK: %s (%s...)", path.name, actual[:16])
+    logger.debug("[MODEL-REGISTRY] Hash OK: %s (%s...)", path.name, expected[:16])
     return True
 
 
@@ -136,7 +144,7 @@ def register_model(model_path: str | Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Model file not found: {path}")
 
-    sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+    sha256 = _hash_file(path)
     entry = {"sha256": sha256, "size_bytes": path.stat().st_size, "path": str(path)}
 
     registry_data: dict = {"version": 1, "models": {}}
@@ -260,7 +268,7 @@ class ModelRegistry:
         next_ver = max((v.version for v in versions), default=0) + 1
         model_path = self._model_dir(model_id) / f"v{next_ver}.joblib"
         joblib.dump(model, model_path)
-        sha256 = hashlib.sha256(model_path.read_bytes()).hexdigest()
+        sha256 = _hash_file(model_path)
         mv = ModelVersion(
             model_id=model_id,
             version=next_ver,

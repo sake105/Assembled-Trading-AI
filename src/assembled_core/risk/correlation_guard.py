@@ -48,7 +48,7 @@ def _pivot_returns(
         aggfunc="last",
     )
     pivot = pivot.iloc[-lookback_days:] if len(pivot) > lookback_days else pivot
-    returns = pivot.pct_change(fill_method=None).dropna(how="all")
+    returns = pivot.pct_change().dropna(how="all")
     return returns
 
 

@@ -227,7 +227,7 @@ def compute_advance_decline_line(
 
     # Compute daily returns per symbol
     grouped_price = result_df.groupby(group_col, group_keys=False)[price_col]
-    daily_returns = grouped_price.pct_change(fill_method=None)
+    daily_returns = grouped_price.pct_change()
 
     result_df["_daily_return"] = daily_returns
 
@@ -348,7 +348,7 @@ def compute_risk_on_off_indicator(
 
     # Compute daily returns per symbol
     grouped_price = result_df.groupby(group_col, group_keys=False)[price_col]
-    daily_returns = grouped_price.pct_change(fill_method=None)
+    daily_returns = grouped_price.pct_change()
 
     result_df["_daily_return"] = daily_returns
 

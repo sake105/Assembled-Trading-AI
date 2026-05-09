@@ -127,7 +127,7 @@ def _sp_dispatch_sizing(
                         index="timestamp", columns="symbol", values="close"
                     )
                     sigma = estimate_covariance(
-                        _pivot.pct_change(fill_method=None).dropna(how="all"),
+                        _pivot.pct_change().dropna(how="all"),
                         method=sizing_cfg.get("cov_method", "ledoit_wolf"),
                     )
                     if not sigma.empty:
@@ -172,7 +172,7 @@ def _sp_dispatch_sizing(
                         index="timestamp", columns="symbol", values="close"
                     )
                     sigma_cao = estimate_covariance(
-                        _pivot_cao.pct_change(fill_method=None).dropna(how="all"),
+                        _pivot_cao.pct_change().dropna(how="all"),
                         method="ledoit_wolf",
                     )
                     mu_cao = (
@@ -252,9 +252,7 @@ def _sp_dispatch_sizing(
                         ].pivot_table(
                             index="timestamp", columns="symbol", values="close"
                         )
-                        _rets_erc = _pivot_erc.pct_change(fill_method=None).dropna(
-                            how="all"
-                        )
+                        _rets_erc = _pivot_erc.pct_change().dropna(how="all")
                         if len(_rets_erc) >= 3:
                             sigma_erc = estimate_covariance(
                                 _rets_erc, method="ledoit_wolf"
@@ -403,9 +401,7 @@ def _sp_dispatch_sizing(
                         ].pivot_table(
                             index="timestamp", columns="symbol", values="close"
                         )
-                        _rets_mvo = _pivot_mvo.pct_change(fill_method=None).dropna(
-                            how="all"
-                        )
+                        _rets_mvo = _pivot_mvo.pct_change().dropna(how="all")
                         if len(_rets_mvo) >= 3:
                             sigma_mvo = estimate_covariance(
                                 _rets_mvo, method="ledoit_wolf"

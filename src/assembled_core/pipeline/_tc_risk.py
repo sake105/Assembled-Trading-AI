@@ -96,7 +96,7 @@ def check_risk(
                 columns="symbol" if "symbol" in _prices_for_risk.columns else None,
                 values="close",
             )
-            _shared_rets = _pivot_risk.pct_change(fill_method=None).dropna(how="all")
+            _shared_rets = _pivot_risk.pct_change().dropna(how="all")
         except Exception:
             _shared_rets = None
 

@@ -71,7 +71,7 @@ def _rsi_14(close: pd.Series) -> pd.Series:
 
 
 def _zscore_reversal_3d(close: pd.Series) -> pd.Series:
-    ret_3d = close.pct_change(3, fill_method=None)
+    ret_3d = close.pct_change(3)
     rolling_mean = ret_3d.rolling(60, min_periods=60).mean()
     rolling_std = ret_3d.rolling(60, min_periods=60).std()
     z = (ret_3d - rolling_mean) / rolling_std.replace(0.0, np.nan)

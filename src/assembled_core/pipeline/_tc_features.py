@@ -276,7 +276,7 @@ def build_features(
                         if _has_volume
                         else pd.Series(1.0, index=range(len(_grp)))
                     )
-                    _br = _bp.pct_change(fill_method=None).fillna(0)
+                    _br = _bp.pct_change().fillna(0)
                     try:
                         _bc = compute_behavioral_composite(_bp, _bv, _br)
                         _beh_scores[str(_sym)] = (

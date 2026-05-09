@@ -116,7 +116,7 @@ def _compute_returns(equity: pd.Series) -> pd.Series:
     Returns:
         Series of returns (pct_change), with inf/-inf replaced by NaN and dropped
     """
-    returns = equity.pct_change(fill_method=None)
+    returns = equity.pct_change()
     returns = returns.replace([np.inf, -np.inf], np.nan)
     returns = returns.dropna()
     return returns

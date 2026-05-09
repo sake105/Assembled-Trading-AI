@@ -58,9 +58,13 @@ def load_policy(
         try:
             from src.assembled_core.config.policy_schema import (
                 validate_policy,
+                validate_policy_consistency,
             )  # noqa: PLC0415
 
             data, _ = validate_policy(data)
+            violations = validate_policy_consistency(data)
+            for v in violations:
+                logger.warning("[POLICY] Consistency violation: %s", v)
         except Exception as e:
             logger.debug("policy schema validation skipped: %s", e)
 

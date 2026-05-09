@@ -101,9 +101,9 @@ def current_quadrant_from_fred(fred_client: object, lookback: int = 252) -> str:
     """
     try:
         ism = fred_client.get_series("MANEMP")
-        nfp = fred_client.get_series("PAYEMS").pct_change(3, fill_method=None) * 100
+        nfp = fred_client.get_series("PAYEMS").pct_change(3) * 100
         cpi_raw = fred_client.get_series("CPIAUCSL")
-        cpi_yoy = cpi_raw.pct_change(12, fill_method=None) * 100
+        cpi_yoy = cpi_raw.pct_change(12) * 100
         be5y5y = fred_client.get_series("T5YIFR")
 
         quadrant_series = compute_macro_quadrant(ism, nfp, cpi_yoy, be5y5y, lookback)

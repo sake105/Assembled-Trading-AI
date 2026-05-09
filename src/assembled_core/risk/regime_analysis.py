@@ -254,7 +254,7 @@ def summarize_metrics_by_regime(
         regimes = regimes.loc[common_index]
 
     # Compute returns from equity
-    returns = equity.pct_change(fill_method=None).dropna()
+    returns = equity.pct_change().dropna()
 
     # Align returns with regimes (drop first period where return is NaN)
     returns = returns.loc[returns.index.intersection(regimes.index)]
