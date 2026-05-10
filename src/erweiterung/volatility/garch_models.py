@@ -1,5 +1,13 @@
 """GARCH-Familie für Vola-Forecasting.
 
+DUPLIKAT-HINWEIS
+================
+Mainline hat ``src/assembled_core/risk/garch_vol.py`` (187 LoC), GJR-GARCH(1,1)-
+spezifisch via ``arch``-Lib mit Vol-Targeting-Sizing. Für Production die mainline.
+
+Diese Erweiterungs-Variante ist allgemeiner (GARCH/EGARCH/GJR-GARCH) mit
+NumPy-only-MLE-Fallback ohne arch-Abhängigkeit.
+
 Modelle
 -------
 - **GARCH(1,1)**: σ²_t = ω + α·ε²_{t-1} + β·σ²_{t-1}.  Engle (1982) + Bollerslev (1986).

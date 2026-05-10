@@ -1,5 +1,15 @@
 """Cross-Sectional Residual Signals — Sector- und Beta-Neutralisierung.
 
+DUPLIKAT-HINWEIS
+================
+Mainline hat ``src/assembled_core/features/residual_momentum.py`` (171 LoC) mit
+``compute_residual_momentum`` und ``cross_sectional_residual_momentum``,
+optional Fama-French-3-Faktor-basiert.
+
+Diese Erweiterungs-Variante hat eine **andere API** (long-format Panel-DataFrame
+statt wide-Format-Pivot) und liefert zusätzlich ``residual_reversal`` und
+``residual_volatility`` als verwandte Signale. Komplementär nutzbar.
+
 Theorie
 -------
 Naïve Momentum/Mean-Reversion-Signale werden in der Praxis von **Sektor- und

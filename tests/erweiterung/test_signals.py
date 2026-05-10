@@ -8,11 +8,9 @@ import pandas as pd
 from erweiterung.signals import (
     attention,
     cross_sectional_residuals,
-    earnings_drift_v2,
     lead_lag_network,
     macro_nowcast,
     options_implied,
-    statistical_arbitrage,
 )
 
 
@@ -137,48 +135,9 @@ def test_build_leadlag_network(synthetic_panel):
     assert isinstance(edges, pd.DataFrame)
 
 
-def test_find_cointegrated_pairs():
-    rng = np.random.default_rng(0)
-    n = 300
-    common = rng.normal(0, 1, n).cumsum()
-    a = common + rng.normal(0, 0.5, n)
-    b = 2 * common + rng.normal(0, 0.5, n)  # cointegrated
-    c = rng.normal(0, 1, n).cumsum()  # not cointegrated
-    df = pd.DataFrame(
-        {"A": np.log(a + 100), "B": np.log(b + 200), "C": np.log(c + 100)},
-        index=pd.date_range("2020-01-01", periods=n, freq="D"),
-    )
-    pairs = statistical_arbitrage.find_cointegrated_pairs(
-        df, p_threshold=0.5, beta_range=(0.1, 10), half_life_range=(1, 100), min_obs=200
-    )
-    # We don't strictly assert AB is found because adf-fallback is heuristic
-    assert isinstance(pairs, list)
-
-
-def test_pead_signal_basic(synthetic_prices):
-    earnings = pd.DataFrame(
-        {
-            "symbol": ["AAA", "BBB"],
-            "announcement_date": [
-                synthetic_prices.index[100],
-                synthetic_prices.index[150],
-            ],
-            "sue": [2.0, -1.5],
-        }
-    )
-    prices = (
-        synthetic_prices.reset_index()
-        .melt(id_vars=["index"], var_name="symbol", value_name="close")
-        .rename(columns={"index": "date"})
-    )
-    out = earnings_drift_v2.post_earnings_drift_signal(
-        earnings, prices, drift_window=10, skip_days=2
-    )
-    assert "pead_signal" in out.columns
-    sub_aaa = out[out["symbol"] == "AAA"]
-    assert (sub_aaa["pead_signal"] > 0).all()
-    sub_bbb = out[out["symbol"] == "BBB"]
-    assert (sub_bbb["pead_signal"] < 0).all()
+# test_find_cointegrated_pairs and test_pead_signal_basic removed in cleanup —
+# see DUPLICATE_AUDIT.md. Use src/assembled_core/signals/pairs_trading.py and
+# src/assembled_core/signals/pead_sue.py instead.
 
 
 def test_macro_recession_score():

@@ -1,5 +1,22 @@
 """Hierarchical Risk Parity (HRP) — Lopez de Prado, 2016.
 
+DUPLIKAT-HINWEIS
+================
+Eine produktive Implementierung dieser Methode existiert bereits unter::
+
+    src/assembled_core/portfolio/hierarchical_risk_parity.py
+
+Die mainline-Version (313 LoC) nutzt scipy für hierarchisches Clustering und
+bietet zusätzlich ``hrp_with_turnover_control`` und Vergleiche gegen Equal-
+Weight. Für **Production** sollte die mainline-Version verwendet werden.
+
+Diese Erweiterungs-Variante ist eine **NumPy-only-Forschungs-Implementierung**
+(keine scipy-Abhängigkeit), bewusst kompakt für didaktische Klarheit. Sie
+existiert weil:
+1. Das ERWEITERUNG-Paket eine zero-extra-deps-Forschungs-Sandbox ist.
+2. Die Demo- und Pipeline-Skripte deterministische Reproduzierbarkeit ohne
+   scipy benötigen.
+
 Theorie
 -------
 Klassische Mean-Variance-Optimization (Markowitz) ist instabil:

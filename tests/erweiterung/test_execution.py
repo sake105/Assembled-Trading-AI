@@ -1,40 +1,15 @@
-"""Tests for erweiterung.execution."""
+"""Tests for erweiterung.execution.
+
+almgren_chriss removed in cleanup — mainline has it under
+src/assembled_core/execution/almgren_chriss.py (361 LoC, production-grade).
+Only adaptive_slippage retained as a lightweight model.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 
-from erweiterung.execution import adaptive_slippage, almgren_chriss
-
-
-def test_almgren_chriss_schedule_sums_to_total():
-    params = almgren_chriss.MarketImpactParams(
-        permanent_impact_gamma=1e-7,
-        temporary_impact_eta=1e-6,
-        volatility=0.02,
-        risk_aversion=1e-6,
-    )
-    schedule = almgren_chriss.optimal_trade_schedule(
-        total_shares=10000, total_time_steps=10, params=params, tau=1.0
-    )
-    assert abs(schedule.sum() - 10000) < 1e-3
-    assert (schedule >= 0).all()
-
-
-def test_almgren_chriss_high_risk_aversion_front_loaded():
-    params_low = almgren_chriss.MarketImpactParams(risk_aversion=1e-9)
-    params_high = almgren_chriss.MarketImpactParams(risk_aversion=1e-3)
-    s_low = almgren_chriss.optimal_trade_schedule(10000, 20, params_low)
-    s_high = almgren_chriss.optimal_trade_schedule(10000, 20, params_high)
-    # High risk aversion -> trade earlier (more front-loaded)
-    assert s_high[:5].sum() >= s_low[:5].sum()
-
-
-def test_expected_cost_positive():
-    params = almgren_chriss.MarketImpactParams()
-    schedule = np.array([1000.0, 1000.0, 1000.0])
-    c = almgren_chriss.expected_cost(schedule, params)
-    assert c > 0
+from erweiterung.execution import adaptive_slippage
 
 
 def test_slippage_increases_with_size():

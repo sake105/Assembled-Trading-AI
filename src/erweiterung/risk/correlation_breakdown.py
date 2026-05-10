@@ -1,5 +1,13 @@
 """Correlation-Breakdown Detection — Crisis-Identification.
 
+DUPLIKAT-HINWEIS
+================
+Mainline hat ``src/assembled_core/risk/correlation_guard.py`` (317 LoC) mit
+Online-Detection und Risk-Action-Hooks. Für Production die mainline.
+
+Diese Variante kombiniert APC + Eigenvalue-Concentration zu einem Composite-
+Crisis-Score und ist forschungsorientiert.
+
 Theorie
 -------
 In Stress-Phasen (z. B. März 2020, Sept 2008) brechen historisch niedrige

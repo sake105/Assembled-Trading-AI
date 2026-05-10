@@ -1,43 +1,22 @@
 """Offline-Tests für altdata-Module — keine Netzwerk-Calls.
 
-Wir testen die Logic von Parsing, Aggregation, Z-Scoring etc., ohne externe APIs.
+Nach Duplikat-Audit (siehe docs/erweiterung/DUPLICATE_AUDIT.md) wurden
+sec_edgar, finra_short_interest, wikipedia_pageviews aus erweiterung gelöscht
+— die mainline-Versionen unter src/assembled_core/data/sources/ sind funktional
+besser und produktiver.
+
+Hier verbleiben Tests für die echten Add-On-Quellen:
+- cftc_cot (CFTC Commitments of Traders)
+- fred_md (McCracken/Ng FRED-MD-Panel mit PCA-Faktoren)
+- google_trends (pytrends-Wrapper)
 """
 
 from __future__ import annotations
 
-
 import numpy as np
 import pandas as pd
 
-from erweiterung.altdata import (
-    cftc_cot,
-    finra_short_interest,
-    fred_md,
-    google_trends,
-    sec_edgar,
-    wikipedia_pageviews,
-)
-
-
-def test_wiki_attention_score_basic():
-    df = pd.DataFrame(
-        {
-            "date": pd.date_range("2024-01-01", periods=60, tz="UTC"),
-            "symbol": ["AAPL"] * 60,
-            "article": ["Apple_Inc."] * 60,
-            "views": np.random.default_rng(0).integers(1000, 50000, 60),
-        }
-    )
-    df["log_views"] = np.log(df["views"].astype(float) + 1.0)
-    out = wikipedia_pageviews.attention_score(df, lookback=20, shift_days=1)
-    assert "attention_score" in out.columns
-    assert out["attention_score"].notna().sum() > 0
-
-
-def test_wiki_default_map_contains_majors():
-    assert "AAPL" in wikipedia_pageviews.DEFAULT_MAP.mapping
-    assert "MSFT" in wikipedia_pageviews.DEFAULT_MAP.mapping
-    assert wikipedia_pageviews.DEFAULT_MAP.article_for("aapl") == "Apple_Inc."
+from erweiterung.altdata import cftc_cot, fred_md, google_trends
 
 
 def test_trends_zscore_basic():
@@ -50,21 +29,6 @@ def test_trends_zscore_basic():
     )
     out = google_trends.trends_zscore(df, lookback=30)
     assert "svi_z" in out.columns
-
-
-def test_short_pressure_signal():
-    n = 100
-    df = pd.DataFrame(
-        {
-            "date": pd.date_range("2024-01-01", periods=n, tz="UTC"),
-            "symbol": ["AMC"] * n,
-            "short_volume": np.random.default_rng(0).integers(100, 1000, n),
-            "total_volume": np.random.default_rng(0).integers(1000, 10000, n),
-            "short_ratio": np.random.default_rng(0).uniform(0.1, 0.6, n),
-        }
-    )
-    out = finra_short_interest.short_pressure_signal(df, lookback=20)
-    assert "short_pressure" in out.columns
 
 
 def test_cot_net_zscore_basic():
@@ -104,56 +68,9 @@ def test_fred_md_apply_transforms():
     assert pd.isna(out["GDP"].iloc[0])
 
 
-def test_form4_xml_parser():
-    xml = """
-    <ownershipDocument>
-        <rptOwnerName>John Smith</rptOwnerName>
-        <transactionCode>P</transactionCode>
-        <transactionShares><value>1000</value></transactionShares>
-        <transactionPricePerShare><value>150.50</value></transactionPricePerShare>
-        <isDirector>1</isDirector>
-        <isOfficer>0</isOfficer>
-    </ownershipDocument>
-    """
-    out = sec_edgar.parse_form4_xml(xml)
-    assert out["owner"] == "John Smith"
-    assert out["transaction_code"] == "P"
-    assert out["shares"] == 1000.0
-    assert out["price"] == 150.50
-    assert out["is_director"] is True
-    assert out["is_officer"] is False
-
-
-def test_form4_empty_xml():
-    out = sec_edgar.parse_form4_xml("")
-    assert out == {}
-
-
-def test_filings_to_event_features():
-    df = pd.DataFrame(
-        {
-            "ticker": ["AAPL"] * 4,
-            "form": ["4", "4", "8-K", "10-Q"],
-            "filing_date": pd.to_datetime(
-                [
-                    "2024-01-05",
-                    "2024-01-15",
-                    "2024-01-20",
-                    "2024-02-01",
-                ],
-                utc=True,
-            ),
-        }
-    )
-    out = sec_edgar.filings_to_event_features(df, lookback_days=30)
-    assert "ticker" in out.columns
-    assert "has_8k_recent" in out.columns
-
-
 def test_attention_to_signal_with_mock_yahoo():
-    """Stelle sicher, dass yahoo_options-Wrapper ohne yfinance abstürzt nicht."""
+    """yahoo_options-Wrapper darf ohne yfinance importiert werden, ohne zu crashen."""
     from erweiterung.altdata import yahoo_options
 
-    # leere Options-Daten
     out = yahoo_options.put_call_ratio(pd.DataFrame())
     assert pd.isna(out["pc_volume"])

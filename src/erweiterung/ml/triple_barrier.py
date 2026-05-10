@@ -1,5 +1,13 @@
 """Triple-Barrier Labeling + Meta-Labeling (Lopez de Prado 2018).
 
+DUPLIKAT-HINWEIS
+================
+Mainline hat ``src/assembled_core/features/triple_barrier.py`` (364 LoC),
+das ``mlfinpy`` als primäres Backend nutzt + cusum_filter +
+fractional_diff. Für Production die mainline-Version.
+
+Diese Erweiterungs-Variante ist NumPy-only ohne mlfinpy-Abhängigkeit.
+
 Theorie
 -------
 Klassisches "fester Horizont"-Labeling (z. B. ``y = sign(r_{t+5})``) ist

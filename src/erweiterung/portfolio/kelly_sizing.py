@@ -1,5 +1,11 @@
 """Kelly-Criterion Sizing — Fractional Kelly mit Confidence-Discount.
 
+DUPLIKAT-HINWEIS
+================
+Mainline hat ``src/assembled_core/portfolio/kelly_uncertainty.py`` (138 LoC)
+mit Estimation-Risk-Discount. Diese Variante hier ist multi-asset Kelly
+mit Confidence-Skalierung und max-per-asset Caps — komplementär nutzbar.
+
 Theorie
 -------
 Kelly-Optimization (1956) maximiert log-Wachstumsrate:

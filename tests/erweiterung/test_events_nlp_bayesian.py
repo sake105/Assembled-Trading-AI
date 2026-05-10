@@ -1,4 +1,10 @@
-"""Tests for events, nlp (offline parts), bayesian, crossasset, survival."""
+"""Tests for bayesian, crossasset, survival.
+
+events/event_study and nlp/news_dedup wurden in der Cleanup-Phase gelöscht
+(siehe DUPLICATE_AUDIT.md). Mainline hat:
+- src/assembled_core/qa/event_study.py (446 LoC)
+- src/assembled_core/intel/news_dedupe.py (391 LoC)
+"""
 
 from __future__ import annotations
 
@@ -7,80 +13,7 @@ import pandas as pd
 
 from erweiterung.bayesian import bayesian_linear
 from erweiterung.crossasset import spreads
-from erweiterung.events import event_study
-from erweiterung.nlp import news_dedup
 from erweiterung.survival import hazard_models
-
-
-def test_market_model_alpha_beta():
-    rng = np.random.default_rng(0)
-    n = 200
-    market = pd.Series(rng.normal(0, 0.01, n))
-    asset = 1.2 * market + 0.0002 + pd.Series(rng.normal(0, 0.005, n))
-    a, b, sig = event_study.market_model_alpha_beta(asset, market)
-    assert abs(b - 1.2) < 0.3
-    assert sig > 0
-
-
-def test_run_event_study():
-    rng = np.random.default_rng(0)
-    n = 400
-    dates = pd.date_range("2023-01-01", periods=n)
-    market = pd.Series(rng.normal(0, 0.01, n), index=dates)
-    panel_rows = []
-    for sym in ("A", "B", "C"):
-        for d, mret in zip(dates, market):
-            r = 1.0 * mret + rng.normal(0, 0.01)
-            panel_rows.append({"date": d, "symbol": sym, "return": r})
-    panel = pd.DataFrame(panel_rows)
-    events = pd.DataFrame(
-        {
-            "symbol": ["A", "B", "C"],
-            "event_date": [dates[300], dates[310], dates[320]],
-        }
-    )
-    res = event_study.run_event_study(events, panel, market, (-50, -5), (-3, 5))
-    assert res.n_events >= 1
-    assert "aar" in dir(res)
-
-
-def test_buy_and_hold_abnormal_return():
-    a = pd.Series([0.01, 0.02, -0.01])
-    m = pd.Series([0.005, 0.005, 0.005])
-    bhar = event_study.buy_and_hold_abnormal_return(a, m)
-    assert np.isfinite(bhar)
-
-
-def test_simhash_consistency():
-    h1 = news_dedup.simhash("Apple beats Q3 earnings expectations")
-    h2 = news_dedup.simhash("Apple beats Q3 earnings expectations")
-    assert h1 == h2
-    h3 = news_dedup.simhash("Microsoft posts record cloud revenue")
-    assert news_dedup.hamming_distance(h1, h3) > 5
-
-
-def test_jaccard_similarity():
-    s = news_dedup.jaccard_similarity("apple beats earnings", "apple beats earnings")
-    assert s == 1.0
-    s = news_dedup.jaccard_similarity("apple", "google")
-    assert s == 0.0
-
-
-def test_news_dedup():
-    df = pd.DataFrame(
-        {
-            "date": ["2024-01-01"] * 4,
-            "headline": [
-                "Apple beats Q3 earnings expectations strongly",
-                "Apple beats Q3 earnings expectations strongly today",
-                "Microsoft posts record cloud revenue",
-                "Tesla misses delivery target",
-            ],
-        }
-    )
-    out = news_dedup.deduplicate(df, jaccard_threshold=0.6)
-    assert len(out) <= len(df)
-    assert len(out) >= 3
 
 
 def test_bayesian_linear_basic():

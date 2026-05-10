@@ -1,5 +1,14 @@
 """Black-Litterman Modell mit quantitativen Views.
 
+DUPLIKAT-HINWEIS
+================
+Eine produktive Implementierung existiert bereits unter::
+
+    src/assembled_core/portfolio/black_litterman.py  (412 LoC)
+
+Für Production die mainline-Version nutzen. Diese Erweiterungs-Variante
+ist NumPy-only und für Forschungs-Demos gedacht.
+
 Theorie
 -------
 Black-Litterman (1992) löst das Hauptproblem von Markowitz-MVO:

@@ -2,6 +2,16 @@
 
 Diese Erweiterung sitzt in `src/erweiterung/` und ist **vollständig isoliert** vom Mainline-Core. Sie ist als Forschungs-/Wissenschafts-Layer gedacht: moderne Methoden, kostenlose alternative Datenquellen, rigorose Backtesting-Statistik, ohne den bestehenden Code anzufassen.
 
+## Duplikat-Audit & Cleanup (Pflicht-Lektüre)
+
+→ [`DUPLICATE_AUDIT.md`](./DUPLICATE_AUDIT.md)
+
+Status:
+- 12 echte Duplikate gelöscht (mainline ist überlegen)
+- 9 NumPy-only Forschungs-Varianten behalten — jeweils mit `DUPLIKAT-HINWEIS`-Block in der Datei
+- ~80 echte Add-On-Module ohne Mainline-Pendant
+- 136 Tests grün
+
 ## Designprinzipien
 
 1. **Einbahn-Import:** `assembled_core` importiert nicht aus `erweiterung`. Umgekehrt nur explizit, falls überhaupt nötig.

@@ -1,5 +1,14 @@
 """Combinatorial Purged Cross-Validation (Lopez de Prado, 2018).
 
+DUPLIKAT-HINWEIS
+================
+Mainline hat ``src/assembled_core/qa/cpcv_validation.py`` (236 LoC), die
+``skfolio`` als primäres Backend nutzt mit sklearn-Walk-Forward-Fallback
++ ``meta_labeling_pipeline``. Für Production nutze die mainline-Version.
+
+Diese Erweiterungs-Variante ist **NumPy-only**, ohne externe Lib —
+nutzbar wenn skfolio nicht verfügbar oder didaktischer Code gewünscht.
+
 Theorie
 -------
 Klassisches K-Fold-CV in Time-Series leakt:

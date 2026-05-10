@@ -1,5 +1,11 @@
 """Deflated Sharpe Ratio (Bailey & Lopez de Prado, 2014).
 
+DUPLIKAT-HINWEIS
+================
+Mainline-Version: ``src/assembled_core/qa/deflated_sharpe.py`` (222 LoC).
+Beide Implementierungen folgen Bailey/Lopez (2014).  Mainline-API leicht
+abweichend — für Production die mainline-Variante.
+
 Problem
 -------
 Sharpe Ratio kann durch zwei Effekte verzerrt sein:
