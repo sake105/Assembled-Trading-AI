@@ -1,0 +1,1 @@
+"""Vorgefertigte Strategie-Templates."""

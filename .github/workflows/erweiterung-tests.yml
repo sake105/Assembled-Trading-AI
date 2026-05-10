@@ -1,0 +1,77 @@
+name: erweiterung-tests
+
+on:
+  push:
+    branches:
+      - ERWEITERUNG
+    paths:
+      - "src/erweiterung/**"
+      - "tests/erweiterung/**"
+      - "scripts/erweiterung/**"
+      - ".github/workflows/erweiterung-tests.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/erweiterung/**"
+      - "tests/erweiterung/**"
+  workflow_dispatch:
+
+jobs:
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyarrow pytest scipy scikit-learn
+      - name: Sanity-import erweiterung
+        run: |
+          PYTHONPATH=src python -c "
+          import erweiterung
+          import erweiterung.signals.cross_sectional_residuals
+          import erweiterung.portfolio.hierarchical_risk_parity
+          import erweiterung.backtest.cpcv
+          import erweiterung.factors.fama_french
+          import erweiterung.risk_metrics.advanced_metrics
+          import erweiterung.stress_test.monte_carlo
+          import erweiterung.timeseries_tools.hurst_dfa
+          import erweiterung.pipelines.research_pipeline
+          print('all erweiterung modules import OK')"
+      - name: Run pytest (offline-only)
+        run: |
+          PYTHONPATH=src pytest tests/erweiterung -q --tb=short
+      - name: Run demo backtest
+        run: |
+          PYTHONPATH=src python scripts/erweiterung/run_demo_backtest.py --n-days 250
+
+  test-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyarrow pytest scipy scikit-learn
+      - name: Run pytest
+        env:
+          PYTHONPATH: src
+        run: |
+          pytest tests/erweiterung -q --tb=short
