@@ -71,7 +71,8 @@ def route_orders(
                 )
             elif "close" in pwf.columns:
                 latest_prices = (
-                    pwf.groupby("symbol", group_keys=False)["close"]
+                    pwf.sort_values("timestamp")
+                    .groupby("symbol", group_keys=False)["close"]
                     .last()
                     .reset_index()
                     .rename(columns={"close": "price"})

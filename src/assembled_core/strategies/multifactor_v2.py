@@ -298,6 +298,10 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
 # (e.g. from tests or after a weights retrain).
 
 _REGIME_WEIGHTS_CACHE: _BoundedCache = _BoundedCache(maxsize=REGIME_CACHE_MAX_CONFIGS)
+# Cache for HMM regime model objects: key = (str(path), mtime_float) to auto-invalidate
+# when the model file is updated on disk. Uses the same _BoundedCache infrastructure
+# as regime weights — evicts oldest entry when maxsize is exceeded.
+_HMM_MODEL_CACHE: _BoundedCache = _BoundedCache(maxsize=HMM_CACHE_MAXSIZE)
 
 
 def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | None:
@@ -398,7 +402,11 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
             _Path(__file__).parents[3] / "models" / "regime_hmm_4state_spy.joblib"
         )
         if _hmm_path.exists() and "close" in df.columns and "timestamp" in df.columns:
-            _hmm = MultiFeatureRegimeHMM.load(_hmm_path)
+            _hmm_cache_key = (str(_hmm_path), _hmm_path.stat().st_mtime)
+            _hmm = _HMM_MODEL_CACHE.get(_hmm_cache_key)
+            if _hmm is None:
+                _hmm = MultiFeatureRegimeHMM.load(_hmm_path)
+                _HMM_MODEL_CACHE.set(_hmm_cache_key, _hmm)
             if "symbol" in df.columns:
                 _px = df.pivot_table(
                     index="timestamp", columns="symbol", values="close", aggfunc="last"

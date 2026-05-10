@@ -118,6 +118,25 @@ def build_regime_state(
     # Get all unique timestamps
     all_timestamps = sorted(prices[timestamp_col].unique())
 
+    # Pre-group all DataFrames by timestamp to avoid O(T×N) boolean-index scans
+    # inside the loop. Each groupby is O(N log N) once; dict lookup is O(1) per bar.
+    _prices_by_ts = {ts: grp for ts, grp in prices.groupby(timestamp_col, sort=False)}
+    _breadth_by_ts = (
+        {ts: grp for ts, grp in breadth_df.groupby(timestamp_col, sort=False)}
+        if breadth_df is not None
+        else {}
+    )
+    _macro_by_ts = (
+        {ts: grp for ts, grp in macro_factors.groupby(timestamp_col, sort=False)}
+        if macro_factors is not None
+        else {}
+    )
+    _vol_by_ts = (
+        {ts: grp for ts, grp in vol_df.groupby(timestamp_col, sort=False)}
+        if vol_df is not None
+        else {}
+    )
+
     # Prepare data structures for aggregation
     regime_data = []
 
@@ -132,7 +151,7 @@ def build_regime_state(
         trend_scores = []
 
         # Try to get trend strength from prices if available (from ta_factors_core)
-        prices_ts = prices[prices[timestamp_col] == timestamp]
+        prices_ts = _prices_by_ts.get(timestamp, pd.DataFrame())
         if not prices_ts.empty:
             # Check for trend_strength columns
             for trend_col in ["trend_strength_200", "trend_strength_50"]:
@@ -149,7 +168,7 @@ def build_regime_state(
 
         # Use Market Breadth as additional trend indicator
         if breadth_df is not None:
-            breadth_data = breadth_df[breadth_df[timestamp_col] == timestamp]
+            breadth_data = _breadth_by_ts.get(timestamp, pd.DataFrame())
             if not breadth_data.empty:
                 # Use fraction_above_ma_50 (or configurable window)
                 breadth_col = f"fraction_above_ma_{config.breadth_ma_window}"
@@ -177,7 +196,7 @@ def build_regime_state(
 
         # 2. Compute Macro Score (from Macro Factors)
         if macro_factors is not None:
-            macro_data = macro_factors[macro_factors[timestamp_col] == timestamp]
+            macro_data = _macro_by_ts.get(timestamp, pd.DataFrame())
             if not macro_data.empty:
                 # Get first row (macro factors should be same for all symbols on a given date)
                 row = macro_data.iloc[0]
@@ -205,7 +224,7 @@ def build_regime_state(
 
         # 3. Compute Risk Score (from Volatility and Risk-On/Off)
         if vol_df is not None:
-            vol_data = vol_df[vol_df[timestamp_col] == timestamp]
+            vol_data = _vol_by_ts.get(timestamp, pd.DataFrame())
             if not vol_data.empty:
                 # Aggregate volatility across symbols (use median to be robust)
                 rv_col = f"rv_{config.vol_window}"
@@ -241,7 +260,7 @@ def build_regime_state(
 
         # Add risk_on_off_score from breadth_df if available
         if breadth_df is not None:
-            breadth_data = breadth_df[breadth_df[timestamp_col] == timestamp]
+            breadth_data = _breadth_by_ts.get(timestamp, pd.DataFrame())
             if not breadth_data.empty and "risk_on_off_score" in breadth_data.columns:
                 risk_on_off = breadth_data["risk_on_off_score"].iloc[0]
                 if not pd.isna(risk_on_off):
@@ -273,8 +292,8 @@ def build_regime_state(
             # Positive trend + risk-on = bull
             regime_label = "bull"
         elif macro_score_val > 0.3 and macro_factors is not None:
-            # Check for reflation: positive macro + high inflation
-            macro_data = macro_factors[macro_factors[timestamp_col] == timestamp]
+            # Check for reflation: positive macro + high inflation (reuse cached slice)
+            macro_data = _macro_by_ts.get(timestamp, pd.DataFrame())
             if not macro_data.empty:
                 inflation_regime = macro_data.iloc[0].get("macro_inflation_regime", 0.0)
                 if not pd.isna(inflation_regime) and inflation_regime > 0:

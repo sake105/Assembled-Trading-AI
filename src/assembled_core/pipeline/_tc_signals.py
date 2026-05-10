@@ -97,7 +97,12 @@ def generate_signals(
             and not ctx.current_positions.empty
             and not signals.empty
         ):
-            now_utc = pd.Timestamp.now("UTC").to_pydatetime()
+            _ref_ts = ctx.as_of if ctx.as_of is not None else pd.Timestamp.now("UTC")
+            now_utc = (
+                _ref_ts.to_pydatetime()
+                if hasattr(_ref_ts, "to_pydatetime")
+                else _ref_ts
+            )
             zombies = get_zombie_positions(
                 ctx.current_positions.to_dict("records"), now_utc, policy
             )

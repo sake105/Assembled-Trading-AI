@@ -321,8 +321,7 @@ def train_meta_model(
         feature_cols = [
             col
             for col in df.columns
-            if col not in exclude_cols
-            and df[col].dtype in [np.number, "float64", "int64", "float32", "int32"]
+            if col not in exclude_cols and pd.api.types.is_numeric_dtype(df[col])
         ]
 
     if not feature_cols:
