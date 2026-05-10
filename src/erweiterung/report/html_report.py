@@ -77,7 +77,10 @@ def plot_rolling_sharpe(returns: pd.Series, window: int = 63) -> str:
     import numpy as np
 
     r = pd.Series(returns).dropna()
-    rs = r.rolling(window).mean() / r.rolling(window).std() * np.sqrt(252)
+    rolling_std = r.rolling(window).std().replace(0, np.nan)
+    rs = (r.rolling(window).mean() / rolling_std * np.sqrt(252)).replace(
+        [np.inf, -np.inf], np.nan
+    )
     plt.figure(figsize=(11, 3.5))
     plt.plot(rs.index, rs.values, linewidth=1.2)
     plt.axhline(0, color="black", linestyle="--", alpha=0.5)
