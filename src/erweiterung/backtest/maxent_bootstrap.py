@@ -39,12 +39,27 @@ import pandas as pd
 def maxent_bootstrap_sample(
     series: pd.Series, seed: int = 42, trim_quantile: float = 0.01
 ) -> pd.Series:
-    """One MaxEnt-Bootstrap sample of length len(series).
+    """One MaxEnt-Bootstrap sample of length len(series) (Vinod 2004).
+
+    Algorithmus (Vinod 2004 §2):
+    ---------------------------
+    1. Sortiere die n original-Werte: ``x_(1) ≤ x_(2) ≤ ... ≤ x_(n)``.
+    2. Bestimme intermediate-points ``z_t``:
+       - ``z_0 = x_(1) − pad`` (linker Rand)
+       - ``z_t = (x_(t) + x_(t+1)) / 2`` für t = 1..n-1 (Midpoints)
+       - ``z_n = x_(n) + pad`` (rechter Rand)
+       → n disjunkte Intervalle ``[z_{t-1}, z_t]`` für t = 1..n.
+    3. Für jeden Sample-Schritt: ziehe ``u ~ U(0, 1)`` und mappe via
+       **empirischer Inverse-CDF**: Intervall-Index ``k = ⌊u·n⌋``, dann sample
+       uniform aus ``[z_k, z_{k+1}]`` (= Maximum-Entropy unter der Konstraint,
+       dass Intervall-Position-Wahrscheinlichkeit 1/n ist).
+    4. Sortiere die gezogenen Werte und ordne sie gemäß **Original-Ranks** an
+       (Rank-Preservation = Auto-Korrelations-Erhaltung).
 
     Args:
         series: input series.
         seed: RNG seed.
-        trim_quantile: pad-fraction for tail-handling.
+        trim_quantile: pad-fraction für tail-handling (in σ-Einheiten).
 
     Returns:
         Series with same index/length, max-entropy-bootstrap values.
@@ -55,32 +70,31 @@ def maxent_bootstrap_sample(
         raise ValueError("need >= 30 obs")
     rng = np.random.default_rng(seed)
 
-    # 1. Sort original
+    # Step 1: Sort
     order = np.argsort(s.values)
     sorted_vals = s.values[order]
 
-    # 2. Build intervals around each sorted value (use midpoints)
-    # m_i = midpoint between z_(i) and z_(i+1)
+    # Step 2: Midpoints + Boundaries → n Intervalle
     midpoints = (sorted_vals[:-1] + sorted_vals[1:]) / 2
-    # Boundaries: z_min - σ*trim_q, midpoints, z_max + σ*trim_q
     sigma = float(s.std())
     pad = trim_quantile * sigma
-    z_low = sorted_vals[0] - pad
-    z_high = sorted_vals[-1] + pad
-    intervals_lo = np.concatenate([[z_low], midpoints])
-    intervals_hi = np.concatenate([midpoints, [z_high]])
+    z = np.concatenate([[sorted_vals[0] - pad], midpoints, [sorted_vals[-1] + pad]])
+    # z hat n+1 Elemente; Intervall t = [z[t], z[t+1]] für t = 0..n-1.
 
-    # 3. Draw uniform [0, 1], map to interval positions
+    # Step 3: empirische Inverse-CDF Inversion
+    # u ∈ [0, 1) → Intervall-Index k = ⌊u·n⌋ ∈ {0, .., n-1}
     u = rng.uniform(size=n)
-    quantiles_idx = (u * n).astype(int).clip(0, n - 1)
-    # Within-interval position
-    within_pos = u * n - quantiles_idx
-    sampled_sorted = intervals_lo[quantiles_idx] + within_pos * (
-        intervals_hi[quantiles_idx] - intervals_lo[quantiles_idx]
-    )
+    k = np.floor(u * n).astype(int).clip(0, n - 1)
+    within = u * n - k  # uniform innerhalb gewähltem Intervall
+    sampled_sorted = z[k] + within * (z[k + 1] - z[k])
+    # Vinod's MaxEnt-Garantie: jeder Sample ist uniform in einem zufällig
+    # gewählten Intervall — entspricht maximaler Entropie unter Empirical-CDF.
 
-    # 4. Place values back in original rank-order
-    sampled = np.zeros(n)
+    # Step 4: Rang-erhaltend zurückmappen
+    # sampled_sorted ist NICHT sortiert — wir sortieren erst, dann verteilen
+    # gemäß original-rank-ordnung.
+    sampled_sorted.sort()
+    sampled = np.empty(n)
     for rank, orig_idx in enumerate(order):
         sampled[orig_idx] = sampled_sorted[rank]
 

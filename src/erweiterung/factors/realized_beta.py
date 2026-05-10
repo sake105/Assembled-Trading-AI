@@ -108,24 +108,25 @@ def beta_hedge_size(
 
 def beta_neutralize_portfolio(
     weights: pd.Series, betas: pd.Series, target_beta: float = 0.0
-) -> pd.Series:
-    """Adjust portfolio weights so portfolio-β = target.
+) -> tuple[pd.Series, float]:
+    """Compute portfolio-beta and required market-hedge to reach target.
 
-    Simple linear-shift: scale all weights by factor so that Σ w_i β_i = target_β.
-    Bei target=0: scaling allein kann das nicht erreichen — hier nur dokumentiert.
-    Diese Funktion macht analytische Berechnung des Hedge-Notionals.
+    Args:
+        weights: portfolio weights per asset.
+        betas: β je asset (gleiche Indizes wie weights).
+        target_beta: ziel-β des Portfolios (default = 0 = market-neutral).
 
     Returns:
-        Adjusted weights (sum ≠ 1 if hedge needed).
+        Tuple ``(weights, market_hedge_notional)``:
+        - weights bleibt unverändert.
+        - market_hedge_notional = Δβ × Σ|weights| (so dass nach short von
+          ``hedge`` Markteinheiten das resultierende Portfolio-β = target).
+          Negativ ⇒ short der Market-Position.
+        Der Caller integriert diese Hedge-Position selbst in seine Execution.
     """
     portfolio_beta = float((weights * betas).sum())
-    if abs(portfolio_beta - target_beta) < 1e-9:
-        return weights
-    hedge_needed = portfolio_beta - target_beta
-    # Add a "market_hedge" line to weights — but caller must handle externally
-    out = weights.copy()
-    out["_market_hedge_"] = -hedge_needed  # implicit market position
-    return out
+    market_hedge_notional = -(portfolio_beta - target_beta)
+    return weights.copy(), float(market_hedge_notional)
 
 
 __all__ = [
