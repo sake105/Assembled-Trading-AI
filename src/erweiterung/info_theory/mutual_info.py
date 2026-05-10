@@ -96,14 +96,16 @@ def transfer_entropy(
     if len(s) != len(t) or len(s) < 100:
         return float("nan")
 
-    # Build x_t, y_t, y_{t+1}
-    y_curr = t[:-1]
-    y_next = t[1:]
-    x_lag = s[: len(y_curr)]  # source at time t (shifted to align with y_curr)
-    if lag != 1:
-        x_lag = np.concatenate(
-            [np.full(lag - 1, np.nan), s[: -lag + 1 if lag > 1 else None]]
-        )[: len(y_curr)]
+    # TE(source → target, lag) = I(y_{t+1}; x_{t-lag+1} | y_t)
+    # For lag=1: y_curr=y[0..n-2], y_next=y[1..n-1], x_lag=x[0..n-2]
+    # For lag=L: y_curr=y[L-1..n-2], y_next=y[L..n-1], x_lag=x[0..n-L-1]
+    n_total = len(s)
+    if n_total < lag + 2:
+        return float("nan")
+    y_curr = t[lag - 1 : n_total - 1]
+    y_next = t[lag:]
+    x_lag = s[: n_total - lag]
+    # All same length: n_total - lag
 
     mask = ~(np.isnan(y_curr) | np.isnan(y_next) | np.isnan(x_lag))
     y_curr, y_next, x_lag = y_curr[mask], y_next[mask], x_lag[mask]

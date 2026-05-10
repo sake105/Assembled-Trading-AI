@@ -99,7 +99,7 @@ def trade_pair(
         (positions_df, trades_list).
     """
     df = pd.concat([y.rename("y"), x.rename("x")], axis=1).dropna()
-    # Fit hedge ratio once on first half (training)
+    # Fit hedge ratio once on first half (training) — beta only on train data.
     half = len(df) // 2
     train = df.iloc[:half]
     res = cointegration_engle_granger(train["y"], train["x"])
@@ -116,7 +116,9 @@ def trade_pair(
     state = 0
     entry_idx = None
     trades: list[PairsTrade] = []
-    for d, z_val in z.items():
+    # IMPORTANT: trade only out-of-sample (after train half) to avoid in-sample bias.
+    z_oos = z.iloc[half:]
+    for d, z_val in z_oos.items():
         if not np.isfinite(z_val):
             continue
         if state == 0:

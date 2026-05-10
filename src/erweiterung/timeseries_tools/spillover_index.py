@@ -103,18 +103,21 @@ def spillover_indices(returns: pd.DataFrame, p: int = 1, horizon: int = 10) -> d
     n = theta.shape[0]
 
     pairs_df = pd.DataFrame(theta, index=returns.columns, columns=returns.columns)
-    # Total Spillover Index = (Σ_{i≠j} θ_ij) / Σ θ × 100
+    # theta is row-normalized: Σ_j θ_ij = 1 per row i (so theta.sum() == n).
     off_diag = theta - np.diag(np.diag(theta))
+    # Total Spillover Index (Diebold-Yilmaz 2012)
     total = float(off_diag.sum() / theta.sum() * 100)
 
-    from_spillover = pd.Series(
-        off_diag.sum(axis=1) / theta.sum(axis=1) * 100,
-        index=returns.columns,
-    )
-    to_spillover = pd.Series(
-        off_diag.sum(axis=0) / theta.sum(axis=1).sum() * n * 100,
-        index=returns.columns,
-    )
+    # From j (received): how much of j's variance comes from others.
+    # Under row-norm: row off-diag sum = 1 - θ_jj ∈ [0, 1].
+    from_spillover = pd.Series(off_diag.sum(axis=1) * 100, index=returns.columns)
+    # To j (transmitted): avg contribution j makes to others' variances.
+    if n > 1:
+        to_spillover = pd.Series(
+            off_diag.sum(axis=0) / (n - 1) * 100, index=returns.columns
+        )
+    else:
+        to_spillover = pd.Series(0.0, index=returns.columns)
     net = to_spillover - from_spillover
 
     return {
