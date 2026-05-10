@@ -10,7 +10,35 @@ Diese Erweiterung sitzt in `src/erweiterung/` und ist **vollständig isoliert** 
 4. **Keine bezahlten Quellen** im Code. Wünsche & Spec siehe [`PAID_DATA_WISHLIST.md`](./PAID_DATA_WISHLIST.md).
 5. **Deterministisch reproduzierbar** mit Seed.
 
-## Module
+## Module (v2 — erweitert)
+
+### v2-Zusatz-Module (zweite Welle)
+
+| Pfad | Inhalt |
+|------|--------|
+| `volatility/garch_models.py` | GARCH/EGARCH/GJR-GARCH (mit `arch`-lib + Numpy-MLE-Fallback) |
+| `volatility/har_rv.py` | HAR-RV (Corsi 2009) — Heterogeneous Autoregressive Realized Vol |
+| `factors/fama_french.py` | SMB, HML, RMW, CMA, MOM 12-1 |
+| `factors/low_vol.py` | Betting-Against-Beta (Frazzini/Pedersen 2014); Low-Vol-Anomaly |
+| `factors/factor_ic.py` | Information Coefficient + Alpha-Decay-Curve |
+| `factors/factor_neutralize.py` | Sektor-/Multi-Faktor-Neutralisierung |
+| `microstructure/liquidity_proxies.py` | Amihud-Illiq, Roll-Spread, Corwin-Schultz, Kyle-Lambda |
+| `microstructure/vpin.py` | VPIN — Volume-Synchronized Probability of Informed Trading |
+| `events/event_study.py` | MacKinlay-Event-Study (AR/CAR/AAR/BHAR) mit t-Stats |
+| `nlp/finbert_sentiment.py` | FinBERT (HuggingFace) — Finanztexte-Sentiment |
+| `nlp/news_dedup.py` | SimHash + Token-Jaccard für Near-Duplicate-News |
+| `nlp/lda_topic.py` | LDA-Topic-Modeling (sklearn) |
+| `dl/patch_tst.py` | PatchTST (Nie 2023) — Time-Series-Transformer |
+| `dl/lstm_returns.py` | LSTM für Returns-Forecasting |
+| `dl/autoencoder_anomaly.py` | Autoencoder für Cross-Section-Anomaly-Detection |
+| `rl/portfolio_env.py` | Gym-style Portfolio-Allocation-Environment |
+| `rl/ppo_agent.py` | PPO-Actor-Critic-Agent |
+| `bayesian/bayesian_linear.py` | Bayesian-LinReg + Sharpe-Posterior-Sampling |
+| `crossasset/spreads.py` | GSR, Dollar-Equity, HYG/LQD, VIX-Term, Composite-Risk-Off |
+| `survival/hazard_models.py` | Kaplan-Meier + Cox-PH (Numpy-only) |
+| `discovery/genetic_programming.py` | GP-Search für Signal-Formel-Discovery |
+
+### v1-Module (erste Welle)
 
 | Pfad | Inhalt |
 |------|--------|
@@ -61,6 +89,12 @@ Diese Erweiterung sitzt in `src/erweiterung/` und ist **vollständig isoliert** 
 
 # Demo-Backtest (rein synthetisch, keine API-Calls)
 .venv/Scripts/python.exe scripts/erweiterung/run_demo_backtest.py --n-days 1260
+
+# Echter Backtest auf 20 US-Mega-Caps, 2010-2026 (lokales Parquet)
+.venv/Scripts/python.exe scripts/erweiterung/run_real_backtest.py \
+    --start 2010-01-01 --end 2026-04-01 --tc-bps 5
+# Erzeugt output/erweiterung_real_backtest.json + erweiterung_real_equity.csv
+# Ergebnisse siehe REAL_BACKTEST_RESULTS.md
 ```
 
 ## Demo-Output (Beispiel, synthetische Daten)
