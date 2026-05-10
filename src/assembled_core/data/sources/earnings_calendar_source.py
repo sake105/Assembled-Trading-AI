@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import numpy as np
@@ -77,8 +77,9 @@ class EarningsCalendarSource:
             eps_actual (NaN if not yet reported), surprise_pct.
         """
         rows = []
-        end_date = datetime.today() + timedelta(days=days_ahead)
-        start_date = datetime.today() - timedelta(days=30)  # include recent past
+        now = datetime.now(tz=timezone.utc)
+        end_date = now + timedelta(days=days_ahead)
+        start_date = now - timedelta(days=30)  # include recent past
 
         for sym in symbols:
             try:

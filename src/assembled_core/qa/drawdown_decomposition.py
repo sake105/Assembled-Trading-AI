@@ -187,6 +187,24 @@ def find_all_drawdowns(
                 )
             in_dd = False
 
+    # Flush drawdown still active at series end (e.g., live equity ending in a trough)
+    if in_dd:
+        trough_range = dd_arr[current_peak_idx:]
+        trough_idx_rel = int(trough_range.argmin())
+        trough_idx = current_peak_idx + trough_idx_rel
+        duration = trough_idx - current_peak_idx
+        if duration >= min_duration:
+            drawdowns.append(
+                DrawdownPeriod(
+                    start_idx=current_peak_idx,
+                    end_idx=trough_idx,
+                    peak_value=float(equity_arr[current_peak_idx]),
+                    trough_value=float(equity_arr[trough_idx]),
+                    max_drawdown=float(dd_arr[trough_idx]),
+                    duration=duration,
+                )
+            )
+
     return drawdowns
 
 

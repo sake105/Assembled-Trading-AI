@@ -99,7 +99,7 @@ def _check_price_spikes(
     if returns.std() < 1e-9:
         return
     z = returns.abs() / returns.std()
-    spikes = int((z > spike_threshold * 10).sum())  # 10× daily vol = spike
+    spikes = int((z > spike_threshold).sum())
     if spikes > 0:
         result.checks_warned.append(f"price_spikes:{spikes}_rows")
 

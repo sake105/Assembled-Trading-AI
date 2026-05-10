@@ -1066,7 +1066,12 @@ def _ptd_apply_order_filters(
     if config.georisk_gate_enabled:
         from src.assembled_core.paper.georisk_gate import apply_georisk_to_orders
 
-        georisk_multiplier = getattr(config, "_georisk_multiplier", 1.0)
+        # FIXED: was getattr(config, "_georisk_multiplier", 1.0) — private attribute never set,
+        # gate was always a no-op. Now reads the correct public field georisk_active_multiplier.
+        # NOTE: This applies the multiplier unconditionally when the gate is enabled.
+        # Full state-aware scaling (WATCH vs ACTIVE discrimination via compute_georisk_multiplier)
+        # requires a geo-risk state source to be plumbed into this function — tracked as follow-up.
+        georisk_multiplier = config.georisk_active_multiplier
         if georisk_multiplier < 1.0 and not orders.empty:
             pre = len(orders)
             orders = apply_georisk_to_orders(orders, georisk_multiplier)
@@ -1361,8 +1366,8 @@ def run_paper_day(
                 current_positions if not current_positions.empty else None
             ),
             order_timestamp=as_of,
-            enable_risk_controls=False,
-            risk_config={},
+            enable_risk_controls=True,  # FIXED: was False — bypassed kill-switch and all pre-trade checks
+            risk_config={},  # policy.yaml risk_limits are used as fallback when this is empty
             output_dir=None,
             output_format="none",
             write_outputs=False,
