@@ -410,7 +410,9 @@ def build_positions_from_ledger(
         float(positions_df["notional"].abs().sum()) if not positions_df.empty else 0.0
     )
     net_exposure = (
-        float(positions_df["notional"].sum()) if not positions_df.empty else 0.0
+        float((positions_df["qty"] * positions_df["last_price"]).sum())
+        if not positions_df.empty
+        else 0.0
     )
     n_positions = len(positions_df)
 

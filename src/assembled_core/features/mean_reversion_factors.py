@@ -83,7 +83,10 @@ def _rsi_extreme_uptrend(close: pd.Series) -> pd.Series:
     rsi = _rsi_14(close)
     ema_50 = close.ewm(span=50, adjust=False).mean()
     ema_200 = close.ewm(span=200, adjust=False).mean()
-    uptrend_flag = (ema_50 > ema_200).astype(float)
+    uptrend_flag = pd.Series(
+        np.where(ema_200.isna(), np.nan, (ema_50 > ema_200).astype(float)),
+        index=close.index,
+    )
     # Propagate NaNs from RSI so that insufficient-history rows stay NaN.
     scaled = (30.0 - rsi).clip(lower=0.0) / 30.0
     return scaled * uptrend_flag

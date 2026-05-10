@@ -132,6 +132,7 @@ class TestBuildEarningsSurpriseFactors:
             sample_earnings_events,
             sample_price_panel,
             window_days=20,
+            compute_pead_target=True,  # explicitly request look-ahead column (eval only)
         )
 
         # Check that result has expected columns

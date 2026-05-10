@@ -358,10 +358,6 @@ class StrategyAllocator:
 
         # Aggregate per symbol: weighted score, majority direction
         def _agg(grp: Any) -> Any:
-            if "score" in grp.columns:
-                wscore = (grp["score"] * grp["_weight"]).sum()
-            else:
-                wscore = 0.0
             # Weighted direction vote
             _w = (
                 grp["_weight"].astype(float)
@@ -370,6 +366,13 @@ class StrategyAllocator:
             )
             dir_totals = _w.groupby(grp["direction"].astype(str)).sum()
             best_dir = str(dir_totals.idxmax()) if not dir_totals.empty else "NEUTRAL"
+            if "score" in grp.columns:
+                _dir_mask = grp["direction"] == best_dir
+                wscore = (
+                    grp.loc[_dir_mask, "score"] * grp.loc[_dir_mask, "_weight"]
+                ).sum()
+            else:
+                wscore = 0.0
             return pd.Series({"score": wscore, "direction": best_dir})
 
         result = (

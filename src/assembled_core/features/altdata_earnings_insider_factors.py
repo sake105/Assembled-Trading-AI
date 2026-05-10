@@ -50,6 +50,7 @@ def build_earnings_surprise_factors(
     timestamp_col: str = "timestamp",
     price_col: str = "close",
     as_of: pd.Timestamp | None = None,
+    compute_pead_target: bool = False,
 ) -> pd.DataFrame:
     """Build earnings surprise factors from earnings events and price data.
 
@@ -313,47 +314,38 @@ def build_earnings_surprise_factors(
         result["earnings_eps_surprise_last"] < 0
     ).astype(float)
 
-    # Compute post-earnings drift return
-    # For each earnings event date, compute forward return over window_days
-    # This factor is only non-NaN on earnings announcement dates
-
-    # Initialize column with NaN
-    result[f"post_earnings_drift_return_{window_days}d"] = np.nan
-
-    # Group prices by symbol for forward return calculation
-    grouped_prices = result.groupby(group_col, group_keys=False)
-
-    # Compute forward return: log(price[t+window_days] / price[t])
-    future_price = grouped_prices[price_col].shift(-window_days)
-    current_price = result[price_col]
-
-    forward_return = np.log(np.clip(future_price / current_price, 1e-10, None))
-
-    # Only set forward return for dates that have earnings events
-    # Create a mask: True for dates that have earnings events
-    earnings_dates = events_with_surprise[[group_col, timestamp_col]].drop_duplicates()
-
-    # Merge to find earnings event dates in result
-    earnings_mask = pd.merge(
-        result[[group_col, timestamp_col]],
-        earnings_dates,
-        on=[group_col, timestamp_col],
-        how="inner",
-    )
-
-    if not earnings_mask.empty:
-        # Set forward return only for earnings event dates
-        earnings_indices = result.index[
-            result.set_index([group_col, timestamp_col]).index.isin(
-                earnings_mask.set_index([group_col, timestamp_col]).index
-            )
-        ]
-        result.loc[earnings_indices, f"post_earnings_drift_return_{window_days}d"] = (
-            forward_return.loc[earnings_indices].values
+    # post_earnings_drift_return uses shift(-window_days) — a forward look-ahead.
+    # Only compute when explicitly requested (e.g. evaluation harnesses), never
+    # include in model training features.
+    if compute_pead_target:
+        result[f"post_earnings_drift_return_{window_days}d"] = np.nan
+        grouped_prices = result.groupby(group_col, group_keys=False)
+        future_price = grouped_prices[price_col].shift(-window_days)
+        current_price = result[price_col]
+        forward_return = np.log(np.clip(future_price / current_price, 1e-10, None))
+        earnings_dates = events_with_surprise[
+            [group_col, timestamp_col]
+        ].drop_duplicates()
+        earnings_mask = pd.merge(
+            result[[group_col, timestamp_col]],
+            earnings_dates,
+            on=[group_col, timestamp_col],
+            how="inner",
         )
+        if not earnings_mask.empty:
+            earnings_indices = result.index[
+                result.set_index([group_col, timestamp_col]).index.isin(
+                    earnings_mask.set_index([group_col, timestamp_col]).index
+                )
+            ]
+            result.loc[
+                earnings_indices, f"post_earnings_drift_return_{window_days}d"
+            ] = forward_return.loc[earnings_indices].values
 
-    # Count earnings event dates
-    n_earnings_dates = len(earnings_mask) if not earnings_mask.empty else 0
+    # Count earnings event dates (earnings_mask only set when compute_pead_target=True)
+    n_earnings_dates = (
+        len(earnings_mask) if compute_pead_target and not earnings_mask.empty else 0
+    )
 
     logger.info(
         f"Built earnings surprise factors for {result[group_col].nunique()} symbols, "
@@ -617,7 +609,7 @@ def build_insider_activity_factors(
         buy_sell_ratio = np.where(
             sell_count_rolling > 0,
             buy_count_rolling / sell_count_rolling,
-            np.where(buy_count_rolling > 0, np.inf, np.nan),
+            np.where(buy_count_rolling > 0, np.nan, np.nan),
         )
 
         # Assign factors

@@ -490,6 +490,11 @@ def apply_tc_penalized_rebalancing(
             adjusted[sym] = max(w_current, min(adjusted[sym], w_target))
         else:
             adjusted[sym] = min(w_current, max(adjusted[sym], w_target))
+            # Exit guard: w_target == 0.0 must not result in a positive weight.
+            # The TC penalty can push adjusted above 0 for closing trades; clamp
+            # back to 0.0 so the position actually exits rather than persisting.
+            if w_target == 0.0:
+                adjusted[sym] = 0.0
 
     # Renormalize to sum to <= 1.0 (preserve cash)
     total = sum(max(0.0, w) for w in adjusted.values())

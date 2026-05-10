@@ -280,17 +280,23 @@ def build_news_sentiment_factors(
         )
 
     # Merge sentiment factors to prices (per symbol first, then market-wide)
+    # Build O(1) lookup dict from sentiment_factors_list (was O(N²) linear scan).
+    _sentiment_by_symbol: dict = {}
+    if sentiment_factors_list:
+        for sf in sentiment_factors_list:
+            if not sf.empty:
+                _sentiment_by_symbol[sf[group_col].iloc[0]] = sf
+
     result_list = []
     for symbol, symbol_result in result.groupby(group_col, sort=False):
         symbol_result = symbol_result.sort_values(timestamp_col).reset_index(drop=True)
 
         # First, try per-symbol sentiment
         symbol_sentiment = None
-        if sentiment_factors_list:
-            for sf in sentiment_factors_list:
-                if not sf.empty and sf[group_col].iloc[0] == symbol:
-                    symbol_sentiment = sf.copy()
-                    break
+        if _sentiment_by_symbol:
+            _sf = _sentiment_by_symbol.get(symbol)
+            if _sf is not None:
+                symbol_sentiment = _sf.copy()
 
         if symbol_sentiment is not None and not symbol_sentiment.empty:
             symbol_sentiment = symbol_sentiment.sort_values(timestamp_col).reset_index(
@@ -573,20 +579,22 @@ def build_macro_regime_factors(
         if not growth_data.empty
         else pd.DataFrame(index=date_index)
     )
-    gdp_regime = (
-        np.where(gpivot["GDP"] > 2.0, 1.0, np.where(gpivot["GDP"] < 0.0, -1.0, 0.0))
-        if "GDP" in gpivot.columns
-        else np.zeros(len(date_index))
-    )
-    unemp_regime = (
-        np.where(
-            gpivot["UNEMPLOYMENT"] < 4.0,
-            1.0,
-            np.where(gpivot["UNEMPLOYMENT"] > 7.0, -1.0, 0.0),
+    _gdp_cols = [c for c in gpivot.columns if "GDP" in c.upper()]
+    if _gdp_cols:
+        _gdp_series = gpivot[_gdp_cols].mean(axis=1)
+        gdp_regime = np.where(
+            _gdp_series > 2.0, 1.0, np.where(_gdp_series < 0.0, -1.0, 0.0)
         )
-        if "UNEMPLOYMENT" in gpivot.columns
-        else np.zeros(len(date_index))
-    )
+    else:
+        gdp_regime = np.zeros(len(date_index))
+    _unemp_cols = [c for c in gpivot.columns if "UNEMPLOY" in c.upper()]
+    if _unemp_cols:
+        _unemp_series = gpivot[_unemp_cols].mean(axis=1)
+        unemp_regime = np.where(
+            _unemp_series < 4.0, 1.0, np.where(_unemp_series > 7.0, -1.0, 0.0)
+        )
+    else:
+        unemp_regime = np.zeros(len(date_index))
     growth_regime_arr = np.where(gdp_regime != 0.0, gdp_regime, unemp_regime)
 
     # Inflation: avg across codes > 3 → high, < 1 → low
