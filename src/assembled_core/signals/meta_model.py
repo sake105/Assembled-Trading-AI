@@ -337,8 +337,9 @@ def train_meta_model(
     # Sort chronologically so train/val split is temporally ordered.
     sort_col = next((c for c in ("timestamp", "date") if c in df.columns), None)
     if sort_col is not None:
-        df = df.sort_values(sort_col).reset_index(drop=True)
-        if not df[sort_col].is_monotonic_increasing:
+        df = df.sort_values(sort_col, na_position="last").reset_index(drop=True)
+        non_nat = df[sort_col].dropna()
+        if not non_nat.is_monotonic_increasing:
             raise RuntimeError(
                 f"DataFrame not sorted by {sort_col} after sort_values()"
             )

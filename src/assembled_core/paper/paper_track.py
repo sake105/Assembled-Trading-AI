@@ -156,7 +156,7 @@ class PaperTrackConfig:
 
     def __post_init__(self) -> None:
         if not self.georisk_gate_enabled:
-            logger.warning(
+            logger.debug(
                 "[PaperTrack] georisk_gate_enabled=False — geo-risk overlay is DISABLED. "
                 "Orders will NOT be filtered by geo-risk state."
             )
@@ -1342,7 +1342,7 @@ def run_paper_day(
             prices=prices_history[
                 prices_history["symbol"].isin(tradeable_symbols)
             ].copy(),
-            mode="backtest",
+            mode="paper",
             as_of=as_of,
             freq=config.freq,
             universe=universe_symbols if universe_symbols else None,

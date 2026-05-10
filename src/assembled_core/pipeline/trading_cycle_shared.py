@@ -1386,7 +1386,7 @@ def _apply_risk_controls_default(
                         ctx.risk_config.get("drawdown_threshold")
                         or _policy_defaults.get("drawdown_threshold")
                     ),
-                    de_risk_scale=ctx.risk_config.get("de_risk_scale", 0.0),
+                    de_risk_scale=ctx.risk_config.get("de_risk_scale", 0.5),
                     max_gross_exposure=(
                         ctx.risk_config.get("max_gross_exposure")
                         or _policy_defaults.get("max_gross_exposure")
@@ -1415,7 +1415,7 @@ def _apply_risk_controls_default(
                     drawdown_threshold=getattr(
                         ctx.risk_config, "drawdown_threshold", None
                     ),
-                    de_risk_scale=getattr(ctx.risk_config, "de_risk_scale", 0.0),
+                    de_risk_scale=getattr(ctx.risk_config, "de_risk_scale", 0.5),
                     max_gross_exposure=getattr(
                         ctx.risk_config, "max_gross_exposure", None
                     ),
@@ -1433,6 +1433,11 @@ def _apply_risk_controls_default(
                 )
 
         # Use existing risk controls module with exposure data
+        try:
+            _cycle_policy: dict[str, Any] | None = load_policy()
+        except Exception:
+            _cycle_policy = None
+
         filtered_orders, risk_result = filter_orders_with_risk_controls(
             orders=orders,
             portfolio=None,  # Portfolio snapshot not available in cycle context
@@ -1446,6 +1451,7 @@ def _apply_risk_controls_default(
             current_equity=current_equity,
             peak_equity=peak_equity,
             security_meta_df=security_meta_df,
+            policy=_cycle_policy,
         )
 
         return filtered_orders

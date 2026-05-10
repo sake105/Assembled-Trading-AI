@@ -670,13 +670,19 @@ def _ptc_check_cvar(
         return filtered_orders, orders_with_notional
 
     portfolio_cvar = float(risk_summary["cvar_95"])
+    # CVaR values are negative: -0.07 means 7% tail loss (worse than -0.05 limit).
+    # Trigger scaling when portfolio_cvar < config.max_cvar_95 (i.e. worse than limit).
     if portfolio_cvar >= config.max_cvar_95:
+        # Within limit — no action required.
         return filtered_orders, orders_with_notional
 
-    # portfolio_cvar == 0.0 means no positions (cash-only) → no tail risk → pass through
+    # portfolio_cvar == 0.0 means no positions (cash-only) → no tail risk → pass through.
+    # Also guards against division by zero.
     if portfolio_cvar == 0.0:
         return filtered_orders, orders_with_notional
 
+    # Scale = limit / actual (both negative, so ratio is positive and < 1 when breached).
+    # E.g. -0.05 / -0.07 ≈ 0.714 → reduce BUY orders to 71.4% of requested size.
     cvar_scale = config.max_cvar_95 / portfolio_cvar
     cvar_scale = max(0.0, min(cvar_scale, 1.0))
     if (

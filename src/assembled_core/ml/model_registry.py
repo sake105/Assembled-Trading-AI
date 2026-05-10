@@ -33,26 +33,31 @@ def _verify_model_file_hash(path: Path, expected: str) -> bool:
 
 
 _registry_cache: dict | None = None
+_registry_mtime: float | None = None
 
 
 def _load_registry() -> dict:
-    global _registry_cache  # noqa: PLW0603
-    if _registry_cache is not None:
-        return _registry_cache
+    global _registry_cache, _registry_mtime  # noqa: PLW0603
     if not _REGISTRY_PATH.exists():
         logger.debug(
             "[MODEL-REGISTRY] registry.json not found at %s — hash checks disabled",
             _REGISTRY_PATH,
         )
         _registry_cache = {}
+        _registry_mtime = None
+        return _registry_cache
+    current_mtime = _REGISTRY_PATH.stat().st_mtime
+    if _registry_cache is not None and _registry_mtime == current_mtime:
         return _registry_cache
     try:
         _registry_cache = json.loads(_REGISTRY_PATH.read_text(encoding="utf-8")).get(
             "models", {}
         )
+        _registry_mtime = current_mtime
     except Exception as exc:
         logger.warning("[MODEL-REGISTRY] Failed to load registry.json: %s", exc)
         _registry_cache = {}
+        _registry_mtime = None
     return _registry_cache
 
 
