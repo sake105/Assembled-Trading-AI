@@ -52,7 +52,10 @@ def test_double_ml_recovers_effect():
     true_beta = 2.0
     Y = true_beta * T + 0.3 * X[:, 0] - 0.2 * X[:, 1] + rng.normal(0, 0.3, n)
     res = double_ml(Y, T, X, n_folds=5)
-    assert abs(res.treatment_effect - true_beta) < 0.5
+    # Tightened from 0.5 to 0.1: DML on linear DGP with n=1000 should reach ~0.05 SE
+    assert abs(res.treatment_effect - true_beta) < 0.1
+    # Confidence interval should cover true beta
+    assert res.confidence_interval[0] <= true_beta <= res.confidence_interval[1]
 
 
 def test_propensity_matching_runs():

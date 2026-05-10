@@ -222,7 +222,8 @@ def test_max_diversification():
     df = pd.DataFrame(rng.normal(0, 0.01, (200, 4)), columns=["A", "B", "C", "D"])
     cov = df.cov()
     w = max_diversification_weights(cov, long_only=True, max_weight=0.5)
-    assert abs(w.sum() - 1.0) < 0.05
+    # SLSQP with equality constraint should reach 1e-4 precision
+    assert abs(w.sum() - 1.0) < 1e-4
     dr = diversification_ratio(w, cov)
     assert dr >= 1.0
 
