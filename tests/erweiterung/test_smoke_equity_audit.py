@@ -57,8 +57,19 @@ def test_no_critical_audit_flags(name: str, path: Path):
     if numeric_cols.empty:
         pytest.skip(f"{name}: no numeric columns")
 
+    # Audit nur Spalten die echte Equity-Curves oder Returns sind.
+    # Skip Multiplier/Score/Weight/State-Spalten (sind keine Equities).
+    skip_patterns = ("multiplier", "score", "weight", "regime", "state",
+                     "signal", "exposure", "leverage", "stress", "trigger",
+                     "ensemble", "composite")
+    audit_cols = [
+        c for c in numeric_cols
+        if not any(p in c.lower() for p in skip_patterns)
+    ]
+    if not audit_cols:
+        pytest.skip(f"{name}: no auditable equity/return columns")
     # Audit jede numerische Spalte
-    for col in numeric_cols:
+    for col in audit_cols:
         eq_series = df[col].dropna()
         if len(eq_series) < 100:
             continue
