@@ -85,23 +85,32 @@ def _load_gpr_monthly(
 
 def _load_gdelt_monthly(
     cache_path: str = "data/cache/gdelt/monthly_aggregates.parquet",
-    biweekly_path: str | None = "data/cache/gdelt/biweekly_aggregates.parquet",
+    biweekly_path: str | None = None,
+    weekly_path: str | None = None,
 ) -> pd.DataFrame:
-    """Lade GDELT-aggregates (monthly + optional biweekly merged).
+    """Lade GDELT-aggregates (monthly default, biweekly/weekly opt-in).
 
-    Biweekly samples (2020-2026) werden mit monthly samples kombiniert.
-    Bei doppelten Daten gewinnt biweekly (höhere Auflösung).
+    Default: nur monthly (157 samples 2013-2026).
+    Grid-Search-Befund (run_gdelt_resolution_grid.py):
+    - Monthly-only:  AnnRet +16.40%, Sharpe 1.439, p(>0)=0.915 vs baseline
+    - +Biweekly:     AnnRet +16.14%, Sharpe 1.415, p(>0)=0.746
+    - +Biweekly+Weekly: AnnRet +15.72%, Sharpe 1.385, p(>0)=0.571
+    Mehr Granularität bringt Noise statt Signal — geopolitische Risiken
+    bewegen sich in monthly-cycles. Daher monthly als Default.
+
+    Höhere Resolutionen via Parameter explizit aktivierbar (für Research).
     """
     p = Path(cache_path)
     if not p.exists():
         raise FileNotFoundError(f"GDELT cache not found at {cache_path}")
     df = pd.read_parquet(p)
 
-    if biweekly_path is not None and Path(biweekly_path).exists():
-        bw = pd.read_parquet(biweekly_path)
-        df = pd.concat([df, bw], ignore_index=True).drop_duplicates(
-            subset="sample_date"
-        )
+    for extra_path in (biweekly_path, weekly_path):
+        if extra_path is not None and Path(extra_path).exists():
+            extra = pd.read_parquet(extra_path)
+            df = pd.concat([df, extra], ignore_index=True).drop_duplicates(
+                subset="sample_date", keep="last"
+            )
 
     df["date"] = pd.to_datetime(df["sample_date"], format="%Y%m%d", utc=True)
     keep = ["date", "conflict_share", "mean_tone", "mean_goldstein", "n_events"]
