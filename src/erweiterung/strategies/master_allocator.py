@@ -127,21 +127,27 @@ def cross_asset_momentum_top_n(
     if insufficient.any():
         mom.iloc[insufficient] = np.nan
 
-    # Top-N-Auswahl pro Rebal-Tag, dann forward-fill
-    weights = pd.DataFrame(
-        0.0, index=panel_returns.index, columns=panel_returns.columns
-    )
+    # Top-N-Auswahl pro Rebal-Tag.
+    # WICHTIG: an einem Rebalance-Datum wird das ganze Weight-Set neu gesetzt,
+    # damit Non-Top-Symbole von voriger Rebalance auf 0 fallen.
+    # Daher: an Non-Rebalance-Tagen NaN setzen + ffill (carries vorigen Stand),
+    # an Rebalance-Tagen vollständigen Vektor (mit 0 für Non-Top) eintragen.
     n_top = cfg.xa_mom_top_n
     rebal_dates = panel_returns.index[rebal_mask.values]
+    weights = pd.DataFrame(
+        np.nan, index=panel_returns.index, columns=panel_returns.columns
+    )
     for d in rebal_dates:
         row = mom.loc[d].dropna()
         if len(row) < n_top:
             continue
         top_syms = row.nlargest(n_top).index
+        # Reset ALL columns at this rebal-date (0 for non-top, 1/n_top for top)
+        weights.loc[d, :] = 0.0
         weights.loc[d, top_syms] = 1.0 / n_top
 
-    # Forward-fill weights (Rebalance-Logik)
-    weights = weights.replace(0, np.nan).ffill().fillna(0.0)
+    # Forward-fill weights between rebalances
+    weights = weights.ffill().fillna(0.0)
 
     # Apply: tagesreturn = (panel_returns × weights).sum(axis=1)
     out_ret = (panel_returns * weights).sum(axis=1)

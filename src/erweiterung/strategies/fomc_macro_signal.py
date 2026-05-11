@@ -87,9 +87,13 @@ def build_fomc_signal_series(
         else:
             target = cfg.exposure_neutral
 
-        # Decay-Window: meeting_date bis meeting_date + decay_days
+        # Decay-Window: meeting_date+1 bis meeting_date + decay_days
+        # WICHTIG: > meeting_date (nicht >=) verhindert Lookahead.
+        # FOMC-Statements werden ~14:00 ET veröffentlicht, US-Close 16:00 ET.
+        # Daher kann der Statement-Inhalt erst ab dem NÄCHSTEN Trading-Day
+        # für Allokations-Entscheidungen genutzt werden (close-based returns).
         end_date = meeting_date + pd.Timedelta(days=cfg.decay_days)
-        mask = (out.index >= meeting_date) & (out.index <= end_date)
+        mask = (out.index > meeting_date) & (out.index <= end_date)
         out[mask] = target
 
     return out

@@ -232,25 +232,29 @@ class LiveDecisionEngine:
         cfg = self.config
         st = self.state
 
-        # Append eq log returns
+        # WICHTIG: Reihenfolge ist relevant für PIT-Korrektheit.
+        # Compute factor-return MIT YESTERDAY's history (vor dem Append), dann appende.
+        # Das stellt sicher dass Top-Picks aus Daten bis T-1 stammen, nicht bis T.
+
+        # Step 1: Compute eq_factor_return BEFORE appending today's returns
+        if eq_factor_return is None:
+            # _compute_today_eq_factor_return nutzt aktuelle history (= bis T-1)
+            # und today's eq_returns für apply.
+            eq_factor_return = self._compute_today_eq_factor_return(eq_returns)
+
+        # Step 2: NOW append eq log returns (history now contains today)
         new_eq_log = np.log1p(eq_returns.fillna(0))
         new_eq_log.name = date
         st.eq_log_return_history = pd.concat(
             [st.eq_log_return_history, new_eq_log.to_frame().T]
         ).tail(st.max_history)
 
-        # Append xa log returns
+        # Step 3: Append xa log returns (after compute)
         new_xa_log = np.log1p(xa_returns.fillna(0))
         new_xa_log.name = date
         st.xa_log_return_history = pd.concat(
             [st.xa_log_return_history, new_xa_log.to_frame().T]
         ).tail(st.max_history)
-
-        # Append eq_factor_return
-        if eq_factor_return is None:
-            # Compute from new equity returns + existing position
-            # (For live: caller should provide eq_factor_return for accuracy)
-            eq_factor_return = self._compute_today_eq_factor_return(eq_returns)
         st.eq_factor_returns.append(eq_factor_return)
         if len(st.eq_factor_returns) > st.max_history:
             st.eq_factor_returns = st.eq_factor_returns[-st.max_history :]
@@ -275,29 +279,40 @@ class LiveDecisionEngine:
         st.last_date = date
 
     def _compute_today_eq_factor_return(self, eq_returns: pd.Series) -> float:
-        """Re-compute today's eq-factor return from current state (used if caller hasn't precomputed)."""
-        # Use yesterday's mom-12/1 weights × today's returns
+        """Compute today's eq-factor return using picks from history-as-of-T-1.
+
+        WICHTIG: Aufgerufen VOR dem Append des heutigen Returns in update_with_new_day.
+        Daher ist ``st.eq_log_return_history`` letzter Eintrag = T-1 (gestern).
+
+        Konvention (matches Bootstrap ``_compute_eq_factor_returns_from_history``):
+        Mom_t basiert auf cumsum[t-skip] - cumsum[t-lookback], dann t-1-shifted
+        für apply-on-day-t. Hier: picks für day-T basieren auf mom_{T-1}, also:
+
+            mom_{T-1} = cumsum[T-1-skip] - cumsum[T-1-lookback]
+
+        Mit history bis T-1 (iloc[-1] = T-1):
+            iloc[-1-skip] = T-1-skip
+            iloc[-1-lookback] = T-1-lookback
+        """
         cfg = self.config
         st = self.state
-        if len(st.eq_log_return_history) < cfg.eq_mom_lookback:
+        if len(st.eq_log_return_history) < cfg.eq_mom_lookback + 1:
             return 0.0
         cumsum = st.eq_log_return_history.cumsum()
         mom_row = (
             np.exp(
-                cumsum.iloc[-cfg.eq_mom_skip - 1]
-                - cumsum.iloc[-cfg.eq_mom_lookback - 1]
+                cumsum.iloc[-1 - cfg.eq_mom_skip]
+                - cumsum.iloc[-1 - cfg.eq_mom_lookback]
             )
             - 1.0
         )
         valid = mom_row.dropna()
         if len(valid) == 0:
             return 0.0
-        ranks = valid.rank(pct=True)
         n_top = max(1, int(np.ceil(cfg.eq_quantile_long * len(valid))))
         top_syms = valid.nlargest(n_top).index
-        weight = 1.0 / n_top
-        # Apply to today's eq_returns
-        return float(eq_returns.reindex(top_syms).fillna(0).mean() * 1.0)
+        # Equal-weight apply to today's eq_returns
+        return float(eq_returns.reindex(top_syms).fillna(0).mean())
 
     # ====================================================================
     # Decision (heutige Allokation)
