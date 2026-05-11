@@ -197,13 +197,62 @@ Factor-Tilt-Long-Only besser.
 
 ---
 
-## 8. Was als nächstes folgt (ehrliches Backlog)
+## 8. Multi-Signal-Regime-Detector
+
+`src/erweiterung/strategies/multi_signal_regime.py` aggregiert vier
+orthogonale Stress-Signale (jeweils auf [0, 1] normalisiert):
+
+1. **Trailing-Drawdown** (60d, Gewicht 0.30)
+2. **Realized-Vol-Ratio** (5d/60d, Gewicht 0.30)
+3. **Cross-Section-Dispersion** (21d-Smoothing, Trailing-Percentile, Gewicht 0.30)
+4. **News-Anomaly** (optional, Gewicht 0.10) — Plug für News-Sentiment-Volume
+
+Composite ≥ 0.60 → Stress-Regime. t-1-Lag gegen Look-Ahead.
+
+Script: `scripts/erweiterung/run_multi_signal_regime_backtest.py`
+
+| Variante | AnnRet | Sharpe | MDD | Stress-Share |
+|----------|-------:|-------:|----:|-------------:|
+| Pure Equal-Weight | +18.20 % | +0.973 | −24.94 % | — |
+| Pure Mom-12/1-LO | +28.24 % | +1.098 | −25.75 % | — |
+| **Drawdown-Only-Switch** | **+21.60 %** | **+0.974** | **−20.99 %** | 48.7 % |
+| **Multi-Signal-Switch** | **+22.06 %** | **+1.077** | −25.36 % | 46.6 % |
+
+**Ehrliche Lesart:**
+- Multi-Signal liefert **+0.46 pp AnnRet** und **+0.10 Sharpe** gegen
+  Drawdown-Only — aber **schlechteren MDD** (−25 % vs −21 %). Das ist
+  konsistent damit, dass das Multi-Signal mehr Stress-Days erwischt
+  (Composite > 0.60), aber wegen Realized-Vol-/Dispersion-Lead-Signalen
+  bereits **vor** dem Equity-Drawdown switcht — was die Equity-Stütze
+  des Drawdown-Switch im Crash-Bottom überspringt.
+- Pure Long-Only Mom-12/1 bleibt nominal weiterhin überlegen (+28.24 %),
+  aber mit hohem MDD.
+- Beide Switch-Varianten liefern Sharpe ≈ 1.0 — sie können als **Risk-
+  Tilt-Tools** verwendet werden, aber nicht als Return-Multiplikator.
+
+Innerhalb der Regime (Multi-Signal):
+- In stress: AnnRet +20.65 % / Sharpe 0.85 (623 Tage)
+- In calm: AnnRet +23.30 % / Sharpe 1.40 (713 Tage)
+
+Anders als beim Drawdown-Only-Switch (wo In-Stress dominiert): das Multi-
+Signal-Modell erwischt eine **breitere Klasse von Stress-Days**, aber die
+durchschnittliche Stress-Day-Performance ist niedriger — die Lead-Signale
+(RV, Dispersion) sind weniger trennscharf als Drawdown selbst.
+
+---
+
+## 9. Was als nächstes folgt (ehrliches Backlog)
 
 1. **Inflation-Regime-Trigger verschärfen:** Statt benchmark-Drawdown nun
    GPR/CPI/Yield-Curve-Inversion als Trigger testen. Möglicher Pfad:
    `erweiterung.economic_data` + `erweiterung.timeseries_tools.var_model`.
-2. **News-Impact-Layer:** Auf den News-Impact-Module-Output ein zweites
-   Backtest-Layer setzen, das im Inflation-Regime besonders aktiv wird.
-3. **Leakage-Audit des Originals:** Original-Sharpe 4.6 mit
-   `erweiterung.qa.leakage_audit` und `purged_kfold` (Mainline) testen,
-   falls Zugang zu intermediate Signal-Outputs des Originals besteht.
+2. **News-Anomaly-Plug live nutzen:** Aktuell liegt das News-Panel nur für
+   2025-12 → 2026-05 vor. Mit echtem Multi-Jahr-Feed ließe sich der News-
+   Anomaly-Beitrag (Gewicht 0.10) endlich auf Effekt testen.
+3. **Audit-Modul (`equity_curve_audit.py`)** als Smoke-Test in CI laufen lassen.
+   Verhindert, dass die Erweiterung selbst irgendwann Sharpe-4.6-Artefakte
+   produziert (siehe `docs/erweiterung/EQUITY_AUDIT_FINDINGS.md`).
+4. **Leakage-Audit des Originals:** Mit Zugang zu Intermediate-Signal-Logs
+   des Mainline-Systems wäre `erweiterung.qa.leakage_audit` + `purged_kfold`
+   ein direkter nächster Schritt — gehört aber ins Mainline-Repo, nicht
+   in die Erweiterung.
