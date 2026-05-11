@@ -53,6 +53,29 @@ jobs:
       - name: Run demo backtest
         run: |
           PYTHONPATH=src python scripts/erweiterung/run_demo_backtest.py --n-days 250
+      - name: Equity-Curve Smoke-Audit (Anomaly-Check on demo equity)
+        run: |
+          PYTHONPATH=src python -c "
+          from pathlib import Path
+          import pandas as pd
+          from erweiterung.qa.equity_curve_audit import audit_equity_curve
+          eq_csv = Path('output/erweiterung_demo_equity.csv')
+          if not eq_csv.exists():
+              print('[INFO] No demo equity to audit')
+              raise SystemExit(0)
+          df = pd.read_csv(eq_csv)
+          # Robust: pick first numeric column as equity
+          ec = df.select_dtypes(include='number').iloc[:, 0]
+          ec.index = pd.to_datetime(df.iloc[:, 0])
+          audit = audit_equity_curve(ec, name='demo')
+          print(f'Sharpe={audit.overall_sharpe:.3f} MDD={audit.max_drawdown:.3f}')
+          print(f'Flags: {audit.flags}')
+          critical_flags = [f for f in audit.flags if f in
+              ('EXTREMELY_HIGH_SHARPE', 'RETURNS_LIKELY_SMOOTHED', 'MDD_TOO_LOW_FOR_SHARPE')]
+          if critical_flags:
+              raise SystemExit(f'[FAIL] Equity-Audit flagged critical anomalies: {critical_flags}')
+          print('[OK] Equity audit passes critical-flag check')
+          "
 
   test-windows:
     runs-on: windows-latest
