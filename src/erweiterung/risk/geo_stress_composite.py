@@ -85,12 +85,24 @@ def _load_gpr_monthly(
 
 def _load_gdelt_monthly(
     cache_path: str = "data/cache/gdelt/monthly_aggregates.parquet",
+    biweekly_path: str | None = "data/cache/gdelt/biweekly_aggregates.parquet",
 ) -> pd.DataFrame:
-    """Lade GDELT-monthly-aggregates als [date, conflict_share, mean_tone]."""
+    """Lade GDELT-aggregates (monthly + optional biweekly merged).
+
+    Biweekly samples (2020-2026) werden mit monthly samples kombiniert.
+    Bei doppelten Daten gewinnt biweekly (höhere Auflösung).
+    """
     p = Path(cache_path)
     if not p.exists():
         raise FileNotFoundError(f"GDELT cache not found at {cache_path}")
     df = pd.read_parquet(p)
+
+    if biweekly_path is not None and Path(biweekly_path).exists():
+        bw = pd.read_parquet(biweekly_path)
+        df = pd.concat([df, bw], ignore_index=True).drop_duplicates(
+            subset="sample_date"
+        )
+
     df["date"] = pd.to_datetime(df["sample_date"], format="%Y%m%d", utc=True)
     keep = ["date", "conflict_share", "mean_tone", "mean_goldstein", "n_events"]
     return df[keep].sort_values("date").reset_index(drop=True)
@@ -126,15 +138,17 @@ def compute_monthly_composite(
     gpr = _load_gpr_monthly(gpr_cache)
     gdelt = _load_gdelt_monthly(gdelt_cache)
 
-    # Join: GPR is month-start, GDELT samples = month-mid. Merge on month.
+    # Aggregate GDELT to monthly (mean) when multiple samples per month exist (biweekly)
     # tz_convert(None) drops UTC for Period conversion (info loss is intentional).
     gpr["yyyymm"] = gpr["date"].dt.tz_convert(None).dt.to_period("M")
     gdelt["yyyymm"] = gdelt["date"].dt.tz_convert(None).dt.to_period("M")
-    merged = gpr.merge(
-        gdelt[["yyyymm", "conflict_share", "mean_tone", "mean_goldstein", "n_events"]],
-        on="yyyymm",
-        how="inner",
+    gdelt_m = gdelt.groupby("yyyymm", as_index=False).agg(
+        conflict_share=("conflict_share", "mean"),
+        mean_tone=("mean_tone", "mean"),
+        mean_goldstein=("mean_goldstein", "mean"),
+        n_events=("n_events", "mean"),
     )
+    merged = gpr.merge(gdelt_m, on="yyyymm", how="inner")
     merged = merged.drop(columns="yyyymm").sort_values("date").reset_index(drop=True)
 
     lb = policy.z_lookback_months

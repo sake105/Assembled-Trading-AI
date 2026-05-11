@@ -51,6 +51,13 @@ class LiveEngineConfig:
     eq_mom_lookback: int = 252
     eq_mom_skip: int = 21
     eq_quantile_long: float = 0.30
+    # --- Geo-Stress-Overlay (optional) ---
+    enable_geo_overlay: bool = False
+    geo_min_multiplier: float = 0.30
+    geo_max_multiplier: float = 1.10
+    # --- News-Impact-Tilt (optional) ---
+    enable_news_tilt: bool = False
+    news_tilt_strength: float = 0.30
 
 
 @dataclass
@@ -74,6 +81,14 @@ class EngineState:
 
     max_history: int = 504  # 2 years buffer
     last_date: pd.Timestamp | None = None
+
+    # Optional overlays — None when disabled, populated via attach_*() methods.
+    geo_daily_overlay: pd.DataFrame | None = None
+    """Optional [date × {multiplier, state, composite_z}] frame. Set via attach_geo_overlay()."""
+    current_geo_multiplier: float = 1.0
+
+    news_tilt_scores: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
+    """Per-symbol z-score tilt added to mom rank when news-tilt enabled."""
 
 
 def _compute_realized_vol_annual(returns: list[float], window: int) -> float:
@@ -104,6 +119,25 @@ class LiveDecisionEngine:
         self.state = EngineState()
 
     # ====================================================================
+    # Optional overlay attachments
+    # ====================================================================
+    def attach_geo_overlay(self, geo_daily: pd.DataFrame) -> None:
+        """Attach pre-computed geo-stress overlay (e.g. from geo_stress_composite).
+
+        Args:
+            geo_daily: DataFrame indexed by UTC daily timestamps with at least
+                a ``multiplier`` column in [0, 1.1]. Lookup happens in
+                update_with_new_day; missing days fall back to 1.0.
+        """
+        if "multiplier" not in geo_daily.columns:
+            raise ValueError("geo_daily must contain 'multiplier' column")
+        self.state.geo_daily_overlay = geo_daily.copy()
+
+    def attach_news_tilt_scores(self, scores: pd.Series) -> None:
+        """Attach per-symbol news-tilt z-scores (used in eq-top-N selection)."""
+        self.state.news_tilt_scores = scores.copy()
+
+    # ====================================================================
     # Bootstrap aus Historical Data
     # ====================================================================
     def bootstrap_from_history(
@@ -119,7 +153,6 @@ class LiveDecisionEngine:
             xa_returns_wide: Cross-Asset-Returns (date × symbol).
             warmup_days: wieviele Tage aus History behalten (default = max_history).
         """
-        cfg = self.config
         st = self.state
         keep = warmup_days or st.max_history
 
@@ -265,6 +298,24 @@ class LiveDecisionEngine:
         if len(st.xa_ew_returns) > st.max_history:
             st.xa_ew_returns = st.xa_ew_returns[-st.max_history :]
 
+        # Geo-overlay lookup (PIT: use today's multiplier, computed from up-to-T-1 data)
+        if cfg.enable_geo_overlay and st.geo_daily_overlay is not None:
+            try:
+                mult = float(
+                    st.geo_daily_overlay["multiplier"]
+                    .reindex([date], method="ffill")
+                    .iloc[0]
+                )
+            except (KeyError, IndexError, ValueError):
+                mult = 1.0
+            if not np.isfinite(mult):
+                mult = 1.0
+            st.current_geo_multiplier = float(
+                np.clip(mult, cfg.geo_min_multiplier, cfg.geo_max_multiplier)
+            )
+        else:
+            st.current_geo_multiplier = 1.0
+
         # Increment rebalance counter
         st.days_since_xa_rebalance += 1
         # Monthly rebalance: each ~21 trading days
@@ -350,6 +401,11 @@ class LiveDecisionEngine:
             cfg.sa_smoothing_window,
         )
 
+        # Geo-overlay applies to BOTH SA and XA leverage (system-wide risk-off)
+        geo_mult = st.current_geo_multiplier if cfg.enable_geo_overlay else 1.0
+        sa_lev = sa_lev * geo_mult
+        xa_ew_lev = xa_ew_lev * geo_mult
+
         # XA Hybrid: 50% VT-EW + 50% Mom-Top-N
         n_xa = len(st.xa_log_return_history.columns)
         xa_ew_per_symbol = xa_ew_lev / max(n_xa, 1)
@@ -375,12 +431,18 @@ class LiveDecisionEngine:
             "eq_top_weights": eq_top_weights,
             "sa_weight": cfg.sa_weight,
             "xa_weight": 1.0 - cfg.sa_weight,
+            "geo_multiplier": float(st.current_geo_multiplier),
             "decision_latency_ms": (time.perf_counter() - t0) * 1000,
         }
         return master
 
     def _compute_eq_factor_top_weights_today(self) -> pd.Series:
-        """Top-N Mom-12/1-Picks für heute (für tatsächliches Order-Routing)."""
+        """Top-N Mom-12/1-Picks für heute (für tatsächliches Order-Routing).
+
+        Wenn ``cfg.enable_news_tilt`` aktiv und ``state.news_tilt_scores``
+        nicht leer ist, wird der Rank-Score durch
+        ``z(mom) + news_tilt_strength * news_z`` ersetzt.
+        """
         cfg = self.config
         st = self.state
         if len(st.eq_log_return_history) < cfg.eq_mom_lookback:
@@ -396,6 +458,16 @@ class LiveDecisionEngine:
         valid = mom_row.dropna()
         if len(valid) == 0:
             return pd.Series(0.0, index=st.eq_log_return_history.columns)
+
+        # Optional news-tilt: z-normalize mom, add tilt-strength * news_z
+        if cfg.enable_news_tilt and not st.news_tilt_scores.empty:
+            mu = valid.mean()
+            sd = valid.std(ddof=0)
+            mom_z = (valid - mu) / sd if sd > 0 else valid * 0.0
+            news_z = st.news_tilt_scores.reindex(valid.index).fillna(0.0)
+            combined = mom_z + cfg.news_tilt_strength * news_z
+            valid = combined
+
         n_top = max(1, int(np.ceil(cfg.eq_quantile_long * len(valid))))
         top = valid.nlargest(n_top).index
         weights = pd.Series(0.0, index=st.eq_log_return_history.columns)
