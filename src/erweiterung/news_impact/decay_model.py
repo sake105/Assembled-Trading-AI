@@ -74,16 +74,23 @@ def fit_news_decay_model(
     for _, row in news_df.iterrows():
         d = pd.Timestamp(row[date_col])
         sym = row[symbol_col]
-        s = float(row[sentiment_col])
+        try:
+            s = float(row[sentiment_col])
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(s):
+            continue  # skip NaN/inf sentiments
         if sym not in pivot_ret.columns or d not in pivot_ret.index:
             continue
         d_idx = pivot_ret.index.get_loc(d)
         for h in horizons:
             if d_idx + h >= len(pivot_ret):
                 continue
-            # cumulative return d+1 .. d+h
             cum = pivot_ret[sym].iloc[d_idx + 1 : d_idx + 1 + h].fillna(0).sum()
-            rows.append({"h": h, "s": s, "cum_ret": float(cum)})
+            cum_f = float(cum)
+            if not np.isfinite(cum_f):
+                continue
+            rows.append({"h": h, "s": s, "cum_ret": cum_f})
     if not rows:
         raise ValueError("no matched (news, return) pairs")
     df = pd.DataFrame(rows)

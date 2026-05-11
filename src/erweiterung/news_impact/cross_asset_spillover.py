@@ -105,18 +105,34 @@ def sentiment_spillover_matrix(
     sent_syms = sent_panel[common_syms]
     fwd_syms = forward[common_syms]
 
-    # Correlation S_AB = corr(sent_A, fwd_B)
+    # Drop rows where ALL sentiment or ALL forward are NaN — sonst per-pair
+    aligned = pd.concat({"s": sent_syms, "f": fwd_syms}, axis=1)
+    aligned = aligned.dropna(how="any")
     n = len(common_syms)
-    M = np.zeros((n, n))
-    for i, a in enumerate(common_syms):
-        for j, b in enumerate(common_syms):
-            sa = sent_syms[a]
-            fb = fwd_syms[b]
-            df = pd.concat([sa, fb], axis=1).dropna()
-            if len(df) < 30 or df.iloc[:, 0].std() == 0 or df.iloc[:, 1].std() == 0:
-                M[i, j] = 0.0
-                continue
-            M[i, j] = float(df.iloc[:, 0].corr(df.iloc[:, 1]))
+    if len(aligned) < 30:
+        return pd.DataFrame(np.zeros((n, n)), index=common_syms, columns=common_syms)
+
+    sent_arr = aligned["s"][common_syms].values
+    fwd_arr = aligned["f"][common_syms].values
+    # Vectorized cross-correlation via standardization + dot-product / n.
+    # Σ_AB = corr(sent_A, fwd_B) = E[(sent_A − μ_A_s)(fwd_B − μ_B_f)] / (σ_A_s σ_B_f)
+    mu_s = sent_arr.mean(axis=0)
+    mu_f = fwd_arr.mean(axis=0)
+    sd_s = sent_arr.std(axis=0, ddof=0)
+    sd_f = fwd_arr.std(axis=0, ddof=0)
+    # Mask zero-std assets
+    sd_s_safe = np.where(sd_s == 0, 1, sd_s)
+    sd_f_safe = np.where(sd_f == 0, 1, sd_f)
+    sz = (sent_arr - mu_s) / sd_s_safe
+    fz = (fwd_arr - mu_f) / sd_f_safe
+    M = (sz.T @ fz) / len(aligned)  # (n, n) cross-correlation
+    # Zero out rows/cols where one std was 0
+    zero_s = sd_s == 0
+    zero_f = sd_f == 0
+    if zero_s.any():
+        M[zero_s, :] = 0
+    if zero_f.any():
+        M[:, zero_f] = 0
     return pd.DataFrame(M, index=common_syms, columns=common_syms)
 
 

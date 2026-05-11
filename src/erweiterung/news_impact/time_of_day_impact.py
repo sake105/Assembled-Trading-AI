@@ -26,15 +26,27 @@ def classify_time_of_day(
     timestamps: pd.Series,
     market_open: time = time(9, 30),
     market_close: time = time(16, 0),
+    market_tz: str = "US/Eastern",
 ) -> pd.Series:
     """Classify timestamps as 'pre_market', 'intraday', 'after_hours'.
 
-    Assumes timestamps in US-Eastern timezone (caller must align).
-
-    Returns:
-        Series of categorical labels.
+    Args:
+        timestamps: Series of datetimes. tz-aware ⇒ wird zu ``market_tz`` konvertiert
+            vor Time-of-Day-Extraktion. Naive ⇒ wird als bereits in ``market_tz``
+            angenommen (kein silent shift).
+        market_open / market_close: Öffnungs-/Schlusszeit in ``market_tz``.
+        market_tz: Börsen-Zeitzone (default US/Eastern für NYSE/Nasdaq).
     """
     ts = pd.to_datetime(timestamps)
+    # tz-aware → convert to market timezone; tz-naive → leave as-is
+    accessor = ts.dt if hasattr(ts, "dt") else ts
+    tz = getattr(accessor, "tz", None) if not hasattr(ts, "dt") else ts.dt.tz
+    if tz is not None:
+        ts = (
+            ts.dt.tz_convert(market_tz)
+            if hasattr(ts, "dt")
+            else ts.tz_convert(market_tz)
+        )
     out = pd.Series("intraday", index=ts.index, dtype=object)
     times_of_day = ts.dt.time
     out[times_of_day < market_open] = "pre_market"

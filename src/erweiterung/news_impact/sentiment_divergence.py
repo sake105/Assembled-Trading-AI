@@ -63,7 +63,11 @@ def compute_divergence_panel(
     news_z = _z(news_sentiment, "news")
     social_z = _z(social_sentiment, "social")
     merged = news_z.merge(social_z, on=[date_col, symbol_col], how="outer")
+    # Wenn BEIDE NaN: divergence muss NaN bleiben (kein Signal). Wenn nur einer
+    # NaN: divergenz = der vorhandene z-score (gegen 0 implizit als "no info").
+    both_nan = merged["news_z"].isna() & merged["social_z"].isna()
     merged["divergence_z"] = merged["news_z"].fillna(0) - merged["social_z"].fillna(0)
+    merged.loc[both_nan, "divergence_z"] = np.nan
     merged["abs_divergence"] = merged["divergence_z"].abs()
     return merged
 
