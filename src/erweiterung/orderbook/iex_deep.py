@@ -101,16 +101,26 @@ def replay_messages_to_lob(
             continue
         if msg.msg_type == "Q":
             q = parse_quote(msg)
-            # In a real impl we'd reset top-of-book here; simplified:
+            # IEX-DEEP Quote-Updates ändern Top-of-Book. Wir behandeln das als
+            # einfaches Level-Replace via dict-update (in-place), NICHT als merge —
+            # sonst akkumulieren alte Quote-Updates fälschlich.
+            is_new_level = False
             if q["bid_price"] > 0:
-                state.bids = type(state.bids)(
-                    {q["bid_price"]: q["bid_size"], **state.bids}
-                )
+                if q["bid_price"] not in state.bids:
+                    is_new_level = True
+                if q["bid_size"] <= 0:
+                    state.bids.pop(q["bid_price"], None)
+                else:
+                    state.bids[q["bid_price"]] = q["bid_size"]
             if q["ask_price"] > 0:
-                state.asks = type(state.asks)(
-                    {q["ask_price"]: q["ask_size"], **state.asks}
-                )
-            state._sort_levels()
+                if q["ask_price"] not in state.asks:
+                    is_new_level = True
+                if q["ask_size"] <= 0:
+                    state.asks.pop(q["ask_price"], None)
+                else:
+                    state.asks[q["ask_price"]] = q["ask_size"]
+            if is_new_level:
+                state._sort_levels()
         elif msg.msg_type == "T":
             t = parse_trade(msg)
             state.trade(t["side"] or "buy", t["price"], t["size"])

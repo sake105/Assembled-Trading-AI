@@ -36,13 +36,22 @@ class LOBState:
     last_trade_side: str | None = None
 
     def _sort_levels(self) -> None:
+        """Re-sort beide Books. Wird nur bei NEUEM Price-Level aufgerufen.
+
+        Performance-Hinweis: O(n log n) je Aufruf. Bei großen Books (>1000 Levels)
+        und hochfrequenten Updates ist eine ``sortedcontainers.SortedDict`` (extra
+        Lib) oder ``bisect``-Struktur effizienter. Für moderate Books OK.
+        """
         self.bids = OrderedDict(sorted(self.bids.items(), key=lambda kv: -kv[0]))
         self.asks = OrderedDict(sorted(self.asks.items(), key=lambda kv: kv[0]))
 
     def add_order(self, side: str, price: float, size: float) -> None:
         book = self.bids if side == "buy" else self.asks
+        # Resort nur wenn neues Level — bei bestehendem Level reicht in-place-Update.
+        is_new_level = price not in book
         book[price] = book.get(price, 0) + size
-        self._sort_levels()
+        if is_new_level:
+            self._sort_levels()
 
     def cancel(self, side: str, price: float, size: float) -> None:
         book = self.bids if side == "buy" else self.asks
