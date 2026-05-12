@@ -1,0 +1,36 @@
+# Litestream configuration (audit I-002).
+#
+# Copy to /etc/litestream.yml (Linux) or C:\Tools\litestream\litestream.yml (Windows).
+# Replace <PLACEHOLDERS>. See docs/EXTERNAL_SERVICES_SETUP.md §4.
+#
+# Litestream watches the SQLite files declared under `dbs:` and replicates
+# every write to the configured S3/B2 endpoint at second-level granularity.
+# Restore: `litestream restore -o <local-path> <remote-url>`.
+
+dbs:
+  - path: ./data/paper_ledger.db
+    replicas:
+      - type: s3
+        endpoint: https://s3.eu-central-003.backblazeb2.com
+        bucket: assembled-trading-audit-<UNIQUE-SUFFIX>
+        path: paper_ledger
+        access-key-id: ${B2_KEY_ID}
+        secret-access-key: ${B2_APP_KEY}
+        retention: 720h           # 30 days of WAL + snapshots
+        retention-check-interval: 1h
+        snapshot-interval: 1h
+        sync-interval: 1s
+
+  - path: ./output/ops/event_store.db
+    replicas:
+      - type: s3
+        endpoint: https://s3.eu-central-003.backblazeb2.com
+        bucket: assembled-trading-audit-<UNIQUE-SUFFIX>
+        path: event_store
+        access-key-id: ${B2_KEY_ID}
+        secret-access-key: ${B2_APP_KEY}
+        # 10 years for event-store WAL — GoBD §147 AO requirement.
+        retention: 87600h
+        retention-check-interval: 24h
+        snapshot-interval: 6h
+        sync-interval: 1s

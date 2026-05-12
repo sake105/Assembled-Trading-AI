@@ -52,10 +52,10 @@ def _backoff_seconds(attempt: int, base: float, cap: float, jitter: float) -> fl
     ``attempt`` is 1-indexed. Wait = min(base * 2**(attempt-1), cap)
     multiplied by (1 + uniform(-jitter, +jitter)).
     """
-    wait = min(base * (2 ** (attempt - 1)), cap)
+    wait: float = min(base * (2 ** (attempt - 1)), cap)
     if jitter > 0:
         wait *= 1.0 + random.uniform(-jitter, jitter)
-    return max(0.0, wait)
+    return float(max(0.0, wait))
 
 
 def retry(

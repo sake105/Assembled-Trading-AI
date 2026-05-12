@@ -168,7 +168,42 @@ no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
-mypy_path = "src"
+# We do NOT set `mypy_path = "src"` — the codebase imports as
+# `src.assembled_core.*` consistently (tests/conftest.py puts `src/` on
+# sys.path so callers can use either style at runtime). Pointing mypy at
+# `src/` makes the same files visible under two module names, and mypy
+# refuses to type-check that. Use `explicit_package_bases` so mypy
+# anchors at the repo root and treats `src.assembled_core.*` as the
+# canonical namespace.
+explicit_package_bases = true
+namespace_packages = true
+exclude = [
+    "^src/assembled_trading_core\\.egg-info/",
+    "^build/",
+    "^dist/",
+    "^\\.venv/",
+]
+
+# Subpath overrides — be lenient on third-party noise that lacks stubs.
+[[tool.mypy.overrides]]
+module = ["pandas.*", "numpy.*", "scipy.*", "sklearn.*", "joblib.*", "yfinance.*", "fastapi.*", "syrupy.*", "hypothesis.*"]
+ignore_missing_imports = true
+
+# Strict overrides on the safety-critical subpaths added through the
+# audit sweep — these surfaces MUST stay typed. Currently aspirational:
+# the duplicate-module fix above is the prerequisite, individual
+# annotations follow in a dedicated cleanup sprint.
+[[tool.mypy.overrides]]
+module = [
+    "src.assembled_core.execution.kill_switch",
+    "src.assembled_core.execution.order_lifecycle",
+    "src.assembled_core.api.auth",
+    "src.assembled_core.utils.retry",
+    "src.assembled_core.utils.clock_drift",
+    "src.assembled_core.reproducibility",
+]
+disallow_untyped_defs = true
+warn_return_any = true
 
 [tool.bandit]
 exclude_dirs = ["tests", "scripts/tools"]

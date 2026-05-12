@@ -97,8 +97,8 @@ def set_deterministic(seed: int = 42) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             warnings.append(f"torch.use_deterministic_algorithms failed: {exc}")
         try:
-            torch.backends.cudnn.deterministic = True  # type: ignore[attr-defined]
-            torch.backends.cudnn.benchmark = False  # type: ignore[attr-defined]
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
         except Exception as exc:  # noqa: BLE001
             warnings.append(f"torch.backends.cudnn flags failed: {exc}")
     except ImportError:

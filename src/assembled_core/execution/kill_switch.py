@@ -72,7 +72,8 @@ def _read_state() -> dict[str, Any]:
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        data: dict[str, Any] = json.loads(p.read_text(encoding="utf-8"))
+        return data
     except Exception as exc:
         logger.error("[KillSwitch] Failed to read state file %s: %s", p, exc)
         return {}
@@ -386,7 +387,7 @@ def get_throttle_pct() -> float:
     state = get_kill_switch_state()
     if not state["engaged"]:
         return 1.0
-    return state["throttle_pct"]
+    return float(state["throttle_pct"])
 
 
 def check_drawdown_kill_switch(
