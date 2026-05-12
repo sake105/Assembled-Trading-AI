@@ -904,3 +904,198 @@ def test_drift_status_classifies_thresholds(
         monkeypatch.setattr(clock_drift, "measure_drift_seconds", _fake)
         r = clock_drift.drift_status(warn_seconds=0.1, fail_seconds=1.0)
         assert r["status"] == expected, (drift, r)
+
+
+# ---------------------------------------------------------------------------
+# Wave-9 — verify_audit_chain edge cases (C4-016 closing)
+# ---------------------------------------------------------------------------
+
+
+def test_verify_audit_chain_empty_when_no_file(tmp_path) -> None:
+    """No file → chain is trivially OK with 0 records."""
+    from src.assembled_core.execution.kill_switch import verify_audit_chain
+
+    missing = tmp_path / "never_existed.jsonl"
+    ok, n = verify_audit_chain(missing)
+    assert ok is True
+    assert n == 0
+
+
+def test_verify_audit_chain_skips_blank_lines(tmp_path) -> None:
+    """Blank lines in the JSONL must be tolerated, not flagged as tamper."""
+    import hashlib
+    import json as _json
+
+    audit = tmp_path / "audit.jsonl"
+    rec = {"ts": "x", "action": "ACTIVATE", "prev_hash": "0" * 64}
+    rec["hash"] = hashlib.sha256(
+        _json.dumps(rec, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    audit.write_text("\n" + _json.dumps(rec, sort_keys=True) + "\n\n", encoding="utf-8")
+
+    from src.assembled_core.execution.kill_switch import verify_audit_chain
+
+    ok, n = verify_audit_chain(audit)
+    assert ok is True
+    assert n == 1
+
+
+def test_verify_audit_chain_detects_invalid_json(tmp_path) -> None:
+    """A corrupted JSON line must surface as chain-broken."""
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text("not-json-at-all\n", encoding="utf-8")
+
+    from src.assembled_core.execution.kill_switch import verify_audit_chain
+
+    ok, _ = verify_audit_chain(audit)
+    assert ok is False
+
+
+def test_verify_audit_chain_detects_wrong_prev_hash(tmp_path) -> None:
+    """Second record's prev_hash != first record's hash → break."""
+    import hashlib
+    import json as _json
+
+    audit = tmp_path / "audit.jsonl"
+
+    rec1 = {"ts": "t1", "action": "ACTIVATE", "prev_hash": "0" * 64}
+    rec1["hash"] = hashlib.sha256(
+        _json.dumps(rec1, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+    # Forge prev_hash on rec2: claim previous hash is all-zeros (wrong).
+    rec2 = {"ts": "t2", "action": "DEACTIVATE", "prev_hash": "f" * 64}
+    rec2["hash"] = hashlib.sha256(
+        _json.dumps(rec2, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+    audit.write_text(
+        _json.dumps(rec1, sort_keys=True)
+        + "\n"
+        + _json.dumps(rec2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+
+    from src.assembled_core.execution.kill_switch import verify_audit_chain
+
+    ok, n = verify_audit_chain(audit)
+    assert ok is False
+    # We expect the break to be detected at record 2 (the linker).
+    assert n == 2
+
+
+# ---------------------------------------------------------------------------
+# Wave-9 — api_audit_middleware integration (C3-073 closing)
+# ---------------------------------------------------------------------------
+
+
+def test_api_audit_middleware_writes_jsonl_on_authenticated_post(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """End-to-end: real FastAPI call to a protected POST endpoint with
+    audit enabled MUST produce a JSONL record with our fields.
+    """
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    audit_path = tmp_path / "api_audit.jsonl"
+    monkeypatch.setenv("ASSEMBLED_API_AUDIT", "1")
+    monkeypatch.setenv("ASSEMBLED_API_AUDIT_PATH", str(audit_path))
+    monkeypatch.setenv("ASSEMBLED_API_KEY", "the-only-correct-key")
+    monkeypatch.delenv("ASSEMBLED_API_RATE_LIMIT", raising=False)
+
+    # Use a per-test temp dir so paper-reset cannot touch real state.
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_STATE", str(tmp_path / "ks_state.json"))
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_AUDIT", str(tmp_path / "ks_audit.jsonl"))
+    monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
+
+    from src.assembled_core.api.app import create_app
+
+    client = TestClient(create_app())
+    r = client.post(
+        "/api/v1/kill-switch/activate",
+        params={"throttle_pct": 0.0, "reason": "wave9-test"},
+        headers={"X-API-Key": "the-only-correct-key"},
+    )
+    assert r.status_code == 200, r.text
+
+    assert audit_path.exists()
+    lines = audit_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) >= 1
+    rec = json.loads(lines[-1])
+    assert rec["method"] == "POST"
+    assert rec["path"] == "/api/v1/kill-switch/activate"
+    assert rec["status"] == 200
+    # actor_hash is a sha256 prefix of the API key, not the key itself.
+    assert rec["actor_hash"] and rec["actor_hash"] != "the-only-correct-key"
+    assert "ts" in rec
+
+
+def test_api_audit_middleware_skips_get_requests(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """GET /live must NOT produce a JSONL audit record (we focus on
+    state-mutating calls)."""
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    audit_path = tmp_path / "api_audit.jsonl"
+    monkeypatch.setenv("ASSEMBLED_API_AUDIT", "1")
+    monkeypatch.setenv("ASSEMBLED_API_AUDIT_PATH", str(audit_path))
+    monkeypatch.delenv("ASSEMBLED_API_RATE_LIMIT", raising=False)
+
+    from src.assembled_core.api.app import create_app
+
+    client = TestClient(create_app())
+    r = client.get("/live")
+    assert r.status_code == 200
+    # No JSONL written for GET.
+    assert not audit_path.exists() or not audit_path.read_text(encoding="utf-8").strip()
+
+
+# ---------------------------------------------------------------------------
+# Wave-9 — rate_limit refill-over-time (C3-114 closing)
+# ---------------------------------------------------------------------------
+
+
+def test_rate_limit_middleware_refills_after_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After exhausting capacity, advancing simulated time should refill
+    the bucket so the next request goes through.
+    """
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("ASSEMBLED_API_RATE_LIMIT", "1")
+    monkeypatch.setenv("ASSEMBLED_API_RATE_WINDOW_SEC", "60")
+    monkeypatch.delenv("ASSEMBLED_API_AUDIT", raising=False)
+
+    from src.assembled_core.api import middleware as mw
+    from src.assembled_core.api.app import create_app
+
+    mw.reset_rate_limit_state()
+
+    # Patch the monotonic clock used inside the middleware.
+    now = {"t": 1000.0}
+
+    def fake_monotonic() -> float:
+        return now["t"]
+
+    monkeypatch.setattr(mw.time, "monotonic", fake_monotonic)
+
+    client = TestClient(create_app())
+    # First request consumes the only token at t=1000.
+    r1 = client.get("/live")
+    assert r1.status_code == 200
+    # Immediate retry → 429 (no refill happened yet).
+    r2 = client.get("/live")
+    assert r2.status_code == 429
+
+    # Advance simulated time by the full window so bucket refills.
+    now["t"] = 1000.0 + 60.0 + 1.0
+    r3 = client.get("/live")
+    assert r3.status_code == 200
+
+    mw.reset_rate_limit_state()
