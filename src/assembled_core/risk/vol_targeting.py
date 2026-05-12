@@ -111,12 +111,15 @@ def compute_vol_targeting_result(
             - max_scale (float, default 1.5)
             - annualize_factor (float, default 252.0)
             - min_observations (int, default 5)
+            - method (str, "realized" (default) | "ewma") — forecasting method
+            - ewma_lambda (float, default 0.94) — RiskMetrics decay for EWMA
         now_idx: Index into equity_curve to treat as "now". -1 = last element.
 
     Returns:
-        (scale_factor, realized_vol, target_vol).
+        (scale_factor, vol_estimate, target_vol). When method='ewma' the
+        ``vol_estimate`` is the one-step-ahead EWMA forecast; otherwise it
+        is the realized lookback vol.
         scale_factor = 1.0 if disabled or insufficient data.
-        realized_vol / target_vol = float('nan') if disabled or data missing.
     """
     vt = (policy or {}).get("vol_targeting") or {}
     if not vt.get("enabled", False):
@@ -134,6 +137,7 @@ def compute_vol_targeting_result(
         max_scale = 1.0
     annualize_factor = float(vt.get("annualize_factor", 252.0) or 252.0)
     min_observations = int(vt.get("min_observations", 5) or 5)
+    method = str(vt.get("method", "realized") or "realized").strip().lower()
 
     if (
         equity_curve is None
@@ -154,6 +158,28 @@ def compute_vol_targeting_result(
         return 1.0, float("nan"), target_vol
 
     returns = curve.pct_change()
+
+    if method == "ewma":
+        # Forward-looking EWMA forecast (audit C2-066 wired path).
+        from src.assembled_core.risk.vol_targeting_ewma import (
+            compute_ewma_scale_factor,
+            ewma_vol_forecast,
+        )
+
+        ewma_lambda = float(vt.get("ewma_lambda", 0.94) or 0.94)
+        est = ewma_vol_forecast(
+            returns.dropna(),
+            lambda_=ewma_lambda,
+            annualize_factor=annualize_factor,
+            min_observations=min_observations,
+        )
+        vol_estimate = est.forecast_vol_annual
+        scale_factor = compute_ewma_scale_factor(
+            vol_estimate, target_vol, min_scale=min_scale, max_scale=max_scale
+        )
+        return scale_factor, vol_estimate, target_vol
+
+    # method == "realized" (default, unchanged behavior)
     realized_vol = compute_realized_vol(
         returns,
         lookback_days=lookback_days,

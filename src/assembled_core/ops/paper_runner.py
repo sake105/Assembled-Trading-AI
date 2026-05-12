@@ -892,6 +892,36 @@ def run_paper_daily_one(
     except Exception as _ctx_exc:
         log.debug("[INTEL-CTX] populate_ctx_from_artifacts failed: %s", _ctx_exc)
 
+    # ------------------------------------------------------------------
+    # Pre-cycle gates (Wave 20 — wiring):
+    #   * halt_cache_gate — populates ctx.halted_symbols from a file feed
+    #     so the existing filter in _tc_sizing.size_positions drops them.
+    #   * tilt_gate — runs detect_tilt on the ledger equity curve. With
+    #     policy.tilt.block_orders=true a fired rule short-circuits the
+    #     cycle and returns 0 with no orders.
+    # Both gates are default-off and have no effect unless explicitly
+    # enabled in policy.yaml under `paper_runner.halt_cache.enabled` /
+    # `paper_runner.tilt.enabled`.
+    # ------------------------------------------------------------------
+    try:
+        from src.assembled_core.ops._paper_runner_gates import (
+            apply_halt_cache_gate,
+            apply_tilt_gate,
+        )
+
+        apply_halt_cache_gate(ctx, paper_cfg=paper_cfg, root=root)
+        tilt_decision = apply_tilt_gate(
+            ctx, paper_cfg=paper_cfg, ledger_state=ledger_state
+        )
+        if tilt_decision.blocked:
+            log.warning(
+                "[tilt] block_orders=true and rules fired %s — skipping cycle",
+                tilt_decision.triggered_rules,
+            )
+            return 0, "tilt_blocked"
+    except Exception as _gate_exc:  # noqa: BLE001 — gates are best-effort
+        log.warning("[paper-runner-gates] gate failure (continuing): %s", _gate_exc)
+
     result = run_trading_cycle(ctx)
     if result.status != "success":
         log.error("Trading cycle failed: %s", result.error_message)
