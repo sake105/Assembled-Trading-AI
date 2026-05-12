@@ -614,7 +614,10 @@ def compute_all_metrics(
         metrics.avg_win = trade_metrics["avg_win"]
         metrics.avg_loss = trade_metrics["avg_loss"]
         metrics.turnover = trade_metrics["turnover"]
-        metrics.total_trades = trade_metrics["total_trades"]
+        # total_trades is always int from compute_trade_metrics; cast to satisfy
+        # mypy because the dict's value type is broader (float | int | None).
+        _total_trades = trade_metrics["total_trades"]
+        metrics.total_trades = int(_total_trades) if _total_trades is not None else None
 
     return metrics
 
