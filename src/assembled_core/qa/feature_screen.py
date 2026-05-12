@@ -1,17 +1,29 @@
 # src/assembled_core/qa/feature_screen.py
-"""Feature-screen utilities (audit C2-052).
+"""Feature-screen utilities (audit C2-052 + C4-080).
 
 Single function ``mutual_info_screen`` that ranks features by their mutual
-information against a target. Wraps ``sklearn.feature_selection.mutual_info_regression``
-(Kraskov-Stogbauer-Grassberger kNN estimator) when available, falls back
-to a stdlib binned-histogram estimator when sklearn is absent.
+information against a target. Estimator selection:
+
+1. **sklearn** ``mutual_info_regression`` (preferred path) — implements
+   the Kraskov-Stogbauer-Grassberger (Kraskov et al. 2004) **kNN
+   estimator**, which is the canonical KSG method for continuous MI.
+   No further wrapper needed; this is the audit C4-080 KSG reference.
+2. **2-D histogram fallback** when sklearn is unavailable — a
+   binned-density approximation suitable for ranking but materially
+   less precise on small / heavy-tailed samples.
 
 The MI estimate is **PIT-blind** by construction (a function of two
 columns, no time alignment). Callers are responsible for passing the
 already-aligned X and y at the same as_of.
 
 Returns a DataFrame ranked descending by MI so callers can pick the
-top-N for further consideration.
+top-N for further consideration. Caller can explicitly request the
+fallback via ``prefer_sklearn=False``.
+
+References
+----------
+- Kraskov, A., Stögbauer, H., Grassberger, P. (2004). *Estimating
+  Mutual Information*, Phys. Rev. E 69, 066138.
 """
 
 from __future__ import annotations

@@ -266,7 +266,11 @@ def test_summarize_metrics_by_regime_with_trades(simple_equity_curve):
 
     assert not metrics_df.empty
     assert "n_trades" in metrics_df.columns
-    # Note: win_rate, avg_trade_duration, avg_profit_per_trade may be None (TODO in implementation)
+    # §6.2 closed 2026-04-30: win_rate/avg_trade_duration/avg_profit_per_trade
+    # are now implemented and present as columns (may be NaN per-regime if
+    # no closed round-trips exist in that slice).
+    for col in ("win_rate", "avg_trade_duration", "avg_profit_per_trade"):
+        assert col in metrics_df.columns, f"missing column: {col}"
 
 
 def test_summarize_factor_ic_by_regime_basic():
