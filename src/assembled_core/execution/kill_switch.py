@@ -25,6 +25,7 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -133,11 +134,55 @@ def _write_state(state: dict[str, Any]) -> bool:
         return False
 
 
+_GENESIS_HASH = "0" * 64  # SHA-256 zero anchor for first audit entry
+
+
+def _last_audit_hash(p: Path) -> str:
+    """Return the SHA-256 ``hash`` of the last JSONL entry, or _GENESIS_HASH."""
+    if not p.exists():
+        return _GENESIS_HASH
+    try:
+        # Read the file line-buffered and keep the last non-empty record.
+        # Audit logs are append-only, so the simple last-line read is OK;
+        # for very large logs callers can rotate to keep this cheap.
+        last_obj: dict[str, Any] | None = None
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    last_obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+        if last_obj is None:
+            return _GENESIS_HASH
+        return str(last_obj.get("hash", _GENESIS_HASH))
+    except Exception as exc:
+        logger.warning("[KillSwitch] could not read prev audit hash: %s", exc)
+        return _GENESIS_HASH
+
+
 def _append_audit(event: dict[str, Any]) -> None:
-    """Append a JSON-lines entry to the audit log, fsync'd for durability."""
+    """Append a JSON-lines entry to the audit log with hash-chain for tamper detection.
+
+    Each record carries:
+        - ``ts``        ISO-8601 UTC timestamp (also used in the digest)
+        - ``prev_hash`` SHA-256 of the previous record's full payload
+        - ``hash``      SHA-256 of the current record minus the ``hash`` field
+
+    A verifier can recompute the chain by stripping ``hash``, sorting keys, and
+    hashing; any tampering between the first record and now breaks the chain.
+    File is fsync'd for durability.
+    """
     p = _audit_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     event["ts"] = datetime.now(timezone.utc).isoformat()
+    event["prev_hash"] = _last_audit_hash(p)
+    # Compute hash over the record without the "hash" key itself to make the
+    # chain self-verifiable.
+    digest_payload = json.dumps(event, sort_keys=True).encode("utf-8")
+    event["hash"] = hashlib.sha256(digest_payload).hexdigest()
     try:
         with open(p, "a", encoding="utf-8") as f:
             f.write(json.dumps(event, sort_keys=True) + "\n")
@@ -148,6 +193,44 @@ def _append_audit(event: dict[str, Any]) -> None:
                 logger.warning("[KillSwitch] fsync of audit log failed: %s", exc)
     except Exception as exc:
         logger.error("[KillSwitch] Failed to write audit log %s: %s", p, exc)
+
+
+def verify_audit_chain(path: Path | str | None = None) -> tuple[bool, int]:
+    """Recompute the SHA-256 chain of the audit log and report integrity.
+
+    Args:
+        path: optional override of the audit-log path.
+
+    Returns:
+        ``(ok, n_records)``. ``ok`` is True iff every record's ``hash`` and
+        ``prev_hash`` match the chain; False on any inconsistency. ``n_records``
+        is the number of JSONL entries inspected.
+    """
+    p = Path(path) if path is not None else _audit_path()
+    if not p.exists():
+        return True, 0
+    expected_prev = _GENESIS_HASH
+    n = 0
+    with open(p, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            n += 1
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                return False, n
+            recorded_hash = rec.pop("hash", None)
+            if rec.get("prev_hash") != expected_prev:
+                return False, n
+            recomputed = hashlib.sha256(
+                json.dumps(rec, sort_keys=True).encode("utf-8")
+            ).hexdigest()
+            if recorded_hash != recomputed:
+                return False, n
+            expected_prev = recorded_hash
+    return True, n
 
 
 # ---------------------------------------------------------------------------

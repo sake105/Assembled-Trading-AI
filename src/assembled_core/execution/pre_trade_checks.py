@@ -1044,6 +1044,102 @@ def apply_adv_cap(
 
 
 # ---------------------------------------------------------------------------
+# Gawande-style explicit-raise gate (audit C2-070)
+# ---------------------------------------------------------------------------
+
+
+class PreTradeGateBlocked(RuntimeError):
+    """Raised by ``pre_trade_gate`` when any must-pass check refuses orders.
+
+    Holds the list of blocking reasons in ``reasons`` for the caller and an
+    optional ``check`` field naming which guard tripped first.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reasons: list[str] | None = None,
+        check: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.reasons = reasons or []
+        self.check = check
+
+
+def pre_trade_gate(
+    orders: "pd.DataFrame",
+    *,
+    config: PreTradeConfig | None = None,
+    portfolio: "pd.DataFrame | None" = None,
+    qa_status: Any | None = None,
+    enforce_kill_switch: bool = True,
+    **run_kwargs: Any,
+) -> "pd.DataFrame":
+    """Single-call must-pass pre-trade gate (Gawande-checklist pattern).
+
+    Wraps :func:`run_pre_trade_checks` plus an explicit kill-switch read and
+    converts ``is_ok=False`` into a named exception (``PreTradeGateBlocked``)
+    instead of returning a result struct the caller might forget to inspect.
+
+    This is the *opinionated* path for production submission pipelines —
+    research/notebooks should keep using ``run_pre_trade_checks`` directly.
+
+    Args:
+        orders: orders DataFrame as accepted by ``run_pre_trade_checks``.
+        config: PreTradeConfig — same semantics as the underlying function.
+        portfolio, qa_status, **run_kwargs: forwarded.
+        enforce_kill_switch: if True (default), the gate also rejects when
+            the kill-switch is engaged with ``throttle_pct == 0`` — caller
+            does not need a second read.
+
+    Returns:
+        Filtered/reduced orders DataFrame (only orders that passed).
+
+    Raises:
+        PreTradeGateBlocked: any blocking reason → caller MUST handle.
+    """
+    if enforce_kill_switch:
+        try:
+            from src.assembled_core.execution.kill_switch import (
+                get_kill_switch_state,
+            )
+
+            state = get_kill_switch_state()
+            if state["engaged"] and state["throttle_pct"] <= 0.0:
+                raise PreTradeGateBlocked(
+                    "kill-switch fully engaged (throttle_pct=0)",
+                    reasons=["kill_switch_engaged"],
+                    check="kill_switch",
+                )
+        except PreTradeGateBlocked:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # kill-switch read MUST not silently no-op — surface as gate block.
+            raise PreTradeGateBlocked(
+                f"kill-switch state read failed: {exc}",
+                reasons=[f"kill_switch_unreadable: {exc}"],
+                check="kill_switch",
+            ) from exc
+
+    result, filtered = run_pre_trade_checks(
+        orders,
+        portfolio=portfolio,
+        qa_status=qa_status,
+        config=config,
+        **run_kwargs,
+    )
+    if not result.is_ok:
+        first = result.blocked_reasons[0] if result.blocked_reasons else "blocked"
+        raise PreTradeGateBlocked(
+            f"pre-trade checks blocked orders: {first}",
+            reasons=list(result.blocked_reasons),
+            check="run_pre_trade_checks",
+        )
+    return filtered
+
+
+# ---------------------------------------------------------------------------
 # Pre-Trade Stress Test (Plan 7.2)
 # ---------------------------------------------------------------------------
 

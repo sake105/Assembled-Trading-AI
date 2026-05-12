@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 
 from fastapi import Depends, FastAPI
@@ -51,10 +52,20 @@ def create_app() -> FastAPI:
 
     @app.get("/ready", tags=["ops"])
     def ready():
-        """Readiness probe — returns 503 if any critical dependency check fails."""
+        """Readiness probe — returns 503 if any critical dependency check fails.
+
+        Checks:
+        - ``kill_switch``: state-read must not raise.
+        - ``disk_quota``: usage of the output/audit directory must stay below
+          90 %. A full disk silently drops audit/ledger writes — refuse to
+          serve traffic before that happens (audit C4-040).
+        """
+        import shutil
         from fastapi.responses import JSONResponse
 
         checks: dict[str, bool] = {}
+        details: dict[str, object] = {}
+
         try:
             from src.assembled_core.execution.kill_switch import get_kill_switch_state
 
@@ -63,8 +74,21 @@ def create_app() -> FastAPI:
         except Exception:
             checks["kill_switch"] = False
 
+        try:
+            disk_target = os.environ.get("ASSEMBLED_DISK_QUOTA_PATH", "output")
+            os.makedirs(disk_target, exist_ok=True)
+            usage = shutil.disk_usage(disk_target)
+            used_pct = (usage.total - usage.free) / max(usage.total, 1)
+            checks["disk_quota"] = used_pct < 0.90
+            details["disk_used_pct"] = round(used_pct, 4)
+            details["disk_path"] = disk_target
+        except Exception as exc:  # noqa: BLE001
+            # Surface any disk-API failure as not-ready.
+            checks["disk_quota"] = False
+            details["disk_error"] = str(exc)
+
         all_ok = all(checks.values())
-        payload = {"ready": all_ok, "checks": checks}
+        payload = {"ready": all_ok, "checks": checks, "details": details}
         return JSONResponse(content=payload, status_code=200 if all_ok else 503)
 
     @app.get("/live", tags=["ops"])

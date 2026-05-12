@@ -104,6 +104,14 @@ class TrackedOrder:
         return None
 
     @property
+    def submitted_at(self) -> datetime | None:
+        """Timestamp of the first SUBMITTED transition (if any)."""
+        for e in self.events:
+            if e.state == OrderState.SUBMITTED:
+                return e.timestamp
+        return None
+
+    @property
     def is_terminal(self) -> bool:
         return self.current_state in {
             OrderState.FILLED,
@@ -238,3 +246,38 @@ class OrderLifecycleTracker:
             key = order.current_state.value
             counts[key] = counts.get(key, 0) + 1
         return counts
+
+    def find_stuck_orders(
+        self,
+        max_age_seconds: float = 30.0,
+        *,
+        now: datetime | None = None,
+    ) -> list[TrackedOrder]:
+        """Return orders in SUBMITTED for longer than ``max_age_seconds``.
+
+        Audit C4-020: an order whose broker-ack got lost stays in SUBMITTED
+        forever. Detect this so the reconciler can mark it UNKNOWN and the
+        operator gets paged before duplicate orders get sent.
+
+        Args:
+            max_age_seconds: orders older than this (since SUBMITTED) are
+                considered stuck. Default 30 s.
+            now: clock override (test seam). Defaults to current UTC time.
+
+        Returns:
+            List of TrackedOrders currently SUBMITTED and older than the cap.
+            Sorted by submitted_at ascending (oldest first).
+        """
+        ref = now if now is not None else datetime.now(timezone.utc)
+        stuck: list[TrackedOrder] = []
+        for o in self._orders.values():
+            if o.current_state != OrderState.SUBMITTED:
+                continue
+            ts = o.submitted_at
+            if ts is None:
+                continue
+            age = (ref - ts).total_seconds()
+            if age > max_age_seconds:
+                stuck.append(o)
+        stuck.sort(key=lambda o: o.submitted_at or ref)
+        return stuck
