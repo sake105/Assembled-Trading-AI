@@ -1309,9 +1309,15 @@ class TestAPIMiddleware:
 
 
 class TestRegimeHMMOnlineUpdate:
-    @pytest.mark.skipif(True, reason="hmmlearn not installed in test env")
     def test_partial_update_shape_preserved(self):
-        from assembled_core.ml.regime_hmm import RegimeHMM
+        # Runtime hmmlearn check (was an unconditional skipif(True) which
+        # made the test silently un-runnable even when hmmlearn was present).
+        try:
+            from assembled_core.ml.regime_hmm import HMMLEARN_AVAILABLE, RegimeHMM
+        except ImportError:
+            pytest.skip("regime_hmm not importable")
+        if not HMMLEARN_AVAILABLE:
+            pytest.skip("hmmlearn not installed in test env")
 
         rng = np.random.default_rng(0)
         baseline = pd.Series(rng.normal(0, 0.01, 500))

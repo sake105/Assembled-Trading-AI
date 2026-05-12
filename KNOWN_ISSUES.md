@@ -876,25 +876,26 @@ durchgeführt wurden:
   (Modul `erweiterung/timeseries_tools/ornstein_uhlenbeck.py` existiert
   nicht auf ERWEITERUNG-HEAD).
 
-### 8.14 Test-Skips und xfails (Inventur)
+### 8.14 Test-Skips und xfails (Inventur) — DONE 2026-05-12 (Wave 19 Follow-On)
 
-Pytest skip / xfail in `tests/` (Stand 2026-05-12):
+**Vollständige Inventur:** `docs/TEST_SKIP_INVENTORY_2026-05-12.md`.
 
-- [ ] `tests/test_qa_numba_kernels.py` — `skipif` wenn numba fehlt (legitim).
-- [ ] `tests/test_ml_signals_intel.py` — 3 Marker.
-- [ ] `tests/test_ml_features.py` — 3 Marker.
-- [ ] `tests/test_ml_foundation.py` — Marker.
-- [ ] `tests/test_intel_to_signal.py` — Marker.
-- [ ] `tests/test_competitive_analysis_impl.py` — Marker.
-- [ ] `tests/test_automl.py` — Marker.
-- [ ] `tests/test_trading_cycle_regression_daily.py` — Marker.
-- [ ] `tests/test_trading_cycle_backtest_snapshot_equivalence.py` — Marker.
-- [ ] `tests/test_backtest_vs_two_eod_cycles.py` — Marker.
+Befunde der Inventur:
 
-Jeden einzelnen Test einmal prüfen: ist der Skip noch gerechtfertigt
-(optional dep, slow, env-Conditional) oder hängt ein nicht-implementiertes
-Feature dahinter? Diese Inventur ist nicht autonom durchgeführt — Aufgabe
-für eine separate Test-Hygiene-Session.
+- ~25 Marker **legitim** (optionale Deps numba / scipy / sklearn / arch /
+  hmmlearn, dokumentierte xfails mit Sunset-Datum) — keine Aktion.
+- ~30 Marker **stale** — referenzieren archivierte Module
+  (`archive/observability_graveyard_2026q2/`, `archive/intel_research_2026q2/`):
+  multichannel_propagation, weaponized_interdependence, scenario_trees,
+  barbell_strategy, volatility_features, garch_models, evt_models,
+  ml.automl, IntelSignalAdapter-Klasse.
+- 1 Marker **buggy** — `test_competitive_analysis_impl.py:1312`
+  `skipif(True)` durch Runtime-`HMMLEARN_AVAILABLE`-Check ersetzt.
+
+Strukturelle Entscheidung offen (User-call): die ~30 stale-Marker entweder
+mit-archivieren oder file-level skip mit klarer Begründung — Wave 19 lässt
+das Status-quo, weil die Tests keine Laufzeit-Kosten verursachen, sondern
+nur Collection-Noise.
 
 ### 8.15 Verifikations-Status
 
