@@ -1,0 +1,32 @@
+# serializer version: 1
+# name: test_compute_equity_metrics_snapshot
+  dict({
+    'cagr': 0.393435,
+    'calmar_ratio': 4.067979,
+    'final_pf': 1.393435,
+    'max_drawdown_pct': -9.67151,
+    'periods': 252,
+    'sharpe_ratio': 2.138688,
+    'sortino_ratio': 3.656345,
+    'total_return': 0.393435,
+    'var_95': -2183.617103,
+    'volatility': 0.161939,
+  })
+# ---
+# name: test_deflated_sharpe_snapshot
+  dict({
+    'sr_1_0__n_252__tests_1': 12.961481,
+    'sr_1_0__n_252__tests_100': 10.483533,
+    'sr_2_5__n_504__tests_1000': 25.803885,
+  })
+# ---
+# name: test_har_rv_forecast_snapshot
+  dict({
+    'first_valid_index': 21,
+    'first_valid_value_e6': 113.048,
+    'max_value_e6': 167.813,
+    'mean_value_e6': 144.93,
+    'min_value_e6': 112.967,
+    'n_predictions': 279,
+  })
+# ---
