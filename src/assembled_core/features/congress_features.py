@@ -27,7 +27,7 @@ def add_congress_features(
     prices: pd.DataFrame,
     events: pd.DataFrame,
     as_of: pd.Timestamp | None = None,
-    disclosure_latency_days: int = 45,
+    disclosure_latency_days: int = 45,  # audit C4-082 — data.source_latencies.CONGRESS_DAYS
 ) -> pd.DataFrame:
     """Add congressional trading features to price DataFrame (PIT-safe).
 

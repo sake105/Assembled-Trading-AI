@@ -27,7 +27,7 @@ def add_insider_features(
     prices: pd.DataFrame,
     events: pd.DataFrame,
     as_of: pd.Timestamp | None = None,
-    disclosure_latency_days: int = 2,
+    disclosure_latency_days: int = 2,  # audit C4-082 — data.source_latencies.INSIDER_DAYS
 ) -> pd.DataFrame:
     """Add insider trading features to price DataFrame (PIT-safe).
 
