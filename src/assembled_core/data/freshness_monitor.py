@@ -70,5 +70,33 @@ class FreshnessMonitor:
                 )
         return alerts
 
+    def last_known_good_timestamp(self, source: str) -> datetime | None:
+        """Return the last update for a source, or None if never recorded.
+
+        Audit C4-024: callers must distinguish "no data ever seen" from
+        "stale but once-fresh data". The freshness alert pipeline always
+        considered an unset ``last_updated`` as infinitely-old; this
+        helper exposes the underlying value so consumers can react
+        differently (e.g. degrade to read-only mode when unknown, alert
+        oncall when stale).
+        """
+        sf = self.sources.get(source)
+        if sf is None or sf.last_updated is None:
+            return None
+        if sf.last_updated.tzinfo is None:
+            return sf.last_updated.replace(tzinfo=timezone.utc)
+        return sf.last_updated
+
+    def degradation_status(self, source: str) -> str:
+        """Return one of ``unknown`` / ``ok`` / ``stale``.
+
+        Operators can wire this into the /ready probe or a dashboard
+        without re-implementing the unknown-vs-stale distinction.
+        """
+        sf = self.sources.get(source)
+        if sf is None or sf.last_updated is None:
+            return "unknown"
+        return "stale" if sf.is_stale else "ok"
+
 
 __all__ = ["SourceFreshness", "FreshnessMonitor"]

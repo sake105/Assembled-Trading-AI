@@ -840,3 +840,67 @@ def test_retry_does_not_swallow_non_matched_exceptions(
 
     with pytest.raises(ValueError):
         explode()
+
+
+# ---------------------------------------------------------------------------
+# Wave-7 — freshness last_known_good + degradation status (C4-024)
+# ---------------------------------------------------------------------------
+
+
+def test_freshness_unknown_when_never_updated() -> None:
+    from src.assembled_core.data.freshness_monitor import FreshnessMonitor
+
+    fm = FreshnessMonitor()
+    fm.register("yahoo", max_age_hours=24.0)
+    assert fm.last_known_good_timestamp("yahoo") is None
+    assert fm.degradation_status("yahoo") == "unknown"
+
+
+def test_freshness_ok_after_update() -> None:
+    from src.assembled_core.data.freshness_monitor import FreshnessMonitor
+
+    fm = FreshnessMonitor()
+    fm.register("yahoo", max_age_hours=24.0)
+    fm.update("yahoo")
+    ts = fm.last_known_good_timestamp("yahoo")
+    assert ts is not None
+    assert fm.degradation_status("yahoo") == "ok"
+
+
+# ---------------------------------------------------------------------------
+# Wave-7 — clock_drift helper (C4-043)
+# ---------------------------------------------------------------------------
+
+
+def test_drift_status_returns_unknown_when_measure_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No network → measure_drift_seconds returns None → status=unknown."""
+    from src.assembled_core.utils import clock_drift
+
+    monkeypatch.setattr(clock_drift, "measure_drift_seconds", lambda **_kw: None)
+    result = clock_drift.drift_status(host="unreachable.example")
+    assert result["status"] == "unknown"
+    assert result["drift_seconds"] is None
+    assert "checked_at" in result
+
+
+def test_drift_status_classifies_thresholds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.assembled_core.utils import clock_drift
+
+    # Inject deterministic drift values.
+    cases = [
+        (0.05, "ok"),
+        (0.5, "warn"),
+        (2.0, "fail"),
+    ]
+    for drift, expected in cases:
+
+        def _fake(_d=drift, **_kw):
+            return _d
+
+        monkeypatch.setattr(clock_drift, "measure_drift_seconds", _fake)
+        r = clock_drift.drift_status(warn_seconds=0.1, fail_seconds=1.0)
+        assert r["status"] == expected, (drift, r)
