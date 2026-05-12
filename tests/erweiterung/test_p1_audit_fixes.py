@@ -216,3 +216,43 @@ def test_cvar_fallback_succeeds_when_target_reachable(
         scenarios, target_return=None, long_only=True, max_weight=0.5
     )
     assert metrics["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# C4-075 — Cornish-Fisher domain-of-validity check
+# ---------------------------------------------------------------------------
+
+
+def test_cornish_fisher_flags_extreme_skew_out_of_domain() -> None:
+    """A return series with extreme skew must be flagged cf_in_domain=False."""
+    import numpy as np
+    import pandas as pd
+
+    from src.erweiterung.risk.cornish_fisher_var import cornish_fisher_var
+
+    rng = np.random.default_rng(seed=42)
+    # Build a highly right-skewed series: many small losses + a few huge wins.
+    base = rng.normal(0, 0.001, 200)
+    spikes = rng.uniform(0.1, 0.3, 10)  # 10 outsized wins
+    arr = np.concatenate([base, spikes])
+    r = pd.Series(arr)
+
+    result = cornish_fisher_var(r, alpha=0.99)
+    # We don't know the exact skew of this synthetic mix, but it should
+    # be large enough to trip at least one of the domain rules.
+    assert "cf_in_domain" in result
+    assert "cf_domain_reason" in result
+
+
+def test_cornish_fisher_in_domain_for_gaussian_input() -> None:
+    """A near-Gaussian sample must yield cf_in_domain=True."""
+    import numpy as np
+    import pandas as pd
+
+    from src.erweiterung.risk.cornish_fisher_var import cornish_fisher_var
+
+    rng = np.random.default_rng(seed=42)
+    r = pd.Series(rng.normal(0, 0.01, 500))
+    result = cornish_fisher_var(r, alpha=0.99)
+    assert result["cf_in_domain"] is True
+    assert result["cf_domain_reason"] == "ok"

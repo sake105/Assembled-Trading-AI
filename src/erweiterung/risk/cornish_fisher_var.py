@@ -85,6 +85,43 @@ def _norm_ppf(p: float) -> float:
         ) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
 
 
+def _cornish_fisher_domain_check(skew: float, excess_kurt: float) -> tuple[bool, str]:
+    """Check whether Cornish-Fisher is in its valid domain (audit C4-075).
+
+    The CF expansion is a Taylor-series approximation around the standard
+    normal. Outside a bounded skew/kurt region the expanded z_cf becomes
+    non-monotone in z (Maillard 2018, Jaschke 2002), producing nonsense
+    VaR estimates (negative VaR for left tails, monotonicity violations,
+    etc.).
+
+    Practical rule of thumb (Boudt-Peterson-Croux 2008 / Maillard 2018):
+        |skew| <= 6           — outright bound for monotone correction
+        -1 <= excess_kurt <= 9
+        And the joint constraint  (excess_kurt + 3) - (skew^2 + 1) >= 0
+        which is required for the moment problem to have a solution.
+
+    Returns:
+        (in_domain, reason). reason is "ok" when in_domain is True.
+    """
+    if abs(skew) > 6.0:
+        return False, f"|skew|={abs(skew):.3f} > 6.0 (CF expansion non-monotone)"
+    if excess_kurt < -1.0:
+        return (
+            False,
+            f"excess_kurt={excess_kurt:.3f} < -1 (sub-Gaussian — moment problem)",
+        )
+    if excess_kurt > 9.0:
+        return False, f"excess_kurt={excess_kurt:.3f} > 9 (CF expansion non-monotone)"
+    # Joint moment-problem feasibility: raw kurt - skew^2 - 1 >= 0
+    # equivalently: excess_kurt + 2 >= skew^2
+    if excess_kurt + 2.0 < skew * skew:
+        return (
+            False,
+            f"infeasible moments: excess_kurt+2={excess_kurt + 2:.3f} < skew^2={skew * skew:.3f}",
+        )
+    return True, "ok"
+
+
 def cornish_fisher_var(returns: pd.Series, alpha: float = 0.99) -> dict:
     """Compute Cornish-Fisher VaR + CVaR.
 
@@ -93,7 +130,13 @@ def cornish_fisher_var(returns: pd.Series, alpha: float = 0.99) -> dict:
         alpha: confidence level.
 
     Returns:
-        dict mit ``var_gauss``, ``var_cf``, ``cvar_cf``, ``skew``, ``kurt``.
+        dict mit ``var_gauss``, ``var_cf``, ``cvar_cf``, ``skew``, ``kurt``,
+        ``cf_in_domain`` (bool), ``cf_domain_reason`` (str). When the
+        Cornish-Fisher approximation is outside its valid domain (audit
+        C4-075), ``cf_in_domain`` is False and the caller MUST fall back
+        to a different estimator (historical VaR, EVT, or Monte-Carlo).
+        The CF values are STILL returned for inspection but should not
+        be used as the binding risk number.
     """
     r = pd.Series(returns).dropna()
     if len(r) < 30:
@@ -105,6 +148,8 @@ def cornish_fisher_var(returns: pd.Series, alpha: float = 0.99) -> dict:
     excess_kurt = float(r.kurt())
     if sigma == 0:
         return {"error": "zero vol"}
+
+    in_domain, reason = _cornish_fisher_domain_check(skew, excess_kurt)
 
     z = _norm_ppf(1 - alpha)  # negative for tail
 
@@ -140,6 +185,8 @@ def cornish_fisher_var(returns: pd.Series, alpha: float = 0.99) -> dict:
         "excess_kurt": excess_kurt,
         "alpha": alpha,
         "n_obs": len(r),
+        "cf_in_domain": in_domain,
+        "cf_domain_reason": reason,
     }
 
 
