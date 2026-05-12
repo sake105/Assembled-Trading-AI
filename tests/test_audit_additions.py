@@ -784,3 +784,59 @@ def test_rate_limit_middleware_rejects_when_exhausted(
     assert r.status_code == 429
     assert "Retry-After" in r.headers
     reset_rate_limit_state()
+
+
+# ---------------------------------------------------------------------------
+# Wave-6 — retry convention (C4-022)
+# ---------------------------------------------------------------------------
+
+
+def test_retry_succeeds_after_transient_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.assembled_core.utils.retry import retry
+
+    # Patch sleep to keep the test instant.
+    monkeypatch.setattr("src.assembled_core.utils.retry.time.sleep", lambda _s: None)
+
+    counter = {"n": 0}
+
+    @retry(attempts=4, base=0.01, cap=0.05, jitter=0.0)
+    def flaky() -> str:
+        counter["n"] += 1
+        if counter["n"] < 3:
+            raise ConnectionError("transient")
+        return "ok"
+
+    assert flaky() == "ok"
+    assert counter["n"] == 3
+
+
+def test_retry_reraises_after_attempts_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.assembled_core.utils.retry import retry
+
+    monkeypatch.setattr("src.assembled_core.utils.retry.time.sleep", lambda _s: None)
+
+    @retry(attempts=3, base=0.01, cap=0.02, jitter=0.0)
+    def always_fail() -> None:
+        raise TimeoutError("nope")
+
+    with pytest.raises(TimeoutError):
+        always_fail()
+
+
+def test_retry_does_not_swallow_non_matched_exceptions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.assembled_core.utils.retry import retry
+
+    monkeypatch.setattr("src.assembled_core.utils.retry.time.sleep", lambda _s: None)
+
+    @retry(attempts=5, base=0.01, cap=0.05, jitter=0.0, exceptions=(ConnectionError,))
+    def explode() -> None:
+        raise ValueError("not in the retry set")
+
+    with pytest.raises(ValueError):
+        explode()

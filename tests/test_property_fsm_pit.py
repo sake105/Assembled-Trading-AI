@@ -235,3 +235,43 @@ def test_pit_safety_pct_change(n: int) -> None:
         atol=1e-12,
         rtol=0,
     )
+
+
+# ---------------------------------------------------------------------------
+# FactorStore — universe-key idempotency (audit B-005)
+# ---------------------------------------------------------------------------
+
+
+@given(
+    symbols=st.lists(
+        st.text(
+            alphabet=st.characters(min_codepoint=65, max_codepoint=90),
+            min_size=1,
+            max_size=5,
+        ),
+        min_size=1,
+        max_size=20,
+        unique=True,
+    )
+)
+@settings(max_examples=40, suppress_health_check=[HealthCheck.too_slow])
+def test_factor_store_universe_key_is_order_invariant(symbols: list[str]) -> None:
+    """compute_universe_key must depend on the *set* of symbols, not the
+    presentation order. A reshuffled universe must yield the same key.
+    Tests the audit-mandated B-005 PIT-cache contract.
+    """
+    from src.assembled_core.data.factor_store import compute_universe_key
+
+    k1 = compute_universe_key(symbols)
+    k2 = compute_universe_key(list(reversed(symbols)))
+    k3 = compute_universe_key(sorted(symbols))
+    assert k1 == k2 == k3, (k1, k2, k3)
+
+
+def test_factor_store_universe_key_differs_on_member_change() -> None:
+    """Adding a single symbol must change the universe key."""
+    from src.assembled_core.data.factor_store import compute_universe_key
+
+    base = compute_universe_key(["AAPL", "MSFT", "GOOGL"])
+    extended = compute_universe_key(["AAPL", "MSFT", "GOOGL", "AMZN"])
+    assert base != extended
