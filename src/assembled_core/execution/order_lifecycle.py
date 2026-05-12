@@ -62,7 +62,7 @@ _VALID_TRANSITIONS: dict[OrderState, set[OrderState]] = {
 }
 
 
-@dataclass
+@dataclass(slots=True)
 class OrderEvent:
     """A single lifecycle event for an order."""
 
@@ -71,7 +71,7 @@ class OrderEvent:
     details: dict = field(default_factory=dict)
 
 
-@dataclass
+@dataclass(slots=True)
 class TrackedOrder:
     """An order with its full lifecycle history."""
 

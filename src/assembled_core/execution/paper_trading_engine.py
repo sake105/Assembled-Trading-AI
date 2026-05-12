@@ -118,7 +118,7 @@ class FillModel:
         }
 
 
-@dataclass
+@dataclass(slots=True)
 class PaperOrder:
     """Paper trading order representation.
 
@@ -153,7 +153,7 @@ class PaperOrder:
     fill_cost_breakdown: dict | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class PaperPosition:
     """Paper trading position representation.
 
