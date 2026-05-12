@@ -6,12 +6,46 @@ broker snapshots (paper or live), detecting mismatches and missing positions.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+_DEFAULT_RECON_AUDIT = Path("output/ops/reconciliation_audit.jsonl")
+
+
+def _recon_audit_path() -> Path:
+    override = os.environ.get("ASSEMBLED_RECONCILE_AUDIT", "")
+    return Path(override) if override else _DEFAULT_RECON_AUDIT
+
+
+def _append_recon_audit(event: dict) -> None:
+    """Append a JSONL entry with fsync (audit C3-072).
+
+    Used by evaluate_reconcile_slo to leave a record of every reconciliation
+    outcome (ok / warn / fail). Best-effort — write failures are logged but
+    must not crash the reconciliation itself.
+    """
+    p = _recon_audit_path()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        event["ts"] = datetime.now(timezone.utc).isoformat()
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event, sort_keys=True) + "\n")
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError as exc:
+                logger.debug("[recon-audit] fsync failed: %s", exc)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[recon-audit] write failed for %s: %s", p, exc)
 
 
 @dataclass
@@ -165,6 +199,20 @@ def evaluate_reconcile_slo(
             )
         except Exception as _ae:  # alerting must never block reconciliation
             logger.debug("[Reconciliation] alert dispatch failed: %s", _ae)
+
+    # Append every SLO evaluation to the audit log so a regulator (or a
+    # future post-mortem) can reconstruct what the reconciler saw at each
+    # tick — not just the breaches.
+    _append_recon_audit(
+        {
+            "kind": "slo_eval",
+            "severity": severity,
+            "cash_diff_bps": cash_bps,
+            "max_qty_diff": max_qty_diff,
+            "violation_count": len(violations),
+            "first_violation": violations[0]["metric"] if violations else "",
+        }
+    )
 
     return {
         "severity": severity,

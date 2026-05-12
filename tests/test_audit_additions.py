@@ -592,3 +592,195 @@ def test_har_rv_forecast_prefix_correlation_high() -> None:
     assert len(common) > 50
     c = float(overlap_full.loc[common].corr(overlap_prefix.loc[common]))
     assert c > 0.95, f"HAR-RV prefix/full corr should be high; got {c}"
+
+
+# ---------------------------------------------------------------------------
+# Wave-5 — small audit tests
+# ---------------------------------------------------------------------------
+
+
+def test_kill_switch_throttle_rounds_down_below_min_lot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """Audit C4-017: a tiny throttle that rounds qty < 1 share must NOT
+    silently submit a fractional order — guard_orders_with_kill_switch
+    floors-with-sign and drops orders that flooor to zero.
+    """
+    import pandas as pd
+
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_STATE", str(tmp_path / "state.json"))
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_AUDIT", str(tmp_path / "audit.jsonl"))
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_SENTINEL", str(tmp_path / ".sentinel"))
+    monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
+
+    from src.assembled_core.execution.kill_switch import (
+        activate_kill_switch,
+        deactivate_kill_switch,
+        guard_orders_with_kill_switch,
+    )
+
+    activate_kill_switch(throttle_pct=0.4, reason="throttle-test", actor="t")
+    orders = pd.DataFrame(
+        [
+            {"symbol": "TINY", "qty": 2.0, "side": "BUY"},  # 2 * 0.4 = 0.8 -> dropped
+            {"symbol": "BIG", "qty": 10.0, "side": "BUY"},  # 10 * 0.4 = 4 -> kept (4)
+        ]
+    )
+    result = guard_orders_with_kill_switch(orders)
+    # TINY should have been dropped; BIG should have qty 4
+    assert "TINY" not in result["symbol"].values
+    big_row = result[result["symbol"] == "BIG"]
+    assert len(big_row) == 1
+    assert int(big_row["qty"].iloc[0]) == 4
+    deactivate_kill_switch(reason="done", actor="t")
+
+
+def test_circuit_breaker_cooldown_blocks_double_trip() -> None:
+    """Audit C4-055: once the breaker has tripped, ``is_tripped`` must
+    remain True for the cooldown window even if subsequent inputs do not
+    exceed the ratio threshold.
+
+    Note: the breaker's short_window is a strict subset of long_window in
+    the current implementation, so the maximum achievable short/long ratio
+    is bounded by sqrt(long/short). For short=5, long=20 the cap is ~2.0;
+    we use threshold 1.5 to exercise a real trip.
+    """
+    import numpy as np
+
+    from src.assembled_core.risk.circuit_breaker import VolCircuitBreaker
+
+    vcb = VolCircuitBreaker(
+        short_window=5, long_window=20, ratio_threshold=1.5, cooldown_minutes=15
+    )
+    rng = np.random.default_rng(seed=1)
+    quiet_base = list(0.0001 * rng.standard_normal(40))
+    spike = quiet_base + [0.05, -0.05, 0.06, -0.07, 0.04]
+    just_tripped = vcb.check_returns(spike)
+    assert just_tripped is True
+    # Now feed quiet data — still tripped because cooldown window is open.
+    quiet = list(0.0001 * rng.standard_normal(40))
+    vcb.check_returns(quiet)
+    assert vcb.is_tripped is True
+    assert vcb.trip_count >= 1
+
+
+def test_api_command_endpoint_requires_x_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Audit C4-062: command POST endpoint must return 401 when
+    ASSEMBLED_API_KEY is set but the request omits the header.
+    """
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("ASSEMBLED_API_KEY", "the-only-correct-key")
+    # Disable rate-limit / audit middleware for a clean 401 path.
+    monkeypatch.delenv("ASSEMBLED_API_RATE_LIMIT", raising=False)
+    monkeypatch.delenv("ASSEMBLED_API_AUDIT", raising=False)
+
+    from src.assembled_core.api.app import create_app
+
+    client = TestClient(create_app())
+    r = client.post("/api/v1/kill-switch/activate", params={"throttle_pct": 0.0})
+    assert r.status_code == 401, r.text
+
+
+def test_compute_equity_metrics_deterministic_on_same_input() -> None:
+    """Audit E-006: compute_equity_metrics must be deterministic — same
+    input → identical PerformanceMetrics. Pure-numpy path, no RNG.
+    """
+    import numpy as np
+    import pandas as pd
+
+    from src.assembled_core.qa.metrics import compute_equity_metrics
+
+    idx = pd.date_range("2024-01-01", periods=200, freq="D")
+    equity_df = pd.DataFrame(
+        {"timestamp": idx, "equity": 100_000.0 + 50.0 * np.arange(200)}
+    )
+    m1 = compute_equity_metrics(equity_df, start_capital=100_000.0, freq="1d")
+    m2 = compute_equity_metrics(equity_df, start_capital=100_000.0, freq="1d")
+
+    # Compare numeric fields directly.
+    assert m1.final_pf == m2.final_pf
+    assert m1.total_return == m2.total_return
+    assert m1.cagr == m2.cagr
+    assert m1.sharpe_ratio == m2.sharpe_ratio
+    assert m1.max_drawdown == m2.max_drawdown
+    assert m1.volatility == m2.volatility
+    assert m1.var_95 == m2.var_95
+
+
+# ---------------------------------------------------------------------------
+# Wave-5 — reconciliation audit-log + /health/startup + rate-limit
+# ---------------------------------------------------------------------------
+
+
+def test_reconciliation_audit_log_appended(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """C3-072: every evaluate_reconcile_slo call writes a JSONL record."""
+    audit = tmp_path / "recon.jsonl"
+    monkeypatch.setenv("ASSEMBLED_RECONCILE_AUDIT", str(audit))
+
+    from src.assembled_core.accounting import reconciliation as recon_mod
+
+    monkeypatch.setattr(
+        "src.assembled_core.ops.alerting.AlertManager",
+        lambda *a, **kw: type("_M", (), {"fire": lambda self, n, c: None})(),
+    )
+
+    slo = recon_mod.ReconcileSLO()
+    recon_mod.evaluate_reconcile_slo(
+        cash_diff=0.0,
+        broker_cash=1_000_000.0,
+        max_qty_diff=0.0,
+        fill_rate=None,
+        slippage_p99_bps=None,
+        slo=slo,
+    )
+    lines = audit.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    rec = json.loads(lines[0])
+    assert rec["kind"] == "slo_eval"
+    assert rec["severity"] == "ok"
+    assert "ts" in rec
+
+
+def test_health_startup_returns_started_true() -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from src.assembled_core.api.app import create_app
+
+    client = TestClient(create_app())
+    r = client.get("/health/startup")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["started"] is True
+    assert "uptime_s" in body
+
+
+def test_rate_limit_middleware_rejects_when_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Audit C3-114: configured rate-limit must 429 after capacity exceeded."""
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("ASSEMBLED_API_RATE_LIMIT", "2")
+    monkeypatch.setenv("ASSEMBLED_API_RATE_WINDOW_SEC", "60")
+
+    from src.assembled_core.api.app import create_app
+    from src.assembled_core.api.middleware import reset_rate_limit_state
+
+    reset_rate_limit_state()
+    client = TestClient(create_app())
+    # First two requests succeed.
+    assert client.get("/live").status_code == 200
+    assert client.get("/live").status_code == 200
+    # Third trips the limit (capacity=2).
+    r = client.get("/live")
+    assert r.status_code == 429
+    assert "Retry-After" in r.headers
+    reset_rate_limit_state()

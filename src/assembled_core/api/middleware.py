@@ -1,4 +1,4 @@
-"""FastAPI middleware: Request-ID tracing + process-time headers.
+"""FastAPI middleware: Request-ID tracing + process-time headers + audit log + rate limit.
 
 Usage in app.py:
     from assembled_core.api.middleware import add_middleware
@@ -136,7 +136,85 @@ async def api_audit_middleware(request: Request, call_next):
     return response
 
 
+# ---------------------------------------------------------------------------
+# Rate limiting (audit C3-114)
+# ---------------------------------------------------------------------------
+
+_RL_STATE: dict[str, tuple[float, float]] = {}  # ip -> (tokens, last_refill_ts)
+
+
+def _rate_limit_config() -> tuple[float, float] | None:
+    """Return (capacity, refill_per_second) from env, or None if disabled.
+
+    Env vars:
+        ASSEMBLED_API_RATE_LIMIT — capacity per IP (integer). 0 / unset = disabled.
+        ASSEMBLED_API_RATE_WINDOW_SEC — refill window in seconds (default 60).
+    """
+    capacity_raw = os.environ.get("ASSEMBLED_API_RATE_LIMIT", "").strip()
+    if not capacity_raw:
+        return None
+    try:
+        capacity = float(capacity_raw)
+    except ValueError:
+        return None
+    if capacity <= 0:
+        return None
+    window = float(os.environ.get("ASSEMBLED_API_RATE_WINDOW_SEC", "60") or 60)
+    if window <= 0:
+        window = 60.0
+    return capacity, capacity / window
+
+
+async def rate_limit_middleware(request: Request, call_next):
+    """Token-bucket per-IP rate limit (audit C3-114).
+
+    Stateless across restarts — buckets live in-process and reset when the
+    app restarts. For a single-tenant solo-quant backend this is enough;
+    multi-process / horizontal deployment would need Redis (out of scope).
+
+    Disabled by default; enable by setting ``ASSEMBLED_API_RATE_LIMIT`` to a
+    positive integer (capacity per window). Window length defaults to 60 s
+    and is overridable via ``ASSEMBLED_API_RATE_WINDOW_SEC``.
+    """
+    cfg = _rate_limit_config()
+    if cfg is None:
+        return await call_next(request)
+    capacity, refill_rate = cfg
+
+    ip = request.client.host if request.client else "anonymous"
+    now = time.monotonic()
+    tokens, last = _RL_STATE.get(ip, (capacity, now))
+    # Refill since last check.
+    tokens = min(capacity, tokens + refill_rate * (now - last))
+    if tokens < 1.0:
+        # FastAPI is imported here — lazy to keep the top-level light.
+        from fastapi.responses import JSONResponse
+
+        retry_after = max(1, int((1.0 - tokens) / max(refill_rate, 1e-9)))
+        _RL_STATE[ip] = (tokens, now)
+        return JSONResponse(
+            content={
+                "detail": "Rate limit exceeded",
+                "retry_after_seconds": retry_after,
+            },
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+    _RL_STATE[ip] = (tokens - 1.0, now)
+    return await call_next(request)
+
+
+def reset_rate_limit_state() -> None:
+    """Test helper — wipes the in-memory bucket state."""
+    _RL_STATE.clear()
+
+
 def add_middleware(app: FastAPI) -> None:
     """Register all API middleware on a FastAPI app instance."""
+    # Order: rate-limit first (cheap reject), then request-id (so every
+    # surviving request is traced), then audit-log (records the full
+    # outcome including 429s would be too noisy — so audit only sees
+    # passed-through requests).
+    app.middleware("http")(rate_limit_middleware)
     app.middleware("http")(request_id_middleware)
     app.middleware("http")(api_audit_middleware)

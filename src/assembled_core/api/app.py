@@ -96,6 +96,21 @@ def create_app() -> FastAPI:
         """Liveness probe — returns 200 if event loop is responsive."""
         return {"alive": True}
 
+    @app.get("/health/startup", tags=["ops"])
+    def startup():
+        """Startup probe (audit F-008) — 200 once boot tasks have finished.
+
+        Used by orchestrators (k8s, docker compose with health-condition)
+        to distinguish "process is up but not ready" from "process is
+        initialized and ready to accept traffic". Currently boots are
+        synchronous so this returns 200 as soon as the app is alive; the
+        endpoint exists so probes can be wired before that ever changes.
+        """
+        return {
+            "started": True,
+            "uptime_s": round(time.time() - _APP_START_TIME, 1),
+        }
+
     # ── Kill Switch command endpoints (POST) ────────────────────────
     @app.post("/api/v1/kill-switch/activate", tags=["risk-commands"])
     def activate_kill_switch_endpoint(
