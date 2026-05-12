@@ -1,0 +1,26 @@
+# .dvc/config.example — copy to .dvc/config and fill in B2 credentials.
+# Audit C2-045: data versioning so backtests are reproducible across
+# yfinance / vendor revisions.
+#
+# Setup:
+#   1. pip install 'dvc[s3]'
+#   2. copy this file to .dvc/config (gitignored — never commit creds).
+#   3. dvc remote default backblaze
+#   4. set env: B2_KEY_ID + B2_APP_KEY + B2_BUCKET (see scripts/ops/setup_b2_backup.sh)
+#   5. dvc add data/raw/<asset_panel>.parquet
+#      → creates .dvc/.../<panel>.parquet.dvc (commit this to git)
+#   6. dvc push  (uploads parquet to B2)
+#
+# Later, on a fresh clone:
+#   dvc pull   → fetches the matching parquet via the .dvc tracker file
+
+[core]
+    autostage = true
+    remote = backblaze
+
+# Backblaze B2 over the S3-compatible endpoint. Replace placeholders.
+['remote "backblaze"']
+    url = s3://assembled-trading-audit-CHANGE-ME/dvc
+    endpointurl = https://s3.eu-central-003.backblazeb2.com
+    access_key_id = ${B2_KEY_ID}
+    secret_access_key = ${B2_APP_KEY}

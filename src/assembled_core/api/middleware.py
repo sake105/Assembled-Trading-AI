@@ -209,12 +209,69 @@ def reset_rate_limit_state() -> None:
     _RL_STATE.clear()
 
 
+# ---------------------------------------------------------------------------
+# Chaos engineering — staging-only middleware (audit C2-010)
+# ---------------------------------------------------------------------------
+
+
+async def chaos_middleware(request: Request, call_next):
+    """Inject latency / drop / 5xx based on ``ASSEMBLED_CHAOS_MODE`` (audit C2-010).
+
+    Off by default. Enable via env (``ASSEMBLED_CHAOS_MODE=1``) on staging
+    only; production deployments MUST keep this disabled.
+
+    Knobs (env-driven, optional):
+        ASSEMBLED_CHAOS_LATENCY_MS     — fixed extra delay per request
+        ASSEMBLED_CHAOS_DROP_PROB      — probability of returning 503
+        ASSEMBLED_CHAOS_5XX_PROB       — probability of returning 500
+
+    A real chaos stack (LitmusChaos, audit C2-012) is the production
+    answer; this middleware is the dev-loop version that lets retry /
+    circuit-breaker / bulkhead logic exercise locally.
+    """
+    import asyncio
+    import random
+
+    if os.environ.get("ASSEMBLED_CHAOS_MODE", "").strip().lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return await call_next(request)
+
+    drop = float(os.environ.get("ASSEMBLED_CHAOS_DROP_PROB", "0") or 0)
+    five = float(os.environ.get("ASSEMBLED_CHAOS_5XX_PROB", "0") or 0)
+    lat = float(os.environ.get("ASSEMBLED_CHAOS_LATENCY_MS", "0") or 0)
+
+    if lat > 0:
+        await asyncio.sleep(lat / 1000.0)
+    if drop > 0 and random.random() < drop:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            content={"detail": "chaos: simulated 503"},
+            status_code=503,
+            headers={"X-Chaos": "drop"},
+        )
+    if five > 0 and random.random() < five:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            content={"detail": "chaos: simulated 500"},
+            status_code=500,
+            headers={"X-Chaos": "5xx"},
+        )
+
+    return await call_next(request)
+
+
 def add_middleware(app: FastAPI) -> None:
     """Register all API middleware on a FastAPI app instance."""
-    # Order: rate-limit first (cheap reject), then request-id (so every
-    # surviving request is traced), then audit-log (records the full
-    # outcome including 429s would be too noisy — so audit only sees
-    # passed-through requests).
+    # Order: chaos first (fail-loud before any other layer runs), then
+    # rate-limit (cheap reject), request-id (trace surviving requests),
+    # audit-log (record passed-through requests).
+    app.middleware("http")(chaos_middleware)
     app.middleware("http")(rate_limit_middleware)
     app.middleware("http")(request_id_middleware)
     app.middleware("http")(api_audit_middleware)

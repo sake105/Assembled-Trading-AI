@@ -1,0 +1,8 @@
+# DVC scaffold — keep real credentials and cache out of git.
+config
+config.local
+/cache
+/tmp
+/lock
+/updater
+/state
