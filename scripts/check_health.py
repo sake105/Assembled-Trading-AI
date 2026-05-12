@@ -1448,11 +1448,15 @@ def maybe_load_benchmark_returns(args: argparse.Namespace) -> pd.Series | None:
             logger.warning(f"Failed to load benchmark from {args.benchmark_file}: {e}")
             return None
 
-    # TODO: Load from benchmark symbol (if data source available)
-    # For now, just log that it's not implemented
+    # Symbol-based benchmark loading is intentionally not implemented here:
+    # this script is a read-only health check and must not make network
+    # calls. Operators wanting a symbol-driven benchmark should pre-fetch
+    # the series into a parquet/csv and pass it via --benchmark-file.
     if args.benchmark_symbol:
         logger.warning(
-            f"Loading benchmark from symbol not yet implemented: {args.benchmark_symbol}"
+            "Symbol-based benchmark loading is disabled in check_health "
+            "(network-free invariant). Pre-fetch %s and pass --benchmark-file <path>.",
+            args.benchmark_symbol,
         )
 
     return None
