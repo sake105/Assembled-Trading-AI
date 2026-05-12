@@ -58,19 +58,52 @@ def _purge_train_indices(
     test_idx: np.ndarray,
     info_period_lookback: int = 0,
     embargo: int = 0,
+    label_horizon: int = 0,
 ) -> np.ndarray:
-    """Entferne train-indices, deren Information-Period mit test-Fold überlappt."""
-    # info_period_lookback: wie viele bars vor i sind in dessen feature-construction beteiligt
+    """Entferne train-indices, deren Information-Period mit test-Fold überlappt.
+
+    Fix (audit C4-001 / C3-026):
+        The information window of training sample i extends BACKWARD,
+        not forward. Features at index i typically use the last
+        ``info_period_lookback`` bars (rolling vol, MA, RSI etc.), so a
+        test sample whose label realises in ``[i - info_period_lookback, i]``
+        can leak into the features at i. The previous implementation
+        looked forward (``range(i, i + lookback)``) which is the wrong
+        direction (Lopez de Prado 2018, Ch. 7.4.1).
+
+    Additionally we now purge the **label-horizon** direction: training
+    sample i carries a forward-return label spanning ``[i, i + label_horizon]``
+    and a test sample inside that window contaminates the train label.
+
+    Args:
+        train_idx: train indices (1-D int array).
+        test_idx: test indices (1-D int array).
+        info_period_lookback: feature-side lookback in bars. Purge if any
+            test index sits in [i - lookback, i].
+        label_horizon: forward label horizon in bars. Purge if any test
+            index sits in [i, i + horizon].
+        embargo: extra time-buffer immediately after the latest test bar.
+
+    Returns:
+        Filtered train indices (1-D int array).
+    """
     test_set = set(test_idx.tolist())
     keep = []
+    test_max = int(test_idx.max()) if len(test_idx) > 0 else -1
     for i in train_idx:
-        # purge if any test index lies in [i, i+info_period_lookback]
-        info_window = range(i, i + info_period_lookback + 1)
-        if any(t in test_set for t in info_window):
-            continue
-        # embargo: drop train samples too close after test_max
-        test_max = test_idx.max()
-        if i > test_max and i - test_max <= embargo:
+        # Backward purge — feature-leakage protection (audit C4-001 fix).
+        if info_period_lookback > 0:
+            back_lo = max(0, int(i) - info_period_lookback)
+            back_window = range(back_lo, int(i) + 1)
+            if any(t in test_set for t in back_window):
+                continue
+        # Forward purge — label-leakage protection (label horizon).
+        if label_horizon > 0:
+            fwd_window = range(int(i), int(i) + label_horizon + 1)
+            if any(t in test_set for t in fwd_window):
+                continue
+        # Embargo: drop train samples too close after test_max.
+        if embargo > 0 and i > test_max and i - test_max <= embargo:
             continue
         keep.append(i)
     return np.array(keep, dtype=int)

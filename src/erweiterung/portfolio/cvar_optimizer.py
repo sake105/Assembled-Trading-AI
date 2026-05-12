@@ -138,6 +138,7 @@ def cvar_optimal_weights(
         "var": var_val,
         "expected_return": exp_ret,
         "status": "optimal",
+        "success": True,
     }
 
 
@@ -148,10 +149,25 @@ def _cvar_fallback_simulated_annealing(
     long_only: bool,
     max_weight: float,
 ) -> tuple[pd.Series, dict]:
-    """SA-Fallback wenn scipy nicht verfügbar."""
+    """SA-Fallback wenn scipy nicht verfügbar.
+
+    Fix (audit C4-003 / C3-028):
+        The previous implementation ignored ``target_return`` entirely and
+        always returned ``status="sa_heuristic"``. A caller that asked for
+        a minimum return constraint silently received a solution that may
+        not satisfy it — a hidden risk-limit violation.
+
+        New behaviour: the SA objective penalises target-return violations
+        directly (Lagrangian-style) AND the post-hoc check confirms the
+        constraint. If the final weights still violate ``target_return``,
+        the function returns ``success=False`` + ``target_return_violated=True``
+        in the metrics dict; the caller MUST inspect ``success`` and
+        decide whether to accept or escalate.
+    """
     R = return_scenarios.values
     N = R.shape[1]
     rng = np.random.default_rng(42)
+    mu = R.mean(axis=0)
 
     def cvar(w: np.ndarray) -> float:
         port_returns = R @ w
@@ -160,18 +176,22 @@ def _cvar_fallback_simulated_annealing(
         tail = losses[losses >= var]
         return float(tail.mean()) if len(tail) > 0 else float(var)
 
-    def feasible(w: np.ndarray) -> bool:
-        if long_only and (w < 0).any():
-            return False
-        if (w > max_weight).any():
-            return False
-        if abs(w.sum() - 1.0) > 1e-6:
-            return False
-        return True
+    # Penalty weight (Lagrangian) for return-constraint violations. Chosen
+    # large enough that a 1-unit shortfall dominates any plausible CVaR
+    # improvement at the same magnitude.
+    return_penalty = 100.0
+
+    def objective(w: np.ndarray) -> float:
+        c = cvar(w)
+        if target_return is not None:
+            shortfall = target_return - float(mu @ w)
+            if shortfall > 0:
+                c += return_penalty * shortfall
+        return c
 
     w = np.ones(N) / N
     best_w = w.copy()
-    best_cvar = cvar(w)
+    best_obj = objective(w)
     T = 1.0
     for _ in range(2000):
         w_new = w + rng.normal(0, 0.05, N)
@@ -179,19 +199,38 @@ def _cvar_fallback_simulated_annealing(
         if w_new.sum() <= 0:
             continue
         w_new = w_new / w_new.sum()
-        c_new = cvar(w_new)
-        if c_new < best_cvar or rng.random() < np.exp(-(c_new - best_cvar) / T):
+        o_new = objective(w_new)
+        if o_new < best_obj or rng.random() < np.exp(-(o_new - best_obj) / T):
             w = w_new
-            if c_new < best_cvar:
-                best_cvar = c_new
+            if o_new < best_obj:
+                best_obj = o_new
                 best_w = w.copy()
         T *= 0.999
+
+    # Post-hoc constraint check.
+    final_cvar = cvar(best_w)
+    final_return = float(mu @ best_w)
+    if target_return is not None and final_return < target_return - 1e-9:
+        # We tried, we failed — surface honestly.
+        weights = pd.Series(best_w, index=return_scenarios.columns)
+        return weights, {
+            "cvar": final_cvar,
+            "var": float(np.quantile(-(R @ best_w), confidence)),
+            "expected_return": final_return,
+            "status": "sa_heuristic_target_not_met",
+            "success": False,
+            "target_return_violated": True,
+            "target_return": target_return,
+            "shortfall": target_return - final_return,
+        }
+
     weights = pd.Series(best_w, index=return_scenarios.columns)
     return weights, {
-        "cvar": best_cvar,
-        "var": np.quantile(-(R @ best_w), confidence),
-        "expected_return": float((R.mean(axis=0)) @ best_w),
+        "cvar": final_cvar,
+        "var": float(np.quantile(-(R @ best_w), confidence)),
+        "expected_return": final_return,
         "status": "sa_heuristic",
+        "success": True,
     }
 
 
