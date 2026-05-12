@@ -10,9 +10,12 @@ def test_canonical_latency_constants() -> None:
         ACLED_DAYS,
         CONGRESS_DAYS,
         EARNINGS_DAYS,
+        EDGAR_DAYS,
+        FINRA_DAYS,
         GDELT_DAYS,
         INSIDER_DAYS,
         LATENCY_DAYS,
+        WIKIPEDIA_DAYS,
         latency_for,
     )
 
@@ -21,13 +24,22 @@ def test_canonical_latency_constants() -> None:
     assert EARNINGS_DAYS == 0
     assert ACLED_DAYS == 1
     assert GDELT_DAYS == 1
+    # Audit C4-025/026/027 — see source_latencies.py rationale block.
+    assert EDGAR_DAYS == 1
+    assert FINRA_DAYS == 1
+    assert WIKIPEDIA_DAYS == 1
 
     assert LATENCY_DAYS["insider"] == INSIDER_DAYS
     assert LATENCY_DAYS["congress"] == CONGRESS_DAYS
     assert LATENCY_DAYS["earnings"] == EARNINGS_DAYS
+    assert LATENCY_DAYS["edgar"] == EDGAR_DAYS
+    assert LATENCY_DAYS["finra"] == FINRA_DAYS
+    assert LATENCY_DAYS["wikipedia"] == WIKIPEDIA_DAYS
 
     assert latency_for("Insider") == INSIDER_DAYS  # case-insensitive
     assert latency_for("CONGRESS") == CONGRESS_DAYS
+    assert latency_for("Edgar") == EDGAR_DAYS
+    assert latency_for("FINRA") == FINRA_DAYS
 
 
 def test_unknown_source_raises_key_error() -> None:

@@ -19,6 +19,19 @@ Sources / rationale:
 - ``ACLED_DAYS = 1``         ACLED publishes daily on a 24h lag.
 - ``GDELT_DAYS = 1``         GDELT 15-minute snapshots are typically
                               consumable on a 1-day batch lag.
+- ``EDGAR_DAYS = 1``         SEC EDGAR filings carry an acceptance-date
+                              timestamp; conservative round-up to one
+                              calendar day so a same-day filing only
+                              becomes visible at next-bar boundary
+                              (audit C4-025).
+- ``FINRA_DAYS = 1``         FINRA short-sale-volume reports are
+                              published T+1 after end of trading day
+                              (audit C4-026).
+- ``WIKIPEDIA_DAYS = 1``     Wikipedia page-view counts roll over at
+                              UTC midnight; complete counts for trading
+                              day T are first available at UTC midnight
+                              that day, i.e. ~02:00 ET of T+1
+                              (audit C4-027).
 
 Callers MUST prefer these constants over inline magic numbers so that any
 adjustment propagates atomically across feature builders. Tests should
@@ -34,6 +47,9 @@ CONGRESS_DAYS: int = 45
 EARNINGS_DAYS: int = 0
 ACLED_DAYS: int = 1
 GDELT_DAYS: int = 1
+EDGAR_DAYS: int = 1
+FINRA_DAYS: int = 1
+WIKIPEDIA_DAYS: int = 1
 
 # Optional registry for callers that need to look up by source name.
 LATENCY_DAYS: dict[str, int] = {
@@ -42,6 +58,9 @@ LATENCY_DAYS: dict[str, int] = {
     "earnings": EARNINGS_DAYS,
     "acled": ACLED_DAYS,
     "gdelt": GDELT_DAYS,
+    "edgar": EDGAR_DAYS,
+    "finra": FINRA_DAYS,
+    "wikipedia": WIKIPEDIA_DAYS,
 }
 
 
