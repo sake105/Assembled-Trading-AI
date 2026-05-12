@@ -144,6 +144,28 @@ def evaluate_reconcile_slo(
     else:
         severity = "ok"
 
+    # Dispatch alert when SLO is breached. AlertManager is cooldown-aware
+    # (configs/alerting.yaml), so a repeat fail does not spam channels —
+    # the manager handles strike-counting / suppression itself.
+    if severity in ("warn", "fail"):
+        try:
+            from src.assembled_core.ops.alerting import AlertManager
+
+            rule_name = (
+                "reconciliation_fail" if severity == "fail" else "reconciliation_warn"
+            )
+            AlertManager().fire(
+                rule_name,
+                {
+                    "cash_diff_bps": cash_bps,
+                    "max_qty_diff": max_qty_diff,
+                    "violation_count": len(violations),
+                    "first_violation": violations[0]["metric"] if violations else "",
+                },
+            )
+        except Exception as _ae:  # alerting must never block reconciliation
+            logger.debug("[Reconciliation] alert dispatch failed: %s", _ae)
+
     return {
         "severity": severity,
         "violations": violations,

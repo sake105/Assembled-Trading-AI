@@ -63,11 +63,16 @@ class MetaModel:
         model: The trained model (e.g., sklearn classifier)
         feature_names: List of feature column names used for training
         label_name: Name of the label column (default: "label")
+        val_metrics: Optional dict from the chronological OOS validation split
+            performed during ``train_meta_model`` (keys: ``val_auc``,
+            ``val_brier``, ``val_acc``, ``n_train``, ``n_val``, ``embargo``).
+            ``None`` if no validation split ran (insufficient data).
     """
 
     model: Any
     feature_names: list[str]
     label_name: str = "label"
+    val_metrics: dict[str, float] | None = None
 
     def predict_proba(self, X: pd.DataFrame) -> pd.Series:
         """Predict confidence scores (probability of success) for each row.
@@ -269,6 +274,7 @@ def train_meta_model(
     model_type: str = "gradient_boosting",
     random_state: int = 42,
     test_size: float = 0.2,
+    embargo_pct: float = 0.01,
 ) -> MetaModel:
     """Train a meta-model on the provided ML dataset.
 
@@ -371,14 +377,18 @@ def train_meta_model(
             f"Need at least 2 classes for binary classification. Found: {label_counts.to_dict()}"
         )
 
-    # Chronological validation split — evaluate OOS before training on full data
-    X_train = X
-    y_train = y
+    # Chronological validation split with embargo — evaluate OOS before
+    # training on full data. The embargo prevents label-leakage at the
+    # train/val boundary when labels span multiple bars (López de Prado
+    # 2018, Ch. 7.3). Default embargo of 1 % of rows is a safe lower bound.
+    val_metrics: dict[str, float] | None = None
     if 0.0 < test_size < 1.0 and len(X) >= 10:
+        embargo = max(0, int(len(X) * max(0.0, min(0.10, embargo_pct))))
         split_idx = int(len(X) * (1.0 - test_size))
+        train_end = max(0, split_idx - embargo)
         X_val, y_val = X.iloc[split_idx:], y.iloc[split_idx:]
-        X_tr, y_tr = X.iloc[:split_idx], y.iloc[:split_idx]
-        if len(X_tr) >= 2 and len(y_tr.unique()) >= 2:
+        X_tr, y_tr = X.iloc[:train_end], y.iloc[:train_end]
+        if len(X_tr) >= 2 and len(y_tr.unique()) >= 2 and len(X_val) >= 1:
             try:
                 val_model_type = model_type  # same type for quick val run
                 if val_model_type == "gradient_boosting":
@@ -395,12 +405,40 @@ def train_meta_model(
                         n_jobs=-1,
                     )
                 _vm.fit(X_tr, y_tr)
-                val_acc = float((_vm.predict(X_val) == y_val).mean())
+                preds = _vm.predict(X_val)
+                val_acc = float((preds == y_val).mean())
+                val_auc = float("nan")
+                val_brier = float("nan")
+                try:
+                    from sklearn.metrics import brier_score_loss, roc_auc_score
+
+                    proba = _vm.predict_proba(X_val)
+                    if proba.shape[1] == 2:
+                        p1 = proba[:, 1]
+                        if len(np.unique(y_val)) >= 2:
+                            val_auc = float(roc_auc_score(y_val, p1))
+                        val_brier = float(brier_score_loss(y_val, p1))
+                except Exception as _aux_exc:
+                    logger.debug(
+                        "[MetaModel] Auxiliary metrics unavailable: %s", _aux_exc
+                    )
+                val_metrics = {
+                    "val_acc": val_acc,
+                    "val_auc": val_auc,
+                    "val_brier": val_brier,
+                    "n_train": float(len(X_tr)),
+                    "n_val": float(len(X_val)),
+                    "embargo": float(embargo),
+                }
                 logger.info(
-                    "[MetaModel] OOS validation: n_train=%d n_val=%d accuracy=%.4f",
+                    "[MetaModel] OOS validation: n_train=%d n_val=%d "
+                    "embargo=%d acc=%.4f auc=%.4f brier=%.4f",
                     len(X_tr),
                     len(X_val),
+                    embargo,
                     val_acc,
+                    val_auc,
+                    val_brier,
                 )
             except Exception as exc:
                 logger.warning("[MetaModel] Validation split failed: %s", exc)
@@ -426,9 +464,10 @@ def train_meta_model(
             f"Unsupported model_type: {model_type}. Supported: 'gradient_boosting', 'random_forest'"
         )
 
-    # Train model
-    logger.info(f"Training {model_type} model on {len(X_train)} samples...")
-    model.fit(X_train, y_train)
+    # Train model on full data after OOS check (final model uses all data
+    # — val_metrics already reflect honest hold-out performance).
+    logger.info(f"Training {model_type} model on {len(X)} samples...")
+    model.fit(X, y)
     logger.info("Model training completed")
 
     # Create MetaModel wrapper
@@ -436,6 +475,7 @@ def train_meta_model(
         model=model,
         feature_names=list(feature_cols),
         label_name=label_col,
+        val_metrics=val_metrics,
     )
 
     return meta_model

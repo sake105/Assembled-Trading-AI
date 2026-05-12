@@ -817,6 +817,90 @@ def deflated_sharpe_ratio_from_returns(
     )
 
 
+def probabilistic_sharpe_ratio(
+    sharpe_observed: float,
+    n_obs: int,
+    sharpe_benchmark: float = 0.0,
+    skew: float = 0.0,
+    kurtosis: float = 3.0,
+) -> float:
+    """Probabilistic Sharpe Ratio (Bailey & López de Prado 2012).
+
+    PSR(SR*) = Pr(SR > SR*) =  Phi( (SR - SR*) * sqrt(n - 1) / sigma(SR) )
+
+    where sigma(SR) = sqrt( (1 - skew*SR + ((kurt - 1)/4)*SR^2) ) and the
+    observed Sharpe is per-period (not annualised). Inputs here are
+    annualised — annualisation cancels in the ratio under the standard
+    iid assumption, so PSR can be computed on annualised SR directly as
+    long as both observed and benchmark are on the same scale.
+
+    Args:
+        sharpe_observed: Observed (annualised) Sharpe.
+        n_obs: Number of return observations (e.g. trading days).
+        sharpe_benchmark: Null Sharpe to test against (default 0.0).
+        skew: Sample skewness of returns.
+        kurtosis: Sample kurtosis of returns (NOT excess; normal = 3.0).
+
+    Returns:
+        PSR in [0.0, 1.0]; NaN if inputs invalid.
+
+    References:
+        Bailey, D. H., & López de Prado, M. (2012). The Sharpe Ratio Efficient
+        Frontier. Journal of Risk, 15(2), 3-44.
+    """
+    from scipy.stats import norm  # imported lazily to keep top-level imports clean
+
+    if n_obs < 2 or not np.isfinite(sharpe_observed):
+        return float(np.nan)
+    sr = float(sharpe_observed)
+    excess_kurt = kurtosis - 3.0
+    # Variance of estimated Sharpe under skew/kurt — same form as in DSR.
+    denom_sq = 1.0 - skew * sr + (excess_kurt / 4.0) * sr * sr
+    if denom_sq <= 0:
+        return float(np.nan)
+    z = (sr - float(sharpe_benchmark)) * np.sqrt(float(n_obs - 1)) / np.sqrt(denom_sq)
+    return float(norm.cdf(z))
+
+
+def minimum_track_record_length(
+    sharpe_observed: float,
+    sharpe_benchmark: float = 0.0,
+    skew: float = 0.0,
+    kurtosis: float = 3.0,
+    confidence: float = 0.95,
+) -> float:
+    """Minimum Track Record Length (Bailey & López de Prado 2012).
+
+    MinTRL is the smallest n such that PSR(SR*) >= confidence. Closed form:
+
+        MinTRL = 1 + (1 - skew*SR + ((kurt-1)/4)*SR^2) * (z_alpha / (SR - SR*))^2
+
+    Args:
+        sharpe_observed: Observed (annualised) Sharpe.
+        sharpe_benchmark: Null Sharpe.
+        skew: Sample skewness.
+        kurtosis: Sample kurtosis (NOT excess).
+        confidence: Desired probability (default 0.95).
+
+    Returns:
+        MinTRL in number of observations. ``inf`` if SR <= benchmark.
+    """
+    from scipy.stats import norm
+
+    if not np.isfinite(sharpe_observed):
+        return float(np.nan)
+    sr = float(sharpe_observed)
+    delta = sr - float(sharpe_benchmark)
+    if delta <= 0:
+        return float(np.inf)
+    excess_kurt = kurtosis - 3.0
+    variance_term = 1.0 - skew * sr + (excess_kurt / 4.0) * sr * sr
+    if variance_term <= 0:
+        return float(np.nan)
+    z_alpha = float(norm.ppf(confidence))
+    return 1.0 + variance_term * (z_alpha / delta) ** 2
+
+
 # ── Benchmark-relative metrics (Plan 9.2) ────────────────────────────
 
 

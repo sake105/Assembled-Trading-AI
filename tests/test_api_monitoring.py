@@ -121,31 +121,40 @@ class TestMonitoringDriftStatus:
         assert "Unsupported frequency" in response.json()["detail"]
 
     def test_drift_status_summary_default_params(self, client: TestClient):
-        """Test that default parameters work."""
+        """Test that default parameters work.
+
+        Note: When no drift_analysis_<freq>.parquet exists the endpoint now
+        returns 503 (audit C3-023 / C4-033 — fail loud instead of dummy).
+        When the file exists it returns the structured 200 payload.
+        """
         response = client.get("/api/v1/monitoring/drift_status?freq=1d")
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "overall_severity" in data
-        assert "features_with_drift" in data
-        assert "total_features_checked" in data
-        assert "last_updated" in data
-
-        # Should return valid structure even if no drift analysis available
-        assert isinstance(data["overall_severity"], str)
-        assert data["overall_severity"] in ["NONE", "MODERATE", "SEVERE"]
-        assert isinstance(data["features_with_drift"], list)
-        assert isinstance(data["total_features_checked"], int)
+        # Either 200 (file present) or 503 (no analysis yet) — both are
+        # contractually valid; what we no longer accept is a fake "NONE".
+        assert response.status_code in (200, 503)
+        if response.status_code == 200:
+            data = response.json()
+            assert "overall_severity" in data
+            assert "features_with_drift" in data
+            assert "total_features_checked" in data
+            assert "last_updated" in data
+            assert isinstance(data["overall_severity"], str)
+            assert data["overall_severity"] in ["NONE", "MODERATE", "SEVERE"]
+            assert isinstance(data["features_with_drift"], list)
+            assert isinstance(data["total_features_checked"], int)
+        else:
+            assert "Drift analysis not available" in response.json()["detail"]
 
     def test_drift_status_summary_with_top_n(self, client: TestClient):
-        """Test that top_n parameter works."""
-        response = client.get("/api/v1/monitoring/drift_status?freq=1d&top_n=5")
-        assert response.status_code == 200
-        data = response.json()
+        """Test that top_n parameter works.
 
-        assert "features_with_drift" in data
-        # Should respect top_n limit (if features exist)
-        assert len(data["features_with_drift"]) <= 5
+        See note in default_params: 503 is allowed when no analysis file exists.
+        """
+        response = client.get("/api/v1/monitoring/drift_status?freq=1d&top_n=5")
+        assert response.status_code in (200, 503)
+        if response.status_code == 200:
+            data = response.json()
+            assert "features_with_drift" in data
+            assert len(data["features_with_drift"]) <= 5
 
     def test_drift_status_summary_invalid_top_n(self, client: TestClient):
         """Test that invalid top_n values are handled."""
@@ -158,9 +167,14 @@ class TestMonitoringDriftStatus:
         assert response.status_code == 422  # Validation error
 
     def test_drift_status_summary_feature_structure(self, client: TestClient):
-        """Test that feature drift items have correct structure."""
+        """Test that feature drift items have correct structure.
+
+        Skips when no drift-analysis file is present (503 path).
+        """
         response = client.get("/api/v1/monitoring/drift_status?freq=1d")
-        assert response.status_code == 200
+        assert response.status_code in (200, 503)
+        if response.status_code != 200:
+            return
         data = response.json()
 
         # If features_with_drift has items, check their structure
@@ -188,8 +202,9 @@ class TestMonitoringIntegration:
 
         for endpoint in endpoints:
             response = client.get(endpoint)
-            # Should not return 404 (endpoint not found) or 500 (server error)
-            assert response.status_code in [200, 400, 404]
+            # Should not return 500 (server error). 503 is now valid for
+            # drift_status when no analysis file is present.
+            assert response.status_code in [200, 400, 404, 503]
 
             if response.status_code == 400:
                 # Invalid parameter

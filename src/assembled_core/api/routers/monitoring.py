@@ -358,15 +358,21 @@ def get_drift_status_summary(
                     last_updated=last_updated,
                 )
 
-        # Fallback: Return example data indicating no drift (no analysis available)
-        logger.info(
-            f"No drift analysis file found for freq={freq}, returning example data"
+        # No drift analysis present — fail loud rather than masquerade as "NONE".
+        # Operators must know there is no signal, not believe everything is clean.
+        # (Audit C3-023 / C4-033 — replace dummy with 503.)
+        logger.warning(
+            "[Monitoring] No drift analysis file for freq=%s (expected at %s)",
+            freq,
+            drift_results_file,
         )
-        return DriftStatusSummary(
-            overall_severity="NONE",
-            features_with_drift=[],
-            total_features_checked=0,
-            last_updated=None,
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Drift analysis not available for freq={freq}. "
+                f"Expected file: {drift_results_file}. "
+                "Run scripts/run_drift_check.py to generate."
+            ),
         )
 
     except HTTPException:

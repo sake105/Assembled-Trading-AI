@@ -16,7 +16,8 @@ import uuid
 from typing import Union
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from src.assembled_core.api.auth import require_api_key
 from src.assembled_core.api.models import (
     PaperOrderRequest,
     PaperOrderResponse,
@@ -210,6 +211,7 @@ def _apply_risk_controls_to_paper_orders(
 @router.post("/orders", response_model=list[PaperOrderResponse])
 def submit_paper_orders(
     orders: Union[PaperOrderRequest, list[PaperOrderRequest]],
+    _auth: None = Depends(require_api_key),
 ) -> list[PaperOrderResponse]:
     """Submit orders to paper trading engine.
 
@@ -338,7 +340,9 @@ def get_paper_positions() -> list[PaperPosition]:
 
 
 @router.post("/reset", response_model=PaperResetResponse)
-def reset_paper_trading() -> PaperResetResponse:
+def reset_paper_trading(
+    _auth: None = Depends(require_api_key),
+) -> PaperResetResponse:
     """Reset paper trading engine (clear all orders and positions).
 
     This endpoint is primarily for testing and development purposes.

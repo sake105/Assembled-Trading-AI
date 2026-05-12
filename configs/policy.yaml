@@ -741,3 +741,34 @@ quarter_end_guard:
   days_before: 2                  # flag window: 2 trading days before quarter-end
   slippage_multiplier: 2.0        # applied to estimated slippage for sizing
   max_position_size_pct: 0.50     # cap individual positions at 50% of normal max
+
+# ---------------------------------------------------------------------------
+# Quant Promotion Gates — Bailey/López de Prado 2012/2014/2015
+#   Read by qa/qa_gates and the backtest reporter. A candidate strategy
+#   may NOT be promoted to paper-track when any "block_threshold" is
+#   breached. "warn_threshold" raises a WARN annotation in the report.
+#
+#   Defaults follow the audit recommendation (Runde 3, Teil D + W-005)
+#   and are conservative enough for solo-quant publication.
+# ---------------------------------------------------------------------------
+quant_gates:
+  enabled: true
+  deflated_sharpe:
+    enabled: true
+    block_threshold: 0.0          # DSR must be > 0 (Sharpe survives the FDR adjustment)
+    warn_threshold: 0.5
+  probabilistic_sharpe:
+    enabled: true
+    block_threshold: 0.95         # PSR(SR* = 0) >= 0.95 required for promotion
+    warn_threshold: 0.90
+    benchmark_sharpe: 0.0
+  pbo:
+    enabled: true
+    block_threshold: 0.50         # CSCV-PBO must be < 0.50 to promote
+    warn_threshold: 0.30
+  min_trl:
+    enabled: true
+    confidence: 0.95
+    # MinTRL is observed, not thresholded — but a candidate with MinTRL > n_obs
+    # is by definition not yet sufficiently track-recorded.
+    block_when_below_observed_track: true

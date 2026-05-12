@@ -1,0 +1,81 @@
+# Container build-context exclusions (audit H-003).
+#
+# Goal: shrink the build context from ~1 GB to <50 MB.
+# Anything not strictly needed inside the image MUST be excluded here,
+# otherwise it bloats the build context, layer cache, and final image
+# (and risks leaking large parquet/data files into the registry).
+
+# ----- VCS + IDE -----
+.git/
+.gitignore
+.gitattributes
+.github/
+.gitleaks.toml
+.idea/
+.vscode/
+.cursor*
+
+# ----- Python build/cache -----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage*
+htmlcov/
+build/
+dist/
+*.egg
+
+# ----- Virtualenvs / local installs -----
+.venv/
+venv/
+env/
+.python-version
+
+# ----- Data + outputs (mounted as volumes at runtime) -----
+data/
+output/
+logs/
+experiments/
+benchmarks/
+notebooks/
+research/
+archive/
+
+# ----- Project housekeeping / not for runtime -----
+docs/
+tests/
+autonome_weiterarbeit/
+*.md
+!README.md
+!CLAUDE.md
+*.ipynb
+*.parquet
+*.csv
+*.db
+*.sqlite*
+*.tar
+*.tar.gz
+*.zip
+
+# ----- Secrets (defense in depth — must never enter the image) -----
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+.secrets.baseline
+
+# ----- Misc -----
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db

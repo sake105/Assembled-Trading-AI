@@ -213,6 +213,19 @@ class VolCircuitBreaker:
                 self.ratio_threshold,
                 self._trip_count,
             )
+            try:
+                from src.assembled_core.ops.alerting import AlertManager
+
+                AlertManager().fire(
+                    "circuit_breaker_tripped",
+                    {
+                        "ratio": ratio,
+                        "threshold": self.ratio_threshold,
+                        "trip_count": self._trip_count,
+                    },
+                )
+            except Exception as _ae:
+                logger.debug("[VolCircuitBreaker] alert dispatch failed: %s", _ae)
             return True
 
         return False

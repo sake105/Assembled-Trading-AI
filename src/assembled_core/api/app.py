@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI
 
 logger = logging.getLogger(__name__)
+from src.assembled_core.api.auth import require_api_key
 from src.assembled_core.api.middleware import add_middleware
 from src.assembled_core.api.routers import (
     diagnostics,
@@ -26,19 +26,6 @@ from src.assembled_core.api.routers import (
 )
 
 _APP_START_TIME: float = time.time()
-
-_KILL_SWITCH_API_KEY: str | None = os.environ.get("ASSEMBLED_API_KEY") or None
-
-
-def _require_api_key(x_api_key: str = Header(default="")) -> None:
-    """Dependency: enforce X-API-Key header for risk-command endpoints."""
-    if _KILL_SWITCH_API_KEY is None:
-        logger.warning(
-            "[API] ASSEMBLED_API_KEY not set — kill-switch endpoints are UNPROTECTED"
-        )
-        return
-    if x_api_key != _KILL_SWITCH_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
 def create_app() -> FastAPI:
@@ -91,7 +78,7 @@ def create_app() -> FastAPI:
         throttle_pct: float = 0.0,
         reason: str = "",
         actor: str = "api",
-        _auth: None = Depends(_require_api_key),
+        _auth: None = Depends(require_api_key),
     ):
         """Activate the kill switch with optional fractional throttle."""
         from src.assembled_core.execution.kill_switch import (
@@ -106,7 +93,7 @@ def create_app() -> FastAPI:
     def deactivate_kill_switch_endpoint(
         reason: str = "",
         actor: str = "api",
-        _auth: None = Depends(_require_api_key),
+        _auth: None = Depends(require_api_key),
     ):
         """Deactivate the kill switch."""
         from src.assembled_core.execution.kill_switch import (

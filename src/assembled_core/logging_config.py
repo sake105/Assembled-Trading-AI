@@ -164,25 +164,86 @@ def setup_logging(
 
 
 class JSONFormatter(logging.Formatter):
-    """Format log records as JSON."""
+    """Format log records as JSON with optional correlation IDs.
+
+    Honours ``trace_id``, ``span_id``, ``run_id`` and ``correlation_id`` if
+    present on the LogRecord (set via ``logging.LoggerAdapter`` or the
+    ``set_correlation_context()`` helper). Audit-mandated F-004 fields.
+    """
+
+    _CORR_FIELDS = ("trace_id", "span_id", "run_id", "correlation_id")
 
     def format(self, record: logging.LogRecord) -> str:
-        log_entry = {
+        log_entry: dict[str, object] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
+            "logger": record.name,
             "module": record.module,
             "event": record.getMessage(),
         }
+        for field_name in self._CORR_FIELDS:
+            value = getattr(record, field_name, None)
+            if value is not None:
+                log_entry[field_name] = str(value)
         if record.exc_info and record.exc_info[1]:
             log_entry["exception"] = str(record.exc_info[1])
-        return json.dumps(log_entry)
+        return json.dumps(log_entry, default=str)
+
+
+# ContextVar storage for correlation IDs propagated across async tasks /
+# request handlers. Filter copies them onto each LogRecord on emit.
+from contextvars import ContextVar  # noqa: E402  (kept local to keep top-level tidy)
+
+_TRACE_ID: ContextVar[str | None] = ContextVar("trace_id", default=None)
+_SPAN_ID: ContextVar[str | None] = ContextVar("span_id", default=None)
+_RUN_ID: ContextVar[str | None] = ContextVar("run_id", default=None)
+_CORRELATION_ID: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+
+
+def set_correlation_context(
+    *,
+    trace_id: str | None = None,
+    span_id: str | None = None,
+    run_id: str | None = None,
+    correlation_id: str | None = None,
+) -> None:
+    """Set correlation IDs for subsequent log records on this task.
+
+    Only keys passed (not None) are updated; unspecified keys retain their
+    current ContextVar value. Use this at the request boundary or at the
+    start of each pipeline run.
+    """
+    if trace_id is not None:
+        _TRACE_ID.set(trace_id)
+    if span_id is not None:
+        _SPAN_ID.set(span_id)
+    if run_id is not None:
+        _RUN_ID.set(run_id)
+    if correlation_id is not None:
+        _CORRELATION_ID.set(correlation_id)
+
+
+class _CorrelationFilter(logging.Filter):
+    """Inject correlation IDs from ContextVars onto each LogRecord."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        for cv, attr in (
+            (_TRACE_ID, "trace_id"),
+            (_SPAN_ID, "span_id"),
+            (_RUN_ID, "run_id"),
+            (_CORRELATION_ID, "correlation_id"),
+        ):
+            val = cv.get()
+            if val is not None and not hasattr(record, attr):
+                setattr(record, attr, val)
+        return True
 
 
 def configure_json_logging(
     level: str = "INFO",
     logger_name: str | None = None,
 ) -> logging.Logger:
-    """Configure a logger with JSON formatting."""
+    """Configure a logger with JSON formatting and correlation-ID propagation."""
     log = logging.getLogger(logger_name)
     log.setLevel(getattr(logging, level.upper(), logging.INFO))
     handler = logging.StreamHandler()
@@ -192,6 +253,9 @@ def configure_json_logging(
         for h in log.handlers
     ):
         log.addHandler(handler)
+    # Ensure the correlation filter is attached exactly once.
+    if not any(isinstance(f, _CorrelationFilter) for f in log.filters):
+        log.addFilter(_CorrelationFilter())
     return log
 
 

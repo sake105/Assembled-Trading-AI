@@ -1,0 +1,77 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":maintainLockFilesWeekly",
+    ":semanticCommits",
+    "schedule:earlyMondays"
+  ],
+  "timezone": "Europe/Berlin",
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rebaseWhen": "behind-base-branch",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"],
+    "commitMessageAction": "lock file maintenance"
+  },
+  "packageRules": [
+    {
+      "description": "Auto-merge minor/patch updates for tooling that we trust",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackagePatterns": [
+        "^ruff",
+        "^mypy$",
+        "^black$",
+        "^pytest",
+        "^hypothesis$",
+        "^pre-commit$",
+        "^detect-secrets$",
+        "^gitleaks"
+      ],
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "description": "Require human review for numerical core (numpy/pandas/scipy/sklearn) — even minor",
+      "matchPackageNames": ["numpy", "pandas", "scipy", "scikit-learn", "statsmodels", "arch"],
+      "matchUpdateTypes": ["major", "minor"],
+      "automerge": false,
+      "labels": ["dependencies", "needs-numeric-review"],
+      "addLabels": ["benchmark-required"]
+    },
+    {
+      "description": "Broker / data-source SDKs: hold for explicit review (breaking changes often)",
+      "matchPackageNames": [
+        "alpaca-py",
+        "polygon-api-client",
+        "fredapi",
+        "edgartools",
+        "newsapi-python",
+        "yfinance",
+        "ib_insync",
+        "ibapi"
+      ],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "automerge": false,
+      "labels": ["dependencies", "broker-sdk", "needs-review"]
+    },
+    {
+      "description": "Security advisories: surface fast, never auto-merge",
+      "matchDatasources": ["pypi"],
+      "matchCurrentVersion": "/.+/",
+      "automerge": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
+  "pip_requirements": {
+    "fileMatch": ["(^|/)requirements(-\\w+)?\\.txt$", "(^|/)requirements\\.lock$"]
+  },
+  "pep621": {
+    "fileMatch": ["(^|/)pyproject\\.toml$"]
+  }
+}

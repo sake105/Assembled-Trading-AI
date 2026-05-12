@@ -78,7 +78,11 @@ def _read_state() -> dict[str, Any]:
 
 
 def _write_state(state: dict[str, Any]) -> bool:
-    """Atomically write kill switch state to JSON file.
+    """Atomically write kill switch state to JSON file with fsync durability.
+
+    Survives power-failure / OS-crash mid-write: bytes are flushed to disk,
+    the rename is atomic on POSIX (best-effort on Windows), and the parent
+    directory entry is fsync'd so the rename is itself durable.
 
     Returns:
         True if the write succeeded, False if it failed.
@@ -89,10 +93,30 @@ def _write_state(state: dict[str, Any]) -> bool:
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
     try:
-        tmp.write_text(
-            json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        tmp.replace(p)
+        payload = json.dumps(state, indent=2, sort_keys=True) + "\n"
+        # Write + fsync the data file before rename.
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(payload)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError as exc:
+                # fsync can fail on some filesystems (network mounts, /tmp on
+                # certain CI images). The rename is still safer than nothing —
+                # log and continue rather than fail the whole write.
+                logger.warning("[KillSwitch] fsync of tmp file failed: %s", exc)
+        os.replace(tmp, p)
+        # fsync the directory so the rename is durable across crash.
+        try:
+            dir_fd = os.open(str(p.parent), os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except (OSError, AttributeError):
+            # Windows does not support os.fsync on directory handles. Skip
+            # silently — os.replace is already best-effort atomic on Win32.
+            pass
         return True
     except Exception as exc:
         logger.error(
@@ -110,13 +134,18 @@ def _write_state(state: dict[str, Any]) -> bool:
 
 
 def _append_audit(event: dict[str, Any]) -> None:
-    """Append a JSON-lines entry to the audit log."""
+    """Append a JSON-lines entry to the audit log, fsync'd for durability."""
     p = _audit_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     event["ts"] = datetime.now(timezone.utc).isoformat()
     try:
         with open(p, "a", encoding="utf-8") as f:
             f.write(json.dumps(event, sort_keys=True) + "\n")
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError as exc:
+                logger.warning("[KillSwitch] fsync of audit log failed: %s", exc)
     except Exception as exc:
         logger.error("[KillSwitch] Failed to write audit log %s: %s", p, exc)
 

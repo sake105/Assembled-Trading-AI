@@ -111,8 +111,31 @@ class AlertManager:
             except Exception as exc:
                 logger.error("[alerting] email dispatch failed: %s", exc)
 
+        elif kind == "slack":
+            try:
+                self._send_slack(channel_cfg, f"[{severity.upper()}] {message}")
+            except Exception as exc:
+                logger.error("[alerting] slack dispatch failed: %s", exc)
+
         else:
             logger.warning("[alerting] unknown channel type '%s'", kind)
+
+    def _send_slack(self, cfg: dict, text: str) -> None:
+        """Post to a Slack incoming-webhook URL. Webhook URL read from env."""
+        import json as _json
+        import urllib.request
+
+        webhook = os.environ.get(cfg.get("webhook_env", "SLACK_WEBHOOK_URL"), "")
+        if not webhook:
+            logger.warning("[alerting] slack webhook not set in environment")
+            return
+        payload = _json.dumps({"text": text}).encode()
+        req = urllib.request.Request(
+            webhook, data=payload, headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status not in (200, 204):
+                logger.warning("[alerting] slack returned HTTP %s", resp.status)
 
     # ------------------------------------------------------------------
     def _send_telegram(self, cfg: dict, text: str) -> None:
