@@ -901,6 +901,215 @@ def minimum_track_record_length(
     return 1.0 + variance_term * (z_alpha / delta) ** 2
 
 
+def permutation_p_value(
+    returns: pd.Series | np.ndarray,
+    *,
+    n_permutations: int = 10_000,
+    seed: int | None = None,
+) -> dict[str, float]:
+    """Permutation test of "strategy mean > 0" against a shuffled null.
+
+    Procedure (audit C2-016):
+        - observed_stat = mean(returns).
+        - null distribution: for each of ``n_permutations``, randomly flip the
+          sign of each return with probability 0.5 (equivalent to permuting
+          the sign of a centred sample). For raw returns this is the standard
+          one-sample sign-permutation test.
+        - p_value = fraction of null means >= observed_stat (one-sided).
+
+    Audit standard: a candidate strategy must achieve p<0.01 before being
+    promoted to paper-track. The result is appended to the backtest report
+    by the gate writer (qa/qa_gates).
+
+    Args:
+        returns: per-period returns (Series or array).
+        n_permutations: number of permutations (default 10_000).
+        seed: optional RNG seed for reproducibility.
+
+    Returns:
+        ``{"observed": float, "p_value": float, "n_permutations": int}``.
+        NaN for both if input has <2 finite values.
+    """
+    arr = np.asarray(pd.Series(returns).dropna().to_numpy(), dtype=float)
+    if arr.size < 2:
+        return {
+            "observed": float("nan"),
+            "p_value": float("nan"),
+            "n_permutations": 0,
+        }
+    rng = np.random.default_rng(seed)
+    observed = float(arr.mean())
+    # Sign-flip permutation: each draw multiplies arr element-wise by random ±1.
+    signs = rng.choice([-1.0, 1.0], size=(n_permutations, arr.size))
+    null_means = (signs * arr).mean(axis=1)
+    # One-sided p-value with +1 / +1 correction (Davison-Hinkley) to keep it
+    # >= 1 / (n+1) and prevent the artefactual zero when no perm beats observed.
+    p = (1.0 + float(np.sum(null_means >= observed))) / (1.0 + n_permutations)
+    return {
+        "observed": observed,
+        "p_value": float(p),
+        "n_permutations": int(n_permutations),
+    }
+
+
+def psr_bootstrap_ci(
+    returns: pd.Series | np.ndarray,
+    *,
+    sharpe_benchmark: float = 0.0,
+    n_boot: int = 1000,
+    block_size: int | None = None,
+    confidence: float = 0.95,
+    seed: int | None = None,
+) -> dict[str, float]:
+    """Bootstrap confidence interval for PSR (audit C2-021).
+
+    Uses Politis-Romano (1994) stationary bootstrap with geometric block
+    lengths. The default block-size heuristic is ``ceil(n ** (1/3))`` (a
+    safe, simple default — for a tighter estimate see Politis-White 2004).
+
+    For each resample, compute Sharpe + PSR vs. the benchmark; report the
+    point estimate, lower/upper bound at ``confidence`` and SE.
+
+    Args:
+        returns: per-period returns.
+        sharpe_benchmark: null Sharpe (same scale as observed Sharpe).
+        n_boot: bootstrap iterations.
+        block_size: average geometric block length; None → ``ceil(n^(1/3))``.
+        confidence: e.g. 0.95 for a 2-sided 95 % CI.
+        seed: RNG seed for reproducibility.
+
+    Returns:
+        ``{"psr_point", "psr_lower", "psr_upper", "psr_se", "n_boot"}``.
+    """
+    arr = np.asarray(pd.Series(returns).dropna().to_numpy(), dtype=float)
+    if arr.size < 30:
+        return {
+            "psr_point": float("nan"),
+            "psr_lower": float("nan"),
+            "psr_upper": float("nan"),
+            "psr_se": float("nan"),
+            "n_boot": 0,
+        }
+    n = arr.size
+    if block_size is None or block_size < 1:
+        block_size = max(2, int(np.ceil(n ** (1.0 / 3.0))))
+    p_stay = 1.0 - 1.0 / float(block_size)
+    rng = np.random.default_rng(seed)
+
+    def _stationary_sample() -> np.ndarray:
+        idx = np.empty(n, dtype=np.int64)
+        idx[0] = rng.integers(0, n)
+        stay = rng.random(n - 1) < p_stay
+        for i in range(1, n):
+            idx[i] = (idx[i - 1] + 1) % n if stay[i - 1] else rng.integers(0, n)
+        return arr[idx]
+
+    def _psr_of(sample: np.ndarray) -> float:
+        std = float(sample.std(ddof=1))
+        if std <= 0:
+            return float("nan")
+        sr = float(
+            sample.mean() / std * np.sqrt(252)
+        )  # annualised — same as DSR convention here
+        return probabilistic_sharpe_ratio(
+            sr,
+            n_obs=sample.size,
+            sharpe_benchmark=sharpe_benchmark,
+            skew=float(pd.Series(sample).skew()),
+            kurtosis=float(pd.Series(sample).kurt() + 3.0),
+        )
+
+    point = _psr_of(arr)
+    samples = np.array([_psr_of(_stationary_sample()) for _ in range(n_boot)])
+    samples = samples[np.isfinite(samples)]
+    if samples.size < 10:
+        return {
+            "psr_point": float(point),
+            "psr_lower": float("nan"),
+            "psr_upper": float("nan"),
+            "psr_se": float("nan"),
+            "n_boot": int(samples.size),
+        }
+    alpha = (1.0 - confidence) / 2.0
+    lower = float(np.quantile(samples, alpha))
+    upper = float(np.quantile(samples, 1.0 - alpha))
+    return {
+        "psr_point": float(point),
+        "psr_lower": lower,
+        "psr_upper": upper,
+        "psr_se": float(samples.std(ddof=1)),
+        "n_boot": int(samples.size),
+    }
+
+
+def correlation_promotion_gate(
+    candidate_returns: pd.Series,
+    incumbent_returns: pd.Series,
+    *,
+    max_corr: float = 0.30,
+    min_sharpe: float = 0.5,
+    periods_per_year: int = PERIODS_PER_YEAR_1D,
+) -> dict[str, object]:
+    """Reject correlated candidate strategies before they enter the ensemble.
+
+    Audit C2-057: a candidate is admitted to the master portfolio only when
+    its return series is sufficiently uncorrelated (Pearson corr <
+    ``max_corr``) AND its annualised Sharpe meets ``min_sharpe``. Both
+    thresholds are deliberately stricter than the median; the gate stops
+    incremental dilution of the existing book.
+
+    Args:
+        candidate_returns: per-period returns of the new strategy.
+        incumbent_returns: aggregated returns of the current ensemble.
+        max_corr: maximum Pearson corr allowed (default 0.30).
+        min_sharpe: minimum annualised Sharpe required (default 0.50).
+        periods_per_year: annualisation factor.
+
+    Returns:
+        ``{"passed": bool, "corr": float, "sharpe": float, "reason": str}``.
+    """
+    cand = pd.Series(candidate_returns).dropna()
+    inc = pd.Series(incumbent_returns).dropna()
+    joined = pd.concat([cand, inc], axis=1, join="inner").dropna()
+    if len(joined) < 30:
+        return {
+            "passed": False,
+            "corr": float("nan"),
+            "sharpe": float("nan"),
+            "reason": "insufficient_overlap (<30 periods)",
+        }
+    corr = float(joined.iloc[:, 0].corr(joined.iloc[:, 1]))
+    cand_std = float(cand.std(ddof=1))
+    if cand_std <= 0:
+        return {
+            "passed": False,
+            "corr": corr,
+            "sharpe": float("nan"),
+            "reason": "candidate has zero variance",
+        }
+    sharpe = float(cand.mean() / cand_std) * float(np.sqrt(periods_per_year))
+    if abs(corr) > max_corr:
+        return {
+            "passed": False,
+            "corr": corr,
+            "sharpe": sharpe,
+            "reason": f"|corr|={abs(corr):.3f} > max_corr={max_corr:.3f}",
+        }
+    if sharpe < min_sharpe:
+        return {
+            "passed": False,
+            "corr": corr,
+            "sharpe": sharpe,
+            "reason": f"sharpe={sharpe:.3f} < min_sharpe={min_sharpe:.3f}",
+        }
+    return {
+        "passed": True,
+        "corr": corr,
+        "sharpe": sharpe,
+        "reason": "ok",
+    }
+
+
 # ── Benchmark-relative metrics (Plan 9.2) ────────────────────────────
 
 

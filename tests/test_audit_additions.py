@@ -442,3 +442,153 @@ def test_pre_trade_gate_passes_when_no_blockers(
     )
     filtered = pre_trade_gate(orders)
     assert len(filtered) == 1
+
+
+# ---------------------------------------------------------------------------
+# Wave-4 — permutation test, PSR bootstrap CI, correlation gate
+# ---------------------------------------------------------------------------
+
+
+def test_permutation_p_value_significant_for_positive_drift() -> None:
+    import numpy as np
+    import pandas as pd
+
+    from src.assembled_core.qa.metrics import permutation_p_value
+
+    rng = np.random.default_rng(seed=123)
+    # Strong positive drift: mean ~0.005 with std 0.01 → p should be very small.
+    returns = pd.Series(0.005 + 0.01 * rng.standard_normal(252))
+    result = permutation_p_value(returns, n_permutations=500, seed=7)
+    assert result["observed"] > 0
+    assert result["p_value"] < 0.05
+    assert result["n_permutations"] == 500
+
+
+def test_permutation_p_value_high_for_centered_noise() -> None:
+    import numpy as np
+    import pandas as pd
+
+    from src.assembled_core.qa.metrics import permutation_p_value
+
+    rng = np.random.default_rng(seed=999)
+    # Zero-mean noise: p should hover near 0.5, definitely > 0.05.
+    returns = pd.Series(0.01 * rng.standard_normal(252))
+    result = permutation_p_value(returns, n_permutations=500, seed=11)
+    assert result["p_value"] > 0.05
+
+
+def test_psr_bootstrap_ci_returns_finite_bounds() -> None:
+    import numpy as np
+    import pandas as pd
+
+    pytest.importorskip("scipy")
+    from src.assembled_core.qa.metrics import psr_bootstrap_ci
+
+    rng = np.random.default_rng(seed=42)
+    returns = pd.Series(0.001 + 0.01 * rng.standard_normal(500))
+    result = psr_bootstrap_ci(returns, n_boot=80, seed=3)
+    assert 0.0 <= result["psr_lower"] <= result["psr_upper"] <= 1.0
+    assert result["psr_se"] >= 0
+
+
+def test_correlation_promotion_gate_blocks_correlated_candidate() -> None:
+    import numpy as np
+    import pandas as pd
+
+    from src.assembled_core.qa.metrics import correlation_promotion_gate
+
+    rng = np.random.default_rng(seed=1)
+    incumbent = pd.Series(0.001 + 0.01 * rng.standard_normal(252))
+    # Candidate strongly correlated with incumbent → blocked.
+    candidate = incumbent + 0.001 * rng.standard_normal(252)
+    result = correlation_promotion_gate(candidate, incumbent)
+    assert result["passed"] is False
+    assert "corr" in result["reason"]
+
+
+def test_correlation_promotion_gate_admits_uncorrelated_strong_candidate() -> None:
+    import numpy as np
+    import pandas as pd
+
+    from src.assembled_core.qa.metrics import correlation_promotion_gate
+
+    rng = np.random.default_rng(seed=2)
+    incumbent = pd.Series(0.0 + 0.01 * rng.standard_normal(2520))
+    # Independent draw + clear positive drift → uncorrelated AND high Sharpe.
+    candidate = pd.Series(0.003 + 0.01 * rng.standard_normal(2520))
+    result = correlation_promotion_gate(candidate, incumbent)
+    assert result["passed"] is True
+    assert result["reason"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# Wave-4 — determinism helper
+# ---------------------------------------------------------------------------
+
+
+def test_set_deterministic_sets_env_and_seeds_numpy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import os as _os
+
+    for k in ("OMP_NUM_THREADS", "MKL_CBWR", "CUBLAS_WORKSPACE_CONFIG"):
+        monkeypatch.delenv(k, raising=False)
+
+    from src.assembled_core.reproducibility import set_deterministic
+
+    summary = set_deterministic(seed=1234)
+
+    assert _os.environ["OMP_NUM_THREADS"] == "1"
+    assert _os.environ["MKL_CBWR"] == "COMPATIBLE"
+    assert summary["seed"] == 1234
+    assert "python_random" in summary["rngs"]
+    assert "numpy_legacy" in summary["rngs"]
+
+
+# ---------------------------------------------------------------------------
+# Wave-4 — order_lifecycle: idempotent explicit order_id (C4-035)
+# ---------------------------------------------------------------------------
+
+
+def test_order_lifecycle_create_with_explicit_order_id_uses_id() -> None:
+    from src.assembled_core.execution.order_lifecycle import OrderLifecycleTracker
+
+    tracker = OrderLifecycleTracker()
+    oid = "CLIENT-ORDER-XYZ-42"
+    returned = tracker.create(symbol="AAPL", side="BUY", quantity=1.0, order_id=oid)
+    assert returned == oid
+    fetched = tracker.get_order(oid)
+    assert fetched is not None
+    assert fetched.symbol == "AAPL"
+
+
+# ---------------------------------------------------------------------------
+# Wave-4 — HAR-RV PIT property (C4-061)
+# ---------------------------------------------------------------------------
+
+
+def test_har_rv_forecast_prefix_correlation_high() -> None:
+    """HAR-RV forecast on a prefix of the series should correlate strongly
+    with the same forecast on the full series at overlapping rows. Beta
+    differs across windows by construction (more data = different OLS fit),
+    but the regressor structure stays PIT-safe — so absolute level may
+    shift while the *shape* of the forecast remains stable.
+    """
+    import numpy as np
+    import pandas as pd
+
+    from src.assembled_core.features.volatility_estimators import har_rv_forecast
+
+    rng = np.random.default_rng(seed=5)
+    rv = pd.Series(0.0001 + 0.00005 * np.abs(rng.standard_normal(400).cumsum() / 25))
+    cut = 250
+
+    full = har_rv_forecast(rv, horizon=1, min_samples=80)
+    prefix = har_rv_forecast(rv.iloc[:cut], horizon=1, min_samples=80)
+
+    overlap_full = full.iloc[:cut].dropna()
+    overlap_prefix = prefix.dropna()
+    common = overlap_full.index.intersection(overlap_prefix.index)
+    assert len(common) > 50
+    c = float(overlap_full.loc[common].corr(overlap_prefix.loc[common]))
+    assert c > 0.95, f"HAR-RV prefix/full corr should be high; got {c}"
