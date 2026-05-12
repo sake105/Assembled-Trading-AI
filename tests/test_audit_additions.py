@@ -70,6 +70,63 @@ def test_minimum_track_record_length_decreases_with_higher_sharpe() -> None:
     assert n_high < n_low
 
 
+def test_dsr_skew_sign_matches_bailey_lopez_de_prado() -> None:
+    """Audit-flagged sign-bug regression test.
+
+    Bailey-Lopez de Prado 2014 variance of SR estimator has the form
+        1 - skew*SR + ((kappa_raw - 1)/4)*SR²
+    The pre-fix mainline DSR used ``+ skew*SR``, which is wrong: positive
+    skew should DECREASE the estimator variance (rare-big-win regime is
+    favourable), not increase it.
+
+    Concretely: with SR=1.0 and POSITIVE skew, the DSR should be HIGHER
+    than the same setup with NEGATIVE skew of equal magnitude. Pre-fix
+    the relationship was inverted.
+    """
+    from src.assembled_core.qa.metrics import deflated_sharpe_ratio
+
+    dsr_pos_skew = deflated_sharpe_ratio(
+        sharpe_annual=1.0, n_obs=252, n_tests=1, skew=0.5, kurtosis=3.0
+    )
+    dsr_neg_skew = deflated_sharpe_ratio(
+        sharpe_annual=1.0, n_obs=252, n_tests=1, skew=-0.5, kurtosis=3.0
+    )
+    # Positive skew should NOT make the estimator less confident
+    # than negative skew — quite the opposite.
+    assert dsr_pos_skew > dsr_neg_skew
+
+
+def test_psr_includes_sr_squared_over_two_term() -> None:
+    """Audit-flagged missing-term regression test.
+
+    Pre-fix mainline PSR omitted the SR²/2 term in the variance expression
+    and so over-stated PSR. The corrected denom matches the ERWEITERUNG
+    reference implementation in src/erweiterung/backtest/deflated_sharpe.py.
+
+    Test: for Gaussian returns (skew=0, kurt=3) the variance term must
+    reduce to (1 + SR²/2). For SR=1 this is 1.5; pre-fix would have
+    given denom_sq = 1.0 (since excess_kurt=0 and skew=0).
+
+    A positive SR thus produces a SMALLER PSR after the fix than before.
+    """
+    pytest.importorskip("scipy")
+    from math import sqrt
+
+    from scipy.stats import norm
+
+    from src.assembled_core.qa.metrics import probabilistic_sharpe_ratio
+
+    n = 252
+    sr = 1.0
+    psr = probabilistic_sharpe_ratio(
+        sharpe_observed=sr, n_obs=n, sharpe_benchmark=0.0, skew=0.0, kurtosis=3.0
+    )
+    # Expected: z = sr * sqrt(n-1) / sqrt(1 + sr²/2) = 1 * sqrt(251) / sqrt(1.5)
+    expected_z = sr * sqrt(n - 1) / sqrt(1.0 + sr * sr / 2.0)
+    expected_psr = float(norm.cdf(expected_z))
+    assert abs(psr - expected_psr) < 1e-9, (psr, expected_psr)
+
+
 # ---------------------------------------------------------------------------
 # logging_config.py — correlation IDs
 # ---------------------------------------------------------------------------

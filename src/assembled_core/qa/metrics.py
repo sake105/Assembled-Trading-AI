@@ -689,19 +689,25 @@ def deflated_sharpe_ratio(
     else:
         expected_max_sharpe = 0.0
 
-    # Standard deviation of Sharpe (distribution adjustment)
-    # For normal returns: std(SR) ≈ sqrt((1 + SR^2/2) / n_obs)
-    # For non-normal: adjust for skewness and kurtosis
+    # Standard deviation of Sharpe (distribution adjustment).
+    #
+    # Bailey-Lopez de Prado 2014 formula (5):
+    #   V[SR_hat] = (1 - skew * SR + ((kappa_raw - 1)/4) * SR^2) / (T-1)
+    # where ``kappa_raw`` = E[(X - mu)^4] / sigma^4 is the RAW fourth-moment
+    # ratio (= 3 for a Gaussian). Substituting ``kappa_raw = excess + 3``:
+    #   = (1 - skew*SR + ((excess + 2)/4) * SR^2) / (T-1)
+    #   = ((1 + SR^2/2) - skew*SR + (excess/4) * SR^2) / (T-1)
+    #
+    # AUDIT FIX (Wave 11 cross-check vs. ERWEITERUNG impl): the previous
+    # mainline code had ``+ skew * SR`` instead of ``- skew * SR`` — a
+    # sign flip that under non-zero skew gave the wrong DSR. For
+    # zero-skew (Gaussian) the two forms agree, which is why this bug
+    # survived earlier review.
     excess_kurt = kurtosis - 3.0
-    # Variance term includes:
-    # - Base term: 1.0
-    # - Sharpe-squared term: SR^2/2 (from asymptotic variance of Sharpe)
-    # - Skewness term: skew * SR (first-order correction)
-    # - Kurtosis term: excess_kurt * SR^2/4 (second-order correction)
     variance_term = (
         1.0
         + (sharpe_annual**2 / 2.0)
-        + (skew * sharpe_annual)
+        - (skew * sharpe_annual)
         + (excess_kurt * sharpe_annual**2 / 4.0)
     )
     std_sharpe = np.sqrt(variance_term / float(n_obs))
@@ -853,9 +859,16 @@ def probabilistic_sharpe_ratio(
     if n_obs < 2 or not np.isfinite(sharpe_observed):
         return float(np.nan)
     sr = float(sharpe_observed)
+    # Bailey-Lopez de Prado 2012/2014 variance of the Sharpe estimator:
+    #   V[SR] = (1 - skew*SR + ((kappa_raw - 1)/4)*SR^2) / (T-1)
+    # where kappa_raw is the RAW kurtosis. Equivalently with excess kurt:
+    #   = 1 + SR^2/2 - skew*SR + (excess/4)*SR^2
+    # AUDIT FIX (Wave 11 cross-check): the previous expression dropped the
+    # ``+ SR^2/2`` term, which under-counted the SR estimator variance and
+    # consequently over-stated PSR. The correct formula matches the
+    # ERWEITERUNG implementation in src/erweiterung/backtest/deflated_sharpe.py.
     excess_kurt = kurtosis - 3.0
-    # Variance of estimated Sharpe under skew/kurt — same form as in DSR.
-    denom_sq = 1.0 - skew * sr + (excess_kurt / 4.0) * sr * sr
+    denom_sq = 1.0 + (sr * sr) / 2.0 - skew * sr + (excess_kurt / 4.0) * sr * sr
     if denom_sq <= 0:
         return float(np.nan)
     z = (sr - float(sharpe_benchmark)) * np.sqrt(float(n_obs - 1)) / np.sqrt(denom_sq)
@@ -893,8 +906,9 @@ def minimum_track_record_length(
     delta = sr - float(sharpe_benchmark)
     if delta <= 0:
         return float(np.inf)
+    # Same variance form as in PSR — fixed in Wave 11 to include SR^2/2.
     excess_kurt = kurtosis - 3.0
-    variance_term = 1.0 - skew * sr + (excess_kurt / 4.0) * sr * sr
+    variance_term = 1.0 + (sr * sr) / 2.0 - skew * sr + (excess_kurt / 4.0) * sr * sr
     if variance_term <= 0:
         return float(np.nan)
     z_alpha = float(norm.ppf(confidence))
