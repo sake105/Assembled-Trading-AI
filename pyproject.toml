@@ -97,6 +97,10 @@ ml-online = [
 scipy = [
   "scipy>=1.10.0",
 ]
+perf = [
+  "polars>=1.0",
+  "numba>=0.60",
+]
 intermarket = [
   "yfinance>=0.2.0",
   "pandas-datareader>=0.10.0",
@@ -118,6 +122,8 @@ all = [
   "scipy>=1.10.0",
   "yfinance>=0.2.0",
   "pandas-datareader>=0.10.0",
+  "polars>=1.0",
+  "numba>=0.60",
 ]
 system_check = [
   "anthropic>=0.45.0",
