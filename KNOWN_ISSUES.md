@@ -1,6 +1,6 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-05-05
+**Letzte Aktualisierung:** 2026-05-12 (Audit-Sweep §8 ergänzt nach 17 Waves)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 
@@ -537,3 +537,372 @@ müssen vor einem aussagekräftigen 30-Tage-Pilot implementiert sein.
 **Artefakt:** `output/pilot/pilot_manifest_v1_aborted_2026-05-06.json`
 
 **Pilot v2:** Wird nach Abschluss aller Waves (1–4) neu gestartet.
+
+---
+
+## 8. Audit-Sweep 2026-05-12 — Open Items nach 17 Waves
+
+**Kontext:** 4 Compass-Audits in `autonome_weiterarbeit/wichtig/` wurden in 17
+Waves abgearbeitet (Commits d0c99ac → d08ed88 auf main, 8f72e7f → 56773ff
+auf ERWEITERUNG). ~8500 LoC + 100+ Tests + 18 Audit-Commits gepusht.
+Die untenstehenden Items sind bewusst NICHT umgesetzt, mit Begründung und
+nächstem Schritt für jeden Punkt. Dies ist die einzige Wahrheit für
+"was steht noch aus".
+
+### 8.1 Hexagonal Architecture Migration — Months 2–6
+
+**Status:** Month-1-Skeleton **shipped** (Wave 17, d08ed88). Ports + Container +
+Layering-Invariant aktiv. Migration der bestehenden Module: noch offen.
+
+**Pfad:** `docs/HEXAGONAL_MIGRATION_PLAN.md` enthält die file-by-file Map.
+**Feature-Flag:** `ASSEMBLED_USE_HEXAGONAL=1` (geplant, noch nicht im Code).
+
+**Konkrete Sprints:**
+
+- [ ] **Month 2 — Application use-cases (4–6h pro Use-Case):**
+  - `scripts/run_daily.py` → `application/use_cases/run_eod_pipeline.RunEodPipeline`
+  - `scripts/run_backtest_strategy.py` → `application/use_cases/run_backtest.RunBacktest`
+  - `scripts/run_api.py` → `adapters/inbound/http/main.py`
+  - Paper-trading routes → `application/use_cases/submit_paper_order.SubmitPaperOrder`
+- [ ] **Month 3 — Event-Sourcing Order-Lifecycle (audit C-005):**
+  - `execution/order_lifecycle.py` → `domain/trading/order.py` + `domain/trading/order_events.py`
+  - Neu: `adapters/outbound/event_store_sqlite.py` (append-only)
+  - Neu: `application/use_cases/replay_order_history.py`
+- [ ] **Month 4 — Plugin architecture (audit C-004):**
+  - `pyproject.toml` Entry-Points für Strategien
+  - `application/strategy_registry.load_strategies()`
+- [ ] **Month 5 — Per-Bounded-Context Tests:**
+  - `tests/domain/{trading,risk,...}/`-Verzeichnisse + per-BC layering invariant
+- [ ] **Month 6 — Property + Mutation Tests:**
+  - mutmut auf `domain/risk/` sobald BC echten Code hat
+
+**Acceptance:** alle 5 BCs haben mindestens ein Modul; alle 3rd-party-Imports
+nur unter `adapters/`; `tests/test_hexagonal_layering.py` bleibt grün.
+
+### 8.2 Performance Migration
+
+**Pfad:** `docs/PERFORMANCE_MIGRATION_PLAN.md`.
+
+- [ ] **B-001 Polars (1d-Sprint):** Migration von `src/assembled_core/features/ta_features.py`
+  auf Polars LazyFrame. **Blocker:** `polars` nicht im venv (`pip install polars`).
+  Acceptance: 5y × 500 Symbole < 10s (pandas: ~45s), Memory < 1 GB.
+- [ ] **B-002 Numba JIT (½d-Sprint):** `@njit` auf `qa/backtest_engine.simulate_trades`.
+  **Blocker:** `numba` nicht im venv.
+- [ ] **B-003 Rust/PyO3 (LONG):** explizit deferred per Audit selbst — erst nach
+  Polars+Numba ausreizen.
+- [x] **B-004 Async-I/O:** `utils/async_fetch.py` shipped (Wave 16).
+- [x] **B-006 dataclass slots:** shipped (Wave 15).
+- [ ] **B-008 Vector/Event-Driven Backtest-Split:** deferred — eigener Architektur-
+  Sprint, kein klarer Trigger im aktuellen Workload.
+
+### 8.3 Compliance Activation Triggers
+
+**Pfad:** `docs/COMPLIANCE_THRESHOLDS.md` — single source of truth für "ab wann gewerblich/regulatorisch".
+
+**Status today:** privater Trader, **keine** Compliance-Schwelle aktiviert. Skeletons
+liegen bereit für:
+
+- [ ] **T1 → gewerblich aktiviert:** `docs/GOBD_WORM_POLICY.md`,
+  `docs/AUDIT_LOG_RETENTION.md` 7y → 10y, RTS-6 Annual Review, MAR-Surveillance
+  formell geschrieben.
+- [ ] **T2 → Investment Firm (KWG §32):** `docs/MIFID2_VENUE_REPORTS.md` RTS-28
+  jährlich, RTS-6-Algo-Inventory live, BaFin-Lizenz-Prozess.
+- [ ] **T3 → publication:** `docs/RISK_DISCLOSURE_TEMPLATE.md` auf jeder
+  Veröffentlichung verlinken.
+- [ ] **T4 → 3rd-party PII:** `docs/GDPR_PII_POLICY.md` aktivieren — Article-17-Endpoint
+  bauen, PII-Retention-Cron wiring.
+
+### 8.4 Formal-Verification + DVC Scaffolds
+
+Alle drei Scaffolds sind Artefakte, kein lauffähiger Code-Pfad.
+
+- [ ] **`formal/KillSwitch.lean` (C2-001/002):** enthält `sorry`-TODO bei
+  `throttle_monotone`-Theorem. Benötigt **Lean 4 + lake** + mathlib4 für
+  Real-Arithmetik-Taktiken. Setup-Aufwand ~2h, Beweisverfeinerung ~4h.
+- [ ] **`formal/Reconciliation.tla` (C2-008):** komplett spezifiziert, aber
+  benötigt **java + tla2tools.jar**, um TLC laufen zu lassen. CFG-Hints im
+  Dateikommentar.
+- [ ] **`.dvc/` (C2-045):** Scaffold mit `config.example`. Benötigt
+  `pip install 'dvc[s3]'` + B2-Account + `dvc add data/raw/<panel>.parquet`.
+  Aktivierungspfad in `.dvc/README.md`.
+
+### 8.5 ML- und Pipeline-Stubs (raise NotImplementedError)
+
+Drei Stubs im Repo, die explizit `NotImplementedError` werfen:
+
+- [ ] **`src/assembled_core/ml/gnn_signal.py`** — Graph-Neural-Net stub,
+  Zeilen 149, 155, 192. Stub-Modus returned zero signals; Training nicht
+  implementiert. **Aktivierung verlangt:** torch + torch-geometric, plus
+  Korrelations-Graph als Eingabe. Kein Live-Pfad heute.
+- [ ] **`src/assembled_core/ml/differential_privacy.py`** — DP-SGD wrapper
+  stub (Zeile 264). **Aktivierung verlangt:** Opacus-Integration. Audit nennt
+  das als LONG-Term Reputation-Item.
+- [ ] **`src/assembled_core/pipeline/_shared_eod.py`** (Zeile 24) +
+  **`src/assembled_core/pipeline/orchestrator.py`** (Zeile 12):
+  Pipeline-Orchestrator-Konsolidierung ist deferred — siehe
+  `autonome_weiterarbeit/AUDIT_2026-04-26_FINDINGS_AND_REMEDIATION_v2.md §B5`.
+  Audit-Schätzung 12-20h.
+
+### 8.6 Konkrete Code-TODOs im Repo
+
+Vollständige Liste der `TODO`/`FIXME`-Marker im Code (geprüft 2026-05-12):
+
+- [ ] **`src/assembled_core/pipeline/_tc_sizing.py:1713-1715`** — Halt-Cache
+  (60s-refresh) fehlt. Heute wird `ctx.halted_symbols` aus dem Context gelesen,
+  aber keine eigene Halt-Feed-Integration. **Trigger:** sobald Broker einen
+  Halt-Feed bereitstellt (Alpaca: market_data/halts endpoint, IBKR: marketDataType).
+- [ ] **`scripts/run_event_study.py`** — komplettes Skript ist Skeleton mit
+  TODO-Kommentaren (Zeilen 28, 41, 56, 59, 69, 74). Audit C4-081 verlangt
+  Event-Study-Methodik (Market-Model, Boehmer-Musumeci-Poulsen-t-Stat, BHAR).
+- [ ] **`scripts/check_health.py:1451`** — Benchmark-symbol-load TODO.
+- [ ] **`tests/test_risk_regime_analysis.py:269`** — win_rate / avg_trade_duration /
+  avg_profit_per_trade können None sein wegen Implementation-TODO. Test
+  toleriert das aktuell.
+
+### 8.7 Equity-Curve-Baseline Forensics
+
+**Memo:** `autonome_weiterarbeit/EQUITY_CURVE_BASELINE_FORENSICS_2026-05-12.md`.
+
+`output/equity_curve_baseline.csv` zeigt CAGR 43.01%, Sharpe 3.90, MaxDD -4.52%
+über 3.32 Jahre. Post-Wave-11 DSR=25.3 / PSR=1.0 (beide PASS). **Aber:**
+vier klassische Suspects nicht autonom widerlegbar:
+
+- [ ] **Survivorship-Bias-Check:** `watchlist_full.txt` gegen historische
+  S&P-500-Konstituenten kreuzprüfen (Audit C3-063, vor Cherry-Pick blocking).
+- [ ] **Look-Ahead-Bias:** PIT-Property-Test heute deckt nur `rolling_mean` +
+  `pct_change` ab (`tests/test_property_fsm_pit.py`). Strategie-spezifische
+  Features sind nicht gepinnt.
+- [ ] **Fill-Modell-Audit:** Commission/Slippage/Borrow-Cost Konventionen
+  prüfen vs realer Broker-Statement-Vintage.
+- [ ] **Hold-Out-Leakage:** Permutation-p-Value (W4 / W15) noch nicht gegen
+  diese CSV gelaufen — erfordert dedicated Backtest-Re-Run.
+
+**Pflicht vor jeder externen Zitation der Zahlen.** Der Re-Runner
+(`scripts/forensic/rerun_baseline.py`, Audit C4-049) ist **nicht** implementiert —
+verlangt DVC-Pin der yfinance-Daten + git-tag + Multi-Stunden-Backtest.
+
+### 8.8 ERWEITERUNG-Branch Cherry-Picks zu `main`
+
+**Status:** P1-Fixes (CPCV / Stacking / CVaR) auf ERWEITERUNG gepusht
+(Commit 8f72e7f). 14 weitere Module sind audit-flagged für Cherry-Pick zu `main`
+**erst nach erfolgreicher OOS-Re-Run** der `volatility_targeting`-Metrik
+(audit C3 §3.1):
+
+- [ ] CPCV-Modul Migration (`erweiterung/backtest/cpcv.py` → `assembled_core/qa/`)
+- [ ] DSR / White-Reality-Check / Hansen SPA / Calmar Bootstrap / MaxEnt
+  Bootstrap / Walk-Forward Performance-Metrics
+- [ ] Equity-Curve-Audit (audit C3-030)
+- [ ] Portfolio-Optimierer (HRP, Black-Litterman, Risk-Parity, RMT, Max-Div,
+  Kelly, Resampled-EF, CVaR — letzteres nur nach C4-003 Fix der ERWEITERUNG-Seite)
+- [ ] Risk-Analytics (tail_risk_evt, cornish_fisher_var, crisis_composite,
+  dynamic_drawdown_control, correlation_breakdown)
+- [ ] Volatility-Models (GARCH/EGARCH/GJR, HAR-RV, DCC-GARCH)
+- [ ] Volatility-Targeting-Strategie (audit C3-034 — die einzige OOS-validierte)
+- [ ] Attribution, State-Space, Time-Series-Tools, Microstructure,
+  Stress-Testing, Economic-Data, Factor-Suite
+
+**Discard-Liste (audit C3-043):** `dl/`, `dl_advanced/`, `rl/`,
+`discovery/genetic_programming`, `bayesian/`, `causal_inference/`,
+`online_learning/`, `nlp/lda_topic`, `meta/bandit_allocator`, `orderbook/`,
+`survival/`, `stacking_ensemble`, `multi_factor_vol_target`,
+`regime_conditional_allocator`, `multi_signal_regime`, `yfinance_cache_loader`.
+
+### 8.9 External Services — Activation Pending
+
+**Runbook:** `docs/EXTERNAL_SERVICES_SETUP.md`. Alle als Setup-Schritte
+dokumentiert, keiner aktiv.
+
+- [ ] **Slack Webhook:** `SLACK_WEBHOOK_URL` env setzen → existierende
+  `_send_slack`-Logik (Wave 1) wird aktiv.
+- [ ] **healthchecks.io Dead-Man-Switch:** cron-Job mit
+  `scripts/ops/setup_uptime_robot.sh` + Healthcheck-UUID. ~5 min Setup.
+- [ ] **Backblaze B2 Bucket mit Object Lock (10y Compliance):** Account +
+  `scripts/ops/setup_b2_backup.sh` für audit-log-replication.
+- [ ] **Litestream SQLite-Replikation:** `configs/integrations/litestream.yml.example`
+  als Vorlage + systemd-Unit / nssm-Service.
+- [ ] **Telegram Bot Fallback / SMTP-Email Fallback:** existierende
+  `_send_telegram` / `_send_email` (ops/alerting.py) — Credentials fehlen.
+- [ ] **Cloudflare DNS Failover (Multi-Region, audit I-008):** LONG, erst wenn
+  Single-Hetzner-Setup das Bottleneck ist.
+
+### 8.10 Beyond Tier 1 — Deferred Items
+
+Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
+
+- [ ] **Coq Order-FSM Proof (C2-005):** parallel zum Lean-Scaffold; benötigt
+  Coq + ssreflect.
+- [ ] **Differential Testing 4-fach (C2-006):** Python/Polars/Numba/Rust
+  ε-bounded MI für Sharpe-Metrik. Sobald Polars + Numba aktiv.
+- [ ] **Concolic Testing für Order-FSM (C2-007):** benötigt `crosshair`
+  package + Setup. ~8h.
+- [ ] **LitmusChaos auf k3s (C2-012):** k3s-Setup + ChaosEngine YAMLs.
+  ~10h.
+- [ ] **12 GameDay-Drills über Jahr (C2-014):** ~24h, terminiert.
+- [ ] **Out-of-Universe-Test (C2-018):** Train US-S&P, Test STOXX600 + TOPIX.
+  Benötigt EU-/JP-Daten.
+- [ ] **Out-of-Regime-Test (C2-019):** Train Bull / Test Bear etc. Benötigt
+  klare Regime-Labels für historische Sub-Perioden.
+- [ ] **DoubleML PLR + Causal Forest (C2-025/026):** `doubleml`, `econml`
+  nicht im venv. ~10h pro Modell.
+- [ ] **Synthetic Control Showcase (C2-027):** Abadie-Diamond-Hainmueller —
+  Research-Notebook.
+- [ ] **Transfer Entropy Screen (C2-029):** `tigramite` / PyIF dep. ~8h.
+- [ ] **Adaptive Conformal Inference (C2-031), Conformalized Quantile
+  Regression (C2-032), Cross-Conformal (C2-033):** Aufbauen auf
+  `qa/conformal.py` (Wave 16).
+- [ ] **DRO Wasserstein / KL-Portfolio (C2-036/037):** benötigt
+  `cvxpy + MOSEK` (akademische Lizenz). ~14h + 8h.
+- [ ] **Temporal Fusion Transformer (C2-039):** `pytorch-forecasting`.
+- [ ] **Logic Tensor Networks (C2-041):** LONG, research showcase.
+- [ ] **Quantum QUBO Portfolio Showcase (C2-042–044):** D-Wave Leap Account
+  + `dimod`. ~12h, LONG.
+- [ ] **MLflow self-hosted (C2-046):** Postgres + S3 + Tracking-Server.
+  Eigener Infra-Sprint.
+- [ ] **10y-Replay-Test CI (C2-050, audit also asks):** SHA-256 byte-equal
+  replay nightly. Benötigt DVC + frozen environment. ~12h.
+- [ ] **Adversarial Reviewer Notebook Pattern (C2-051):** CI-Hook für
+  `review_*.ipynb` pro `research_*.ipynb`. ~6h.
+- [ ] **Signal-Bus Refactor (C2-053):** Redis-Streams oder in-process
+  EventBus. Port existiert (Wave 17), Implementation fehlt.
+- [ ] **Meta-Labeling 3-Stage Pipeline (C2-054):** AFML Kap. 3
+  (Primary → Filter → Sizing). ~16h.
+- [ ] **Regime-aware Conditional Ensemble (C2-055):** Bull/Bear/High-Vol
+  Strategie-Gewichte.
+- [ ] **HMM-Regime-Detection (C2-056):** existiert teilweise; Threshold-
+  Variante in `risk/regime_hmm.py`. Audit will explizite 3-Zustands-HMM
+  auf VIX + 10y-Yield + DXY.
+- [ ] **Stacking-Ensemble (C2-058):** Audit empfiehlt Bayesian Model
+  Averaging als robuste Alternative.
+- [ ] **Alt-Data Pipelines vollständig (C2-059):** FRED, EDGAR, GDELT,
+  Wikipedia, FINRA, BLS, ECB SDW — Source-Module existieren; Feature-Builder
+  fehlen.
+- [ ] **PEAD-Strategie (C2-060):** Bernard-Thomas 1989, ~25h, benötigt
+  Earnings-Calendar + IBES.
+- [ ] **Form-4-Insider-Trades-Strategie (C2-061):** ~15h, benötigt EDGAR
+  4-Filing Parser.
+- [ ] **Almgren-Chriss Refinement (C2-062):** existiert; Audit will konkrete
+  Parameter-Kalibrierung (γ, η, σ).
+- [ ] **Borrow-Cost-Optimierung (C2-063):** IBKR-Short-Stock-Yield-API
+  Integration. ~10h.
+- [ ] **Tax-Loss-Harvesting (C2-064):** DE-Q3-Workflow. ~8h doc + cron.
+- [ ] **Robust-Kelly-Sizing (C2-065):** Half-Kelly bereits Praxis; Audit will
+  explicit Browne-Whitt-Implementation.
+- [ ] **Vol-Targeting (C2-066):** auf main als Audit deferred; Implementation
+  in ERWEITERUNG (Cherry-Pick blocked, siehe §8.8).
+- [ ] **Put-Write Tail-Hedge (C2-067):** Options-Daten + LONG-Setup.
+- [ ] **CAGR-Attribution Quarterly Report (C2-068):** ~8h.
+- [ ] **Macro-Overlay (C2-069):** Yield-Curve-Slope, HY-OAS, DXY als
+  Regime-Indikatoren. Yield-Curve teilweise gewired (siehe §7.2).
+- [ ] **Tilt-Detection automatisiert (C2-073):** 3-Loss-Tage → 24h Pause etc.
+  Im Code, nicht im Kopf. ~8h.
+- [ ] **Two-Account-Setup (C2-074):** Research-Account vs. Trading-Account
+  Promotion-Gate. ~6h Operations-Doc.
+
+### 8.11 Beyond-Tier-1 OSS / Career Items (audit C2-080..087)
+
+- [ ] **OSS-Repo-Polish (C2-080):** README mit Hero-Image, Badges, Quickstart,
+  MkDocs auf GH-Pages, semver Releases.
+- [ ] **arXiv-Preprint #1 (C2-081):** "Open-Source CPCV Replication & Edge Cases".
+  ~60h.
+- [ ] **2 Konferenz-Talks (C2-082):** PyData / EuroPython / QuantCon / OSQF /
+  ICAIF. ~80h.
+- [ ] **JFDS-Submission (C2-083):** "Conformal Prediction for Position Sizing".
+  Depends on Wave-16 Conformal-Modul. ~120h mit Reviews.
+- [ ] **JPM/JoFE-Submission (C2-087):** "Adversarial Backtest Validation:
+  8-Test Framework". 6-9 Monate.
+- [ ] **Twitter/LinkedIn-Disziplin (C2-084):** kontinuierlich, ~4h/Woche.
+- [ ] **Tier-1-Interview-Preparation (C2-085):** ~150h über 8-12 Wochen.
+- [ ] **Networking AQR/Q-Group/EFA/AFA/CQF/PyData-Meetups (C2-086):** laufend.
+
+### 8.12 Compliance / Regulatorik — External
+
+Alle erfordern externe Akteure, dokumentiert in `docs/COMPLIANCE_THRESHOLDS.md`:
+
+- [ ] **KWG §32-Klärung mit Aufsichtsrechtsanwalt (C2-075):** 4h Setup +
+  300-600 EUR Anwaltskosten.
+- [ ] **UG-Gründung (C2-076):** Stammkapital 1000 EUR + Gründung 400 EUR
+  via Musterprotokoll.
+- [ ] **RTS-6-Light Self-Assessment (C2-077):** Algo-Inventory, PTC,
+  Real-Time-Monitoring 5s-SLA, Kill-Switch-Test quartalsweise, Annual
+  Validation. ~16h vor Live, dann jährlich.
+- [ ] **Versicherungen (C2-078):** Berufshaftpflicht / Cyber /
+  Vermögensschaden / Rechtsschutz / BU / D&O. ~6h Recherche + 600-2000 EUR/Jahr.
+- [ ] **Banking-Trennung (C2-079):** Privat-Giro + IBKR-Pro + Lynx/Tastytrade
+  + UG/GmbH-Konto + Tax-Konto separat.
+- [ ] **MAR-Surveillance Live-Aktivierung (C4-093):** Policy in
+  `docs/MAR_SURVEILLANCE_POLICY.md`; Live-Wiring der 5 Detection-Signale
+  ist offen (manuelle Wöchentliche Review heute genug).
+- [ ] **Stagewise GDPR PII-Pipeline (C4-090):** 30-Tage-Retention Cron
+  (`scripts/ops/purge_pii_aged.py`) + Article-17 Deletion-Endpoint.
+- [ ] **GoBD Off-Site Cold Copy (C4-091):** sobald gewerblich aktiviert.
+- [ ] **Secret-Rotation bei allen Providern (C3-010):** Alpaca / Polygon /
+  FRED / NewsAPI / Anthropic etc. — eigenständige sicherheitskritische
+  Operation, verlangt expliziten User-Auftrag (CLAUDE.md §20 Incident-Regel).
+- [ ] **Git-History Bereinigung (C3-011):** falls historisch Secrets in
+  Commits waren. **DESTRUKTIVE OPERATION** — `git filter-repo` + Force-Push.
+
+### 8.13 Quant-Forensik Backlog (Audit-Methodology)
+
+Verifikationen aus Audit C4-065..C4-084, die noch nicht erschöpfend
+durchgeführt wurden:
+
+- [ ] **C4-066 Hansen SPA in ERWEITERUNG:** Datei `erweiterung/backtest/hansen_spa.py`
+  fehlt (Audit listete sie). Wave-16 Hansen-SPA wrapper liegt auf main
+  unter `qa/spa_test.py`, ERWEITERUNG-Pfad bleibt offen.
+- [ ] **C4-072 DCC-GARCH cDCC-Variante (Aielli 2013):** ERWEITERUNG hat
+  DCC-GARCH; cDCC-Korrektur nicht eingewogen.
+- [ ] **C4-076 Fractional Differentiation:** existiert in ERWEITERUNG;
+  Default-d-Param verifizierbar, aber keine Empfehlung mit gemeinsamer
+  Implementation auf main.
+- [ ] **C4-077 Brinson Attribution Multi-Period:** Audit referenzierte
+  `erweiterung/attribution/brinson.py` — auf ERWEITERUNG-HEAD nicht mehr
+  vorhanden (möglich gelöscht). Multi-Period via Frongello / Cariño fehlt
+  ohnehin.
+- [ ] **C4-078 LPPL-Bubble Stress-Test (Sornette):** existiert nur als
+  Forschungs-Layer; bei Aktivierung als Trading-Signal verlangt
+  Synthetic-Stress-Validation.
+- [ ] **C4-079 Spillover-Index Window/Lag-Sensitivität (Diebold-Yilmaz):**
+  documentieren / parametrisieren.
+- [ ] **C4-080 Mutual Information / Transfer Entropy KSG-Estimator:**
+  Wave-15 hat MI-Screen (`qa/feature_screen.py`); KSG-spezifischer kNN
+  estimator vs. histogram-fallback dokumentieren.
+- [ ] **C4-081 Event-Study Methodik:** Market-Model statt Mean-Adjusted +
+  Boehmer-Musumeci-Poulsen-t-Stat + BHAR. `scripts/run_event_study.py` ist
+  Skeleton (siehe §8.6).
+- [ ] **C4-083 PEAD-SUE EPS-Expected-Source:** IBES Consensus vs.
+  Random-Walk vs. seasonal RW — Klärung offen.
+- [ ] **C4-084 pairs_trading half-life via OU:** Engle-Granger /
+  Johansen-Test + Ornstein-Uhlenbeck-Half-Life-Estimate nicht gewired
+  (Modul `erweiterung/timeseries_tools/ornstein_uhlenbeck.py` existiert
+  nicht auf ERWEITERUNG-HEAD).
+
+### 8.14 Test-Skips und xfails (Inventur)
+
+Pytest skip / xfail in `tests/` (Stand 2026-05-12):
+
+- [ ] `tests/test_qa_numba_kernels.py` — `skipif` wenn numba fehlt (legitim).
+- [ ] `tests/test_ml_signals_intel.py` — 3 Marker.
+- [ ] `tests/test_ml_features.py` — 3 Marker.
+- [ ] `tests/test_ml_foundation.py` — Marker.
+- [ ] `tests/test_intel_to_signal.py` — Marker.
+- [ ] `tests/test_competitive_analysis_impl.py` — Marker.
+- [ ] `tests/test_automl.py` — Marker.
+- [ ] `tests/test_trading_cycle_regression_daily.py` — Marker.
+- [ ] `tests/test_trading_cycle_backtest_snapshot_equivalence.py` — Marker.
+- [ ] `tests/test_backtest_vs_two_eod_cycles.py` — Marker.
+
+Jeden einzelnen Test einmal prüfen: ist der Skip noch gerechtfertigt
+(optional dep, slow, env-Conditional) oder hängt ein nicht-implementiertes
+Feature dahinter? Diese Inventur ist nicht autonom durchgeführt — Aufgabe
+für eine separate Test-Hygiene-Session.
+
+### 8.15 Verifikations-Status
+
+- Lokales Pytest (Windows): 96 audit-sweep tests passing, 0 failed.
+- Full bugrun `-m "phase12 or not slow"`: 6800+ tests collected, exit 0.
+- mypy strict: 6 safety-critical Files (kill_switch, order_lifecycle,
+  api/auth, utils/retry, utils/clock_drift, reproducibility) + 16 hexagonal
+  Files clean.
+- Ruff + black + ruff-format: clean auf allen geänderten Files.
+- **NICHT verifiziert:** Ubuntu-CI (kein PR), slow-Marker-Suite, fresh
+  paper-pilot-Run mit Wave-1-bis-17 Gate-Stack.
