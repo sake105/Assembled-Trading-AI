@@ -115,8 +115,14 @@ def module_id(path: Path) -> str:
         pass
     # scripts/
     try:
-        path.relative_to(REPO_ROOT / "scripts")
-        return f"entry_point:{path.stem}"
+        rel = path.relative_to(REPO_ROOT / "scripts")
+        parts = list(rel.parts)
+        stem = parts[-1].replace(".py", "")
+        if len(parts) == 1:
+            return f"entry_point:{stem}"
+        # Include subdir to avoid stem collisions (e.g. commands/run_daily.py vs run_daily.py).
+        subdir = ".".join(parts[:-1])
+        return f"entry_point:{subdir}.{stem}"
     except ValueError:
         pass
     return f"module:{path.stem}"
@@ -620,8 +626,12 @@ def generate(args: argparse.Namespace) -> int:
             )
 
     # ── 3. Scripts (entry points) ────────────────────────────
-    for py_path in sorted(scripts_dir.glob("run_*.py")):
-        eid = f"entry_point:{py_path.stem}"
+    # Recursive walk so subdir scripts (commands/, training/, data/pullers/, etc.)
+    # are captured. IDs are path-aware via module_id() to avoid stem collisions.
+    for py_path in sorted(scripts_dir.rglob("*.py")):
+        if py_path.name == "__init__.py":
+            continue
+        eid = module_id(py_path)
         rel = py_path.as_posix().replace(REPO_ROOT.as_posix() + "/", "")
         nodes.append(
             {
@@ -660,6 +670,7 @@ def generate(args: argparse.Namespace) -> int:
                 )
 
     # ── 4. Workflows ─────────────────────────────────────────
+    workflow_script_pattern = re.compile(r"scripts/([\w./-]+?)\.py\b")
     if wf_dir.exists():
         for wf in sorted(wf_dir.glob("*.yml")):
             wid = f"workflow:{wf.stem}"
@@ -678,6 +689,32 @@ def generate(args: argparse.Namespace) -> int:
                     "path": wf.as_posix().replace(REPO_ROOT.as_posix() + "/", ""),
                 }
             )
+            # Parse workflow YAML for "scripts/<path>.py" references → invoke edges.
+            try:
+                wf_content = wf.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            seen_targets: set[str] = set()
+            for match in workflow_script_pattern.finditer(wf_content):
+                rel_path = match.group(1)
+                script_path = scripts_dir / f"{rel_path}.py"
+                if not script_path.exists():
+                    continue
+                target_id = module_id(script_path)
+                if target_id in seen_targets:
+                    continue
+                seen_targets.add(target_id)
+                edge_counter += 1
+                edges.append(
+                    {
+                        "id": f"e{edge_counter}:{wid}→{target_id}",
+                        "source": wid,
+                        "target": target_id,
+                        "kind": "trigger",
+                        "weight": 1,
+                        "circular": False,
+                    }
+                )
 
     # ── 5. Fan-in / fan-out ───────────────────────────────────
     node_map = {n["id"]: n for n in nodes}
