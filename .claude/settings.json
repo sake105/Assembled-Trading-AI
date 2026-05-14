@@ -18,6 +18,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/stop_review_chain.py"
+          }
+        ]
+      }
     ]
   }
 }
