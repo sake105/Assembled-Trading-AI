@@ -1,6 +1,6 @@
 /* ============================================================
    System Map — Design Tokens
-   Astronomical Cartography · Observatory
+   Sake-Bot Aesthetic · Mint Accent · Violet Navy
    ============================================================ */
 
 :root {
@@ -13,24 +13,21 @@
   --sp-6: 40px;
   --sp-7: 64px;
 
-  /* Legacy aliases (kept for internal layout math) */
   --sp-xs: var(--sp-1);
   --sp-sm: var(--sp-2);
   --sp-md: var(--sp-4);
   --sp-lg: var(--sp-5);
   --sp-xl: var(--sp-6);
 
-  /* ── Typography ─────────────────────────────────────────── */
-  /* Distinctive pairing: editorial serif display × instrument mono.
-     No sans-serif is used anywhere. All body copy is mono; all titles are serif. */
+  /* ── Typography — Geist + JetBrains Mono ───────────────── */
   --font-display:
-    "Fraunces", "Literata",
-    "Iowan Old Style", "Hoefler Text", "Baskerville", "Garamond",
-    Georgia, serif;
+    "Geist", "Inter", "Segoe UI Variable",
+    -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    system-ui, sans-serif;
   --font-mono:
-    "JetBrains Mono", "IBM Plex Mono", "Berkeley Mono", "Cascadia Code",
-    "Fira Code", ui-monospace, Consolas, monospace;
-  --font-ui: var(--font-mono); /* all UI is mono */
+    "JetBrains Mono", "IBM Plex Mono", "SF Mono",
+    ui-monospace, Consolas, monospace;
+  --font-ui: var(--font-display);
 
   --fs-10: 10px;
   --fs-11: 11px;
@@ -40,19 +37,20 @@
   --fs-18: 18px;
   --fs-24: 24px;
   --fs-34: 34px;
+  --fs-48: 48px;
 
   --fw-regular: 400;
   --fw-medium:  500;
+  --fw-semibold: 600;
   --fw-bold:    600;
-  --fw-display: 400; /* serif display looks best light-ish */
+  --fw-display: 500;
 
   --lh-tight:  1.2;
   --lh-normal: 1.55;
 
-  --tracking-wide:  0.06em;
-  --tracking-label: 0.18em;  /* for UPPERCASE section labels */
+  --tracking-wide:  0.04em;
+  --tracking-label: 0.14em;
 
-  /* Legacy font aliases (body css still references these) */
   --font-size-xs: var(--fs-10);
   --font-size-sm: var(--fs-11);
   --font-size-md: var(--fs-12);
@@ -63,21 +61,24 @@
   --line-height-tight:  var(--lh-tight);
   --line-height-normal: var(--lh-normal);
 
-  /* ── Radii (sharp / cartographic, barely rounded) ──────── */
-  --radius-xs: 0px;
-  --radius-sm: 2px;
-  --radius-md: 3px;
-  --radius-lg: 4px;
+  /* ── Radii — restrained, dashboard-craft ────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
   --radius-pill: 999px;
 
-  /* ── Motion ─────────────────────────────────────────────── */
-  --ease-instrument: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --transition-fast: 140ms var(--ease-instrument);
-  --transition-base: 220ms var(--ease-instrument);
-  --transition-slow: 420ms var(--ease-instrument);
+  /* ── Motion — sake-bot easings ──────────────────────────── */
+  --ease-out:       cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-instrument: var(--ease-out);
+  --transition-fast: 200ms var(--ease-out);
+  --transition-base: 300ms var(--ease-out);
+  --transition-slow: 450ms var(--ease-out);
 
   /* ── Z-Index Stack ──────────────────────────────────────── */
-  --z-canvas:  0;
+  --z-canvas:  1;
   --z-minimap: 10;
   --z-panel:   20;
   --z-toolbar: 30;
@@ -86,56 +87,89 @@
   --z-modal:   60;
 
   /* ── Layout ─────────────────────────────────────────────── */
-  --sidebar-width: 248px;
+  --sidebar-width: 264px;
   --panel-width:   0px;
   --topbar-height: 56px;
+  --kpi-height:    72px;
+
+  /* ── Glass / Blur ───────────────────────────────────────── */
+  --glass-blur: 12px;
+  --glass-blur-strong: 20px;
 }
 
-/* ── Dark Mode — Deep Void · Parchment Ink · Amber ───────── */
+/* ── Dark Mode — Sake-Bot Mint × Navy Violet ────────────── */
 [data-theme="dark"], :root {
-  --void:          #07080c;   /* deepest, Cytoscape canvas */
-  --void-raised:   #0b0d13;   /* sidebar / panel surface */
-  --void-hover:    #12141c;
-  --overlay:       rgba(3, 4, 7, 0.78);
+  /* Base surfaces — exact sake-bot palette */
+  --bg0:           #14141f;
+  --bg1:           #1c1c2e;
+  --bg2:           #242436;
+  --bg3:           #2e2e46;
 
-  --hairline:      rgba(232, 228, 217, 0.07);
-  --hairline-mid:  rgba(232, 228, 217, 0.14);
-  --hairline-hot:  rgba(232, 228, 217, 0.28);
+  --void:          var(--bg0);
+  --void-raised:   var(--bg1);
+  --void-hover:    var(--bg2);
+  --overlay:       rgba(20, 20, 31, 0.78);
 
-  --ink:           #e8e4d9;   /* primary: warm parchment, not cold white */
-  --ink-secondary: #b8b2a2;
-  --ink-muted:     #7a7668;
-  --ink-faint:     #4a4840;
-  --ink-inverse:   #07080c;
+  /* Backdrop — sake-bot mesh: green/blue/violet radial */
+  --space-gradient:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(106, 214, 177, 0.10), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 100%, rgba(74, 156, 232, 0.09), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(157, 122, 240, 0.06), transparent 70%),
+    linear-gradient(160deg, #1a1828 0%, #13121e 50%, #161420 100%);
 
-  --gold:          #d4a857;   /* accent — compass rose / major star */
-  --gold-hot:      #e8bf6b;
-  --gold-glow:     rgba(212, 168, 87, 0.22);
+  /* Hairlines */
+  --hairline:      rgba(255, 255, 255, 0.05);
+  --hairline-mid:  #2e2e48;       /* --border */
+  --hairline-hot:  #42426a;       /* --border-hi */
 
-  --ember:         #c6743b;   /* secondary warm — nebula */
+  /* Ink */
+  --ink:           #f0f2f8;       /* --text0 */
+  --ink-secondary: #b4bcd0;       /* --text1 */
+  --ink-muted:     #7a84a0;       /* --text2 */
+  --ink-faint:     #5c6278;
+  --ink-inverse:   #14141f;
 
-  /* Status — cartographic / scientific palette (not Bootstrap) */
-  --status-ok:        #8db77a;  /* moss-sage  : verdrahtet + getestet */
-  --status-warn:      #d4a857;  /* amber      : wenige tests */
-  --status-caution:   #c6743b;  /* sienna     : 0 tests */
-  --status-block:     #b84040;  /* oxide red  : NotImplementedError */
-  --status-unknown:   #6e6a5d;  /* warm slate : unklar */
+  /* Primary accent — MINT GREEN, signature sake-bot CTA */
+  --green:         #6ad6b1;
+  --green-hot:     #7fe3c0;
+  --gold:          var(--green);  /* legacy alias mapped to green */
+  --gold-hot:      var(--green-hot);
+  --gold-glow:     rgba(106, 214, 177, 0.32);
+  --ember:         #f3a93a;       /* yellow — secondary */
 
-  --status-ok-wash:      rgba(141, 183, 122, 0.10);
-  --status-warn-wash:    rgba(212, 168, 87, 0.10);
-  --status-caution-wash: rgba(198, 116, 59, 0.10);
-  --status-block-wash:   rgba(184, 64, 64, 0.12);
-  --status-unknown-wash: rgba(110, 106, 93, 0.10);
+  /* Secondary / tertiary palette */
+  --blue:          #4a9ce8;
+  --violet:        #9d7af0;
+  --pink:          #e87ab6;
+  --cyan:          var(--blue);
+  --cyan-hot:      #6fb3ff;
+  --cyan-glow:     rgba(74, 156, 232, 0.24);
+  --magenta:       var(--pink);
+  --magenta-hot:   #ff9bcb;
+  --magenta-glow:  rgba(232, 122, 182, 0.22);
 
-  --marker-duplicate: #a98bd4;  /* lavender */
-  --marker-orphan:    #e8bf6b;  /* hot amber */
-  --marker-circular:  #d46b7a;  /* rose-pink, muted */
+  /* Status — bright on dark navy */
+  --status-ok:        #6ad6b1;       /* mint */
+  --status-warn:      #f3a93a;       /* amber */
+  --status-caution:   #f3a93a;       /* same amber */
+  --status-block:     #ef5a59;       /* red */
+  --status-unknown:   #5c6278;       /* slate */
 
-  /* ── Legacy aliases (names used across existing components) ── */
-  --bg-canvas:         var(--void);
-  --bg-surface:        var(--void-raised);
-  --bg-surface-raised: var(--void-hover);
-  --bg-surface-hover:  var(--void-hover);
+  --status-ok-wash:      rgba(106, 214, 177, 0.10);
+  --status-warn-wash:    rgba(243, 169, 58, 0.10);
+  --status-caution-wash: rgba(243, 169, 58, 0.10);
+  --status-block-wash:   rgba(239, 90, 89, 0.12);
+  --status-unknown-wash: rgba(92, 98, 120, 0.10);
+
+  --marker-duplicate: #9d7af0;
+  --marker-orphan:    #f3a93a;
+  --marker-circular:  #e87ab6;
+
+  /* ── Legacy aliases ────────────────────────────────────── */
+  --bg-canvas:         var(--bg0);
+  --bg-surface:        var(--bg1);
+  --bg-surface-raised: var(--bg2);
+  --bg-surface-hover:  var(--bg2);
   --bg-overlay:        var(--overlay);
 
   --border-subtle:  var(--hairline);
@@ -147,8 +181,8 @@
   --text-muted:     var(--ink-muted);
   --text-inverse:   var(--ink-inverse);
 
-  --accent-primary:       var(--gold);
-  --accent-primary-hover: var(--gold-hot);
+  --accent-primary:       var(--green);
+  --accent-primary-hover: var(--green-hot);
   --accent-glow:          var(--gold-glow);
 
   --status-green:      var(--status-ok);
@@ -162,57 +196,90 @@
   --status-gray:       var(--status-unknown);
   --status-gray-bg:    var(--status-unknown-wash);
 
-  --node-domain-bg:     transparent;
-  --node-domain-border: var(--gold);
-  --node-module-bg:     #15171f;
-  --node-external-bg:   #1a1610;
-  --node-script-bg:     #121a14;
-  --node-workflow-bg:   #1a1420;
+  --node-domain-bg:     rgba(106, 214, 177, 0.04);
+  --node-domain-border: var(--green);
+  --node-module-bg:     var(--bg1);
+  --node-external-bg:   rgba(74, 156, 232, 0.08);
+  --node-script-bg:     rgba(106, 214, 177, 0.08);
+  --node-workflow-bg:   rgba(157, 122, 240, 0.08);
+
+  /* Glass surfaces — built on sake-bot card-craft */
+  --glass-surface:        color-mix(in oklab, var(--bg1) 90%, transparent);
+  --glass-surface-strong: color-mix(in oklab, var(--bg1) 96%, transparent);
+  --glass-border:         var(--hairline-mid);
+  --glass-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  --glass-shadow-hover:
+    0 8px 32px -4px rgba(0, 0, 0, 0.55),
+    0 0 0 1px color-mix(in oklab, var(--green) 18%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset;
 }
 
-/* ── Light Mode — Aged Paper · Iron Ink ──────────────────── */
+/* ── Light Mode — Daylight Mint ────────────────────────── */
 [data-theme="light"] {
-  --void:          #eee8d8;   /* aged paper */
-  --void-raised:   #f5efdf;
-  --void-hover:    #e4dec8;
-  --overlay:       rgba(30, 26, 18, 0.28);
+  --bg0:           #f4f5f9;
+  --bg1:           #ffffff;
+  --bg2:           #ecedf3;
+  --bg3:           #dde0ea;
 
-  --hairline:      rgba(30, 26, 18, 0.10);
-  --hairline-mid:  rgba(30, 26, 18, 0.20);
-  --hairline-hot:  rgba(30, 26, 18, 0.38);
+  --void:          var(--bg0);
+  --void-raised:   var(--bg1);
+  --void-hover:    var(--bg2);
+  --overlay:       rgba(20, 26, 38, 0.22);
 
-  --ink:           #1e1a12;
-  --ink-secondary: #413a2c;
-  --ink-muted:     #6b6350;
-  --ink-faint:     #a39a85;
-  --ink-inverse:   #f5efdf;
+  --space-gradient:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(106, 214, 177, 0.08), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 100%, rgba(74, 156, 232, 0.06), transparent 60%),
+    var(--bg0);
 
-  --gold:          #8a6420;
-  --gold-hot:      #b1852f;
-  --gold-glow:     rgba(138, 100, 32, 0.14);
+  --hairline:      rgba(20, 26, 38, 0.05);
+  --hairline-mid:  rgba(20, 26, 38, 0.12);
+  --hairline-hot:  rgba(20, 26, 38, 0.24);
 
-  --ember:         #7a3f16;
+  --ink:           #1a1c28;
+  --ink-secondary: #424859;
+  --ink-muted:     #6c7689;
+  --ink-faint:     #a8b3c4;
+  --ink-inverse:   #ffffff;
 
-  --status-ok:       #3b6a2a;
-  --status-warn:     #8a6420;
-  --status-caution:  #7a3f16;
-  --status-block:    #8a1f1f;
-  --status-unknown:  #4a4636;
+  --green:         #11a37a;
+  --green-hot:     #1ab689;
+  --gold:          var(--green);
+  --gold-hot:      var(--green-hot);
+  --gold-glow:     rgba(17, 163, 122, 0.20);
+  --ember:         #c47218;
 
-  --status-ok-wash:      rgba(59, 106, 42, 0.10);
-  --status-warn-wash:    rgba(138, 100, 32, 0.10);
-  --status-caution-wash: rgba(122, 63, 22, 0.10);
-  --status-block-wash:   rgba(138, 31, 31, 0.10);
-  --status-unknown-wash: rgba(74, 70, 54, 0.10);
+  --blue:          #1f7dd6;
+  --violet:        #6e4ed4;
+  --pink:          #c44890;
+  --cyan:          var(--blue);
+  --cyan-hot:      #2f8ee4;
+  --cyan-glow:     rgba(31, 125, 214, 0.16);
+  --magenta:       var(--pink);
+  --magenta-hot:   #d65aa6;
+  --magenta-glow:  rgba(196, 72, 144, 0.16);
 
-  --marker-duplicate: #5e3e8a;
-  --marker-orphan:    #8a6420;
-  --marker-circular:  #8a2a3b;
+  --status-ok:       #11a37a;
+  --status-warn:     #c47218;
+  --status-caution:  #c47218;
+  --status-block:    #c2362a;
+  --status-unknown:  #475569;
 
-  --bg-canvas:         var(--void);
-  --bg-surface:        var(--void-raised);
-  --bg-surface-raised: var(--void-hover);
-  --bg-surface-hover:  var(--void-hover);
+  --status-ok-wash:      rgba(17, 163, 122, 0.10);
+  --status-warn-wash:    rgba(196, 114, 24, 0.10);
+  --status-caution-wash: rgba(196, 114, 24, 0.10);
+  --status-block-wash:   rgba(194, 54, 42, 0.10);
+  --status-unknown-wash: rgba(71, 85, 105, 0.10);
+
+  --marker-duplicate: #6e4ed4;
+  --marker-orphan:    #c47218;
+  --marker-circular:  #c44890;
+
+  --bg-canvas:         var(--bg0);
+  --bg-surface:        var(--bg1);
+  --bg-surface-raised: var(--bg2);
+  --bg-surface-hover:  var(--bg2);
   --bg-overlay:        var(--overlay);
 
   --border-subtle:  var(--hairline);
@@ -224,8 +291,8 @@
   --text-muted:     var(--ink-muted);
   --text-inverse:   var(--ink-inverse);
 
-  --accent-primary:       var(--gold);
-  --accent-primary-hover: var(--gold-hot);
+  --accent-primary:       var(--green);
+  --accent-primary-hover: var(--green-hot);
   --accent-glow:          var(--gold-glow);
 
   --status-green:      var(--status-ok);
@@ -239,12 +306,23 @@
   --status-gray:       var(--status-unknown);
   --status-gray-bg:    var(--status-unknown-wash);
 
-  --node-domain-bg:     transparent;
-  --node-domain-border: var(--gold);
-  --node-module-bg:     #f8f2e0;
-  --node-external-bg:   #eee0c4;
-  --node-script-bg:     #e2eadc;
-  --node-workflow-bg:   #e9dfed;
+  --node-domain-bg:     rgba(17, 163, 122, 0.04);
+  --node-domain-border: var(--green);
+  --node-module-bg:     #ffffff;
+  --node-external-bg:   #e8f3ff;
+  --node-script-bg:     #e6f8f1;
+  --node-workflow-bg:   #f1ecfb;
+
+  --glass-surface:        color-mix(in oklab, var(--bg1) 88%, transparent);
+  --glass-surface-strong: color-mix(in oklab, var(--bg1) 96%, transparent);
+  --glass-border:         var(--hairline-mid);
+  --glass-shadow:
+    0 2px 12px rgba(20, 26, 38, 0.10),
+    0 1px 0 rgba(255, 255, 255, 0.40) inset;
+  --glass-shadow-hover:
+    0 8px 32px -4px rgba(20, 26, 38, 0.18),
+    0 0 0 1px color-mix(in oklab, var(--green) 22%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.40) inset;
 }
 
 /* ── Reduced Motion ──────────────────────────────────────── */

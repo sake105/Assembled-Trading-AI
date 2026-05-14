@@ -885,11 +885,430 @@ body::before {
 /* ── Print Mode ──────────────────────────────────────────── */
 @media print {
   .sidebar, .detail-panel, .toolbar, .toast-container,
-  .stale-banner, .modal-overlay { display: none !important; }
+  .stale-banner, .modal-overlay, .kpi-strip { display: none !important; }
   .app-shell { grid-template-columns: 0 1fr 0 !important; }
   .cy-canvas { background: white !important; }
   body::before { display: none !important; }
   .canvas-wrap::after { display: none !important; }
   #legend-container { position: fixed !important; bottom: 8mm; right: 8mm; }
   @page { size: A3 landscape; margin: 10mm; }
+}
+
+/* ============================================================
+   SAKE-BOT REDESIGN OVERRIDES — Mint × Navy Violet
+   Appended after the original cartographic rules so these win.
+   Source: docs/architecture/system_map/screenshots/sake-bot.html
+   ============================================================ */
+
+/* Global base: Geist font, sake-bot body gradient + ambient mesh. */
+html, body {
+  font-family: var(--font-display);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
+  background: var(--space-gradient, var(--void));
+  background-attachment: fixed;
+  color: var(--ink);
+  position: relative;
+}
+* { font-variant-numeric: tabular-nums; }
+
+/* Animated ambient mesh — quiet living backdrop (sake-bot signature). */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(106, 214, 177, 0.14), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 100%, rgba(74, 156, 232, 0.12), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(157, 122, 240, 0.08), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  animation: meshDrift 24s var(--ease-in-out) infinite alternate;
+}
+/* Subtle 40px grid lattice with radial mask. */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 30%, transparent 90%);
+          mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 30%, transparent 90%);
+}
+[data-theme="light"] body::after { opacity: 0.4; }
+[data-theme="light"] body::before { opacity: 0.5; }
+
+/* Ensure app shell sits above the ambient layers. */
+.app-shell { position: relative; z-index: 1; }
+
+/* Canvas area inherits the body gradient (transparent panes). */
+.canvas-wrap { background: transparent; position: relative; z-index: 1; }
+.cy-canvas   { background: transparent !important; position: relative; }
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes meshDrift {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  50%  { transform: translate(-2%, 1%) scale(1.05); opacity: 0.85; }
+  100% { transform: translate(2%, -1%) scale(1.02); opacity: 1; }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50%      { box-shadow: 0 0 0 4px transparent; opacity: 0.6; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Glassmorphic surfaces. */
+.sidebar,
+.detail-panel,
+.cy-navigator,
+.modal,
+.topbar {
+  background: var(--glass-surface, var(--bg-surface)) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  border-color: var(--glass-border, var(--border-default)) !important;
+}
+
+.sidebar {
+  border-right: 1px solid var(--glass-border, var(--border-default));
+  border-radius: 0;
+  padding: var(--sp-4);
+}
+.detail-panel {
+  border-left: 1px solid var(--glass-border, var(--border-default));
+  box-shadow: var(--glass-shadow);
+  border-radius: 0;
+}
+.modal {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--glass-border, var(--border-default));
+}
+.topbar {
+  border-bottom: 1px solid var(--glass-border, var(--border-default));
+}
+
+/* Sidebar headings */
+.sidebar__title,
+.filter-group__label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  font-size: var(--fs-11);
+  color: var(--ink-secondary);
+}
+
+/* Filter chips inside topbar */
+.filter-chips .chip,
+#filter-chips > * {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  border-radius: var(--radius-pill);
+}
+
+/* Search input — pill-shaped, prominent. */
+.search-input {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-13);
+  background: var(--glass-surface-strong, var(--bg-surface-raised));
+  border: 1px solid var(--glass-border, var(--border-default));
+  padding: 10px 16px;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.search-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+
+/* Toolbar icon-buttons — pill, glass, with hover glow. */
+.toolbar .icon-btn,
+.sidebar .icon-btn {
+  background: var(--glass-surface, transparent);
+  border: 1px solid var(--glass-border, var(--border-default));
+  border-radius: var(--radius-md);
+  width: 36px; height: 36px;
+  color: var(--ink-secondary);
+  transition: all var(--transition-base);
+}
+.toolbar .icon-btn:hover,
+.sidebar .icon-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold-hot);
+  background: var(--status-warn-wash);
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+
+/* Primary buttons — gradient ember. */
+.btn--primary {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-hot) 100%);
+  color: var(--ink-inverse);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  padding: 10px 22px;
+  box-shadow: 0 8px 24px -8px var(--gold-glow);
+  transition: transform var(--transition-fast), box-shadow var(--transition-base);
+}
+.btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px -8px var(--gold-glow);
+}
+.btn--ghost {
+  background: transparent;
+  border: 1px solid var(--glass-border, var(--border-default));
+  border-radius: var(--radius-pill);
+  color: var(--ink-secondary);
+  font-family: var(--font-display);
+}
+.btn--ghost:hover {
+  border-color: var(--gold);
+  color: var(--gold-hot);
+}
+
+/* Status dots — soft glow. */
+.status-dot {
+  box-shadow: 0 0 8px currentColor;
+}
+.status-dot--green  { background: var(--status-ok); color: var(--status-ok); }
+.status-dot--yellow { background: var(--status-warn); color: var(--status-warn); }
+.status-dot--orange { background: var(--status-caution); color: var(--status-caution); }
+.status-dot--red    { background: var(--status-block); color: var(--status-block); }
+.status-dot--gray   { background: var(--status-unknown); color: var(--status-unknown); box-shadow: none; }
+
+/* Detail panel — polished card stack. */
+.detail-panel__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-18);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.detail-tab {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.detail-tab--active {
+  color: var(--gold-hot);
+  border-bottom: 2px solid var(--gold);
+  background: var(--status-warn-wash);
+}
+
+/* Stale banner — glass card with WARNING accent (amber, not mint). */
+.stale-banner {
+  background: var(--glass-surface-strong, var(--bg-surface));
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(160%);
+  border: 1px solid var(--status-warn);
+  border-radius: var(--radius-md);
+  color: var(--status-warn);
+  font-family: var(--font-display);
+  box-shadow: 0 0 0 1px var(--status-warn-wash), 0 12px 32px -12px rgba(0, 0, 0, 0.4);
+}
+.stale-banner__icon { color: var(--status-warn) !important; }
+.stale-banner code  { color: var(--status-warn); font-family: var(--font-mono); }
+
+/* Mini-map — glass corner card. */
+.cy-navigator {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--glass-shadow);
+}
+
+/* ── KPI Strip ─────────────────────────────────────────────── */
+.kpi-strip {
+  position: absolute;
+  top: var(--sp-4);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--sp-3);
+  z-index: var(--z-toolbar);
+  pointer-events: auto;
+  max-width: calc(100% - var(--sp-6));
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.kpi-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 16px;
+  min-width: 108px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--bg1) 100%, transparent) 0%,
+    color-mix(in oklab, var(--bg1) 94%, var(--bg0)) 100%
+  );
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+  transition:
+    border-color 0.4s var(--ease-out),
+    transform 0.3s var(--ease-out),
+    box-shadow 0.3s var(--ease-out);
+}
+.kpi-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--hairline-hot);
+  box-shadow: var(--glass-shadow-hover);
+}
+/* Shimmer sweep on hover (sake-bot card-craft signature) */
+.kpi-card::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.8s var(--ease-out);
+  pointer-events: none;
+  border-radius: var(--radius-lg);
+}
+.kpi-card:hover::after { transform: translateX(100%); }
+
+/* Accent stripe on top edge of each card */
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--ink-muted);
+  opacity: 0.4;
+}
+.kpi-card--primary::before { background: linear-gradient(90deg, var(--green), var(--blue)); opacity: 1; }
+.kpi-card--warn::before    { background: var(--status-warn); opacity: 1; }
+.kpi-card--alert::before   { background: var(--status-block); opacity: 1; }
+.kpi-card--meta::before    { background: linear-gradient(90deg, var(--violet), var(--pink)); opacity: 1; }
+
+.kpi-card__label {
+  font-family: var(--font-display);
+  font-size: var(--fs-10);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.kpi-card__value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-24);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  /* Shimmer text sweep (sake-bot KPI signature) */
+  background: linear-gradient(
+    120deg,
+    currentColor 30%,
+    color-mix(in oklab, currentColor 70%, white) 50%,
+    currentColor 70%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+.kpi-card--primary .kpi-card__value { color: var(--green); }
+.kpi-card--warn .kpi-card__value    { color: var(--status-warn); }
+.kpi-card--alert .kpi-card__value   { color: var(--status-block); }
+.kpi-card--meta  .kpi-card__value   { color: var(--violet); }
+
+.kpi-card__value--mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+.kpi-card__hint {
+  font-family: var(--font-display);
+  font-size: var(--fs-10);
+  font-weight: 400;
+  color: var(--ink-muted);
+  letter-spacing: var(--tracking-wide);
+}
+
+/* Below medium width: KPI cards shrink and wrap. */
+@media (max-width: 1000px) {
+  .kpi-strip {
+    top: var(--sp-3);
+    gap: var(--sp-2);
+  }
+  .kpi-card {
+    padding: 8px 14px;
+    min-width: 90px;
+  }
+  .kpi-card__value { font-size: var(--fs-18); }
+}
+
+/* When detail panel is open, KPI strip stays centered over canvas only. */
+.detail-panel:not(.detail-panel--closed) ~ * .kpi-strip { /* placeholder */ }
+
+/* Filter checkbox labels — modern sans, larger hit area. */
+.filter-check,
+.filter-toggle {
+  font-family: var(--font-display);
+  font-size: var(--fs-13);
+  color: var(--ink-secondary);
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+.filter-check:hover,
+.filter-toggle:hover {
+  background: var(--status-warn-wash);
+  color: var(--ink);
+}
+
+/* Toast — glass + colored accent. */
+.toast-container .toast {
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  background: var(--glass-surface-strong, var(--bg-surface));
+  border: 1px solid var(--glass-border, var(--border-default));
+  box-shadow: var(--glass-shadow);
+  font-family: var(--font-display);
+}
+
+/* Make legend container appear as a polished glass chip stack. */
+#legend-container {
+  background: var(--glass-surface, var(--bg-surface));
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  border: 1px solid var(--glass-border, var(--border-default));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  padding: var(--sp-3);
+}
+#legend-container * {
+  font-family: var(--font-display);
+}
+
+/* Shortcut modal table */
+.shortcut-table {
+  font-family: var(--font-display);
+}
+.shortcut-table kbd,
+.shortcut-table td:first-child {
+  font-family: var(--font-mono);
 }

@@ -28,6 +28,7 @@
 
   const SHORTCUTS = [
     ['/','Suche fokussieren'], ['Esc','Suche / Panel schließen'],
+    ['C','Alle Domains einklappen'], ['E','Alle Domains ausklappen'],
     ['F','Fit to screen'], ['R','Reset Zoom (1:1)'],
     ['M','Mini-Map toggle'], ['H','Heat-Map toggle'],
     ['I','Import-Kette (2 Klicks)'], ['P','Print-Mode toggle'],
@@ -49,162 +50,179 @@
   let cy;
   const $ = id => document.getElementById(id);
 
-  // ── Cytoscape Stylesheet — Astronomical Cartography ──────
+  // ── Cytoscape Stylesheet — Sake-Bot Mint × Navy ──────────
   // Cytoscape cannot read CSS custom properties, so the palette
   // is duplicated here. Keep in lockstep with tokens.css.
   const PAL = {
-    void:       '#07080c',
-    voidRaised: '#0b0d13',
-    ink:        '#e8e4d9',
-    inkMuted:   '#7a7668',
-    hairline:   'rgba(232,228,217,0.14)',
-    hairlineHot:'rgba(232,228,217,0.38)',
-    gold:       '#d4a857',
-    goldHot:    '#e8bf6b',
-    ember:      '#c6743b',
-    ok:         '#8db77a',
-    warn:       '#d4a857',
-    caution:    '#c6743b',
-    block:      '#b84040',
-    unknown:    '#6e6a5d',
-    duplicate:  '#a98bd4',
-    orphan:     '#e8bf6b',
-    circular:   '#d46b7a',
+    void:       '#14141f',
+    voidRaised: '#1c1c2e',
+    ink:        '#f0f2f8',
+    inkMuted:   '#7a84a0',
+    hairline:   'rgba(255,255,255,0.10)',
+    hairlineHot:'#42426a',
+    gold:       '#6ad6b1',    /* MINT — primary accent (was orange) */
+    goldHot:    '#7fe3c0',
+    ember:      '#f3a93a',
+    cyan:       '#4a9ce8',
+    magenta:    '#e87ab6',
+    violet:     '#9d7af0',
+    ok:         '#6ad6b1',
+    warn:       '#f3a93a',
+    caution:    '#f3a93a',
+    block:      '#ef5a59',
+    unknown:    '#5c6278',
+    duplicate:  '#9d7af0',
+    orphan:     '#f3a93a',
+    circular:   '#e87ab6',
   };
 
   const CY_STYLE = [
-    // Base node — a celestial body: dark core, faint warm ring.
+    // Base node — a celestial body. Modern sans-serif labels with strong outline.
     { selector: 'node', style: {
-      'background-color': '#15171f',
+      'background-color': '#131826',
       'background-opacity': 1,
       'border-width': 1,
       'border-color': PAL.hairline,
       'label': 'data(label)',
-      'font-family': 'JetBrains Mono, IBM Plex Mono, ui-monospace, monospace',
-      'font-size': 10,
+      'font-family': 'Inter, "Segoe UI Variable", "SF Pro Display", system-ui, sans-serif',
+      'font-size': 11,
       'font-weight': 500,
-      'color': PAL.inkMuted,
+      'color': PAL.ink,
       'text-valign': 'bottom',
       'text-halign': 'center',
-      'text-margin-y': 6,
-      'text-max-width': 140,
+      'text-margin-y': 8,
+      'text-max-width': 160,
       'text-overflow-wrap': 'whitespace',
       'text-outline-color': PAL.void,
-      'text-outline-width': 2,
+      'text-outline-width': 3,
+      'text-opacity': 0.85,
       'transition-property': 'opacity, border-color, background-color, border-width',
       'transition-duration': 220,
     }},
 
-    // Galaxy compound — the outermost celestial body. Large, distinctive Fraunces serif,
-    // heavier gold hairline. This is what you see at the furthest zoom level.
+    // Galaxy compound — outer constellation cluster. Large, rounded, glowing ember border.
     { selector: 'node[type="galaxy"]', style: {
       'shape': 'round-rectangle',
-      'background-opacity': 0,
+      'background-color': PAL.gold,
+      'background-opacity': 0.025,
       'border-color': PAL.gold,
       'border-width': 1.5,
-      'border-opacity': 0.75,
+      'border-opacity': 0.55,
       'border-style': 'solid',
-      'font-family': 'Fraunces, Iowan Old Style, Georgia, serif',
-      'font-size': 24,
-      'font-weight': 400,
+      'font-family': 'Inter, "Segoe UI Variable", system-ui, sans-serif',
+      'font-size': 22,
+      'font-weight': 700,
       'color': PAL.goldHot,
       'text-valign': 'top',
       'text-halign': 'left',
-      'text-margin-x': 16,
-      'text-margin-y': -22,
+      'text-margin-x': 20,
+      'text-margin-y': -26,
       'text-transform': 'uppercase',
       'text-opacity': 0.95,
-      'padding': 64,
+      'padding': 72,
       'min-width': 420, 'min-height': 280,
-      'corner-radius': 3,
+      'corner-radius': 18,
     }},
 
-    // Domain compound — truly no fill, hairline gold rectangle like a constellation boundary.
+    // Domain compound — sub-constellation. Rounded, ember hairline.
     { selector: 'node[type="domain"]', style: {
       'shape': 'round-rectangle',
-      'background-opacity': 0,
+      'background-color': PAL.gold,
+      'background-opacity': 0.02,
       'border-color': PAL.gold,
       'border-width': 1,
-      'border-opacity': 0.45,
+      'border-opacity': 0.40,
       'border-style': 'solid',
-      'font-family': 'Fraunces, Iowan Old Style, Georgia, serif',
-      'font-size': 15,
-      'font-weight': 400,
+      'font-family': 'Inter, "Segoe UI Variable", system-ui, sans-serif',
+      'font-size': 13,
+      'font-weight': 600,
       'color': PAL.gold,
       'text-valign': 'top',
       'text-halign': 'left',
-      'text-margin-x': 10,
-      'text-margin-y': -12,
+      'text-margin-x': 14,
+      'text-margin-y': -14,
       'text-transform': 'uppercase',
       'text-opacity': 0.85,
-      'padding': 34,
+      'padding': 38,
       'min-width': 220, 'min-height': 140,
-      'corner-radius': 2,
+      'corner-radius': 14,
     }},
 
-    // Module — a star. Scales softly with LOC. Kept small so dense domains stay readable.
+    // Module — a luminous star. Strong glow scaled by LOC.
     { selector: 'node[type="module"]', style: {
       'shape': 'ellipse',
-      'width':  'mapData(loc, 0, 800, 5, 20)',
-      'height': 'mapData(loc, 0, 800, 5, 20)',
+      'width':  'mapData(loc, 0, 800, 6, 22)',
+      'height': 'mapData(loc, 0, 800, 6, 22)',
       'background-color': PAL.ink,
-      'background-opacity': 0.9,
+      'background-opacity': 0.95,
       'border-width': 0,
-      'shadow-blur': 10,
+      'shadow-blur': 24,
       'shadow-color': PAL.ink,
-      'shadow-opacity': 0.14,
+      'shadow-opacity': 0.55,
       'shadow-offset-x': 0,
       'shadow-offset-y': 0,
     }},
 
-    // External API — a diamond in ember, like a distant nebula marker.
+    // External API — cyan diamond, like a distant signal source.
     { selector: 'node[type="external_api"]', style: {
       'shape': 'diamond',
       'width': 30, 'height': 30,
-      'background-color': PAL.void,
-      'border-color': PAL.ember,
-      'border-width': 1,
-      'color': PAL.ember,
+      'background-color': PAL.cyan,
+      'background-opacity': 0.15,
+      'border-color': PAL.cyan,
+      'border-width': 1.5,
+      'color': PAL.cyan,
+      'shadow-blur': 14,
+      'shadow-color': PAL.cyan,
+      'shadow-opacity': 0.5,
     }},
 
-    // Script — a vertical bar, small and warm.
+    // Script — rounded pill, warm.
     { selector: 'node[type="script"]', style: {
       'shape': 'round-rectangle',
-      'width': 72, 'height': 22,
-      'background-color': PAL.void,
+      'width': 80, 'height': 24,
+      'background-color': PAL.gold,
+      'background-opacity': 0.12,
       'border-color': PAL.gold,
       'border-width': 1,
-      'color': PAL.gold,
-      'font-size': 9,
-      'corner-radius': 1,
+      'color': PAL.goldHot,
+      'font-size': 10,
+      'corner-radius': 10,
     }},
 
-    // Workflow — a hexagon (automation ring).
+    // Workflow — magenta hexagon (automation/trigger source).
     { selector: 'node[type="workflow"]', style: {
       'shape': 'hexagon',
-      'width': 34, 'height': 34,
-      'background-color': PAL.void,
-      'border-color': PAL.duplicate,
-      'border-width': 1,
-      'color': PAL.duplicate,
+      'width': 38, 'height': 38,
+      'background-color': PAL.magenta,
+      'background-opacity': 0.15,
+      'border-color': PAL.magenta,
+      'border-width': 1.5,
+      'color': PAL.magenta,
+      'shadow-blur': 14,
+      'shadow-color': PAL.magenta,
+      'shadow-opacity': 0.45,
     }},
 
+    // Entry-point — rounded pill, warm-orange.
     { selector: 'node[type="entry_point"]', style: {
       'shape': 'round-rectangle',
-      'width': 78, 'height': 26,
-      'background-color': PAL.void,
+      'width': 86, 'height': 28,
+      'background-color': PAL.gold,
+      'background-opacity': 0.18,
       'border-color': PAL.goldHot,
-      'border-width': 2,
+      'border-width': 1.5,
       'color': PAL.goldHot,
-      'font-size': 9,
+      'font-size': 10,
+      'corner-radius': 12,
     }},
 
     // ── Status → luminous color of the stellar body ─────────
-    { selector: 'node[type="module"][status="green"]',  style: { 'background-color': PAL.ok,      'shadow-color': PAL.ok } },
-    { selector: 'node[type="module"][status="yellow"]', style: { 'background-color': PAL.warn,    'shadow-color': PAL.warn } },
-    { selector: 'node[type="module"][status="orange"]', style: { 'background-color': PAL.caution, 'shadow-color': PAL.caution } },
-    { selector: 'node[type="module"][status="red"]',    style: { 'background-color': PAL.block,   'shadow-color': PAL.block, 'shadow-opacity': 0.35 } },
-    { selector: 'node[type="module"][status="gray"]',   style: { 'background-color': PAL.unknown, 'background-opacity': 0.55, 'shadow-opacity': 0 } },
+    { selector: 'node[type="module"][status="green"]',  style: { 'background-color': PAL.ok,      'shadow-color': PAL.ok,      'shadow-opacity': 0.7 } },
+    { selector: 'node[type="module"][status="yellow"]', style: { 'background-color': PAL.warn,    'shadow-color': PAL.warn,    'shadow-opacity': 0.7 } },
+    { selector: 'node[type="module"][status="orange"]', style: { 'background-color': PAL.caution, 'shadow-color': PAL.caution, 'shadow-opacity': 0.7 } },
+    { selector: 'node[type="module"][status="red"]',    style: { 'background-color': PAL.block,   'shadow-color': PAL.block,   'shadow-opacity': 0.85 } },
+    { selector: 'node[type="module"][status="gray"]',   style: { 'background-color': PAL.unknown, 'background-opacity': 0.5,   'shadow-opacity': 0 } },
 
     // Border status tint for non-module types
     { selector: 'node[type!="module"][status="green"]',  style: { 'border-color': PAL.ok } },
@@ -229,13 +247,16 @@
       'border-width': 2,
     }},
 
-    // Selected — a soft gold halo.
+    // Selected — a bright ember halo.
     { selector: 'node:selected', style: {
       'overlay-color': PAL.gold,
-      'overlay-opacity': 0.18,
-      'overlay-padding': 8,
+      'overlay-opacity': 0.26,
+      'overlay-padding': 14,
       'border-color': PAL.gold,
-      'border-width': 1.5,
+      'border-width': 2,
+      'shadow-blur': 32,
+      'shadow-color': PAL.gold,
+      'shadow-opacity': 0.85,
     }},
 
     // ── States ──────────────────────────────────────────────
@@ -279,16 +300,16 @@
         'font-size': 12, 'border-opacity': 0.3, 'text-opacity': 0.55,
     }},
 
-    // ── Edges ───────────────────────────────────────────────
-    // Default: a faint ecliptic line.
+    // ── Edges — curved beams between bodies ────────────────
     { selector: 'edge', style: {
       'curve-style': 'bezier',
+      'control-point-step-size': 32,
       'target-arrow-shape': 'triangle-backcurve',
-      'arrow-scale': 0.75,
+      'arrow-scale': 0.85,
       'target-arrow-color': PAL.hairline,
       'line-color': PAL.hairline,
-      'width': 0.8,
-      'opacity': 0.9,
+      'width': 0.9,
+      'opacity': 0.85,
       'transition-property': 'opacity, line-color, width',
       'transition-duration': 220,
     }},
@@ -296,48 +317,48 @@
       'line-color': PAL.hairline,
       'target-arrow-color': PAL.hairline,
       'line-style': 'solid',
-      'width': 0.8,
+      'width': 0.9,
     }},
     { selector: 'edge[kind="api_call"]', style: {
-      'line-color': PAL.ember,
-      'target-arrow-color': PAL.ember,
+      'line-color': PAL.cyan,
+      'target-arrow-color': PAL.cyan,
       'line-style': 'dashed',
       'line-dash-pattern': [4, 3],
-      'width': 1,
-      'opacity': 0.75,
+      'width': 1.1,
+      'opacity': 0.7,
     }},
     { selector: 'edge[kind="data_flow"]', style: {
       'line-color': PAL.gold,
       'target-arrow-color': PAL.gold,
       'line-style': 'solid',
       'width': 1.5,
-      'opacity': 0.8,
+      'opacity': 0.85,
     }},
     { selector: 'edge[kind="trigger"]', style: {
-      'line-color': PAL.duplicate,
-      'target-arrow-color': PAL.duplicate,
+      'line-color': PAL.magenta,
+      'target-arrow-color': PAL.magenta,
       'line-style': 'dotted',
-      'width': 1,
-      'opacity': 0.7,
+      'width': 1.2,
+      'opacity': 0.75,
     }},
     { selector: 'edge[?circular]', style: {
       'line-color': PAL.circular,
       'target-arrow-color': PAL.circular,
       'line-style': 'dashed',
       'line-dash-pattern': [3, 3],
-      'width': 1.25,
-      'opacity': 0.85,
+      'width': 1.4,
+      'opacity': 0.9,
     }},
     { selector: 'edge.path-highlight', style: {
       'line-color': PAL.goldHot,
       'target-arrow-color': PAL.goldHot,
-      'width': 2,
+      'width': 2.5,
       'opacity': 1,
     }},
     { selector: 'edge:selected', style: {
       'line-color': PAL.gold,
       'target-arrow-color': PAL.gold,
-      'width': 1.5,
+      'width': 2,
       'opacity': 1,
     }},
   ];
@@ -393,12 +414,32 @@
     });
     window.cy = cy;
 
-    if (typeof cytoscapeExpandCollapse !== 'undefined') {
+    // expand-collapse self-registers when its <script> loads after cytoscape.min.js,
+    // but does NOT expose a window.cytoscapeExpandCollapse global. Check the method.
+    if (typeof cy.expandCollapse === 'function') {
       try {
-        cy.expandCollapse({ layoutBy: FCOSE_CONFIG, animate: true, animationDuration: 250 });
+        cy.expandCollapse({
+          layoutBy: { ...FCOSE_CONFIG, animate: true, animationDuration: 350, numIter: 600 },
+          animate: true,
+          animationDuration: 300,
+          fisheye: true,
+          undoable: false,
+          // Bundle multiple edges of the same kind between two collapsed compounds into one.
+          // Drops 3438 import edges to ~80 domain↔domain bundles when all collapsed.
+          groupEdgesOfSameTypeOnCollapse: true,
+          allowNestedEdgeCollapse: true,
+          // Cue is the small ± icon shown on collapsible compounds.
+          cueEnabled: true,
+          expandCollapseCuePosition: 'top-left',
+          expandCollapseCueSize: 14,
+          expandCollapseCueLineSize: 10,
+          expandCollapseCueSensitivity: 1,
+        });
       } catch (err) {
         console.warn('[SystemMap] expand-collapse init failed:', err);
       }
+    } else {
+      console.warn('[SystemMap] cy.expandCollapse missing — extension did not register');
     }
   }
 
@@ -477,6 +518,16 @@
       initZoom();
       DeepLink.init();
       MiniMap.init();
+      // Collapse all compounds by default — 898 nodes is unreadable as a flat view.
+      // User drills down by clicking domains or via Expand-All toolbar button.
+      try {
+        const api = cy.expandCollapse('get');
+        if (api && typeof api.collapseAll === 'function') {
+          api.collapseAll();
+        }
+      } catch (err) {
+        console.warn('[SystemMap] initial collapseAll failed:', err);
+      }
     };
 
     let layoutCfg;
@@ -515,6 +566,32 @@
   function updateMetaInfo(meta) {
     if (!meta) return;
     document.title = `System Map — ${meta.node_count} Knoten`;
+
+    // KPI strip: derive aggregates from current mapData.
+    const data = state.mapData;
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+    const fmt = n => (typeof n === 'number' ? n.toLocaleString('de-DE') : '—');
+
+    set('kpi-nodes', fmt(meta.node_count));
+    set('kpi-edges', fmt(meta.edge_count));
+
+    if (data && Array.isArray(data.nodes)) {
+      const orphans = data.nodes.filter(n => n.orphan).length;
+      const cycles  = data.nodes.filter(n => n.in_cycle).length;
+      set('kpi-orphan', fmt(orphans));
+      set('kpi-cycles', fmt(cycles));
+    }
+    if (meta.source_commit) set('kpi-commit', meta.source_commit);
+    if (meta.generated_at) {
+      try {
+        const d = new Date(meta.generated_at);
+        const isoDate = d.toISOString().slice(0, 10);
+        set('kpi-generated', isoDate);
+      } catch (_) { /* ignore */ }
+    }
   }
 
   // ── Fuse Search ──────────────────────────────────────────
@@ -593,12 +670,20 @@
   function initNodeEvents() {
     if (!cy) return;
 
-    // Click a galaxy → zoom into it so all its domains fill the viewport.
+    // Click a galaxy → toggle expand/collapse of the whole cluster.
     cy.on('tap', 'node[type="galaxy"]', e => {
       const node = e.target;
-      const descendants = node.descendants();
-      const target = descendants.length ? descendants.union(node) : node;
-      cy.animate({ fit: { eles: target, padding: 80 } }, { duration: 400, easing: 'ease-out-cubic' });
+      const api = cy.expandCollapse('get');
+      if (api) {
+        if (api.isCollapsed(node)) {
+          api.expand(node);
+        } else {
+          api.collapse(node);
+        }
+      }
+      // Always frame whatever is now visible inside this galaxy.
+      const target = node.descendants().union(node);
+      cy.animate({ fit: { eles: target, padding: 60 } }, { duration: 350, easing: 'ease-out-cubic' });
     });
 
     cy.on('tap', 'node[type="domain"]', e => {
@@ -622,7 +707,9 @@
       neighborhood.removeClass('faded').addClass('highlighted');
     });
 
-    cy.on('tap', 'core', e => {
+    // Background tap → clear highlights. The 'core' selector is NOT valid in cytoscape;
+    // listen unscoped and check e.target === cy instead.
+    cy.on('tap', e => {
       if (e.target === cy) {
         cy.elements().removeClass('faded highlighted');
         if (state.pathMode) clearPathMode();
@@ -949,6 +1036,20 @@
     $('sidebar-toggle')?.addEventListener('click', toggleSidebar);
     $('tb-fit')?.addEventListener('click', () => cy?.fit(undefined, 40));
     $('tb-reset')?.addEventListener('click', () => cy?.zoom(1));
+    $('tb-collapse')?.addEventListener('click', () => {
+      const api = cy?.expandCollapse?.('get');
+      if (api && typeof api.collapseAll === 'function') {
+        api.collapseAll();
+        cy.fit(undefined, 60);
+      }
+    });
+    $('tb-expand')?.addEventListener('click', () => {
+      const api = cy?.expandCollapse?.('get');
+      if (api && typeof api.expandAll === 'function') {
+        api.expandAll();
+        cy.fit(undefined, 60);
+      }
+    });
     $('tb-minimap')?.addEventListener('click', () => MiniMap.toggle());
     $('tb-heatmap')?.addEventListener('click', toggleHeatmap);
     $('tb-path')?.addEventListener('click', togglePathMode);
@@ -1015,6 +1116,16 @@
           case 'p': window.print(); break;
           case 'd': toggleTheme(); break;
           case 's': toggleSidebar(); break;
+          case 'c': {
+            const api = cy?.expandCollapse?.('get');
+            if (api?.collapseAll) { api.collapseAll(); cy.fit(undefined, 60); }
+            break;
+          }
+          case 'e': {
+            const api = cy?.expandCollapse?.('get');
+            if (api?.expandAll) { api.expandAll(); cy.fit(undefined, 60); }
+            break;
+          }
           case '?': openShortcutModal(); break;
         }
         if (e.ctrlKey && e.key.toLowerCase() === 'c' && cy?.$(":selected").length) {

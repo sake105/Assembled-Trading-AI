@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Assembled-Trading-AI — System Map</title>
+  <!-- Geist + JetBrains Mono (graceful degrade to system-ui if offline) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/tokens.css">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
@@ -79,9 +83,11 @@
         <div id="filter-chips" class="filter-chips" aria-live="polite"></div>
 
         <nav class="toolbar" aria-label="Werkzeuge">
-          <button id="tb-sidebar"  class="icon-btn" title="Sidebar (S)"           aria-label="Sidebar toggle">☰</button>
-          <button id="tb-fit"      class="icon-btn" title="Fit (F)"               aria-label="Fit to screen">⊞</button>
-          <button id="tb-reset"    class="icon-btn" title="Reset Zoom (R)"        aria-label="Reset zoom">⊙</button>
+          <button id="tb-sidebar"   class="icon-btn" title="Sidebar (S)"          aria-label="Sidebar toggle">☰</button>
+          <button id="tb-collapse"  class="icon-btn" title="Alle einklappen (C)"  aria-label="Collapse all">⊖</button>
+          <button id="tb-expand"    class="icon-btn" title="Alle ausklappen (E)"  aria-label="Expand all">⊕</button>
+          <button id="tb-fit"       class="icon-btn" title="Fit (F)"              aria-label="Fit to screen">⊞</button>
+          <button id="tb-reset"     class="icon-btn" title="Reset Zoom (R)"       aria-label="Reset zoom">⊙</button>
           <button id="tb-minimap"  class="icon-btn" title="Mini-Map (M)"          aria-label="Mini-Map toggle">⬚</button>
           <button id="tb-heatmap"  class="icon-btn" title="Heat-Map (H)"          aria-label="Heat-Map toggle">▦</button>
           <button id="tb-path"     class="icon-btn" title="Import-Kette (2 Klicks)" aria-label="Import chain mode">⇢</button>
@@ -93,6 +99,35 @@
       </header>
 
       <div class="cy-canvas">
+        <!-- KPI Strip — floating dashboard overlay -->
+        <div class="kpi-strip" role="region" aria-label="System-Kennzahlen">
+          <div class="kpi-card kpi-card--primary">
+            <span class="kpi-card__label">Nodes</span>
+            <span class="kpi-card__value" id="kpi-nodes">—</span>
+            <span class="kpi-card__hint">Total</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-card__label">Edges</span>
+            <span class="kpi-card__value" id="kpi-edges">—</span>
+            <span class="kpi-card__hint">Wiring</span>
+          </div>
+          <div class="kpi-card kpi-card--warn">
+            <span class="kpi-card__label">Orphan</span>
+            <span class="kpi-card__value" id="kpi-orphan">—</span>
+            <span class="kpi-card__hint">Isoliert</span>
+          </div>
+          <div class="kpi-card kpi-card--alert">
+            <span class="kpi-card__label">Cycles</span>
+            <span class="kpi-card__value" id="kpi-cycles">—</span>
+            <span class="kpi-card__hint">Zirkulär</span>
+          </div>
+          <div class="kpi-card kpi-card--meta">
+            <span class="kpi-card__label">Source</span>
+            <span class="kpi-card__value kpi-card__value--mono" id="kpi-commit">—</span>
+            <span class="kpi-card__hint" id="kpi-generated">—</span>
+          </div>
+        </div>
+
         <div id="cy" aria-label="Systemkarte Assembled-Trading-AI" role="img"></div>
 
         <!-- Loading Skeleton -->
