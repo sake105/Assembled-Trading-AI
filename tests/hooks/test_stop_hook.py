@@ -242,3 +242,148 @@ def test_hook_respects_stop_hook_active_to_avoid_infinite_loop(tmp_path):
     if res.stdout.strip():
         payload = json.loads(res.stdout)
         assert payload.get("decision") != "block"
+
+
+def _make_protected_edit_transcript(tmp_path: Path) -> Path:
+    """Build a transcript fixture with a single protected-path Edit."""
+    transcript = tmp_path / "t.jsonl"
+    transcript.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Edit",
+                            "input": {
+                                "file_path": str(REPO_ROOT / "src" / "foo.py"),
+                                "old_string": "a",
+                                "new_string": "b",
+                            },
+                        }
+                    ],
+                },
+                "uuid": "a1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return transcript
+
+
+def test_skip_marker_with_reason_allows_stop(tmp_path):
+    """Explicit skip file with non-empty reason → allow stop (one-shot)."""
+    transcript = _make_protected_edit_transcript(tmp_path)
+    skip_file = tmp_path / "review_skip"
+    skip_file.write_text(
+        "Pausing mid-task to ask clarifying question", encoding="utf-8"
+    )
+    log_file = tmp_path / "skip_log.jsonl"
+
+    res = _run_hook(
+        {
+            "session_id": "test",
+            "transcript_path": str(transcript),
+            "stop_hook_active": False,
+        },
+        env_overrides={
+            "CLAUDE_HOOKS_STATE_DIR": str(tmp_path / "state"),
+            "CLAUDE_HOOKS_SKIP_FILE": str(skip_file),
+            "CLAUDE_HOOKS_SKIP_LOG": str(log_file),
+        },
+    )
+    assert res.returncode == 0
+    if res.stdout.strip():
+        payload = json.loads(res.stdout)
+        assert payload.get("decision") != "block"
+
+
+def test_skip_marker_is_consumed_after_use(tmp_path):
+    """Skip is one-shot: file is deleted after honored."""
+    transcript = _make_protected_edit_transcript(tmp_path)
+    skip_file = tmp_path / "review_skip"
+    skip_file.write_text("clarification pause", encoding="utf-8")
+    log_file = tmp_path / "skip_log.jsonl"
+
+    _run_hook(
+        {
+            "session_id": "test",
+            "transcript_path": str(transcript),
+            "stop_hook_active": False,
+        },
+        env_overrides={
+            "CLAUDE_HOOKS_STATE_DIR": str(tmp_path / "state"),
+            "CLAUDE_HOOKS_SKIP_FILE": str(skip_file),
+            "CLAUDE_HOOKS_SKIP_LOG": str(log_file),
+        },
+    )
+    assert not skip_file.exists(), "skip file should be consumed after use"
+
+    # Without skip file the hook should now block again
+    res = _run_hook(
+        {
+            "session_id": "test",
+            "transcript_path": str(transcript),
+            "stop_hook_active": False,
+        },
+        env_overrides={
+            "CLAUDE_HOOKS_STATE_DIR": str(tmp_path / "state"),
+            "CLAUDE_HOOKS_SKIP_FILE": str(skip_file),
+            "CLAUDE_HOOKS_SKIP_LOG": str(log_file),
+        },
+    )
+    payload = json.loads(res.stdout)
+    assert payload["decision"] == "block"
+
+
+def test_empty_skip_marker_is_not_honored(tmp_path):
+    """Empty/whitespace-only skip file is ignored — forces conscious skip with reason."""
+    transcript = _make_protected_edit_transcript(tmp_path)
+    skip_file = tmp_path / "review_skip"
+    skip_file.write_text("   \n  ", encoding="utf-8")
+    log_file = tmp_path / "skip_log.jsonl"
+
+    res = _run_hook(
+        {
+            "session_id": "test",
+            "transcript_path": str(transcript),
+            "stop_hook_active": False,
+        },
+        env_overrides={
+            "CLAUDE_HOOKS_STATE_DIR": str(tmp_path / "state"),
+            "CLAUDE_HOOKS_SKIP_FILE": str(skip_file),
+            "CLAUDE_HOOKS_SKIP_LOG": str(log_file),
+        },
+    )
+    payload = json.loads(res.stdout)
+    assert payload["decision"] == "block", "empty reason must not honor skip"
+
+
+def test_skip_event_is_logged_to_audit_jsonl(tmp_path):
+    """Honored skip is appended to skip-log JSONL for audit."""
+    transcript = _make_protected_edit_transcript(tmp_path)
+    skip_file = tmp_path / "review_skip"
+    skip_file.write_text("intermediate progress update", encoding="utf-8")
+    log_file = tmp_path / "skip_log.jsonl"
+
+    _run_hook(
+        {
+            "session_id": "test",
+            "transcript_path": str(transcript),
+            "stop_hook_active": False,
+        },
+        env_overrides={
+            "CLAUDE_HOOKS_STATE_DIR": str(tmp_path / "state"),
+            "CLAUDE_HOOKS_SKIP_FILE": str(skip_file),
+            "CLAUDE_HOOKS_SKIP_LOG": str(log_file),
+        },
+    )
+    assert log_file.exists()
+    lines = log_file.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    entry = json.loads(lines[0])
+    assert entry["reason"] == "intermediate progress update"
+    assert "ts" in entry
