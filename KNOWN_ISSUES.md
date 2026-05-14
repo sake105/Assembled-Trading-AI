@@ -645,16 +645,31 @@ Drei Stubs im Repo, die explizit `NotImplementedError` werfen:
 
 ### 8.6 Konkrete Code-TODOs im Repo
 
-Vollständige Liste der `TODO`/`FIXME`-Marker im Code (geprüft 2026-05-12):
+Vollständige Liste der `TODO`/`FIXME`-Marker im Code (geprüft 2026-05-12, aktualisiert 2026-05-14):
 
-- [ ] **`src/assembled_core/pipeline/_tc_sizing.py:1713-1715`** — Halt-Cache
-  (60s-refresh) fehlt. Heute wird `ctx.halted_symbols` aus dem Context gelesen,
-  aber keine eigene Halt-Feed-Integration. **Trigger:** sobald Broker einen
-  Halt-Feed bereitstellt (Alpaca: market_data/halts endpoint, IBKR: marketDataType).
-- [ ] **`scripts/run_event_study.py`** — komplettes Skript ist Skeleton mit
-  TODO-Kommentaren (Zeilen 28, 41, 56, 59, 69, 74). Audit C4-081 verlangt
-  Event-Study-Methodik (Market-Model, Boehmer-Musumeci-Poulsen-t-Stat, BHAR).
-- [ ] **`scripts/check_health.py:1451`** — Benchmark-symbol-load TODO.
+- [x] **`src/assembled_core/pipeline/_tc_sizing.py:1713-1715`** — **GEKLÄRT
+  (Wave 22, 2026-05-14):** Der TODO-Kommentar ist faktisch obsolet. Die
+  60s-refresh Halt-Cache wurde in Wave 20 (`ed9a126`) bereits gewired via
+  `ops/_paper_runner_gates.apply_halt_cache_gate` + `utils.halt_cache.HaltCache`
+  (TTL 60s). Dieses Call-Site konsumiert nur `ctx.halted_symbols`.
+  **Code-Edit aufgeschoben** auf eine eigene Formatier-Welle: ruff-format
+  0.8.6 (pre-commit) vs black 24.10.0 (pre-commit) sind auf diesem File in
+  pre-existing Konflikt (Zeilen 760, 1815 — unabhängig von dieser Welle),
+  was jeden Edit hier in eine Hook-Ping-Pong-Schleife schickt.
+- [x] **`scripts/run_event_study.py`** — **BEHOBEN (Wave 22, 2026-05-14):**
+  Skeleton durch echte CLI-Implementierung ersetzt. Wired die drei
+  existierenden `qa/event_study.py`-Funktionen (`build_event_window_prices`,
+  `compute_event_returns`, `aggregate_event_study`) inklusive Events-Loader
+  (CSV/JSON), Price-Source-Plumbing, CSV + Markdown-Report. 13 Integration-
+  und Helper-Tests grün in `tests/test_run_event_study_cli.py`.
+  **Noch offen (eigener Sprint):** Audit C4-081's vollständige
+  Boehmer-Musumeci-Poulsen-t-Stat / BHAR-Methodik — die heutige Aggregation
+  ist `avg_ret + cum_ret + CI` (z-score basiert), kein Market-Model.
+- [x] **`scripts/check_health.py:1451`** — **KEIN TODO, by-design:** Symbol-
+  basiertes Benchmark-Loading ist absichtlich nicht implementiert, weil
+  `check_health.py` read-only / network-free invariant ist. Operator muss
+  via `--benchmark-file` einen vorgefetchten Pfad übergeben. Kommentar im
+  Code dokumentiert das bereits.
 - [ ] **`tests/test_risk_regime_analysis.py:269`** — win_rate / avg_trade_duration /
   avg_profit_per_trade können None sein wegen Implementation-TODO. Test
   toleriert das aktuell.
