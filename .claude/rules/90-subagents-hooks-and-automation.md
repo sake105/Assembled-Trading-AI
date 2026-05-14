@@ -38,28 +38,35 @@ Empfohlene Spezialisierungen:
 Subagents sind Default-Ausführungsmodus für spezialisierte Arbeit.
 Nicht auf explizite User-Aufforderung warten, wenn die Aufgabe klar zu einem Spezialbereich passt.
 
-### Routing-Regeln
+### Automatische Erzwingung via Stop-Hook (seit 2026-05-14)
+
+Nach jedem Step mit Code-Änderungen in geschützten Pfaden (`src/`, `scripts/`, `.github/workflows/`, `.claude/rules/`, `CLAUDE.md`) erzwingt der Stop-Hook `.claude/hooks/stop_review_chain.py` die Review-Kette automatisch — siehe CLAUDE.md §20 und Spec `docs/superpowers/specs/2026-05-14-review-chain-design.md`.
+
+### Routing-Regeln (für nicht-erzwungene Pfade und ad-hoc Reviews)
 
 - **`ci-debugger`** proaktiv bei: CI-Failures, Workflow-Failures, plattformspezifischer Test-Divergenz (Windows vs. Ubuntu), Dependency-Drift, Collection-Failures, Artifact-Konflikten, Local-vs-CI-Mismatches.
 - **`test-runner`** proaktiv bei: gezielter Testausführung, Marker-Handling, Regression-Validierung, Failing-Test-Triage, Minimal-Repro-Verifikation.
 - **`risk-execution-reviewer`** proaktiv bei jeder Aufgabe, die `src/assembled_core/execution/`, `src/assembled_core/risk/`, `src/assembled_core/paper/`, `src/assembled_core/pipeline/`, Portfolio-Constraints, Order-Generierung, Pre-Trade-Checks, Kill-Switch-Logik oder cost-aware Execution betrifft.
 - **`docs-governance-sync`** proaktiv bei Änderungen an `CLAUDE.md`, `.claude/rules/`, `AGENTS.md`, `.cursor/rules/`, `docs/cursor/` oder jedem Agent-Governance-/Repo-Instruction-Layer.
 - **`memory-tracker`** proaktiv, wenn eine Session bedeutsame Entscheidungen, Statuswechsel, Debug-Conclusions, Governance-Änderungen oder neue Risk-Annahmen produziert hat, die über Sessions hinweg stabil bleiben sollen.
+- **`senior-code-reviewer`** (NEU 2026-05-14): Stage 2 der Review-Kette. Automatisch vom Stop-Hook getriggert nach den Spezialisten. Auch manuell aufrufbar für ad-hoc Code-Review.
+- **`task-completion-auditor`** (NEU 2026-05-14): Stage 3 der Review-Kette. Automatisch vom Stop-Hook getriggert nach `senior-code-reviewer`. Auch manuell aufrufbar bei „bin ich wirklich fertig?"-Zweifeln.
 
 ### Pflichtverhalten
 
-- Spezialist-Delegation wird **bevorzugt**, nicht als Zusatzoption behandelt.
-- Passt eine Aufgabe klar zu einem Spezialbereich → zuerst delegieren, dann Ergebnis integrieren.
-- Bei mehreren passenden Bereichen → erst risk-relevantester Spezialist, dann sekundäre.
+- Stop-Hook-Erzwingung **kann nicht umgangen werden** durch „ich vergesse mal". Der Hook blockiert das Stop-Event bis Marker geschrieben ist.
+- Außerhalb der Erzwingungs-Pfade: Spezialist-Delegation **bevorzugen**, nicht als Zusatzoption behandeln.
 - Sensible Zonen nie ohne Spezialdelegation überspringen, außer mit explizitem Grund.
 
 ### Prioritätsreihenfolge bei Konflikt
 
 1. `risk-execution-reviewer`
-2. `ci-debugger`
-3. `test-runner`
-4. `docs-governance-sync`
-5. `memory-tracker`
+2. `senior-code-reviewer`
+3. `task-completion-auditor`
+4. `ci-debugger`
+5. `test-runner`
+6. `docs-governance-sync`
+7. `memory-tracker`
 
 ## Hook-Regeln
 
