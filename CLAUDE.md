@@ -883,6 +883,23 @@ Regeln:
 
 Misbrauch wird sichtbar im Audit-Log. Wenn die Skip-Frequenz steigt, ist das ein Signal, dass die Kette zu früh/oft triggert und der Stop-Hook überarbeitet werden sollte, nicht dass mehr geskippt werden sollte.
 
+### 20.7 Bootstrap-Lücke (v1) — ehrliche Disclosure
+
+Die Commits, die die Review-Chain **selbst** gebaut haben (Range `1547fb7..772d395`, ca. 30 Commits zwischen 2026-05-14 16:00–19:20 GMT+2), sind **nicht** durch die Chain gelaufen, weil:
+
+- die beiden Stage-2/3-Subagents (`senior-code-reviewer`, `task-completion-auditor`) erst während dieser Session geschrieben wurden und Claude Code Subagent-Typen nur beim Session-Start registriert,
+- der Stop-Hook erst gegen Ende der Session in `.claude/settings.json` registriert wurde, weil er sonst während des Aufbaus auf die eigenen Build-Edits getriggert hätte (Chicken-and-Egg).
+
+**Stattdessen lief am Sessionende eine Bootstrap-Review-Kette:**
+- Stage 1: `docs-governance-sync` (echt, war seit Session-Start verfügbar)
+- Stage 2 + 3: simuliert via `general-purpose`-Subagent mit den verbatim Agent-Prompts
+
+Diese Bootstrap-Kette fand 3 MAJOR-Findings (F-senior-1, F-senior-2, F-auditor-1), die in Commits nach `772d395` adressiert wurden.
+
+**Konsequenz für zukünftige Sessions:** Die Chain ist ab `2026-05-14 19:20 GMT+2` und allen folgenden Sessions vollständig aktiv. Die Bootstrap-Commits gelten als **akzeptiert** mit dokumentierter retroaktiver Review. Ein nachgelagerter Echtbetriebs-Re-Review (mit den nun registrierten Stage-2/3-Subagents) ist als Follow-up-Option dokumentiert, aber nicht zwingend.
+
+**Lessons learned für künftige Meta-Workflow-Erweiterungen:** Wenn eine neue Komponente die Chain modifiziert (z. B. neue Stages, neuer Trigger-Pfad), gilt dieselbe Bootstrap-Lücke. Saubere Lösung: Komponente in eigenem Branch implementieren, dort von der **aktuellen** Chain reviewen lassen, dann mergen.
+
 ---
 
 ## 18. Schlussstatus dieser Datei

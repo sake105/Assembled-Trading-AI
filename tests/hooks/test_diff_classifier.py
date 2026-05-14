@@ -53,6 +53,30 @@ def test_empty_diff_is_skip():
 
 
 def test_no_protected_paths_is_skip():
+    # README.md mixed with output/ → not all docs-only, no tests → skip
     result = classify_diff(["output/equity.csv", "README.md"])
     assert result["kind"] == "skip"
     assert result["run_full_chain"] is False
+
+
+def test_tests_mixed_with_docs_still_runs_chain_F_senior_2():
+    """Regression for F-senior-2: test edits must trigger chain even when
+    co-edited with docs."""
+    result = classify_diff(["tests/test_a.py", "docs/foo.md"])
+    assert result["kind"] == "test-only"
+    assert result["run_full_chain"] is True
+
+
+def test_tests_mixed_with_output_still_runs_chain_F_senior_2():
+    """Regression for F-senior-2: test edits must trigger chain even when
+    co-edited with non-protected/non-docs files (CSV, binary, etc.)."""
+    result = classify_diff(["tests/test_a.py", "output/equity.csv"])
+    assert result["kind"] == "test-only"
+    assert result["run_full_chain"] is True
+
+
+def test_protected_plus_tests_is_full_not_test_only():
+    """Priority order: protected wins over test-only."""
+    result = classify_diff(["src/foo.py", "tests/test_foo.py"])
+    assert result["kind"] == "full"
+    assert result["run_full_chain"] is True

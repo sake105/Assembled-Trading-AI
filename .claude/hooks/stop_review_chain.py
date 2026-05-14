@@ -121,6 +121,10 @@ def _build_review_instructions(
     if len(edited_paths) > 20:
         paths_block += f"\n  - ... ({len(edited_paths) - 20} more)"
 
+    # Fix F-senior-4: embed absolute marker path so the snippet works regardless
+    # of the agent's cwd (worktrees, subprocess chdir, etc.).
+    marker_dir_abs = str((REPO_ROOT / ".claude" / ".review_markers").as_posix())
+
     return f"""REVIEW-CHAIN-REQUIRED — Step nicht abgeschlossen, bis Review-Kette gelaufen ist.
 
 Du hast Code in geschützten Pfaden geändert:
@@ -157,10 +161,10 @@ Erwarte Verdict: PASS / CONDITIONAL / FAIL.
 
 ```python
 import sys
-sys.path.insert(0, ".claude/hooks")
+sys.path.insert(0, r"{(REPO_ROOT / ".claude" / "hooks").as_posix()}")
 from hook_utils.review_marker import write_review_marker
 from pathlib import Path
-write_review_marker("{turn_id}", Path(".claude/.review_markers"))
+write_review_marker("{turn_id}", Path(r"{marker_dir_abs}"))
 ```
 
 **Dann:**
@@ -186,10 +190,6 @@ def main() -> int:
     if event.get("stop_hook_active") is True:
         return _allow_stop()
 
-    # Explicit one-shot skip marker (must contain a non-empty reason)
-    if _check_and_consume_skip():
-        return _allow_stop()
-
     transcript_path_str = event.get("transcript_path", "")
     if not transcript_path_str:
         return _allow_stop()
@@ -199,6 +199,12 @@ def main() -> int:
     classification = classify_diff(edited)
 
     if not classification["run_full_chain"]:
+        return _allow_stop()
+
+    # Fix F-senior-1: only consume the skip marker when the chain WOULD have
+    # blocked. Order matters — classification must run first so we don't waste
+    # the user's one-shot on stops that would have allowed themselves anyway.
+    if _check_and_consume_skip():
         return _allow_stop()
 
     # Check marker

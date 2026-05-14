@@ -33,24 +33,29 @@ def _is_test_only_path(path: str) -> bool:
 
 
 def classify_diff(paths: Iterable[str]) -> Dict[str, Any]:
-    """Classify the diff. Returns {kind, run_full_chain, protected_paths}."""
+    """Classify the diff. Returns {kind, run_full_chain, protected_paths}.
+
+    Priority order (fix F-senior-2: test edits must always trigger chain):
+    1. Any protected path → full
+    2. Any test path → test-only (run_full_chain=True), even mixed with docs/output
+    3. All paths are docs-only → docs-only
+    4. Otherwise (only output/csv/binary etc.) → skip
+    """
     paths = list(paths)
-    protected = [p for p in paths if is_protected_path(p)]
 
     if not paths:
         return {"kind": "skip", "run_full_chain": False, "protected_paths": []}
 
-    if not protected:
-        # Mark test-only / docs-only specially even when not "protected",
-        # because tests/** and docs/** don't appear in protected list but
-        # are common edit targets we care about.
-        if all(_is_test_only_path(p) for p in paths):
-            return {"kind": "test-only", "run_full_chain": True, "protected_paths": []}
-        if all(_is_docs_only_path(p) for p in paths):
-            return {"kind": "docs-only", "run_full_chain": False, "protected_paths": []}
-        return {"kind": "skip", "run_full_chain": False, "protected_paths": []}
+    protected = [p for p in paths if is_protected_path(p)]
+    if protected:
+        return {"kind": "full", "run_full_chain": True, "protected_paths": protected}
 
-    # We have protected paths.
-    # If ALL paths are docs-only (which means no protected since docs/ isn't protected),
-    # we've already returned above. So 'protected non-empty' implies code/governance change.
-    return {"kind": "full", "run_full_chain": True, "protected_paths": protected}
+    # No protected paths. Tests take precedence — code-quality matters even
+    # when co-edited with docs/output noise.
+    if any(_is_test_only_path(p) for p in paths):
+        return {"kind": "test-only", "run_full_chain": True, "protected_paths": []}
+
+    if all(_is_docs_only_path(p) for p in paths):
+        return {"kind": "docs-only", "run_full_chain": False, "protected_paths": []}
+
+    return {"kind": "skip", "run_full_chain": False, "protected_paths": []}
