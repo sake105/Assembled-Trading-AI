@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"please fix the bug"},"uuid":"u1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"F:/Python_Projekt/Aktiengeruest/src/assembled_core/execution/router.py","old_string":"a","new_string":"b"}}]},"uuid":"a1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":"F:/Python_Projekt/Aktiengeruest/docs/foo.md","content":"x"}}]},"uuid":"a2"}
