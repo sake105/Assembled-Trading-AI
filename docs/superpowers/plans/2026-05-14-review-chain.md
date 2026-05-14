@@ -10,6 +10,8 @@
 
 **Spec reference:** `docs/superpowers/specs/2026-05-14-review-chain-design.md`
 
+**Implementation status:** COMPLETE on 2026-05-14. All 18 atomic units (= 25 plan tasks) executed. 47 hook tests green (errors_log: 6, path_classifier: 18, transcript_parser: 3, diff_classifier: 8, review_marker: 5, session_start_hook: 2, stop_hook: 5). Manual smoke verified for both SessionStart and Stop hooks. Stop hook registered live and blocking on protected-path edits. Phase D ordering deviated from plan: governance edits (Tasks 22+23) executed BEFORE Stop-hook registration (Task 20) to avoid bootstrapping conflicts within the build session.
+
 ---
 
 ## File Structure (Lock-In)
