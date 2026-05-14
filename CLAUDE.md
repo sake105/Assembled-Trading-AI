@@ -820,6 +820,41 @@ Dann `docs/architecture/system_map/index.html` im Browser öffnen.
 
 ---
 
+## 20. Review-Chain (automatisch erzwungen)
+
+Nach jedem Coding-Step mit Edits in geschützten Pfaden (`src/`, `scripts/`, `.github/workflows/`, `.claude/rules/`, `CLAUDE.md`) läuft eine Review-Kette **zwingend**, erzwungen durch den Stop-Hook (`.claude/hooks/stop_review_chain.py`).
+
+### 20.1 Ablauf
+
+1. **Stage 1 (parallel):** relevante Spezialisten — `risk-execution-reviewer` (bei sensiblen Zonen), `test-runner` (immer bei `src/`/`scripts/`), `ci-debugger` (bei Workflows), `docs-governance-sync` (bei Governance-Docs).
+2. **Stage 2:** `senior-code-reviewer` (Opus) — breiter Code-Review auf Bugs, Wiring, Vollständigkeit, Korrektheit, bekannte Anti-Patterns.
+3. **Stage 3:** `task-completion-auditor` (Opus) — prüft Task-Erfüllung mit Tiefe, flaggt Adjacent als Follow-up, vergibt Verdict PASS/CONDITIONAL/FAIL.
+
+### 20.2 Findings-Schema
+
+Strukturiertes YAML mit Feldern `file`, `line`, `severity` (BLOCKER/MAJOR/MINOR/INFO), `category`, `evidence`, `suggested_fix`. Details: `docs/superpowers/specs/2026-05-14-review-chain-design.md` §5.
+
+### 20.3 Step-Abschluss-Regel
+
+Ein Step gilt **erst dann als abgeschlossen**, wenn:
+- Verdict = PASS, oder
+- Verdict = CONDITIONAL und MAJOR-Findings sind adressiert oder dokumentiert akzeptiert.
+
+Vorher wird der User nicht informiert „fertig". BLOCKER müssen immer adressiert werden.
+
+### 20.4 Anti-Pattern-Register
+
+Wiederholungs-würdige Fehler werden in `docs/CLAUDE_CODING_ERRORS.md` (append-only) festgehalten. SessionStart-Hook (`.claude/hooks/session_start_load_errors.py`) lädt Top-10 in den Initial-Kontext. Volle Datei bei Bedarf lesen.
+
+### 20.5 Was diese Kette NICHT ändert
+
+- §2.2 „kleinster sicherer Schritt" bleibt bindend.
+- Rule 10 „kein großer Refactor ohne Auftrag" bleibt bindend.
+- Rule 60 „ein Problem pro Änderung" bleibt bindend.
+- Auditor darf Adjacent nur als Follow-up-Vorschlag flaggen, nie als Pflicht im aktuellen Step.
+
+---
+
 ## 18. Schlussstatus dieser Datei
 
 Diese `CLAUDE.md` ist die aktuelle zentrale Arbeitsgrundlage für Claude Code in Assembled-Trading-AI.
