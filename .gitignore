@@ -92,3 +92,6 @@ htmlcov/
 autonome_weiterarbeit/
 
 autonomous/
+
+# Review-chain runtime state (per-turn markers, not source)
+.claude/.review_markers/
