@@ -93,5 +93,7 @@ autonome_weiterarbeit/
 
 autonomous/
 
-# Review-chain runtime state (per-turn markers, not source)
+# Review-chain runtime state (per-turn markers + skip audit, not source)
 .claude/.review_markers/
+.claude/.review_skip
+.claude/.review_skip_log.jsonl

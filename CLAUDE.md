@@ -853,6 +853,36 @@ Wiederholungs-würdige Fehler werden in `docs/CLAUDE_CODING_ERRORS.md` (append-o
 - Rule 60 „ein Problem pro Änderung" bleibt bindend.
 - Auditor darf Adjacent nur als Follow-up-Vorschlag flaggen, nie als Pflicht im aktuellen Step.
 
+### 20.6 One-Shot-Skip für Mid-Task-Pausen
+
+Wenn ein Step **noch nicht abgeschlossen** ist (z. B. Rückfrage an User mitten in einer Aufgabe, Zwischenstands-Update, Diagnostik-Pause), darf die Kette für genau diesen einen Stop übersprungen werden.
+
+**Mechanismus:**
+
+```bash
+# Vor dem User-Reply, wenn man WEIß dass der Step nicht fertig ist:
+echo "kurzer Grund (z. B. Rückfrage an User vor Weiterarbeit)" > .claude/.review_skip
+```
+
+Regeln:
+- Skip-Marker ist **one-shot** — wird vom Hook nach Konsum gelöscht.
+- Skip-Marker **muss eine nicht-leere Begründung** enthalten (Whitespace-only wird ignoriert).
+- Jeder Skip wird in `.claude/.review_skip_log.jsonl` audit-geloggt (Timestamp + Grund).
+- Skip ersetzt **nicht** die Kette — sie läuft beim nächsten echten Step-Ende.
+
+**Was ist KEIN gültiger Skip-Grund:**
+- „ist eh klein" → klein heißt nicht uninteressant, Kette läuft.
+- „habe schon mental geprüft" → ohne strukturierte Findings keine Validierung.
+- „dauert sonst zu lange" → Token-Kosten sind akzeptiert worden.
+
+**Was sind gültige Skip-Gründe:**
+- „Rückfrage an User vor weiterer Implementierung."
+- „Zwischenstand für User vor Test-Run."
+- „Diagnostischer Print-Cycle zur Eingrenzung des Bugs."
+- „Halber Commit für Recovery-Punkt, Step läuft weiter."
+
+Misbrauch wird sichtbar im Audit-Log. Wenn die Skip-Frequenz steigt, ist das ein Signal, dass die Kette zu früh/oft triggert und der Stop-Hook überarbeitet werden sollte, nicht dass mehr geskippt werden sollte.
+
 ---
 
 ## 18. Schlussstatus dieser Datei

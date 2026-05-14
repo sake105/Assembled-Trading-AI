@@ -4,12 +4,13 @@
 Flow per spec §4.2.1:
 1. Read Stop event JSON from stdin (session_id, transcript_path, stop_hook_active).
 2. If stop_hook_active is True, exit (never loop).
-3. Parse transcript trailing turn for edited paths.
-4. Classify diff: skip / docs-only / test-only / full.
-5. If kind is 'skip' or 'docs-only': allow stop.
-6. Check review-marker for current turn_id.
-7. If marker exists: allow stop (chain already ran for this turn).
-8. Otherwise: output {"decision":"block","reason": REVIEW_INSTRUCTIONS}.
+3. Check explicit skip marker file (one-shot, auto-consumed, requires reason).
+4. Parse transcript trailing turn for edited paths.
+5. Classify diff: skip / docs-only / test-only / full.
+6. If kind is 'skip' or 'docs-only': allow stop.
+7. Check review-marker for current turn_id.
+8. If marker exists: allow stop (chain already ran for this turn).
+9. Otherwise: output {"decision":"block","reason": REVIEW_INSTRUCTIONS}.
 
 REVIEW_INSTRUCTIONS embed:
 - list of Stage-1 specialists to dispatch (based on edited paths)
@@ -18,6 +19,8 @@ REVIEW_INSTRUCTIONS embed:
 
 Env overrides for testability:
 - CLAUDE_HOOKS_STATE_DIR: where to read/write review markers (default: .claude/.review_markers)
+- CLAUDE_HOOKS_SKIP_FILE: path to the one-shot skip marker file (default: .claude/.review_skip)
+- CLAUDE_HOOKS_SKIP_LOG: path to skip-audit JSONL (default: .claude/.review_skip_log.jsonl)
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -45,6 +49,63 @@ def _state_dir() -> Path:
     if override:
         return Path(override)
     return REPO_ROOT / ".claude" / ".review_markers"
+
+
+def _skip_file() -> Path:
+    override = os.environ.get("CLAUDE_HOOKS_SKIP_FILE")
+    if override:
+        return Path(override)
+    return REPO_ROOT / ".claude" / ".review_skip"
+
+
+def _skip_log() -> Path:
+    override = os.environ.get("CLAUDE_HOOKS_SKIP_LOG")
+    if override:
+        return Path(override)
+    return REPO_ROOT / ".claude" / ".review_skip_log.jsonl"
+
+
+def _check_and_consume_skip() -> bool:
+    """Check for one-shot skip marker. Returns True if skip is honored.
+
+    Skip is honored only when:
+    - The skip file exists
+    - It contains a non-empty (post-strip) reason
+
+    When honored, the skip is logged to the audit JSONL and the file is deleted.
+    """
+    sf = _skip_file()
+    if not sf.exists():
+        return False
+    try:
+        raw = sf.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    reason = raw.strip()
+    if not reason:
+        # Empty / whitespace-only → don't honor (force conscious skip)
+        return False
+
+    # Append audit entry (best-effort, never raises)
+    try:
+        log_path = _skip_log()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "reason": reason,
+        }
+        with log_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError:
+        pass
+
+    # Consume the marker (one-shot)
+    try:
+        sf.unlink()
+    except OSError:
+        pass
+
+    return True
 
 
 def _allow_stop() -> int:
@@ -123,6 +184,10 @@ def main() -> int:
 
     # Avoid infinite loop: if Claude Code already invoked us in a Stop-hook loop, allow.
     if event.get("stop_hook_active") is True:
+        return _allow_stop()
+
+    # Explicit one-shot skip marker (must contain a non-empty reason)
+    if _check_and_consume_skip():
         return _allow_stop()
 
     transcript_path_str = event.get("transcript_path", "")
