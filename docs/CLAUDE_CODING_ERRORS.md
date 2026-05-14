@@ -70,3 +70,102 @@
 **Wie vermeiden:** `dict.get(key, default)` mit explizitem Default. Bei numerischen Casts immer `if v is not None: int(v)` oder `pd.notna(v)`.
 **Erkannt in:** `intel/news_dedupe.py`, mehrere YAML-Loader.
 **Referenzen:** `memory/session-2026-05-02-bug-scan-waves-86-101.md`
+
+## E-008 — `pd.to_datetime` ohne `errors='coerce'` crasht auf schlechten Daten
+**Datum:** 2026-05-02
+**Kategorie:** pandas-pitfall
+**Was passierte:** Datenpipeline rief `pd.to_datetime(series)` ohne `errors='coerce'` auf. Bei einem einzigen unparsbaren Wert → `ValueError`, ganzer Pipeline-Schritt bricht statt graceful zu degradieren.
+**Warum falsch:** Externe Datenquellen (CSV, API-Responses, YAML) enthalten fast garantiert irgendwann malformed timestamps. Crash-Verhalten verhindert PIT-saubere Backtests.
+**Wie vermeiden:** Immer `pd.to_datetime(series, errors='coerce')` außer in expliziten Validator-Pfaden. Nachgeschalteter NaT-Check entscheidet über Fortsetzung/Block.
+**Erkannt in:** `data/altdata/earnings_calendar_source.py`, mehrere Loader.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-86-101.md`
+
+## E-009 — `Series.any()` mit NaN gibt NaN zurück, nicht bool
+**Datum:** 2026-05-02
+**Kategorie:** pandas-pitfall
+**Was passierte:** `if series.any():` in Conditional verwendet. Series hatte NaN-Werte → `any()` lieferte `NaN` (truthy!) → Branch genommen, wo False richtig wäre.
+**Warum falsch:** Pandas-Aggregationen propagieren NaN. `any()` mit NaN ist nicht False sondern unknown → in `if` als truthy interpretiert.
+**Wie vermeiden:** `series.fillna(False).any()` oder `series.dropna().any()`. Bei numerischen Conditions: `(series > threshold).fillna(False).any()`.
+**Erkannt in:** `qa/regime_analysis.py`, mehrere Signal-Module.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-86-101.md`
+
+## E-010 — `idxmax()` / `idxmin()` auf leerer Series → ValueError
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** `df['col'].idxmax()` in Allocator-/Optimizer-Code ohne Guard. Bei leerem DataFrame → `ValueError: attempt to get argmax of an empty sequence`.
+**Warum falsch:** `idxmax` setzt non-empty voraus. In Production-Pfaden mit Filter-Vorstufen kann der DataFrame leer werden, ohne dass es offensichtlich ist.
+**Wie vermeiden:** `df['col'].idxmax() if not df.empty else default`. Oder besser: `df['col'].dropna().pipe(lambda s: s.idxmax() if not s.empty else default)`.
+**Erkannt in:** `strategies/strategy_allocator.py`, `signals/ensemble.py`.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-86-101.md`
+
+## E-011 — `json.dumps` crasht auf numpy-Typen
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** `json.dumps(d)` auf Dict mit `np.int64`/`np.float64`-Werten → `TypeError: Object of type int64 is not JSON serializable`. API-Endpoint crashed.
+**Warum falsch:** numpy-Skalar-Typen sind keine Python-Builtins. Standard json-Encoder kennt sie nicht.
+**Wie vermeiden:** Eigener Encoder: `json.dumps(d, default=lambda o: o.item() if hasattr(o, 'item') else str(o))`. Oder vor Serialisierung `pd.json_normalize`-äquivalent konvertieren.
+**Erkannt in:** `api/routers/monitoring.py`, `events/store.py`, `attribution/storage.py`.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-86-101.md`
+
+## E-012 — `date.today()` ist Lokalzeit, nicht UTC
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** PDT-Check verwendete `date.today()` für Tages-Vergleich. Lokal (Europe/Berlin) und UTC unterscheiden sich nach 00:00 lokal um einen Tag → Off-by-One in Tag-Zähler an Tageswechseln.
+**Warum falsch:** Trading-System läuft mit UTC-basierten Daten. Lokalzeit-Boundary stimmt nicht mit Market-Boundary überein.
+**Wie vermeiden:** Immer `datetime.now(timezone.utc).date()`. Für Markttag: `pd.Timestamp.now(tz='UTC').normalize()`. Module-Konstanten via `TODAY = datetime.now(timezone.utc).date()` nur einmal pro Modul-Load.
+**Erkannt in:** `risk/pdt_tracker.py`, mehrere Tagesgrenzen-Checks.
+**Referenzen:** `memory/session-2026-05-02-hmm-grid-complete.md`
+
+## E-013 — `next(iter(d))` auf leerem Dict → StopIteration
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** ECB-API-Loader nutzte `next(iter(response['data']))` als „erstes Element". Bei leerer Response → `StopIteration` unter dem Hood, lokal als Crash propagiert.
+**Warum falsch:** `next()` ohne `default` Argument wirft `StopIteration` wenn der Iterator leer ist. In Python 3.7+ kein „bubble through generators" mehr, aber lokal immer noch ein Crash.
+**Wie vermeiden:** `next(iter(d), default)` mit explizitem Default. Oder `if d: first = next(iter(d))` mit Guard.
+**Erkannt in:** Mehrere API-Response-Parser.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-52-64.md`
+
+## E-014 — `tz_convert(None)` auf tz-naiver Series → TypeError
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** Code verwendete `series.dt.tz_convert(None)` um in lokale Naive zu konvertieren. Bei bereits naiver Series → `TypeError: Cannot convert tz-naive timestamps, use tz_localize to localize`.
+**Warum falsch:** `tz_convert` verlangt eine tz-aware Series als Input. Naive Series brauchen erst `tz_localize` bevor `tz_convert` funktioniert.
+**Wie vermeiden:** `if series.dt.tz is not None: series = series.dt.tz_convert(None)`. Oder defensiver Helper: `def to_naive_utc(s): return s.dt.tz_convert('UTC').dt.tz_localize(None) if s.dt.tz else s`.
+**Erkannt in:** Mehrere Zeitstempel-Handler.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-52-64.md`
+
+## E-015 — `joblib.load` ohne EOFError-Handling crasht auf truncated cache
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** Model-Loader rief `joblib.load(cache_path)`. Wenn Cache-Datei beim letzten Run nicht vollständig geschrieben wurde → `EOFError`, Loader crashed statt cache zu invalidieren und neu zu generieren.
+**Warum falsch:** Joblib serializes mit Streaming-Format. Bei Abbruch beim Schreiben (Strom, Kill) entstehen halbe Dateien, die kein `pickle` mehr parsen kann.
+**Wie vermeiden:** `try: m = joblib.load(p) except (EOFError, pickle.UnpicklingError): p.unlink(missing_ok=True); m = regenerate()`. Cache als regenerierbar behandeln, nie als Wahrheit.
+**Erkannt in:** `signals/meta_model.py`, `strategies/multifactor_v2.py`.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-36-44-continuation.md`
+
+## E-016 — `yaml.YAMLError` uncaught → ganze Config-Load crasht
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** `yaml.safe_load(open(path))` ohne try/except. Bei minimal kaputter YAML (eingerücktes Tab, fehlendes `:`) → ganzer Boot-Prozess bricht, statt graceful degradation auf Defaults.
+**Warum falsch:** Configs werden öfter manuell editiert als Code. Ein Syntax-Fehler in einer Config sollte nicht den ganzen Runner töten.
+**Wie vermeiden:** `try: cfg = yaml.safe_load(...) except yaml.YAMLError as e: log.error("Config malformed: %s", e); cfg = DEFAULT_CONFIG`. Validation-Pfad separat.
+**Erkannt in:** `batch_runner/`, `run_paper_track.py`, `strategy_config.py`.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-36-44-continuation.md`
+
+## E-017 — pandas `groupby().apply()` Deprecation: `include_groups=False`
+**Datum:** 2026-05-02
+**Kategorie:** pandas-pitfall
+**Was passierte:** `df.groupby('x').apply(fn)` produzierte ab pandas 2.2 `DeprecationWarning`, ab 3.0 wird das Default-Verhalten geändert. Bei Update von pandas 2.0 → 2.2 → bricht teilweise.
+**Warum falsch:** pandas-Versionswechsel ändern subtle Defaults. Tests laufen lokal mit 2.0, CI mit 2.2 → divergierendes Verhalten.
+**Wie vermeiden:** `df.groupby('x', group_keys=False).apply(fn, include_groups=False)` explizit setzen. Auch im Repo aktiv suchen nach allen `groupby(...).apply` Sites.
+**Erkannt in:** Mehrere QA- und Strategy-Module.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-52-64.md`
+
+## E-018 — `np.exp()` overflow auf großen Werten ohne Clip
+**Datum:** 2026-05-02
+**Kategorie:** logic-error
+**Was passierte:** Scenario-Engine berechnete `np.exp(returns_sum)` für Long-Horizon-Aggregate. Bei extremen Returns → `RuntimeWarning: overflow encountered in exp` und `inf`-Werte, die alle nachgelagerten Aggregate ruinieren.
+**Warum falsch:** `np.exp(710+)` overflows zu `inf` (float64-Limit). Bei langen Horizonten oder synthetischen Stress-Szenarien realistisch erreichbar.
+**Wie vermeiden:** `np.exp(np.clip(x, -700, 700))` oder log-space arithmetic durchhalten. Bei finanziellen Returns: `np.expm1(np.clip(...))` für Stabilität nahe Null.
+**Erkannt in:** `qa/scenario_engine.py`, `qa/synthetic_generator.py`.
+**Referenzen:** `memory/session-2026-05-02-bug-scan-waves-52-64.md`
