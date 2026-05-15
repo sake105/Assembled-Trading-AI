@@ -90,10 +90,21 @@ def apply_exposure_multiplier_to_targets(
     """Apply exposure multiplier to target positions DataFrame (bidirectional).
 
     Scales target_weight and target_qty (if present) for all non-cash symbols.
-    - Downscaling (multiplier < 1.0): cash absorbs freed weight.
-    - Upscaling (multiplier > 1.0): risky weights are increased proportionally;
-      if max_gross_exposure is set and would be exceeded, weights are normalized
+
+    WEIGHT MODE (target_weight column present):
+    - Downscaling (multiplier < 1.0): CASH row absorbs freed weight.
+      If no CASH row → freed weight is silently lost (WARN logged).
+    - Upscaling (multiplier > 1.0): risky weights increased proportionally;
+      if max_gross_exposure is set and would be exceeded, weights normalized
       to that ceiling.
+
+    QTY MODE (target_qty column only, no target_weight):
+    - Downscaling reduces share counts proportionally. There is NO cash-absorb
+      semantic in qty-mode (cash isn't a target_qty position). The reduction
+      represents "buy fewer shares" intent, not a redistribution.
+    - A CASH row present in qty-mode is a smell (caller confusion between
+      weight-mode and qty-mode) and is logged at ERROR.
+    - B4-GR-02 (Round 5): documented and audit-logged explicitly.
     """
     if target_positions is None:
         return target_positions
@@ -145,13 +156,42 @@ def apply_exposure_multiplier_to_targets(
         risky_sum_before = float(risky_weights_before.sum())
         df.loc[risky_mask, "target_weight"] = risky_weights_before * multiplier
 
-    # Scale quantities if present
+    # Scale quantities if present.
+    # B4-GR-02 HIGH fix (R5): qty-mode downscale does NOT have a cash-absorb
+    # path — for shares-based positions, "freed weight" has no automatic
+    # destination (cash isn't a position with target_qty). The reduction is
+    # a semantic "buy fewer shares" intent. Document explicitly + log
+    # downscale events at INFO so operators have visibility.
     if has_qty:
         risky_qty_before = pd.to_numeric(
             df.loc[risky_mask, "target_qty"],
             errors="coerce",
         )
         df.loc[risky_mask, "target_qty"] = risky_qty_before * multiplier
+        if multiplier < 1.0 and not has_weight:
+            # Pure qty-mode downscale: no cash compensation possible. Elevate
+            # to ERROR if the caller appears to expect weight-based semantics
+            # (i.e. CASH row present in qty-mode is a smell — likely caller
+            # confusion between weight-mode and qty-mode).
+            qty_before_sum = float(pd.to_numeric(risky_qty_before, errors="coerce").fillna(0.0).sum())
+            qty_after_sum = qty_before_sum * multiplier
+            if has_cash:
+                log.error(
+                    "[GeoRisk] qty-mode downscale (multiplier=%.4f) with CASH row present "
+                    "— qty-mode has no cash-absorb semantic; freed shares=%.2f silently lost. "
+                    "If you expected cash-absorb, use target_weight columns; if intentional, "
+                    "remove the CASH row from target_positions in qty-mode.",
+                    multiplier,
+                    qty_before_sum - qty_after_sum,
+                )
+            else:
+                log.info(
+                    "[GeoRisk] qty-mode downscale: multiplier=%.4f reduced %d positions "
+                    "(no cash-absorb in qty-mode by design — operator must size buying "
+                    "intent accordingly)",
+                    multiplier,
+                    int(risky_mask.sum()),
+                )
 
     if has_weight:
         risky_sum_after = risky_sum_before * multiplier
