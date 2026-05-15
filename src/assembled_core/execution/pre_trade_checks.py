@@ -95,6 +95,19 @@ class PreTradeConfig:
     base_currency: str = "USD"
     missing_security_meta: Literal["raise", "unknown"] = "raise"
 
+    def __post_init__(self) -> None:
+        # F-A3-6 R6 fix: sign-convention guard for max_cvar_95.
+        # CVaR(95%) is by convention a NEGATIVE number (worst-case loss).
+        # A user-supplied positive value (e.g. 0.05 instead of -0.05) would
+        # silently zero all BUY orders via cvar_scale = positive/negative → clip(<0) → 0.
+        # Reject at construction time so the error surfaces immediately.
+        if self.max_cvar_95 is not None and self.max_cvar_95 >= 0:
+            raise ValueError(
+                f"max_cvar_95 must be None or negative (CVaR convention: "
+                f"worst-case loss as negative fraction, e.g. -0.05 = -5%). "
+                f"Got: {self.max_cvar_95}. Did you mean {-abs(self.max_cvar_95)}?"
+            )
+
 
 @dataclass
 class PreTradeCheckResult:

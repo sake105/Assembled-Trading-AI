@@ -17,16 +17,40 @@ from assembled_core.attribution.schemas import CompositeAttribution
 
 
 class AttributionStore:
-    """Append-write attribution store backed by SQLite."""
+    """Append-write attribution store backed by SQLite.
+
+    B4-AT-01 R6 fix: enables WAL journal mode + connection timeout for
+    concurrent-safety. Previously fresh sqlite3.connect() per save() with
+    no WAL, no timeout — concurrent writes from paper_runner + research
+    process collided with "database is locked".
+    """
+
+    _CONN_TIMEOUT_S = 5.0
 
     def __init__(self, db_path: str = "data/attributions.db") -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
 
+    def _connect(self) -> sqlite3.Connection:
+        """Open connection with WAL mode + timeout (B4-AT-01)."""
+        conn = sqlite3.connect(self.db_path, timeout=self._CONN_TIMEOUT_S)
+        # WAL allows concurrent readers while writer holds lock; reduces
+        # "database is locked" errors significantly. PRAGMA is per-connection
+        # for synchronous, but WAL is database-file-level once set.
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")  # WAL-recommended
+        except sqlite3.Error:
+            # If WAL setup fails (e.g. read-only filesystem), continue with
+            # default journal — connection still usable.
+            pass
+        return conn
+
     def _init_schema(self) -> None:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+        with self._connect() as conn:
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS attributions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -39,13 +63,14 @@ class AttributionStore:
                     model_version TEXT NOT NULL,
                     regime TEXT NOT NULL
                 )
-            """)
+            """
+            )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_ts_ticker ON attributions(timestamp, ticker)"
             )
 
     def save(self, attr: CompositeAttribution) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 """INSERT INTO attributions
                    (timestamp, ticker, composite_score,
@@ -80,7 +105,7 @@ class AttributionStore:
         start: datetime | None = None,
         end: datetime | None = None,
     ) -> list[CompositeAttribution]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             query = "SELECT * FROM attributions WHERE ticker = ?"
             params: list = [ticker]
             if start:
