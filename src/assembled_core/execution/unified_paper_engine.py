@@ -1570,25 +1570,66 @@ class UnifiedPaperEngine:
             current_qty = float(positions.get(sym, 0.0))
             current_cost = float(cost_basis.get(sym, 0.0))
 
+            # F-A2-4 BLOCKER fix (Round 2): sister-implementation to F-A-1 in
+            # paper_ledger.apply_fills_to_ledger. Same anti-pattern existed here:
+            # SELL on zero/negative position silently dropped cash credit and
+            # erased position instead of opening a short. Cash flow invariant:
+            # BUY always debits qty*price, SELL always credits qty*price.
             if side == "BUY":
-                new_qty = current_qty + qty
-                if new_qty > 0:
-                    # Average cost = (old_total_cost + new_notional) / new_qty
-                    old_total_cost = current_qty * current_cost
-                    cost_basis[sym] = (old_total_cost + notional) / new_qty
-                positions[sym] = new_qty
                 cash -= notional
+                if current_qty >= 0:
+                    # Long add (or opening from zero)
+                    new_qty = current_qty + qty
+                    if new_qty > 0:
+                        old_total_cost = current_qty * current_cost
+                        cost_basis[sym] = (old_total_cost + notional) / new_qty
+                    positions[sym] = new_qty
+                else:
+                    # Covering short. cover_qty bounded by short size.
+                    short_open = -current_qty  # positive
+                    cover_qty = min(qty, short_open)
+                    remaining_buy = qty - cover_qty
+                    new_short = current_qty + cover_qty  # less negative or 0
+                    if new_short < 0:
+                        # Still short, cost_basis (short avg) preserved
+                        positions[sym] = new_short
+                    elif new_short == 0 and remaining_buy == 0:
+                        positions.pop(sym, None)
+                        cost_basis.pop(sym, None)
+                    else:
+                        # Cover-and-flip-to-long at fill price
+                        positions[sym] = remaining_buy
+                        cost_basis[sym] = fill_price
 
             elif side == "SELL":
-                sold_qty = min(qty, current_qty)  # cannot sell more than owned
-                proceeds = sold_qty * fill_price
-                new_qty = current_qty - sold_qty
-                positions[sym] = new_qty
-                if new_qty <= 1e-8:
-                    # Fully closed — reset cost basis
-                    cost_basis.pop(sym, None)
-                    positions.pop(sym, None)
-                cash += proceeds
+                cash += notional
+                if current_qty > 0:
+                    new_qty = current_qty - qty
+                    if new_qty > 0:
+                        # Partial sell of long; cost_basis preserved
+                        positions[sym] = new_qty
+                    elif new_qty == 0 or abs(new_qty) <= 1e-8:
+                        positions.pop(sym, None)
+                        cost_basis.pop(sym, None)
+                    else:
+                        # Oversell: close long, open short for overflow
+                        short_qty = qty - current_qty
+                        positions[sym] = -short_qty
+                        cost_basis[sym] = fill_price
+                else:
+                    # current_qty <= 0: opening or adding to short
+                    new_qty = current_qty - qty
+                    if current_qty == 0:
+                        new_short_avg = fill_price
+                    else:
+                        # Weighted short avg
+                        short_open_prior = -current_qty
+                        short_open_new = -new_qty
+                        new_short_avg = (
+                            current_cost * short_open_prior + fill_price * qty
+                        ) / short_open_new
+                    positions[sym] = new_qty
+                    cost_basis[sym] = new_short_avg
 
         self._state["cash"] = cash
         self._state["last_updated"] = datetime.now(timezone.utc).isoformat()

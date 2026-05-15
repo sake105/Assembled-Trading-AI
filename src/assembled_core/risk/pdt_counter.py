@@ -11,8 +11,28 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Deque
+
+try:
+    from zoneinfo import ZoneInfo
+
+    _NY_TZ: ZoneInfo | None = ZoneInfo("America/New_York")
+except Exception:  # pragma: no cover
+    _NY_TZ = None
+
+
+def _us_market_today() -> date:
+    """Return today in America/New_York (or UTC fallback).
+
+    F-C2-R2-2 Round-2 fix: sister to F-C-4 (compliance/pdt.py). PDT is a US
+    market rule; date.today() local-tz produces wrong rolling-window dates on
+    a CET box between 18:00 CET and midnight.
+    """
+    if _NY_TZ is not None:
+        return datetime.now(tz=_NY_TZ).date()
+    return datetime.now(tz=timezone.utc).date()
+
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +59,7 @@ class PDTCounter:
 
     def record_day_trade(self, trade_date: date | None = None) -> None:
         """Record one day-trade round-trip."""
-        d = trade_date or date.today()
+        d = trade_date or _us_market_today()
         self._evict_old(d)
         self._trades.append(d)
         log.info(
@@ -47,7 +67,7 @@ class PDTCounter:
         )
 
     def count_in_window(self, today: date | None = None) -> int:
-        d = today or date.today()
+        d = today or _us_market_today()
         self._evict_old(d)
         return len(self._trades)
 
