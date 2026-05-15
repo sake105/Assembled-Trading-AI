@@ -540,6 +540,43 @@ class AlpacaAdapter(BrokerAdapter):
         )
         raise PriceLookupError(symbol, "; ".join(errors))
 
+    def _auto_client_order_id(
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        order_type: str,
+        limit_price: float | None = None,
+    ) -> str:
+        """Generate a deterministic client_order_id for retry-safety.
+
+        F-A3-4 MAJOR fix (R4): previously NO client_order_id was passed to
+        Alpaca SDK, so retries (network blips) created duplicate orders with
+        fresh server UUIDs. Now we always pass a deterministic ID derived
+        from the intent + the calendar day (UTC), so same-day retries hit
+        Alpaca's duplicate-rejection and are idempotent at the broker.
+
+        Callers SHOULD pass explicit client_order_id for orders that need
+        unique IDs across retries (e.g. genuinely separate scale-in legs).
+        """
+        from datetime import datetime, timezone
+        from src.assembled_core.execution.idempotency import (
+            build_client_order_id,
+            compute_intent_hash,
+        )
+
+        intent_hash = compute_intent_hash(
+            symbol=symbol,
+            side=side,
+            qty=qty,
+            order_type=order_type,
+            limit_price=limit_price,
+        )
+        day_bucket = datetime.now(tz=timezone.utc).strftime("%Y%m%d")
+        return build_client_order_id(
+            signal_id=f"auto-{day_bucket}", intent_hash=intent_hash, attempt=0
+        )
+
     def submit_market_order(
         self,
         symbol: str,
@@ -548,8 +585,14 @@ class AlpacaAdapter(BrokerAdapter):
         *,
         time_in_force: str = "day",
         comment: str = "",
+        client_order_id: str | None = None,
     ) -> BrokerOrder:
-        """Submit a market order to Alpaca paper trading."""
+        """Submit a market order to Alpaca paper trading.
+
+        F-A3-4: client_order_id is now always set. Pass an explicit ID for
+        unique-per-attempt semantics; omit for retry-idempotent same-day
+        intent-based ID.
+        """
         if qty <= 0:
             raise ValueError(f"qty must be positive, got {qty}")
         side_lower = side.lower()
@@ -560,6 +603,10 @@ class AlpacaAdapter(BrokerAdapter):
         self._validate_market_hours()
         estimated_price = self._estimate_price(symbol)
         self._check_cycle_limits(qty, estimated_price)
+
+        coid = client_order_id or self._auto_client_order_id(
+            symbol, side_lower, qty, "market", None
+        )
 
         api = self._get_api()
         try:
@@ -579,6 +626,7 @@ class AlpacaAdapter(BrokerAdapter):
                 qty=qty,
                 side=order_side,
                 time_in_force=tif,
+                client_order_id=coid,
             )
             try:
                 order = api.submit_order(order_data=request)
@@ -587,8 +635,9 @@ class AlpacaAdapter(BrokerAdapter):
 
                 if is_duplicate_error(str(_broker_err)):
                     logger.warning(
-                        "[AlpacaAdapter] duplicate client_order_id detected — skipping retry: %s",
+                        "[AlpacaAdapter] duplicate client_order_id detected — skipping retry: %s (coid=%s)",
                         _broker_err,
+                        coid,
                     )
                     raise
                 raise
@@ -599,6 +648,7 @@ class AlpacaAdapter(BrokerAdapter):
                 side=side_lower,
                 type="market",
                 time_in_force=time_in_force,
+                client_order_id=coid,
             )
 
         normalized = self._normalize_order(order)
@@ -628,8 +678,9 @@ class AlpacaAdapter(BrokerAdapter):
         *,
         time_in_force: str = "day",
         comment: str = "",
+        client_order_id: str | None = None,
     ) -> BrokerOrder:
-        """Submit a limit order to Alpaca."""
+        """Submit a limit order to Alpaca. F-A3-4: client_order_id always set."""
         if qty <= 0:
             raise ValueError(f"qty must be positive, got {qty}")
         if limit_price <= 0:
@@ -640,6 +691,10 @@ class AlpacaAdapter(BrokerAdapter):
 
         self._validate_market_hours()
         self._check_cycle_limits(qty, limit_price)
+
+        coid = client_order_id or self._auto_client_order_id(
+            symbol, side_lower, qty, "limit", limit_price
+        )
 
         api = self._get_api()
         try:
@@ -665,8 +720,20 @@ class AlpacaAdapter(BrokerAdapter):
                 side=order_side,
                 time_in_force=tif,
                 limit_price=limit_price,
+                client_order_id=coid,
             )
-            order = api.submit_order(order_data=request)
+            try:
+                order = api.submit_order(order_data=request)
+            except Exception as _broker_err:
+                from src.assembled_core.execution.idempotency import is_duplicate_error
+
+                if is_duplicate_error(str(_broker_err)):
+                    logger.warning(
+                        "[AlpacaAdapter] duplicate client_order_id (LIMIT) — skipping retry: %s (coid=%s)",
+                        _broker_err,
+                        coid,
+                    )
+                raise
         except ImportError:
             order = api.submit_order(
                 symbol=symbol,
@@ -675,6 +742,7 @@ class AlpacaAdapter(BrokerAdapter):
                 type="limit",
                 time_in_force=time_in_force,
                 limit_price=str(limit_price),
+                client_order_id=coid,
             )
 
         normalized = self._normalize_order(order)
@@ -700,8 +768,9 @@ class AlpacaAdapter(BrokerAdapter):
         limit_price: float | None = None,
         time_in_force: str = "day",
         comment: str = "",
+        client_order_id: str | None = None,
     ) -> BrokerOrder:
-        """Submit a stop or stop-limit order to Alpaca."""
+        """Submit a stop or stop-limit order to Alpaca. F-A3-4: client_order_id always set."""
         if qty <= 0:
             raise ValueError(f"qty must be positive, got {qty}")
         if stop_price <= 0:
@@ -714,6 +783,15 @@ class AlpacaAdapter(BrokerAdapter):
         self._check_cycle_limits(qty, stop_price)
 
         is_stop_limit = limit_price is not None
+        order_type = "stop_limit" if is_stop_limit else "stop"
+        # F-A3-4: deterministic client_order_id derived from intent + stop_price
+        # (used as limit_price slot in compute_intent_hash for stop orders;
+        # limit_price slot used for stop_limit's actual limit).
+        coid_lp = limit_price if is_stop_limit else stop_price
+        coid = client_order_id or self._auto_client_order_id(
+            symbol, side_lower, qty, order_type, coid_lp
+        )
+
         api = self._get_api()
 
         try:
@@ -742,6 +820,7 @@ class AlpacaAdapter(BrokerAdapter):
                     time_in_force=tif,
                     stop_price=stop_price,
                     limit_price=limit_price,
+                    client_order_id=coid,
                 )
             else:
                 request = StopOrderRequest(
@@ -750,10 +829,21 @@ class AlpacaAdapter(BrokerAdapter):
                     side=order_side,
                     time_in_force=tif,
                     stop_price=stop_price,
+                    client_order_id=coid,
                 )
-            order = api.submit_order(order_data=request)
+            try:
+                order = api.submit_order(order_data=request)
+            except Exception as _broker_err:
+                from src.assembled_core.execution.idempotency import is_duplicate_error
+
+                if is_duplicate_error(str(_broker_err)):
+                    logger.warning(
+                        "[AlpacaAdapter] duplicate client_order_id (STOP) — skipping retry: %s (coid=%s)",
+                        _broker_err,
+                        coid,
+                    )
+                raise
         except ImportError:
-            order_type = "stop_limit" if is_stop_limit else "stop"
             kwargs: dict[str, Any] = {
                 "symbol": symbol,
                 "qty": qty,
@@ -761,6 +851,7 @@ class AlpacaAdapter(BrokerAdapter):
                 "type": order_type,
                 "time_in_force": time_in_force,
                 "stop_price": str(stop_price),
+                "client_order_id": coid,
             }
             if is_stop_limit:
                 kwargs["limit_price"] = str(limit_price)
