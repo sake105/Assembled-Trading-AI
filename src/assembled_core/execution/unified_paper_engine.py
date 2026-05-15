@@ -1513,6 +1513,11 @@ class UnifiedPaperEngine:
         # Pre-trade checks. The upstream helper returns a
         # ``(PreTradeCheckResult, filtered_orders)`` tuple; we only need the
         # filtered orders here.
+        # F-A3-1 MAJOR fix (Round 4): fail-CLOSED on exception (Rule 30).
+        # Previously logged WARNING and proceeded with UNFILTERED orders —
+        # a dependency-drift, data-shape error, or transient bug in
+        # pre_trade_checks would silently bypass all pre-trade safeguards.
+        # Aligned with risk_controls L545 path which is correctly fail-closed.
         if _HAS_PRE_TRADE:
             try:
                 result = run_pre_trade_checks(orders)
@@ -1521,7 +1526,14 @@ class UnifiedPaperEngine:
                 else:
                     orders = result  # defensive: older/alt signatures
             except Exception as exc:
-                logger.warning("[PAPER] pre_trade_checks error (non-fatal): %s", exc)
+                logger.error(
+                    "[PAPER] pre_trade_checks raised %s — failing CLOSED (all orders rejected this cycle)",
+                    exc,
+                    exc_info=True,
+                )
+                # Empty DataFrame with same columns → equivalent to "all rejected".
+                # Downstream loops over rows; empty means no fills.
+                orders = orders.iloc[0:0].copy()
 
         return orders
 
