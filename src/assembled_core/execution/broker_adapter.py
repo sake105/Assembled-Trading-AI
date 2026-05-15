@@ -268,7 +268,7 @@ class AlpacaAdapter(BrokerAdapter):
         base_url: str | None = None,
         *,
         force_paper: bool = True,
-        enforce_market_hours: bool = True,
+        enforce_market_hours: bool | None = None,
         max_orders_per_cycle: int = 50,
         max_notional_per_cycle: float = 100_000.0,
     ) -> None:
@@ -280,6 +280,13 @@ class AlpacaAdapter(BrokerAdapter):
             base_url: API base URL. Defaults to paper trading URL.
             force_paper: If True (default), raises if base_url looks like live endpoint.
             enforce_market_hours: If True, reject orders outside NYSE regular hours.
+                Pilot R6-followup #3 fix: default is now mode-aware (None →
+                derived). When `force_paper=True` (default paper mode), defaults
+                to False — Alpaca paper API accepts/queues orders outside hours,
+                and blocking them at our layer was making paper-pilot effectively
+                no-op outside US 09:30–16:00 ET. When `force_paper=False` (live
+                mode), defaults to True — preserves the live-trading safety net.
+                Pass an explicit bool to override the mode-aware default.
             max_orders_per_cycle: Maximum orders per cycle (safety limit).
             max_notional_per_cycle: Maximum total notional value per cycle.
         """
@@ -290,6 +297,12 @@ class AlpacaAdapter(BrokerAdapter):
         )
 
         is_paper_url = "paper" in self._base_url.lower()
+
+        # R6-followup #3: mode-aware enforce_market_hours default.
+        # Paper mode → False (Alpaca paper queues; blocking was a no-op trap).
+        # Live mode → True (preserve safety net).
+        if enforce_market_hours is None:
+            enforce_market_hours = not (force_paper and is_paper_url)
 
         if force_paper and not is_paper_url:
             raise ValueError(
