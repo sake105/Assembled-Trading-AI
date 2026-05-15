@@ -5,7 +5,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List
 
-from src.assembled_core.logging_config import setup_logging
+# Pilot R6-followup #3 fix: removed `from src.assembled_core.logging_config import setup_logging`.
+# The pipeline previously called setup_logging(run_id="news_v1") at run-time
+# which DESTROYED the parent process's logging configuration (clears file
+# handlers, redirects ALL subsequent logs to logs/news_v1.log). When called
+# from paper_runner / live_paper, this caused all post-news trading-cycle
+# logs to disappear from the run's log file. Now the module inherits from
+# the root logger via `logging.getLogger(__name__)` like any normal module.
 
 logger = logging.getLogger(__name__)
 
@@ -429,7 +435,11 @@ def run_news_pipeline(
       - events: List[NewsEvent]
       - health: NewsHealth
     """
-    setup_logging(run_id="news_v1", level="INFO")
+    # Pilot R6-followup #3: Do NOT call setup_logging here. Previously this
+    # nuked the parent's file handler and rerouted ALL subsequent logs to
+    # logs/news_v1.log, hiding trading-cycle output from the pilot's log.
+    # The module already has `logger = logging.getLogger(__name__)` which
+    # inherits from root — that is the correct pattern for a library module.
 
     params = load_news_params(news_path)
     fetch_cfg = params.get("fetch", {})

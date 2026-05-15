@@ -71,23 +71,56 @@ root cause OPEN (separate triage).
 
 ---
 
-## 3. 🔍 Logger file-truncation (UNDER INVESTIGATION)
+## 3. ✅ Logger file-truncation — Root cause + huge bonus finding (FIXED)
 
-**Finding:** `logs/live_paper_*.log` files are truncated after the
-yfinance data-fetch step (~15 lines), but the run completes successfully
-(rc=0) with state updates landing on disk. Trading cycle output (signal
-gen, risk filter, fill simulation, order submission) appears only in
-stdout (captured by the pilot subprocess), not in the dedicated log file.
+**Finding:** `logs/live_paper_*.log` files truncated after data-fetch
+(~15 lines). All later trading-cycle output went into `logs/news_v1.log`
+(4.6 MB!).
 
-**Implication:** Operator-facing logs are incomplete. Cannot verify
-post-fact whether audit-fixed paths (qty-sync, pre_trade fail-closed,
-NewsRAG preserve, etc.) actually fired without examining the pilot
-manifest's `output_snippet` (which is also truncated to 500 chars).
+**Root cause:** `src/assembled_core/events/news/pipeline.py:432` called
+`setup_logging(run_id="news_v1", level="INFO")` mid-run. `logging_config.setup_logging`
+explicitly clears all root-logger handlers (lines 122-129) and adds new
+ones pointing at `logs/news_v1.log` — so after the news pipeline started,
+ALL logs of the trading cycle went into `news_v1.log` and never back to
+the pilot's run-specific log.
 
-**Status:** Not yet fixed — separate troubleshooting required.
-Hypothesis: a logging handler in the trading cycle is configured to
-stderr/stdout-only instead of attaching to the file handler from
-`logging_config.py`.
+**Fix:** Removed the `setup_logging()` call AND the import in
+`events/news/pipeline.py`. The module already has
+`logger = logging.getLogger(__name__)` at module level, which is the
+correct pattern for a library module (inherits root handlers from the
+caller).
+
+**🚨 BONUS FINDING discovered by reading `news_v1.log`:**
+
+The pilot Day-3 run's trading cycle had:
+```
+[broker_execution] FAILED to submit SELL LLY qty=2.30: Outside regular
+market hours (08:04 ET). NYSE regular session: 09:30–16:00 ET.
+```
+
+**8/8 orders FAILED** due to market-hours-blocker. The pilot ran at
+14:04 CEST = 08:04 ET, BEFORE NYSE 09:30 ET open. `broker_adapter.AlpacaAdapter`
+enforces market hours by default (`enforce_market_hours=True`).
+
+**Yet pilot reported "rc=0, orders~1"** — because:
+- `run_live_paper` exited 0 even though all orders failed (orders-failed
+  is non-fatal — the cycle records reject in intent_store and continues)
+- The pilot's `output.count("filled")` heuristic matched something like
+  `[reconcile] ledger backfill` text noise, not real fills
+- "reconcile=FAIL" was logged but not propagated to exit code
+
+**The Day-3 equity change ($98,863 → $99,236 = +$373) was NOT from new
+trades.** It was from mark-to-market on existing positions over the
+9-day gap (last cycle ran 2026-05-06, broker tracks the 9 long positions
+through that period).
+
+**Operational implication:** Day-3 was effectively a NO-OP cycle. The
+pilot manifest should mark this differently (or rerun during market hours).
+
+**Status (fix):** CLOSED for the logger-reroute issue.
+**Status (bonus finding):** the **pilot run-time vs market-hours mismatch**
+is a separate operational issue worth tracking. Day-4+ should run during
+US market hours (15:30–22:00 CEST equivalent for NYSE 09:30–16:00 ET).
 
 ---
 
