@@ -104,7 +104,13 @@ class EventStore:
                 raise EventAppendError(str(exc)) from exc
 
     def append_batch(self, events: list[BaseEvent]) -> int:
-        """Append a batch of events.  Returns number of rows inserted."""
+        """Append a batch of events.  Returns number of rows inserted.
+
+        B2-N1 fix: symmetric with append() — raises EventAppendError on
+        sqlite3.Error (DB lock, schema mismatch, disk full). Without this,
+        catchers downstream that handle EventAppendError would miss batch
+        failures (raw sqlite3.Error would propagate).
+        """
         rows = [
             (
                 e.session_id,
@@ -117,12 +123,16 @@ class EventStore:
             for e in events
         ]
         with self._conn() as con:
-            cur = con.executemany(
-                """INSERT OR IGNORE INTO events
-                   (session_id, sequence, event_type, source, occurred_at, payload_json)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                rows,
-            )
+            try:
+                cur = con.executemany(
+                    """INSERT OR IGNORE INTO events
+                       (session_id, sequence, event_type, source, occurred_at, payload_json)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    rows,
+                )
+            except sqlite3.Error as exc:
+                logger.error("EventStore.append_batch failed: %s", exc)
+                raise EventAppendError(str(exc)) from exc
         return cur.rowcount
 
     # ------------------------------------------------------------------
