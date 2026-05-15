@@ -338,15 +338,19 @@ def _ptc_check_group_exposures(
         else:
             current_positions_df = pd.DataFrame(columns=["symbol", "qty"])
 
-        target_positions_df = compute_target_positions(
-            current_positions_df, filtered_orders
-        )
-        exposures_df, _ = compute_exposures(
-            target_positions_df,
-            prices_latest,
-            equity,
-            missing_price_handling="raise",
-        )
+        # F-A3-2 MAJOR fix (R4): factor out recomputation so we can re-derive
+        # exposures_df after each group-check mutates filtered_orders.
+        # Previously: exposures_df computed ONCE here, then sector→region→fx
+        # all consumed the stale snapshot, even after _apply_group_scale
+        # reduced qty in filtered_orders.
+        def _recompute_exposures() -> pd.DataFrame:
+            tgt = compute_target_positions(current_positions_df, filtered_orders)
+            exp, _ = compute_exposures(
+                tgt, prices_latest, equity, missing_price_handling="raise"
+            )
+            return exp
+
+        exposures_df = _recompute_exposures()
 
         def _apply_group_scale(
             group_type: str,
@@ -418,6 +422,8 @@ def _ptc_check_group_exposures(
                             config.max_sector_exposure,
                             "RISK_REDUCE_MAX_SECTOR_EXPOSURE",
                         )
+                # F-A3-2: refresh exposures after sector mutations
+                exposures_df = _recompute_exposures()
             except ValueError as e:
                 if config.missing_security_meta == "raise":
                     raise ValueError(f"Sector exposure check failed: {e}") from e
@@ -438,6 +444,8 @@ def _ptc_check_group_exposures(
                             config.max_region_exposure,
                             "RISK_REDUCE_MAX_REGION_EXPOSURE",
                         )
+                # F-A3-2: refresh exposures after region mutations
+                exposures_df = _recompute_exposures()
             except ValueError as e:
                 if config.missing_security_meta == "raise":
                     raise ValueError(f"Region exposure check failed: {e}") from e
