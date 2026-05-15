@@ -372,6 +372,13 @@ def mark_to_market_equity(state: dict[str, Any], prices_latest: pd.DataFrame) ->
     """Compute equity = cash + sum(position qty * latest price).
 
     Also updates HWM (high-water mark) for each position in-place.
+
+    Day-5-bug fix (2026-05-15): when a held position is NOT in prices_latest
+    (e.g. universe shrank but position still held), previously fell back to
+    px=0.0 silently → equity_curve underestimated by full position notional.
+    Now falls back to position avg_price as last-resort MTM and logs a WARNING
+    so the operator notices the data gap. Better than zero but operator must
+    re-add the symbol to the universe to restore accurate MTM.
     """
     cash = float(state.get("cash", 0))
     positions = state.get("positions") or {}
@@ -382,21 +389,40 @@ def mark_to_market_equity(state: dict[str, Any], prices_latest: pd.DataFrame) ->
         return cash
     price_map = prices_latest.set_index("symbol")[price_col].to_dict()
     mtm = cash
+    missing_price_syms: list[tuple[str, float, float]] = []
     for sym, pos in positions.items():
         qty = float(pos.get("qty", 0))
         if qty == 0:
             continue
         p = price_map.get(sym)
         try:
-            px = float(p) if p is not None else 0.0
+            px = float(p) if p is not None else None
         except (TypeError, ValueError):
-            px = 0.0
+            px = None
+        if px is None or px <= 0:
+            # Fallback to avg_price (cost basis) so equity doesn't silently
+            # drop by the missing position's notional. Operator-visible via WARN.
+            fallback_px = float(pos.get("avg_price", 0))
+            missing_price_syms.append((sym, qty, fallback_px))
+            px = fallback_px
         mtm += qty * px
-        # Update HWM for trailing stop support
-        if px > 0:
+        # Update HWM for trailing stop support (only on real market price)
+        if p is not None and px > 0:
             current_hwm = float(pos.get("hwm", 0))
             if px > current_hwm:
                 pos["hwm"] = px
+
+    if missing_price_syms:
+        details = ", ".join(
+            f"{s}(qty={q:.2f}, used_avg=${p:.2f})" for s, q, p in missing_price_syms
+        )
+        logger.warning(
+            "[mark_to_market] %d held position(s) missing from prices_latest — "
+            "falling back to avg_price for MTM (equity may drift from broker truth). "
+            "Re-add to universe/watchlist to fix: %s",
+            len(missing_price_syms),
+            details,
+        )
     return mtm
 
 
