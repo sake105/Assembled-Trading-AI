@@ -798,8 +798,18 @@ def _pb_run_cycle_fn_loop(
 
             _as_of = timestamp.date() if hasattr(timestamp, "date") else None
             update_drawdown_damper(equity_values[-1], _as_of)
-        except Exception:
-            pass
+        except ImportError as _imp_exc:
+            # multifactor_v2 missing — non-fatal, DD-damper just unavailable.
+            logger.debug("[backtest] DD-damper import failed: %s", _imp_exc)
+        except Exception as _exc:
+            # B3-N4 R6 fix: previously bare except: pass — silent risk-control
+            # failure. Now log at DEBUG so the failure is observable without
+            # spamming on every bar.
+            logger.debug(
+                "[backtest] update_drawdown_damper raised %s at %s",
+                _exc,
+                timestamp,
+            )
 
         if include_targets and not cycle_result.target_positions.empty:
             targets_with_timestamp = cycle_result.target_positions.copy()
@@ -1301,6 +1311,19 @@ def run_portfolio_backtest(
         >>> print(f"Sharpe: {result.metrics['sharpe']:.4f}")
         >>> print(f"Trades: {result.metrics['trades']}")
     """
+    # B3-N5 R6 fix: reset module-global _DD_DAMPER state at the start of every
+    # backtest run. Previously only scripts/batch_runner.py called reset between
+    # runs; programmatic multi-run sequences (notebooks, parameter sweeps) would
+    # inherit the previous run's drawdown state, biasing results.
+    try:
+        from src.assembled_core.strategies.multifactor_v2 import reset_dd_damper
+
+        reset_dd_damper()
+    except Exception as _exc:
+        # Defensive: if multifactor_v2 not importable, log and proceed.
+        # Backtest doesn't strictly require DD-damper.
+        logger.debug("[backtest] reset_dd_damper unavailable: %s", _exc)
+
     # Numba setup
     if use_numba is None:
         settings = get_settings()
