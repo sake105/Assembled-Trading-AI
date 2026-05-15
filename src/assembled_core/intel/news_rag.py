@@ -209,17 +209,52 @@ class NewsRAG:
             self._embed_backend = "tfidf"
 
         # Vector store
+        # B4-IN-08 HIGH fix (R5): use get-or-create pattern instead of
+        # recreate_collection (which DROPS existing data on every restart).
+        # The docstring promises "RAG retrieval over historical events" — we
+        # need to PRESERVE the historical corpus across process restarts.
+        # Use bootstrap() method for explicit opt-in collection recreation.
         self._qdrant_client: Any = None
         if _QDRANT and qdrant_host:
             try:
                 self._qdrant_client = QdrantClient(host=qdrant_host, port=qdrant_port)
-                self._qdrant_client.recreate_collection(
-                    collection_name=collection_name,
-                    vectors_config=VectorParams(
-                        size=self._embed_dim, distance=Distance.COSINE
-                    ),
-                )
+                # Check if collection exists; create only if missing.
+                try:
+                    existing = self._qdrant_client.get_collection(
+                        collection_name=collection_name
+                    )
+                    # Validate dimension matches; if not, log warning but preserve data
+                    cfg_dim = getattr(getattr(existing, "config", None), "params", None)
+                    if cfg_dim is not None and hasattr(cfg_dim, "vectors"):
+                        existing_dim = getattr(cfg_dim.vectors, "size", None)
+                        if existing_dim and existing_dim != self._embed_dim:
+                            logger.warning(
+                                "[NewsRAG] Qdrant collection %s exists with dim=%d "
+                                "but embedder uses dim=%d. Preserving collection — "
+                                "call bootstrap() explicitly to recreate.",
+                                collection_name,
+                                existing_dim,
+                                self._embed_dim,
+                            )
+                    logger.info(
+                        "[NewsRAG] Qdrant collection %s already exists, preserving historical corpus",
+                        collection_name,
+                    )
+                except Exception:
+                    # Collection missing → create it
+                    self._qdrant_client.create_collection(
+                        collection_name=collection_name,
+                        vectors_config=VectorParams(
+                            size=self._embed_dim, distance=Distance.COSINE
+                        ),
+                    )
+                    logger.info(
+                        "[NewsRAG] Created new Qdrant collection %s (dim=%d)",
+                        collection_name,
+                        self._embed_dim,
+                    )
                 self._store_backend = "qdrant"
+                self._collection_name = collection_name
             except Exception as exc:
                 logger.warning(
                     "[NewsRAG] Qdrant unavailable (%s), using in-memory store", exc
@@ -241,6 +276,38 @@ class NewsRAG:
                 self._anthropic_client = anthropic.Anthropic()
             except Exception:
                 pass
+
+    def bootstrap(self, *, force: bool = False) -> None:
+        """Explicitly (re)create the Qdrant collection. DESTRUCTIVE.
+
+        B4-IN-08 R5: previously the constructor called recreate_collection
+        which DROPPED data on every restart. The constructor now uses a
+        get-or-create pattern. Use bootstrap(force=True) explicitly when
+        you want to wipe and reinitialize — e.g. during a schema migration
+        or embedder-dim change.
+
+        Args:
+            force: Required to actually recreate. Default False is a safety
+                net — bootstrap() without force does nothing.
+        """
+        if not force:
+            logger.warning(
+                "[NewsRAG] bootstrap() called without force=True — no-op. "
+                "Pass force=True to recreate and wipe the collection."
+            )
+            return
+        if self._qdrant_client is None:
+            logger.warning("[NewsRAG] bootstrap: no Qdrant client, nothing to recreate")
+            return
+        collection_name = getattr(self, "_collection_name", "news_rag")
+        logger.warning(
+            "[NewsRAG] bootstrap(force=True): RECREATING collection %s — historical data will be LOST",
+            collection_name,
+        )
+        self._qdrant_client.recreate_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=self._embed_dim, distance=Distance.COSINE),
+        )
 
     def _embed(self, texts: list[str]) -> np.ndarray:
         if self._embed_backend == "sentence_transformers":
