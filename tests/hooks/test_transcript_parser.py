@@ -40,3 +40,33 @@ def test_only_returns_paths_from_last_assistant_turn(tmp_path):
     paths = edited_paths_in_last_turn(p, repo_root=REPO_ROOT_FAKE)
     assert "src/new.py" in paths
     assert "src/old.py" not in paths
+
+
+def test_tool_result_user_wrappers_do_not_terminate_trailing_turn(tmp_path):
+    """Regression: Claude Code wraps tool results as type=user entries whose
+    content is a list of tool_result blocks. Those must NOT count as turn
+    boundaries — otherwise the parser stops at the first tool result coming
+    back after an Edit/Write and never sees the edit.
+
+    Pre-fix bug: parser stopped at the user(tool_result) entry, so trailing
+    edits were invisible to the Stop hook → review chain never blocked despite
+    real edits in protected paths.
+    """
+    p = tmp_path / "t.jsonl"
+    p.write_text(
+        # Real user message (turn boundary)
+        '{"type":"user","message":{"role":"user","content":"fix scripts/foo.py"},"uuid":"u-real"}\n'
+        # Assistant makes an Edit
+        '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"F:/Python_Projekt/Aktiengeruest/scripts/foo.py","old_string":"a","new_string":"b"}}]},"uuid":"a-edit"}\n'
+        # Tool result wrapped as type=user (NOT a real user message)
+        '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]},"uuid":"u-tr"}\n'
+        # Assistant final text response
+        '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"done"}]},"uuid":"a-final"}\n'
+        # Attachment entries (unknown type — must be skipped)
+        '{"type":"attachment","content":""}\n',
+        encoding="utf-8",
+    )
+    paths = edited_paths_in_last_turn(p, repo_root=REPO_ROOT_FAKE)
+    assert (
+        "scripts/foo.py" in paths
+    ), f"Edit was hidden by tool_result wrapper bug. Got: {paths}"

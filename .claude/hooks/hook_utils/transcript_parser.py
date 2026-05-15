@@ -18,6 +18,27 @@ from typing import List
 EDITING_TOOLS = {"Edit", "Write", "NotebookEdit", "MultiEdit"}
 
 
+def _is_real_user_message(obj: dict) -> bool:
+    """True if this is genuine user input, False if it's a tool_result wrapper.
+
+    Claude Code wraps tool results as `type=user` entries whose `message.content`
+    is a list of `tool_result` blocks. Those must not count as turn boundaries —
+    otherwise the parser stops at the first tool result coming back to the
+    assistant and never sees the Edit/Write that preceded it.
+
+    A real user message either has a string content or a content list that
+    contains at least one `text` block. Pure-tool_result wrappers do not.
+    """
+    content = obj.get("message", {}).get("content", "")
+    if isinstance(content, str):
+        # Empty string still counts as a real (if degenerate) user turn — but
+        # in practice user turns always have non-empty text content.
+        return True
+    if not isinstance(content, list):
+        return False
+    return any(isinstance(b, dict) and b.get("type") == "text" for b in content)
+
+
 def _rel_to_repo(file_path: str, repo_root: Path) -> str | None:
     """Return path relative to repo_root in posix form, or None if outside repo."""
     try:
@@ -56,7 +77,7 @@ def edited_paths_in_last_turn(transcript_path: Path, repo_root: Path) -> List[st
         except json.JSONDecodeError:
             continue
         t = obj.get("type")
-        if t == "user":
+        if t == "user" and _is_real_user_message(obj):
             break
         if t == "assistant":
             trailing.append(obj)
