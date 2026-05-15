@@ -83,6 +83,106 @@ def test_apply_fills_updates_cash_and_positions() -> None:
     assert after2["cash"] == 8000 + 5 * 102  # 8510
 
 
+def test_apply_fills_short_open_F_A_1() -> None:
+    """SELL on zero position opens a short. Cash credited, qty negative.
+
+    Regression for F-A-1 (BLOCKER): previously dropped silently.
+    """
+    state: dict[str, Any] = {"cash": 10000.0, "positions": {}, "equity_curve": []}
+    fills = [{"symbol": "A", "side": "SELL", "qty": 10.0, "price": 100.0}]
+    after = apply_fills_to_ledger(state, fills)
+    # Cash credited by sale proceeds
+    assert after["cash"] == 11000.0
+    # Short position recorded
+    pos = after["positions"].get("A")
+    assert pos is not None, "short position must be recorded (F-A-1 regression)"
+    assert pos["qty"] == -10.0
+    assert pos["avg_price"] == 100.0
+
+
+def test_apply_fills_oversell_flips_long_to_short_F_A_1() -> None:
+    """SELL qty > pos_qty closes long and opens short for the overflow.
+
+    Regression for F-A-1 (BLOCKER): previously credited only sell_qty=pos_qty
+    and silently dropped overflow shares.
+    """
+    state: dict[str, Any] = {
+        "cash": 10000.0,
+        "positions": {"A": {"qty": 5.0, "avg_price": 90.0, "hwm": 95.0}},
+        "equity_curve": [],
+    }
+    fills = [{"symbol": "A", "side": "SELL", "qty": 8.0, "price": 100.0}]
+    after = apply_fills_to_ledger(state, fills)
+    # Cash credited for FULL 8 shares at $100 (not just 5)
+    assert after["cash"] == 10800.0
+    # Position flipped to short by overflow amount (3 shares short @ 100)
+    pos = after["positions"].get("A")
+    assert pos is not None
+    assert pos["qty"] == -3.0
+    assert pos["avg_price"] == 100.0  # new short opened at fill price
+
+
+def test_apply_fills_add_to_short_weighted_avg_F_A_1() -> None:
+    """SELL adding to existing short updates weighted avg of short opens."""
+    state: dict[str, Any] = {
+        "cash": 10000.0,
+        "positions": {"A": {"qty": -10.0, "avg_price": 100.0, "hwm": 100.0}},
+        "equity_curve": [],
+    }
+    fills = [{"symbol": "A", "side": "SELL", "qty": 10.0, "price": 110.0}]
+    after = apply_fills_to_ledger(state, fills)
+    # More cash credited
+    assert after["cash"] == 11100.0
+    pos = after["positions"]["A"]
+    assert pos["qty"] == -20.0
+    # Weighted avg: (10*100 + 10*110) / 20 = 105
+    assert pos["avg_price"] == 105.0
+
+
+def test_apply_fills_cover_short_partial() -> None:
+    """BUY covering part of a short: qty less negative, short avg preserved."""
+    state: dict[str, Any] = {
+        "cash": 10000.0,
+        "positions": {"A": {"qty": -10.0, "avg_price": 100.0, "hwm": 100.0}},
+        "equity_curve": [],
+    }
+    fills = [{"symbol": "A", "side": "BUY", "qty": 4.0, "price": 90.0}]
+    after = apply_fills_to_ledger(state, fills)
+    # Cash debited by cover cost
+    assert after["cash"] == 10000.0 - 4 * 90  # 9640
+    pos = after["positions"]["A"]
+    assert pos["qty"] == -6.0
+    assert pos["avg_price"] == 100.0  # short avg preserved
+
+
+def test_apply_fills_cover_short_exact() -> None:
+    """BUY exactly covering a short: position popped."""
+    state: dict[str, Any] = {
+        "cash": 10000.0,
+        "positions": {"A": {"qty": -10.0, "avg_price": 100.0, "hwm": 100.0}},
+        "equity_curve": [],
+    }
+    fills = [{"symbol": "A", "side": "BUY", "qty": 10.0, "price": 90.0}]
+    after = apply_fills_to_ledger(state, fills)
+    assert after["cash"] == 10000.0 - 10 * 90  # 9100
+    assert "A" not in after["positions"]
+
+
+def test_apply_fills_cover_short_and_flip_to_long() -> None:
+    """BUY covering short + going long: flip with new long avg at fill price."""
+    state: dict[str, Any] = {
+        "cash": 10000.0,
+        "positions": {"A": {"qty": -10.0, "avg_price": 100.0, "hwm": 100.0}},
+        "equity_curve": [],
+    }
+    fills = [{"symbol": "A", "side": "BUY", "qty": 15.0, "price": 90.0}]
+    after = apply_fills_to_ledger(state, fills)
+    assert after["cash"] == 10000.0 - 15 * 90  # 8650
+    pos = after["positions"]["A"]
+    assert pos["qty"] == 5.0  # 15 - 10 = 5 long
+    assert pos["avg_price"] == 90.0  # new long opened at fill price
+
+
 def test_mark_to_market_equity() -> None:
     """mark_to_market_equity = cash + sum(qty * latest_price)."""
     state: dict[str, Any] = {

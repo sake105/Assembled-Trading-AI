@@ -262,31 +262,88 @@ def apply_fills_to_ledger(
         pos_avg = pos["avg_price"]
         pos_hwm = pos.get("hwm", pos_avg)
         _notional = Decimal(str(qty)) * Decimal(str(price))
+        # F-A-1 fix: explicit cases distinguishing long/short and cover/flip.
+        # Cash flow rule: BUY always debits qty*price, SELL always credits qty*price.
+        # Position rule: track signed qty, with avg_price as weighted avg of opens
+        # on the same side. When covering or flipping, the OPPOSITE-side leg's avg
+        # is replaced (not blended) at the fill price.
         if side == "BUY":
-            new_qty = pos_qty + qty
-            new_avg = (pos_avg * pos_qty + price * qty) / new_qty if new_qty else 0.0
-            new_hwm = max(pos_hwm, price) if pos_hwm > 0 else price
-            out["positions"][symbol] = {
-                "qty": new_qty,
-                "avg_price": new_avg,
-                "hwm": new_hwm,
-            }
             _cash_d -= _notional
-        else:
-            new_qty = pos_qty - qty
-            if new_qty <= 0:
-                # Full close (or oversell): sell all held shares at fill_price
-                sell_qty = min(qty, pos_qty)
-                out["positions"].pop(symbol, None)
-                _cash_d += Decimal(str(sell_qty)) * Decimal(str(price))
-            else:
-                # Partial sell: reduce position, keep avg_price and hwm
+            if pos_qty >= 0:
+                # Long addition (or opening from zero)
+                new_qty = pos_qty + qty
+                new_avg = (
+                    (pos_avg * pos_qty + price * qty) / new_qty if new_qty else 0.0
+                )
+                new_hwm = max(pos_hwm, price) if pos_hwm > 0 else price
                 out["positions"][symbol] = {
                     "qty": new_qty,
-                    "avg_price": pos_avg,
-                    "hwm": pos_hwm,
+                    "avg_price": new_avg,
+                    "hwm": new_hwm,
                 }
-                _cash_d += _notional
+            else:
+                # Covering short. cover_qty bounded by short size; remainder flips long.
+                short_open = -pos_qty  # positive
+                cover_qty = min(qty, short_open)
+                remaining_buy = qty - cover_qty
+                new_short = pos_qty + cover_qty  # less negative or 0
+                if new_short < 0:
+                    # Still short, qty reduced; short avg preserved
+                    out["positions"][symbol] = {
+                        "qty": new_short,
+                        "avg_price": pos_avg,
+                        "hwm": pos_hwm,
+                    }
+                elif new_short == 0 and remaining_buy == 0:
+                    # Short fully covered, no overflow
+                    out["positions"].pop(symbol, None)
+                else:
+                    # Short fully covered, overflow opens new long at fill price
+                    out["positions"][symbol] = {
+                        "qty": remaining_buy,
+                        "avg_price": price,
+                        "hwm": price,
+                    }
+        else:  # SELL
+            _cash_d += _notional
+            if pos_qty > 0:
+                new_qty = pos_qty - qty
+                if new_qty > 0:
+                    # Partial sell of long; avg/hwm preserved
+                    out["positions"][symbol] = {
+                        "qty": new_qty,
+                        "avg_price": pos_avg,
+                        "hwm": pos_hwm,
+                    }
+                elif new_qty == 0:
+                    out["positions"].pop(symbol, None)
+                else:
+                    # Oversell: close long + open short for the overflow
+                    short_qty = qty - pos_qty  # positive overflow
+                    out["positions"][symbol] = {
+                        "qty": -short_qty,
+                        "avg_price": price,
+                        "hwm": price,
+                    }
+            else:
+                # Opening or adding to short (pos_qty <= 0)
+                new_qty = pos_qty - qty  # more negative
+                if pos_qty == 0:
+                    new_avg = price
+                    new_hwm = price
+                else:
+                    # Weighted avg of short opens: prior short_qty * prior_avg + new qty * price
+                    short_open_prior = -pos_qty
+                    short_open_new = -new_qty
+                    new_avg = (
+                        pos_avg * short_open_prior + price * qty
+                    ) / short_open_new
+                    new_hwm = max(pos_hwm, price) if pos_hwm > 0 else price
+                out["positions"][symbol] = {
+                    "qty": new_qty,
+                    "avg_price": new_avg,
+                    "hwm": new_hwm,
+                }
     out["cash"] = float(_cash_d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     return out
 
