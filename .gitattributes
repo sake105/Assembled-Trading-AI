@@ -1,1 +1,16 @@
 *.parquet filter=lfs diff=lfs merge=lfs -text
+
+# R6 fix: force LF line endings on text files to prevent Windows CRLF↔LF
+# hook loop in pre-commit (ruff-format/black reformat CRLF→LF, autocrlf
+# converts back, infinite loop). See audit commits fe21a6b/b87e091/d2e5f83
+# for context.
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.sh text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
