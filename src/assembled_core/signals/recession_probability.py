@@ -93,18 +93,33 @@ def recession_signal_multiplier(recession_prob: float, threshold: float = 0.5) -
     return 0.5 if recession_prob > threshold else 1.0
 
 
-def latest_recession_prob_from_fred(fred_client: object) -> float:
+def latest_recession_prob_from_fred(
+    fred_client: object,
+    as_of: pd.Timestamp | None = None,
+) -> float:
     """Fetch T10Y3M and NFCI from FRED and compute latest recession probability.
 
     Args:
         fred_client: fredapi.Fred instance.
+        as_of: PIT cutoff. When given, FRED requests are bounded via
+            observation_end and series sliced ≤ as_of before iloc[-1].
+            None (default) → live mode.
 
     Returns:
         Latest recession probability [0, 1]. Returns 0.3 (neutral) on failure.
+
+    F-B-5 MAJOR fix: previously fetched unbounded and took iloc[-1] → forward
+    leak in backtests.
     """
     try:
-        t10y3m = fred_client.get_series("T10Y3M")
-        nfci = fred_client.get_series("NFCI")
+        kwargs = {}
+        if as_of is not None:
+            kwargs["observation_end"] = as_of.strftime("%Y-%m-%d")
+        t10y3m = fred_client.get_series("T10Y3M", **kwargs)
+        nfci = fred_client.get_series("NFCI", **kwargs)
+        if as_of is not None:
+            t10y3m = t10y3m[t10y3m.index <= as_of]
+            nfci = nfci[nfci.index <= as_of]
         probs = compute_recession_probability(t10y3m, nfci)
         if probs.empty:
             return 0.3

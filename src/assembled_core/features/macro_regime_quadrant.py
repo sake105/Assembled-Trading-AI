@@ -89,22 +89,41 @@ def compute_macro_quadrant(
     return quadrant
 
 
-def current_quadrant_from_fred(fred_client: object, lookback: int = 252) -> str:
-    """Fetch latest FRED data and return current macro quadrant label.
+def current_quadrant_from_fred(
+    fred_client: object,
+    lookback: int = 252,
+    as_of: pd.Timestamp | None = None,
+) -> str:
+    """Fetch FRED data and return macro quadrant label.
 
     Args:
         fred_client: fredapi.Fred instance.
         lookback: Z-score window.
+        as_of: PIT cutoff. When given (backtest mode), FRED requests are bounded
+            via observation_end and series sliced ≤ as_of before iloc[-1].
+            None (default) → live mode, fetches latest data.
 
     Returns:
         Quadrant label string or 'unknown'.
+
+    F-B-4 MAJOR fix: previously fetched all FRED series unbounded and took
+    iloc[-1] regardless of caller context → forward leak in backtests.
     """
     try:
-        ism = fred_client.get_series("MANEMP")
-        nfp = fred_client.get_series("PAYEMS").pct_change(3) * 100
-        cpi_raw = fred_client.get_series("CPIAUCSL")
+        kwargs = {}
+        if as_of is not None:
+            kwargs["observation_end"] = as_of.strftime("%Y-%m-%d")
+        ism = fred_client.get_series("MANEMP", **kwargs)
+        nfp = fred_client.get_series("PAYEMS", **kwargs).pct_change(3) * 100
+        cpi_raw = fred_client.get_series("CPIAUCSL", **kwargs)
         cpi_yoy = cpi_raw.pct_change(12) * 100
-        be5y5y = fred_client.get_series("T5YIFR")
+        be5y5y = fred_client.get_series("T5YIFR", **kwargs)
+
+        if as_of is not None:
+            ism = ism[ism.index <= as_of]
+            nfp = nfp[nfp.index <= as_of]
+            cpi_yoy = cpi_yoy[cpi_yoy.index <= as_of]
+            be5y5y = be5y5y[be5y5y.index <= as_of]
 
         quadrant_series = compute_macro_quadrant(ism, nfp, cpi_yoy, be5y5y, lookback)
         if quadrant_series.empty:

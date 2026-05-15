@@ -91,22 +91,38 @@ def sentiment_multiplier(score: float) -> float:
     return 1.0
 
 
-def latest_sentiment_score(fred_client: object, spy_return_127d: float) -> float:
+def latest_sentiment_score(
+    fred_client: object,
+    spy_return_127d: float,
+    as_of: pd.Timestamp | None = None,
+) -> float:
     """Compute latest sentiment score from FRED data.
 
     Args:
         fred_client: fredapi.Fred instance.
         spy_return_127d: Pre-computed 127-day SPY return (float).
+        as_of: PIT cutoff. When given, FRED requests are bounded via
+            observation_end and series sliced ≤ as_of before iloc[-1].
+            None (default) → live mode.
 
     Returns:
         Sentiment score 0-100. Returns 50.0 on failure.
+
+    F-B-6 MAJOR fix: previously fetched unbounded and took iloc[-1] → forward
+    leak in backtests.
     """
     try:
-        vix = fred_client.get_series("VIXCLS")
-        hy = fred_client.get_series("BAMLH0A0HYM2")
-        umich = fred_client.get_series("UMCSENT")
-        # CBOE put/call via local daily download (CBOE public CSV)
-        # Use VIX as proxy if CBOE unavailable
+        kwargs = {}
+        if as_of is not None:
+            kwargs["observation_end"] = as_of.strftime("%Y-%m-%d")
+        vix = fred_client.get_series("VIXCLS", **kwargs)
+        hy = fred_client.get_series("BAMLH0A0HYM2", **kwargs)
+        umich = fred_client.get_series("UMCSENT", **kwargs)
+        if as_of is not None:
+            vix = vix[vix.index <= as_of]
+            hy = hy[hy.index <= as_of]
+            if umich is not None:
+                umich = umich[umich.index <= as_of]
         common_idx = vix.index.intersection(hy.index)
         if len(common_idx) < 20:
             return 50.0
