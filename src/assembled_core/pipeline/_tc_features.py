@@ -190,6 +190,14 @@ def build_features(
                     benchmark_symbol=regime_cfg.get("benchmark_symbol"),
                 )
                 if not hmm_df.empty:
+                    # F-A-4 MAJOR fix: sort by date BEFORE iloc[-1]. Without
+                    # this, "last row" can correspond to the wrong day
+                    # (e.g. if build_regime_state_hmm returns symbol/timestamp
+                    # ordered rows). Wrong regime contaminates sizing + risk.
+                    if "date" in hmm_df.columns:
+                        hmm_df = hmm_df.sort_values("date", kind="mergesort")
+                    elif "timestamp" in hmm_df.columns:
+                        hmm_df = hmm_df.sort_values("timestamp", kind="mergesort")
                     ctx.regime_state = hmm_df.iloc[-1].get("regime_label", "sideways")
                     log.info("REGIME_HMM: detected regime='%s'", ctx.regime_state)
     except Exception as e:
@@ -495,7 +503,6 @@ def build_features(
             and not pwf.empty
             and "timestamp" in pwf.columns
         ):
-
             _macro = pd.read_parquet(macro_path)
             _macro["timestamp"] = pd.to_datetime(
                 _macro["timestamp"], utc=True

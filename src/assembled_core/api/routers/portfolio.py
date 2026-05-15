@@ -105,11 +105,15 @@ def _estimate_cash_from_equity_and_positions(
 
     # Try to get latest prices from orders for position valuation
     # This is a simplification - ideally we'd have current market prices
+    # F-C-10 MAJOR fix: sort by timestamp BEFORE iloc[-1]. load_orders() does
+    # not guarantee sort order; appending out-of-order (e.g. concurrent paper
+    # runs) would pick an older fill and yield a stale position valuation.
     position_value = 0.0
     for symbol, qty in positions.items():
-        # Get latest order price for this symbol as proxy
         symbol_orders = orders[orders["symbol"] == symbol]
         if not symbol_orders.empty:
+            if "timestamp" in symbol_orders.columns:
+                symbol_orders = symbol_orders.sort_values("timestamp", kind="mergesort")
             latest_price = float(symbol_orders.iloc[-1]["price"])
             position_value += qty * latest_price
 

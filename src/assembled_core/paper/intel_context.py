@@ -198,16 +198,24 @@ def _populate_sector_rotation_scores(ctx: Any) -> None:
     if scores_df is None or scores_df.empty:
         return
 
+    # F-A-3 MAJOR fix: sort by timestamp BEFORE iloc[-1]. Pandas merges/joins
+    # can produce out-of-order rows, so "last by source order" is not "latest
+    # by timestamp" without an explicit sort. Stable mergesort preserves
+    # source order on ties.
     as_of = getattr(ctx, "as_of", None)
-    if as_of is not None and ts_col in scores_df.columns:
+    if ts_col in scores_df.columns:
         _ts_series = pd.to_datetime(scores_df[ts_col], utc=True, errors="coerce")
-        _as_of_ts = pd.Timestamp(as_of)
-        if _as_of_ts.tzinfo is None:
-            _as_of_ts = _as_of_ts.tz_localize("UTC")
-        cut = scores_df[_ts_series <= _as_of_ts]
-        if cut.empty:
+        scores_df = scores_df.assign(_pit_ts=_ts_series).sort_values(
+            "_pit_ts", kind="mergesort"
+        )
+        if as_of is not None:
+            _as_of_ts = pd.Timestamp(as_of)
+            if _as_of_ts.tzinfo is None:
+                _as_of_ts = _as_of_ts.tz_localize("UTC")
+            scores_df = scores_df[scores_df["_pit_ts"] <= _as_of_ts]
+        if scores_df.empty:
             return
-        last_row = cut.iloc[-1]
+        last_row = scores_df.iloc[-1].drop("_pit_ts", errors="ignore")
     else:
         last_row = scores_df.iloc[-1]
 
