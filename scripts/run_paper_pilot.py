@@ -45,7 +45,7 @@ def cancel_all_stale_orders(older_than_minutes: int = 5) -> int:
     """
     cancelled = 0
     try:
-        from src.assembled_core.execution.alpaca_adapter import AlpacaAdapter
+        from src.assembled_core.execution.broker_adapter import AlpacaAdapter
 
         adapter = AlpacaAdapter()
         open_orders = (
@@ -140,7 +140,7 @@ def check_state_recovery() -> None:
     # 2. Fetch broker open positions
     broker_symbols: set[str] = set()
     try:
-        from src.assembled_core.execution.alpaca_adapter import AlpacaAdapter
+        from src.assembled_core.execution.broker_adapter import AlpacaAdapter
 
         adapter = AlpacaAdapter()
         positions = adapter.get_positions() if hasattr(adapter, "get_positions") else []
