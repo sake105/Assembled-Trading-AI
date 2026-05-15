@@ -59,8 +59,13 @@ if ($existing) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
-# Action: invoke the batch via cmd.exe
-$action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"$BatchPath`""
+# Action: invoke the batch via powershell.exe (handles UTF-16 args; cmd.exe garbles the
+# umlaut in 'Aktiengerüst' under Task Scheduler's non-interactive codepage and exits rc=3).
+# powershell.exe -File expects the full path; -WorkingDirectory anchors cwd before cmd starts.
+$action = New-ScheduledTaskAction `
+    -Execute 'powershell.exe' `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"& '$BatchPath'`"" `
+    -WorkingDirectory $RepoRoot
 
 # Trigger: daily at 21:30 local time, weekdays only
 # (Mon-Fri encoded via DaysOfWeek property after creation)
