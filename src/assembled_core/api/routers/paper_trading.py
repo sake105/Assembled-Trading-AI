@@ -40,6 +40,14 @@ router = APIRouter()
 # Global engine instance (singleton for this process)
 _engine = PaperTradingEngine()
 
+# F-C-2 MAJOR fix: serialize all _engine access via a threading.Lock.
+# Without this, concurrent POSTs to /paper/orders race on engine state, and
+# a /paper/reset during in-flight orders is unbounded. Use a re-entrant lock
+# in case nested calls (e.g. helper that already holds the lock) are added.
+import threading as _threading  # local import to avoid module-level reorder
+
+_engine_lock = _threading.RLock()
+
 # Paper trading configuration
 # Default: Risk controls enabled (safe by default)
 # Can be disabled for testing/development
@@ -69,7 +77,8 @@ def _build_portfolio_snapshot_from_engine() -> pd.DataFrame | None:
     Returns:
         DataFrame with columns: symbol, qty (or None if no positions)
     """
-    positions = _engine.get_positions()
+    with _engine_lock:
+        positions = _engine.get_positions()
     if not positions:
         return None
 
@@ -106,9 +115,13 @@ def _apply_risk_controls_to_paper_orders(
     if not paper_orders:
         return [], []
 
-    # Convert paper orders to DataFrame
+    # F-C-1 MAJOR fix: assign each input order a stable row id so we can
+    # reconcile pass/reject by id even when two orders have identical
+    # (symbol, side, qty, price) tuples (which would otherwise collapse in
+    # a set lookup → silent duplicate-loss).
     orders_df = pd.DataFrame(
         {
+            "_row_id": list(range(len(paper_orders))),
             "symbol": [order.symbol for order in paper_orders],
             "side": [order.side for order in paper_orders],
             "qty": [order.quantity for order in paper_orders],
@@ -155,28 +168,42 @@ def _apply_risk_controls_to_paper_orders(
             order.reason = "KILL_SWITCH: Kill switch is engaged"
         return [], rejected
 
-    # Create a mapping from (symbol, side, qty, price) to order index in filtered_df
-    # Use a more robust matching approach: match by symbol, side, qty, and approximate price
-    filtered_set = set(
-        zip(
-            filtered_df["symbol"].astype(str).str.strip().str.upper(),
-            filtered_df["side"].astype(str).str.strip().str.upper(),
-            filtered_df["qty"].astype(float),
-            filtered_df["price"].astype(float),
+    # F-C-1 MAJOR fix: match passed/rejected via _row_id (carried through risk
+    # filtering if filtered_df preserves it) rather than via a set of value-tuples
+    # which collapses duplicates. Fallback: if filtered_df dropped _row_id, fall
+    # back to value-tuple set BUT log a WARNING so the cardinality-loss is visible.
+    if "_row_id" in filtered_df.columns:
+        passed_row_ids = set(filtered_df["_row_id"].astype(int).tolist())
+        use_row_id_match = True
+    else:
+        logger.warning(
+            "[F-C-1] filtered_df dropped _row_id during risk filtering; falling "
+            "back to value-tuple matching (silent duplicate-loss possible)."
         )
-    )
+        passed_row_ids = set()
+        filtered_set = set(
+            zip(
+                filtered_df["symbol"].astype(str).str.strip().str.upper(),
+                filtered_df["side"].astype(str).str.strip().str.upper(),
+                filtered_df["qty"].astype(float),
+                filtered_df["price"].astype(float),
+            )
+        )
+        use_row_id_match = False
 
-    # Categorize orders
-    for order in paper_orders:
-        # Normalize for matching
-        symbol = order.symbol.strip().upper()
-        side = order.side.upper()
-        qty = order.quantity
-        price = order.price if order.price is not None else 0.0
+    # Categorize orders by row id (id-based, no cardinality loss)
+    for row_id, order in enumerate(paper_orders):
+        if use_row_id_match:
+            order_passed = row_id in passed_row_ids
+        else:
+            symbol = order.symbol.strip().upper()
+            side = order.side.upper()
+            qty = order.quantity
+            price = order.price if order.price is not None else 0.0
+            key = (symbol, side, qty, price)
+            order_passed = key in filtered_set
 
-        key = (symbol, side, qty, price)
-
-        if key in filtered_set:
+        if order_passed:
             # Order passed risk controls
             passed_orders.append(order)
         else:
@@ -266,10 +293,11 @@ def submit_paper_orders(
             pre_trade_config=_DEFAULT_PRE_TRADE_CONFIG,
         )
 
-        # Only submit orders that passed risk controls
+        # Only submit orders that passed risk controls. F-C-2: serialize via lock.
         if passed_orders:
             try:
-                filled_orders = _engine.submit_orders(passed_orders)
+                with _engine_lock:
+                    filled_orders = _engine.submit_orders(passed_orders)
             except ValueError as e:
                 # If engine rejects, mark as rejected
                 for order in passed_orders:
@@ -287,9 +315,10 @@ def submit_paper_orders(
         # Combine filled and rejected orders
         all_orders = filled_orders + rejected_orders
     else:
-        # Risk controls disabled - submit all orders directly
+        # Risk controls disabled - submit all orders directly. F-C-2: lock.
         try:
-            all_orders = _engine.submit_orders(paper_orders)
+            with _engine_lock:
+                all_orders = _engine.submit_orders(paper_orders)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
@@ -314,7 +343,8 @@ def list_paper_orders(limit: int | None = 50) -> list[PaperOrderResponse]:
         raise HTTPException(status_code=400, detail="limit must be >= 0")
 
     try:
-        orders = _engine.list_orders(limit=limit)
+        with _engine_lock:
+            orders = _engine.list_orders(limit=limit)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing orders: {e}")
 
@@ -330,7 +360,8 @@ def get_paper_positions() -> list[PaperPosition]:
         List of PaperPosition objects (only non-zero positions)
     """
     try:
-        positions = _engine.get_positions()
+        with _engine_lock:
+            positions = _engine.get_positions()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting positions: {e}")
 
@@ -351,7 +382,9 @@ def reset_paper_trading(
         PaperResetResponse with status
     """
     try:
-        _engine.reset()
+        # F-C-2: lock around reset to prevent in-flight order corruption.
+        with _engine_lock:
+            _engine.reset()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error resetting engine: {e}")
 

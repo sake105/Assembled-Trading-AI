@@ -133,7 +133,7 @@ def filter_events_as_of(
     timestamp_col: str = "timestamp",
     disclosure_col: str | None = None,
     event_date_col: str | None = None,
-    fallback_to_event_date: bool = True,
+    fallback_to_event_date: bool = False,
 ) -> pd.DataFrame:
     """Return only events known at *as_of* (point-in-time safe).
 
@@ -151,7 +151,11 @@ def filter_events_as_of(
         Fallback column when *disclosure_col* is absent from the DataFrame.
     fallback_to_event_date:
         If True and *disclosure_col* is missing, try *event_date_col*.
-        If False, raise ValueError when *disclosure_col* is missing.
+        F-B-10 MAJOR fix: default flipped from True → False. event_date is the
+        event occurrence, NOT the disclosure timestamp. Falling back to
+        event_date introduces look-ahead for vendors where event_date ≈
+        effective_date. Callers must explicitly opt in to the fallback if
+        their vendor data has matching event_date/disclosure_date semantics.
     """
     # Ensure as_of is timezone-aware (UTC).
     if as_of.tzinfo is None:
@@ -166,6 +170,15 @@ def filter_events_as_of(
             and event_date_col is not None
             and event_date_col in events.columns
         ):
+            import logging as _lg
+
+            _lg.getLogger(__name__).warning(
+                "[PIT] disclosure_col '%s' missing; falling back to event_date_col '%s' "
+                "(opt-in via fallback_to_event_date=True). Verify your vendor's "
+                "event_date is NOT later than disclosure timestamp.",
+                disclosure_col,
+                event_date_col,
+            )
             filter_col = event_date_col
         elif not fallback_to_event_date:
             raise ValueError(

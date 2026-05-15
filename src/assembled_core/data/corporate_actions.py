@@ -409,11 +409,24 @@ def apply_delisting_exits(
             continue
         sym_prices = sym_prices.copy()
         sym_prices[ts_col] = pd.to_datetime(sym_prices[ts_col], utc=True)
+        sym_prices = sym_prices.sort_values(ts_col, kind="mergesort")
         before = sym_prices[sym_prices[ts_col] <= eff]
         if before.empty:
-            last_price = float(sym_prices["close"].iloc[-1])
-        else:
-            last_price = float(before["close"].iloc[-1])
+            # F-B-9 MAJOR fix: no prior price means we have a data-coverage
+            # anomaly, not a tradable exit. Previously fell back to iloc[-1]
+            # which is by definition AFTER delisting (bid-ask collapse → unrealistic).
+            # Skip the row with WARN so the issue is observable instead of silently
+            # propagating an unreliable exit price into the ledger.
+            import logging as _lg
+
+            _lg.getLogger(__name__).warning(
+                "[CorpActions] no pre-delisting price for %s on %s — skipping exit row "
+                "(data coverage anomaly, not silently fallback to post-delisting price)",
+                sym,
+                eff,
+            )
+            continue
+        last_price = float(before["close"].iloc[-1])
         rows.append(
             {
                 "timestamp": eff,

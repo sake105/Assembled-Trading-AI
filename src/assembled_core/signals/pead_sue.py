@@ -82,8 +82,17 @@ def pre_trade_earnings_check(
     ticker: str,
     finnhub_client: Any,
     days_threshold: int = 2,
+    today: "datetime.date | None" = None,  # noqa: F821 — forward ref
 ) -> bool:
-    """Return True if earnings within days_threshold — reduce or block position."""
+    """Return True if earnings within days_threshold — reduce or block position.
+
+    F-B-11 MAJOR fix: added explicit `today` parameter so backtest callers can
+    pass `today=as_of.date()` for PIT-safety. Previously used `datetime.date.today()`
+    unconditionally, which leaks future earnings calendar data into backtests.
+    Live/paper callers can omit `today` and the function defaults to UTC today.
+    """
+    import datetime
+
     try:
         cal = finnhub_client.earnings_calendar(
             _from="", to="", symbol=ticker, international=False
@@ -93,9 +102,9 @@ def pre_trade_earnings_check(
         items = cal["earningsCalendar"]
         if not items:
             return False
-        import datetime
 
-        today = datetime.date.today()
+        if today is None:
+            today = datetime.datetime.now(tz=datetime.timezone.utc).date()
         for item in items[:3]:
             date_str = item.get("date", "")
             if not date_str:
