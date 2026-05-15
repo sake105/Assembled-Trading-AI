@@ -29,11 +29,15 @@ def _is_real_user_message(obj: dict) -> bool:
     A real user message either has a string content or a content list that
     contains at least one `text` block. Pure-tool_result wrappers do not.
     """
-    content = obj.get("message", {}).get("content", "")
+    # F-senior-1: `message=null` (vs. missing key) reaches .get on None → AttributeError.
+    # The hook would then exit non-zero, Claude Code treats hook failure as fail-open,
+    # same silent-bypass outcome as the original bug via a different mechanism.
+    message = obj.get("message") or {}
+    content = message.get("content", "") if isinstance(message, dict) else ""
     if isinstance(content, str):
-        # Empty string still counts as a real (if degenerate) user turn — but
-        # in practice user turns always have non-empty text content.
-        return True
+        # F-senior-3: whitespace-only string is not a real user turn (production
+        # transcripts never emit them; defensive against synthetic injections).
+        return bool(content.strip())
     if not isinstance(content, list):
         return False
     return any(isinstance(b, dict) and b.get("type") == "text" for b in content)

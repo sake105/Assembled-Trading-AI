@@ -42,6 +42,39 @@ def test_only_returns_paths_from_last_assistant_turn(tmp_path):
     assert "src/old.py" not in paths
 
 
+def test_null_message_does_not_crash(tmp_path):
+    """F-senior-1 regression: type=user with message=null must not crash the parser.
+
+    Pre-fix the parser called .get("content") on None → AttributeError → hook
+    exited non-zero → Claude Code fail-opened → silent bypass via crash path.
+    Now: null message is treated as not-a-real-user-message (not a turn boundary).
+    """
+    p = tmp_path / "t.jsonl"
+    p.write_text(
+        '{"type":"user","message":{"role":"user","content":"real request"},"uuid":"u-real"}\n'
+        '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"F:/Python_Projekt/Aktiengeruest/scripts/x.py","old_string":"a","new_string":"b"}}]},"uuid":"a-edit"}\n'
+        '{"type":"user","message":null,"uuid":"u-null"}\n'
+        '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"done"}]},"uuid":"a-final"}\n',
+        encoding="utf-8",
+    )
+    paths = edited_paths_in_last_turn(p, repo_root=REPO_ROOT_FAKE)
+    assert "scripts/x.py" in paths
+
+
+def test_whitespace_only_user_content_not_a_turn_boundary(tmp_path):
+    """F-senior-3: whitespace-only string content is not a real user turn."""
+    p = tmp_path / "t.jsonl"
+    p.write_text(
+        '{"type":"user","message":{"role":"user","content":"real request"},"uuid":"u-real"}\n'
+        '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"F:/Python_Projekt/Aktiengeruest/scripts/y.py","old_string":"a","new_string":"b"}}]},"uuid":"a-edit"}\n'
+        '{"type":"user","message":{"role":"user","content":"   "},"uuid":"u-ws"}\n'
+        '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"done"}]},"uuid":"a-final"}\n',
+        encoding="utf-8",
+    )
+    paths = edited_paths_in_last_turn(p, repo_root=REPO_ROOT_FAKE)
+    assert "scripts/y.py" in paths
+
+
 def test_tool_result_user_wrappers_do_not_terminate_trailing_turn(tmp_path):
     """Regression: Claude Code wraps tool results as type=user entries whose
     content is a list of tool_result blocks. Those must NOT count as turn
