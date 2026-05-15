@@ -808,12 +808,15 @@ def _compute_congress_factors(
 def _compute_geo_risk_composite(
     latest_symbols: list[str],
     latest: pd.DataFrame,
+    as_of: pd.Timestamp | None = None,
 ) -> dict[str, pd.Series]:
     """Factor 31: geo-political risk composite (Pfad B).
 
     Priority:
     1. Pre-merged panel columns: gpr_index, acled_intensity, geo_risk_score.
-    2. Live fetch via compute_gpr_from_fred (FRED API, may be slow/rate-limited).
+    2. Live fetch via compute_gpr_from_fred (FRED API). DISABLED in backtest mode
+       (when as_of is set) per F-B-1 BLOCKER fix: live fetch uses date.today()
+       and would leak future data into backtest replays.
     3. Zero-fill (graceful degradation).
 
     Sign convention: positive score = higher geopolitical risk → bearish signal
@@ -850,7 +853,17 @@ def _compute_geo_risk_composite(
         )
         return result
 
-    # Path 2: fetch live GPR from FRED (GPRC = historical, monthly series)
+    # Path 2: fetch live GPR from FRED (GPRC = historical, monthly series).
+    # F-B-1 BLOCKER fix: SKIP entirely in backtest mode (when as_of is set).
+    # Reason: date.today()-based fetch would inject future data into replays.
+    if as_of is not None:
+        logger.debug(
+            "[MF-V2] geo composite: as_of=%s set (backtest mode), skipping live FRED fetch, zero-fill",
+            as_of,
+        )
+        result["geo_risk_composite"] = pd.Series(0.0, index=sym_idx.values)
+        return result
+
     try:
         import datetime as _dt
         from src.assembled_core.features.geopolitical_features import (
@@ -891,12 +904,17 @@ def _compute_geo_risk_composite(
 def _compute_insider_cluster_factor(
     latest_symbols: list[str],
     latest: pd.DataFrame,
+    as_of: pd.Timestamp | None = None,
 ) -> dict[str, pd.Series]:
     """Factor 32: Insider cluster buy/sell score (Cohen et al. 2012).
 
     Uses signals/insider_cluster.py which detects ≥3 insiders buying/selling
     within 30 days — a documented +2-4% p.a. alpha source.
     Reads pre-computed panel columns if available; falls back to live fetch.
+
+    F-B-2 BLOCKER fix: live fetch (cluster_buy_score) uses date.today() and
+    would leak future SEC Form-4 filings into backtest replays. DISABLED when
+    as_of is set (backtest mode).
     """
     result: dict[str, pd.Series] = {}
     sym_idx = (
@@ -913,7 +931,16 @@ def _compute_insider_cluster_factor(
             )
             return result
 
-        # Fallback: call signal module directly (slow, one-by-one)
+        # F-B-2 BLOCKER fix: skip live fetch in backtest mode (as_of set)
+        if as_of is not None:
+            logger.debug(
+                "[MF-V2] insider_cluster_score: as_of=%s set, skipping live EDGAR fetch, zero-fill",
+                as_of,
+            )
+            result["insider_cluster_score"] = pd.Series(0.0, index=sym_idx.values)
+            return result
+
+        # Fallback: call signal module directly (slow, one-by-one). Live mode only.
         from src.assembled_core.signals.insider_cluster import (
             cluster_buy_score,
         )  # noqa: PLC0415
@@ -982,10 +1009,15 @@ def _compute_pead_sue_factor(
 def _compute_buyback_drift_factor(
     latest_symbols: list[str],
     latest: pd.DataFrame,
+    as_of: pd.Timestamp | None = None,
 ) -> dict[str, pd.Series]:
     """Factor 34: Buyback drift (Ikenberry et al.) — 60-90 day post-announcement momentum.
 
     +1-2% p.a. after 8-K buyback announcements. Orthogonal to insider signals.
+
+    F-B-3 BLOCKER fix: live fetch (buyback_signal_score) uses date.today() and
+    would leak future 8-K filings into backtest replays. DISABLED when as_of
+    is set (backtest mode).
     """
     result: dict[str, pd.Series] = {}
     sym_idx = (
@@ -999,6 +1031,15 @@ def _compute_buyback_drift_factor(
                 .values,
                 index=sym_idx.values,
             )
+            return result
+
+        # F-B-3 BLOCKER fix: skip live fetch in backtest mode
+        if as_of is not None:
+            logger.debug(
+                "[MF-V2] buyback_drift_score: as_of=%s set, skipping live EDGAR fetch, zero-fill",
+                as_of,
+            )
+            result["buyback_drift_score"] = pd.Series(0.0, index=sym_idx.values)
             return result
 
         from src.assembled_core.signals.buyback_drift import (
@@ -1286,8 +1327,8 @@ def compute_signals(
         else 0.0
     )
 
-    # Factor 31: Geo-political risk composite (Pfad B)
-    geo = _compute_geo_risk_composite(latest_symbols, latest)
+    # Factor 31: Geo-political risk composite (Pfad B). F-B-1: pass as_of.
+    geo = _compute_geo_risk_composite(latest_symbols, latest, as_of=_bar_as_of)
     scores["geo_risk_composite"] = (
         scores["symbol"]
         .map(geo.get("geo_risk_composite", pd.Series(dtype=float)))
@@ -1296,8 +1337,10 @@ def compute_signals(
         else 0.0
     )
 
-    # Factor 32: Insider cluster buy/sell (Cohen et al. 2012, +2-4% p.a. alpha)
-    insider_cl = _compute_insider_cluster_factor(latest_symbols, latest)
+    # Factor 32: Insider cluster buy/sell (Cohen et al. 2012, +2-4% p.a. alpha). F-B-2: pass as_of.
+    insider_cl = _compute_insider_cluster_factor(
+        latest_symbols, latest, as_of=_bar_as_of
+    )
     scores["insider_cluster_score"] = (
         scores["symbol"]
         .map(insider_cl.get("insider_cluster_score", pd.Series(dtype=float)))
@@ -1316,8 +1359,8 @@ def compute_signals(
         else 0.0
     )
 
-    # Factor 34: Buyback drift (Ikenberry et al., 60-90d post-announcement)
-    buyback = _compute_buyback_drift_factor(latest_symbols, latest)
+    # Factor 34: Buyback drift (Ikenberry et al., 60-90d post-announcement). F-B-3: pass as_of.
+    buyback = _compute_buyback_drift_factor(latest_symbols, latest, as_of=_bar_as_of)
     scores["buyback_drift_score"] = (
         scores["symbol"]
         .map(buyback.get("buyback_drift_score", pd.Series(dtype=float)))

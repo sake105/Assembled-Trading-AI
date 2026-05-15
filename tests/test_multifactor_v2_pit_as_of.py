@@ -15,7 +15,10 @@ import pytest
 from unittest.mock import patch
 
 from src.assembled_core.strategies.multifactor_v2 import (
+    _compute_buyback_drift_factor,
     _compute_earnings_insider_factors,
+    _compute_geo_risk_composite,
+    _compute_insider_cluster_factor,
     _compute_news_macro_factors,
     _compute_pead_sue_factor,
 )
@@ -201,3 +204,153 @@ class TestComputeSignalsBarAsOf:
             assert (
                 ts.normalize().date() == expected_date
             ), f"as_of={ts} does not match panel max date {expected_date} — look-ahead bias"
+
+
+class TestGeoRiskCompositeAsOf:
+    """F-B-1 BLOCKER regression: _compute_geo_risk_composite must not live-fetch
+    via date.today() when as_of is set (backtest mode)."""
+
+    def _make_latest(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "symbol": _SYMBOLS,
+                "timestamp": [_BACKTEST_DATE, _BACKTEST_DATE],
+                "close": [150.0, 300.0],
+            }
+        )
+
+    def test_backtest_mode_skips_live_fred_fetch_F_B_1(self) -> None:
+        """With as_of set and no panel column, the FRED live-fetch path must NOT run."""
+        latest = self._make_latest()
+        fetch_called = []
+
+        def spy_fetch(*args, **kwargs):
+            fetch_called.append((args, kwargs))
+            # Return empty to ensure if accidentally called we don't actually hit FRED
+            return pd.DataFrame()
+
+        with patch(
+            "src.assembled_core.data.sources.fred_source.fetch_fred_series",
+            side_effect=spy_fetch,
+        ):
+            result = _compute_geo_risk_composite(_SYMBOLS, latest, as_of=_BACKTEST_DATE)
+
+        assert (
+            not fetch_called
+        ), "F-B-1 regression: FRED fetch called in backtest mode (as_of set)"
+        # Path 3 zero-fill should kick in
+        assert "geo_risk_composite" in result
+        assert (result["geo_risk_composite"] == 0.0).all()
+
+    def test_panel_column_path_unaffected(self) -> None:
+        """Path 1 (pre-merged column) still works with as_of set."""
+        latest = self._make_latest()
+        latest["gpr_index"] = [120.0, 120.0]  # baseline ~100, this is slightly elevated
+
+        result = _compute_geo_risk_composite(_SYMBOLS, latest, as_of=_BACKTEST_DATE)
+        assert "geo_risk_composite" in result
+        # Negated sign convention: higher risk → negative factor
+        assert (result["geo_risk_composite"] < 0).all()
+
+
+class TestInsiderClusterFactorAsOf:
+    """F-B-2 BLOCKER regression: _compute_insider_cluster_factor must not call
+    cluster_buy_score (which uses date.today()) when as_of is set."""
+
+    def _make_latest(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "symbol": _SYMBOLS,
+                "timestamp": [_BACKTEST_DATE, _BACKTEST_DATE],
+                "close": [150.0, 300.0],
+            }
+        )
+
+    def test_backtest_mode_skips_live_edgar_fetch_F_B_2(self) -> None:
+        """With as_of set and no panel column, cluster_buy_score must NOT be called."""
+        latest = self._make_latest()
+        live_called = []
+
+        def spy_score(*args, **kwargs):
+            live_called.append((args, kwargs))
+            return 0.0
+
+        with patch(
+            "src.assembled_core.signals.insider_cluster.cluster_buy_score",
+            side_effect=spy_score,
+        ):
+            result = _compute_insider_cluster_factor(
+                _SYMBOLS, latest, as_of=_BACKTEST_DATE
+            )
+
+        assert (
+            not live_called
+        ), "F-B-2 regression: cluster_buy_score (uses date.today) called in backtest"
+        # Path 3 fallback returns empty result; the call site map().fillna(0.0) handles it
+        # We accept either empty result or zero-filled result
+        if "insider_cluster_score" in result:
+            assert (result["insider_cluster_score"] == 0.0).all()
+
+    def test_panel_column_path_unaffected(self) -> None:
+        latest = self._make_latest()
+        latest["insider_cluster_score"] = [0.7, -0.3]
+
+        with patch(
+            "src.assembled_core.signals.insider_cluster.cluster_buy_score"
+        ) as mock_live:
+            result = _compute_insider_cluster_factor(
+                _SYMBOLS, latest, as_of=_BACKTEST_DATE
+            )
+            mock_live.assert_not_called()
+
+        assert "insider_cluster_score" in result
+
+
+class TestBuybackDriftFactorAsOf:
+    """F-B-3 BLOCKER regression: _compute_buyback_drift_factor must not call
+    buyback_signal_score (which uses date.today()) when as_of is set."""
+
+    def _make_latest(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "symbol": _SYMBOLS,
+                "timestamp": [_BACKTEST_DATE, _BACKTEST_DATE],
+                "close": [150.0, 300.0],
+            }
+        )
+
+    def test_backtest_mode_skips_live_edgar_fetch_F_B_3(self) -> None:
+        latest = self._make_latest()
+        live_called = []
+
+        def spy_score(*args, **kwargs):
+            live_called.append((args, kwargs))
+            return 0.0
+
+        with patch(
+            "src.assembled_core.signals.buyback_drift.buyback_signal_score",
+            side_effect=spy_score,
+        ):
+            result = _compute_buyback_drift_factor(
+                _SYMBOLS, latest, as_of=_BACKTEST_DATE
+            )
+
+        assert (
+            not live_called
+        ), "F-B-3 regression: buyback_signal_score (uses date.today) called in backtest"
+        if "buyback_drift_score" in result:
+            assert (result["buyback_drift_score"] == 0.0).all()
+
+    def test_panel_column_path_unaffected(self) -> None:
+        latest = self._make_latest()
+        latest["buyback_drift_score"] = [0.4, 0.1]
+
+        with patch(
+            "src.assembled_core.signals.buyback_drift.buyback_signal_score"
+        ) as mock_live:
+            result = _compute_buyback_drift_factor(
+                _SYMBOLS, latest, as_of=_BACKTEST_DATE
+            )
+            mock_live.assert_not_called()
+
+        assert "buyback_drift_score" in result
