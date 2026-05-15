@@ -172,15 +172,29 @@ def _apply_risk_controls_to_paper_orders(
     # filtering if filtered_df preserves it) rather than via a set of value-tuples
     # which collapses duplicates. Fallback: if filtered_df dropped _row_id, fall
     # back to value-tuple set BUT log a WARNING so the cardinality-loss is visible.
+    #
+    # F-C2-R2-1 MAJOR fix (Round 3): build a {row_id: filtered_qty} map so that
+    # qty-scaling from risk_controls (drawdown damper, pre-trade qty-clip) is
+    # synced back to the Pydantic order BEFORE submit_orders. Previously the
+    # original .quantity flowed through unchanged, silently bypassing reductions.
     if "_row_id" in filtered_df.columns:
         passed_row_ids = set(filtered_df["_row_id"].astype(int).tolist())
+        # Build qty-sync map: row_id -> filtered qty (may be < original after scaling)
+        filtered_qty_by_row = dict(
+            zip(
+                filtered_df["_row_id"].astype(int),
+                filtered_df["qty"].astype(float),
+            )
+        )
         use_row_id_match = True
     else:
         logger.warning(
             "[F-C-1] filtered_df dropped _row_id during risk filtering; falling "
-            "back to value-tuple matching (silent duplicate-loss possible)."
+            "back to value-tuple matching (silent duplicate-loss possible). "
+            "[F-C2-R2-1] qty-scaling cannot be synced back in this fallback path."
         )
         passed_row_ids = set()
+        filtered_qty_by_row = {}
         filtered_set = set(
             zip(
                 filtered_df["symbol"].astype(str).str.strip().str.upper(),
@@ -204,7 +218,25 @@ def _apply_risk_controls_to_paper_orders(
             order_passed = key in filtered_set
 
         if order_passed:
-            # Order passed risk controls
+            # F-C2-R2-1: sync any qty-reduction from risk_controls back to the
+            # order BEFORE appending. If filtered_qty differs from original by
+            # > 1e-9, log so the operator can see the reduction.
+            if use_row_id_match and row_id in filtered_qty_by_row:
+                filtered_qty = filtered_qty_by_row[row_id]
+                if abs(filtered_qty - order.quantity) > 1e-9:
+                    logger.info(
+                        "[F-C2-R2-1] risk_controls reduced qty for %s: %s -> %s",
+                        order.symbol,
+                        order.quantity,
+                        filtered_qty,
+                    )
+                    order.quantity = filtered_qty
+                    if filtered_qty <= 1e-9:
+                        # Risk-controls reduced qty to (essentially) zero — treat as rejected
+                        order.status = "REJECTED"
+                        order.reason = "Risk controls reduced quantity to zero"
+                        rejected_orders.append(order)
+                        continue
             passed_orders.append(order)
         else:
             # Order was blocked
