@@ -263,7 +263,6 @@ def compute_edcl_position_size(
     model_path = conformal_model_path or sizing_cfg.get("model_path")
     if model_path:
         try:
-            import joblib
             from pathlib import Path
 
             _path = Path(model_path)
@@ -271,7 +270,10 @@ def compute_edcl_position_size(
                 # Resolve relative to project root (3 levels up from this file)
                 _path = Path(__file__).parents[3] / model_path
             if _path.exists():
-                bundle = joblib.load(_path)
+                # F-C4-N-1 R5: hash-verified load.
+                from src.assembled_core.ml.model_registry import safe_load_model
+
+                bundle = safe_load_model(_path, strict=False)
                 med_width = float(bundle.get("median_interval_width", 0.05))
 
                 if feature_row is not None:

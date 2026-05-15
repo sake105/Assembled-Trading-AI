@@ -1602,10 +1602,11 @@ def _apply_meta_model_filter(
 
     min_conf = float(meta_cfg.get("min_confidence", 0.55))
 
-    import joblib
-
+    # F-C4-N-1 R5 fix: hash-verified load instead of raw joblib.load.
     try:
-        model = joblib.load(model_path)
+        from src.assembled_core.ml.model_registry import safe_load_model
+
+        model = safe_load_model(model_path, strict=False)
     except (EOFError, Exception) as exc:
         raise RuntimeError(
             f"[multifactor_v2] Failed to load meta-model from {model_path}: {exc}"

@@ -532,18 +532,13 @@ def load_meta_model(path: str | pathlib.Path) -> MetaModel:
     if not path.exists():
         raise FileNotFoundError(f"Model file not found: {path}")
 
+    # F-C4-N-1 R5 fix: use safe_load_model which verifies SHA256 against
+    # registry before joblib.load. Models live in user-writable output/models/
+    # — bypassing verification was a deserialization-attack surface.
     try:
-        try:
-            from src.assembled_core.ml.model_registry import verify_model_hash
+        from src.assembled_core.ml.model_registry import safe_load_model
 
-            if not verify_model_hash(path):
-                logger.warning(
-                    "[meta_model] Hash mismatch for %s — loading anyway (non-strict)",
-                    path.name,
-                )
-        except Exception:
-            pass
-        meta_model = joblib.load(path)
+        meta_model = safe_load_model(path, strict=False)
     except (EOFError, Exception) as exc:
         raise RuntimeError(
             f"[meta_model] Failed to load model from {path}: {exc}"

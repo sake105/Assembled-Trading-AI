@@ -275,13 +275,13 @@ class RegimeHMM:
 
     @classmethod
     def load(cls, path: str | Path) -> "RegimeHMM":
-        """Load model from a joblib file."""
-        import joblib  # type: ignore
-
+        """Load model from a joblib file. F-C4-N-1: hash-verified via safe_load_model."""
         if not HMMLEARN_AVAILABLE:
             raise ImportError("hmmlearn is required for loading RegimeHMM")
         try:
-            data = joblib.load(path)
+            from src.assembled_core.ml.model_registry import safe_load_model
+
+            data = safe_load_model(path, strict=False)
         except (FileNotFoundError, EOFError, Exception) as exc:
             raise RuntimeError(
                 f"[RegimeHMM] Failed to load model from {path}: {exc}"
@@ -527,12 +527,16 @@ class MultiFeatureRegimeHMM:
 
     @classmethod
     def load(cls, path: str | "Path") -> "MultiFeatureRegimeHMM":
-        """Load a previously saved MultiFeatureRegimeHMM."""
-        import joblib
+        """Load a previously saved MultiFeatureRegimeHMM.
+
+        F-C4-N-1 R5: hash-verified via safe_load_model.
+        """
         from pathlib import Path as _Path
 
         try:
-            data = joblib.load(_Path(path))
+            from src.assembled_core.ml.model_registry import safe_load_model
+
+            data = safe_load_model(_Path(path), strict=False)
         except (FileNotFoundError, EOFError, Exception) as exc:
             raise RuntimeError(
                 f"[MultiHMM] Failed to load model from {path}: {exc}"
