@@ -1,0 +1,32 @@
+# Paper Trading Watchlist — US Large-Cap
+# 29 stocks with full OHLCV history in local cache
+# Original full watchlist saved as watchlist_full.txt
+AAPL
+ABBV
+ADBE
+AMZN
+AVGO
+COST
+CRM
+CVX
+GOOGL
+HD
+JNJ
+JPM
+KO
+LLY
+MA
+MCD
+META
+MRK
+MSFT
+NFLX
+NVDA
+PEP
+PG
+TMO
+TSLA
+UNH
+V
+WMT
+XOM
