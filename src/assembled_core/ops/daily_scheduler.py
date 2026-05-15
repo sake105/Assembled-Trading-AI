@@ -569,12 +569,14 @@ def _factor_curation_worker(
     t0 = time.monotonic()
 
     # Quarter check: only run in first 7 days of Jan/Apr/Jul/Oct
-    from datetime import date as _date
+    from datetime import date as _date, datetime as _dt, timezone as _tz
 
     try:
         d = _date.fromisoformat(date_str)
     except (ValueError, TypeError):
-        d = _date.today()
+        # date.today() sweep: UTC for stable quarter detection (avoids late-CET
+        # rollover producing wrong quarter at month boundaries).
+        d = _dt.now(tz=_tz.utc).date()
     if d.month not in (1, 4, 7, 10) or d.day > 7:
         logger.debug("[SKIP] factor_curation: not a quarterly curation window")
         return WorkerResult(

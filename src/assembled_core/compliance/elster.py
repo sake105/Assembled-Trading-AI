@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -145,7 +145,15 @@ def build_anlage_kap_xml(
 
     # Metadata
     ET.SubElement(kap, "AnzahlGeschaeftsvorfaelle").text = str(summary.trade_count)
-    ET.SubElement(kap, "ErstellungsDatum").text = date.today().isoformat()
+    # date.today() sweep: explicit Europe/Berlin for German tax docs (CET).
+    # Fallback UTC if zoneinfo unavailable (avoids cross-platform local-tz drift).
+    try:
+        from zoneinfo import ZoneInfo
+
+        _erstellung = datetime.now(tz=ZoneInfo("Europe/Berlin")).date()
+    except Exception:
+        _erstellung = datetime.now(tz=timezone.utc).date()
+    ET.SubElement(kap, "ErstellungsDatum").text = _erstellung.isoformat()
 
     return _pretty_xml(root)
 

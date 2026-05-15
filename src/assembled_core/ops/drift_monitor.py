@@ -102,7 +102,10 @@ class DriftMonitor:
             DriftReport with PSI values and recommended action.
         """
         if report_date is None:
-            report_date = date.today()
+            # date.today() sweep: use UTC to avoid cross-platform local-tz drift.
+            from datetime import datetime as _dt, timezone as _tz
+
+            report_date = _dt.now(tz=_tz.utc).date()
 
         report = DriftReport(date=report_date)
 

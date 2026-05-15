@@ -461,11 +461,12 @@ def analyze_and_learn(
         )
 
         import uuid
-        from datetime import date
+        from datetime import datetime, timezone
 
         record = {
             "run_id": str(uuid.uuid4())[:8],
-            "analysis_date": str(date.today()),
+            # date.today() sweep: use UTC for analysis-date stability across runners.
+            "analysis_date": str(datetime.now(tz=timezone.utc).date()),
             "n_trades_analyzed": result["n_trades_analyzed"],
             "overall_hit_rate": result["hit_rate_summary"].get("overall_hit_rate"),
             "factor_attribution": result["factor_attribution"],
