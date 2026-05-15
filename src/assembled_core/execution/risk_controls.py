@@ -245,14 +245,16 @@ def filter_orders_with_risk_controls(
             )
             return empty_orders, result
     else:
-        # crisis_alpha enabled but ctx not passed — fall back to file-based state check
+        # crisis_alpha enabled but ctx not passed — fall back to file-based state check.
+        # F-A-2 MAJOR fix: kill_switch state returns "engaged" (not "active") and
+        # reason is nested under persistent.reason (not top-level).
         try:
             from src.assembled_core.execution.kill_switch import get_kill_switch_state
 
             _ks = get_kill_switch_state()
-            if _ks.get("active", False) and _ks.get("reason", "").startswith(
-                "crisis_alpha"
-            ):
+            _persistent = _ks.get("persistent") or {}
+            _reason = str(_persistent.get("reason", ""))
+            if _ks.get("engaged", False) and _reason.startswith("crisis_alpha"):
                 logger.warning(
                     "[WARN] crisis_alpha PAUSE detected via kill-switch state (crisis_alpha_ctx not passed)"
                 )

@@ -1779,8 +1779,19 @@ class UnifiedPaperEngine:
             actions["effective_date"] = pd.to_datetime(
                 actions["effective_date"], utc=True, errors="coerce"
             )
-        as_of_ts = pd.Timestamp(as_of_date, tz="UTC")
-        today_actions = actions[actions.get("effective_date") == as_of_ts]
+        # F-A-9 MAJOR fix: normalize both sides to date-only before exact-equality.
+        # Previously: effective_date with a time-component (anything != midnight UTC)
+        # would silently NOT match the as_of_ts midnight Timestamp -> corporate
+        # actions dropped, positions/cash diverge from broker.
+        as_of_norm = pd.Timestamp(as_of_date, tz="UTC").normalize()
+        eff_norm = actions["effective_date"].dt.normalize()
+        today_actions = actions[eff_norm == as_of_norm]
+        logger.debug(
+            "[CorpActions] matched %d rows for as_of=%s (of %d total)",
+            len(today_actions),
+            as_of_norm,
+            len(actions),
+        )
 
         positions: dict[str, float] = self._state.setdefault("positions", {})
         cost_basis: dict[str, float] = self._state.setdefault("cost_basis", {})

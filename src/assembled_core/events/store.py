@@ -28,6 +28,14 @@ logger = logging.getLogger(__name__)
 _DEFAULT_DB = Path("data/events/events.db")
 
 
+class EventAppendError(RuntimeError):
+    """Raised when an event cannot be persisted (DB error, schema mismatch, etc.).
+
+    Distinct from duplicate-sequence INSERT OR IGNORE outcomes which are
+    expected (legitimate retry) and surface via cursor.rowcount == 0 instead.
+    """
+
+
 class EventStore:
     """Append-only SQLite store for BaseEvent objects."""
 
@@ -48,7 +56,8 @@ class EventStore:
 
     def _init_schema(self) -> None:
         with self._conn() as con:
-            con.execute("""
+            con.execute(
+                """
                 CREATE TABLE IF NOT EXISTS events (
                     id          INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id  TEXT    NOT NULL,
@@ -59,7 +68,8 @@ class EventStore:
                     payload_json TEXT   NOT NULL,
                     UNIQUE (session_id, sequence)
                 )
-            """)
+            """
+            )
             con.execute(
                 "CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)"
             )
@@ -86,7 +96,12 @@ class EventStore:
                     ),
                 )
             except sqlite3.Error as exc:
+                # F-B-12 MAJOR fix: re-raise instead of silent drop. The class
+                # contract promises "append-only, events never mutated" — a
+                # silent drop violates that. Duplicate-sequence is handled by
+                # INSERT OR IGNORE (no exception); only true DB errors reach here.
                 logger.error("EventStore.append failed: %s", exc)
+                raise EventAppendError(str(exc)) from exc
 
     def append_batch(self, events: list[BaseEvent]) -> int:
         """Append a batch of events.  Returns number of rows inserted."""
@@ -151,4 +166,4 @@ class EventStore:
         }
 
 
-__all__ = ["EventStore"]
+__all__ = ["EventStore", "EventAppendError"]

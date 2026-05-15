@@ -15,7 +15,14 @@ same calendar day.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+
+try:
+    from zoneinfo import ZoneInfo
+
+    _NY_TZ: ZoneInfo | None = ZoneInfo("America/New_York")
+except Exception:  # pragma: no cover - fallback if zoneinfo unavailable
+    _NY_TZ = None
 
 PDT_EQUITY_THRESHOLD_USD: float = 25_000.0
 PDT_MAX_DAY_TRADES_IN_5_DAYS: int = 3
@@ -43,7 +50,14 @@ def count_day_trades(
     occur on the same calendar day within the window.
     """
     if reference_date is None:
-        reference_date = date.today()
+        # F-C-4 MAJOR fix: PDT regulation is US-market based. date.today() is
+        # local-tz and rolls over ~6h before US-market-close on a CET box,
+        # producing wrong day-trade counts between 18:00 CET and midnight.
+        # Use America/New_York if available, else UTC (still better than local).
+        if _NY_TZ is not None:
+            reference_date = datetime.now(tz=_NY_TZ).date()
+        else:
+            reference_date = datetime.now(tz=timezone.utc).date()
 
     cutoff = reference_date - timedelta(days=window_days - 1)
     window_trades = [t for t in trades if cutoff <= t["date"] <= reference_date]
