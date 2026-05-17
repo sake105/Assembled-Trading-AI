@@ -468,6 +468,65 @@ API-Routers (FastAPI dynamic registration), Feature-Module (config-driven), Data
 **Action:** In 5–6 fokussierte Module aufteilen (z.B. steps, risk, execution, features, signals)  
 **Risiko bei weiterem Aufschub:** Datei überschreitet Wartbarkeitsschwelle; Diffs werden unlesbar
 
+### 6.5 Quant-Methoden als eigene Module (Compass 2026-05-17)
+
+**Quelle:** `autonome_weiterarbeit/wichtig/compass_artifact_wf-738112f8-…_text_markdown.md` (TOP 3 Lücken, Empfehlung 4).
+
+Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" identifizierte. Libraries sind teilweise gepinnt (`scipy`, `arch==8.0.0`, `hmmlearn`), aber kein dediziertes Modul im Repo. **Keine Aktion in der laufenden Dummy/Info-Flow-Plan-Welle (`docs/superpowers/plans/2026-05-17-dummy-data-and-info-flow.md`).**
+
+- [ ] **6.5.1 Portfolio-Optimierer** — Markowitz, Risk-Parity, fraktionaler Kelly
+  - **Ziel-Pfad:** `src/assembled_core/portfolio/optimizers/`
+  - **Voraussetzungen:** Covariance-Schätzer (Shrinkage), Constraints-Spec, Risk-Budget-Spec
+  - **Wert:** Höchster Quant-Hebel; ersetzt einfaches Equal-Weight/Quantile-Sizing
+
+- [ ] **6.5.2 GARCH / Vol-Modellierung**
+  - **Ziel-Pfad:** `src/assembled_core/risk/volatility/garch.py`
+  - **Lib:** `arch==8.0.0` ist gepinnt, nie gewired
+  - **Wert:** Vol-Forecast für Position-Sizing + Risk-Limits dynamisch statt static
+
+- [ ] **6.5.3 Monte-Carlo / Pfad-Simulation**
+  - **Ziel-Pfad:** `src/assembled_core/risk/monte_carlo/`
+  - **Use cases:** Trade-Shuffling für Confidence-Intervalle auf Sharpe/MDD, Bootstrap-Robustheit, Equity-Path-Distribution
+  - **Abgrenzung:** `scenario_engine` macht Stress-Replays, nicht MC
+
+- [ ] **6.5.4 FinBERT / News-Sentiment ML**
+  - **Ziel-Pfad:** `src/assembled_core/ml/nlp/finbert.py`
+  - **Lib:** `transformers` ist Optional-Extra, nicht installiert by default
+  - **Wert:** Schließt Lücke zwischen `events/news` Skeletons und Signal-Layer
+
+- [ ] **6.5.5 Echte Insider/Congress/Shipping Data-Feeds**
+  - **Aktion:** Dummy-Generatoren in `insider_ingest.py` / `shipping_routes_ingest.py` werden im Plan 2026-05-17 fail-loud + opt-in gemacht (Sub-Project A, Task A1/A2). Sobald ein echter Feed verdrahtet ist, können die Dummy-Generatoren **vollständig** entfernt werden.
+  - **Quellen-Optionen:** Sharadar SF1, QuiverQuant Congress-Trades, Lloyd's MIU Shipping, manueller EDGAR-Scrape
+
+### 6.6 Live-Broker-Routes (oms.py Placeholder)
+
+**Datei:** `src/assembled_core/api/routers/oms.py:176`  
+**Status:** Kommentar `placeholders for future broker routes`  
+**Voraussetzung:** Vollständige Broker-Integration mit Alpaca/IBKR/whoever, Pre-Trade-Gate-Verzahnung, Idempotency-Keys, Kill-Switch-Verzahnung (teilweise vorhanden via `broker_adapter.py`).  
+**Aktion:** Eigener Plan vor Live-Aktivierung — KEIN Code-Work jetzt.
+
+### 6.7 Research-Notebook-Vollendung
+
+**Status nach Plan 2026-05-17 Task A4:** 3 von 4 Notebooks tragen jetzt Skeleton-Status-Header.  
+- [ ] `research/altdata/insider_congress_shipping_exploration.ipynb` (1 cell → ?)
+- [ ] `research/meta/meta_model_calibration.ipynb` (1 cell → ?)
+- [ ] `research/risk/scenario_and_risk_experiments.ipynb` (1 cell → ?)
+
+**Aktion:** Inhalte mit echter Analyse füllen ODER Notebooks löschen wenn nicht mehr relevant. Research-Arbeit, nicht Code-Hardening — eigener Sprint.
+
+### 6.8 Phase-Marker Legacy-Aliase entfernen
+
+**Datei:** `pyproject.toml` (Marker-Liste `phase4..phase13` aliased zu `fast`)  
+**Status:** Funktional konsolidiert (alle phaseN sind aliases), aber alte Phase-Marker bleiben als Test-Decorator in vielen Test-Dateien.  
+**Aktion (deferred):** Phase-Decorator zu `fast`/`regression` migrieren via `sed`, Alias-Marker entfernen.  
+**Risiko bei Aufschub:** Niedrig — funktional kein Bug, nur kognitiver Overhead.
+
+### 6.9 Scripts Wildwuchs-Reduktion (Phase 2)
+
+**Status nach Plan 2026-05-17 Sub-Project B:** 8 `_append_batchN.py` weg, evtl. underscore-utilities relokiert, SCRIPTS_INDEX.md angelegt.  
+**Phase 2 (deferred):** Bei 140 verbliebenen top-level Scripts weitere Konsolidierung — manche in Subdirs verschieben (ops/, audits/, analysis/), manche tatsächlich tot und löschbar.  
+**Aktion:** Eigene Audit-Welle nachdem Phase 1 (Plan 2026-05-17) abgeschlossen ist.
+
 ---
 
 ## 7. Live-Trading-Aktivierungs-Schwellen (Plan 11/10 §2.3.3)
