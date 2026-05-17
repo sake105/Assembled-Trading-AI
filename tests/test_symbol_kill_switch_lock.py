@@ -22,7 +22,7 @@ from src.assembled_core.execution.symbol_kill_switch import (  # noqa: E402
     unblock_symbol,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 def test_concurrent_blocks_preserve_all_symbols(tmp_path: Path) -> None:

@@ -25,7 +25,7 @@ def _evt(event_id: str, title: str, ts: datetime | None = None) -> NewsEvent:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSemanticDedupLexical:
     def test_backend_defaults_to_lexical(self):
         d = SemanticDedup(enabled=False)

@@ -12,7 +12,7 @@ pytest.importorskip("src.assembled_core.intel.news_replay")
 from src.assembled_core.intel.news_replay import NewsReplayer, ReplayStep  # noqa: E402
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPITStore:
     def test_archive_and_load(self, tmp_path):
         store = PITStore(tmp_path / "pit")
@@ -110,7 +110,7 @@ class TestPITStore:
         assert steps[1][1]["v"] == 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsReplayer:
     def _build_store(self, tmp_path):
         from datetime import datetime

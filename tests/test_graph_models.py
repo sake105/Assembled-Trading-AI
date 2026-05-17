@@ -46,7 +46,7 @@ def lead_lag_returns():
     return pd.DataFrame({"A": a, "B": b, "C": c})
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildCorrelationGraph:
     def test_basic_graph(self, correlated_returns):
         nodes, edges = build_correlation_graph(correlated_returns, min_correlation=0.2)
@@ -74,7 +74,7 @@ class TestBuildCorrelationGraph:
             assert node.degree >= 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPageRank:
     def test_basic_pagerank(self):
         nodes = [GraphNode("A"), GraphNode("B"), GraphNode("C")]
@@ -106,7 +106,7 @@ class TestPageRank:
         assert pr["hub"] >= max(pr["a"], pr["b"], pr["c"], pr["d"])
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestLeadLag:
     def test_detect_leader(self, lead_lag_returns):
         edges = detect_lead_lag(lead_lag_returns, max_lag=3, min_correlation=0.1)
@@ -134,7 +134,7 @@ class TestLeadLag:
         assert isinstance(edges, list)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPropagateSignals:
     def test_basic_propagation(self):
         nodes = [GraphNode("A"), GraphNode("B"), GraphNode("C")]
@@ -152,7 +152,7 @@ class TestPropagateSignals:
         assert result["B"] == signals["B"]
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestGenerateGraphSignals:
     def test_basic_generation(self, correlated_returns):
         signals = generate_graph_signals(correlated_returns)

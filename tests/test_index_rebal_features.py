@@ -12,7 +12,7 @@ from src.assembled_core.features.index_rebal_features import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputePredictedDemand:
     def test_basic(self):
         demand = compute_predicted_demand(
@@ -31,7 +31,7 @@ class TestComputePredictedDemand:
         assert compute_predicted_demand(50e9, 0.01, 7_000e9, 500e6, 0) == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildIndexRebalFeatures:
     def test_basic_v2(self):
         changes = pd.DataFrame(

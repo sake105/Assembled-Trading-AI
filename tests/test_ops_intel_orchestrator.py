@@ -12,7 +12,7 @@ import pytest
 from src.assembled_core.ops.intel_orchestrator import run_intel_pipelines
 from src.assembled_core.ops.kpi_artifacts import write_run_kpis
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_intel_orchestrator_real_mode_calls_pipelines() -> None:

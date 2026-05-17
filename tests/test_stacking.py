@@ -34,7 +34,7 @@ def _synthetic_panel(n: int = 500, k: int = 5, seed: int = 42) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStackedEnsemble:
     def test_fit_predict(self):
         panel = _synthetic_panel(n=200)
@@ -112,7 +112,7 @@ class TestStackedEnsemble:
         assert report.shape == (2, 2)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildDefaultStack:
     def test_creates_ensemble(self):
         stack = build_default_stack(include_boosting=False)
@@ -128,7 +128,7 @@ class TestBuildDefaultStack:
         assert "random_forest" in names
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEnforceDiversity:
     def test_diverse_models(self):
         rng = np.random.default_rng(42)

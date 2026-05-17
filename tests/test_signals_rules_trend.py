@@ -32,7 +32,7 @@ from src.assembled_core.signals.rules_trend import (
     generate_trend_signals_from_prices,
 )
 
-pytestmark = pytest.mark.phase11
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

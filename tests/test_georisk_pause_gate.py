@@ -19,7 +19,7 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
     _apply_risk_controls_default,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 def _make_orders() -> pd.DataFrame:

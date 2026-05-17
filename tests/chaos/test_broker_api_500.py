@@ -24,7 +24,7 @@ from src.assembled_core.execution.kill_switch import (  # noqa: E402
     is_kill_switch_engaged,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture(autouse=True)

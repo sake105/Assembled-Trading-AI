@@ -14,7 +14,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 # ---------------------------------------------------------------------------
 # Helpers

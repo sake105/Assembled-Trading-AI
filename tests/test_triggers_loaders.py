@@ -34,7 +34,7 @@ def _write_json(tmp_path, name, data):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsTriggerLoader:
     def test_happy_path_triggers_key(self, tmp_path):
         """Valid artifact with 'triggers' key (artifact schema) → parsed correctly."""
@@ -143,7 +143,7 @@ class TestNewsTriggerLoader:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestDisclosuresTriggerLoader:
     def test_happy_path(self, tmp_path):
         p = _write_json(

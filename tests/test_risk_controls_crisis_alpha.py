@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.execution.risk_controls import (
     check_crisis_alpha_kill_switch,

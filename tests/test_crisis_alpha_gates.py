@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-pytestmark = pytest.mark.phase10
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
 from src.assembled_core.events.crisis_alpha.gates import (

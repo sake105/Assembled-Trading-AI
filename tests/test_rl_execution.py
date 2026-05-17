@@ -16,7 +16,7 @@ from src.assembled_core.ml.rl_execution import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestExecutionState:
     def test_to_array(self):
         state = ExecutionState(
@@ -47,7 +47,7 @@ class TestExecutionState:
         assert all(0 <= v <= 1.0 for v in arr)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestQLearningAgent:
     def test_select_action(self):
         agent = QLearningExecutionAgent()
@@ -80,7 +80,7 @@ class TestQLearningAgent:
         assert len(actions) > 1
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestExecutionReward:
     def test_perfect_execution(self):
         reward = compute_execution_reward(
@@ -107,7 +107,7 @@ class TestExecutionReward:
         assert reward == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSimulateEpisode:
     def test_basic_episode(self):
         agent = QLearningExecutionAgent()
@@ -130,7 +130,7 @@ class TestSimulateEpisode:
         assert r1["vwap_slippage_bps"] == r2["vwap_slippage_bps"]
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestTrainAgent:
     def test_basic_training(self):
         agent, metrics = train_execution_agent(

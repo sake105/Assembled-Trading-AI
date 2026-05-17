@@ -47,7 +47,7 @@ def dummy_func(prices, **kwargs):
 # -- Tests -------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStrategySignal:
     def test_valid_signal(self):
         sig = StrategySignal(
@@ -79,7 +79,7 @@ class TestStrategySignal:
             )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStrategy:
     def test_dummy_strategy_signals(self):
         strat = DummyStrategy()
@@ -108,7 +108,7 @@ class TestStrategy:
         assert strat.validate_inputs(pd.DataFrame()) is False
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFunctionalStrategy:
     def test_wrap_function(self):
         fs = FunctionalStrategy("test_func", dummy_func)
@@ -126,7 +126,7 @@ class TestFunctionalStrategy:
             fs.generate_signals(pd.DataFrame())
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStrategyRegistry:
     def setup_method(self):
         StrategyRegistry.clear()

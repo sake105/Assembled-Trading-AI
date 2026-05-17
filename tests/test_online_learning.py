@@ -15,7 +15,7 @@ from src.assembled_core.ml.online_learning import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEWRLSModel:
     def test_init(self):
         model = EWRLSModel(n_features=3)
@@ -71,7 +71,7 @@ class TestEWRLSModel:
         assert fast_dist < slow_dist
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRetrainingTrigger:
     def test_no_trigger_good_ic(self):
         trigger = RetrainingTrigger(ic_threshold=0.0, consecutive_bad_days=5)
@@ -104,7 +104,7 @@ class TestRetrainingTrigger:
         assert result is True
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestModelAgeConfidence:
     def test_fresh_model(self):
         conf = compute_model_age_confidence(0)

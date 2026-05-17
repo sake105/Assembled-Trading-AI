@@ -18,7 +18,7 @@ from src.assembled_core.ops.paper_ledger import (
     write_ledger_snapshot,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_load_save_ledger_state_roundtrip(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@ from src.assembled_core.data.altdata.house_ptr_parser import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestHousePTRTransaction:
     def test_purchase_type(self):
         t = HousePTRTransaction(
@@ -68,7 +68,7 @@ class TestHousePTRTransaction:
         assert t.event_type == "house_ptr_other"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestParsePTRCsv:
     def _make_csv(self, tmp_path, rows: list[dict]) -> str:
         df = pd.DataFrame(rows)
@@ -104,7 +104,7 @@ class TestParsePTRCsv:
         assert df.empty or len(df) == 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFilterAndConvert:
     def _make_df(self) -> pd.DataFrame:
         return pd.DataFrame(

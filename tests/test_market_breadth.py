@@ -33,7 +33,7 @@ def _synthetic_prices_panel(
     return pd.DataFrame(rows)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMarketBreadthMA:
     def test_basic(self):
         prices = _synthetic_prices_panel()
@@ -49,7 +49,7 @@ class TestMarketBreadthMA:
         )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAdvanceDeclineLine:
     def test_basic_v2(self):
         prices = _synthetic_prices_panel()
@@ -64,7 +64,7 @@ class TestAdvanceDeclineLine:
         assert not result["ad_line"].isna().all()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMcClellanOscillator:
     def test_basic_v3(self):
         prices = _synthetic_prices_panel()
@@ -80,7 +80,7 @@ class TestMcClellanOscillator:
         assert "mcclellan_oscillator" in result.columns
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMcClellanSummation:
     def test_basic_v4(self):
         prices = _synthetic_prices_panel()
@@ -91,7 +91,7 @@ class TestMcClellanSummation:
         assert len(result) > 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestZweigBreadthThrust:
     def test_basic_v5(self):
         prices = _synthetic_prices_panel()
@@ -108,7 +108,7 @@ class TestZweigBreadthThrust:
             assert len(unique) <= 3
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewHighsMinusNewLows:
     def test_basic_v6(self):
         prices = _synthetic_prices_panel()
@@ -117,7 +117,7 @@ class TestNewHighsMinusNewLows:
         assert len(result) > 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestArmsIndex:
     def test_basic_v7(self):
         prices = _synthetic_prices_panel()

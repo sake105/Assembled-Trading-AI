@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase10
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.execution.kill_switch import (
     guard_orders_with_kill_switch,

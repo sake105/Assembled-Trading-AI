@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase10
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.execution.pre_trade_checks import (
     PreTradeConfig,

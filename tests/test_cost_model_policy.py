@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.data.cost_model_policy import (
     compute_cost_drag_per_period,

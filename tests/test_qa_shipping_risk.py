@@ -10,7 +10,7 @@ from src.assembled_core.qa.shipping_risk import (
     compute_systemic_risk_flags,
 )
 
-pytestmark = pytest.mark.phase8
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

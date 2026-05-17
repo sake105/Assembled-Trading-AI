@@ -15,7 +15,7 @@ from src.assembled_core.ops.kpi_artifacts import (
     write_targets_artifact,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_targets_artifact_written(tmp_path) -> None:

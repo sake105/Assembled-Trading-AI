@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.api.app import create_app
 
-pytestmark = pytest.mark.phase10
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

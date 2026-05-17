@@ -15,8 +15,8 @@ from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
 _NOW = datetime(2026, 3, 30, 12, 0, 0, tzinfo=timezone.utc)
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestActionGate:
     def test_grade_a_allows_active_with_b_required(self):
         ok, reason = check_evidence_grade_gate(EvidenceGrade.A, require_for_active="B")
@@ -45,8 +45,8 @@ class TestActionGate:
         assert ok is False
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestEvidenceGradeGateFromCtx:
     def _make_ctx(self, evidence_grade=None):
         ctx = CrisisAlphaContext(

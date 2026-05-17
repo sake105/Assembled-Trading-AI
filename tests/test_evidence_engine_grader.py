@@ -9,8 +9,8 @@ from src.assembled_core.events.evidence_engine import (
 )
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestEvidenceGrade:
     def test_grade_a_allows_active(self):
         assert EvidenceGrade.A.allows_active() is True
@@ -31,8 +31,8 @@ class TestEvidenceGrade:
         assert EvidenceGrade.D.allows_watch() is False
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestEvidenceGrader:
     def make_evidence(self, tier_a=0, tier_b_ind=0, tier_b=0, ok=None):
         if ok is None:
@@ -96,8 +96,8 @@ class TestEvidenceGrader:
         assert grade == EvidenceGrade.D
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestMisinfoRisk:
     def make_evidence(self, tier_a=1, tier_b_ind=2, tier_b=2):
         return {

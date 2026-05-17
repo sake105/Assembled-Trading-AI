@@ -19,7 +19,7 @@ _START = datetime(2024, 6, 3, 9, 30)
 _END = datetime(2024, 6, 3, 16, 0)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSlicedOrder:
     def test_creation(self):
         order = SlicedOrder(
@@ -47,7 +47,7 @@ class TestSlicedOrder:
         assert d["side"] == "SELL"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestTWAPScheduler:
     def test_basic_schedule(self):
         scheduler = TWAPScheduler(n_slices=5, randomize=False)
@@ -83,7 +83,7 @@ class TestTWAPScheduler:
         assert slices[0].quantity == pytest.approx(100, abs=1)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestVWAPScheduler:
     def test_basic_schedule_v2(self):
         scheduler = VWAPScheduler(n_slices=5)
@@ -111,7 +111,7 @@ class TestVWAPScheduler:
         assert len(slices) > 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestImplementationShortfall:
     def test_estimate_cost(self):
         model = ImplementationShortfallModel()

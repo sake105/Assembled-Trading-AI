@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.phase10
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
 from src.assembled_core.events.crisis_alpha.pipeline import run_crisis_alpha_pipeline

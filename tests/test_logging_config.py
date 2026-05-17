@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.logging_config import generate_run_id, setup_logging
 
-pytestmark = pytest.mark.phase11
+pytestmark = pytest.mark.fast
 
 
 class TestGenerateRunId:

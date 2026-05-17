@@ -59,7 +59,7 @@ def base_weights():
     }
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFactorMomentum:
     def test_basic_momentum(self, factor_returns):
         scores = compute_factor_momentum(factor_returns, lookback=12)
@@ -77,7 +77,7 @@ class TestFactorMomentum:
         assert "a" in scores
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFactorCrowding:
     def test_basic_crowding(self, factor_exposures):
         scores = compute_factor_crowding(factor_exposures)
@@ -101,7 +101,7 @@ class TestFactorCrowding:
         assert isinstance(scores, dict)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFactorMeanReversion:
     def test_basic_mean_reversion(self, factor_returns):
         scores = compute_factor_mean_reversion(
@@ -117,7 +117,7 @@ class TestFactorMeanReversion:
         assert scores["a"] == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAdjustFactorWeights:
     def test_basic_adjustment(self, base_weights, factor_returns, factor_exposures):
         result = adjust_factor_weights(

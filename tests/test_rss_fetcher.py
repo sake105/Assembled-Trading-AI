@@ -71,7 +71,7 @@ def _make_feed_response(entries: list[MagicMock]) -> MagicMock:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestParseEntryDate:
     def test_published_parsed(self):
         import time
@@ -93,7 +93,7 @@ class TestParseEntryDate:
         assert isinstance(dt, datetime)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEntryToNewsEvent:
     def test_basic_conversion(self):
         cfg = _make_cfg()
@@ -137,7 +137,7 @@ class TestEntryToNewsEvent:
         assert event.source_tier == SourceTier.T3
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestIsRelevant:
     def test_t1_always_relevant(self):
         cfg = _make_cfg(tier=SourceTier.T1)
@@ -169,7 +169,7 @@ class TestIsRelevant:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRSSFetcher:
     def _make_fetcher(self, tmp_path) -> RSSFetcher:
         """Fetcher that points at real config but we mock HTTP calls."""
@@ -269,7 +269,7 @@ class TestRSSFetcher:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFeedConfigIntegrity:
     def test_config_loads_without_error(self):
         configs = _load_feed_configs(_REAL_CONFIG)
@@ -298,7 +298,7 @@ class TestFeedConfigIntegrity:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestUrgencyScore:
     def test_breaking_returns_1(self):
         assert _urgency_score("Breaking: Russia attacks Ukraine") == 1.0
@@ -319,7 +319,7 @@ class TestUrgencyScore:
         assert _urgency_score("BREAKING NEWS: Sanctions imposed") == 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestGeoTagging:
     def test_geo_tags_from_title(self):
         cfg = _make_cfg()
@@ -346,7 +346,7 @@ class TestGeoTagging:
         assert isinstance(event.geo_tags, list)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestUrgencyInEvent:
     def test_urgency_field_set(self):
         cfg = _make_cfg()
@@ -365,7 +365,7 @@ class TestUrgencyInEvent:
         assert event.urgency == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAgeFilter:
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
     @patch("feedparser.parse")
@@ -413,7 +413,7 @@ class TestAgeFilter:
         assert len(events) > 0, "Recent entry should pass age filter"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEntityLinker:
     def test_linker_populates_tickers(self):
         class _Linker:
@@ -437,7 +437,7 @@ class TestEntityLinker:
         assert event.tickers == []
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSeenCounts:
     def test_filter_new_with_counts_returns_count(self):
         from src.assembled_core.intel.news_dedupe import NewsDedupeIndex

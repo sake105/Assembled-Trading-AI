@@ -16,7 +16,7 @@ from src.assembled_core.risk.tail_hedging import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputeHedgeRatio:
     def test_below_trigger_returns_zero(self):
         ratio = compute_hedge_ratio(current_vix=20.0, portfolio_vol=0.12)
@@ -76,7 +76,7 @@ class TestComputeHedgeRatio:
         assert ratio == pytest.approx(0.25, abs=0.01)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPutCostEstimate:
     def test_zero_hedge_ratio(self):
         cost = compute_put_cost_estimate(1_000_000, hedge_ratio=0.0, current_vol=0.20)
@@ -100,7 +100,7 @@ class TestPutCostEstimate:
         assert cost == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRecommendHedge:
     def test_no_trigger_active(self):
         rec = recommend_hedge(
@@ -164,7 +164,7 @@ class TestRecommendHedge:
         assert rec.put_strike_pct == pytest.approx(0.95, abs=0.001)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestTailRiskMetrics:
     def test_basic_metrics(self):
         rng = np.random.default_rng(42)

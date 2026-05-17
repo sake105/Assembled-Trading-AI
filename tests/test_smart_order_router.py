@@ -15,7 +15,7 @@ from src.assembled_core.execution.smart_order_router import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestVenueConfig:
     def test_defaults(self):
         v = VenueConfig(name="test")
@@ -30,7 +30,7 @@ class TestVenueConfig:
         assert "NASDAQ" in names
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRouteOrder:
     def test_basic_routing(self):
         result = route_order(order_size=1000, signal_urgency=0.5, seed=42)
@@ -101,7 +101,7 @@ class TestRouteOrder:
         assert len(result.allocations) >= 1
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSimulateFills:
     def test_basic_fill_simulation(self):
         routing = route_order(order_size=1000, seed=42)
@@ -125,7 +125,7 @@ class TestSimulateFills:
         assert 0 <= result["fill_pct"] <= 100
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRegimeConstants:
     def test_regime_spread_mult_keys(self):
         assert set(REGIME_SPREAD_MULT.keys()) == {"bull", "sideways", "bear", "crisis"}

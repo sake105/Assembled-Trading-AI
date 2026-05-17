@@ -10,7 +10,7 @@ from src.assembled_core.risk.turnover_budget import (
     estimate_turnover,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_turnover_gate_no_change_when_below_cap() -> None:

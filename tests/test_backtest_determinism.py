@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 
 def _build_prices_with_seed(seed: int) -> pd.DataFrame:

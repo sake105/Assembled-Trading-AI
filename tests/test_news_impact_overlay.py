@@ -59,7 +59,7 @@ class _FakeClassification:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsImpactEstimator:
     def test_war_escalation_gives_negative_bps(self):
         from src.assembled_core.intel.news_impact_estimator import NewsImpactEstimator
@@ -186,7 +186,7 @@ class TestNewsImpactEstimator:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSectorNewsOverlay:
     def _make_cluster(self, trigger_val: str, confidence: float):
         class FakeCluster:

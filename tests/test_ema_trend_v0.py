@@ -13,7 +13,7 @@ from src.assembled_core.strategies.ema_trend_v0 import (
     compute_target_positions,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def _make_prices_uptrend(

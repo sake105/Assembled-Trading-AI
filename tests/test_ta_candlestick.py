@@ -37,7 +37,7 @@ def _synthetic_ohlcv(n: int = 100, seed: int = 42) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildCandlestickFeatures:
     def test_basic_output(self):
         df = _synthetic_ohlcv()
@@ -81,7 +81,7 @@ class TestBuildCandlestickFeatures:
         assert len(names) >= 8  # at least 8 patterns
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCandlestickPatterns:
     def test_doji_detection(self):
         """A doji has open ≈ close."""

@@ -32,7 +32,7 @@ def _evt(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEntityCoGraph:
     def test_empty_graph(self):
         g = EntityCoGraph()

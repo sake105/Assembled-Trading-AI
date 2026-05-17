@@ -10,7 +10,7 @@ from src.assembled_core.data.sources.earnings_calendar_source import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEarningsCalendarSource:
     def test_init(self):
         source = EarningsCalendarSource()
@@ -51,7 +51,7 @@ class TestEarningsCalendarSource:
             assert "days_to_earnings" in result.columns or len(result.columns) > 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEarningsFactorComputation:
     def test_days_to_earnings_decreases(self):
         """Days to earnings should decrease as date approaches."""

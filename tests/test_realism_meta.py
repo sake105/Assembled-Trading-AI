@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 import pytest
 

@@ -25,7 +25,7 @@ def _make_news_event(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestIntelCycleRSSWiring:
     """Smoke tests — verify run_single_cycle() merges RSS events with GDELT."""
 

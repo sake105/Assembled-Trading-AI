@@ -13,7 +13,7 @@ from src.assembled_core.events.news.sources import (
 )
 from src.assembled_core.events.news import run_news_pipeline
 
-pytestmark = [pytest.mark.phase6, pytest.mark.unit]
+pytestmark = [pytest.mark.fast, pytest.mark.unit]
 
 
 # ---------------------------------------------------------------------------

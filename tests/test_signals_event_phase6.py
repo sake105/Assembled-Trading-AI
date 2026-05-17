@@ -15,7 +15,7 @@ from src.assembled_core.signals.rules_event_insider_shipping import (
     generate_event_signals,
 )
 
-pytestmark = pytest.mark.phase6
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture
@@ -114,7 +114,7 @@ def neutral_features() -> pd.DataFrame:
     return df
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_returns_dataframe(sample_prices_with_features):
     """Test that generate_event_signals returns a DataFrame with correct columns."""
@@ -128,7 +128,7 @@ def test_generate_event_signals_returns_dataframe(sample_prices_with_features):
     assert "score" in result.columns
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_bullish_combination(bullish_features):
     """Test that bullish combination (strong insider buy + low congestion) generates LONG signal."""
@@ -139,7 +139,7 @@ def test_generate_event_signals_bullish_combination(bullish_features):
     assert result["score"].iloc[0] > 0.0  # Non-zero score
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_bearish_combination(bearish_features):
     """Test that bearish combination (strong insider sell + high congestion) generates SHORT signal."""
@@ -150,7 +150,7 @@ def test_generate_event_signals_bearish_combination(bearish_features):
     assert result["score"].iloc[0] > 0.0  # Non-zero score
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_neutral_combination(neutral_features):
     """Test that neutral combination generates FLAT signal."""
@@ -161,7 +161,7 @@ def test_generate_event_signals_neutral_combination(neutral_features):
     assert result["score"].iloc[0] == 0.0  # Zero score for FLAT
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_mixed_signals(sample_prices_with_features):
     """Test that mixed signals generate appropriate results."""
@@ -186,7 +186,7 @@ def test_generate_event_signals_mixed_signals(sample_prices_with_features):
         assert (non_flat["score"] > 0.0).all()
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_missing_required_columns():
     """Test that missing required columns raise KeyError."""
@@ -202,7 +202,7 @@ def test_generate_event_signals_missing_required_columns():
         generate_event_signals(df)
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_missing_feature_columns():
     """Test that missing feature columns raise KeyError with helpful message."""
@@ -219,7 +219,7 @@ def test_generate_event_signals_missing_feature_columns():
         generate_event_signals(df)
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_missing_one_feature_column():
     """Test that missing one feature column raises KeyError."""
@@ -237,7 +237,7 @@ def test_generate_event_signals_missing_one_feature_column():
         generate_event_signals(df)
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_handles_nan_values():
     """Test that NaN values in features are handled gracefully."""
@@ -263,7 +263,7 @@ def test_generate_event_signals_handles_nan_values():
     assert result["direction"].iloc[1] == "FLAT"
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_custom_weights():
     """Test that custom weights affect signal generation."""
@@ -293,7 +293,7 @@ def test_generate_event_signals_custom_weights():
     assert result_no_insider["direction"].iloc[0] == "LONG"
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_invalid_weights():
     """Test that negative weights raise ValueError."""
@@ -317,7 +317,7 @@ def test_generate_event_signals_invalid_weights():
         generate_event_signals(df, shipping_weight=-1.0)
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.unit
 def test_generate_event_signals_signal_values():
     """Test that signal values are only -1, 0, or 1."""

@@ -12,7 +12,7 @@ import yaml
 from src.assembled_core.ops.compare import compare_summaries
 from src.assembled_core.ops.experiment_runner import deep_merge_policy, run_experiment
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_deep_merge_policy_overrides() -> None:

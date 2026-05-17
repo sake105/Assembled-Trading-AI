@@ -15,7 +15,7 @@ from src.assembled_core.ops.reconcile import (
     write_reconcile_artifact,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_reconcile_ok_basic_buy() -> None:

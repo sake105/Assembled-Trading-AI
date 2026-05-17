@@ -16,7 +16,7 @@ from src.assembled_core.intel.news_classifier import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsClassifier:
     """Rule-based news classifier tests."""
 
@@ -232,7 +232,7 @@ class TestNewsClassifier:
         assert len(result.affected_assets) == len(set(result.affected_assets))
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSectorAndCountryMaps:
     """Tests for SECTOR_TO_ETFS and COUNTRY_TO_ASSETS lookups."""
 

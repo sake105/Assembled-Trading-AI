@@ -12,7 +12,7 @@ from src.assembled_core.ops.intel_activity_summary import (
     build_intel_activity_summary,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def _write_kpis(path: Path, payload: dict) -> None:

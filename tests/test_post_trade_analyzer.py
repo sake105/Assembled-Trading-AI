@@ -12,8 +12,8 @@ from src.assembled_core.qa.post_trade_analyzer import (
 )
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestComputeForwardReturns:
     def _make_prices(self):
         dates = pd.date_range("2024-01-01", periods=20, freq="D", tz="UTC")
@@ -58,8 +58,8 @@ class TestComputeForwardReturns:
         assert len(df5) > 0 and len(df1) > 0
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestComputeSignalHitRate:
     def _make_fwd(self):
         dates = pd.date_range("2024-01-01", periods=10, freq="D", tz="UTC")
@@ -142,8 +142,8 @@ class TestComputeSignalHitRate:
             assert (result["hit_rate"] <= 1).all()
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestBuildLearningRecord:
     def _make_hit_df(self):
         return pd.DataFrame(

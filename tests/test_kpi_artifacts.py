@@ -10,7 +10,7 @@ import pytest
 
 from src.assembled_core.ops.kpi_artifacts import maybe_execute_orders, write_run_kpis
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_write_run_kpis_contains_keys(tmp_path) -> None:

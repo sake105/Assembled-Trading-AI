@@ -29,7 +29,7 @@ def _synthetic_market(n_assets: int = 5, seed: int = 42) -> tuple:
     return symbols, market_weights, sigma
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBlackLittermanOptimizer:
     def test_implied_returns(self):
         symbols, mw, sigma = _synthetic_market()
@@ -87,7 +87,7 @@ class TestBlackLittermanOptimizer:
         assert all(w >= -0.001 for w in weights.values)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRobustBLShrinkage:
     def test_basic(self):
         symbols, mw, sigma = _synthetic_market()

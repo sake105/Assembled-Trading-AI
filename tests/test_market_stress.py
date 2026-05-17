@@ -9,7 +9,7 @@ import pytest
 
 from src.assembled_core.risk.market_stress import compute_market_stress
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def _policy() -> Dict[str, Any]:

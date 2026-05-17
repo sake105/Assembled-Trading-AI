@@ -10,7 +10,7 @@ from src.assembled_core.intel.news_entity_mapper import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestExtractTickersFromTitle:
     def test_apple_detected(self):
         tickers = extract_tickers_from_title("Apple announces record iPhone sales")
@@ -49,7 +49,7 @@ class TestExtractTickersFromTitle:
         assert extract_tickers_from_title("") == []
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSimpleEntityLinker:
     def test_exact_match(self):
         linker = SimpleEntityLinker()

@@ -13,7 +13,7 @@ from src.assembled_core.ops.paper_summary import (
     write_paper_summary,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def test_build_paper_summary_from_synthetic_artifacts(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@ import math
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.risk.vol_targeting import (
     apply_vol_targeting_to_weights,

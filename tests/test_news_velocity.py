@@ -34,7 +34,7 @@ def _make_event(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestVelocityTracker:
     def test_no_surge_with_few_events(self):
         from src.assembled_core.intel.news_velocity import VelocityTracker

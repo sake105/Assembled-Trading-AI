@@ -30,7 +30,7 @@ def _synthetic_filings(n: int = 100, seed: int = 42) -> pd.DataFrame:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputePatentFeatures:
     def test_basic_output(self):
         filings = _synthetic_filings()

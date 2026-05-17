@@ -29,7 +29,7 @@ def test_data():
     return X, y
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFactorGPR:
     def test_fit_and_predict(self, train_data, test_data):
         X_train, y_train = train_data
@@ -114,7 +114,7 @@ class TestFactorGPR:
         assert len(result.mean) == len(X_test)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPositionSizingSignal:
     def test_basic_sizing(self):
         result = GPRResult(

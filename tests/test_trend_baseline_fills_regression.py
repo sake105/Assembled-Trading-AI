@@ -73,7 +73,7 @@ def _position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFram
     )
 
 
-@pytest.mark.phase4
+@pytest.mark.fast
 def test_trend_baseline_produces_fills_and_equity_time_series():
     """Trend baseline with 10k capital and 3 symbols: at least one fill, equity > 10 rows.
 
@@ -124,7 +124,7 @@ def test_trend_baseline_produces_fills_and_equity_time_series():
         assert len(result.equity) > 10
 
 
-@pytest.mark.phase4
+@pytest.mark.fast
 def test_order_generation_converts_notional_to_shares():
     """Smoking-gun regression: target_qty as notional (3333.33) becomes shares (~23.8), notional <= 2*equity."""
     from src.assembled_core.execution.order_generation import (
@@ -168,7 +168,7 @@ def test_order_generation_converts_notional_to_shares():
     assert orders.attrs.get("qty_unit") == "shares"
 
 
-@pytest.mark.phase4
+@pytest.mark.fast
 def test_strict_qty_guard_raises_when_notional_exceeds_2x_capital():
     """When AS_CORE_STRICT_QTY=1, orders with notional > 2*start_capital must raise ValueError."""
     import os
@@ -201,7 +201,7 @@ def test_strict_qty_guard_raises_when_notional_exceeds_2x_capital():
     _validate_order_notional_guard(bad_orders, start_capital, strict=False)
 
 
-@pytest.mark.phase4
+@pytest.mark.fast
 def test_reject_reason_present_when_rejected():
     """If any trade has status=rejected, reject_reason column exists and is set for rejected rows."""
     from src.assembled_core.execution.fill_model import ensure_fill_schema

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase9
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.qa.validation import (
     run_full_model_validation,

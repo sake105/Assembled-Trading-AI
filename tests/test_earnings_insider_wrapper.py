@@ -20,7 +20,7 @@ from src.assembled_core.features.earnings_insider_wrapper import (  # noqa: E402
     compute_earnings_insider_factors,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 def _empty_earnings() -> pd.DataFrame:

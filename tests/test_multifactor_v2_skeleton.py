@@ -143,7 +143,7 @@ def test_check_exit_signals_delegates() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_v2_public_api_exists_and_callable() -> None:
     """The three public entry points must exist on the v2 module."""
     for name in ("compute_signals", "compute_target_positions", "check_exit_signals"):
@@ -152,7 +152,7 @@ def test_v2_public_api_exists_and_callable() -> None:
         assert callable(fn), f"multifactor_v2.{name} not callable"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_v2_version_marker() -> None:
     """VERSION constant must exist and identify v2."""
     assert hasattr(multifactor_v2, "VERSION")
@@ -160,7 +160,7 @@ def test_v2_version_marker() -> None:
     assert "multifactor_v2" in multifactor_v2.VERSION.lower()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_v2_produces_signals_like_v1() -> None:
     """v2 must produce signals on the same input as v1 (same schema, may differ in values)."""
     prices = _build_prices_with_features(n_symbols=4, n_bars=60)
@@ -174,7 +174,7 @@ def test_v2_produces_signals_like_v1() -> None:
         assert "direction" in v2_out.columns
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_v2_default_weights_shape_and_sum() -> None:
     """DEFAULT_V2_WEIGHTS must have 18 active factors summing to ~1.0.
 

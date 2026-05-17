@@ -8,7 +8,7 @@ import pytest
 from src.assembled_core.intel.news_decay import DecayProfile, NewsDecay
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsDecay:
     def test_t0_is_full_impact(self):
         d = NewsDecay()

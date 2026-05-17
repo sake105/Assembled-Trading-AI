@@ -43,7 +43,7 @@ def spurious_data():
     return factor, returns, confounder
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPropensityScoreMatching:
     def test_basic_psm(self, causal_data):
         factor, returns, confounder = causal_data
@@ -77,7 +77,7 @@ class TestPropensityScoreMatching:
         assert 0.0 <= result.p_value <= 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPropensityScore:
     def test_scores_bounded(self):
         rng = np.random.default_rng(42)
@@ -88,7 +88,7 @@ class TestPropensityScore:
         assert len(scores) == 100
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestIV2SLS:
     def test_basic_iv(self, causal_data):
         factor, returns, _ = causal_data
@@ -107,7 +107,7 @@ class TestIV2SLS:
         assert result.ate == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestDifferenceInDifferences:
     def test_positive_treatment_effect(self):
         rng = np.random.default_rng(42)
@@ -143,7 +143,7 @@ class TestDifferenceInDifferences:
         assert result.p_value == 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestGrangerCausality:
     def test_causal_series(self):
         rng = np.random.default_rng(42)
@@ -169,7 +169,7 @@ class TestGrangerCausality:
         assert result.p_value == 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestScreenFactors:
     def test_screen_multiple_factors(self):
         rng = np.random.default_rng(42)

@@ -16,7 +16,7 @@ from src.assembled_core.features.short_interest_features import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestShortPctFloat:
     def test_basic(self):
         assert compute_short_pct_float(1_000_000, 10_000_000) == pytest.approx(0.10)
@@ -29,7 +29,7 @@ class TestShortPctFloat:
         assert result == pytest.approx(0.50)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestShortRatio:
     def test_basic_v2(self):
         result = compute_short_ratio(5_000_000, 1_000_000)
@@ -39,7 +39,7 @@ class TestShortRatio:
         assert compute_short_ratio(100, 0) == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestShortSqueezeScore:
     def test_low_risk(self):
         score = compute_short_squeeze_score(0.05, 2.0, 0.0, 0.0)
@@ -54,7 +54,7 @@ class TestShortSqueezeScore:
         assert 0 <= score <= 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildShortInterestFeatures:
     def test_basic_v3(self):
         rng = np.random.default_rng(42)

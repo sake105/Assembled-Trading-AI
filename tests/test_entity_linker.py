@@ -14,7 +14,7 @@ import pytest
 from src.assembled_core.intel.entity_linker import EntityLinker
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEntityLinkerBasic:
     def test_exact_ticker_match(self):
         linker = EntityLinker(symbols=["AAPL", "MSFT"])
@@ -85,7 +85,7 @@ class TestEntityLinkerBasic:
         assert len(result) <= 1
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEntityLinkerFromCSV:
     def test_load_from_csv(self, tmp_path):
         csv_path = tmp_path / "master.csv"

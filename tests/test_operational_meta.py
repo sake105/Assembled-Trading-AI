@@ -17,7 +17,7 @@ import pandas as pd
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCertification:
     def test_runner_basic(self):
         import pytest
@@ -93,7 +93,7 @@ class TestCertification:
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStrategyDiscovery:
     def _make_data(self, n=500, n_feat=10, seed=42):
         rng = np.random.default_rng(seed)
@@ -186,7 +186,7 @@ class TestStrategyDiscovery:
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestDataSourceCascade:
     def test_primary_success(self):
         import pytest
@@ -241,7 +241,7 @@ class TestDataSourceCascade:
         assert cascade.history[0].success
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRiskEscalationLadder:
     def test_normal_state(self):
         import pytest

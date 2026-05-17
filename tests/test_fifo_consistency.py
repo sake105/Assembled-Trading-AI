@@ -201,7 +201,7 @@ class _ImplResult(NamedTuple):
     pnl: float | None
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_fifo_realized_pnl_consistency():
     """Realized P&L must agree across FIFO implementations (within 0.01 %).
 

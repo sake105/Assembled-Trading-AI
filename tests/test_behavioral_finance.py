@@ -69,7 +69,7 @@ def sample_prices_df(rising_prices):
     return pd.DataFrame(rows)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestDispositionScore:
     def test_at_highs_negative(self, rising_prices):
         score = compute_disposition_score(rising_prices)
@@ -95,7 +95,7 @@ class TestDispositionScore:
         assert -1.0 <= score <= 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAnchoringScore:
     def test_near_52week_high(self):
         prices = np.linspace(80, 100, 252)
@@ -119,7 +119,7 @@ class TestAnchoringScore:
         assert -1.0 <= score <= 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestHerdingScore:
     def test_panic_selling_contrarian_buy(self):
         rng = np.random.default_rng(42)
@@ -153,7 +153,7 @@ class TestHerdingScore:
         assert score == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestOverreactionScore:
     def test_large_drop_reversal(self):
         returns = np.zeros(30)
@@ -185,7 +185,7 @@ class TestOverreactionScore:
         assert -1.0 <= score <= 1.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestGenerateBehavioralSignals:
     def test_basic_generation(self, sample_prices_df):
         signals = generate_behavioral_signals(sample_prices_df)

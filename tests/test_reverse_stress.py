@@ -29,7 +29,7 @@ def _simple_portfolio(n: int = 5, seed: int = 42):
     return weights, cov
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestReverseStressTest:
     def test_basic(self):
         weights, cov = _simple_portfolio()
@@ -77,7 +77,7 @@ class TestReverseStressTest:
         assert isinstance(result, ReverseStressResult)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRunMultipleReverseStress:
     def test_default_targets(self):
         weights, cov = _simple_portfolio()
@@ -95,7 +95,7 @@ class TestRunMultipleReverseStress:
         assert len(results) == 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestScenarioCatalog:
     def test_historical_count(self):
         assert len(HISTORICAL_CRISES) >= 15
@@ -120,7 +120,7 @@ class TestScenarioCatalog:
             get_scenario("nonexistent_scenario")
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStressTestPortfolio:
     def test_basic_v2(self):
         weights = np.array([0.3, 0.3, 0.2, 0.1, 0.1])

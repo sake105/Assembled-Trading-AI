@@ -12,7 +12,7 @@ from src.assembled_core.features.seasonal_features import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildSeasonalFeatures:
     def test_basic(self):
         dates = pd.bdate_range("2024-01-01", periods=252)
@@ -83,7 +83,7 @@ class TestBuildSeasonalFeatures:
         assert len(names) == 8
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestDayOfWeekEffect:
     def test_monday_negative(self):
         # Find a Monday

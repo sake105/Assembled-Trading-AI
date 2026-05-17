@@ -27,7 +27,7 @@ def _make_price_volume(n=300, seed=42):
     return prices, volumes, pd.Series(returns, index=dates)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCapitalGainsOverhang:
     def test_basic(self):
         prices, volumes, _ = _make_price_volume()
@@ -52,7 +52,7 @@ class TestCapitalGainsOverhang:
         assert not cgo.isna().all()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAnchoring52WHigh:
     def test_basic_v2(self):
         prices, _, _ = _make_price_volume()
@@ -69,7 +69,7 @@ class TestAnchoring52WHigh:
         assert prox.iloc[-1] == pytest.approx(1.0)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRoundNumberProximity:
     def test_near_round(self):
         prices = pd.Series([98.0, 49.0, 199.0])
@@ -85,7 +85,7 @@ class TestRoundNumberProximity:
         assert len(prox) == 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAbnormalVolume:
     def test_basic_v3(self):
         _, volumes, _ = _make_price_volume()
@@ -101,7 +101,7 @@ class TestAbnormalVolume:
         assert abn.iloc[-1] > 3.0  # should be ~5x
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMaxEffect:
     def test_basic_v4(self):
         _, _, returns = _make_price_volume()
@@ -116,7 +116,7 @@ class TestMaxEffect:
         assert mx.iloc[-1] == pytest.approx(0.05)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAbnormalTurnover:
     def test_basic_v5(self):
         _, volumes, _ = _make_price_volume()
@@ -130,7 +130,7 @@ class TestAbnormalTurnover:
         assert abn.iloc[-1] > 5.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBehavioralComposite:
     def test_basic_v6(self):
         prices, volumes, returns = _make_price_volume(n=300)

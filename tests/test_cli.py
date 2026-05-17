@@ -13,7 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 
 def test_cli_importable():
@@ -69,7 +69,7 @@ def test_cli_run_daily_help():
     assert "--start-capital" in result.stdout
 
 
-@pytest.mark.phase10
+@pytest.mark.fast
 def test_cli_run_daily_pre_trade_flags():
     """Test that run_daily subcommand has pre-trade check flags."""
     # Test run_daily.py directly (not via cli.py which uses run_eod_pipeline)
@@ -135,7 +135,7 @@ def test_cli_run_phase4_tests_smoke(tmp_path: Path):
     assert len(result.stdout) > 0 or len(result.stderr) > 0
 
 
-@pytest.mark.phase10
+@pytest.mark.fast
 def test_cli_runtime_profile_backtest():
     """Test that run_backtest automatically sets profile=BACKTEST."""
     script_path = ROOT / "scripts" / "cli.py"
@@ -175,7 +175,7 @@ def test_cli_runtime_profile_backtest():
     )
 
 
-@pytest.mark.phase10
+@pytest.mark.fast
 def test_cli_runtime_profile_build_ml_dataset():
     """Test that build_ml_dataset automatically sets profile=BACKTEST."""
     script_path = ROOT / "scripts" / "cli.py"
@@ -207,7 +207,7 @@ def test_cli_runtime_profile_build_ml_dataset():
     )
 
 
-@pytest.mark.phase10
+@pytest.mark.fast
 def test_cli_runtime_profile_run_daily_default():
     """Test that run_daily uses DEV profile by default."""
     script_path = ROOT / "scripts" / "cli.py"
@@ -237,7 +237,7 @@ def test_cli_runtime_profile_run_daily_default():
     )
 
 
-@pytest.mark.phase10
+@pytest.mark.fast
 def test_cli_runtime_profile_run_daily_explicit():
     """Test that run_daily accepts --profile argument."""
     script_path = ROOT / "scripts" / "cli.py"

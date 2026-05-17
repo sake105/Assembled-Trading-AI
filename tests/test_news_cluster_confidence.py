@@ -29,7 +29,7 @@ def _make_event(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestClusterManagerConfidence:
     def test_no_crash_with_correct_signature(self):
         """Step 0 regression: _update_confidence must not crash."""

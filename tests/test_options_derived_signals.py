@@ -29,7 +29,7 @@ def _synthetic_cboe(n: int = 300, seed: int = 42) -> pd.DataFrame:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildOptionsRegimeFactors:
     def test_basic_output(self):
         cboe = _synthetic_cboe()
@@ -89,7 +89,7 @@ class TestBuildOptionsRegimeFactors:
         assert "put_call_ratio_raw" not in result.columns
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAlignOptionsToPanel:
     def test_merge(self):
         cboe = _synthetic_cboe(n=50)
@@ -114,7 +114,7 @@ class TestAlignOptionsToPanel:
         assert len(result) == 1
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestGetFactorNames:
     def test_returns_list(self):
         names = get_options_factor_names()
@@ -124,7 +124,7 @@ class TestGetFactorNames:
         assert len(names) == 9
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestHelperFunctions:
     def test_vix_term_structure_contango(self):
         result = compute_vix_term_structure(vix=15.0, vix3m=20.0)

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase7
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.qa.labeling import label_daily_records, label_trades
 

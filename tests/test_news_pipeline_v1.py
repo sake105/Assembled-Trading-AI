@@ -31,7 +31,7 @@ from src.assembled_core.events.news.fetch_rss import fetch_rss_feed
 from src.assembled_core.events.news.fetch_gdelt import fetch_gdelt_events
 from src.assembled_core.events.news import run_news_pipeline
 
-pytestmark = [pytest.mark.phase6, pytest.mark.unit]
+pytestmark = [pytest.mark.fast, pytest.mark.unit]
 
 
 def test_canonicalize_url_strips_tracking_params():

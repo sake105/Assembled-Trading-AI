@@ -35,7 +35,7 @@ from src.assembled_core.strategies.multifactor_v2 import (
     compute_target_positions,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 # ---------------------------------------------------------------------------

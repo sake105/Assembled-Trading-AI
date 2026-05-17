@@ -25,7 +25,7 @@ def _synthetic_returns(n: int = 500, seed: int = 42) -> pd.Series:
     return pd.Series(returns, index=dates)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRegimeHMM:
     def test_fit(self):
         try:
@@ -73,7 +73,7 @@ class TestRegimeHMM:
             hmm.predict_regime(_synthetic_returns())
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMultiFeatureRegimeHMM:
     def test_fallback_without_hmmlearn(self):
         features = pd.DataFrame(

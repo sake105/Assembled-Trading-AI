@@ -13,7 +13,7 @@ from src.assembled_core.intel.news_ingest import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestParsePersons:
     def test_empty(self):
         assert _parse_persons("") == []
@@ -30,7 +30,7 @@ class TestParsePersons:
         assert out == ["Putin", "Biden"]
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRecordsToNewsEvents:
     def _rec(
         self,

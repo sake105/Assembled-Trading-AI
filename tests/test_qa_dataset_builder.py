@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase7
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.qa.dataset_builder import (
     build_ml_dataset_from_backtest,

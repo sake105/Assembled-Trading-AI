@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.qa.metrics import PerformanceMetrics, compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAGatesSummary, QAResult, evaluate_all_gates

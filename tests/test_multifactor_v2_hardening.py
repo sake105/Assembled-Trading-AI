@@ -34,7 +34,7 @@ from src.assembled_core.strategies.multifactor_v2 import (
     update_drawdown_damper,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 # ===========================================================================

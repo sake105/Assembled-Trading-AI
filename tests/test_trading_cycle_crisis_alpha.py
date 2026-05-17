@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 from unittest.mock import patch, MagicMock
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 # ---------------------------------------------------------------------------
 # Helpers

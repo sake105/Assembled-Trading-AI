@@ -20,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 # ---------------------------------------------------------------------------
@@ -66,9 +66,7 @@ class TestMetaModelNatTimestamp:
                 if node.arg == "na_position":
                     found_na_position = True
                     break
-        assert (
-            found_na_position
-        ), "meta_model.py must use na_position= in sort_values to handle NaT"
+        assert found_na_position, "meta_model.py must use na_position= in sort_values to handle NaT"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -138,9 +136,7 @@ class TestModelRegistryMtimeCache:
         """The module must expose _registry_mtime as a module-level variable."""
         import src.assembled_core.ml.model_registry as reg_mod
 
-        assert hasattr(
-            reg_mod, "_registry_mtime"
-        ), "_registry_mtime module variable must exist for mtime-guarded caching"
+        assert hasattr(reg_mod, "_registry_mtime"), "_registry_mtime module variable must exist for mtime-guarded caching"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -173,10 +169,8 @@ class TestPaperTrackConfigLogLevel:
             for r in caplog.records
             if r.levelno >= logging.WARNING and "georisk" in r.message.lower()
         ]
-        assert not geo_warnings, (
-            f"PaperTrackConfig(georisk_gate_enabled=False) must not emit WARNING for georisk, "
-            f"got: {[r.message for r in geo_warnings]}"
-        )
+        _msg = f"PaperTrackConfig(georisk_gate_enabled=False) must not emit WARNING for georisk, got: {[r.message for r in geo_warnings]}"
+        assert not geo_warnings, _msg
 
     def test_default_config_emits_debug(self, caplog):
         """Constructing PaperTrackConfig with georisk_gate_enabled=False emits a DEBUG log."""
@@ -190,9 +184,7 @@ class TestPaperTrackConfigLogLevel:
             for r in caplog.records
             if r.levelno == logging.DEBUG and "georisk" in r.message.lower()
         ]
-        assert (
-            geo_debug
-        ), "PaperTrackConfig(georisk_gate_enabled=False) must emit a DEBUG message about georisk"
+        assert geo_debug, "PaperTrackConfig(georisk_gate_enabled=False) must emit a DEBUG message about georisk"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -213,12 +205,8 @@ class TestCVaRComparisonDirection:
         # Correct logic: early return when portfolio_cvar >= max_cvar_95
         # (e.g. -0.03 >= -0.05: within limit, no action needed)
         # Trigger (scale) happens when NOT within limit (falls through to scaling code)
-        assert (
-            "max_cvar_95" in src
-        ), "max_cvar_95 limit must be referenced in pre_trade_checks.py"
-        assert (
-            "portfolio_cvar" in src or "cvar" in src.lower()
-        ), "CVaR logic must be present in pre_trade_checks.py"
+        assert "max_cvar_95" in src, "max_cvar_95 limit must be referenced in pre_trade_checks.py"  # fmt: skip
+        assert "portfolio_cvar" in src or "cvar" in src.lower(), "CVaR logic must be present in pre_trade_checks.py"  # fmt: skip
 
     def test_cvar_scale_is_clamped(self):
         """CVaR scale factor must be clamped to [0, 1] to prevent over-scaling."""
@@ -229,9 +217,7 @@ class TestCVaRComparisonDirection:
         ).read_text(encoding="utf-8")
         # Scale must be clamped — max(0.0, min(..., 1.0)) or clip(0, 1)
         has_clamp = ("min(" in src and "max(" in src) or "clip(" in src
-        assert (
-            has_clamp
-        ), "CVaR scale must be clamped to [0, 1] to prevent invalid scaling"
+        assert has_clamp, "CVaR scale must be clamped to [0, 1] to prevent invalid scaling"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -257,9 +243,8 @@ class TestPaperTrackModeValue:
             for i, line in enumerate(lines)
             if 'mode="backtest"' in line or "mode='backtest'" in line
         ]
-        assert (
-            not bad_lines
-        ), f"paper_track.py must not hardcode mode='backtest'; found at lines: {bad_lines}"
+        _msg = f"paper_track.py must not hardcode mode='backtest'; found at lines: {bad_lines}"
+        assert not bad_lines, _msg
 
     def test_source_contains_mode_paper_in_paper_runner(self):
         """paper_track.py must use mode='paper' in the paper runner context."""
@@ -268,9 +253,7 @@ class TestPaperTrackModeValue:
         src = pathlib.Path("src/assembled_core/paper/paper_track.py").read_text(
             encoding="utf-8"
         )
-        assert (
-            'mode="paper"' in src or "mode='paper'" in src
-        ), "paper_track.py must contain mode='paper' for the paper runner TradingContext"
+        assert 'mode="paper"' in src or "mode='paper'" in src, "paper_track.py must contain mode='paper' for the paper runner TradingContext"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -302,9 +285,7 @@ class TestDeRiskScaleDefault:
         src = pathlib.Path(
             "src/assembled_core/pipeline/trading_cycle_shared.py"
         ).read_text(encoding="utf-8")
-        assert (
-            '"de_risk_scale", 0.5' in src or "'de_risk_scale', 0.5" in src
-        ), "de_risk_scale must default to 0.5 (halve positions) not 0.0 (block all)"
+        assert '"de_risk_scale", 0.5' in src or "'de_risk_scale', 0.5" in src, "de_risk_scale must default to 0.5 (halve positions) not 0.0 (block all)"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -324,9 +305,7 @@ class TestPolicyForwardedToFilterOrders:
         ).read_text(encoding="utf-8")
 
         # The call site must include policy= argument
-        assert (
-            "policy=" in src
-        ), "trading_cycle_shared.py must forward policy= to filter_orders_with_risk_controls"
+        assert "policy=" in src, "trading_cycle_shared.py must forward policy= to filter_orders_with_risk_controls"  # fmt: skip
 
     def test_load_policy_imported_or_used(self):
         """load_policy must be imported/used so it can be passed to filter_orders."""
@@ -335,6 +314,4 @@ class TestPolicyForwardedToFilterOrders:
         src = pathlib.Path(
             "src/assembled_core/pipeline/trading_cycle_shared.py"
         ).read_text(encoding="utf-8")
-        assert (
-            "load_policy" in src
-        ), "trading_cycle_shared.py must import/use load_policy to obtain the policy object"
+        assert "load_policy" in src, "trading_cycle_shared.py must import/use load_policy to obtain the policy object"  # fmt: skip

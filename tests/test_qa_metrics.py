@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.qa.metrics import (
     PerformanceMetrics,

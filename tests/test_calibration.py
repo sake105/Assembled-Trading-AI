@@ -22,7 +22,7 @@ def _synthetic_classification(n: int = 500, seed: int = 42):
     return y_true, y_prob
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCalibrationError:
     def test_basic(self):
         y_true, y_prob = _synthetic_classification()
@@ -50,7 +50,7 @@ class TestCalibrationError:
         assert result.n_bins == 20
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestIsotonicCalibrator:
     def test_fit_transform(self):
         y_true, y_prob = _synthetic_classification()
@@ -79,7 +79,7 @@ class TestIsotonicCalibrator:
             cal.transform(np.array([0.5]))
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestTemperatureScaler:
     def test_fit_transform_v2(self):
         rng = np.random.default_rng(42)

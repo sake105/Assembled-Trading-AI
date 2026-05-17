@@ -48,7 +48,7 @@ def _make_event(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsEventStore:
     def test_add_and_count(self):
         from src.assembled_core.intel.news_event_store import NewsEventStore
@@ -241,7 +241,7 @@ class TestNewsEventStore:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestIntelSignalAggregator:
     def _make_cluster(
         self,

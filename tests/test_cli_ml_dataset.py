@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 def test_cli_build_ml_dataset_basic(tmp_path: Path):
     """Test that build_ml_dataset CLI command works with sample data."""
     # Check if sample data exists
@@ -91,7 +91,7 @@ def test_cli_build_ml_dataset_basic(tmp_path: Path):
     assert len(feature_cols) > 0, "No feature columns found"
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 def test_cli_build_ml_dataset_help():
     """Test that build_ml_dataset --help works."""
     cmd = [

@@ -52,7 +52,7 @@ class FakeMetaModel:
             return pd.Series([0.5] * len(X), index=X.index, name="confidence_score")
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestApplyMetaFilter:
     """Tests for apply_meta_filter function."""
 
@@ -195,7 +195,7 @@ class TestApplyMetaFilter:
         assert "meta_confidence" in result.columns or len(result) == 0
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestApplyMetaScaling:
     """Tests for apply_meta_scaling function."""
 
@@ -330,7 +330,7 @@ class TestApplyMetaScaling:
         assert result.loc[0, "final_score"] == pytest.approx(0.8, rel=1e-5)
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestEnsembleIntegration:
     """Integration tests for ensemble layer."""
 

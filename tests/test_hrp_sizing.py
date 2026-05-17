@@ -139,7 +139,7 @@ def _wide_returns_panel(n_days: int = 90, n_symbols: int = 5) -> pd.DataFrame:
     return pd.DataFrame(data, index=idx, columns=cols)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_hrp_target_weights_sum_to_target_gross() -> None:
     panel = _wide_returns_panel()
     w = compute_hrp_target_weights(panel, target_gross=0.80)
@@ -148,48 +148,48 @@ def test_compute_hrp_target_weights_sum_to_target_gross() -> None:
     assert w.sum() == pytest.approx(0.80, abs=1e-6)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_hrp_target_weights_non_negative() -> None:
     panel = _wide_returns_panel()
     w = compute_hrp_target_weights(panel)
     assert (w >= 0).all()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_hrp_target_weights_custom_gross() -> None:
     panel = _wide_returns_panel()
     w = compute_hrp_target_weights(panel, target_gross=1.25)
     assert w.sum() == pytest.approx(1.25, abs=1e-6)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_hrp_target_weights_too_short_raises() -> None:
     panel = _wide_returns_panel(n_days=10)
     with pytest.raises(ValueError, match="insufficient history"):
         compute_hrp_target_weights(panel, min_history=30)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_hrp_target_weights_single_symbol_raises() -> None:
     panel = _wide_returns_panel(n_symbols=1)
     with pytest.raises(ValueError, match="at least 2 symbols"):
         compute_hrp_target_weights(panel)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_hrp_target_weights_invalid_gross_raises() -> None:
     panel = _wide_returns_panel()
     with pytest.raises(ValueError, match="target_gross"):
         compute_hrp_target_weights(panel, target_gross=0.0)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_hrp_target_weights_not_dataframe_raises() -> None:
     with pytest.raises(ValueError, match="DataFrame"):
         compute_hrp_target_weights([1, 2, 3])  # type: ignore[arg-type]
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_alpha_one_returns_hrp() -> None:
     hrp = pd.Series({"A": 0.4, "B": 0.3, "C": 0.1}, name="hrp_weight")
     score = pd.Series({"A": 0.2, "B": 0.2, "C": 0.4}, name="score")
@@ -198,7 +198,7 @@ def test_blend_alpha_one_returns_hrp() -> None:
         assert out[sym] == pytest.approx(hrp[sym], abs=1e-9)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_alpha_zero_returns_score() -> None:
     hrp = pd.Series({"A": 0.4, "B": 0.3, "C": 0.1}, name="hrp_weight")
     score = pd.Series({"A": 0.2, "B": 0.2, "C": 0.4}, name="score")
@@ -207,7 +207,7 @@ def test_blend_alpha_zero_returns_score() -> None:
         assert out[sym] == pytest.approx(score[sym], abs=1e-9)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_alpha_half_midpoint_same_gross() -> None:
     hrp = pd.Series({"A": 0.5, "B": 0.5}, name="hrp_weight")
     score = pd.Series({"A": 0.5, "B": 0.5}, name="score")
@@ -217,7 +217,7 @@ def test_blend_alpha_half_midpoint_same_gross() -> None:
     assert out.sum() == pytest.approx(1.0, abs=1e-9)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_alpha_out_of_range_raises() -> None:
     hrp = pd.Series({"A": 0.5, "B": 0.5}, name="hrp_weight")
     score = pd.Series({"A": 0.5, "B": 0.5}, name="score")
@@ -227,7 +227,7 @@ def test_blend_alpha_out_of_range_raises() -> None:
         blend_hrp_with_score(hrp, score, hrp_alpha=-0.1)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_handles_disjoint_symbols() -> None:
     hrp = pd.Series({"A": 0.4, "B": 0.3, "C": 0.1}, name="hrp_weight")
     score = pd.Series({"A": 0.3, "B": 0.2, "D": 0.3}, name="score")
@@ -239,7 +239,7 @@ def test_blend_handles_disjoint_symbols() -> None:
     assert out["D"] > 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_gross_does_not_inflate() -> None:
     hrp = pd.Series({"A": 0.6, "B": 0.2}, name="hrp_weight")
     score = pd.Series({"A": 0.3, "B": 0.3, "C": 0.4}, name="score")

@@ -9,7 +9,7 @@ import pytest
 
 from src.assembled_core.ops.inspect_data import SCHEMA_VERSION, inspect_eod_prices
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 
 def _make_prices(

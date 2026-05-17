@@ -25,7 +25,7 @@ from src.assembled_core.events.disclosures.triggers import (
     apply_qc_caps,
 )
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 # Minimal Atom XML with two entries (no real network)
 ATOM_TWO_ENTRIES = """<?xml version="1.0" encoding="UTF-8"?>

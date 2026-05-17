@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.pipeline.orchestrator import run_eod_pipeline
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 
 def test_run_eod_pipeline_smoke(tmp_path: Path, monkeypatch):

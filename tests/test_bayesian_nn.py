@@ -23,7 +23,7 @@ def _synthetic_regression(n: int = 200, seed: int = 42):
     return X.astype(np.float32), y.astype(np.float32)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMCDropoutMLP:
     def test_fit_predict(self):
         X, y = _synthetic_regression()

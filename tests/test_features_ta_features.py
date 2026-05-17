@@ -36,7 +36,7 @@ from src.assembled_core.features.ta_features import (
     add_rsi,
 )
 
-pytestmark = pytest.mark.phase11
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

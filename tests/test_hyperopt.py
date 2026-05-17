@@ -32,7 +32,7 @@ def _synthetic_panel(n: int = 300, seed: int = 42) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestTuneModelOptuna:
     def test_basic_ridge(self):
         panel = _synthetic_panel()
@@ -71,7 +71,7 @@ class TestTuneModelOptuna:
         assert best_cfg.model_type == "lasso"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestGuardrailedHyperopt:
     def test_basic(self):
         panel = _synthetic_panel()

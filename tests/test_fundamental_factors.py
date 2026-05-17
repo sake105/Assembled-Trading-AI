@@ -52,7 +52,7 @@ EMPTY_INFO: dict = {}
 # -- Tests -------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputeSingleSymbol:
     def test_aapl_factors(self):
         factors = compute_single_symbol_factors("AAPL", AAPL_INFO)
@@ -84,7 +84,7 @@ class TestComputeSingleSymbol:
         assert factors["carry_dividend_yield"] == pytest.approx(0.05)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildFundamentalFactors:
     def test_basic_build(self):
         info_dict = {"AAPL": AAPL_INFO, "MSFT": MSFT_INFO}
@@ -111,7 +111,7 @@ class TestBuildFundamentalFactors:
             assert col in result.factors.columns
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCrossSectionalZscore:
     def test_basic_zscore(self):
         df = pd.DataFrame(
@@ -149,7 +149,7 @@ class TestCrossSectionalZscore:
         assert result["carry_dividend_yield"].notna().sum() >= 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCache:
     def test_clear_cache(self):
         clear_cache()

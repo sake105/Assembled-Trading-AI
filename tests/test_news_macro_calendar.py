@@ -10,7 +10,7 @@ import pytest
 from src.assembled_core.intel.news_macro_calendar import MacroCalendar, MacroEvent
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMacroCalendar:
     def test_empty_next(self):
         cal = MacroCalendar()

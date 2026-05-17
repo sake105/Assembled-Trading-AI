@@ -11,7 +11,7 @@ import pytest
 from src.assembled_core.intel.news_impact_calibrator import ImpactCalibrator
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestImpactCalibrator:
     def test_empty_report(self):
         cal = ImpactCalibrator()

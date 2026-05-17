@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.phase10
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.execution.intent_store import (
     filter_intents_by_action,

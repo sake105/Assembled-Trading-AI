@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.risk.var_methods import PortfolioVaR, _z_from_alpha
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 # --------------------------------------------------------------------------- #

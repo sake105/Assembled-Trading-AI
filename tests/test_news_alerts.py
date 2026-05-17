@@ -35,7 +35,7 @@ def _evt(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAlertEngine:
     def test_no_events_no_alerts(self):
         eng = AlertEngine()

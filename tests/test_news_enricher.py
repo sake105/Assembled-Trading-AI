@@ -29,7 +29,7 @@ def _make_event(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsEventEnricher:
     def test_enriches_event_types(self):
         from src.assembled_core.intel.news_enricher import NewsEventEnricher

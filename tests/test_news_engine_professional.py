@@ -58,7 +58,7 @@ def _make_event(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsArchiver:
     def test_append_and_count(self):
         from src.assembled_core.intel.news_archiver import NewsArchiver
@@ -130,7 +130,7 @@ class TestNewsArchiver:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsPositionBridge:
     def test_bearish_cluster_gives_short(self):
         from src.assembled_core.intel.news_position_bridge import cluster_to_signal
@@ -243,7 +243,7 @@ class TestNewsPositionBridge:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSectorRotationSignal:
     def _make_events_df(self):
         import pandas as pd
@@ -328,7 +328,7 @@ class TestSectorRotationSignal:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEarningsProximityBoost:
     def test_near_quarter_end_gets_boost(self):
         import pytest
@@ -380,7 +380,7 @@ class TestEarningsProximityBoost:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsFatigueDetection:
     def test_no_fatigue_on_first_occurrence(self):
         from src.assembled_core.intel.news_dedupe import NewsDedupeIndex
@@ -438,7 +438,7 @@ class TestNewsFatigueDetection:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestContradictionDetector:
     def test_detects_opposing_directions(self):
         from src.assembled_core.intel.news_dedupe import detect_contradictions
@@ -502,7 +502,7 @@ class TestContradictionDetector:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSourceBiasTagging:
     def test_state_media_detected(self):
         from src.assembled_core.intel.news_classifier import is_state_media
@@ -562,7 +562,7 @@ class TestSourceBiasTagging:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFeedHealthDashboard:
     def test_get_feed_stats_empty(self):
         from src.assembled_core.intel.health_monitor import HealthMonitor

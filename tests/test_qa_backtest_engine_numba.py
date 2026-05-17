@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

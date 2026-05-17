@@ -33,7 +33,7 @@ def _synthetic_returns(n: int = 200, k: int = 4, seed: int = 42) -> pd.DataFrame
     return pd.DataFrame(correlated, index=dates, columns=symbols)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEstimateCovariance:
     def test_sample_shape(self):
         ret = _synthetic_returns()
@@ -92,7 +92,7 @@ class TestEstimateCovariance:
         assert cov.empty  # requires >= 2 columns
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEWMCovariance:
     def test_basic(self):
         ret = _synthetic_returns(n=100, k=3)
@@ -108,7 +108,7 @@ class TestEWMCovariance:
         assert cov[0, 1] == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEnsurePSD:
     def test_already_psd(self):
         cov = pd.DataFrame(
@@ -128,7 +128,7 @@ class TestEnsurePSD:
         assert all(eigvals > 0)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestReturnsFromPrices:
     def test_basic_log_returns(self):
         dates = pd.bdate_range("2024-01-01", periods=5)

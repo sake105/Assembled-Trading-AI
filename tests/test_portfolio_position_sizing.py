@@ -33,7 +33,7 @@ from src.assembled_core.portfolio.position_sizing import (
     compute_target_positions_from_trend_signals,
 )
 
-pytestmark = pytest.mark.phase11
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

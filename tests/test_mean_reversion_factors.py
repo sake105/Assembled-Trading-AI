@@ -13,7 +13,7 @@ from src.assembled_core.features.mean_reversion_factors import (
     compute_mean_reversion_factors,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 FACTOR_COLS = [
     "mr_zscore_reversal_3d",

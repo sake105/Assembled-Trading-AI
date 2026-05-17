@@ -46,7 +46,7 @@ def _make_expected_returns(n: int = 5, seed: int = 42) -> pd.Series:
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRiskBudgeting:
     def test_erc_basic(self):
         pytest.importorskip("src.assembled_core.portfolio.risk_budgeting")
@@ -131,7 +131,7 @@ class TestRiskBudgeting:
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRobustOptimizer:
     def test_basic(self):
         pytest.importorskip("src.assembled_core.portfolio.robust_optimizer")
@@ -206,7 +206,7 @@ class TestRobustOptimizer:
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestLiquidityPenalty:
     def test_no_liquidity_penalty(self):
         from src.assembled_core.portfolio.cost_aware_optimizer import (
@@ -261,7 +261,7 @@ class TestLiquidityPenalty:
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMultiPeriod:
     def test_trade_speed_basic(self):
         pytest.importorskip("src.assembled_core.portfolio.multi_period")
@@ -363,7 +363,7 @@ class TestMultiPeriod:
 # ===========================================================================
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBLTurnoverPenalty:
     def test_bl_no_turnover_penalty(self):
         """BL optimize without turnover penalty should work as before."""
@@ -410,7 +410,7 @@ class TestBLTurnoverPenalty:
         assert turnover < 0.5
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestHRPTurnoverControl:
     def test_hrp_turnover_within_budget(self):
         from src.assembled_core.portfolio.hierarchical_risk_parity import (

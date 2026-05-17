@@ -6,8 +6,8 @@ from pathlib import Path
 import yaml
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestPolicyCalibration:
     @pytest.fixture
     def policy(self):

@@ -33,7 +33,7 @@ from src.assembled_core.qa.dataset_builder import (
 )
 from src.assembled_core.qa.labeling import generate_trade_labels
 
-pytestmark = pytest.mark.phase7
+pytestmark = pytest.mark.fast
 
 
 class TestGenerateTradeLabels:

@@ -25,7 +25,7 @@ from scripts.run_validation_and_drift_checks import (
     write_summary_report,
 )
 
-pytestmark = pytest.mark.phase9
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

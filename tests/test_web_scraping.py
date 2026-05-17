@@ -15,7 +15,7 @@ from src.assembled_core.data.altdata.web_scraping import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestJobPostingFeatures:
     def test_basic(self):
         data = pd.DataFrame(
@@ -60,7 +60,7 @@ class TestJobPostingFeatures:
         assert len(result) == 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAppRatingFeatures:
     def test_basic_v2(self):
         data = pd.DataFrame(
@@ -83,7 +83,7 @@ class TestAppRatingFeatures:
         assert len(result) == 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestWebTrafficFeatures:
     def test_basic_v3(self):
         data = pd.DataFrame(

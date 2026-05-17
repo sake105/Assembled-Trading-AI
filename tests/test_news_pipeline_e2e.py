@@ -46,7 +46,7 @@ def _make_event(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsPipelineEndToEnd:
     """Full pipeline from raw events to aggregated intel signal."""
 

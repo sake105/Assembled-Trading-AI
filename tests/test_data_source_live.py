@@ -18,7 +18,7 @@ from src.assembled_core.data.data_source import (
     get_price_data_source,
 )
 
-pytestmark = pytest.mark.phase11
+pytestmark = pytest.mark.fast
 
 
 class TestLocalParquetPriceDataSource:

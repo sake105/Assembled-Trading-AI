@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.run_eod_pipeline import main
 
-pytestmark = pytest.mark.phase11
+pytestmark = pytest.mark.fast
 pytestmark = [pytestmark, pytest.mark.integration]
 
 

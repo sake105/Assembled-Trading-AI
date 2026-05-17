@@ -116,7 +116,7 @@ def _returns_panel(n_bars: int = 120, n_syms: int = 5, seed: int = 7) -> pd.Data
     return pd.DataFrame(data, index=dates, columns=symbols)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_bl_target_weights_sums_to_target_gross() -> None:
     panel = _returns_panel()
     views = pd.Series(
@@ -128,7 +128,7 @@ def test_compute_bl_target_weights_sums_to_target_gross() -> None:
     assert list(w.index) == list(panel.columns)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_bl_target_weights_long_only() -> None:
     panel = _returns_panel()
     views = pd.Series(
@@ -138,7 +138,7 @@ def test_compute_bl_target_weights_long_only() -> None:
     assert (w >= -1e-12).all(), f"expected long-only weights, got {w.to_dict()}"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_bl_target_weights_positive_view_beats_negative() -> None:
     # Build a panel with identical-ish variance across symbols so the view
     # is the dominant differentiator. Use a small seed with low-noise draws.
@@ -156,7 +156,7 @@ def test_compute_bl_target_weights_positive_view_beats_negative() -> None:
     ), f"positive view should dominate: POS={w['POS']}, NEG={w['NEG']}"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_bl_target_weights_short_history_raises() -> None:
     panel = _returns_panel(n_bars=20)
     views = pd.Series({f"SYM{i}": 0.0 for i in range(5)})
@@ -164,7 +164,7 @@ def test_compute_bl_target_weights_short_history_raises() -> None:
         compute_bl_target_weights(panel, views)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_bl_target_weights_mismatched_views_raises() -> None:
     panel = _returns_panel()
     views = pd.Series({"SYM0": 1.0, "SYM1": 0.5})  # missing SYM2..SYM4
@@ -172,7 +172,7 @@ def test_compute_bl_target_weights_mismatched_views_raises() -> None:
         compute_bl_target_weights(panel, views)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_compute_bl_target_weights_equal_weight_prior_baseline() -> None:
     panel = _returns_panel()
     views = pd.Series({f"SYM{i}": 0.0 for i in range(5)})
@@ -185,7 +185,7 @@ def test_compute_bl_target_weights_equal_weight_prior_baseline() -> None:
     assert (w > 0).all()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_bl_with_score_alpha_one_returns_bl() -> None:
     bl = pd.Series({"A": 0.6, "B": 0.4}, name="bl_weight")
     score = pd.Series({"A": 0.3, "B": 0.7}, name="score")
@@ -195,7 +195,7 @@ def test_blend_bl_with_score_alpha_one_returns_bl() -> None:
     assert abs(out["B"] - 0.4) < 1e-12
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_bl_with_score_alpha_zero_returns_score() -> None:
     bl = pd.Series({"A": 0.6, "B": 0.4}, name="bl_weight")
     score = pd.Series({"A": 0.3, "B": 0.7}, name="score")
@@ -204,7 +204,7 @@ def test_blend_bl_with_score_alpha_zero_returns_score() -> None:
     assert abs(out["B"] - 0.7) < 1e-12
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_blend_bl_with_score_rejects_alpha_out_of_range() -> None:
     bl = pd.Series({"A": 0.5, "B": 0.5})
     score = pd.Series({"A": 0.5, "B": 0.5})

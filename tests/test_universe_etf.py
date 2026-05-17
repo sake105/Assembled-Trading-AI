@@ -17,8 +17,8 @@ _UNIVERSE_PATH = (
 )
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestLoadETFUniverse:
     def test_loads_successfully(self):
         u = load_etf_universe(_UNIVERSE_PATH)
@@ -33,8 +33,8 @@ class TestLoadETFUniverse:
             load_etf_universe(tmp_path / "nonexistent.yaml")
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestGetAllSymbols:
     def test_returns_list(self):
         u = load_etf_universe(_UNIVERSE_PATH)
@@ -68,8 +68,8 @@ class TestGetAllSymbols:
         assert len(syms) == len(set(syms))
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestGetSymbolsByAssetClass:
     def test_equity_symbols_include_spy(self):
         u = load_etf_universe(_UNIVERSE_PATH)
@@ -87,8 +87,8 @@ class TestGetSymbolsByAssetClass:
         assert syms == []
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestGetSymbolsByGroup:
     def test_equity_broad_returns_spy(self):
         u = load_etf_universe(_UNIVERSE_PATH)
@@ -105,8 +105,8 @@ class TestGetSymbolsByGroup:
         assert get_symbols_by_group(u, "nonexistent_group") == []
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestGetDefensiveSymbols:
     def test_includes_gld(self):
         u = load_etf_universe(_UNIVERSE_PATH)
@@ -125,8 +125,8 @@ class TestGetDefensiveSymbols:
         assert len(get_defensive_symbols(u)) >= 4
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestBuildSymbolMetadata:
     def test_spy_has_metadata(self):
         u = load_etf_universe(_UNIVERSE_PATH)

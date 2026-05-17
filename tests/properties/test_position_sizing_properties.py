@@ -25,7 +25,7 @@ from src.assembled_core.strategies.multifactor_v1 import (  # noqa: E402
     compute_target_positions,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 # Minimal config that compute_target_positions expects
 _BASE_CFG = {

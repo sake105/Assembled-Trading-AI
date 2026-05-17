@@ -25,7 +25,7 @@ def _evt(eid: str, title: str, ts: datetime | None = None) -> NewsEvent:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsArchive:
     def test_missing_file_reader(self, tmp_path):
         r = NewsArchiveReader(tmp_path / "nope.jsonl")

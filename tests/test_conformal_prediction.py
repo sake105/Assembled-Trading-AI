@@ -40,7 +40,7 @@ def test_data():
     return X, y
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSplitConformal:
     def test_calibrate(self, calibration_data):
         X, y = calibration_data
@@ -99,7 +99,7 @@ class TestSplitConformal:
         assert result_tight.interval_width.mean() < result_wide.interval_width.mean()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAdaptiveConformal:
     def test_calibrate_and_predict(self, calibration_data, test_data):
         X_cal, y_cal = calibration_data
@@ -130,7 +130,7 @@ class TestAdaptiveConformal:
         assert result_hard.interval_width.mean() > result_easy.interval_width.mean()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEvaluateCoverage:
     def test_perfect_coverage(self):
         result = ConformalResult(

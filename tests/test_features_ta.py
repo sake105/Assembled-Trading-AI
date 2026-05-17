@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 # Add repo root to path
 ROOT = Path(__file__).resolve().parents[1]

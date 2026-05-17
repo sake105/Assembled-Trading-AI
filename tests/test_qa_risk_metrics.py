@@ -8,7 +8,7 @@ import pytest
 
 from src.assembled_core.qa.risk_metrics import compute_portfolio_risk_metrics
 
-pytestmark = pytest.mark.phase8
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

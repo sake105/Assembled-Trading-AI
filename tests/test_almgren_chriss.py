@@ -13,7 +13,7 @@ from src.assembled_core.execution.almgren_chriss import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAlmgrenChrissParams:
     def test_defaults(self):
         p = AlmgrenChrissParams()
@@ -24,7 +24,7 @@ class TestAlmgrenChrissParams:
         assert p.adv == 1_000_000.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputeOptimalTrajectory:
     def test_basic_buy_trajectory(self):
         traj = compute_optimal_trajectory(
@@ -118,7 +118,7 @@ class TestComputeOptimalTrajectory:
         assert traj.trade_list[0] == pytest.approx(100, rel=1e-3)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEstimateImpactCost:
     def test_basic_estimate(self):
         result = estimate_impact_cost(
@@ -143,7 +143,7 @@ class TestEstimateImpactCost:
         assert large["total_bps"] > small["total_bps"]
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputeFrontier:
     def test_frontier_returns_points(self):
         frontier = compute_frontier(

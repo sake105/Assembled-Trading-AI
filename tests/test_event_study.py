@@ -32,7 +32,7 @@ def _make_events(symbol: str, date: str, event_type: str = "earnings") -> pd.Dat
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBuildEventWindowPrices:
     def test_basic_window(self):
         prices = _make_prices(["AAPL"], 30)
@@ -120,7 +120,7 @@ class TestBuildEventWindowPrices:
         assert result["rel_day"].min() >= -1  # clipped by data start
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputeEventReturns:
     def test_returns_present(self):
         prices = _make_prices(["AAPL"], 30)

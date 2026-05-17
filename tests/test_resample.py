@@ -30,7 +30,7 @@ def _synthetic_daily(n: int = 200, seed: int = 42) -> pd.DataFrame:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestResampleToWeekly:
     def test_basic(self):
         daily = _synthetic_daily()
@@ -47,7 +47,7 @@ class TestResampleToWeekly:
             assert weekly["high"].max() >= daily["close"].min()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestResampleToMonthly:
     def test_basic_v2(self):
         daily = _synthetic_daily()
@@ -61,7 +61,7 @@ class TestResampleToMonthly:
         assert len(monthly) <= 12  # ~200 trading days ≈ 8-10 months
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAlignHigherTFToDaily:
     def test_basic_alignment(self):
         daily = _synthetic_daily()

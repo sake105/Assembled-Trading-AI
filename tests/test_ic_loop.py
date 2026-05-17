@@ -7,7 +7,7 @@ import pytest
 from src.assembled_core.intel.ic_loop import ICTracker, _pearson_corr
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPearsonCorr:
     def test_perfect_positive(self):
         x = [1.0, 2.0, 3.0, 4.0]
@@ -28,7 +28,7 @@ class TestPearsonCorr:
         assert _pearson_corr([1.0], [1.0]) is None
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestICTracker:
     def test_record_and_ic(self):
         tracker = ICTracker()

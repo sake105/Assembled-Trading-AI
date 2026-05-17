@@ -22,7 +22,7 @@ from src.assembled_core.features.news_macro_wrapper import (  # noqa: E402
     compute_news_macro_factors,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 def _empty_news() -> pd.DataFrame:

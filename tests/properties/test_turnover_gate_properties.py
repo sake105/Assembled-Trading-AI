@@ -27,7 +27,7 @@ from src.assembled_core.risk.turnover_budget import (  # noqa: E402
     estimate_turnover,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 def _make_target(symbols: list[str], weights: list[float]) -> pd.DataFrame:

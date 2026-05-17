@@ -34,7 +34,7 @@ from src.assembled_core.signals.meta_model import (
 )
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestTrainMetaModel:
     """Tests for train_meta_model function."""
 
@@ -175,7 +175,7 @@ class TestTrainMetaModel:
             )
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestSaveLoadMetaModel:
     """Tests for save_meta_model and load_meta_model functions."""
 
@@ -262,7 +262,7 @@ class TestSaveLoadMetaModel:
             load_meta_model(non_existent_path)
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestEvaluateMetaModel:
     """Tests for evaluate_meta_model function."""
 
@@ -327,7 +327,7 @@ class TestEvaluateMetaModel:
             evaluate_meta_model(y_true, y_prob)
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestPlotCalibrationCurve:
     """Tests for plot_calibration_curve function."""
 
@@ -368,7 +368,7 @@ class TestPlotCalibrationCurve:
             plot_calibration_curve(y_true, y_prob, output_path)
 
 
-@pytest.mark.phase7
+@pytest.mark.fast
 class TestMetaModelPredictProba:
     """Tests for MetaModel.predict_proba method."""
 

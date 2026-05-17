@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 # ---------------------------------------------------------------------------
@@ -56,9 +56,7 @@ class TestInsiderBuySellRatioNoInf:
             if "np.inf" in line
             and "buy_sell_ratio" in "\n".join(lines[max(0, i - 3) : i + 3])
         ]
-        assert (
-            not inf_in_ratio_context
-        ), f"np.inf must not appear near buy_sell_ratio, found at: {inf_in_ratio_context}"
+        assert not inf_in_ratio_context, f"np.inf must not appear near buy_sell_ratio, found at: {inf_in_ratio_context}"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -93,12 +91,8 @@ class TestRsiUptrendFlagNan:
             ),
             index=close.index,
         )
-        assert (
-            uptrend_flag_v2.iloc[:200].isna().all()
-        ), "uptrend_flag must be NaN where ema_200 is NaN"
-        assert (
-            not uptrend_flag_v2.iloc[200:].isna().any()
-        ), "uptrend_flag must be non-NaN where ema_200 is available"
+        assert uptrend_flag_v2.iloc[:200].isna().all(), "uptrend_flag must be NaN where ema_200 is NaN"  # fmt: skip
+        assert not uptrend_flag_v2.iloc[200:].isna().any(), "uptrend_flag must be non-NaN where ema_200 is available"  # fmt: skip
 
     def test_source_uses_np_where_with_nan_guard(self):
         """mean_reversion_factors.py must use np.where(ema_200.isna(), np.nan, ...) pattern."""
@@ -107,9 +101,7 @@ class TestRsiUptrendFlagNan:
         src = pathlib.Path(
             "src/assembled_core/features/mean_reversion_factors.py"
         ).read_text(encoding="utf-8")
-        assert (
-            "ema_200.isna()" in src
-        ), "mean_reversion_factors.py must guard uptrend_flag against ema_200 NaN values"
+        assert "ema_200.isna()" in src, "mean_reversion_factors.py must guard uptrend_flag against ema_200 NaN values"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -128,9 +120,7 @@ class TestPeadTargetGated:
         )
 
         sig = inspect.signature(build_earnings_surprise_factors)
-        assert (
-            "compute_pead_target" in sig.parameters
-        ), "build_earnings_surprise_factors must accept compute_pead_target parameter"
+        assert "compute_pead_target" in sig.parameters, "build_earnings_surprise_factors must accept compute_pead_target parameter"  # fmt: skip
 
     def _make_events(self):
         return pd.DataFrame(
@@ -160,9 +150,7 @@ class TestPeadTargetGated:
 
         result = build_earnings_surprise_factors(self._make_events(), prices)
         pead_cols = [c for c in result.columns if "post_earnings_drift" in c]
-        assert (
-            not pead_cols
-        ), f"Default call must not include post_earnings_drift_return, got: {pead_cols}"
+        assert not pead_cols, f"Default call must not include post_earnings_drift_return, got: {pead_cols}"  # fmt: skip
 
     def test_explicit_flag_includes_pead_column(self):
         """compute_pead_target=True must include post_earnings_drift_return column."""
@@ -182,9 +170,7 @@ class TestPeadTargetGated:
             self._make_events(), prices, compute_pead_target=True
         )
         pead_cols = [c for c in result.columns if "post_earnings_drift" in c]
-        assert (
-            pead_cols
-        ), "compute_pead_target=True must include post_earnings_drift_return column"
+        assert pead_cols, "compute_pead_target=True must include post_earnings_drift_return column"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -214,9 +200,7 @@ class TestNetExposureSigned:
         qty = pd.Series([-100.0])
         last_price = pd.Series([50.0])
         net_exposure = float((qty * last_price).sum())
-        assert (
-            net_exposure < 0
-        ), f"Short book net_exposure must be negative, got {net_exposure}"
+        assert net_exposure < 0, f"Short book net_exposure must be negative, got {net_exposure}"  # fmt: skip
 
     def test_net_vs_gross_differ_for_mixed_book(self):
         """Mixed long/short book: net_exposure != gross_exposure."""
@@ -245,18 +229,13 @@ class TestGdpRegimeColumnFilter:
             "src/assembled_core/features/altdata_news_macro_factors.py"
         ).read_text(encoding="utf-8")
         # Must NOT directly index gpivot["GDP"] — fragile exact match
-        assert 'gpivot["GDP"]' not in src, (
-            "GDP column must be found via filter (e.g. [c for c in gpivot.columns if 'GDP' in c]), "
-            "not hardcoded exact match gpivot['GDP']"
-        )
+        assert 'gpivot["GDP"]' not in src, "GDP column must be found via filter (e.g. [c for c in gpivot.columns if 'GDP' in c]), not hardcoded exact match gpivot['GDP']"  # fmt: skip
 
     def test_gdp_filter_finds_gdp_growth_column(self):
         """Filter pattern must find 'GDP_GROWTH' when exact 'GDP' is absent."""
         columns = ["GDP_GROWTH", "PMI", "UNEMPLOYMENT_RATE"]
         gdp_cols = [c for c in columns if "GDP" in c.upper()]
-        assert gdp_cols == [
-            "GDP_GROWTH"
-        ], "Filter must find GDP_GROWTH even when exact 'GDP' column absent"
+        assert gdp_cols == ["GDP_GROWTH"], "Filter must find GDP_GROWTH even when exact 'GDP' column absent"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -276,9 +255,7 @@ class TestWscoreDirectionFilter:
         ).read_text(encoding="utf-8")
         # After the fix, wscore computation must reference direction filtering
         assert "best_dir" in src, "strategy_allocator.py must compute best_dir"
-        assert (
-            "_dir_mask" in src or "direction == best_dir" in src
-        ), "wscore must be computed only over rows where direction == best_dir"
+        assert "_dir_mask" in src or "direction == best_dir" in src, "wscore must be computed only over rows where direction == best_dir"  # fmt: skip
 
 
 # ---------------------------------------------------------------------------
@@ -296,9 +273,7 @@ class TestTCRebalancingExitGuard:
         src = pathlib.Path("src/assembled_core/portfolio/position_sizing.py").read_text(
             encoding="utf-8"
         )
-        assert (
-            "w_target == 0" in src or "w_target == 0.0" in src
-        ), "position_sizing.py must have a guard for w_target==0.0 in TC rebalancing"
+        assert "w_target == 0" in src or "w_target == 0.0" in src, "position_sizing.py must have a guard for w_target==0.0 in TC rebalancing"  # fmt: skip
 
     def test_exit_weight_does_not_go_positive(self):
         """When w_target=0 and w_current>0, adjusted weight must stay <= w_current."""
@@ -316,9 +291,7 @@ class TestTCRebalancingExitGuard:
         else:
             adjusted_fixed = w_target + penalty
 
-        assert (
-            adjusted_fixed <= w_current
-        ), f"Fixed exit weight must be <= w_current ({w_current}), got {adjusted_fixed}"
+        assert adjusted_fixed <= w_current, f"Fixed exit weight must be <= w_current ({w_current}), got {adjusted_fixed}"  # fmt: skip
         assert adjusted_fixed >= 0.0, "Fixed exit weight must be non-negative"
 
 
@@ -337,10 +310,7 @@ class TestSentimentDictLookup:
         src = pathlib.Path(
             "src/assembled_core/features/altdata_news_macro_factors.py"
         ).read_text(encoding="utf-8")
-        assert "_sentiment_by_symbol" in src, (
-            "altdata_news_macro_factors.py must build a _sentiment_by_symbol dict "
-            "for O(1) per-symbol lookup instead of O(N) linear scan"
-        )
+        assert "_sentiment_by_symbol" in src, "altdata_news_macro_factors.py must build a _sentiment_by_symbol dict for O(1) per-symbol lookup instead of O(N) linear scan"  # fmt: skip
 
     def test_dict_lookup_is_faster_than_linear_scan(self):
         """Verify the dict lookup pattern is correct for the given data structure."""

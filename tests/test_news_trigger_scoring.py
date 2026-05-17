@@ -11,7 +11,7 @@ from src.assembled_core.events.news.trigger_scoring import score_triggers
 from src.assembled_core.events.news.sources import load_news_params
 from src.assembled_core.events.news import run_news_pipeline
 
-pytestmark = [pytest.mark.phase6, pytest.mark.unit]
+pytestmark = [pytest.mark.fast, pytest.mark.unit]
 
 
 def _make_cluster(

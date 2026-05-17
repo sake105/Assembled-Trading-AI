@@ -33,7 +33,7 @@ def _evt(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSentimentDriftTracker:
     def test_empty_report(self):
         tr = SentimentDriftTracker()

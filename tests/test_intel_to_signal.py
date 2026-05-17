@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 # ---------------------------------------------------------------------------

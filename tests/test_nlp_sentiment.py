@@ -13,7 +13,7 @@ from src.assembled_core.ml.nlp_sentiment import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestScoreTextsFinbert:
     def test_without_transformers(self):
         """Without transformers installed, should raise ImportError."""
@@ -42,7 +42,7 @@ class TestScoreTextsFinbert:
                 score_texts_finbert(["Market is doing well"])
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestScoreNewsStore:
     def test_basic_requires_transformers(self):
         """score_news_store requires transformers — should raise without it."""

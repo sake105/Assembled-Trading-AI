@@ -12,8 +12,8 @@ from src.assembled_core.qa.learning_store import (
 )
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestAppendLearningRecord:
     def test_creates_file(self, tmp_path):
         store = tmp_path / "test.jsonl"
@@ -40,8 +40,8 @@ class TestAppendLearningRecord:
         assert store.exists()
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestLoadLearningRecords:
     def test_empty_if_file_not_exists(self, tmp_path):
         records = load_learning_records(tmp_path / "nonexistent.jsonl")
@@ -61,8 +61,8 @@ class TestLoadLearningRecords:
         assert [r["n"] for r in records] == [0, 1, 2, 3, 4]
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestGetLatestRecord:
     def test_none_if_empty(self, tmp_path):
         assert get_latest_record(tmp_path / "nonexistent.jsonl") is None
@@ -75,8 +75,8 @@ class TestGetLatestRecord:
         assert rec["run_id"] == "last"
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestSummarizeLearningStore:
     def test_empty_store(self, tmp_path):
         summary = summarize_learning_store(tmp_path / "nonexistent.jsonl")

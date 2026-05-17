@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-pytestmark = pytest.mark.phase4
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture
@@ -323,7 +323,7 @@ def test_run_backtest_strategy_custom_costs(
         monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.slow
 def test_run_backtest_event_insider_shipping(
     tmp_path: Path, sample_price_file: Path, monkeypatch
@@ -387,7 +387,7 @@ def test_run_backtest_event_insider_shipping(
         monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
 
 
-@pytest.mark.phase6
+@pytest.mark.fast
 @pytest.mark.slow
 def test_event_strategy_generates_trades_with_sample_events(
     tmp_path: Path, sample_price_file: Path, monkeypatch

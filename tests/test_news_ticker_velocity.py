@@ -25,7 +25,7 @@ def _evt(event_id: str, tickers: list[str], ts: datetime) -> NewsEvent:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestTickerVelocityTracker:
     def test_no_events_no_signals(self):
         vt = TickerVelocityTracker()

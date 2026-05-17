@@ -53,7 +53,7 @@ def _synthetic_factor_data(n_assets: int = 30, n_days: int = 200, seed: int = 42
     return returns, exposures, symbols
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFactorRiskModel:
     def test_fit(self):
         returns, exposures, symbols = _synthetic_factor_data()
@@ -86,7 +86,7 @@ class TestFactorRiskModel:
             model.predict_portfolio_vol(weights)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCheckFactorExposureLimits:
     def test_within_limits(self):
         symbols = ["A", "B", "C"]

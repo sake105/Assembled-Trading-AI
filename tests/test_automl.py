@@ -45,7 +45,7 @@ def synthetic_target(synthetic_features):
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputeIC:
     def test_perfect_prediction(self):
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -69,7 +69,7 @@ class TestComputeIC:
         assert ic == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFeatureSelection:
     def test_selects_signal_features(self, synthetic_features, synthetic_target):
         selected = select_features_mi(
@@ -91,7 +91,7 @@ class TestFeatureSelection:
         assert selected == []
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestTimeSeriesCV:
     def test_basic_splits(self):
         splits = time_series_cv_split(200, n_folds=5)
@@ -111,7 +111,7 @@ class TestTimeSeriesCV:
         assert len(splits) <= 5
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRunAutoML:
     @pytest.mark.skipif(
         not pytest.importorskip("sklearn", reason="sklearn required"),

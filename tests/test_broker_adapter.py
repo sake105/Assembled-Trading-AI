@@ -14,8 +14,8 @@ from src.assembled_core.execution.broker_adapter import (
 )
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestBrokerDataclasses:
     def test_broker_order_defaults(self):
         o = BrokerOrder(
@@ -43,8 +43,8 @@ class TestBrokerDataclasses:
         assert p.unrealized_pnl == 100.0
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestAlpacaAdapterInit:
     def test_default_is_paper(self):
         adapter = AlpacaAdapter(api_key="fake", api_secret="fake")
@@ -118,8 +118,8 @@ class TestAlpacaAdapterInit:
             adapter._get_api()
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestAlpacaAdapterAbstract:
     def test_is_subclass_of_broker_adapter(self):
         assert issubclass(AlpacaAdapter, BrokerAdapter)
@@ -130,8 +130,8 @@ class TestAlpacaAdapterAbstract:
         assert adapter is not None
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestCreateAdapterFromEnv:
     def test_alpaca_type_creates_alpaca_adapter(self):
         adapter = create_adapter_from_env("alpaca")
@@ -142,8 +142,8 @@ class TestCreateAdapterFromEnv:
             create_adapter_from_env("unknown_broker")
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestSafeFloat:
     def test_none_returns_none(self):
         assert _safe_float(None) is None
@@ -158,8 +158,8 @@ class TestSafeFloat:
         assert _safe_float("not_a_number") is None
 
 
-@pytest.mark.phase12
-@pytest.mark.phase13
+@pytest.mark.fast
+@pytest.mark.fast
 class TestNormalizeOrder:
     def test_normalize_simple_object(self):
         class FakeOrder:

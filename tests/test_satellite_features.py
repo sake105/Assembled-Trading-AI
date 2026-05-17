@@ -15,7 +15,7 @@ from src.assembled_core.data.altdata.satellite_features import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestParkingLotData:
     def test_basic(self):
         rng = np.random.default_rng(42)
@@ -63,7 +63,7 @@ class TestParkingLotData:
         assert len(result) == 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestShippingData:
     def test_basic_v2(self):
         rng = np.random.default_rng(42)
@@ -84,7 +84,7 @@ class TestShippingData:
         assert len(result) == 0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNightlightFeatures:
     def test_basic_v3(self):
         data = pd.DataFrame(

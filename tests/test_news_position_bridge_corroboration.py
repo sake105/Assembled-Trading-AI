@@ -38,7 +38,7 @@ def _signal() -> PositionSignal:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRequireCorroboration:
     def test_none_signal_returns_none(self):
         assert require_corroboration(None, []) is None  # type: ignore[arg-type]

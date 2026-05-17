@@ -16,7 +16,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.risk.profit_lock import compute_profit_lock_multiplier
 

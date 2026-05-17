@@ -79,7 +79,7 @@ class FailingStrategy(Strategy):
 PRICES = pd.DataFrame({"timestamp": [1], "symbol": ["X"], "close": [100.0]})
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAllocationConfig:
     def test_defaults(self):
         cfg = AllocationConfig()
@@ -88,7 +88,7 @@ class TestAllocationConfig:
         assert cfg.min_strategies_required == 1
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStrategyAllocatorInit:
     def test_equal_weights_default(self):
         alloc = StrategyAllocator(
@@ -106,7 +106,7 @@ class TestStrategyAllocatorInit:
         assert alloc._config.weights["b"] == pytest.approx(0.25)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestWeightedAverage:
     def test_single_strategy(self):
         alloc = StrategyAllocator(
@@ -148,7 +148,7 @@ class TestWeightedAverage:
         assert result.metadata["n_strategies_active"] == 1
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMajorityVote:
     def test_vote_method(self):
         alloc = StrategyAllocator(
@@ -163,7 +163,7 @@ class TestMajorityVote:
             assert msft.iloc[0]["direction"] == "LONG"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRegimeConditional:
     def test_regime_weights_used(self):
         cfg = AllocationConfig(
@@ -185,7 +185,7 @@ class TestRegimeConditional:
         assert result_crisis.strategy_contributions.get("bear", 0) > 0.5
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEdgeCases:
     def test_empty_strategy_excluded(self):
         alloc = StrategyAllocator(

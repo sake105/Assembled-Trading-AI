@@ -30,7 +30,7 @@ def _synthetic_mentions(n: int = 200, seed: int = 42) -> pd.DataFrame:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAggregateDailySentiment:
     def test_basic_aggregation(self):
         mentions = _synthetic_mentions()
@@ -74,7 +74,7 @@ class TestAggregateDailySentiment:
         assert len(symbols) >= 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSentimentMomentum:
     def test_adds_momentum_column(self):
         mentions = _synthetic_mentions(n=300)
@@ -89,7 +89,7 @@ class TestSentimentMomentum:
         assert result.empty
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCrowdConsensus:
     def test_crowd_signal_values(self):
         mentions = _synthetic_mentions(n=300)

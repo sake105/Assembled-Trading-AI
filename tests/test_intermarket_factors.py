@@ -36,7 +36,7 @@ def _synthetic_intermarket_factors(n: int = 100, seed: int = 42) -> pd.DataFrame
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestGetIntermarketFactorNames:
     def test_returns_list(self):
         names = get_intermarket_factor_names()
@@ -52,7 +52,7 @@ class TestGetIntermarketFactorNames:
         assert "bond_equity_divergence_flag" in names
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAlignIntermarketFactors:
     def test_basic_merge(self):
         factors = _synthetic_intermarket_factors(n=50)
@@ -103,7 +103,7 @@ class TestAlignIntermarketFactors:
         assert merged["bond_equity_ratio_20d"].isna().all()
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSyntheticFactorStructure:
     def test_columns_match_names(self):
         factors = _synthetic_intermarket_factors()

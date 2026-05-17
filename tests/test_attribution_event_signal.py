@@ -9,7 +9,7 @@ from src.assembled_core.accounting.attribution import compute_event_signal_attri
 from src.assembled_core.intel.health_monitor import SourceUptimeTracker
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestEventSignalAttribution:
     def _make_fills(self, buckets: list[str], cost_bps: float = 5.0) -> pd.DataFrame:
         rows = []
@@ -65,7 +65,7 @@ class TestEventSignalAttribution:
         assert result.iloc[0]["event_signal_bucket"] == "geo_conflict"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSourceUptimeTrackerLatency:
     def test_latency_history_tracked(self):
         tracker = SourceUptimeTracker()

@@ -78,7 +78,7 @@ def _evt(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestFullNewsPipeline:
     def test_full_chain(self, tmp_path):
         now = datetime.now(tz=timezone.utc)

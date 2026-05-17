@@ -11,7 +11,7 @@ import pytest
 from src.assembled_core.qa.experiment_tracking import ExperimentRun, ExperimentTracker
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestExperimentTracker:
     """Tests for ExperimentTracker class."""
 
@@ -224,7 +224,7 @@ class TestExperimentTracker:
         assert list(df2.columns) == ["step", "timestamp", "metric_name", "metric_value"]
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestExperimentRun:
     """Tests for ExperimentRun dataclass."""
 

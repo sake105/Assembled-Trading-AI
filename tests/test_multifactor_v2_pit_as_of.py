@@ -23,7 +23,7 @@ from src.assembled_core.strategies.multifactor_v2 import (
     _compute_pead_sue_factor,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 _SYMBOLS = ["AAPL", "MSFT"]

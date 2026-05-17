@@ -30,7 +30,7 @@ def _synthetic_trades(n: int = 50, seed: int = 42) -> pd.DataFrame:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestComputeCongressNetBuyScore:
     def test_basic(self):
         trades = _synthetic_trades()
@@ -42,7 +42,7 @@ class TestComputeCongressNetBuyScore:
         assert isinstance(result, (pd.DataFrame, pd.Series, dict))
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAddCongressFeatures:
     def test_basic_v2(self):
         trades = _synthetic_trades()

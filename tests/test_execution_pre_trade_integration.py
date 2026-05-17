@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-pytestmark = pytest.mark.phase10
+pytestmark = pytest.mark.fast
 
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
 from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls

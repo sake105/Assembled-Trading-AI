@@ -32,7 +32,7 @@ from src.assembled_core.data.prices_ingest import (
     validate_price_data,
 )
 
-pytestmark = pytest.mark.phase11
+pytestmark = pytest.mark.fast
 
 
 class TestValidatePriceData:

@@ -34,7 +34,7 @@ def _make_news(entities: list[str], scores: list[float]) -> pd.DataFrame:
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestNewsWeightAdjustment:
     def test_shadow_only_returns_unchanged(self):
         pos = _make_positions(["AAPL", "MSFT"])

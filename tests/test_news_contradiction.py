@@ -37,7 +37,7 @@ def _make_event(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSourceCamp:
     def test_state_media(self):
         assert _source_camp("rt") == "state"
@@ -51,7 +51,7 @@ class TestSourceCamp:
         assert _source_camp("some_blog") == "other"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestContradictionDetector:
     def test_agreement_does_not_flag(self):
         det = ContradictionDetector()

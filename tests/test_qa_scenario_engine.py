@@ -15,7 +15,7 @@ from src.assembled_core.qa.scenario_engine import (
     run_scenario_on_equity,
 )
 
-pytestmark = pytest.mark.phase8
+pytestmark = pytest.mark.fast
 
 
 @pytest.fixture

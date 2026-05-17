@@ -20,7 +20,7 @@ def tmp_ledger():
         yield store
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestLedgerStore:
     def test_init_creates_db(self, tmp_ledger):
         assert tmp_ledger is not None

@@ -1,7 +1,7 @@
 """
 tests/test_daily_scheduler.py — Tests for the autonomous daily operations module.
 
-All tests are marked @pytest.mark.phase12.
+All tests are marked @pytest.mark.fast.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from src.assembled_core.ops.daily_scheduler import (
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_run_daily_cycle_smoke(tmp_path):
     """run_daily_cycle returns a list of WorkerResult objects."""
     results = run_daily_cycle(
@@ -48,7 +48,7 @@ def test_run_daily_cycle_smoke(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_worker_result_structure():
     """WorkerResult dataclass has required fields."""
     field_names = {f.name for f in fields(WorkerResult)}
@@ -69,7 +69,7 @@ def test_worker_result_structure():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_build_cycle_summary_ok():
     """All ok results produce summary with error=0."""
     results = [
@@ -82,7 +82,7 @@ def test_build_cycle_summary_ok():
     assert summary["total"] == 2
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_build_cycle_summary_with_errors():
     """One error result is reflected in the summary."""
     results = [
@@ -102,7 +102,7 @@ def test_build_cycle_summary_with_errors():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_health_check_worker_passes(tmp_path):
     """Health check passes for an existing writable directory."""
     result = _health_check_worker("2026-01-01", str(tmp_path), False)
@@ -111,7 +111,7 @@ def test_health_check_worker_passes(tmp_path):
     assert result.error_msg is None
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_health_check_worker_fails():
     """Health check returns status='error' for a non-existent directory."""
     result = _health_check_worker("2026-01-01", "/nonexistent/path/xyz_12345", False)
@@ -125,7 +125,7 @@ def test_health_check_worker_fails():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_run_daily_cycle_dry_run(tmp_path):
     """dry_run=True still executes and returns results."""
     results = run_daily_cycle(
@@ -142,7 +142,7 @@ def test_run_daily_cycle_dry_run(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_schedule_loop_max_iterations(tmp_path):
     """schedule_loop runs exactly max_iterations cycles then returns."""
     call_log: List[str] = []
@@ -166,7 +166,7 @@ def test_schedule_loop_max_iterations(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_worker_error_caught_gracefully(tmp_path):
     """A worker that raises an exception is caught; no propagation to caller."""
 
@@ -187,7 +187,7 @@ def test_worker_error_caught_gracefully(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 def test_cycle_summary_fields(tmp_path):
     """Summary dict has all required keys: date, total, ok, skip, error, workers."""
     results = run_daily_cycle("2026-01-01", str(tmp_path), False)

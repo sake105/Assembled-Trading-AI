@@ -31,7 +31,7 @@ def _make_event(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestCorroborationTracker:
     def test_single_source_low_score(self):
         tracker = CorroborationTracker()

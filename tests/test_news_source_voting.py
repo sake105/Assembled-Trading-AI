@@ -36,7 +36,7 @@ def _evt(
     )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestVoteDirection:
     def test_empty(self):
         r = vote_direction([])
@@ -71,7 +71,7 @@ class TestVoteDirection:
         assert r.winner == "bearish"
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestVoteEventType:
     def test_empty_v2(self):
         assert vote_event_type([]).winner == ""

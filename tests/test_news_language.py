@@ -7,7 +7,7 @@ import pytest
 from src.assembled_core.intel.news_language import detect_language, is_english
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestLanguageDetection:
     def test_english(self):
         assert detect_language("Russia launches missile attack on Ukraine") == "en"

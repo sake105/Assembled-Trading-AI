@@ -10,7 +10,7 @@ import pytest
 
 from src.assembled_core.ops.alerts import compute_alerts, write_alerts_artifact
 
-pytestmark = [pytest.mark.unit, pytest.mark.phase6]
+pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
 # Default config with alerts enabled
 DEFAULT_CFG: dict[str, Any] = {

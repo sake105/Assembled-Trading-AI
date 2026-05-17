@@ -19,7 +19,7 @@ from src.assembled_core.accounting.reconciliation import (  # noqa: E402
     reconcile_ledger_vs_broker,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = pytest.mark.fast
 
 
 def test_reconcile_detects_qty_drift() -> None:

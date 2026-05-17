@@ -22,7 +22,7 @@ from src.assembled_core.ops.dashboard_data import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPnLCurve:
     def test_basic(self):
         equity = pd.Series(
@@ -39,7 +39,7 @@ class TestPnLCurve:
         assert pnl == {}
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestPositionTable:
     def test_basic_v2(self):
         weights = {"AAPL": 0.3, "MSFT": 0.2, "GOOG": -0.1}
@@ -56,7 +56,7 @@ class TestPositionTable:
         assert len(positions) == 1
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestRiskSnapshot:
     def test_basic_v3(self):
         rng = np.random.default_rng(42)
@@ -78,7 +78,7 @@ class TestRiskSnapshot:
         assert metrics["win_rate"] == 0.6
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestExposure:
     def test_long_only(self):
         weights = {"A": 0.3, "B": 0.2, "C": 0.5}
@@ -101,7 +101,7 @@ class TestExposure:
         assert exp["gross"] == 0.0
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestSignalHeatmap:
     def test_basic_v4(self):
         signals = pd.DataFrame(
@@ -118,7 +118,7 @@ class TestSignalHeatmap:
         assert heatmap == {}
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestDashboardSnapshot:
     def test_to_dict(self):
         snap = DashboardSnapshot(

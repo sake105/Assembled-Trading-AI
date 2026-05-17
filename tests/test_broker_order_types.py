@@ -11,7 +11,7 @@ from src.assembled_core.execution.broker_adapter import (
 )
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestLimitOrderValidation:
     def test_submit_limit_order_validates_qty(self):
         adapter = AlpacaAdapter(api_key="k", api_secret="s")
@@ -29,7 +29,7 @@ class TestLimitOrderValidation:
             adapter.submit_limit_order("AAPL", qty=10.0, side="hold", limit_price=150.0)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestStopOrderValidation:
     def test_submit_stop_order_validates_qty(self):
         adapter = AlpacaAdapter(api_key="k", api_secret="s")
@@ -47,7 +47,7 @@ class TestStopOrderValidation:
             adapter.submit_stop_order("AAPL", qty=10.0, side="short", stop_price=140.0)
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestMOCLOCDefaultImplementation:
     """MOC/LOC have default implementations in the ABC that delegate to market/limit."""
 
@@ -62,7 +62,7 @@ class TestMOCLOCDefaultImplementation:
         assert hasattr(AlpacaAdapter, "submit_loc_order")
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestBrokerOrderTypeField:
     def test_order_type_accepts_new_types(self):
         for otype in ["market", "limit", "stop", "stop_limit", "moc", "loc"]:
@@ -77,7 +77,7 @@ class TestBrokerOrderTypeField:
             assert o.order_type == otype
 
 
-@pytest.mark.phase12
+@pytest.mark.fast
 class TestAbstractMethodsComplete:
     def test_limit_is_abstract(self):
         """submit_limit_order should be abstract on BrokerAdapter."""
