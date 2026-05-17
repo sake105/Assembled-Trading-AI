@@ -497,6 +497,7 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
 - [ ] **6.5.5 Echte Insider/Congress/Shipping Data-Feeds**
   - **Aktion:** Dummy-Generatoren in `insider_ingest.py` / `shipping_routes_ingest.py` werden im Plan 2026-05-17 fail-loud + opt-in gemacht (Sub-Project A, Task A1/A2). Sobald ein echter Feed verdrahtet ist, können die Dummy-Generatoren **vollständig** entfernt werden.
   - **Quellen-Optionen:** Sharadar SF1, QuiverQuant Congress-Trades, Lloyd's MIU Shipping, manueller EDGAR-Scrape
+  - **Concrete status Congress (2026-05-17):** `src/assembled_core/data/congress_trades_ingest.py` existiert **nicht** im aktuellen Repo (nur stale `__pycache__`-Artefakte und eine Kopie in `.claude/worktrees/agent-a700e54f/`). `trading_cycle_shared.py:625-647` importiert das Modul in einem try/except — bis zum Plan 2026-05-17 Task A1b war das ein `except Exception: logger.debug(...)`, was `include_congress=True` zum stillen No-op machte. Task A1b verengt den Catch auf `ModuleNotFoundError`/`ImportError` mit `WARNING`-Logging. Restoration des Moduls erfordert eine echte Congress-Trades-Datenquelle — hier tracken, nicht heimlich verkleben.
 
 ### 6.6 Live-Broker-Routes (oms.py Placeholder)
 
@@ -507,12 +508,15 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
 
 ### 6.7 Research-Notebook-Vollendung
 
-**Status nach Plan 2026-05-17 Task A4:** 3 von 4 Notebooks tragen jetzt Skeleton-Status-Header.  
-- [ ] `research/altdata/insider_congress_shipping_exploration.ipynb` (1 cell → ?)
-- [ ] `research/meta/meta_model_calibration.ipynb` (1 cell → ?)
-- [ ] `research/risk/scenario_and_risk_experiments.ipynb` (1 cell → ?)
+**Status (vor Plan 2026-05-17 Ausführung):** 3 von 4 Notebooks sind effektiv leer (1 Code-Cell, ~2 KB). Plan 2026-05-17 Task A4 verschiebt sie nach `research/dead_ends/` (ehrlicher Provenance-Marker, kein in-place-Tag-Half-Measure).
 
-**Aktion:** Inhalte mit echter Analyse füllen ODER Notebooks löschen wenn nicht mehr relevant. Research-Arbeit, nicht Code-Hardening — eigener Sprint.
+**Nach Plan-Ausführung (noch ausstehend):**
+- [ ] `research/dead_ends/altdata-insider_congress_shipping_exploration.ipynb` — gemovt, Inhalt unverändert
+- [ ] `research/dead_ends/meta-meta_model_calibration.ipynb` — gemovt
+- [ ] `research/dead_ends/risk-scenario_and_risk_experiments.ipynb` — gemovt
+- `research/trend/trend_baseline_experiments.ipynb` — bleibt in place (14 cells, ~10 KB, substantive)
+
+**Aktion:** Wenn künftig konkrete Research auf einem dieser Themen entsteht, neues Notebook in `research/<topic>/` anlegen (NICHT die dead_ends-Kopie wiederbeleben — Provenance-Marker bleibt erhalten).
 
 ### 6.8 Phase-Marker Legacy-Aliase entfernen
 
