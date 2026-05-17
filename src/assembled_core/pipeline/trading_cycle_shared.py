@@ -544,29 +544,52 @@ def _build_features_default(
     if feature_cfg_obj is not None and getattr(
         feature_cfg_obj, "include_intermarket", False
     ):
+        # FU-1: split try/except. Inner: narrow Import/ModuleNotFound around
+        # the import statements only. Outer: catch-all around data ops.
+        build_intermarket_factors = None
+        align_intermarket_factors_to_panel = None
         try:
             from src.assembled_core.features.intermarket_factors import (
                 align_intermarket_factors_to_panel,
                 build_intermarket_factors,
             )
-
-            ts_min = prices_with_features["timestamp"].min()
-            ts_max = prices_with_features["timestamp"].max()
-            start_str = pd.Timestamp(ts_min).strftime("%Y-%m-%d")
-            end_str = pd.Timestamp(ts_max).strftime("%Y-%m-%d")
-            im_factors = build_intermarket_factors(
-                start_date=start_str, end_date=end_str
+        except ModuleNotFoundError as e:
+            logger.warning(
+                "[Features] Intermarket features SILENTLY DISABLED — "
+                "module intermarket_factors is not installed: %s. "
+                "Set feature_cfg.include_intermarket=False to suppress this warning.",
+                e,
             )
-            if not im_factors.empty:
-                prices_with_features = align_intermarket_factors_to_panel(
-                    prices_with_features, im_factors
+        except ImportError as e:
+            logger.warning("[Features] Intermarket features import failed: %s", e)
+
+        if (
+            build_intermarket_factors is not None
+            and align_intermarket_factors_to_panel is not None
+        ):
+            try:
+                ts_min = prices_with_features["timestamp"].min()
+                ts_max = prices_with_features["timestamp"].max()
+                start_str = pd.Timestamp(ts_min).strftime("%Y-%m-%d")
+                end_str = pd.Timestamp(ts_max).strftime("%Y-%m-%d")
+                im_factors = build_intermarket_factors(
+                    start_date=start_str, end_date=end_str
                 )
-                logger.debug(
-                    "[Features] Intermarket factors merged: %d cols",
-                    len(im_factors.columns) - 1,
+                if not im_factors.empty:
+                    prices_with_features = align_intermarket_factors_to_panel(
+                        prices_with_features, im_factors
+                    )
+                    logger.debug(
+                        "[Features] Intermarket factors merged: %d cols",
+                        len(im_factors.columns) - 1,
+                    )
+            except Exception as e:
+                logger.error(
+                    "[Features] Intermarket feature load/merge failed — "
+                    "feature SKIPPED for this cycle: %s",
+                    e,
+                    exc_info=True,
                 )
-        except Exception as e:
-            logger.debug("[Features] Intermarket factors skipped: %s", e)
 
     # ---------------------------------------------------------------
     # D6: Candlestick pattern features (optional, requires OHLC)
@@ -574,20 +597,41 @@ def _build_features_default(
     if feature_cfg_obj is not None and getattr(
         feature_cfg_obj, "include_candlestick", False
     ):
+        # FU-1: split try/except. Inner: narrow Import/ModuleNotFound around
+        # the import statements only. Outer: catch-all around data ops.
+        build_candlestick_features = None
         try:
-            has_ohlc_for_candles = all(
-                c in prices_with_features.columns
-                for c in ["open", "high", "low", "close"]
+            from src.assembled_core.features.ta_candlestick import (
+                build_candlestick_features,
             )
-            if has_ohlc_for_candles:
-                from src.assembled_core.features.ta_candlestick import (
-                    build_candlestick_features,
-                )
+        except ModuleNotFoundError as e:
+            logger.warning(
+                "[Features] Candlestick features SILENTLY DISABLED — "
+                "module ta_candlestick is not installed: %s. "
+                "Set feature_cfg.include_candlestick=False to suppress this warning.",
+                e,
+            )
+        except ImportError as e:
+            logger.warning("[Features] Candlestick features import failed: %s", e)
 
-                prices_with_features = build_candlestick_features(prices_with_features)
-                logger.debug("[Features] Candlestick patterns merged")
-        except Exception as e:
-            logger.debug("[Features] Candlestick features skipped: %s", e)
+        if build_candlestick_features is not None:
+            try:
+                has_ohlc_for_candles = all(
+                    c in prices_with_features.columns
+                    for c in ["open", "high", "low", "close"]
+                )
+                if has_ohlc_for_candles:
+                    prices_with_features = build_candlestick_features(
+                        prices_with_features
+                    )
+                    logger.debug("[Features] Candlestick patterns merged")
+            except Exception as e:
+                logger.error(
+                    "[Features] Candlestick feature load/merge failed — "
+                    "feature SKIPPED for this cycle: %s",
+                    e,
+                    exc_info=True,
+                )
 
     # ---------------------------------------------------------------
     # D9: Earnings calendar timing factors (optional)
@@ -595,27 +639,46 @@ def _build_features_default(
     if feature_cfg_obj is not None and getattr(
         feature_cfg_obj, "include_earnings", False
     ):
+        # FU-2: split try/except. Inner: narrow Import/ModuleNotFound around
+        # the import statements only. Outer: catch-all around data ops.
+        EarningsCalendarSource = None
         try:
             from src.assembled_core.data.sources.earnings_calendar_source import (
                 EarningsCalendarSource,
             )
+        except ModuleNotFoundError as e:
+            logger.warning(
+                "[Features] Earnings features SILENTLY DISABLED — "
+                "module earnings_calendar_source is not installed: %s. "
+                "Set feature_cfg.include_earnings=False to suppress this warning.",
+                e,
+            )
+        except ImportError as e:
+            logger.warning("[Features] Earnings features import failed: %s", e)
 
-            symbols = prices_with_features["symbol"].unique().tolist()
-            ts_min = prices_with_features["timestamp"].min()
-            ts_max = prices_with_features["timestamp"].max()
-            cal_src = EarningsCalendarSource()
-            cal_df = cal_src.fetch_calendar(
-                symbols=symbols,
-                start_date=pd.Timestamp(ts_min).strftime("%Y-%m-%d"),
-                end_date=pd.Timestamp(ts_max).strftime("%Y-%m-%d"),
-            )
-            prices_with_features = cal_src.build_earnings_factors(
-                calendar_df=cal_df,
-                prices_df=prices_with_features,
-            )
-            logger.debug("[Features] Earnings calendar factors merged")
-        except Exception as e:
-            logger.debug("[Features] Earnings calendar features skipped: %s", e)
+        if EarningsCalendarSource is not None:
+            try:
+                symbols = prices_with_features["symbol"].unique().tolist()
+                ts_min = prices_with_features["timestamp"].min()
+                ts_max = prices_with_features["timestamp"].max()
+                cal_src = EarningsCalendarSource()
+                cal_df = cal_src.fetch_calendar(
+                    symbols=symbols,
+                    start_date=pd.Timestamp(ts_min).strftime("%Y-%m-%d"),
+                    end_date=pd.Timestamp(ts_max).strftime("%Y-%m-%d"),
+                )
+                prices_with_features = cal_src.build_earnings_factors(
+                    calendar_df=cal_df,
+                    prices_df=prices_with_features,
+                )
+                logger.debug("[Features] Earnings calendar factors merged")
+            except Exception as e:
+                logger.error(
+                    "[Features] Earnings feature load/merge failed — "
+                    "feature SKIPPED for this cycle: %s",
+                    e,
+                    exc_info=True,
+                )
 
     # ---------------------------------------------------------------
     # D10: Congressional trading features (optional, Sprint 5)
