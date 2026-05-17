@@ -490,7 +490,7 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Historie:** Eine dritte naive Implementation `risk/volatility/garch.py` wurde am 2026-05-17 erstellt (commits `61b535b`/`573613a`) und in `7a10d7c` wieder gelöscht.
 
 - [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — KONSOLIDIERUNG Phase 1 DONE (2026-05-17). Basis-Modul implementiert (commit `ad728a7`); danach Doppelstruktur-Audit ergab 3 parallele MC-Module → Phase 1 Konsolidierung.
-  - **Kanonisch:** `src/assembled_core/risk/monte_carlo/` — `shuffle_trades` (bootstrap-resample WITH replacement), **`permute_trades` (NEU 2026-05-17: order permutation WITHOUT replacement — canonical Ersatz für Legacy `monte_carlo_trade_paths`)**, `simulate_paths_iid_normal` (F-risk-4 rename von "gbm"), `simulate_paths_block_bootstrap`. **37 tests pass.**
+  - **Kanonisch:** `src/assembled_core/risk/monte_carlo/` — `shuffle_trades` (bootstrap-resample WITH replacement), **`permute_trades` (NEU 2026-05-17: order permutation WITHOUT replacement — canonical Ersatz für Legacy `monte_carlo_trade_paths`)**, `simulate_paths_iid_normal` (F-risk-4 rename von "gbm"), `simulate_paths_block_bootstrap`. **39 tests pass** (incl. r<=-1.0 input-guard regressions F-RISK-MC1-MINOR-1).
   - **Deprecated mit `DeprecationWarning` + Migrationshinweis:**
     - `qa/monte_carlo.py` (`bootstrap_returns` → `shuffle_trades`, `forward_simulate_gbm` → `simulate_paths_iid_normal`)
     - `qa/monte_carlo_paths.py` (`monte_carlo_trade_paths` → `permute_trades`)
