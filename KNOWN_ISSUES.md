@@ -829,11 +829,14 @@ verlangt DVC-Pin der yfinance-Daten + git-tag + Multi-Stunden-Backtest.
   Konsolidierung Phase 1 DONE (2026-05-17). C4-072 DCC-GARCH (Engle 2002 + cDCC
   Aielli 2013) implementiert in `src/assembled_core/risk/dcc_garch.py`. HAR-RV in
   §8.13 Forensik-Sweep adressiert.
-- [ ] **Volatility-Targeting-Strategie (audit C3-034):** Zwei Module existieren —
-  `risk/vol_targeting.py` + `risk/vol_targeting_ewma.py`. **Doppelstruktur-Verdacht
-  (vergleichbar §6.5.2/6.5.3/6.5.4)** — Konsolidierungs-Audit als eigener Sprint
-  tracken: kanonisches Modul wählen, anderen deprecaten. Tracking als Phase A:
-  Bestandsaufnahme; Phase B: Wahl + Deprecation; Phase C: Caller-Migration.
+- [x] **Volatility-Targeting-Strategie (audit C3-034):** DONE / Layered architecture
+  (2026-05-17 Audit). KEIN Doppelstruktur — zwei komplementäre Module:
+  - `risk/vol_targeting.py` — rolling-realized-vol (backward-looking) als Default-Pfad.
+  - `risk/vol_targeting_ewma.py` — EWMA forward-looking Variante (JP Morgan
+    RiskMetrics 1996, λ ≈ 0.94 für daily). Modul-Header sagt explizit
+    „does NOT displace risk.vol_targeting; opt-in via `policy.vol_targeting.method: 'ewma'`".
+    ERWEITERUNG-GARCH-Variante (audit will full GARCH) bleibt cherry-pick-blocked
+    (§8.8 OOS-Re-Run-Gate).
 - [x] Attribution, State-Space, Time-Series-Tools, Microstructure, Stress-Testing,
   Economic-Data, Factor-Suite — weitgehend existent: Attribution via Brinson-Fachler
   in `risk_metrics::compute_brinson_fachler_attribution`; State-Space in
