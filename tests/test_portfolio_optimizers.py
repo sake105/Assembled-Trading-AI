@@ -340,13 +340,12 @@ def test_kelly_long_only_sum_below_one_without_renormalize():
     # Important: documented contract — caller sees raw sum, not forced 1.0
 
 
-def test_kelly_long_only_breaks_scaling_invariance():
-    """F-senior-portopt-2: under long_only=True, the negative-clip projection
-    is asymmetric across kelly_fraction values. Half-Kelly is NOT simply
-    0.5 * full-Kelly when the clip activates — this is the documented and
-    intentional contract (docstring steps 2→3 = clip, then cap). Lock that
-    behavior in code so a future refactor reordering steps gets caught.
-    """
+def test_kelly_long_only_preserves_clip_indices():
+    """F-senior-portopt-2 + F-postcommit-3: under long_only=True with no
+    cap binding, the clip zeros the SAME indices at full-Kelly and at
+    half-Kelly (negative direction is direction-invariant under positive
+    scaling). The non-zero ratios are exactly 0.5 — this locks the
+    documented "clip preserves direction" property."""
     cov = _toy_covariance(n=3)
     # At least one asset gets a negative Kelly weight → clip is non-trivial
     excess = pd.Series([-0.08, 0.05, 0.04], index=cov.columns)
@@ -356,26 +355,47 @@ def test_kelly_long_only_breaks_scaling_invariance():
     half = multivariate_kelly_weights(
         excess, cov, kelly_fraction=0.5, max_leverage=1e6, long_only=True
     )
-    # The negative-clip in full applies to k=1.0 weights; in half it applies
-    # to k=0.5 weights. Both clip the same zeros, but the scaling invariance
-    # ``half = 0.5 * full`` only holds when no negative entries arise.
-    # Here, the clipped-to-zero positions are identical, so the *relative*
-    # weights ARE preserved — but the test must encode the intentional
-    # contract that this is NOT a free invariant.
     full_arr = full.weights.to_numpy()
     half_arr = half.weights.to_numpy()
-    # Both clipped at the same indices
+    # Both clip the same indices (the negative-direction positions)
     assert (full_arr == 0.0).sum() >= 1
-    assert (half_arr == 0.0).sum() >= 1
-    # Non-zero ratio between the two: exactly 0.5 (since cap inactive)
+    np.testing.assert_array_equal(full_arr == 0.0, half_arr == 0.0)
     nz = full_arr > 1e-10
     if nz.any():
-        ratios = half_arr[nz] / full_arr[nz]
-        # Documented behavior: clip preserves direction but the leverage cap
-        # path can intervene differently. With cap=1e6 (effectively off),
-        # ratios should be 0.5 — but the test exists to lock the contract,
-        # not to fail if a future refactor changes it. Document expected.
-        np.testing.assert_allclose(ratios, 0.5, rtol=1e-9)
+        np.testing.assert_allclose(half_arr[nz] / full_arr[nz], 0.5, rtol=1e-9)
+
+
+def test_kelly_long_only_cap_binds_asymmetrically():
+    """F-postcommit-3: when the leverage cap binds for full-Kelly but NOT
+    for half-Kelly, the scaling invariance is genuinely broken — half is
+    NOT 0.5 * full because the cap intervenes only on full.
+
+    Σ = 0.04·I, excess=[0.10, 0.08, 0.06] → w_full = [2.5, 2.0, 1.5],
+    sum=6.0; w_half = [1.25, 1.0, 0.75], sum=3.0. Cap=4.0:
+      - full > 4 → rescaled to sum=4
+      - half < 4 → unchanged at sum=3
+    """
+    cov = pd.DataFrame(np.eye(3) * 0.04, index=["a", "b", "c"], columns=["a", "b", "c"])
+    excess = pd.Series([0.10, 0.08, 0.06], index=["a", "b", "c"])
+    full = multivariate_kelly_weights(
+        excess, cov, kelly_fraction=1.0, max_leverage=4.0, long_only=True
+    )
+    half = multivariate_kelly_weights(
+        excess, cov, kelly_fraction=0.5, max_leverage=4.0, long_only=True
+    )
+    full_arr = full.weights.to_numpy()
+    half_arr = half.weights.to_numpy()
+    full_sum = float(np.sum(np.abs(full_arr)))
+    half_sum = float(np.sum(np.abs(half_arr)))
+    # Full Kelly capped at 4.0 exactly; half Kelly below cap (~3.0)
+    assert abs(full_sum - 4.0) < 1e-9, f"full sum={full_sum}"
+    assert half_sum < 4.0 - 1e-6, f"half sum={half_sum}"
+    # Ratios diverge from 0.5 since cap re-scaled full but not half
+    ratios = half_arr / full_arr
+    assert not np.allclose(ratios, 0.5, rtol=1e-3), (
+        f"Cap binds only on full-Kelly → ratios must diverge from 0.5; "
+        f"got ratios={ratios}"
+    )
 
 
 def test_kelly_renormalize_to_unity_forces_full_invest():
@@ -431,6 +451,55 @@ def test_max_sharpe_unconstrained_falls_back_when_all_excess_negative():
 # ---------------------------------------------------------------------------
 # F-stage1-portopt-5: non-PSD covariance must raise
 # ---------------------------------------------------------------------------
+
+
+def test_kelly_renormalize_with_shorts_respects_leverage_cap():
+    """F-postcommit-1: with renormalize_to_unity=True and shorts present,
+    the cap must apply AFTER renormalize so sum(|w|) does not blow past
+    max_leverage. Empirical pre-fix repro: 3x gross exposure observed."""
+    cov = pd.DataFrame(np.eye(3) * 0.04, index=["a", "b", "c"], columns=["a", "b", "c"])
+    excess = pd.Series([0.5, -0.4, 0.3], index=["a", "b", "c"])
+    result = multivariate_kelly_weights(
+        excess,
+        cov,
+        kelly_fraction=1.0,
+        max_leverage=1.0,
+        long_only=False,
+        renormalize_to_unity=True,
+    )
+    gross = float(np.sum(np.abs(result.weights.to_numpy())))
+    assert (
+        gross <= 1.0 + 1e-6
+    ), f"Cap violated under renormalize+shorts: sum(|w|)={gross}"
+
+
+def test_kelly_nan_max_leverage_raises():
+    """F-postcommit-2: NaN max_leverage previously bypassed the cap silently
+    (any NaN comparison is False) → 30x gross observed in pre-fix repro.
+    Must now raise ValueError."""
+    cov = _toy_covariance(n=3)
+    excess = pd.Series([0.10, 0.10, 0.10], index=cov.columns)
+    with pytest.raises(ValueError, match="max_leverage must be finite"):
+        multivariate_kelly_weights(
+            excess, cov, kelly_fraction=1.0, max_leverage=float("nan")
+        )
+    with pytest.raises(ValueError, match="max_leverage must be finite"):
+        multivariate_kelly_weights(
+            excess, cov, kelly_fraction=1.0, max_leverage=float("inf")
+        )
+
+
+def test_validate_covariance_rejects_index_columns_mismatch():
+    """F-postcommit-5: caller may build a DataFrame where index != columns
+    (e.g. typo). Validator must reject — Risk-Zone primitives never accept
+    silent mislabeling."""
+    bad = pd.DataFrame(
+        [[0.04, 0.01], [0.01, 0.04]],
+        index=["x", "y"],
+        columns=["a", "b"],
+    )
+    with pytest.raises(ValueError, match="index and covariance.columns"):
+        min_variance_weights(bad)
 
 
 def test_min_variance_rejects_non_psd_covariance():

@@ -104,6 +104,11 @@ def _validate_covariance(
         raise ValueError(f"covariance must be square, got shape {covariance.shape}")
     if covariance.shape[0] < 2:
         raise ValueError(f"need ≥2 assets, got {covariance.shape[0]}")
+    # F-postcommit-5: caller may build a DataFrame where index != columns
+    # (e.g. typo). The numerics would proceed silently with weights labeled
+    # by columns; Risk-Zone primitives must not accept that mislabeling.
+    if list(covariance.index) != list(covariance.columns):
+        raise ValueError("covariance.index and covariance.columns must match exactly")
     arr = covariance.to_numpy()
     if not np.all(np.isfinite(arr)):
         raise ValueError("covariance contains NaN/inf")
@@ -149,6 +154,8 @@ def min_variance_weights(
     Unconstrained closed form: ``w_mv = Σ⁻¹ · 1 / (1' Σ⁻¹ 1)``.
     With long-only or weight_bounds constraints, solves ``min w'Σw`` s.t.
     ``sum(w) = 1`` via scipy SLSQP.
+
+    Caller responsibility (F-postcommit-4): ``covariance`` must be PIT-safe.
 
     Args:
         covariance: (N, N) DataFrame, symmetric PSD covariance matrix.
@@ -240,6 +247,9 @@ def max_sharpe_weights(
         ``w_t = Σ⁻¹ · (μ − r_f · 1) / (1' · Σ⁻¹ · (μ − r_f · 1))``.
 
     Long-only / bounded: maximises ``(w'(μ−r_f))/√(w'Σw)`` via scipy SLSQP.
+
+    Caller responsibility (F-postcommit-4): ``expected_returns`` and
+    ``covariance`` must be PIT-safe.
 
     Args:
         expected_returns: Per-asset expected returns μ (annualized typical).
@@ -366,6 +376,9 @@ def mean_variance_efficient_frontier(
     For each target return between min(μ) and max(μ), solve
     ``min w'Σw`` s.t. ``w'μ = target_return`` and ``sum(w)=1``.
 
+    Caller responsibility (F-postcommit-4): ``expected_returns`` and
+    ``covariance`` must be PIT-safe.
+
     Args:
         expected_returns: μ per asset.
         covariance: Σ.
@@ -467,6 +480,8 @@ def equal_risk_contribution_weights(
     full covariance: a high-σ asset uncorrelated with others gets MORE
     weight than 1/σ would suggest; correlated diversifiers get less.
 
+    Caller responsibility (F-postcommit-4): ``covariance`` must be PIT-safe.
+
     Args:
         covariance: Σ.
         max_iter: Maximum iterations for the fixed-point loop.
@@ -533,16 +548,18 @@ def multivariate_kelly_weights(
     the practical default per Thorp 2006 — captures most growth-rate
     benefit at much lower volatility cost).
 
-    **Order of operations and contract** (F-stage1-portopt-2):
+    **Order of operations and contract** (F-stage1-portopt-2, F-postcommit-1):
 
     1. Compute ``w = kelly_fraction · Σ⁻¹ · (μ − r_f)``.
     2. If ``long_only=True``: clip ``w_i ← max(w_i, 0)``.
-    3. Apply leverage cap: if ``sum(|w|) > max_leverage``, rescale to
-       ``sum(|w|) = max_leverage``.
-    4. If ``renormalize_to_unity=True``: rescale to ``sum(w) = 1`` (full
+    3. If ``renormalize_to_unity=True``: rescale to ``sum(w) = 1`` (full
        invest, no implicit cash). Off by default — Kelly is a *growth-rate*
        optimiser, NOT a full-invest portfolio. The natural Kelly answer is
        often partial investment.
+    4. Apply leverage cap LAST: if ``sum(|w|) > max_leverage``, rescale to
+       ``sum(|w|) = max_leverage``. The cap is the hard invariant — applied
+       after renormalize so shorts cannot inflate gross exposure past the
+       cap.
 
     Caller responsibility: ``μ`` and ``Σ`` must be PIT-safe.
 
@@ -571,6 +588,14 @@ def multivariate_kelly_weights(
     """
     if not (0.0 < kelly_fraction <= 1.0):
         raise ValueError(f"kelly_fraction must be in (0, 1], got {kelly_fraction}")
+    # F-postcommit-2: NaN/inf max_leverage would silently bypass the cap
+    # (any NaN comparison is False). Catch this explicitly — it is almost
+    # certainly an upstream config bug, never a valid "opt-out".
+    if not np.isfinite(max_leverage):
+        raise ValueError(
+            f"max_leverage must be finite, got {max_leverage} "
+            "(use max_leverage <= 0 to disable the cap)"
+        )
     if list(expected_excess_returns.index) != list(covariance.columns):
         raise ValueError("expected_excess_returns.index must match covariance.columns")
     cov = _validate_covariance(covariance)
@@ -591,12 +616,11 @@ def multivariate_kelly_weights(
     if long_only:
         w = np.maximum(w, 0.0)
 
-    # Apply leverage cap on sum of absolute weights.
-    # `max_leverage > 0` guard: pass max_leverage<=0 to disable the cap.
-    abs_sum = float(np.sum(np.abs(w)))
-    if max_leverage > 0 and abs_sum > max_leverage:
-        w = w * (max_leverage / abs_sum)
-
+    # F-postcommit-1: leverage cap must be the LAST step. Previously the cap
+    # ran before renormalize_to_unity, so with shorts present renormalize
+    # could re-inflate sum(|w|) far above max_leverage (3x observed). New
+    # order: (a) optional renormalize_to_unity, (b) leverage cap. The cap is
+    # the hard invariant; renormalize is an optional reshaping.
     if renormalize_to_unity:
         s = float(np.sum(w))
         if abs(s) > 1e-12:
@@ -611,6 +635,12 @@ def multivariate_kelly_weights(
                 "leaving weights unnormalized.",
                 s,
             )
+
+    # Apply leverage cap on sum of absolute weights AFTER any renormalisation.
+    # `max_leverage > 0` guard: pass max_leverage<=0 to disable the cap.
+    abs_sum = float(np.sum(np.abs(w)))
+    if max_leverage > 0 and abs_sum > max_leverage:
+        w = w * (max_leverage / abs_sum)
 
     mu_p, sigma_p, _ = _portfolio_stats(w, cov, excess, 0.0)
     # Sharpe here is on excess return / vol
