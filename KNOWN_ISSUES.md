@@ -962,10 +962,12 @@ durchgeführt wurden:
     - `transfer_entropy_binned(source, target, lag=1, n_bins=8) → float`:
       histogram-based Schreiber (2000) TE in nats, dependency-free, exact für die
       gewählte Diskretisierung. Bias-Floor O(n_bins²/N) dokumentiert.
-    - `transfer_entropy_ksg(source, target, lag=1, k=3) → float | None`: sklearn
-      KSG-basierte continuous-MI-Differenz per Wibral et al. (2014) §2.2,
-      `TE(X→Y) ≈ MI((Y_past, X_past)→Y_future) − MI(Y_past→Y_future)`. Returns None
-      wenn sklearn fehlt (graceful degradation).
+    - `transfer_entropy_ksg(source, target, lag=1, k=3) → float | None`: sklearn-
+      basierte **heuristische** Approximation (corr²-gewichteter Confounding-Bound
+      auf MI(X_past;Y_future)). Wichtig: das ist **NICHT** die Wibral-2014-§2.2-
+      Formel — sklearn hat keinen multivariaten KSG-Joint-MI-Estimator. Gilt
+      näherungsweise für Gauss-AR-artige Prozesse. Für produktive KSG-TE
+      `idtxl` installieren. Returns None wenn sklearn fehlt (graceful degradation).
   - 15 Tests pass: TE positiv für kausale Paare (Y_t = 0.7·X_{t-1} + noise),
     TE klein für unabhängige Reihen (relativ zum kausalen Fall via bias-floor-test),
     Asymmetrie TE(X→Y) > TE(Y→X) bei one-way causation, edge cases, sklearn-fallback
