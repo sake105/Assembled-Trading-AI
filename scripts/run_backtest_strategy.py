@@ -2733,37 +2733,88 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 logger.warning("[bootstrap] CI skipped: %s", _e)
 
         # Monte Carlo trade-order permutation (Plan 11/10 §2.2)
+        # §6.5.3 Phase 2 migration (2026-05-17): qa.monte_carlo_paths.monte_carlo_trade_paths
+        # → risk.monte_carlo.permute_trades with currency-PnL→returns conversion.
+        # Output JSON schema preserved via shuffle_result_to_quantile_dict adapter.
         if result.trades is not None and len(result.trades) >= 20:
             try:
                 import json as _json
-                from src.assembled_core.qa.monte_carlo_paths import (
-                    monte_carlo_trade_paths,
+                from src.assembled_core.risk.monte_carlo import (
+                    permute_trades,
+                    pnl_to_returns,
+                    shuffle_result_to_quantile_dict,
                 )
 
-                mc = monte_carlo_trade_paths(result.trades, n_paths=5000, seed=42)
-                if "error" not in mc:
-                    metrics.__dict__["monte_carlo"] = mc
-                    mj = reports_dir / "metrics.json"
-                    with open(mj, encoding="utf-8") as _f:
-                        mj_data = _json.load(_f)
-                    mj_data["monte_carlo"] = mc
-                    with open(mj, "w", encoding="utf-8") as _f:
-                        _json.dump(mj_data, _f, indent=2)
-                    # Save standalone monte carlo artifact to output/qa/
-                    _qa_dir = Path(output_dir).parent.parent / "qa"
-                    _qa_dir.mkdir(parents=True, exist_ok=True)
-                    _mc_run_id = run_id or f"{args.strategy}_{args.freq}"
-                    _mc_path = _qa_dir / f"monte_carlo_{_mc_run_id}.json"
-                    with open(_mc_path, "w", encoding="utf-8") as _f:
-                        _json.dump(mc, _f, indent=2)
-                    logger.info(
-                        "[monte_carlo] Sharpe P50=%.3f P10=%.3f  MDD P99=%.2f%%",
-                        mc["sharpe"]["p50"],
-                        mc["sharpe"]["p10"],
-                        mc["mdd"]["p99"] * 100,
+                # Locate the PnL column (legacy fallback order kept)
+                _pnl_col = None
+                for _c in ("pnl", "net_pnl", "gross_pnl", "trade_pnl", "closed_return"):
+                    if _c in result.trades.columns:
+                        _pnl_col = _c
+                        break
+                if _pnl_col is None:
+                    raise ValueError(
+                        "monte_carlo: no PnL column found in result.trades"
                     )
+                _pnl_series = result.trades[_pnl_col].dropna()
+                # F-RISK-MC2-BLOCKER-2: CLI flag is --start-capital, mapped to
+                # args.start_capital. The previous getattr(args, "capital", ...)
+                # was a silent fail-open (E-019) — args.capital does not exist,
+                # so it ALWAYS fell back to 100_000 regardless of --start-capital.
+                # F-SCR-MC2-MINOR-1: use getattr default (no `or` fallback) so a
+                # user-supplied falsy value (e.g. 0) reaches pnl_to_returns
+                # which validates it explicitly via ValueError.
+                _initial_capital = float(getattr(args, "start_capital", 10_000.0))
+                _returns = pnl_to_returns(_pnl_series, initial_capital=_initial_capital)
+                _result = permute_trades(_returns, n_iterations=5000, seed=42)
+                mc = shuffle_result_to_quantile_dict(
+                    _result,
+                    n_trades=int(len(_pnl_series)),
+                    initial_capital=_initial_capital,
+                )
+                metrics.__dict__["monte_carlo"] = mc
+                mj = reports_dir / "metrics.json"
+                with open(mj, encoding="utf-8") as _f:
+                    mj_data = _json.load(_f)
+                mj_data["monte_carlo"] = mc
+                with open(mj, "w", encoding="utf-8") as _f:
+                    _json.dump(mj_data, _f, indent=2)
+                # Save standalone monte carlo artifact to output/qa/
+                _qa_dir = Path(output_dir).parent.parent / "qa"
+                _qa_dir.mkdir(parents=True, exist_ok=True)
+                _mc_run_id = run_id or f"{args.strategy}_{args.freq}"
+                _mc_path = _qa_dir / f"monte_carlo_{_mc_run_id}.json"
+                with open(_mc_path, "w", encoding="utf-8") as _f:
+                    _json.dump(mc, _f, indent=2)
+                logger.info(
+                    "[monte_carlo] Sharpe P50=%.3f P10=%.3f  MDD P99=%.2f%%",
+                    mc["sharpe"]["p50"],
+                    mc["sharpe"]["p10"],
+                    mc["mdd"]["p99"] * 100,
+                )
             except Exception as _e:
+                # F-RISK-MC2-MAJOR-4: emit sentinel in metrics.json so downstream
+                # readers can distinguish "MC failed" from "MC ran successfully
+                # but produced no values". Avoids silent data loss in evidence chain.
                 logger.warning("[monte_carlo] simulation skipped: %s", _e)
+                try:
+                    import json as _json2
+
+                    mj = reports_dir / "metrics.json"
+                    if mj.exists():
+                        with open(mj, encoding="utf-8") as _f:
+                            mj_data = _json2.load(_f)
+                        mj_data["monte_carlo"] = {
+                            "error": str(_e),
+                            "error_type": type(_e).__name__,
+                            "skipped": True,
+                        }
+                        with open(mj, "w", encoding="utf-8") as _f:
+                            _json2.dump(mj_data, _f, indent=2)
+                except Exception as _sentinel_err:  # noqa: BLE001
+                    logger.warning(
+                        "[monte_carlo] failed to write skip sentinel: %s",
+                        _sentinel_err,
+                    )
 
         # Log Gross vs Net metrics
         if hasattr(metrics, "gross_metrics") and metrics.gross_metrics is not None:

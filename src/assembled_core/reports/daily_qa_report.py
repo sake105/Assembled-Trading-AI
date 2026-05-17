@@ -430,17 +430,38 @@ def _build_report_content(
                 lines.append("")
 
                 # Monte Carlo confidence intervals
+                # §6.5.3 Phase 2 (2026-05-17): kept on legacy `bootstrap_returns`.
+                # MIGRATION DEFERRED — F-RISK-MC2-MAJOR-1: switching to
+                # `shuffle_trades` would lose three semantic guarantees of this
+                # report:
+                #   (a) Block-bootstrap path (bootstrap_returns supports
+                #       block_size for autocorrelation preservation; the new
+                #       shuffle_trades is plain IID-with-replacement and would
+                #       produce over-confident CIs on daily returns which DO
+                #       have volatility clustering).
+                #   (b) point_estimate = Sharpe on original data; not the
+                #       bootstrap-distribution median.
+                #   (c) Markdown row labels: "cagr" vs "total_return"
+                #       (different metric, different unit).
+                # Re-enable migration when shuffle_trades grows a block_size
+                # parameter — tracked as KNOWN_ISSUES §6.5.3 Phase 2c.
                 try:
-                    from src.assembled_core.qa.monte_carlo import (
-                        bootstrap_returns,
-                    )
+                    import warnings as _warnings
+
+                    from src.assembled_core.qa.monte_carlo import bootstrap_returns
 
                     if len(daily_rets) >= 30:
-                        mc_result = bootstrap_returns(
-                            np.asarray(daily_rets),
-                            n_paths=500,
-                            seed=42,
-                        )
+                        with _warnings.catch_warnings():
+                            # Suppress the deprecation warning here — we
+                            # intentionally keep the legacy block-bootstrap
+                            # path. The deprecation status is documented
+                            # in KNOWN_ISSUES §6.5.3 Phase 2c.
+                            _warnings.simplefilter("ignore", DeprecationWarning)
+                            mc_result = bootstrap_returns(
+                                np.asarray(daily_rets),
+                                n_paths=500,
+                                seed=42,
+                            )
                         lines.append("### Monte Carlo Confidence Intervals (500 paths)")
                         lines.append("")
                         for name, ci in mc_result.confidence_intervals.items():

@@ -489,13 +489,26 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Phase-3 Follow-up (optional):** konfigurierbare Parameter (vol_model, p/o/q, dist) von `garch_vol_forecast` in `garch_vol` einbauen für Feature-Parität, BEVOR die deprecated Datei entfernt wird (falls jemand die Flexibilität tatsächlich braucht — aktuell nicht).
   - **Historie:** Eine dritte naive Implementation `risk/volatility/garch.py` wurde am 2026-05-17 erstellt (commits `61b535b`/`573613a`) und in `7a10d7c` wieder gelöscht.
 
-- [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — KONSOLIDIERUNG Phase 1 DONE (2026-05-17). Basis-Modul implementiert (commit `ad728a7`); danach Doppelstruktur-Audit ergab 3 parallele MC-Module → Phase 1 Konsolidierung.
+- [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — KONSOLIDIERUNG Phase 1+2a+2b DONE, Phase 2c deferred (2026-05-17). Basis-Modul implementiert (commit `ad728a7`); Doppelstruktur-Audit ergab 3 parallele MC-Module → Phase 1 Konsolidierung + Phase 2 Caller-Migration mit BLOCKER-Findings adressiert.
   - **Kanonisch:** `src/assembled_core/risk/monte_carlo/` — `shuffle_trades` (bootstrap-resample WITH replacement), **`permute_trades` (NEU 2026-05-17: order permutation WITHOUT replacement — canonical Ersatz für Legacy `monte_carlo_trade_paths`)**, `simulate_paths_iid_normal` (F-risk-4 rename von "gbm"), `simulate_paths_block_bootstrap`. **39 tests pass** (incl. r<=-1.0 input-guard regressions F-RISK-MC1-MINOR-1).
   - **Deprecated mit `DeprecationWarning` + Migrationshinweis:**
     - `qa/monte_carlo.py` (`bootstrap_returns` → `shuffle_trades`, `forward_simulate_gbm` → `simulate_paths_iid_normal`)
     - `qa/monte_carlo_paths.py` (`monte_carlo_trade_paths` → `permute_trades`)
   - **Abgrenzung:** `scenario_engine` macht Stress-Replays, nicht MC
-  - **Phase 2 — Follow-up (offen):** Caller-Migration in sensible Pipeline-Pfade — `scripts/run_backtest_strategy.py:2735` (`monte_carlo_trade_paths` → `permute_trades`), `src/.../api/routers/qa.py:510`, `src/.../reports/daily_qa_report.py:434`. Sensibel: Behavior-Check pro Caller (return-type ändert sich dict → `ShuffleResult` dataclass). `qa/bootstrap_metrics.compute_all_with_ci` ist separates Modul, eigene Konsolidierungs-Entscheidung.
+  - **Phase 2a DONE (2026-05-17):** Adapter + 2 Caller migriert.
+    - **Adapter:** `pnl_to_returns(pnl, initial_capital)` für currency-PnL→return-Konversion + `shuffle_result_to_quantile_dict(result, n_trades, initial_capital, annual_trading_days)` für Legacy-Schema-Kompat (JSON-Konsumenten brechen nicht). `n_trades` ist **Pflichtparameter** — siehe F-RISK-MC2-BLOCKER-1 unten.
+    - **Migriert:** `scripts/run_backtest_strategy.py:2735` (`monte_carlo_trade_paths` → `permute_trades` mit `pnl_to_returns(_, args.start_capital)` + Adapter), `src/.../api/routers/qa.py:510` (Direktzugriff auf `result.sharpe_distribution`, fixt nebenbei einen Legacy-Bug wo `mc.get("sharpe", [0.0])` ein dict in `_np.array` packte).
+  - **Phase 2b DONE (2026-05-17, Stage-1-Review-Findings adressiert):**
+    - **F-RISK-MC2-BLOCKER-1:** Adapter inferierte `n_trades` falsch aus `sharpe.shape[0]` (= `n_iterations`, nicht `n_trades`) → CAGR-Werte um Faktor ~50 zu klein. Fix: `n_trades: int` als **Pflichtparameter**, ValueError wenn ≤ 0. Regression-Test `test_cagr_magnitude_plausible` würde Bug zurückkehren fangen.
+    - **F-RISK-MC2-BLOCKER-2 (E-019 silent fail-open):** `getattr(args, "capital", 100_000)` — `args.capital` existiert nicht (CLI-Flag heißt `--start-capital`). Fix: `getattr(args, "start_capital", None) or 10_000.0` (echter Script-Default).
+    - **F-RISK-MC2-MAJOR-3:** CAGR-Clip versteckte ruinöse Pfade (`1+total_ret ≤ 0`). Fix: `pct_ruined` separat im Adapter-Output gezählt VOR clip.
+    - **F-RISK-MC2-MAJOR-4:** `except Exception → logger.warning` schluckte Skip ohne Sentinel im JSON. Fix: `metrics.json["monte_carlo"] = {"error": str(_e), "skipped": True}` Sentinel-Output, damit Downstream-Konsumenten Skip von Erfolg unterscheiden können.
+  - **Phase 2c DEFERRED — F-RISK-MC2-MAJOR-1 (daily_qa_report rollback):**
+    - `reports/daily_qa_report.py:432` bleibt auf legacy `bootstrap_returns` (mit lokal-unterdrückter DeprecationWarning) bis `shuffle_trades` einen `block_size`-Parameter unterstützt. Gründe: (a) Block-Bootstrap-Pfad für Autokorrelation, (b) `point_estimate = Sharpe(original)` statt Bootstrap-Median, (c) Markdown-Spalte „cagr" statt „total_return".
+    - **Follow-up §6.5.3 Phase 2c:** `shuffle_trades` um `block_size: int = 1` erweitern, daily_qa_report dann migrieren.
+  - **F-RISK-MC2-MAJOR-2 akzeptiert (dokumentiert):** Migration ändert Sharpe-Werte um bis zu ~8% bei mittleren PnL und final_equity bis ~3× bei großen relativen PnL. Grund: legacy nutzte additive Equity (`K + cumsum(pnl)`), neu nutzt multiplikative (`K * cumprod(1+r)`). Im small-return regime äquivalent, bei großen relativen Trades nicht. Konsequenz: `metrics.json`-Werte sind **nicht regressions-äquivalent zu Vor-Migration-Backtests**.
+  - **Tests:** 59/59 in test_risk_monte_carlo.py grün (+5 nach BLOCKER-Fixes: `test_n_trades_uses_caller_value`, `test_missing_n_trades_raises`, `test_invalid_n_trades_raises`, `test_pct_ruined_zero_for_winning_returns`, `test_cagr_magnitude_plausible`). 89 inkl. legacy tests.
+  - **`qa/bootstrap_metrics.compute_all_with_ci`** ist separates Modul, eigene Konsolidierungs-Entscheidung — nicht in Phase 2 enthalten.
 
 - [ ] **6.5.4 FinBERT / News-Sentiment ML**
   - **Ziel-Pfad:** `src/assembled_core/ml/nlp/finbert.py`

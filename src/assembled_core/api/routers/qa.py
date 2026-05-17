@@ -503,11 +503,21 @@ def get_walk_forward_sharpe_distribution(freq: str) -> SharpeDistributionRespons
     response_model=SharpeDistributionResponse,
 )
 def get_monte_carlo_sharpe_distribution(freq: str) -> SharpeDistributionResponse:
-    """Monte Carlo Sharpe distribution from permuted trade paths."""
+    """Monte Carlo Sharpe distribution from permuted trade paths.
+
+    §6.5.3 Phase 2 migration (2026-05-17): switched from legacy
+    qa.monte_carlo_paths.monte_carlo_trade_paths to risk.monte_carlo.permute_trades
+    + pnl_to_returns conversion. Reads ShuffleResult.sharpe_distribution directly
+    (fixes legacy bug where mc.get("sharpe", [0.0]) wrapped a dict-of-quantiles
+    into _np.array, producing 0-element arrays for downstream percentiles).
+    """
     try:
         import numpy as _np
         from src.assembled_core.pipeline.io import load_orders
-        from src.assembled_core.qa.monte_carlo_paths import monte_carlo_trade_paths
+        from src.assembled_core.risk.monte_carlo import (
+            permute_trades,
+            pnl_to_returns,
+        )
 
         orders = load_orders(freq=freq)
         if orders.empty or "pnl" not in orders.columns:
@@ -515,8 +525,16 @@ def get_monte_carlo_sharpe_distribution(freq: str) -> SharpeDistributionResponse
                 status_code=404, detail="No trade PnL data available for freq"
             )
 
-        mc = monte_carlo_trade_paths(orders, n_paths=2000, seed=42)
-        sharpes = _np.array(mc.get("sharpe", [0.0]))
+        _pnl_series = orders["pnl"].dropna()
+        if len(_pnl_series) < 5:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Too few trades for Monte Carlo (got {len(_pnl_series)})",
+            )
+        # API has no per-request initial_capital; use legacy default 100_000.
+        _returns = pnl_to_returns(_pnl_series, initial_capital=100_000.0)
+        _result = permute_trades(_returns, n_iterations=2000, seed=42)
+        sharpes = _result.sharpe_distribution
         sharpes = sharpes[_np.isfinite(sharpes)]
 
         if len(sharpes) == 0:

@@ -29,6 +29,8 @@ from src.assembled_core.risk.monte_carlo.path_simulator import (
 from src.assembled_core.risk.monte_carlo.trade_shuffle import (
     ShuffleResult,
     permute_trades,
+    pnl_to_returns,
+    shuffle_result_to_quantile_dict,
     shuffle_trades,
 )
 
@@ -36,6 +38,8 @@ __all__ = [
     "PathSimResult",
     "ShuffleResult",
     "permute_trades",
+    "pnl_to_returns",
+    "shuffle_result_to_quantile_dict",
     "shuffle_trades",
     "simulate_paths_block_bootstrap",
     "simulate_paths_iid_normal",

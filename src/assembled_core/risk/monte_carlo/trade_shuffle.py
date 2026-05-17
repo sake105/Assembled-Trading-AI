@@ -59,7 +59,10 @@ def _compute_sharpe(
     """
     means = returns_matrix.mean(axis=1)
     stds = returns_matrix.std(axis=1, ddof=1)
-    sharpes = np.where(stds > 0, means / stds * np.sqrt(annualization_factor), 0.0)
+    # np.where evaluates both branches; suppress the divide-by-zero warning
+    # that fires when any row has std==0 (e.g. permutation of identical PnL).
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sharpes = np.where(stds > 0, means / stds * np.sqrt(annualization_factor), 0.0)
     return sharpes
 
 
@@ -83,6 +86,146 @@ def _compute_mdd(returns_matrix: np.ndarray) -> np.ndarray:
 def _compute_total_return(returns_matrix: np.ndarray) -> np.ndarray:
     """Compute total return (prod(1+r) - 1) for each row."""
     return np.prod(1.0 + returns_matrix, axis=1) - 1.0
+
+
+def pnl_to_returns(
+    pnl: pd.Series | np.ndarray,
+    initial_capital: float = 100_000.0,
+) -> np.ndarray:
+    """Convert per-trade currency PnL to return units (Phase-2 migration helper).
+
+    Approximation used: ``r_i = pnl_i / initial_capital`` — uniform divisor,
+    no compounding context per trade. This matches the legacy
+    ``qa.monte_carlo_paths.monte_carlo_trade_paths`` equity model
+    (``initial + cumsum(pnl)``) within small-return regime where
+    ``cumprod(1 + pnl/K) ≈ 1 + cumsum(pnl)/K``.
+
+    Use this at the call site to migrate from legacy currency-PnL inputs
+    to the canonical :func:`permute_trades` / :func:`shuffle_trades`
+    return-unit API. The ``r <= -1.0`` guard in the canonical functions
+    will reject inputs where ``initial_capital`` was set too low — that
+    rejection IS the migration safety net.
+
+    Args:
+        pnl: Per-trade currency PnL (NOT cumulative).
+        initial_capital: Starting capital used to normalise PnL into
+            return units. Default 100_000 matches legacy default.
+
+    Returns:
+        np.ndarray of per-trade returns suitable for ``permute_trades``
+        or ``shuffle_trades``.
+
+    Raises:
+        ValueError: ``initial_capital`` must be positive and finite.
+    """
+    if not np.isfinite(initial_capital) or initial_capital <= 0:
+        raise ValueError(
+            f"initial_capital must be positive and finite, got {initial_capital}"
+        )
+    arr = np.asarray(pnl, dtype=float)
+    return arr / float(initial_capital)
+
+
+def shuffle_result_to_quantile_dict(
+    result: ShuffleResult,
+    n_trades: int,
+    initial_capital: float = 100_000.0,
+    annual_trading_days: int = 252,
+) -> dict:
+    """Convert ShuffleResult to the legacy dict schema used by
+    ``qa.monte_carlo_paths.monte_carlo_trade_paths`` consumers.
+
+    Phase-2 migration adapter: lets callers swap the legacy function for
+    ``permute_trades`` / ``shuffle_trades`` WITHOUT breaking downstream
+    JSON-readers (``metrics.json``, API responses, daily reports).
+
+    Schema produced (matches legacy + Phase-2 additions):
+        {
+            "n_paths": int,
+            "n_trades": int,
+            "sharpe": {"mean", "std", "p10", "p50", "p90"},
+            "mdd":    {"mean", "p10", "p50", "p90", "p99"},
+            "cagr":   {"mean", "p10", "p50", "p90"},
+            "final_equity": {"mean", "p10", "p50", "p90"},
+            "pct_ruined": float,   # NEW: fraction of paths with final equity <= 0
+        }
+
+    Args:
+        result: ShuffleResult from ``permute_trades`` / ``shuffle_trades``.
+        n_trades: Number of trades in the input series. **Mandatory** —
+            the ShuffleResult does NOT carry n_trades, so the caller must
+            pass it (typically ``len(pnl_series)``). Drives CAGR's
+            ``years = n_trades / annual_trading_days`` annualisation.
+            F-RISK-MC2-BLOCKER-1 fix: was previously inferred wrongly from
+            ``sharpe.shape[0]`` which equals n_iterations, not n_trades.
+        initial_capital: For ``final_equity = initial * (1 + total_return)``.
+        annual_trading_days: For CAGR annualisation of ``total_return``.
+
+    Returns:
+        Dict with the legacy schema (all values are Python floats).
+
+    Raises:
+        ValueError: ``n_trades`` must be a positive integer.
+    """
+    if not isinstance(n_trades, int) or n_trades <= 0:
+        raise ValueError(f"n_trades must be a positive int, got {n_trades!r}")
+    sharpe = result.sharpe_distribution
+    mdd = result.max_drawdown_distribution
+    total_ret = result.total_return_distribution
+    n_paths = int(result.n_iterations)
+    final_equity = initial_capital * (1.0 + total_ret)
+    years = n_trades / annual_trading_days
+    # F-RISK-MC2-MAJOR-3: count ruined paths BEFORE clipping for CAGR.
+    # final_equity <= 0 means the path lost everything (or more). The clip
+    # below then makes (1+total_ret) safe for the **(1/years) operation but
+    # the ruin information is preserved in pct_ruined.
+    #
+    # F-SCR-MC2-MINOR-3 note: since permute_trades/shuffle_trades reject any
+    # r <= -1.0 input, (1+r) > 0 for every individual trade, so cumprod
+    # remains positive. pct_ruined > 0 is therefore FP-underflow-only in
+    # realistic inputs (e.g. 50 trades of r=-0.99 may underflow). The field
+    # exists as honest visibility-of-ruin under extreme edge cases; in
+    # normal backtest data it will report 0.0.
+    ruined_mask = (1.0 + total_ret) <= 0.0
+    pct_ruined = float(ruined_mask.mean())
+    # CAGR per path: (1 + total_return) ** (1/years) - 1
+    safe_total = np.clip(1.0 + total_ret, 1e-12, None)
+    cagr = safe_total ** (1.0 / max(years, 1e-6)) - 1.0
+
+    def _pct(a: np.ndarray, p: float) -> float:
+        return float(np.percentile(a, p))
+
+    return {
+        "n_paths": n_paths,
+        "n_trades": int(n_trades),
+        "sharpe": {
+            "mean": float(np.mean(sharpe)),
+            "std": float(np.std(sharpe)),
+            "p10": _pct(sharpe, 10),
+            "p50": _pct(sharpe, 50),
+            "p90": _pct(sharpe, 90),
+        },
+        "mdd": {
+            "mean": float(np.mean(mdd)),
+            "p10": _pct(mdd, 10),
+            "p50": _pct(mdd, 50),
+            "p90": _pct(mdd, 90),
+            "p99": _pct(mdd, 99),
+        },
+        "cagr": {
+            "mean": float(np.mean(cagr)),
+            "p10": _pct(cagr, 10),
+            "p50": _pct(cagr, 50),
+            "p90": _pct(cagr, 90),
+        },
+        "final_equity": {
+            "mean": float(np.mean(final_equity)),
+            "p10": _pct(final_equity, 10),
+            "p50": _pct(final_equity, 50),
+            "p90": _pct(final_equity, 90),
+        },
+        "pct_ruined": pct_ruined,
+    }
 
 
 def permute_trades(

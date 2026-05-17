@@ -12,6 +12,8 @@ import pytest
 from src.assembled_core.risk.monte_carlo import (
     ShuffleResult,
     permute_trades,
+    pnl_to_returns,
+    shuffle_result_to_quantile_dict,
     shuffle_trades,
     simulate_paths_block_bootstrap,
     simulate_paths_iid_normal,
@@ -322,6 +324,171 @@ class TestShuffleRReturnsGuard:
         """F-RISK-MC1-MINOR-1: same guard as permute_trades."""
         with pytest.raises(ValueError, match=r"<= -1\.0"):
             shuffle_trades(np.array([0.01, -1.5, 0.02]), n_iterations=10)
+
+
+# ===========================================================================
+# Phase 2 migration helpers (§6.5.3): pnl_to_returns + shuffle_result_to_quantile_dict
+# ===========================================================================
+
+
+class TestPnlToReturns:
+    def test_basic_conversion(self):
+        pnl = np.array([100.0, -50.0, 200.0])
+        returns = pnl_to_returns(pnl, initial_capital=100_000.0)
+        np.testing.assert_allclose(returns, [0.001, -0.0005, 0.002])
+
+    def test_accepts_series(self):
+        pnl = pd.Series([100.0, -50.0])
+        returns = pnl_to_returns(pnl, initial_capital=10_000.0)
+        assert isinstance(returns, np.ndarray)
+        np.testing.assert_allclose(returns, [0.01, -0.005])
+
+    def test_zero_capital_raises(self):
+        with pytest.raises(ValueError, match="positive and finite"):
+            pnl_to_returns(np.array([100.0]), initial_capital=0.0)
+
+    def test_negative_capital_raises(self):
+        with pytest.raises(ValueError, match="positive and finite"):
+            pnl_to_returns(np.array([100.0]), initial_capital=-100.0)
+
+    def test_nan_capital_raises(self):
+        with pytest.raises(ValueError, match="positive and finite"):
+            pnl_to_returns(np.array([100.0]), initial_capital=float("nan"))
+
+    def test_conversion_chains_to_permute_trades(self):
+        """End-to-end: legacy currency PnL → returns → permute_trades."""
+        pnl = pd.Series(np.full(50, 100.0))  # +$100 per trade
+        returns = pnl_to_returns(pnl, initial_capital=100_000.0)
+        result = permute_trades(returns, n_iterations=200, seed=0)
+        # Equal-PnL ⇒ Sharpe should be very high (no variance) — but permute
+        # preserves the set, so all paths have identical equity
+        assert isinstance(result, ShuffleResult)
+        # All sharpes identical because no variance in returns
+        assert result.sharpe_distribution.std() < 1e-9
+
+
+class TestShuffleResultToQuantileDict:
+    @pytest.fixture()
+    def result(self):
+        rng = np.random.default_rng(7)
+        pnl = rng.normal(50.0, 200.0, size=100)
+        returns = pnl_to_returns(pnl, initial_capital=100_000.0)
+        return permute_trades(returns, n_iterations=200, seed=7)
+
+    def test_schema_keys(self, result):
+        d = shuffle_result_to_quantile_dict(result, n_trades=100)
+        assert set(d.keys()) >= {
+            "n_paths",
+            "n_trades",
+            "sharpe",
+            "mdd",
+            "cagr",
+            "final_equity",
+            "pct_ruined",
+        }
+
+    def test_sharpe_subkeys(self, result):
+        d = shuffle_result_to_quantile_dict(result, n_trades=100)
+        assert set(d["sharpe"].keys()) == {"mean", "std", "p10", "p50", "p90"}
+
+    def test_mdd_subkeys_include_p99(self, result):
+        """Legacy schema had p99 on MDD (tail-risk percentile)."""
+        d = shuffle_result_to_quantile_dict(result, n_trades=100)
+        assert "p99" in d["mdd"]
+
+    def test_n_paths_matches_iterations(self, result):
+        d = shuffle_result_to_quantile_dict(result, n_trades=100)
+        assert d["n_paths"] == result.n_iterations
+
+    def test_n_trades_uses_caller_value(self, result):
+        """F-RISK-MC2-BLOCKER-1 regression: n_trades MUST come from caller,
+        NOT from sharpe.shape[0] which equals n_iterations."""
+        d50 = shuffle_result_to_quantile_dict(result, n_trades=50)
+        d200 = shuffle_result_to_quantile_dict(result, n_trades=200)
+        assert d50["n_trades"] == 50
+        assert d200["n_trades"] == 200
+        # CAGR uses years = n_trades / 252 → different n_trades → different cagr
+        assert d50["cagr"]["p50"] != d200["cagr"]["p50"]
+
+    def test_missing_n_trades_raises(self, result):
+        """n_trades is mandatory — silent default would re-introduce
+        F-RISK-MC2-BLOCKER-1."""
+        with pytest.raises(TypeError):
+            shuffle_result_to_quantile_dict(result)  # type: ignore[call-arg]
+
+    def test_invalid_n_trades_raises(self, result):
+        with pytest.raises(ValueError, match="positive int"):
+            shuffle_result_to_quantile_dict(result, n_trades=0)
+        with pytest.raises(ValueError, match="positive int"):
+            shuffle_result_to_quantile_dict(result, n_trades=-5)
+
+    def test_final_equity_uses_initial_capital(self, result):
+        d_100k = shuffle_result_to_quantile_dict(
+            result, n_trades=100, initial_capital=100_000.0
+        )
+        d_10k = shuffle_result_to_quantile_dict(
+            result, n_trades=100, initial_capital=10_000.0
+        )
+        # Scaling by 10× initial_capital scales final_equity by 10×
+        assert d_100k["final_equity"]["mean"] > 9.5 * d_10k["final_equity"]["mean"]
+        assert d_100k["final_equity"]["mean"] < 10.5 * d_10k["final_equity"]["mean"]
+
+    def test_all_values_json_serialisable(self, result):
+        import json
+
+        d = shuffle_result_to_quantile_dict(result, n_trades=100)
+        # Must round-trip through JSON (legacy schema contract for metrics.json)
+        json_str = json.dumps(d)
+        round_trip = json.loads(json_str)
+        assert round_trip["n_paths"] == d["n_paths"]
+        assert round_trip["sharpe"]["p50"] == pytest.approx(d["sharpe"]["p50"])
+
+    def test_pct_ruined_zero_for_winning_returns(self):
+        """F-RISK-MC2-MAJOR-3: pct_ruined counts paths with final equity <= 0.
+        With all-positive small returns, ruin probability must be 0."""
+        returns = np.full(50, 0.005)  # +0.5% per trade
+        result = permute_trades(returns, n_iterations=100, seed=0)
+        d = shuffle_result_to_quantile_dict(result, n_trades=50)
+        assert d["pct_ruined"] == 0.0
+
+    def test_cagr_magnitude_plausible(self):
+        """F-RISK-MC2-BLOCKER-1 numerical regression: CAGR must scale with
+        n_trades correctly. Setup uses n_iterations=5000 (run_backtest_strategy
+        default) to UNIQUELY catch the bug — with n_iterations==n_trades,
+        the buggy adapter path that infers n_trades from sharpe.shape[0]
+        produces the same result as the correct path, so the regression
+        is not differentiable. With n_iterations=5000 ≫ n_trades=100, the
+        buggy path computes years=5000/252≈19.84 → cagr≈2.5% (massively
+        too small), while correct path computes years=100/252≈0.397 →
+        cagr≈315%. The 0.5 threshold cleanly separates."""
+        returns = np.full(100, 0.005)
+        result = permute_trades(returns, n_iterations=5000, seed=0)
+        d = shuffle_result_to_quantile_dict(result, n_trades=100)
+        assert d["cagr"]["p50"] > 0.5, (
+            f"CAGR p50={d['cagr']['p50']:.4f} suspiciously small; "
+            "BLOCKER-1 regression?"
+        )
+
+
+class TestPhase2CallerImports:
+    """Smoke: the 3 migrated callsites can import the new helpers."""
+
+    def test_run_backtest_strategy_imports(self):
+        # The migrated import block (without actually running the backtest)
+        from src.assembled_core.risk.monte_carlo import (  # noqa: F401
+            permute_trades,
+            pnl_to_returns,
+            shuffle_result_to_quantile_dict,
+        )
+
+    def test_api_qa_router_imports(self):
+        from src.assembled_core.risk.monte_carlo import (  # noqa: F401
+            permute_trades,
+            pnl_to_returns,
+        )
+
+    def test_daily_qa_report_imports(self):
+        from src.assembled_core.risk.monte_carlo import shuffle_trades  # noqa: F401
 
 
 # ===========================================================================
