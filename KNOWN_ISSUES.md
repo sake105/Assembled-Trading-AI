@@ -511,10 +511,12 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Tests:** 59/59 in test_risk_monte_carlo.py grün (+5 nach BLOCKER-Fixes: `test_n_trades_uses_caller_value`, `test_missing_n_trades_raises`, `test_invalid_n_trades_raises`, `test_pct_ruined_zero_for_winning_returns`, `test_cagr_magnitude_plausible`). 89 inkl. legacy tests.
   - **`qa/bootstrap_metrics.compute_all_with_ci`** ist separates Modul, eigene Konsolidierungs-Entscheidung — nicht in Phase 2 enthalten.
 
-- [ ] **6.5.4 FinBERT / News-Sentiment ML**
-  - **Ziel-Pfad:** `src/assembled_core/ml/nlp/finbert.py`
-  - **Lib:** `transformers` ist Optional-Extra, nicht installiert by default
-  - **Wert:** Schließt Lücke zwischen `events/news` Skeletons und Signal-Layer
+- [x] **6.5.4 FinBERT / News-Sentiment ML** — DONE (2026-05-17). Modul existiert bereits unter abweichendem Pfad; KNOWN_ISSUES-Ziel-Pfad war veraltet. Tests ergänzt, keine Doppelstruktur erzeugt (Lesson aus §6.5.2/§6.5.3).
+  - **Tatsächlicher Pfad:** `src/assembled_core/intel/finbert_sentiment.py` (366 LOC, schon vor 2026-05-17 vorhanden) — NICHT `ml/nlp/finbert.py` wie KNOWN_ISSUES ursprünglich vorgab.
+  - **Funktionalität:** 3-Tier-Fallback: FinBERT (ProsusAI/finbert via `transformers`) → VADER (`vaderSentiment`) → keyword-based (always-available, no-deps). Public API: `SentimentResult`, `SentimentScorer`, `get_sentiment_scorer(prefer_backend=...)`, `score_news_items(items, text_key, ...)`. Optional-deps via try-import.
+  - **Tests:** `tests/test_finbert_sentiment.py` (NEU 2026-05-17, 14 Tests, 11 pass + 3 skipped für nicht-installierte optional-deps): 6 keyword-tier + 2 VADER (importorskip) + 1 FinBERT (importorskip) + 4 `score_news_items` wrapper + 1 auto-detection.
+  - **Caller:** `scripts/news_validation/level_b_event_study.py` (produktiv). News-Signal-Layer-Lücke (KNOWN_ISSUES Wert-Statement) ist via `score_news_items` adressiert — Funktion appendet `sentiment_score/label/confidence/backend` in-place auf Item-Dicts.
+  - **Follow-up:** `tests/test_nlp_sentiment.py` importorskip'd auf `src.assembled_core.ml.nlp_sentiment` (archiviert in `archive/observability_graveyard_2026q2/`) — Geist-Test, alle Tests skipped. Separate Cleanup-Action (Delete oder Umleiten auf `intel.finbert_sentiment`) tracken.
 
 - [ ] **6.5.5 Echte Insider/Congress/Shipping Data-Feeds**
   - **Aktion:** Dummy-Generatoren in `insider_ingest.py` / `shipping_routes_ingest.py` werden im Plan 2026-05-17 fail-loud + opt-in gemacht (Sub-Project A, Task A1/A2). Sobald ein echter Feed verdrahtet ist, können die Dummy-Generatoren **vollständig** entfernt werden.
