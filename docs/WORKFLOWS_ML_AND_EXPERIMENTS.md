@@ -291,10 +291,12 @@ meta_model = load_meta_model(model_path)
 **Location:** `research/`
 
 **Available templates:**
-- `research/trend/trend_baseline_experiments.ipynb` - Trend strategy experiments
-- `research/meta/meta_model_calibration.ipynb` - Meta-model calibration analysis
-- `research/altdata/insider_congress_shipping_exploration.ipynb` - Alternative data exploration
-- `research/risk/scenario_and_risk_experiments.ipynb` - Risk scenario experiments
+- `research/trend/trend_baseline_experiments.ipynb` - Trend strategy experiments (substantive, 14 cells)
+
+**Skeleton notebooks (moved to `research/dead_ends/` for provenance):**
+- `research/dead_ends/meta-meta_model_calibration.ipynb` - Meta-model calibration analysis
+- `research/dead_ends/altdata-insider_congress_shipping_exploration.ipynb` - Alternative data exploration
+- `research/dead_ends/risk-scenario_and_risk_experiments.ipynb` - Risk scenario experiments
 
 **See:** [Research Roadmap](RESEARCH_ROADMAP.md) for more details.
 
