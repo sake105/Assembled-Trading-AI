@@ -225,9 +225,7 @@ class TradingContext:
     crisis_state_intel: dict[str, Any] | None = (
         None  # full crisis state from intel cycle
     )
-    intel_sim_applied: bool = (
-        False  # BENCH-1: when True, skip intel loading (paper_runner sets simulated intel)
-    )
+    intel_sim_applied: bool = False  # BENCH-1: skip intel loading in sim mode
 
     # EDCL — Event-Driven Conviction Layer (Phase A-H)
     # edcl_state: populated by _load_intel() from active_triggers + geo_confidence.
@@ -642,8 +640,16 @@ def _build_features_default(
                     as_of=ctx.as_of,
                 )
                 logger.debug("[Features] Congress trading features merged")
-        except Exception as e:
-            logger.debug("[Features] Congress features skipped: %s", e)
+        except ModuleNotFoundError as e:
+            logger.warning(
+                "[Features] Congress features SILENTLY DISABLED — "
+                "module congress_trades_ingest is not installed: %s. "
+                "Set feature_cfg.include_congress=False to suppress this warning, "
+                "or restore the module (see KNOWN_ISSUES.md §6.5.5).",
+                e,
+            )
+        except ImportError as e:
+            logger.warning("[Features] Congress features import failed: %s", e)
 
     return prices_with_features
 
