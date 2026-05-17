@@ -952,9 +952,24 @@ durchgeführt wurden:
   Synthetic-Stress-Validation.
 - [ ] **C4-079 Spillover-Index Window/Lag-Sensitivität (Diebold-Yilmaz):**
   documentieren / parametrisieren.
-- [ ] **C4-080 Mutual Information / Transfer Entropy KSG-Estimator:**
-  Wave-15 hat MI-Screen (`qa/feature_screen.py`); KSG-spezifischer kNN
-  estimator vs. histogram-fallback dokumentieren.
+- [x] **C4-080 Mutual Information / Transfer Entropy KSG-Estimator** — DONE 2026-05-17:
+  - **MI / KSG (bereits vorhanden):** `qa/feature_screen.py::mutual_info_screen` nutzt
+    `sklearn.feature_selection.mutual_info_regression` (das IST der KSG kNN-Estimator
+    per Kraskov-Stögbauer-Grassberger 2004) als Primary + histogram-Fallback. KSG vs
+    histogram im Modul-Docstring erklärt.
+  - **Transfer Entropy (neu in dieser Session, war komplett offen):** neues Modul
+    `src/assembled_core/qa/transfer_entropy.py` mit:
+    - `transfer_entropy_binned(source, target, lag=1, n_bins=8) → float`:
+      histogram-based Schreiber (2000) TE in nats, dependency-free, exact für die
+      gewählte Diskretisierung. Bias-Floor O(n_bins²/N) dokumentiert.
+    - `transfer_entropy_ksg(source, target, lag=1, k=3) → float | None`: sklearn
+      KSG-basierte continuous-MI-Differenz per Wibral et al. (2014) §2.2,
+      `TE(X→Y) ≈ MI((Y_past, X_past)→Y_future) − MI(Y_past→Y_future)`. Returns None
+      wenn sklearn fehlt (graceful degradation).
+  - 15 Tests pass: TE positiv für kausale Paare (Y_t = 0.7·X_{t-1} + noise),
+    TE klein für unabhängige Reihen (relativ zum kausalen Fall via bias-floor-test),
+    Asymmetrie TE(X→Y) > TE(Y→X) bei one-way causation, edge cases, sklearn-fallback
+    via monkeypatch. KSG-Modul fällt graceful auf None ohne sklearn.
 - [x] **C4-081 Event-Study Methodik** — DONE 2026-05-17: Market-Model + BMP-t-stat + BHAR
   als neue Funktionen in `src/assembled_core/qa/event_study.py` (bestehende
   Mean-Adjusted-Funktionen bleiben unverändert für Backward-Compat).
