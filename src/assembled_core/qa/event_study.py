@@ -2,16 +2,24 @@
 
 This module provides functions for event study analysis:
 - Extracting price windows around events
-- Computing normal and abnormal returns
+- Computing normal and abnormal returns (Mean-Adjusted)
+- Market-Model abnormal returns (OLS regression-based) — C4-081
+- BMP (Boehmer-Musumeci-Poulsen 1991) standardised cross-sectional t-statistic
+- BHAR (Buy-and-Hold Abnormal Returns) for long-horizon studies
 - Aggregating results across events
 
-Part of Phase C3: Event Study Framework.
+Part of Phase C3: Event Study Framework. Audit C4-081 closure (2026-05-17).
 """
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def build_event_window_prices(
@@ -444,3 +452,344 @@ def aggregate_event_study(
     result = result.reset_index(drop=True)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# C4-081 (KNOWN_ISSUES §8.13) — Market-Model + BMP-t-stat + BHAR
+#
+# References:
+# - MacKinlay (1997), "Event Studies in Economics and Finance", JEL 35(1).
+# - Boehmer, Musumeci, Poulsen (1991), "Event-study methodology under
+#   conditions of event-induced variance", JFE 30(2).
+# - Barber & Lyon (1997), "Detecting long-run abnormal stock returns: The
+#   empirical power and specification of test statistics", JFE 43(3) — BHAR.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class MarketModelResult:
+    """Result of estimating the market model on one event's estimation window.
+
+    Attributes:
+        alpha: OLS intercept (Jensen's alpha).
+        beta: OLS slope (market beta).
+        sigma_resid: residual standard deviation (used for BMP standardisation).
+        n_estimation_obs: number of obs in the estimation window.
+        r_squared: regression R^2.
+    """
+
+    alpha: float
+    beta: float
+    sigma_resid: float
+    n_estimation_obs: int
+    r_squared: float
+
+
+def estimate_market_model(
+    asset_returns: pd.Series | np.ndarray,
+    market_returns: pd.Series | np.ndarray,
+) -> MarketModelResult:
+    """OLS market-model regression: r_i = α + β · r_m + ε.
+
+    Args:
+        asset_returns: Series/array of asset returns over the estimation window.
+        market_returns: Series/array of market returns over the same window.
+
+    Returns:
+        MarketModelResult with α, β, residual std, n_obs, R².
+
+    Raises:
+        ValueError: If inputs have <30 finite-aligned observations or are
+            length-mismatched.
+    """
+    a = pd.Series(asset_returns, dtype=float).reset_index(drop=True)
+    m = pd.Series(market_returns, dtype=float).reset_index(drop=True)
+    if len(a) != len(m):
+        raise ValueError(
+            f"estimate_market_model: length mismatch asset={len(a)}, market={len(m)}"
+        )
+    # Align finite-only
+    mask = a.notna() & m.notna() & np.isfinite(a) & np.isfinite(m)
+    a_f = a[mask].to_numpy()
+    m_f = m[mask].to_numpy()
+    if len(a_f) < 30:
+        raise ValueError(
+            f"estimate_market_model: need ≥30 finite-aligned obs, got {len(a_f)}"
+        )
+
+    # OLS: design matrix [1, m_f]
+    design = np.column_stack([np.ones(len(m_f)), m_f])
+    coef, *_ = np.linalg.lstsq(design, a_f, rcond=None)
+    alpha, beta = float(coef[0]), float(coef[1])
+    fitted = alpha + beta * m_f
+    resid = a_f - fitted
+    n = len(a_f)
+    # Sample residual std with (n-2) ddof (OLS with intercept + 1 regressor)
+    sigma_resid = float(np.sqrt(np.sum(resid**2) / max(n - 2, 1)))
+    # R^2 = 1 - SS_resid / SS_total
+    ss_total = float(np.sum((a_f - a_f.mean()) ** 2))
+    r_squared = 1.0 - (np.sum(resid**2) / ss_total) if ss_total > 0 else 0.0
+    return MarketModelResult(
+        alpha=alpha,
+        beta=beta,
+        sigma_resid=sigma_resid,
+        n_estimation_obs=n,
+        r_squared=float(r_squared),
+    )
+
+
+def compute_market_model_abnormal_returns(
+    event_returns: pd.DataFrame,
+    market_return_col: str = "market_return",
+    rel_day_col: str = "rel_day",
+    return_col: str = "event_return",
+    estimation_window: tuple[int, int] = (-250, -10),
+    event_id_col: str = "event_id",
+) -> pd.DataFrame:
+    """Compute Market-Model abnormal returns and per-event sigma_resid for BMP.
+
+    For each event:
+      1. Fit OLS on the estimation_window (default −250..−10 rel days) to get α, β.
+      2. For ALL rel days in the input, compute AR = r_asset − (α + β · r_market).
+      3. Attach `sigma_resid` (from estimation window) — needed for BMP-t standardisation.
+
+    Args:
+        event_returns: Output from `compute_event_returns` PLUS a market return
+            column. Must contain `event_id_col`, `rel_day_col`, `return_col`,
+            and `market_return_col`.
+        market_return_col: Column with the market (benchmark) return.
+        rel_day_col: Column with the relative day (negative=pre, 0=event).
+        return_col: Column with the per-asset event return.
+        estimation_window: (start_rel_day, end_rel_day) for OLS fitting. Default
+            (−250, −10) matches MacKinlay (1997) convention.
+        event_id_col: Column with the event identifier.
+
+    Returns:
+        Copy of `event_returns` with two new columns:
+        - `mm_abnormal_return`: r_asset − (α + β · r_market) per row
+        - `sigma_resid`: per-event residual std from the estimation window
+        Events with <30 valid estimation obs have `mm_abnormal_return=NaN` and
+        `sigma_resid=NaN` and are logged at DEBUG.
+
+    Raises:
+        KeyError: If required columns are missing.
+    """
+    for col in (event_id_col, rel_day_col, return_col, market_return_col):
+        if col not in event_returns.columns:
+            raise KeyError(
+                f"compute_market_model_abnormal_returns: missing column '{col}'"
+            )
+
+    result = event_returns.copy()
+    result["mm_abnormal_return"] = np.nan
+    result["sigma_resid"] = np.nan
+    est_start, est_end = estimation_window
+
+    for event_id, grp in result.groupby(event_id_col, sort=False):
+        est_mask = (grp[rel_day_col] >= est_start) & (grp[rel_day_col] <= est_end)
+        est = grp[est_mask]
+        if est_mask.sum() < 30:
+            logger.debug(
+                "Event %s: only %d obs in estimation window — AR=NaN",
+                event_id,
+                int(est_mask.sum()),
+            )
+            continue
+        try:
+            mm = estimate_market_model(
+                est[return_col].to_numpy(),
+                est[market_return_col].to_numpy(),
+            )
+        except (ValueError, np.linalg.LinAlgError) as exc:
+            logger.debug("Event %s: market-model fit failed: %s", event_id, exc)
+            continue
+
+        # AR for ALL rel days (including estimation window and event window)
+        ar = grp[return_col].to_numpy() - (
+            mm.alpha + mm.beta * grp[market_return_col].to_numpy()
+        )
+        result.loc[grp.index, "mm_abnormal_return"] = ar
+        result.loc[grp.index, "sigma_resid"] = mm.sigma_resid
+
+    return result
+
+
+def bmp_t_statistic(
+    abnormal_returns: pd.DataFrame,
+    event_window: tuple[int, int] = (-5, 5),
+    rel_day_col: str = "rel_day",
+    ar_col: str = "mm_abnormal_return",
+    sigma_col: str = "sigma_resid",
+    event_id_col: str = "event_id",
+) -> dict:
+    """Boehmer-Musumeci-Poulsen (1991) standardised cross-sectional t-stat.
+
+    Procedure (BMP §3):
+      1. Standardise AR per event: SAR_it = AR_it / sigma_i (estimation window std).
+      2. For each event, sum SAR across event window: CSAR_i = Σ_t SAR_it.
+      3. Cross-sectional test stat: t = mean(CSAR) / (std(CSAR) / √N).
+
+    BMP standardisation is robust to event-induced variance (each event's
+    abnormal return is scaled by its own estimation-window noise level).
+
+    Args:
+        abnormal_returns: Output from `compute_market_model_abnormal_returns`.
+            Must contain `event_id_col`, `rel_day_col`, `ar_col`, `sigma_col`.
+        event_window: (start_rel_day, end_rel_day) for the CAR calculation.
+            Default (−5, +5) is the common short-window choice.
+        rel_day_col: Column with the relative day.
+        ar_col: Column with the abnormal return (default `mm_abnormal_return`).
+        sigma_col: Column with the per-event estimation-window residual std.
+        event_id_col: Column with the event identifier.
+
+    Returns:
+        Dict with keys:
+        - `car_mean`: mean cumulative abnormal return across events
+        - `n_events`: number of events with non-NaN CSAR
+        - `t_statistic`: BMP t-stat
+        - `pvalue`: two-sided p-value (normal approx)
+        - `event_window`: echo of input
+        - `is_significant_at_5pct`: convenience bool
+
+    Raises:
+        KeyError: If required columns are missing.
+        ValueError: If no events have valid (AR, sigma_resid) pairs.
+    """
+    for col in (event_id_col, rel_day_col, ar_col, sigma_col):
+        if col not in abnormal_returns.columns:
+            raise KeyError(f"bmp_t_statistic: missing column '{col}'")
+
+    win_start, win_end = event_window
+    in_window = (abnormal_returns[rel_day_col] >= win_start) & (
+        abnormal_returns[rel_day_col] <= win_end
+    )
+    window_df = abnormal_returns[in_window].copy()
+
+    csars = []
+    for event_id, grp in window_df.groupby(event_id_col, sort=False):
+        sigma = grp[sigma_col].dropna()
+        if sigma.empty or float(sigma.iloc[0]) <= 0:
+            continue
+        sigma_val = float(sigma.iloc[0])
+        ar_vals = grp[ar_col].dropna().to_numpy()
+        if len(ar_vals) == 0:
+            continue
+        # SAR_it = AR_it / sigma_i; CSAR_i = sum_t SAR_it
+        sar = ar_vals / sigma_val
+        csars.append(float(np.sum(sar)))
+
+    if not csars:
+        raise ValueError(
+            "bmp_t_statistic: no events with valid (AR, sigma_resid) pairs"
+        )
+
+    csar_arr = np.asarray(csars, dtype=float)
+    n = len(csar_arr)
+    mean_csar = float(np.mean(csar_arr))
+    std_csar = float(np.std(csar_arr, ddof=1)) if n > 1 else float("nan")
+
+    if not (n > 1) or std_csar == 0 or not np.isfinite(std_csar):
+        t_stat = float("nan")
+        pvalue = float("nan")
+    else:
+        t_stat = mean_csar / (std_csar / np.sqrt(n))
+        # Two-sided p-value via normal approximation (BMP §3 — large-N)
+        from math import erfc, sqrt
+
+        pvalue = float(erfc(abs(t_stat) / sqrt(2.0)))
+
+    # CAR = average raw AR within window (not standardised — for reporting)
+    # car_mean here is the average across events of the per-event sum AR
+    car_per_event = (
+        window_df.groupby(event_id_col)[ar_col].sum(min_count=1).dropna().to_numpy()
+    )
+    car_mean = float(np.mean(car_per_event)) if len(car_per_event) > 0 else float("nan")
+
+    return {
+        "car_mean": car_mean,
+        "n_events": n,
+        "t_statistic": float(t_stat) if np.isfinite(t_stat) else float("nan"),
+        "pvalue": pvalue if np.isfinite(pvalue) else float("nan"),
+        "event_window": event_window,
+        "is_significant_at_5pct": bool(np.isfinite(pvalue) and pvalue < 0.05),
+    }
+
+
+def compute_bhar(
+    event_returns: pd.DataFrame,
+    market_return_col: str = "market_return",
+    horizon_days: int = 250,
+    rel_day_col: str = "rel_day",
+    return_col: str = "event_return",
+    event_id_col: str = "event_id",
+) -> pd.DataFrame:
+    """Buy-and-Hold Abnormal Return (BHAR) for long-horizon event studies.
+
+    Per Barber & Lyon (1997): BHAR_i = ∏(1+r_asset_t) − ∏(1+r_market_t) over
+    [event_day, event_day + horizon_days]. Compounding-based — appropriate for
+    long horizons where simple summed CARs accumulate bias.
+
+    Args:
+        event_returns: Per-event/rel-day returns plus market column.
+        market_return_col: Market return column.
+        horizon_days: Holding-period horizon (days from event=0).
+        rel_day_col: Column with rel day.
+        return_col: Per-asset return column.
+        event_id_col: Event identifier column.
+
+    Returns:
+        DataFrame with one row per event:
+        - `event_id`
+        - `bhar`: Buy-and-Hold Abnormal Return
+        - `n_obs_in_window`: number of valid rel-day observations used
+
+    Raises:
+        KeyError: If required columns are missing.
+        ValueError: If horizon_days < 1.
+    """
+    if horizon_days < 1:
+        raise ValueError(f"compute_bhar: horizon_days must be ≥1, got {horizon_days}")
+    for col in (event_id_col, rel_day_col, return_col, market_return_col):
+        if col not in event_returns.columns:
+            raise KeyError(f"compute_bhar: missing column '{col}'")
+
+    in_window = (event_returns[rel_day_col] >= 0) & (
+        event_returns[rel_day_col] <= horizon_days
+    )
+    win_df = event_returns[in_window]
+    rows = []
+    for event_id, grp in win_df.groupby(event_id_col, sort=False):
+        sorted_grp = grp.sort_values(rel_day_col)
+        ar = sorted_grp[return_col].dropna().to_numpy()
+        mr = sorted_grp[market_return_col].dropna().to_numpy()
+        if len(ar) == 0 or len(mr) == 0:
+            continue
+        # Use the shorter length (defensive)
+        n = min(len(ar), len(mr))
+        asset_compound = float(np.prod(1.0 + ar[:n]))
+        market_compound = float(np.prod(1.0 + mr[:n]))
+        rows.append(
+            {
+                "event_id": event_id,
+                "bhar": asset_compound - market_compound,
+                "n_obs_in_window": n,
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(columns=["event_id", "bhar", "n_obs_in_window"])
+    return pd.DataFrame(rows)
+
+
+__all__ = [
+    # Existing
+    "build_event_window_prices",
+    "compute_event_returns",
+    "aggregate_event_study",
+    # C4-081 — Market-Model + BMP-t + BHAR
+    "MarketModelResult",
+    "estimate_market_model",
+    "compute_market_model_abnormal_returns",
+    "bmp_t_statistic",
+    "compute_bhar",
+]

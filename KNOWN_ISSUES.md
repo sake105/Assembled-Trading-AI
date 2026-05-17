@@ -955,9 +955,21 @@ durchgeführt wurden:
 - [ ] **C4-080 Mutual Information / Transfer Entropy KSG-Estimator:**
   Wave-15 hat MI-Screen (`qa/feature_screen.py`); KSG-spezifischer kNN
   estimator vs. histogram-fallback dokumentieren.
-- [ ] **C4-081 Event-Study Methodik:** Market-Model statt Mean-Adjusted +
-  Boehmer-Musumeci-Poulsen-t-Stat + BHAR. `scripts/run_event_study.py` ist
-  Skeleton (siehe §8.6).
+- [x] **C4-081 Event-Study Methodik** — DONE 2026-05-17: Market-Model + BMP-t-stat + BHAR
+  als neue Funktionen in `src/assembled_core/qa/event_study.py` (bestehende
+  Mean-Adjusted-Funktionen bleiben unverändert für Backward-Compat).
+  - `estimate_market_model(asset, market) → MarketModelResult` (OLS α/β + residual std + R²)
+  - `compute_market_model_abnormal_returns(panel, ...)` mit estimation_window=(-250,-10)
+    default per MacKinlay (1997); attaches `mm_abnormal_return` + `sigma_resid`
+  - `bmp_t_statistic(ar_df, event_window=(-5,5))` per Boehmer-Musumeci-Poulsen (1991):
+    Standardisiert AR per event (÷sigma_i), summiert über window, cross-sectional t-test.
+    Returns dict mit `t_statistic`, `pvalue`, `car_mean`, `is_significant_at_5pct`.
+  - `compute_bhar(panel, horizon_days=250)` per Barber & Lyon (1997): ∏(1+r_asset) − ∏(1+r_market)
+    über post-event Horizont (compounding-based, langfrist-bias-bereinigt).
+  - 18 Tests pass: known-α/β recovery, zero-β für unkorrelierte, event-day-jump detected,
+    BMP-t-significance unter known effect / non-effect, BHAR positive für +2%-jump etc.
+  - **`scripts/run_event_study.py` Skeleton-Status (siehe §8.6) bleibt unverändert** —
+    Wiring der neuen Funktionen in den CLI-Workflow ist separate Aufgabe.
 - [ ] **C4-083 PEAD-SUE EPS-Expected-Source:** IBES Consensus vs.
   Random-Walk vs. seasonal RW — Klärung offen.
 - [x] **C4-084 pairs_trading half-life via OU** — DONE 2026-05-17: neues Modul
