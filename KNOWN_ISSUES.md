@@ -931,8 +931,32 @@ durchgeführt wurden:
 - [ ] **C4-066 Hansen SPA in ERWEITERUNG:** Datei `erweiterung/backtest/hansen_spa.py`
   fehlt (Audit listete sie). Wave-16 Hansen-SPA wrapper liegt auf main
   unter `qa/spa_test.py`, ERWEITERUNG-Pfad bleibt offen.
-- [ ] **C4-072 DCC-GARCH cDCC-Variante (Aielli 2013):** ERWEITERUNG hat
-  DCC-GARCH; cDCC-Korrektur nicht eingewogen.
+- [x] **C4-072 DCC-GARCH cDCC-Variante (Aielli 2013)** — DONE 2026-05-17:
+  Neues Modul `src/assembled_core/risk/dcc_garch.py` ersetzt den
+  silent-stub-fallback in `portfolio/covariance.py:126` (`method='dcc_garch'`
+  ging vorher heimlich auf sample-covariance — §7.4 violation).
+  - **`fit_dcc_garch(returns, method='dcc')`** — Engle (2002) Two-Step:
+    Schritt 1) univariate GARCH(1,1) per Serie via `arch` → conditional vol
+    + standardized residuals e_t = r_t/σ_t. Schritt 2) DCC-Recursion
+    Q_t = (1-α-β)·Q̄ + α·e_{t-1}e_{t-1}' + β·Q_{t-1}, dann
+    R_t = diag(Q_t)^(-1/2) · Q_t · diag(Q_t)^(-1/2), H_t = D_t · R_t · D_t.
+    QMLE-Schätzung von (α, β) via scipy L-BFGS-B mit Stationaritäts-Bound
+    α + β < 1.
+  - **`method='cdcc'`** — Aielli (2013) Bias-Correction: ein-Schritt-Pass
+    der korrigierten Standardized-Residuals e*_t = diag(Q_t)^(1/2) · e_t zur
+    Re-Estimation von Q̄. Vollständiger Fixpoint-Solver out of scope; der
+    ein-Schritt-Pass beseitigt den dominanten Bias-Anteil.
+  - **Public API**: `DCCResult` dataclass mit α, β, Q̄, conditional_vols/correlations/
+    covariance (T-langes Listing), standardized_residuals, log_likelihood,
+    converged. `current_covariance(result)` Convenience für portfolio-opt.
+  - **Integration**: `portfolio.covariance.estimate_covariance(method='dcc_garch'|'cdcc')`
+    routet jetzt echt — alter silent-fallback entfernt, mit graceful
+    sample-fallback wenn `arch`/`scipy` fehlen.
+  - **15 Tests pass**: DCCResult-Felder, R_t-Diagonale=1, H_t-Symmetrie,
+    Stationaritäts-Constraint, positive Korrelation auf synthetisch
+    korrelierten GARCH-Returns recovered, DCC vs cDCC Q̄ unterscheiden sich
+    (Bias-Korrektur sichtbar), `estimate_covariance` routet wirklich auf
+    fit_dcc_garch (Silent-Stub-Regression-Test).
 - [x] **C4-076 Fractional Differentiation** — DONE 2026-05-17: `fractional_diff()`
   existierte bereits in `src/assembled_core/features/triple_barrier.py`. Echter Gap
   war der Default-d-Param-Calibration-Helper (López de Prado AFML §5.5 "minimum d

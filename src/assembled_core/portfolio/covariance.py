@@ -81,7 +81,10 @@ def estimate_covariance(
 ) -> pd.DataFrame:
     """Estimate covariance matrix from returns DataFrame.
 
-    method: "ledoit_wolf" | "oas" | "ewm" | "dcc_garch" | "sample"
+    method: "ledoit_wolf" | "oas" | "ewm" | "dcc_garch" | "cdcc" | "sample"
+        dcc_garch: Engle (2002) Dynamic Conditional Correlation, real impl since C4-072 (2026-05-17).
+        cdcc:      Aielli (2013) bias-corrected DCC.
+        Both return the most recent conditional covariance H_T.
     ewm_halflife: halflife in periods, used when method="ewm"
     annualize: multiply result by 252 (daily→annual)
     """
@@ -122,8 +125,30 @@ def estimate_covariance(
                 )
                 cov = np.cov(X, rowvar=False)
                 result_df = pd.DataFrame(cov, index=cols, columns=cols)
+        elif method in ("dcc_garch", "cdcc"):
+            # C4-072 (2026-05-17): real DCC-GARCH (Engle 2002) / cDCC (Aielli 2013)
+            # via src.assembled_core.risk.dcc_garch — replaces the previous
+            # silent fall-through to sample covariance (§7.4 dummy violation).
+            from src.assembled_core.risk.dcc_garch import (
+                current_covariance,
+                fit_dcc_garch,
+            )
+
+            dcc_method = "cdcc" if method == "cdcc" else "dcc"
+            dcc_result = fit_dcc_garch(clean, method=dcc_method)
+            if dcc_result is None:
+                logger.warning(
+                    "[WARN] DCC-GARCH unavailable (missing arch/scipy or fit failed); "
+                    "falling back to sample covariance"
+                )
+                cov = np.cov(X, rowvar=False)
+                if cov.ndim == 0:
+                    cov = np.array([[float(cov)]])
+                result_df = pd.DataFrame(cov, index=cols, columns=cols)
+            else:
+                result_df = current_covariance(dcc_result)
         else:
-            # sample / dcc_garch (dcc_garch: use sample as approximation)
+            # sample (default fallback for unknown method names)
             cov = np.cov(X, rowvar=False)
             if cov.ndim == 0:
                 cov = np.array([[float(cov)]])
