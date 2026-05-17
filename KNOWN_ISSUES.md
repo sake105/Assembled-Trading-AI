@@ -489,12 +489,13 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Phase-3 Follow-up (optional):** konfigurierbare Parameter (vol_model, p/o/q, dist) von `garch_vol_forecast` in `garch_vol` einbauen für Feature-Parität, BEVOR die deprecated Datei entfernt wird (falls jemand die Flexibilität tatsächlich braucht — aktuell nicht).
   - **Historie:** Eine dritte naive Implementation `risk/volatility/garch.py` wurde am 2026-05-17 erstellt (commits `61b535b`/`573613a`) und in `7a10d7c` wieder gelöscht.
 
-- [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — Basis-Modul implementiert (2026-05-17, commit `ad728a7`); standalone, nicht in Pipeline gewired
-  - **Ziel-Pfad:** `src/assembled_core/risk/monte_carlo/`
-  - **Use cases:** Trade-Shuffling für Confidence-Intervalle auf Sharpe/MDD, Bootstrap-Robustheit, Equity-Path-Distribution
+- [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — KONSOLIDIERUNG Phase 1 DONE (2026-05-17). Basis-Modul implementiert (commit `ad728a7`); danach Doppelstruktur-Audit ergab 3 parallele MC-Module → Phase 1 Konsolidierung.
+  - **Kanonisch:** `src/assembled_core/risk/monte_carlo/` — `shuffle_trades` (bootstrap-resample WITH replacement), **`permute_trades` (NEU 2026-05-17: order permutation WITHOUT replacement — canonical Ersatz für Legacy `monte_carlo_trade_paths`)**, `simulate_paths_iid_normal` (F-risk-4 rename von "gbm"), `simulate_paths_block_bootstrap`. **37 tests pass.**
+  - **Deprecated mit `DeprecationWarning` + Migrationshinweis:**
+    - `qa/monte_carlo.py` (`bootstrap_returns` → `shuffle_trades`, `forward_simulate_gbm` → `simulate_paths_iid_normal`)
+    - `qa/monte_carlo_paths.py` (`monte_carlo_trade_paths` → `permute_trades`)
   - **Abgrenzung:** `scenario_engine` macht Stress-Replays, nicht MC
-  - **Status:** `shuffle_trades` (bootstrap-resample trade P&L), `simulate_paths_iid_normal` (i.i.d. normal-return, F-risk-4 rename von "gbm"), `simulate_paths_block_bootstrap` (block-bootstrap). 26 tests pass.
-  - **Follow-up (offen):** Wiring in `qa/scenario_engine.py` oder `run_backtest_strategy.py` als post-trade Robustheits-Report. Aktuell nur als Library verfügbar.
+  - **Phase 2 — Follow-up (offen):** Caller-Migration in sensible Pipeline-Pfade — `scripts/run_backtest_strategy.py:2735` (`monte_carlo_trade_paths` → `permute_trades`), `src/.../api/routers/qa.py:510`, `src/.../reports/daily_qa_report.py:434`. Sensibel: Behavior-Check pro Caller (return-type ändert sich dict → `ShuffleResult` dataclass). `qa/bootstrap_metrics.compute_all_with_ci` ist separates Modul, eigene Konsolidierungs-Entscheidung.
 
 - [ ] **6.5.4 FinBERT / News-Sentiment ML**
   - **Ziel-Pfad:** `src/assembled_core/ml/nlp/finbert.py`

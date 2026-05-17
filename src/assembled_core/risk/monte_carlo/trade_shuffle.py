@@ -85,6 +85,86 @@ def _compute_total_return(returns_matrix: np.ndarray) -> np.ndarray:
     return np.prod(1.0 + returns_matrix, axis=1) - 1.0
 
 
+def permute_trades(
+    trade_pnl: pd.Series | np.ndarray,
+    n_iterations: int = 1000,
+    seed: int | None = None,
+    annualization_factor: float = 252,
+) -> ShuffleResult:
+    """Permute (not bootstrap) trade order to estimate sequencing CIs.
+
+    Semantically distinct from :func:`shuffle_trades`:
+        - ``shuffle_trades`` resamples WITH replacement (bootstrap) — answers
+          "how confident am I given the *distribution* of my trades".
+        - ``permute_trades`` shuffles WITHOUT replacement (permutation) —
+          answers "how confident am I given the *exact set* of my trades
+          taken in a different order". Each trade appears exactly once per
+          iteration.
+
+    Separates 'edge' (mean trade return > 0) from 'lucky sequencing'
+    (specific order of wins/losses produced low MDD).
+
+    This is the canonical replacement for the legacy
+    ``qa.monte_carlo_paths.monte_carlo_trade_paths`` which is deprecated
+    (returned an untyped dict). This function returns the same
+    :class:`ShuffleResult` as ``shuffle_trades`` for API consistency.
+
+    Args:
+        trade_pnl: Series or array of per-trade returns (e.g. ``0.01 = 1%``).
+            NOT cumulative, NOT currency. If migrating from legacy
+            ``qa.monte_carlo_paths.monte_carlo_trade_paths`` (which took
+            currency PnL): convert via ``pnl_per_trade / entry_notional``.
+            Returns ``<= -1.0`` are rejected — they would produce non-positive
+            equity in ``cumprod(1+r)``.
+        n_iterations: Number of permutation iterations (default 1000).
+        seed: RNG seed for reproducibility.
+        annualization_factor: For Sharpe annualisation. Default 252.
+
+    Returns:
+        :class:`ShuffleResult` with N-length distributions for each metric.
+
+    Raises:
+        ValueError: If ``trade_pnl`` is empty, contains NaN, contains inf, or
+            contains values ``<= -1.0``.
+    """
+    arr = np.asarray(trade_pnl, dtype=float)
+
+    if arr.size == 0:
+        raise ValueError("trade_pnl is empty — provide at least one trade outcome.")
+    if np.any(np.isnan(arr)):
+        raise ValueError("trade_pnl contains NaN values.")
+    if np.any(np.isinf(arr)):
+        raise ValueError("trade_pnl contains inf values.")
+    # F-RISK-MC1-MINOR-1: equity uses cumprod(1+r); a return ≤ -1.0 produces
+    # zero or negative equity, after which (1+r)-cumprod is sign-incoherent.
+    # Reject up front — Risk-Zone primitives must not silently emit bogus MDDs.
+    if np.any(arr <= -1.0):
+        raise ValueError(
+            "trade_pnl contains values <= -1.0 (return units). Equity would "
+            "go non-positive and downstream MDD/Sharpe are ill-defined. "
+            "Pass per-trade RETURN units (e.g. 0.01 = 1%), NOT currency PnL."
+        )
+
+    rng = np.random.default_rng(seed)
+    n_trades = len(arr)
+
+    # Permutation WITHOUT replacement: each row is a re-ordering of arr.
+    samples = np.empty((n_iterations, n_trades), dtype=float)
+    for i in range(n_iterations):
+        samples[i] = rng.permutation(arr)
+
+    sharpes = _compute_sharpe(samples, annualization_factor)
+    mdds = _compute_mdd(samples)
+    total_returns = _compute_total_return(samples)
+
+    return ShuffleResult(
+        n_iterations=n_iterations,
+        sharpe_distribution=sharpes,
+        max_drawdown_distribution=mdds,
+        total_return_distribution=total_returns,
+    )
+
+
 def shuffle_trades(
     trade_pnl: pd.Series | np.ndarray,
     n_iterations: int = 1000,
@@ -115,6 +195,13 @@ def shuffle_trades(
         raise ValueError("trade_pnl contains NaN values.")
     if np.any(np.isinf(arr)):
         raise ValueError("trade_pnl contains inf values.")
+    # F-RISK-MC1-MINOR-1: same r<=-1.0 guard as permute_trades.
+    if np.any(arr <= -1.0):
+        raise ValueError(
+            "trade_pnl contains values <= -1.0 (return units). Equity would "
+            "go non-positive and downstream MDD/Sharpe are ill-defined. "
+            "Pass per-trade RETURN units (e.g. 0.01 = 1%), NOT currency PnL."
+        )
 
     rng = np.random.default_rng(seed)
     n_trades = len(arr)

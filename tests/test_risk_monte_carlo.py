@@ -11,9 +11,10 @@ import pytest
 
 from src.assembled_core.risk.monte_carlo import (
     ShuffleResult,
+    permute_trades,
+    shuffle_trades,
     simulate_paths_block_bootstrap,
     simulate_paths_iid_normal,
-    shuffle_trades,
 )
 
 
@@ -246,3 +247,105 @@ class TestPathSimResult:
         assert set(fv.keys()) == {0.05, 0.25, 0.50, 0.75, 0.95}
         mdd = result.max_drawdown_quantiles()
         assert set(mdd.keys()) == {0.05, 0.25, 0.50, 0.75, 0.95}
+
+
+# ===========================================================================
+# permute_trades tests (§6.5.3 consolidation — canonical replacement for
+# legacy qa.monte_carlo_paths.monte_carlo_trade_paths)
+# ===========================================================================
+
+
+class TestPermuteTrades:
+    def test_permute_returns_shuffleresult(self):
+        result = permute_trades(TRADE_PNL_ARR, n_iterations=200, seed=0)
+        assert isinstance(result, ShuffleResult)
+        assert result.n_iterations == 200
+        assert result.sharpe_distribution.shape == (200,)
+
+    def test_permute_preserves_total_return(self):
+        """Permutation without replacement preserves the SET of trades →
+        prod(1+r) over all trades is INVARIANT across permutations.
+        This is the key semantic difference from shuffle_trades bootstrap."""
+        result = permute_trades(TRADE_PNL_ARR, n_iterations=100, seed=0)
+        # All permutation iterations must yield IDENTICAL total returns
+        # (since they use the same set of trades, just reordered)
+        unique_totals = np.unique(np.round(result.total_return_distribution, 10))
+        assert len(unique_totals) == 1, (
+            f"Permutation preserves trade set → total return invariant, "
+            f"but got {len(unique_totals)} distinct totals"
+        )
+
+    def test_permute_vs_shuffle_total_return_differs(self):
+        """Bootstrap (shuffle_trades) produces a DISTRIBUTION of total
+        returns; permutation produces a constant. This locks the semantic
+        distinction."""
+        shuffle = shuffle_trades(TRADE_PNL_ARR, n_iterations=200, seed=0)
+        permute = permute_trades(TRADE_PNL_ARR, n_iterations=200, seed=0)
+        # shuffle_trades total return has dispersion; permute does not
+        assert shuffle.total_return_distribution.std() > 1e-6
+        assert permute.total_return_distribution.std() < 1e-10
+
+    def test_permute_seed_reproducibility(self):
+        r1 = permute_trades(TRADE_PNL_ARR, n_iterations=100, seed=7)
+        r2 = permute_trades(TRADE_PNL_ARR, n_iterations=100, seed=7)
+        np.testing.assert_array_equal(r1.sharpe_distribution, r2.sharpe_distribution)
+
+    def test_permute_empty_input_raises(self):
+        with pytest.raises(ValueError, match="empty"):
+            permute_trades(np.array([]), n_iterations=100)
+
+    def test_permute_nan_input_raises(self):
+        bad = np.array([0.01, np.nan, 0.02])
+        with pytest.raises(ValueError, match="NaN"):
+            permute_trades(bad, n_iterations=100)
+
+    def test_permute_inf_input_raises(self):
+        with pytest.raises(ValueError, match="inf"):
+            permute_trades(np.array([0.01, np.inf, 0.02]), n_iterations=100)
+
+    def test_permute_accepts_series(self):
+        result = permute_trades(TRADE_PNL_SERIES, n_iterations=50, seed=0)
+        assert result.n_iterations == 50
+
+    def test_permute_rejects_returns_below_minus_one(self):
+        """F-RISK-MC1-MINOR-1: returns <= -1.0 produce non-positive equity
+        in cumprod(1+r). Must reject — caller likely passed currency PnL
+        instead of return units (legacy-API footgun)."""
+        with pytest.raises(ValueError, match=r"<= -1\.0"):
+            permute_trades(np.array([0.01, -1.5, 0.02]), n_iterations=10)
+        with pytest.raises(ValueError, match=r"<= -1\.0"):
+            permute_trades(np.array([0.01, -1.0, 0.02]), n_iterations=10)
+
+
+class TestShuffleRReturnsGuard:
+    def test_shuffle_rejects_returns_below_minus_one(self):
+        """F-RISK-MC1-MINOR-1: same guard as permute_trades."""
+        with pytest.raises(ValueError, match=r"<= -1\.0"):
+            shuffle_trades(np.array([0.01, -1.5, 0.02]), n_iterations=10)
+
+
+# ===========================================================================
+# Deprecation warnings on legacy qa/monte_carlo* modules
+# (§6.5.3 consolidation — Phase 1)
+# ===========================================================================
+
+
+class TestLegacyDeprecation:
+    def test_monte_carlo_paths_emits_deprecation_warning(self):
+        from src.assembled_core.qa.monte_carlo_paths import monte_carlo_trade_paths
+
+        trades = pd.DataFrame({"pnl": TRADE_PNL_ARR[:50]})
+        with pytest.warns(DeprecationWarning, match="permute_trades"):
+            monte_carlo_trade_paths(trades, n_paths=50, seed=0)
+
+    def test_qa_monte_carlo_bootstrap_returns_emits_deprecation_warning(self):
+        from src.assembled_core.qa.monte_carlo import bootstrap_returns
+
+        with pytest.warns(DeprecationWarning, match="shuffle_trades"):
+            bootstrap_returns(DAILY_RETURNS_ARR, n_paths=50, seed=0)
+
+    def test_qa_monte_carlo_forward_simulate_gbm_emits_deprecation_warning(self):
+        from src.assembled_core.qa.monte_carlo import forward_simulate_gbm
+
+        with pytest.warns(DeprecationWarning, match="simulate_paths_iid_normal"):
+            forward_simulate_gbm(DAILY_RETURNS_ARR, n_paths=20, horizon_days=20, seed=0)

@@ -3,6 +3,18 @@
 Provides statistical confidence intervals for strategy performance metrics
 via return resampling and geometric Brownian motion forward simulation.
 
+.. deprecated:: 2026-05-17
+    §6.5.3 Monte-Carlo consolidation. Use
+    :mod:`src.assembled_core.risk.monte_carlo` instead:
+
+    - ``bootstrap_returns`` → ``shuffle_trades`` (semantics: bootstrap-with-
+      replacement on a returns series)
+    - ``forward_simulate_gbm`` → ``simulate_paths_iid_normal``
+      (the legacy "gbm" name was numerically i.i.d. normal — see F-risk-4)
+
+    Caller migration is tracked as a follow-up; this module remains
+    functional until the migration commit.
+
 Example:
     from src.assembled_core.qa.monte_carlo import (
         bootstrap_returns,
@@ -20,6 +32,7 @@ Example:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -107,6 +120,13 @@ def bootstrap_returns(
     Returns:
         MonteCarloResult with confidence intervals for Sharpe, CAGR, MaxDD
     """
+    warnings.warn(
+        "qa.monte_carlo.bootstrap_returns is deprecated since 2026-05-17 "
+        "(§6.5.3 consolidation). Use "
+        "src.assembled_core.risk.monte_carlo.shuffle_trades instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if isinstance(daily_returns, pd.Series):
         daily_returns = daily_returns.dropna().values
 
@@ -232,6 +252,14 @@ def forward_simulate_gbm(
     Returns:
         ForwardSimulationResult with paths, terminal stats, and risk metrics
     """
+    warnings.warn(
+        "qa.monte_carlo.forward_simulate_gbm is deprecated since 2026-05-17 "
+        "(§6.5.3 consolidation). Use "
+        "src.assembled_core.risk.monte_carlo.simulate_paths_iid_normal instead "
+        "(the legacy 'gbm' name was numerically i.i.d. normal — F-risk-4).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if isinstance(daily_returns, pd.Series):
         daily_returns = daily_returns.dropna().values
 

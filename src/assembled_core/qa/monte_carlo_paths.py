@@ -4,9 +4,34 @@ Permutes the order of historical trades to estimate the distribution of
 equity-curve metrics under random trade sequencing. Separates 'edge'
 (mean trade return > 0) from 'lucky sequencing' (specific order of
 wins/losses produced low MDD).
+
+.. deprecated:: 2026-05-17
+    §6.5.3 Monte-Carlo consolidation. Use
+    :func:`src.assembled_core.risk.monte_carlo.permute_trades` instead.
+    The canonical function returns a typed :class:`ShuffleResult` dataclass
+    with full distribution arrays rather than the percentile-summary dict
+    returned here.
+
+    **Unit-contract change (F-RISK-MC1-MINOR-2):**
+    ``monte_carlo_trade_paths`` takes a DataFrame with a **currency-PnL**
+    column (default ``"pnl"`` in dollars) and uses
+    ``equity = initial_capital + cumsum(pnl)``.
+    ``permute_trades`` takes a Series in **return units** (e.g.
+    ``0.01 = 1%`` per trade) and uses ``equity = cumprod(1 + r)``.
+    These are NOT numerically equivalent. A direct
+    ``s/monte_carlo_trade_paths/permute_trades/g`` migration WILL produce
+    different CI bounds. Callers must convert at the call site
+    (e.g. ``pnl_per_trade / entry_notional``) before calling
+    ``permute_trades``. The unit guard in ``permute_trades`` rejects values
+    ``<= -1.0`` precisely to catch a forgotten conversion.
+
+    Caller migration is tracked as a follow-up (§6.5.3 Phase 2); this
+    module remains functional until the migration commit.
 """
 
 from __future__ import annotations
+
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -33,6 +58,13 @@ def monte_carlo_trade_paths(
     Returns:
         Dict with sharpe / mdd / cagr / final_equity distributions.
     """
+    warnings.warn(
+        "qa.monte_carlo_paths.monte_carlo_trade_paths is deprecated since "
+        "2026-05-17 (§6.5.3 consolidation). Use "
+        "src.assembled_core.risk.monte_carlo.permute_trades instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if pnl_col not in trades.columns:
         # Fall back to common alternatives
         for alt in ("net_pnl", "gross_pnl", "trade_pnl", "closed_return"):
