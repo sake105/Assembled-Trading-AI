@@ -943,15 +943,19 @@ durchgeführt wurden:
   pass (random-walk log-prices stationarised, smallest-d-in-grid order, stationary
   input picks smallest d, short-series ValueError, pvalue-threshold parametriert,
   None-when-nothing-works, etc.). Exportiert via `features/__init__.py`.
-- [ ] **C4-077 Brinson Attribution Multi-Period:** Audit referenzierte
-  `erweiterung/attribution/brinson.py` — auf ERWEITERUNG-HEAD nicht mehr
-  vorhanden (möglich gelöscht). Multi-Period via Frongello / Cariño fehlt
-  ohnehin.
+- [x] **C4-077 Brinson Attribution Multi-Period** — DONE (vor heute, KNOWN_ISSUES-Eintrag war stale):
+  - `src/assembled_core/attribution/brinson_hood.py` — single-period Brinson-Hood-Beebower (Allocation/Selection/Interaction)
+  - `src/assembled_core/attribution/brinson_multi_period.py` — Cariño (1999) logarithmic linking für Multi-Period-Reconciliation (`carino_link_coefficients`, `link_multi_period_attribution`, `reconciliation_residual`). Docstring referenziert explizit "audit C4-077".
+  - Frongello (2002) als Alternative im Docstring referenziert (Cariño bevorzugt).
+  - Tests in `tests/test_wave19_helpers.py`.
 - [ ] **C4-078 LPPL-Bubble Stress-Test (Sornette):** existiert nur als
   Forschungs-Layer; bei Aktivierung als Trading-Signal verlangt
   Synthetic-Stress-Validation.
-- [ ] **C4-079 Spillover-Index Window/Lag-Sensitivität (Diebold-Yilmaz):**
-  documentieren / parametrisieren.
+- [x] **C4-079 Spillover-Index Window/Lag-Sensitivität (Diebold-Yilmaz)** — DONE 2026-05-17: Modul existierte 0 hits in src/ (KNOWN_ISSUES-Eintrag implizierte vorhandene Implementation, war stale). Neu in dieser Session:
+  - `src/assembled_core/qa/spillover_index.py` mit Diebold-Yilmaz (2012) Total Spillover Index + Pesaran-Shin (1998) generalized FEVD (order-independent).
+  - `compute_spillover_index(returns, lag=4, horizon=10) → SpilloverResult` (TSI%, FEVD-Matrix, to_others/from_others/net pro Variable). Lag + Horizon explizit parametrisiert (Window-Sensitivität pro Audit-Aufforderung).
+  - `rolling_spillover_index(returns, window=200, step=5, lag=4, horizon=10) → DataFrame` für die kanonische DY-2012-Zeitreihe der Konnektivität (Window-Sensitivität).
+  - 13 Tests pass: TSI [0,100]%, connected > independent, FEVD-Zeilen summieren auf 100, net summiert auf 0, Transmitter hat positive net spillover, rolling-DataFrame mit DatetimeIndex, edge cases (single var / short series / invalid lag/horizon / window too small).
 - [x] **C4-080 Mutual Information / Transfer Entropy KSG-Estimator** — DONE 2026-05-17:
   - **MI / KSG (bereits vorhanden):** `qa/feature_screen.py::mutual_info_screen` nutzt
     `sklearn.feature_selection.mutual_info_regression` (das IST der KSG kNN-Estimator
