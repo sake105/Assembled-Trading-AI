@@ -55,6 +55,7 @@ from src.assembled_core.features.triple_barrier import (  # noqa: F401
     cusum_filter,
     triple_barrier_labels,
     fractional_diff,
+    find_min_d_for_stationarity,
     meta_label,
     compute_sample_weights,
 )
@@ -104,6 +105,7 @@ __all__ = [
     "cusum_filter",
     "triple_barrier_labels",
     "fractional_diff",
+    "find_min_d_for_stationarity",
     "meta_label",
     "compute_sample_weights",
     # Regime / structural break detection

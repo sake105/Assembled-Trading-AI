@@ -355,10 +355,96 @@ def compute_sample_weights(
     return weights
 
 
+def find_min_d_for_stationarity(
+    series: pd.Series,
+    d_grid: list[float] | None = None,
+    pvalue_threshold: float = 0.05,
+    threshold: float = 1e-4,
+) -> dict:
+    """Find the minimum d ∈ (0, 1) that makes the fractionally-differenced series stationary.
+
+    Implements López de Prado AFML §5.5 procedure: search a grid of d values
+    and return the smallest one for which the Augmented Dickey-Fuller test
+    rejects the unit-root null at ``pvalue_threshold``. This is the "minimal
+    memory loss while achieving stationarity" point, the standard recipe for
+    calibrating fractional-difference orders on price-like series.
+
+    Closes KNOWN_ISSUES §8.13 C4-076 — "Default-d-Param verifizierbar".
+
+    Args:
+        series: Input series (typically log-prices for financial use).
+        d_grid: List of d values to search. Default: ``np.linspace(0.05, 0.95, 19)``
+            (steps of 0.05). Caller can pass a finer grid for precision.
+        pvalue_threshold: ADF p-value below which we accept stationarity (default 0.05).
+        threshold: FFD weight cutoff passed to :func:`fractional_diff`.
+
+    Returns:
+        Dict with keys:
+            ``d`` (float | None): the chosen minimum d, or ``None`` if no d in
+                the grid achieves stationarity.
+            ``adf_statistic`` (float | None): ADF statistic at the chosen d.
+            ``pvalue`` (float | None): ADF p-value at the chosen d.
+            ``is_stationary`` (bool): True iff a stationarising d was found.
+            ``correlation_with_original`` (float | None): Pearson correlation
+                between the diffed series and the original (memory-preservation
+                metric; AFML §5.5).
+            ``grid_tested`` (list[float]): the actual d-grid that was tried.
+
+    Raises:
+        ValueError: If series has fewer than 30 non-NaN observations.
+        ImportError: If statsmodels is not installed.
+    """
+    import numpy as np
+    from statsmodels.tsa.stattools import adfuller
+
+    s = pd.Series(series, dtype=float).dropna()
+    if len(s) < 30:
+        raise ValueError(f"find_min_d_for_stationarity: need ≥30 obs, got {len(s)}")
+
+    if d_grid is None:
+        d_grid = list(np.linspace(0.05, 0.95, 19))
+
+    for d in d_grid:
+        try:
+            diffed = fractional_diff(s, d=float(d), threshold=threshold)
+            diffed_clean = diffed.dropna()
+            if len(diffed_clean) < 30:
+                continue
+            adf_stat, pvalue, *_ = adfuller(diffed_clean.to_numpy(), autolag="AIC")
+            if pvalue < pvalue_threshold:
+                # Pearson correlation on the overlapping (non-NaN) tail
+                aligned_original = s.loc[diffed_clean.index]
+                if aligned_original.std(ddof=1) == 0 or diffed_clean.std(ddof=1) == 0:
+                    corr = float("nan")
+                else:
+                    corr = float(aligned_original.corr(diffed_clean))
+                return {
+                    "d": float(d),
+                    "adf_statistic": float(adf_stat),
+                    "pvalue": float(pvalue),
+                    "is_stationary": True,
+                    "correlation_with_original": corr,
+                    "grid_tested": list(d_grid),
+                }
+        except Exception as exc:
+            logger.debug("ADF failed at d=%s: %s", d, exc)
+            continue
+
+    return {
+        "d": None,
+        "adf_statistic": None,
+        "pvalue": None,
+        "is_stationary": False,
+        "correlation_with_original": None,
+        "grid_tested": list(d_grid),
+    }
+
+
 __all__ = [
     "cusum_filter",
     "triple_barrier_labels",
     "fractional_diff",
+    "find_min_d_for_stationarity",
     "meta_label",
     "compute_sample_weights",
 ]

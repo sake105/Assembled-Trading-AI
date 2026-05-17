@@ -933,9 +933,16 @@ durchgeführt wurden:
   unter `qa/spa_test.py`, ERWEITERUNG-Pfad bleibt offen.
 - [ ] **C4-072 DCC-GARCH cDCC-Variante (Aielli 2013):** ERWEITERUNG hat
   DCC-GARCH; cDCC-Korrektur nicht eingewogen.
-- [ ] **C4-076 Fractional Differentiation:** existiert in ERWEITERUNG;
-  Default-d-Param verifizierbar, aber keine Empfehlung mit gemeinsamer
-  Implementation auf main.
+- [x] **C4-076 Fractional Differentiation** — DONE 2026-05-17: `fractional_diff()`
+  existierte bereits in `src/assembled_core/features/triple_barrier.py`. Echter Gap
+  war der Default-d-Param-Calibration-Helper (López de Prado AFML §5.5 "minimum d
+  for ADF rejection"). Neu in dieser Session: `find_min_d_for_stationarity(series,
+  d_grid=None, pvalue_threshold=0.05)` durchsucht ein d-Grid und gibt das kleinste
+  d zurück, das ADF-stationarisiert. Returns dict mit `d`, `adf_statistic`,
+  `pvalue`, `is_stationary`, `correlation_with_original`, `grid_tested`. 8 Tests
+  pass (random-walk log-prices stationarised, smallest-d-in-grid order, stationary
+  input picks smallest d, short-series ValueError, pvalue-threshold parametriert,
+  None-when-nothing-works, etc.). Exportiert via `features/__init__.py`.
 - [ ] **C4-077 Brinson Attribution Multi-Period:** Audit referenzierte
   `erweiterung/attribution/brinson.py` — auf ERWEITERUNG-HEAD nicht mehr
   vorhanden (möglich gelöscht). Multi-Period via Frongello / Cariño fehlt
