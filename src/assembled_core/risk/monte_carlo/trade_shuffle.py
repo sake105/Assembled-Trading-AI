@@ -313,6 +313,7 @@ def shuffle_trades(
     n_iterations: int = 1000,
     seed: int | None = None,
     annualization_factor: float = 252,
+    block_size: int = 1,
 ) -> ShuffleResult:
     """Bootstrap-shuffle trade outcomes to estimate Sharpe / MDD / total-return CIs.
 
@@ -323,12 +324,23 @@ def shuffle_trades(
         seed: RNG seed for reproducibility.
         annualization_factor: For Sharpe annualisation. Default 252 (daily trades).
             Use 12 for monthly, 52 for weekly.
+        block_size: Block size for moving-block bootstrap (Künsch 1989, Politis
+            & Romano 1994). Default 1 = standard i.i.d. bootstrap.
+            ``block_size > 1`` preserves local autocorrelation (volatility
+            clustering) by drawing contiguous blocks of length ``block_size``
+            from the input series and concatenating ``ceil(n / block_size)``
+            blocks to length ``n``. Recommended for **daily return series**
+            with serial dependence; **per-trade PnL** typically has weak
+            autocorrelation and ``block_size=1`` is fine. F-RISK-MC2-MAJOR-1
+            enables daily_qa_report re-migration (§6.5.3 Phase 2c).
 
     Returns:
         :class:`ShuffleResult` with N-length distributions for each metric.
 
     Raises:
-        ValueError: If ``trade_pnl`` is empty, contains NaN, or contains inf.
+        ValueError: If ``trade_pnl`` is empty, contains NaN, contains inf,
+            contains values ``<= -1.0``, or ``block_size`` is non-positive
+            or larger than the input length.
     """
     arr = np.asarray(trade_pnl, dtype=float)
 
@@ -345,14 +357,37 @@ def shuffle_trades(
             "go non-positive and downstream MDD/Sharpe are ill-defined. "
             "Pass per-trade RETURN units (e.g. 0.01 = 1%), NOT currency PnL."
         )
+    if not isinstance(block_size, int) or block_size < 1:
+        raise ValueError(f"block_size must be a positive int, got {block_size!r}")
 
     rng = np.random.default_rng(seed)
     n_trades = len(arr)
 
-    # Sample with replacement: shape (n_iterations, n_trades)
-    # Use rng.integers for index sampling — efficient and reproducible.
-    indices = rng.integers(0, n_trades, size=(n_iterations, n_trades))
-    samples = arr[indices]  # (n_iterations, n_trades)
+    if block_size > n_trades:
+        raise ValueError(
+            f"block_size={block_size} > len(trade_pnl)={n_trades}; "
+            "no valid block can be sampled."
+        )
+
+    if block_size == 1:
+        # Standard i.i.d. bootstrap — fast vectorised path.
+        indices = rng.integers(0, n_trades, size=(n_iterations, n_trades))
+        samples = arr[indices]
+    else:
+        # Moving-block bootstrap: draw blocks of length block_size starting at
+        # random indices in [0, n_trades - block_size + 1), concatenate
+        # ceil(n_trades / block_size) blocks, then truncate to n_trades.
+        n_blocks = -(-n_trades // block_size)  # ceil(n_trades / block_size)
+        max_start = n_trades - block_size + 1
+        starts = rng.integers(0, max_start, size=(n_iterations, n_blocks))
+        # Build offset matrix so that for each (iter, block_idx, offset)
+        # we get a per-element index into arr.
+        offsets = np.arange(block_size)
+        # shape (n_iterations, n_blocks, block_size)
+        indices_3d = starts[:, :, None] + offsets[None, None, :]
+        # Flatten last two axes → (n_iterations, n_blocks * block_size)
+        indices_flat = indices_3d.reshape(n_iterations, -1)[:, :n_trades]
+        samples = arr[indices_flat]
 
     sharpes = _compute_sharpe(samples, annualization_factor)
     mdds = _compute_mdd(samples)

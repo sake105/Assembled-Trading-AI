@@ -430,50 +430,76 @@ def _build_report_content(
                 lines.append("")
 
                 # Monte Carlo confidence intervals
-                # §6.5.3 Phase 2 (2026-05-17): kept on legacy `bootstrap_returns`.
-                # MIGRATION DEFERRED — F-RISK-MC2-MAJOR-1: switching to
-                # `shuffle_trades` would lose three semantic guarantees of this
-                # report:
-                #   (a) Block-bootstrap path (bootstrap_returns supports
-                #       block_size for autocorrelation preservation; the new
-                #       shuffle_trades is plain IID-with-replacement and would
-                #       produce over-confident CIs on daily returns which DO
-                #       have volatility clustering).
-                #   (b) point_estimate = Sharpe on original data; not the
-                #       bootstrap-distribution median.
-                #   (c) Markdown row labels: "cagr" vs "total_return"
-                #       (different metric, different unit).
-                # Re-enable migration when shuffle_trades grows a block_size
-                # parameter — tracked as KNOWN_ISSUES §6.5.3 Phase 2c.
+                # §6.5.3 Phase 2c migration (2026-05-17): legacy bootstrap_returns
+                # → shuffle_trades with block_size=5 for daily-returns autocorrelation
+                # (volatility clustering). Three semantic items addressed vs Phase 2b
+                # rollback:
+                #   (a) Block bootstrap restored via block_size param.
+                #   (b) point_estimate now explicitly Sharpe(original_data) via the
+                #       performance profile already computed above, NOT bootstrap median.
+                #   (c) Per-metric rows include sharpe + max_drawdown + total_return
+                #       (no "cagr" — that lived in the legacy ConfidenceInterval dict;
+                #       total_return is what shuffle_trades emits and is honest).
                 try:
-                    import warnings as _warnings
-
-                    from src.assembled_core.qa.monte_carlo import bootstrap_returns
+                    from src.assembled_core.risk.monte_carlo import shuffle_trades
 
                     if len(daily_rets) >= 30:
-                        with _warnings.catch_warnings():
-                            # Suppress the deprecation warning here — we
-                            # intentionally keep the legacy block-bootstrap
-                            # path. The deprecation status is documented
-                            # in KNOWN_ISSUES §6.5.3 Phase 2c.
-                            _warnings.simplefilter("ignore", DeprecationWarning)
-                            mc_result = bootstrap_returns(
-                                np.asarray(daily_rets),
-                                n_paths=500,
-                                seed=42,
-                            )
-                        lines.append("### Monte Carlo Confidence Intervals (500 paths)")
-                        lines.append("")
-                        for name, ci in mc_result.confidence_intervals.items():
-                            lines.append(
-                                f"- **{name}:** {ci.point_estimate:.4f} "
-                                f"[95% CI: {ci.ci_lower:.4f} to {ci.ci_upper:.4f}]"
-                            )
+                        mc_result = shuffle_trades(
+                            np.asarray(daily_rets),
+                            n_iterations=500,
+                            seed=42,
+                            annualization_factor=252,
+                            block_size=5,  # daily returns: ~weekly block
+                        )
                         lines.append(
-                            f"- **P(Sharpe <= 0):** {mc_result.p_value_vs_zero:.4f}"
+                            "### Monte Carlo Confidence Intervals "
+                            "(500 paths, block_size=5 for autocorrelation)"
                         )
                         lines.append("")
+                        # point_estimates from the ALREADY-computed performance profile
+                        # — not from bootstrap distribution (F-RISK-MC2-MAJOR-1 (b)).
+                        _point_estimates = {
+                            "sharpe": (
+                                float(profile.sharpe)
+                                if profile.sharpe is not None
+                                else None
+                            ),
+                            "max_drawdown": float(profile.max_drawdown),
+                            "total_return": float(profile.total_return),
+                        }
+                        for _metric, _arr in (
+                            ("sharpe", mc_result.sharpe_distribution),
+                            ("max_drawdown", mc_result.max_drawdown_distribution),
+                            ("total_return", mc_result.total_return_distribution),
+                        ):
+                            _point = _point_estimates[_metric]
+                            _lo, _hi = mc_result.confidence_interval(
+                                _metric, lo=0.025, hi=0.975
+                            )
+                            if _point is None:
+                                lines.append(
+                                    f"- **{_metric}:** N/A "
+                                    f"[95% CI: {_lo:.4f} to {_hi:.4f}]"
+                                )
+                            else:
+                                lines.append(
+                                    f"- **{_metric}:** {_point:.4f} "
+                                    f"[95% CI: {_lo:.4f} to {_hi:.4f}]"
+                                )
+                        # P(Sharpe <= 0) from block-bootstrap distribution.
+                        _p_value = float((mc_result.sharpe_distribution <= 0).mean())
+                        lines.append(f"- **P(Sharpe <= 0):** {_p_value:.4f}")
+                        lines.append("")
                 except Exception as mc_err:
+                    # F-RISK-MC2c-MINOR-3: symmetric with the outer
+                    # portfolio-analysis except — log WARNING with traceback so
+                    # CI/operator can distinguish a transient failure from a
+                    # documented missing section.
+                    logger.warning(
+                        "[DailyQAReport] Monte Carlo CI failed: %s",
+                        mc_err,
+                        exc_info=True,
+                    )
                     lines.append(f"*Monte Carlo skipped: {mc_err}*")
                     lines.append("")
 

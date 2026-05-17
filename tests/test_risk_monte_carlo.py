@@ -326,6 +326,76 @@ class TestShuffleRReturnsGuard:
             shuffle_trades(np.array([0.01, -1.5, 0.02]), n_iterations=10)
 
 
+class TestShuffleTradesBlockBootstrap:
+    """§6.5.3 Phase 2c: block_size parameter for moving-block bootstrap.
+
+    Enables re-migration of daily_qa_report.py (currently on legacy
+    bootstrap_returns due to F-RISK-MC2-MAJOR-1 block-bootstrap gap).
+    """
+
+    def test_default_block_size_is_iid_bootstrap(self):
+        """block_size=1 (default) must equal pre-Phase-2c behavior."""
+        rng = np.random.default_rng(0)
+        returns = rng.normal(0.001, 0.01, size=200)
+        r1 = shuffle_trades(returns, n_iterations=100, seed=42)
+        r2 = shuffle_trades(returns, n_iterations=100, seed=42, block_size=1)
+        np.testing.assert_array_equal(r1.sharpe_distribution, r2.sharpe_distribution)
+
+    def test_block_size_changes_distribution(self):
+        """block_size > 1 must produce different distribution than iid (preserves
+        local structure)."""
+        # Construct autocorrelated series: AR(1) with rho=0.5
+        rng = np.random.default_rng(7)
+        n = 300
+        rho = 0.5
+        innov = rng.normal(0.001, 0.01, size=n)
+        ar = np.zeros(n)
+        ar[0] = innov[0]
+        for i in range(1, n):
+            ar[i] = rho * ar[i - 1] + innov[i]
+        r_iid = shuffle_trades(ar, n_iterations=500, seed=0, block_size=1)
+        r_block = shuffle_trades(ar, n_iterations=500, seed=0, block_size=10)
+        # The two distributions should be visibly different
+        assert not np.allclose(r_iid.sharpe_distribution, r_block.sharpe_distribution)
+
+    def test_block_size_reproducibility(self):
+        rng = np.random.default_rng(0)
+        returns = rng.normal(0.001, 0.01, size=200)
+        r1 = shuffle_trades(returns, n_iterations=100, seed=123, block_size=5)
+        r2 = shuffle_trades(returns, n_iterations=100, seed=123, block_size=5)
+        np.testing.assert_array_equal(r1.sharpe_distribution, r2.sharpe_distribution)
+
+    def test_block_size_zero_raises(self):
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="block_size must be a positive int"):
+            shuffle_trades(rng.normal(0.001, 0.01, 100), block_size=0)
+
+    def test_block_size_negative_raises(self):
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="block_size must be a positive int"):
+            shuffle_trades(rng.normal(0.001, 0.01, 100), block_size=-3)
+
+    def test_block_size_larger_than_input_raises(self):
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="no valid block"):
+            shuffle_trades(rng.normal(0.001, 0.01, 50), block_size=100)
+
+    def test_block_size_equals_n_works(self):
+        """block_size = n means a single block — degenerate but valid."""
+        rng = np.random.default_rng(0)
+        returns = rng.normal(0.001, 0.01, size=50)
+        result = shuffle_trades(returns, n_iterations=10, seed=0, block_size=50)
+        assert isinstance(result, ShuffleResult)
+
+    def test_block_bootstrap_output_shape(self):
+        rng = np.random.default_rng(0)
+        returns = rng.normal(0.001, 0.01, size=200)
+        result = shuffle_trades(returns, n_iterations=300, seed=0, block_size=7)
+        assert result.sharpe_distribution.shape == (300,)
+        assert result.max_drawdown_distribution.shape == (300,)
+        assert result.total_return_distribution.shape == (300,)
+
+
 # ===========================================================================
 # Phase 2 migration helpers (§6.5.3): pnl_to_returns + shuffle_result_to_quantile_dict
 # ===========================================================================
