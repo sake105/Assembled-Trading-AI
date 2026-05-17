@@ -479,7 +479,7 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Voraussetzungen:** Covariance-Schätzer (Shrinkage), Constraints-Spec, Risk-Budget-Spec
   - **Wert:** Höchster Quant-Hebel; ersetzt einfaches Equal-Weight/Quantile-Sizing
 
-- [ ] **6.5.2 GARCH / Vol-Modellierung**
+- [x] **6.5.2 GARCH / Vol-Modellierung** — Basis-Modul implementiert (2026-05-17, commit 61b535b)
   - **Ziel-Pfad:** `src/assembled_core/risk/volatility/garch.py`
   - **Lib:** `arch==8.0.0` ist gepinnt, nie gewired
   - **Wert:** Vol-Forecast für Position-Sizing + Risk-Limits dynamisch statt static
