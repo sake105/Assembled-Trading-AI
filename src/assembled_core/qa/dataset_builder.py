@@ -437,7 +437,9 @@ def build_ml_dataset_for_strategy(
         from src.assembled_core.features.insider_features import add_insider_features
         from src.assembled_core.features.shipping_features import add_shipping_features
 
-        insider_events = load_insider_sample()
+        insider_events = load_insider_sample(
+            allow_sample=True
+        )  # intentional sample — no live insider feed wired (see KNOWN_ISSUES §6.5.5)
         shipping_events = load_shipping_sample()
 
         prices_with_features = add_insider_features(

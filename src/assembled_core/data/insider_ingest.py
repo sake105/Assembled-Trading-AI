@@ -17,14 +17,24 @@ from pathlib import Path
 import pandas as pd
 
 
-def load_insider_sample(path: Path | str | None = None) -> pd.DataFrame:
+def load_insider_sample(
+    path: Path | str | None = None, *, allow_sample: bool = False
+) -> pd.DataFrame:
     """Load insider trading sample data.
 
     If path is provided, loads from CSV/Parquet file.
-    If path is None, generates a small dummy DataFrame with sample insider trading events.
+    If path is None, ``allow_sample=True`` must be passed explicitly to opt into
+    dummy/sample data.  Callers that omit the flag and pass no path will get a
+    ``ValueError`` — this prevents phantom-data backtests caused by silent
+    fallback to dummy data.
 
     Args:
-        path: Optional path to insider data file (CSV or Parquet). If None, generates dummy data.
+        path: Optional path to insider data file (CSV or Parquet). If None,
+            dummy data is returned only when ``allow_sample=True``.
+        allow_sample: Keyword-only flag. Must be ``True`` to permit dummy data
+            when ``path`` is ``None``.  Production callers should provide a
+            real path; test/dev callers must pass ``allow_sample=True``
+            explicitly.
 
     Returns:
         DataFrame with columns:
@@ -34,9 +44,14 @@ def load_insider_sample(path: Path | str | None = None) -> pd.DataFrame:
         - net_shares: Net shares bought/sold (positive = buy, negative = sell)
         - role: Insider role (e.g., "CEO", "CFO", "Director")
 
+    Raises:
+        ValueError: If ``path`` is ``None`` and ``allow_sample`` is ``False``
+            (no implicit dummy fallback).
+        IOError: If a file path is provided but the file cannot be read.
+
     Examples:
-        >>> # Generate dummy data
-        >>> df = load_insider_sample()
+        >>> # Generate dummy data (explicit opt-in required)
+        >>> df = load_insider_sample(allow_sample=True)
         >>> # Load from file
         >>> df = load_insider_sample(path="data/insider/insider_trades.parquet")
     """
@@ -61,6 +76,14 @@ def load_insider_sample(path: Path | str | None = None) -> pd.DataFrame:
             raise ValueError(
                 f"Unsupported file format: {path.suffix}. Use .parquet or .csv"
             )
+
+    if not allow_sample:
+        raise ValueError(
+            "load_insider_sample() received no path and no explicit "
+            "allow_sample=True. Production callers must provide a real "
+            "insider data file; tests/dev callers must pass allow_sample=True "
+            "to opt into dummy sample data."
+        )
 
     # Generate dummy data
     now = datetime.now(timezone.utc)

@@ -399,7 +399,9 @@ def create_event_insider_shipping_signal_fn(
                 )
         else:
             logger.debug("No sample insider events found, using default dummy data")
-            insider_events = load_insider_sample()
+            insider_events = load_insider_sample(
+                allow_sample=True
+            )  # intentional sample — no live insider feed wired (see KNOWN_ISSUES §6.5.5)
 
         if shipping_file.exists():
             logger.info(f"Using sample shipping events from {shipping_file}")
@@ -2359,12 +2361,11 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             # the symbol's true first row in the panel — not the (shorter) backtest window.
             # This prevents the PIT filter from zeroing out signals when a historical
             # backtest range starts earlier than the cache was built for.
-            _prices_for_pit = (
-                _prices_full_range  # noqa: F821
-                if "_prices_full_range" in dir()
-                and not _prices_full_range.empty  # noqa: F821
-                else prices
-            )
+            _fr_exists = "_prices_full_range" in dir()
+            if _fr_exists and not _prices_full_range.empty:  # noqa: F821
+                _prices_for_pit = _prices_full_range  # noqa: F821
+            else:
+                _prices_for_pit = prices
 
             if _universe_csv.exists():
                 _pit_history = load_universe_history(
@@ -2819,11 +2820,12 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
 
         # Log gate details
         for gate in gate_result.gate_results:
-            status_icon = (
-                "✓"
-                if gate.result == QAResult.OK
-                else "⚠" if gate.result == QAResult.WARNING else "✗"
-            )
+            if gate.result == QAResult.OK:
+                status_icon = "✓"
+            elif gate.result == QAResult.WARNING:
+                status_icon = "⚠"
+            else:
+                status_icon = "✗"
             logger.info(
                 f"  {status_icon} {gate.gate_name}: {gate.result.value.upper()} - {gate.reason}"
             )

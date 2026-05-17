@@ -124,7 +124,9 @@ def _run_backtest_for_ml_dataset(
                     insider_events["timestamp"], utc=True
                 )
         else:
-            insider_events = load_insider_sample()
+            insider_events = load_insider_sample(
+                allow_sample=True
+            )  # intentional sample — no live insider feed wired (see KNOWN_ISSUES §6.5.5)
 
         if shipping_file.exists():
             shipping_events = pd.read_parquet(shipping_file)
