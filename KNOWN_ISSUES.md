@@ -484,10 +484,11 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Lib:** `arch==8.0.0` ist gepinnt, nie gewired
   - **Wert:** Vol-Forecast für Position-Sizing + Risk-Limits dynamisch statt static
 
-- [ ] **6.5.3 Monte-Carlo / Pfad-Simulation**
+- [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — Basis-Modul implementiert (2026-05-17, commit ad728a7)
   - **Ziel-Pfad:** `src/assembled_core/risk/monte_carlo/`
   - **Use cases:** Trade-Shuffling für Confidence-Intervalle auf Sharpe/MDD, Bootstrap-Robustheit, Equity-Path-Distribution
   - **Abgrenzung:** `scenario_engine` macht Stress-Replays, nicht MC
+  - **Status:** `shuffle_trades` (bootstrap-resample trade P&L, 26 tests pass), `simulate_paths_gbm` (parametric GBM), `simulate_paths_block_bootstrap` (block-bootstrap). Standalone, nicht in Pipeline gewired.
 
 - [ ] **6.5.4 FinBERT / News-Sentiment ML**
   - **Ziel-Pfad:** `src/assembled_core/ml/nlp/finbert.py`
