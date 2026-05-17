@@ -26,6 +26,16 @@ IBES analyst-consensus EPS is the academic gold standard for SUE but
 requires paid data (Refinitiv / I/B/E/S). When available, pass it via
 ``compute_sue_from_expected(actual, expected_eps_ibes)``.
 
+**Important on σ (forecast-error standard deviation):** This module computes
+σ as the **full-sample standard deviation of forecast errors within a single
+input series** (i.e. per firm, non-rolling). Classical Bernard-Thomas (1989)
+SUE uses a **rolling 8-quarter per-firm σ** estimated only on PAST forecast
+errors to avoid look-ahead. The full-sample σ here is appropriate for
+*ex-post research analysis*; for *PIT-safe trading-signal generation* callers
+should pre-standardise externally (compute rolling-σ per firm from past
+forecast errors only) and feed the standardised series into a downstream
+ranking layer rather than relying on this module's σ.
+
 References:
 - Bernard, V. L., Thomas, J. K. (1989). *Post-Earnings-Announcement Drift:
   Delayed Price Response or Risk Premium?* JAR 27 Supplement.
@@ -57,8 +67,12 @@ class SueResult:
             High |SUE| = strong surprise. Index matches input.
         expected_eps: The E[EPS_t] used per event (NaN where insufficient history).
         forecast_error: actual_EPS − expected_EPS per event.
-        sigma_forecast_error: Cross-sectional std of the forecast errors used
-            to standardise SUE. Single scalar (per-firm σ would need rolling).
+        sigma_forecast_error: Sample std of forecast errors over the full
+            input series (per-firm, full-sample, NON-rolling). Single scalar.
+            NOTE: classical Bernard-Thomas (1989) SUE uses a rolling per-firm
+            σ on PAST forecast errors only (PIT-safe). The full-sample σ here
+            is for ex-post research; for PIT-safe signal generation, pre-
+            standardise externally and use compute_sue_from_expected.
         n_events: Number of non-NaN events in the result.
         method: Which expected-EPS model was used.
     """
