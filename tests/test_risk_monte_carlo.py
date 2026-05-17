@@ -12,7 +12,7 @@ import pytest
 from assembled_core.risk.monte_carlo import (
     ShuffleResult,
     simulate_paths_block_bootstrap,
-    simulate_paths_gbm,
+    simulate_paths_iid_normal,
     shuffle_trades,
 )
 
@@ -116,13 +116,13 @@ class TestShuffleTrades:
 
 class TestSimulatePathsGbm:
     def test_gbm_paths_shape(self):
-        result = simulate_paths_gbm(
+        result = simulate_paths_iid_normal(
             DAILY_RETURNS_ARR, n_paths=50, n_periods=100, seed=0
         )
         assert result.paths.shape == (50, 100)
 
     def test_gbm_paths_start_at_one(self):
-        result = simulate_paths_gbm(
+        result = simulate_paths_iid_normal(
             DAILY_RETURNS_ARR, n_paths=100, n_periods=252, seed=0
         )
         # First column is the first period's level; equity should START at 1.0
@@ -134,16 +134,22 @@ class TestSimulatePathsGbm:
         assert np.all(result.paths > 0)
 
     def test_gbm_paths_seed_reproducible(self):
-        r1 = simulate_paths_gbm(DAILY_RETURNS_ARR, n_paths=30, n_periods=60, seed=99)
-        r2 = simulate_paths_gbm(DAILY_RETURNS_ARR, n_paths=30, n_periods=60, seed=99)
+        r1 = simulate_paths_iid_normal(
+            DAILY_RETURNS_ARR, n_paths=30, n_periods=60, seed=99
+        )
+        r2 = simulate_paths_iid_normal(
+            DAILY_RETURNS_ARR, n_paths=30, n_periods=60, seed=99
+        )
         np.testing.assert_array_equal(r1.paths, r2.paths)
 
     def test_gbm_method_label(self):
-        result = simulate_paths_gbm(DAILY_RETURNS_ARR, n_paths=10, n_periods=10, seed=0)
-        assert result.method == "gbm"
+        result = simulate_paths_iid_normal(
+            DAILY_RETURNS_ARR, n_paths=10, n_periods=10, seed=0
+        )
+        assert result.method == "iid_normal"
 
     def test_gbm_accepts_series(self):
-        result = simulate_paths_gbm(
+        result = simulate_paths_iid_normal(
             DAILY_RETURNS_SERIES, n_paths=20, n_periods=50, seed=0
         )
         assert result.paths.shape == (20, 50)
@@ -213,7 +219,9 @@ class TestSimulatePathsBlockBootstrap:
 class TestPathSimResult:
     @pytest.fixture()
     def result(self):
-        return simulate_paths_gbm(DAILY_RETURNS_ARR, n_paths=200, n_periods=252, seed=0)
+        return simulate_paths_iid_normal(
+            DAILY_RETURNS_ARR, n_paths=200, n_periods=252, seed=0
+        )
 
     def test_pathsimresult_final_value_quantiles_ordered(self, result):
         qs = [0.05, 0.25, 0.50, 0.75, 0.95]

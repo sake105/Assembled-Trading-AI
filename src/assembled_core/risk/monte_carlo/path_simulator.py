@@ -2,8 +2,12 @@
 
 Two methods:
 
-1. **Parametric GBM**: Geometric Brownian Motion calibrated to historical
-   mean and volatility.  Fast; assumes i.i.d. log-normal returns.
+1. **Parametric i.i.d. normal** (``simulate_paths_iid_normal``): Calibrates
+   arithmetic mean μ and std σ from history; draws i.i.d. normal arithmetic
+   returns. NOT true Geometric Brownian Motion — GBM uses log-returns with
+   ``-0.5 σ²`` drift correction. The previous name ``simulate_paths_gbm`` was
+   misleading; renamed per F-risk-4. If you need true GBM (log-normal terminal
+   distribution), use a dedicated implementation.
 2. **Block bootstrap**: Resample contiguous blocks of historical returns to
    preserve serial correlation (momentum, mean-reversion, vol clustering).
 
@@ -30,12 +34,12 @@ class PathSimResult:
     Attributes:
         paths: ``(n_paths, n_periods)`` equity curves, each starting at 1.0
             before the first return.
-        method: ``"gbm"`` or ``"block_bootstrap"``.
+        method: ``"iid_normal"`` or ``"block_bootstrap"``.
         seed: The RNG seed used (``None`` if unseeded).
     """
 
     paths: np.ndarray  # (n_paths, n_periods)
-    method: Literal["gbm", "block_bootstrap"]
+    method: Literal["iid_normal", "block_bootstrap"]
     seed: int | None
 
     def final_value_quantiles(
@@ -86,17 +90,23 @@ def _returns_to_paths(returns_matrix: np.ndarray) -> np.ndarray:
     return np.cumprod(1.0 + returns_matrix, axis=1)
 
 
-def simulate_paths_gbm(
+def simulate_paths_iid_normal(
     historical_returns: pd.Series | np.ndarray,
     n_paths: int = 1000,
     n_periods: int = 252,
     seed: int | None = None,
 ) -> PathSimResult:
-    """Parametric GBM simulation calibrated to historical returns.
+    """I.i.d. normal-return path simulation calibrated to historical returns.
 
-    Calibrates ``mu`` (mean) and ``sigma`` (std) from ``historical_returns``,
-    then draws i.i.d. normal shocks to build ``n_paths`` equity paths of
-    length ``n_periods``.
+    Calibrates ``mu`` (arithmetic mean) and ``sigma`` (std) from
+    ``historical_returns``, then draws i.i.d. normal arithmetic-return shocks
+    to build ``n_paths`` equity paths of length ``n_periods``.
+
+    NOTE: This is NOT true Geometric Brownian Motion (despite the previous
+    name ``simulate_paths_gbm``). GBM operates on log-returns with a
+    ``-0.5 σ²`` Itô drift correction. The arithmetic-return form here is
+    mathematically valid as a stand-alone model but should not be confused
+    with GBM. Renamed per F-risk-4.
 
     Args:
         historical_returns: Series or array of historical period returns
@@ -116,7 +126,7 @@ def simulate_paths_gbm(
     shocks = rng.normal(mu, sigma, size=(n_paths, n_periods))
     paths = _returns_to_paths(shocks)
 
-    return PathSimResult(paths=paths, method="gbm", seed=seed)
+    return PathSimResult(paths=paths, method="iid_normal", seed=seed)
 
 
 def simulate_paths_block_bootstrap(

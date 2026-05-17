@@ -479,16 +479,18 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Voraussetzungen:** Covariance-Schätzer (Shrinkage), Constraints-Spec, Risk-Budget-Spec
   - **Wert:** Höchster Quant-Hebel; ersetzt einfaches Equal-Weight/Quantile-Sizing
 
-- [x] **6.5.2 GARCH / Vol-Modellierung** — Basis-Modul implementiert (2026-05-17, commit 61b535b)
-  - **Ziel-Pfad:** `src/assembled_core/risk/volatility/garch.py`
-  - **Lib:** `arch==8.0.0` ist gepinnt, nie gewired
-  - **Wert:** Vol-Forecast für Position-Sizing + Risk-Limits dynamisch statt static
+- [ ] **6.5.2 GARCH / Vol-Modellierung** — RE-SCOPED nach Doppelstruktur-Entdeckung (F-risk-3, 2026-05-17): zwei existierende Module decken die Funktionalität bereits ab:
+  - `src/assembled_core/risk/garch_vol.py` — GJR-GARCH(1,1) mit rolling-window fallback
+  - `src/assembled_core/risk/garch_vol_forecast.py` — GJR-GARCH(1,1,1) mit skew-t innovations, richere API (vol_model, dist, horizon, annualize_factor Params)
+  - **Neue Aktion:** **Konsolidierung** — eines als kanonisch wählen, anderes deprecaten/delegieren. Wert: Single-Source-of-Truth + Position-Sizing-Wiring.
+  - **Historie:** Eine dritte naive Implementation `risk/volatility/garch.py` wurde am 2026-05-17 erstellt (commits `61b535b`/`573613a`) und wieder gelöscht, weil sie weniger featureful war als die existierenden Module.
 
-- [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — Basis-Modul implementiert (2026-05-17, commit ad728a7)
+- [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — Basis-Modul implementiert (2026-05-17, commit `ad728a7`); standalone, nicht in Pipeline gewired
   - **Ziel-Pfad:** `src/assembled_core/risk/monte_carlo/`
   - **Use cases:** Trade-Shuffling für Confidence-Intervalle auf Sharpe/MDD, Bootstrap-Robustheit, Equity-Path-Distribution
   - **Abgrenzung:** `scenario_engine` macht Stress-Replays, nicht MC
-  - **Status:** `shuffle_trades` (bootstrap-resample trade P&L, 26 tests pass), `simulate_paths_gbm` (parametric GBM), `simulate_paths_block_bootstrap` (block-bootstrap). Standalone, nicht in Pipeline gewired.
+  - **Status:** `shuffle_trades` (bootstrap-resample trade P&L), `simulate_paths_iid_normal` (i.i.d. normal-return, F-risk-4 rename von "gbm"), `simulate_paths_block_bootstrap` (block-bootstrap). 26 tests pass.
+  - **Follow-up (offen):** Wiring in `qa/scenario_engine.py` oder `run_backtest_strategy.py` als post-trade Robustheits-Report. Aktuell nur als Library verfügbar.
 
 - [ ] **6.5.4 FinBERT / News-Sentiment ML**
   - **Ziel-Pfad:** `src/assembled_core/ml/nlp/finbert.py`

@@ -98,7 +98,8 @@ def run_phase4_tests_subcommand(args: argparse.Namespace) -> int:
         "-m",
         "pytest",
         "-m",
-        "phase4",
+        # F-risk-1: phase4 marker removed in commit 9b78eed; subsumed by `fast`.
+        "fast",
         "-q",
         "--maxfail=1",
         "--tb=short",

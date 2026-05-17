@@ -47,17 +47,20 @@ jobs:
       - name: Initialize backend CI log
         run: echo "Backend CI started at $(date -Iseconds)" > backend_ci_log.txt
       
-      - name: Run backend core tests (all phases) with coverage
+      - name: Run backend core tests (fast marker) with coverage
         run: |
           set -o pipefail
-          pytest -m "(phase4 or phase6 or phase7 or phase8 or phase9 or phase10 or phase11) and not slow" -q --maxfail=1 -W error \
+          # F-risk-1: migrated from (phase4..phase11) to canonical `fast` marker.
+          # phase4..phase13 markers were removed from pyproject.toml in commit 9b78eed.
+          pytest -m "fast and not slow" -q --maxfail=1 -W error \
             --cov=src/assembled_core --cov-report=term-missing --cov-report=xml:coverage.xml \
             --cov-fail-under=0 2>&1 | tee -a backend_ci_log.txt
 
-      - name: Run phase12 + regression gates
+      - name: Run regression gates
         run: |
           set -o pipefail
-          pytest -m "(phase12 or regression) and not slow" -q --maxfail=1 2>&1 | tee -a backend_ci_log.txt
+          # F-risk-1: phase12 marker removed; regression marker subsumes it.
+          pytest -m "regression and not slow" -q --maxfail=1 2>&1 | tee -a backend_ci_log.txt
       
       - name: Security scan — dependency vulnerabilities (pip-audit)
         run: |
