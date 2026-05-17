@@ -281,8 +281,8 @@ def get_drift_status_summary(
     """Get drift status summary for monitoring.
 
     Returns the status of the last feature drift analysis, showing which features
-    have drifted and their severity. Currently returns dummy/example data as drift
-    analysis persistence is not yet implemented.
+    have drifted and their severity. Reads persisted drift results written by
+    `qa.drift_detection.save_drift_results()` to `output/drift_analysis_{freq}.parquet`.
 
     Args:
         freq: Trading frequency ("1d" or "5min"), default "1d"
@@ -292,7 +292,8 @@ def get_drift_status_summary(
         DriftStatusSummary with overall severity, top features with drift, and total features checked
 
     Raises:
-        HTTPException: 400 if freq is not supported, 500 for errors
+        HTTPException: 400 if `freq` is unsupported; 503 if no drift analysis has
+            been persisted yet for this frequency; 500 for unexpected errors.
     """
     # Validate frequency
     if freq not in SUPPORTED_FREQS:

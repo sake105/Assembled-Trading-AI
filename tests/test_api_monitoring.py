@@ -188,6 +188,17 @@ class TestMonitoringDriftStatus:
             assert isinstance(feature["psi"], (int, float))
             assert feature["drift_flag"] in ["NONE", "MODERATE", "SEVERE"]
 
+    def test_drift_status_returns_503_when_parquet_missing(self, tmp_path, monkeypatch):
+        """Senior-Review F-senior-4: missing drift parquet → 503 (service unavailable)."""
+        monkeypatch.setattr(
+            "src.assembled_core.api.routers.monitoring.OUTPUT_DIR", tmp_path
+        )
+        app = create_app()
+        client = TestClient(app)
+        r = client.get("/api/v1/monitoring/drift_status?freq=1d")
+        assert r.status_code == 503
+        assert "drift analysis" in r.json()["detail"].lower()
+
 
 class TestMonitoringIntegration:
     """Integration tests for monitoring endpoints."""
