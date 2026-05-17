@@ -479,11 +479,12 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
   - **Voraussetzungen:** Covariance-Schätzer (Shrinkage), Constraints-Spec, Risk-Budget-Spec
   - **Wert:** Höchster Quant-Hebel; ersetzt einfaches Equal-Weight/Quantile-Sizing
 
-- [ ] **6.5.2 GARCH / Vol-Modellierung** — RE-SCOPED nach Doppelstruktur-Entdeckung (F-risk-3, 2026-05-17): zwei existierende Module decken die Funktionalität bereits ab:
-  - `src/assembled_core/risk/garch_vol.py` — GJR-GARCH(1,1) mit rolling-window fallback
-  - `src/assembled_core/risk/garch_vol_forecast.py` — GJR-GARCH(1,1,1) mit skew-t innovations, richere API (vol_model, dist, horizon, annualize_factor Params)
-  - **Neue Aktion:** **Konsolidierung** — eines als kanonisch wählen, anderes deprecaten/delegieren. Wert: Single-Source-of-Truth + Position-Sizing-Wiring.
-  - **Historie:** Eine dritte naive Implementation `risk/volatility/garch.py` wurde am 2026-05-17 erstellt (commits `61b535b`/`573613a`) und wieder gelöscht, weil sie weniger featureful war als die existierenden Module.
+- [x] **6.5.2 GARCH / Vol-Modellierung** — KONSOLIDIERUNG Phase 1 DONE (2026-05-17): Kanonisches Modul = `garch_vol.py`. `garch_vol_forecast.py` deprecated mit `DeprecationWarning` + Migrationshinweis. Caller-Migration deferred (Phase 2).
+  - **Kanonisch:** `src/assembled_core/risk/garch_vol.py` (GJR-GARCH(1,1) + rolling-window FALLBACK, defensive sizing inf/NaN, batch helper `compute_vol_forecasts`)
+  - **Deprecated:** `src/assembled_core/risk/garch_vol_forecast.py` (richere konfigurierbare API aber kein Fallback, bei `arch`-Fehler NaN-Rückgabe = Produktions-Hazard)
+  - **Phase-2 Follow-up:** Migration der 2 Caller (`scripts/ci/garch_check.py`, `tests/test_free_stack_modules.py`) auf `garch_vol`. Beide benutzen Default-Params, also einfache Substitution. Danach `garch_vol_forecast.py` löschen.
+  - **Phase-3 Follow-up (optional):** konfigurierbare Parameter (vol_model, p/o/q, dist) von `garch_vol_forecast` in `garch_vol` einbauen für Feature-Parität, BEVOR die deprecated Datei entfernt wird (falls jemand die Flexibilität tatsächlich braucht — aktuell nicht).
+  - **Historie:** Eine dritte naive Implementation `risk/volatility/garch.py` wurde am 2026-05-17 erstellt (commits `61b535b`/`573613a`) und in `7a10d7c` wieder gelöscht.
 
 - [x] **6.5.3 Monte-Carlo / Pfad-Simulation** — Basis-Modul implementiert (2026-05-17, commit `ad728a7`); standalone, nicht in Pipeline gewired
   - **Ziel-Pfad:** `src/assembled_core/risk/monte_carlo/`

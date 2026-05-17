@@ -1,5 +1,24 @@
 """GARCH-based volatility forecasting via the `arch` library.
 
+.. deprecated:: 2026-05-17
+   This module is DEPRECATED in favor of ``src.assembled_core.risk.garch_vol``
+   which provides equivalent functionality plus:
+
+   - Rolling-window realized-vol FALLBACK when ``arch`` is unavailable or fit
+     fails (this module returns ``NaN`` instead — production hazard).
+   - Batch helper ``compute_vol_forecasts(prices_df)`` for per-ticker forecasts.
+   - More defensive ``size_vol_target`` (handles inf/NaN explicitly).
+
+   See `KNOWN_ISSUES.md` §6.5.2 for the consolidation status and migration plan.
+
+   Migration path:
+       Old: ``from src.assembled_core.risk.garch_vol_forecast import forecast_garch_vol``
+       New: ``from src.assembled_core.risk.garch_vol import forecast_vol``
+
+   Configurable parameters (vol_model / p / o / q / dist) are NOT yet exposed by
+   ``garch_vol``'s public API — if you need them, file a follow-up to expand
+   the canonical module rather than continuing to depend on this deprecated one.
+
 From 11_FREE_MODELLE.md §11.8 and 13_FREE_MODULE.md §13.3.
 
 De-facto standard: GJR-GARCH(1,1,1) with skew-t innovations for US equity daily.
@@ -11,11 +30,20 @@ Install: pip install arch==8.0.0
 from __future__ import annotations
 
 import logging
+import warnings
 
 import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+warnings.warn(
+    "src.assembled_core.risk.garch_vol_forecast is deprecated since 2026-05-17. "
+    "Use src.assembled_core.risk.garch_vol instead (provides rolling-window "
+    "fallback + batch helper + defensive sizing). See KNOWN_ISSUES.md §6.5.2.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def _try_import_arch():

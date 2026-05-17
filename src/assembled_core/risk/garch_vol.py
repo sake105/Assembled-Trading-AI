@@ -1,12 +1,15 @@
 """GJR-GARCH(1,1) vol forecast for position sizing. From 13_FREE_MODULE.md §13.3.
 
+**CANONICAL** GARCH module since 2026-05-17 (KNOWN_ISSUES §6.5.2 consolidation).
+The sibling ``garch_vol_forecast`` is now deprecated and delegates here in spirit.
+
 Replaces simple realized-vol with a proper conditional-variance forecast when
 the `arch` library is available. Falls back to rolling-window realized vol if
-arch is not installed or the fit fails.
+arch is not installed or the fit fails — production-safe defensive degradation.
 
 Usage::
 
-    from assembled_core.risk.garch_vol import forecast_vol, size_vol_target
+    from src.assembled_core.risk.garch_vol import forecast_vol, size_vol_target
 
     sigma_annual = forecast_vol(returns_series, horizon=5)
     size = size_vol_target(sigma_annual, target_vol=0.15)
