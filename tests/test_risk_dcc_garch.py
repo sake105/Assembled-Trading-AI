@@ -198,17 +198,26 @@ def test_rejects_unknown_method():
 
 
 def test_stationarity_constraint_enforced_via_slsqp():
-    """F-stage1-dcc-3 regression: SLSQP with explicit a+b<1 constraint should
-    return params that satisfy stationarity WITHOUT silent post-hoc snap.
-    If snap ever occurs (rare numerical edge), converged must be False AND
-    log_likelihood must match the snapped parameters."""
+    """F-stage1-dcc-3 + F-senior-2 regression: SLSQP with constraint should
+    return params satisfying stationarity AND converge cleanly (no snap) for
+    well-behaved synthetic data.
+
+    Asserts BOTH stationarity AND `converged is True` — a regression where
+    SLSQP always falls back to snap (defeating the fix) would NOT silently
+    pass this test.
+    """
     df = _correlated_garch_returns(n_periods=400, n_vars=3, rho_target=0.7, seed=42)
     result = fit_dcc_garch(df, method="dcc")
-    # SLSQP constraint guarantees a + b < 1 (or snap with WARNING + converged=False)
+    # Stationarity: a + b < 1 must always hold
     assert result.a + result.b < 1.0
-    # When converged=True, no snap occurred. When converged=False, snap may
-    # have happened — log_likelihood was recomputed at snapped params.
-    # In either case, post-condition stationarity holds.
+    # F-senior-2: also assert converged=True — snap branch sets it False
+    # and recomputes ll. If this ever flips to False, SLSQP failed and we
+    # need to investigate (the test will surface the regression).
+    assert result.converged is True, (
+        f"SLSQP expected to converge cleanly on this synthetic seed; "
+        f"converged={result.converged} suggests fall-back to snap-branch — "
+        f"investigate F-stage1-dcc-3 regression. a={result.a}, b={result.b}"
+    )
 
 
 # ---------------------------------------------------------------------------

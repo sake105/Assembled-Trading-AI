@@ -245,8 +245,11 @@ def fit_dcc_garch(
     Two-step procedure:
         1. Fit univariate GARCH(1,1) per column → σ_i,t and standardised
            residuals e_i,t = r_i,t / σ_i,t.
-        2. Estimate DCC parameters (α, β) via QMLE on the multivariate
-           Gaussian log-likelihood of the standardised residuals.
+        2. Estimate DCC parameters (α, β) via the DCC-step **correlation-
+           conditional QMLE** objective (Engle 2002 eq. 18) — NOT the full
+           multivariate Gaussian log-likelihood. The objective subtracts
+           the standardised-residual baseline so optimisation sees the
+           correlation component only. See module docstring for details.
 
     Args:
         returns: (T, N) DataFrame of asset returns (fractions, not %).
