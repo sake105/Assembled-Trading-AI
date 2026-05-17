@@ -185,9 +185,14 @@ def compute_spillover_index(
     off_diag_sum = float(fevd_pct.sum() - diag.sum())
     total_sum = float(fevd_pct.sum())
     tsi = (off_diag_sum / total_sum) * 100.0 if total_sum > 0 else 0.0
-    # TSI in [0, 100]; equivalently = mean off-diagonal share since rows sum
-    # to ~100. The DY-2012 §3 formula multiplies by 100 again because shares
-    # are already in [0, 100] — net result is same range.
+    # TSI per DY-2012 §3 Eq (6) — the ·100 converts the [0,1] off-diagonal
+    # share to a percentage in [0,100]%.
+    #
+    # Perf note (F-senior-1): the triple-nested loop in _generalized_fevd
+    # could be vectorised by precomputing A_l @ sigma once per horizon step.
+    # For typical N≤20 the cost is negligible (~80k ops); documented but not
+    # optimised. Revisit if rolling spillover on >30-asset panels becomes a
+    # hot path.
 
     # Directional spillovers
     # to_others[j] = sum of column j MINUS diag (i.e. variance variable j
