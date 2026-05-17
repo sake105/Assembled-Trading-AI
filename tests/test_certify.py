@@ -6,13 +6,13 @@ import json
 from datetime import datetime, timezone
 
 
-from assembled_core.certify.schema import (
+from src.assembled_core.certify.schema import (
     EnvironmentFingerprint,
     InputFingerprint,
     OutputFingerprint,
     ReproducibilityCertificate,
 )
-from assembled_core.certify.generator import (
+from src.assembled_core.certify.generator import (
     file_sha256,
     object_sha256,
     get_git_info,

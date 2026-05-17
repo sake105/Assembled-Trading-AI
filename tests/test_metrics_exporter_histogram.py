@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 
-from assembled_core.ops.metrics_exporter import (
+from src.assembled_core.ops.metrics_exporter import (
     export_metrics,
     render_prometheus_text,
     slippage_histogram,

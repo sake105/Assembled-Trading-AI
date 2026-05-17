@@ -21,30 +21,30 @@ sys.path.insert(0, str(os.path.join(os.path.dirname(__file__), "..")))
 import numpy as np
 import pandas as pd
 
-from assembled_core.features.ta_features import add_all_features
-from assembled_core.ml.cpcv import (
+from src.assembled_core.features.ta_features import add_all_features
+from src.assembled_core.ml.cpcv import (
     compute_cpcv_sharpe_distribution,
     generate_cpcv_splits,
 )
-from assembled_core.portfolio.cost_aware_optimizer import (
+from src.assembled_core.portfolio.cost_aware_optimizer import (
     OptimizerConfig,
     optimize_portfolio,
 )
-from assembled_core.portfolio.market_neutral_optimizer import (
+from src.assembled_core.portfolio.market_neutral_optimizer import (
     MarketNeutralConfig,
     optimize_market_neutral,
 )
-from assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
-from assembled_core.risk.crowding_detector import compute_hhi
-from assembled_core.risk.liquidity_scoring import (
+from src.assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
+from src.assembled_core.risk.crowding_detector import compute_hhi
+from src.assembled_core.risk.liquidity_scoring import (
     apply_liquidity_adjusted_sizing,
     compute_liquidity_scores,
 )
-from assembled_core.risk.trailing_stops import (
+from src.assembled_core.risk.trailing_stops import (
     apply_stop_reductions_to_weights,
     compute_trailing_stops,
 )
-from assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 
 SECTOR_MAP = {
     "AAPL": "Technology",

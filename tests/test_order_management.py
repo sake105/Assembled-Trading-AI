@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 
-from assembled_core.execution.order_management import (
+from src.assembled_core.execution.order_management import (
     BarSnapshot,
     ExecutionCostModel,
     ExitManager,

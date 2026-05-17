@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from assembled_core.ops.incident_tracker import (
+from src.assembled_core.ops.incident_tracker import (
     IncidentRecord,
     IncidentTracker,
     Severity,

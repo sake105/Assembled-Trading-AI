@@ -53,7 +53,7 @@ w_market = iv_market**2 * T
 # ---------------------------------------------------------------------------
 # Step 2: Fit SVI
 # ---------------------------------------------------------------------------
-from assembled_core.risk.vol_surface_svi import (
+from src.assembled_core.risk.vol_surface_svi import (
     butterfly_arbitrage_free,
     fit_svi,
     surface_summary,

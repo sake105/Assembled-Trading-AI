@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from assembled_core.ops.slippage_collector import SlippageCollector
+from src.assembled_core.ops.slippage_collector import SlippageCollector
 
 
 def _fills_df(fill_prices, mid_prices, statuses=None):

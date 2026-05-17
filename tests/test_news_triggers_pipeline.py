@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 from datetime import timezone
 
-from assembled_core.pipeline.trading_cycle_v2 import _compute_news_triggers
+from src.assembled_core.pipeline.trading_cycle_v2 import _compute_news_triggers
 
 
 def _events(records):

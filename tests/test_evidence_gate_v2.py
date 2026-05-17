@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from assembled_core.pipeline.trading_cycle_v2 import _apply_evidence_gate
+from src.assembled_core.pipeline.trading_cycle_v2 import _apply_evidence_gate
 
 
 def _signals(symbols=("AAPL", "MSFT")):

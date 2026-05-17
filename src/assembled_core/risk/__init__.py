@@ -46,10 +46,12 @@ from src.assembled_core.risk.garch_vol import (  # noqa: F401
     size_vol_target,
     compute_vol_forecasts,
 )
-from src.assembled_core.risk.garch_vol_forecast import (  # noqa: F401
-    forecast_garch_vol,
-    garch_vol_target_size,
-)
+
+# F-stage1-1 (2026-05-17): garch_vol_forecast is deprecated. Removed from
+# package re-export so the DeprecationWarning fires only when callers
+# explicitly opt in via direct import. This prevents warning-noise
+# pollution in test/CI logs from every risk-package import.
+# See KNOWN_ISSUES.md §6.5.2 Phase 2.
 from src.assembled_core.risk.margin_call_handler import handle_margin_call  # noqa: F401
 
 __all__ = [
@@ -78,12 +80,11 @@ __all__ = [
     "FactorExposureConfig",
     "compute_factor_exposures",
     "summarize_factor_exposures",
-    # Vol forecasting (GARCH / fallback)
+    # Vol forecasting (GARCH / fallback) — F-stage1-1: garch_vol_forecast
+    # symbols removed from __all__ since 2026-05-17 (deprecated; direct import only).
     "forecast_vol",
     "size_vol_target",
     "compute_vol_forecasts",
-    "forecast_garch_vol",
-    "garch_vol_target_size",
     # Margin Call Handler (Item 42)
     "handle_margin_call",
 ]

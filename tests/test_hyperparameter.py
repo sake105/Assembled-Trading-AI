@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from assembled_core.strategy.hyperparameter import (
+from src.assembled_core.strategy.hyperparameter import (
     check_config_drift,
     deployment_inventory,
     walk_forward_objective,

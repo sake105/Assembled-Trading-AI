@@ -23,7 +23,7 @@ import pandas as pd
 _REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO / "src"))
 
-from assembled_core.signals.news_validation import (
+from src.assembled_core.signals.news_validation import (
     car_significance_report,
     event_study,
     gate_summary,

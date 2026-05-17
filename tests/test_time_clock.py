@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from assembled_core.time.clock import Clock, RealClock, ReplayClock
+from src.assembled_core.time.clock import Clock, RealClock, ReplayClock
 
 
 class TestRealClock:

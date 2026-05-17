@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from assembled_core.signals.news_validation import (
+from src.assembled_core.signals.news_validation import (
     GATE_THRESHOLDS,
     build_factor_series,
     car_significance_report,

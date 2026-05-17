@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from assembled_core.attribution.schemas import CompositeAttribution
-from assembled_core.attribution.time_series import (
+from src.assembled_core.attribution.schemas import CompositeAttribution
+from src.assembled_core.attribution.time_series import (
     attributions_to_df,
     dead_feature_report,
     detect_attribution_drift,

@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("pandera")
 
-from assembled_core.dataquality import (
+from src.assembled_core.dataquality import (
     DataQualityGate,
     DataQualityError,
     OHLCVSchema,

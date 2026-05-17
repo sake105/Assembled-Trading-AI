@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from assembled_core.signals.news_fusion import (
+from src.assembled_core.signals.news_fusion import (
     news_z_score,
     news_score_normalized,
     size_from_meta,

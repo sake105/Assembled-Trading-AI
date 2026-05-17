@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from assembled_core.config.feature_flags import (
+from src.assembled_core.config.feature_flags import (
     FeatureFlags,
     load_flags,
     emit_startup_banner,

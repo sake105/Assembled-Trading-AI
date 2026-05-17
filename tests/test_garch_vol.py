@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from assembled_core.risk.garch_vol import (
+from src.assembled_core.risk.garch_vol import (
     forecast_vol,
     size_vol_target,
     compute_vol_forecasts,

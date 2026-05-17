@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from assembled_core.ops.rejection_collector import RejectionCollector
+from src.assembled_core.ops.rejection_collector import RejectionCollector
 
 
 def _fills_df(statuses, reject_reasons=None):

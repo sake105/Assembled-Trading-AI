@@ -108,7 +108,7 @@ N_DAYS = len(spx_returns)
 LOOKBACK = 60  # momentum signal window (days)
 
 print(f"[3/5] Simulating {N_PATHS} GARCH paths ({N_DAYS} days each) ...")
-from assembled_core.data.synthetic_generator import generate_garch_returns
+from src.assembled_core.data.synthetic_generator import generate_garch_returns
 
 sim_sharpes: list[float] = []
 rng_global = np.random.default_rng(42)

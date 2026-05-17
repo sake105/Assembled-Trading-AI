@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from assembled_core.signals.base import BaseSignal, SignalOutput
-from assembled_core.signals.registry import SignalRegistry, get_registry
+from src.assembled_core.signals.base import BaseSignal, SignalOutput
+from src.assembled_core.signals.registry import SignalRegistry, get_registry
 
 # ---------------------------------------------------------------------------
 # SignalOutput

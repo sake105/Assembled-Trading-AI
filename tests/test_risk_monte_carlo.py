@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from assembled_core.risk.monte_carlo import (
+from src.assembled_core.risk.monte_carlo import (
     ShuffleResult,
     simulate_paths_block_bootstrap,
     simulate_paths_iid_normal,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from assembled_core.config.secrets_loader import get_secret, store_secret
+from src.assembled_core.config.secrets_loader import get_secret, store_secret
 
 
 class TestGetSecretEnvFallback:

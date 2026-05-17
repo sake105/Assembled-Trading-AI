@@ -19,7 +19,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO / "src"))
 
-from assembled_core.signals.news_validation import (
+from src.assembled_core.signals.news_validation import (
     check_level_a,
     classification_metrics,
     load_gold_dataset,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from assembled_core.config.env_settings import (
+from src.assembled_core.config.env_settings import (
     Env,
     EnvSettings,
     RiskLimits,
