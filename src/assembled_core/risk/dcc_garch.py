@@ -14,13 +14,26 @@ Two estimators provided:
      Q_t = (1 − α − β) · Q̄ + α · e_{t-1} e_{t-1}' + β · Q_{t-1}
      R_t = diag(Q_t)^(-1/2) · Q_t · diag(Q_t)^(-1/2)
      H_t = D_t · R_t · D_t  where D_t = diag(σ_t)
-   - (α, β) estimated by quasi-MLE on the multivariate Gaussian log-likelihood.
+   - (α, β) estimated by the DCC-step **correlation-conditional QMLE**
+     objective (Engle 2002 eq. 18) — NOT the full multivariate Gaussian
+     log-likelihood. The objective subtracts the standardised-residual
+     baseline so optimisation is over the correlation component only.
+     The reported ``log_likelihood`` is therefore the Engle DCC-step
+     correlation-LL, not a directly-comparable multivariate Gaussian LL.
 
-2. **cDCC (Aielli 2013)** — corrects a known bias in standard DCC's
-   estimator of Q̄. Aielli showed sample correlation of e_t (standard DCC)
-   is biased; using "corrected" standardised residuals
-   e*_t = diag(Q_t)^(1/2) · e_t
-   and Q̄ = E[e*_t · e*_t'] removes the bias.
+2. **cDCC (Aielli 2013) — POST-HOC ONE-PASS APPROXIMATION:**
+   Aielli (2013) showed standard DCC's sample-correlation Q̄ is biased and
+   proposed using corrected residuals e*_t = diag(Q_t)^(1/2) · e_t with
+   Q̄ = E[e*_t · e*_t']. The full Aielli estimator is a joint fix-point in
+   (α, β, Q̄). **This module's cDCC path applies the correction ONLY AFTER
+   the (α, β) optimisation (one-pass post-hoc).** The (α, β) are estimated
+   under standard-DCC Q̄ and inherit the standard-DCC bias; the Q̄
+   correction is then applied via a single recursion pass to recompute the
+   long-run correlation matrix Q̄_cdcc used for the returned R_t and H_t
+   paths. This is a pragmatic approximation that captures the dominant
+   correction direction but is NOT a full Aielli QMLE estimator. For
+   high-precision multivariate correlation work, use a dedicated package
+   (e.g. ``mgarch`` or ``rmgarch`` in R).
 
 References:
 - Engle, R. (2002). *Dynamic Conditional Correlation*. JBES 20(3).
@@ -58,8 +71,14 @@ class DCCResult:
         conditional_correlations: T-long list of (N, N) correlation matrices R_t.
         conditional_covariance: T-long list of (N, N) covariance matrices H_t.
         standardized_residuals: (T, N) DataFrame of e_t = r_t / σ_t.
-        log_likelihood: Optimised quasi-MLE log-likelihood of the DCC step.
-        converged: Whether scipy.optimize reported convergence.
+        log_likelihood: DCC-step correlation-conditional QMLE log-likelihood
+            (Engle 2002 eq. 18). NOT a full multivariate Gaussian LL —
+            the residual baseline is subtracted out. If stationarity-snap
+            occurred (rare), this value is recomputed at the snapped (a, b)
+            so it is always consistent with the returned parameters.
+        converged: True iff scipy.optimize reported convergence AND no
+            stationarity-snap was applied. False when SLSQP violated the
+            a+b<1 constraint and was post-hoc snapped (with WARNING log).
         n_obs: Number of time-series observations after dropna.
         n_vars: Number of series.
         method: ``"dcc"`` (Engle) or ``"cdcc"`` (Aielli correction applied).
@@ -243,6 +262,12 @@ def fit_dcc_garch(
     Raises:
         ValueError: If returns has <2 columns or fewer than 100 obs.
     """
+    # F-stage1-dcc-7: explicit method validation prevents silent fallthrough
+    # on typos like 'dcc-garch' (hyphen) or 'DCC' (case).
+    if method not in ("dcc", "cdcc"):
+        raise ValueError(
+            f"fit_dcc_garch: method must be 'dcc' or 'cdcc', got {method!r}"
+        )
     if returns.shape[1] < 2:
         raise ValueError(f"fit_dcc_garch: need ≥2 variables, got {returns.shape[1]}")
     if returns.shape[0] < 100:
@@ -280,19 +305,37 @@ def fit_dcc_garch(
     # Standardised residuals e_t = r_t / σ_t
     eps = arr / np.maximum(cond_vol, 1e-12)
 
-    # Step 2: optimise (a, b)
+    # Step 2: optimise (a, b) with SLSQP — enforces stationarity constraint
+    # a + b < 1 explicitly, eliminating the F-stage1-dcc-3 silent-snap issue
+    # (previous L-BFGS-B bounds allowed up to 0.5 + 0.999 > 1).
+    stationarity_constraint = {
+        "type": "ineq",
+        "fun": lambda x: 0.999 - x[0] - x[1],  # a + b <= 0.999
+    }
     result = minimize(
         _dcc_log_likelihood,
         x0=np.array([a_init, b_init]),
         args=(eps, method),
-        method="L-BFGS-B",
-        bounds=[(1e-4, 0.5), (1e-4, 0.999)],
+        method="SLSQP",
+        bounds=[(1e-4, 0.5), (1e-4, 0.99)],
+        constraints=[stationarity_constraint],
         options={"maxiter": 200, "ftol": 1e-7},
     )
     a_opt, b_opt = float(result.x[0]), float(result.x[1])
+    # Defensive post-check (SLSQP can violate constraints by tiny epsilon)
+    stationarity_snapped = False
     if a_opt + b_opt >= 1.0:
-        # Snap to stationary region (rare, but guard)
+        old_b = b_opt
         b_opt = min(b_opt, 0.999 - a_opt - 1e-4)
+        stationarity_snapped = True
+        logger.warning(
+            "fit_dcc_garch: SLSQP returned (a=%.4f, b=%.4f) with a+b≥1; "
+            "snapped b: %.4f → %.4f. Optimiser convergence flagged as False.",
+            a_opt,
+            old_b,
+            old_b,
+            b_opt,
+        )
 
     # Roll the recursion at the optimised (a, b) to build R_t and H_t paths
     q_bar, r_paths = _build_correlation_paths(eps, a_opt, b_opt, method)
@@ -302,6 +345,16 @@ def fit_dcc_garch(
         d_t = np.diag(cond_vol[t])
         h_t = d_t @ r_paths[t] @ d_t
         h_paths.append(0.5 * (h_t + h_t.T))
+
+    # F-stage1-dcc-3 honesty: if we snapped (a,b), recompute log-likelihood
+    # at the snapped point so the returned value is consistent with returned
+    # parameters; also flag converged=False so callers can detect.
+    if stationarity_snapped:
+        ll_value = -_dcc_log_likelihood(np.array([a_opt, b_opt]), eps, method)
+        converged_flag = False
+    else:
+        ll_value = float(-result.fun)
+        converged_flag = bool(result.success)
 
     return DCCResult(
         a=a_opt,
@@ -313,8 +366,8 @@ def fit_dcc_garch(
         conditional_correlations=r_paths,
         conditional_covariance=h_paths,
         standardized_residuals=pd.DataFrame(eps, index=clean.index, columns=col_names),
-        log_likelihood=float(-result.fun),
-        converged=bool(result.success),
+        log_likelihood=float(ll_value),
+        converged=converged_flag,
         n_obs=t_obs,
         n_vars=n_vars,
         method=method,

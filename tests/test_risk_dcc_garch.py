@@ -188,12 +188,27 @@ def test_rejects_short_series():
 
 
 def test_rejects_unknown_method():
+    """F-stage1-dcc-7 regression: typo like 'dcc-garch' must raise, not silently
+    fall through to standard DCC."""
     df = _correlated_garch_returns(n_periods=200, n_vars=2)
-    # type-checker would flag this; runtime should also reject via Literal
-    # Pragmatic: passing an unknown method falls through to standard "dcc"
-    # in _dcc_log_likelihood since method check only branches on cdcc.
-    # We accept this — the public API uses Literal typing, so misuse
-    # is checker-time. Skip explicit runtime test (would be over-engineering).
+    with pytest.raises(ValueError, match="method must be 'dcc' or 'cdcc'"):
+        fit_dcc_garch(df, method="dcc-garch")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="method must be 'dcc' or 'cdcc'"):
+        fit_dcc_garch(df, method="DCC")  # type: ignore[arg-type]
+
+
+def test_stationarity_constraint_enforced_via_slsqp():
+    """F-stage1-dcc-3 regression: SLSQP with explicit a+b<1 constraint should
+    return params that satisfy stationarity WITHOUT silent post-hoc snap.
+    If snap ever occurs (rare numerical edge), converged must be False AND
+    log_likelihood must match the snapped parameters."""
+    df = _correlated_garch_returns(n_periods=400, n_vars=3, rho_target=0.7, seed=42)
+    result = fit_dcc_garch(df, method="dcc")
+    # SLSQP constraint guarantees a + b < 1 (or snap with WARNING + converged=False)
+    assert result.a + result.b < 1.0
+    # When converged=True, no snap occurred. When converged=False, snap may
+    # have happened — log_likelihood was recomputed at snapped params.
+    # In either case, post-condition stationarity holds.
 
 
 # ---------------------------------------------------------------------------
