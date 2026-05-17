@@ -440,7 +440,9 @@ def build_ml_dataset_for_strategy(
         insider_events = load_insider_sample(
             allow_sample=True
         )  # intentional sample — no live insider feed wired (see KNOWN_ISSUES §6.5.5)
-        shipping_events = load_shipping_sample()
+        shipping_events = load_shipping_sample(
+            allow_sample=True
+        )  # intentional sample — no live shipping feed wired (see KNOWN_ISSUES §6.5.5)
 
         prices_with_features = add_insider_features(
             prices_with_features, insider_events

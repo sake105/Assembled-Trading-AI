@@ -135,7 +135,9 @@ def _run_backtest_for_ml_dataset(
                     shipping_events["timestamp"], utc=True
                 )
         else:
-            shipping_events = load_shipping_sample()
+            shipping_events = load_shipping_sample(
+                allow_sample=True
+            )  # intentional sample — no live shipping feed wired (see KNOWN_ISSUES §6.5.5)
 
         prices_with_features = add_insider_features(
             prices_with_features, insider_events

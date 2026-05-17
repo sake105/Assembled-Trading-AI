@@ -414,7 +414,9 @@ def create_event_insider_shipping_signal_fn(
                 )
         else:
             logger.debug("No sample shipping events found, using default dummy data")
-            shipping_events = load_shipping_sample()
+            shipping_events = load_shipping_sample(
+                allow_sample=True
+            )  # intentional sample — no live shipping feed wired (see KNOWN_ISSUES §6.5.5)
 
         # Add features to prices
         logger.debug("Adding insider and shipping features...")

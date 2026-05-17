@@ -17,14 +17,20 @@ from pathlib import Path
 import pandas as pd
 
 
-def load_shipping_sample(path: Path | str | None = None) -> pd.DataFrame:
+def load_shipping_sample(
+    path: Path | str | None = None, *, allow_sample: bool = False
+) -> pd.DataFrame:
     """Load shipping routes sample data.
 
     If path is provided, loads from CSV/Parquet file.
-    If path is None, generates a small dummy DataFrame with sample shipping route events.
+    If path is None and allow_sample=True, generates a small dummy DataFrame with sample
+    shipping route events (for tests/dev only — not suitable for production backtests).
 
     Args:
-        path: Optional path to shipping data file (CSV or Parquet). If None, generates dummy data.
+        path: Optional path to shipping data file (CSV or Parquet). If None, dummy data
+            is returned only when allow_sample=True.
+        allow_sample: Must be explicitly set to True when no path is provided and dummy
+            data is acceptable. Defaults to False so production callers fail loudly.
 
     Returns:
         DataFrame with columns:
@@ -32,14 +38,18 @@ def load_shipping_sample(path: Path | str | None = None) -> pd.DataFrame:
         - route_id: Unique route identifier
         - port_from: Origin port code
         - port_to: Destination port code
+        - symbol: Stock symbol linked to this route
         - ships: Number of ships on this route
         - congestion_score: Congestion score (0-100, higher = more congested)
 
+    Raises:
+        ValueError: If path is None and allow_sample is False (production guard).
+
     Examples:
-        >>> # Generate dummy data
-        >>> df = load_shipping_sample()
-        >>> # Load from file
+        >>> # Load from real file (production)
         >>> df = load_shipping_sample(path="data/shipping/shipping_routes.parquet")
+        >>> # Generate dummy data explicitly (tests/dev only)
+        >>> df = load_shipping_sample(allow_sample=True)
     """
     if path is not None:
         path = Path(path)
@@ -67,6 +77,13 @@ def load_shipping_sample(path: Path | str | None = None) -> pd.DataFrame:
             raise ValueError(
                 f"Unsupported file format: {path.suffix}. Use .parquet or .csv"
             )
+
+    if not allow_sample:
+        raise ValueError(
+            "load_shipping_sample() received no path and no explicit "
+            "allow_sample=True. Production callers must provide a real "
+            "shipping data file; tests/dev callers must pass allow_sample=True."
+        )
 
     # Generate dummy data
     now = datetime.now(timezone.utc)
