@@ -38,6 +38,9 @@ tmp_*.py
 .env
 .env.*
 !.env.example
+# F-senior-4: template files in configs/env/ must be tracked (single source of
+# truth for env-var contract). Exclude them from the .env.* gitignore pattern.
+!configs/env/*.template
 *.env
 .env.local
 .env.dev
