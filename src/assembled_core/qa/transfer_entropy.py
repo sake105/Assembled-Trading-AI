@@ -17,11 +17,22 @@ Two estimators provided:
    exact for finite ``n_bins`` discretisation; recommended for reproducibility
    and minimal dependencies.
 
-2. ``transfer_entropy_ksg`` — sklearn-based KSG-style continuous-MI difference
-   approximation (Wibral et al. 2014 §2.2):
-   ``TE(X→Y; lag) ≈ MI((Y_past, X_past) → Y_future) − MI(Y_past → Y_future)``.
-   Uses ``mutual_info_regression`` (Kraskov-Stögbauer-Grassberger 2004 kNN
-   estimator) on the two MI terms.
+2. ``transfer_entropy_ksg`` — sklearn-based heuristic approximation.
+
+   **IMPORTANT: This is NOT the textbook KSG-TE.** Wibral et al. 2014 §2.2
+   defines TE as ``MI((Y_past, X_past) → Y_future) − MI(Y_past → Y_future)``
+   where the first term is a multivariate joint MI. sklearn's
+   ``mutual_info_regression`` is column-wise, NOT a joint-MI estimator —
+   the proper joint KSG estimator is in ``idtxl`` or ``JIDT``.
+
+   This implementation substitutes a home-grown conservative bound:
+   ``TE_approx = max(0, MI(X_past; Y_future) − MI(Y_past; Y_future) · ρ²(X_past, Y_past))``
+   where ρ² is the squared Pearson correlation. This tracks the true TE for
+   Gaussian-AR-like processes (where MI is monotone in ρ²) but lacks general
+   justification beyond that. Use the binned estimator for rigorous TE; use
+   this only for fast screening when the dependency profile is roughly Gaussian.
+
+   For production-grade KSG-TE install ``idtxl`` (multivariate kNN estimator).
 
 References:
 - Schreiber, T. (2000). *Measuring Information Transfer*. PRL 85(2): 461-464.

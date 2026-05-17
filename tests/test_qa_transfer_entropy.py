@@ -127,13 +127,26 @@ def test_binned_te_handles_nan_via_dropna():
 
 
 def test_ksg_te_returns_none_without_sklearn(monkeypatch):
-    """Graceful degradation: returns None if sklearn unavailable."""
+    """Graceful degradation: returns None if sklearn unavailable.
+
+    F-senior-c4080-2: must clear sklearn from sys.modules BEFORE the
+    monkeypatched __import__ runs, otherwise the cached module is returned
+    without invoking the import machinery and the test would silently pass
+    via the cache rather than the absent-sklearn code path.
+    """
     import builtins
+    import sys
+
+    # Evict any cached sklearn submodules so the import inside
+    # transfer_entropy_ksg has to go through __import__ (and hit our stub).
+    for mod_name in list(sys.modules):
+        if mod_name == "sklearn" or mod_name.startswith("sklearn."):
+            monkeypatch.delitem(sys.modules, mod_name, raising=False)
 
     real_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name.startswith("sklearn"):
+        if name == "sklearn" or name.startswith("sklearn."):
             raise ImportError("simulated sklearn absent")
         return real_import(name, *args, **kwargs)
 
