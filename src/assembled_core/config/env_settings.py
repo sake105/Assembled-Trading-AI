@@ -12,7 +12,7 @@ Environments:
   prod     — Alpaca Live; real money
 
 ATA_ENVIRONMENT env-var selects the environment (default: dev).
-Per-environment .env files live in config/env/.env.{dev,staging,prod}.
+Per-environment .env files live in configs/env/.env.{dev,staging,prod}.
 """
 
 from __future__ import annotations
@@ -136,7 +136,7 @@ class EnvSettings(BaseSettings):
 # ---------------------------------------------------------------------------
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_ENV_DIR = _REPO_ROOT / "config" / "env"
+_ENV_DIR = _REPO_ROOT / "configs" / "env"
 
 
 @lru_cache(maxsize=1)
@@ -148,7 +148,7 @@ def get_env_settings(env_override: str | None = None) -> EnvSettings:
     2. ATA_ENVIRONMENT env-var
     3. Default: "dev"
 
-    Looks for config/env/.env.{env} file. If the file does not exist,
+    Looks for configs/env/.env.{env} file. If the file does not exist,
     settings are loaded from process environment only (useful in CI).
     """
     env_name = (
