@@ -1,3 +1,13 @@
+# research/
+
+Research experiments and analyses organised by topic (altdata/, meta/, risk/, trend/, etc.).
+
+NOT a place for operator-facing scripts — those go in `notebooks/`.
+
+Completed but no-longer-active research lives in `research/dead_ends/`.
+
+---
+
 # Research Directory – Assembled Trading AI
 
 **Zweck:** Dieser Ordner enthält Research-Experimente, Notebooks und Skripte für die systematische Exploration neuer Trading-Ideen, Strategien und Datenquellen.
