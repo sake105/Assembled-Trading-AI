@@ -809,15 +809,32 @@ verlangt DVC-Pin der yfinance-Daten + git-tag + Multi-Stunden-Backtest.
   commit 2feec16+e26ee81). HRP / Black-Litterman / Resampled-EF / CVaR / Max-Div
   bleiben separate Items in `portfolio/` (z. T. existieren bereits — siehe
   Doppelstruktur-Audit unter §6.5.1).
-- [ ] Risk-Analytics (tail_risk_evt, cornish_fisher_var, crisis_composite,
-  dynamic_drawdown_control, correlation_breakdown)
+- [x] Risk-Analytics — weitgehend DONE via existierende Module (2026-05-17 Audit):
+  - `tail_risk_evt` → `risk/risk_metrics.py::compute_evt_tail_var` (Zeile 1201)
+  - `cornish_fisher_var` → `risk/risk_metrics.py::compute_cornish_fisher_var` (Zeile 257)
+    + `risk/var_methods.py::VaRCalculator.cornish_fisher_var` (Zeile 204)
+  - `crisis_composite` → `events/crisis_alpha/` Subsystem (15 Module incl.
+    risk_budget, gates, pipeline, state_machine, entry/exit_rules, baskets)
+  - `correlation_breakdown` → `qa/scenario_simulator.py::simulate_correlation_breakdown_scenario`
+  - `dynamic_drawdown_control` → `risk/risk_metrics.py::compute_drawdown_duration`
+    (passive metric); active limit-management ist Teil von `risk/state_machine.py`.
 - [x] Volatility-Models (GARCH/EGARCH/GJR, HAR-RV, DCC-GARCH) — §6.5.2 GARCH-
   Konsolidierung Phase 1 DONE (2026-05-17). C4-072 DCC-GARCH (Engle 2002 + cDCC
   Aielli 2013) implementiert in `src/assembled_core/risk/dcc_garch.py`. HAR-RV in
   §8.13 Forensik-Sweep adressiert.
-- [ ] Volatility-Targeting-Strategie (audit C3-034 — die einzige OOS-validierte)
-- [ ] Attribution, State-Space, Time-Series-Tools, Microstructure,
-  Stress-Testing, Economic-Data, Factor-Suite
+- [ ] **Volatility-Targeting-Strategie (audit C3-034):** Zwei Module existieren —
+  `risk/vol_targeting.py` + `risk/vol_targeting_ewma.py`. **Doppelstruktur-Verdacht
+  (vergleichbar §6.5.2/6.5.3/6.5.4)** — Konsolidierungs-Audit als eigener Sprint
+  tracken: kanonisches Modul wählen, anderen deprecaten. Tracking als Phase A:
+  Bestandsaufnahme; Phase B: Wahl + Deprecation; Phase C: Caller-Migration.
+- [x] Attribution, State-Space, Time-Series-Tools, Microstructure, Stress-Testing,
+  Economic-Data, Factor-Suite — weitgehend existent: Attribution via Brinson-Fachler
+  in `risk_metrics::compute_brinson_fachler_attribution`; State-Space in
+  `signals/regime/hmm_posterior.py`; Stress-Testing in `qa/scenario_simulator.py`
+  + `portfolio/stress_test_constraints.py`; Economic-Data via FRED/macro-Pfade;
+  Factor-Suite über `features/` + `strategies/multifactor_v2.py`. Einzelne Audit-
+  Wünsche (z. B. Microstructure-Tools über order-book hinaus) bleiben separate
+  Items, aber das Sammel-Item §8.8 ist nicht mehr aussagekräftig.
 
 **Discard-Liste (audit C3-043):** `dl/`, `dl_advanced/`, `rl/`,
 `discovery/genetic_programming`, `bayesian/`, `causal_inference/`,
