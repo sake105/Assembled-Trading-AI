@@ -426,7 +426,11 @@ def find_min_d_for_stationarity(
                     "correlation_with_original": corr,
                     "grid_tested": list(d_grid),
                 }
-        except Exception as exc:
+        except (ValueError, np.linalg.LinAlgError, RuntimeError) as exc:
+            # F-senior-1 (2026-05-17): narrow from `except Exception`.
+            # ADF/fracdiff failure modes are bounded: ValueError (constant
+            # series after diff), LinAlgError (singular matrix), RuntimeError
+            # (statsmodels internal). Other exceptions propagate.
             logger.debug("ADF failed at d=%s: %s", d, exc)
             continue
 
