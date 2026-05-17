@@ -953,10 +953,16 @@ durchgeführt wurden:
   Skeleton (siehe §8.6).
 - [ ] **C4-083 PEAD-SUE EPS-Expected-Source:** IBES Consensus vs.
   Random-Walk vs. seasonal RW — Klärung offen.
-- [ ] **C4-084 pairs_trading half-life via OU:** Engle-Granger /
-  Johansen-Test + Ornstein-Uhlenbeck-Half-Life-Estimate nicht gewired
-  (Modul `erweiterung/timeseries_tools/ornstein_uhlenbeck.py` existiert
-  nicht auf ERWEITERUNG-HEAD).
+- [x] **C4-084 pairs_trading half-life via OU** — DONE 2026-05-17: neues Modul
+  `src/assembled_core/signals/pairs_diagnostics.py` mit `ou_half_life(spread)`
+  (AR(1)-OLS, λ = -slope, half-life = ln(2)/λ; ∞ bei nicht-mean-reverting Spread,
+  NaN bei <30 obs oder all-constant) und `engle_granger_cointegration(y, x)`
+  (Wrapper über `statsmodels.tsa.stattools.coint` mit Critical-Values 1%/5%/10%
+  und `is_cointegrated_at_5pct` Convenience-Bool). 13 Tests passen (synthetic
+  AR(1) recovery, random walk → inf/large, cointegrated/non-cointegrated pairs,
+  edge cases). Pairs-trading-Caller können diese Diagnostik vor Signal-Gen
+  nutzen um Pair-Kandidaten zu filtern. Johansen-Test (multivariate, > 2
+  assets) bleibt offen — Engle-Granger ist ausreichend für bivariate pairs.
 
 ### 8.14 Test-Skips und xfails (Inventur) — DONE 2026-05-12 (Wave 19 Follow-On)
 
