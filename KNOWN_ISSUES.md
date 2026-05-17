@@ -948,9 +948,25 @@ durchgeführt wurden:
   - `src/assembled_core/attribution/brinson_multi_period.py` — Cariño (1999) logarithmic linking für Multi-Period-Reconciliation (`carino_link_coefficients`, `link_multi_period_attribution`, `reconciliation_residual`). Docstring referenziert explizit "audit C4-077".
   - Frongello (2002) als Alternative im Docstring referenziert (Cariño bevorzugt).
   - Tests in `tests/test_wave19_helpers.py`.
-- [ ] **C4-078 LPPL-Bubble Stress-Test (Sornette):** existiert nur als
-  Forschungs-Layer; bei Aktivierung als Trading-Signal verlangt
-  Synthetic-Stress-Validation.
+- [x] **C4-078 LPPL-Bubble Stress-Test (Sornette)** — DONE 2026-05-17:
+  Synthetic-Stress-Validation hinzugefügt. `LPPLSCrashDetector` existierte
+  bereits in `src/assembled_core/signals/lppls_crash.py` als JLS-Modell
+  (Johansen-Ledoit-Sornette) mit numpy-Fallback + `lppls`-Lib-Pfad,
+  Sornette-Validitäts-Heuristik (0.1<m<0.9, 6<ω<13, B<0, |C/B|<1).
+  - **Neu:** `simulate_lppls_path(...)` Helper in selben Modul — generiert
+    Synthetic-Log-Price-Paths aus bekannten LPPLS-Parametern (m, ω, φ, A,
+    B, C, tc, n_days, noise_σ). Validiert tc > n_days (Singularität muss
+    in der Zukunft sein).
+  - **11 Validation-Tests** in `tests/test_signals_lppls_validation.py`:
+    Simulator reproduzierbar mit Seed, positive Prices, Edge-Cases.
+    Detector smoke-checks (finite scores auf Bubble + Random-Walk).
+    Diskriminations-Test: Bubble-Paths haben über 5 seeds **höhere mean
+    crash_confidence** als Random-Walks. tc-Recovery innerhalb 0.5-2.0x
+    der wahren tc. Robust gegen kurze Fenster.
+  - **Activation als Trading-Signal:** weiterhin GATED — die Heuristik ist
+    direktionell diskriminativ, aber kein präziser Crash-Klassifizierer.
+    Audit-Anforderung "Synthetic-Stress-Validation vor Aktivierung" ist
+    jetzt mit reproduzierbarer Test-Suite erfüllt.
 - [x] **C4-079 Spillover-Index Window/Lag-Sensitivität (Diebold-Yilmaz)** — DONE 2026-05-17: Modul existierte 0 hits in src/ (KNOWN_ISSUES-Eintrag implizierte vorhandene Implementation, war stale). Neu in dieser Session:
   - `src/assembled_core/qa/spillover_index.py` mit Diebold-Yilmaz (2012) Total Spillover Index + Pesaran-Shin (1998) generalized FEVD (order-independent).
   - `compute_spillover_index(returns, lag=4, horizon=10) → SpilloverResult` (TSI%, FEVD-Matrix, to_others/from_others/net pro Variable). Lag + Horizon explizit parametrisiert (Window-Sensitivität pro Audit-Aufforderung).

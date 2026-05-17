@@ -4,6 +4,11 @@ Implements Johansen-Ledoit-Sornette (JLS) model in pure numpy.
 Uses `lppls` pip package if installed; otherwise pure numpy fallback.
 
 Reference: Sornette, D. (2003) Why Stock Markets Crash. Princeton University Press.
+
+Includes ``simulate_lppls_path`` helper for synthetic-stress validation
+(audit C4-078 closure) — generates log-price paths from known LPPLS
+parameters so the detector's recovery + confidence calibration can be
+tested against ground truth.
 """
 
 from __future__ import annotations
@@ -15,6 +20,74 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def simulate_lppls_path(
+    *,
+    m: float = 0.5,
+    omega: float = 8.0,
+    phi: float = 0.0,
+    A: float = 4.6,
+    B: float = -0.5,
+    C: float = 0.05,
+    tc: float = 300.0,
+    n_days: int = 252,
+    noise_sigma: float = 0.005,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Generate a synthetic log-price path from known LPPLS parameters.
+
+    LPPLS forward formula:
+        ln(p(t)) = A + B·(tc − t)^m + C·(tc − t)^m · cos(ω·ln(tc − t) + φ) + ε_t
+
+    The path covers ``t = 0..n_days-1``. ``tc`` should be > n_days (singularity
+    in the future) for "bubble building" stress data, and the parameters
+    should satisfy Sornette's validity conditions (0.1 < m < 0.9,
+    6 < ω < 13, B < 0, |C/B| < 1) for the detector to recognise them as
+    a high-confidence crash signal.
+
+    Args:
+        m: Power-law exponent (Sornette valid: 0.1 < m < 0.9).
+        omega: Log-periodic angular frequency (Sornette valid: 6 < ω < 13).
+        phi: Phase offset.
+        A: Constant offset (≈ log of starting price level).
+        B: Power-law amplitude (Sornette valid: B < 0 for bubble).
+        C: Log-periodic amplitude (Sornette valid: |C/B| < 1).
+        tc: Critical time / singularity (must be > n_days for a forward-
+            looking bubble path; otherwise tc-t becomes ≤ 0 and the
+            formula is undefined).
+        n_days: Length of returned path in days.
+        noise_sigma: Gaussian noise σ added to the log-price (default 0.005
+            ≈ 0.5% per day, realistic for daily equities).
+        seed: RNG seed for noise reproducibility.
+
+    Returns:
+        Array of length ``n_days`` containing simulated PRICES (exp of log-price),
+        suitable as input to ``LPPLSCrashDetector().fit_and_score(prices)``.
+
+    Raises:
+        ValueError: If ``tc <= n_days`` (singularity must be in the future)
+            or ``n_days < 30``.
+    """
+    if tc <= n_days:
+        raise ValueError(
+            f"simulate_lppls_path: tc ({tc}) must be > n_days ({n_days}) so the "
+            f"singularity is in the FUTURE relative to the path"
+        )
+    if n_days < 30:
+        raise ValueError(f"simulate_lppls_path: n_days must be ≥30, got {n_days}")
+
+    t = np.arange(n_days, dtype=float)
+    dt = tc - t  # all positive by construction
+    power = dt**m
+    phase = omega * np.log(dt)
+    log_p = A + B * power + C * power * np.cos(phase + phi)
+
+    rng = np.random.default_rng(seed)
+    log_p = log_p + rng.normal(0.0, noise_sigma, n_days)
+
+    # Return prices (LPPLSCrashDetector takes prices and log-transforms internally)
+    return np.exp(log_p)
 
 
 class LPPLSCrashDetector:
