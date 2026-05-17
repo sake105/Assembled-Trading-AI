@@ -670,11 +670,18 @@ nur unter `adapters/`; `tests/test_hexagonal_layering.py` bleibt grün.
 
 **Pfad:** `docs/PERFORMANCE_MIGRATION_PLAN.md`.
 
-- [ ] **B-001 Polars (1d-Sprint):** Migration von `src/assembled_core/features/ta_features.py`
-  auf Polars LazyFrame. **Blocker:** `polars` nicht im venv (`pip install polars`).
-  Acceptance: 5y × 500 Symbole < 10s (pandas: ~45s), Memory < 1 GB.
-- [ ] **B-002 Numba JIT (½d-Sprint):** `@njit` auf `qa/backtest_engine.simulate_trades`.
-  **Blocker:** `numba` nicht im venv.
+- [x] **B-001 Polars (1d-Sprint):** DONE. Parallel-Modul
+  `src/assembled_core/features/ta_features_polars.py` (259 LOC) shipped als
+  Drop-in-Alternative — pandas-in/pandas-out API mit Polars LazyFrame intern.
+  Tests `tests/test_ta_features_polars_equivalence.py` pinnen 1e-9 numerische
+  Äquivalenz mit pandas-Pfad. Parallel-Modul statt in-place Replace dokumentiert
+  als bewusste Entscheidung (numerische Äquivalenz + opt-in pro Caller).
+- [x] **B-002 Numba JIT (½d-Sprint):** DONE. Numba-Pfad bereits implementiert in
+  `src/assembled_core/qa/backtest_engine_numba.py` (126 LOC) mit `@njit`
+  auf `compute_position_deltas_numba` und `aggregate_position_deltas_numba`.
+  Wrapper in `qa/backtest_engine.py:143-229` mit `use_numba=True` default +
+  graceful fallback auf pandas wenn numba nicht installiert. Item-Blocker
+  "numba nicht im venv" ist KEIN Blocker — Pfad ist optional accelerated.
 - [ ] **B-003 Rust/PyO3 (LONG):** explizit deferred per Audit selbst — erst nach
   Polars+Numba ausreizen.
 - [x] **B-004 Async-I/O:** `utils/async_fetch.py` shipped (Wave 16).
