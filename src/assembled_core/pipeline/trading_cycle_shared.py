@@ -623,6 +623,13 @@ def _build_features_default(
     if feature_cfg_obj is not None and getattr(
         feature_cfg_obj, "include_congress", False
     ):
+        # F-senior-2: split try/except. Inner: narrow Import/ModuleNotFound around
+        # the import statements only (ghost-module case → WARNING + skip feature).
+        # Outer: catch-all around data ops with logger.error + skip — prevents
+        # pipeline-wide crash if a future restored module raises runtime errors
+        # from load_congress_sample / add_congress_features.
+        load_congress_sample = None
+        add_congress_features = None
         try:
             from src.assembled_core.data.congress_trades_ingest import (
                 load_congress_sample,
@@ -630,16 +637,6 @@ def _build_features_default(
             from src.assembled_core.features.congress_features import (
                 add_congress_features,
             )
-
-            congress_path = getattr(feature_cfg_obj, "congress_data_path", None)
-            congress_events = load_congress_sample(path=congress_path)
-            if not congress_events.empty:
-                prices_with_features = add_congress_features(
-                    prices_with_features,
-                    congress_events,
-                    as_of=ctx.as_of,
-                )
-                logger.debug("[Features] Congress trading features merged")
         except ModuleNotFoundError as e:
             logger.warning(
                 "[Features] Congress features SILENTLY DISABLED — "
@@ -650,6 +647,28 @@ def _build_features_default(
             )
         except ImportError as e:
             logger.warning("[Features] Congress features import failed: %s", e)
+
+        if load_congress_sample is not None and add_congress_features is not None:
+            try:
+                congress_path = getattr(feature_cfg_obj, "congress_data_path", None)
+                congress_events = load_congress_sample(path=congress_path)
+                if not congress_events.empty:
+                    prices_with_features = add_congress_features(
+                        prices_with_features,
+                        congress_events,
+                        as_of=ctx.as_of,
+                    )
+                    logger.debug("[Features] Congress trading features merged")
+            except Exception as e:
+                # Outer safety net: data-op errors (FileNotFoundError, EmptyDataError,
+                # KeyError, ValueError, etc.) MUST NOT crash the pipeline. Log loud
+                # and skip the congress feature for this cycle.
+                logger.error(
+                    "[Features] Congress feature load/merge failed — "
+                    "feature SKIPPED for this cycle: %s",
+                    e,
+                    exc_info=True,
+                )
 
     return prices_with_features
 
