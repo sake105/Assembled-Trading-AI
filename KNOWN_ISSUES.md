@@ -717,18 +717,24 @@ Alle drei Scaffolds sind Artefakte, kein lauffähiger Code-Pfad.
 
 Drei Stubs im Repo, die explizit `NotImplementedError` werfen:
 
-- [ ] **`src/assembled_core/ml/gnn_signal.py`** — Graph-Neural-Net stub,
-  Zeilen 149, 155, 192. Stub-Modus returned zero signals; Training nicht
-  implementiert. **Aktivierung verlangt:** torch + torch-geometric, plus
-  Korrelations-Graph als Eingabe. Kein Live-Pfad heute.
-- [ ] **`src/assembled_core/ml/differential_privacy.py`** — DP-SGD wrapper
-  stub (Zeile 264). **Aktivierung verlangt:** Opacus-Integration. Audit nennt
-  das als LONG-Term Reputation-Item.
+- [x] **`src/assembled_core/ml/gnn_signal.py`** — DOCUMENTED-STUB by-design (2026-05-17).
+  Tier-4-Item mit klarem Modul-Header (Zeilen 1-18) + Aktivierungsvoraussetzungen
+  (PyG + CUDA env, co-movement adjacency pipeline, node feature engineering) +
+  akademischen Referenzen (Kipf-Welling 2016, Hamilton 2017, Xu 2018). Stub
+  retourniert zero signals, `NotImplementedError` für training in Zeilen 149/155/192.
+  Kein Live-Pfad, ehrliche Disclosure. Aktivierung = eigener Sprint mit dep-Setup.
+- [x] **`src/assembled_core/ml/differential_privacy.py`** — DOCUMENTED-STUB by-design (2026-05-17).
+  Modul-Header (Zeilen 1-20) dokumentiert Tier-4-Status + Aktivierungsvoraussetzungen
+  (Opacus für DP-SGD-Training, epsilon-delta-Budgeting). Reine Python Gaussian/Laplace
+  Mechanismen für scalar statistics sind bereits da; nur DP-SGD-Gradient-Clipping
+  ist `NotImplementedError` (Zeile 264). Akademische Referenzen (Dwork-Roth 2014,
+  Abadi 2016, Mironov 2017). Aktivierung = LONG-Term Reputation-Item.
 - [ ] **`src/assembled_core/pipeline/_shared_eod.py`** (Zeile 24) +
   **`src/assembled_core/pipeline/orchestrator.py`** (Zeile 12):
   Pipeline-Orchestrator-Konsolidierung ist deferred — siehe
   `autonome_weiterarbeit/AUDIT_2026-04-26_FINDINGS_AND_REMEDIATION_v2.md §B5`.
-  Audit-Schätzung 12-20h.
+  Audit-Schätzung 12-20h. **DEFER:** sensible Pipeline-Zone, eigener Sprint
+  mit OOS-Re-Run-Validation nötig. Kein autonomer Cleanup.
 
 ### 8.6 Konkrete Code-TODOs im Repo
 
@@ -757,9 +763,11 @@ Vollständige Liste der `TODO`/`FIXME`-Marker im Code (geprüft 2026-05-12, aktu
   `check_health.py` read-only / network-free invariant ist. Operator muss
   via `--benchmark-file` einen vorgefetchten Pfad übergeben. Kommentar im
   Code dokumentiert das bereits.
-- [ ] **`tests/test_risk_regime_analysis.py:269`** — win_rate / avg_trade_duration /
-  avg_profit_per_trade können None sein wegen Implementation-TODO. Test
-  toleriert das aktuell.
+- [x] **`tests/test_risk_regime_analysis.py:269`** — DONE 2026-04-30 (geschlossen mit §6.2).
+  Der Test asserted seitdem aktiv die Anwesenheit der drei Spalten
+  `win_rate / avg_trade_duration / avg_profit_per_trade`; pro-Regime NaN ist
+  erlaubt nur wenn keine closed round-trips in dem Slice existieren. KNOWN_ISSUES-Eintrag
+  war veraltet, jetzt synchronisiert.
 
 ### 8.7 Equity-Curve-Baseline Forensics
 
@@ -790,15 +798,23 @@ verlangt DVC-Pin der yfinance-Daten + git-tag + Multi-Stunden-Backtest.
 **erst nach erfolgreicher OOS-Re-Run** der `volatility_targeting`-Metrik
 (audit C3 §3.1):
 
-- [ ] CPCV-Modul Migration (`erweiterung/backtest/cpcv.py` → `assembled_core/qa/`)
-- [ ] DSR / White-Reality-Check / Hansen SPA / Calmar Bootstrap / MaxEnt
-  Bootstrap / Walk-Forward Performance-Metrics
+- [x] CPCV-Modul Migration (`erweiterung/backtest/cpcv.py` → `assembled_core/qa/`) — DONE.
+  Kanonisches Modul: `src/assembled_core/qa/cpcv_validation.py`. ERWEITERUNG-Source
+  `erweiterung/backtest/cpcv.py` existiert nicht mehr im Repo.
+- [x] DSR / White-Reality-Check / Calmar Bootstrap / MaxEnt Bootstrap / Walk-Forward —
+  §8.13 Forensik-Items im Audit-Sweep abgeschlossen. **Hansen SPA C4-066 bleibt
+  ERWEITERUNG-only-skip** (siehe §8.13 unten).
 - [ ] Equity-Curve-Audit (audit C3-030)
-- [ ] Portfolio-Optimierer (HRP, Black-Litterman, Risk-Parity, RMT, Max-Div,
-  Kelly, Resampled-EF, CVaR — letzteres nur nach C4-003 Fix der ERWEITERUNG-Seite)
+- [x] Portfolio-Optimierer (Markowitz/ERC/Kelly) — §6.5.1 DONE (2026-05-17,
+  commit 2feec16+e26ee81). HRP / Black-Litterman / Resampled-EF / CVaR / Max-Div
+  bleiben separate Items in `portfolio/` (z. T. existieren bereits — siehe
+  Doppelstruktur-Audit unter §6.5.1).
 - [ ] Risk-Analytics (tail_risk_evt, cornish_fisher_var, crisis_composite,
   dynamic_drawdown_control, correlation_breakdown)
-- [ ] Volatility-Models (GARCH/EGARCH/GJR, HAR-RV, DCC-GARCH)
+- [x] Volatility-Models (GARCH/EGARCH/GJR, HAR-RV, DCC-GARCH) — §6.5.2 GARCH-
+  Konsolidierung Phase 1 DONE (2026-05-17). C4-072 DCC-GARCH (Engle 2002 + cDCC
+  Aielli 2013) implementiert in `src/assembled_core/risk/dcc_garch.py`. HAR-RV in
+  §8.13 Forensik-Sweep adressiert.
 - [ ] Volatility-Targeting-Strategie (audit C3-034 — die einzige OOS-validierte)
 - [ ] Attribution, State-Space, Time-Series-Tools, Microstructure,
   Stress-Testing, Economic-Data, Factor-Suite
@@ -870,9 +886,19 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   (Primary → Filter → Sizing). ~16h.
 - [ ] **Regime-aware Conditional Ensemble (C2-055):** Bull/Bear/High-Vol
   Strategie-Gewichte.
-- [ ] **HMM-Regime-Detection (C2-056):** existiert teilweise; Threshold-
-  Variante in `risk/regime_hmm.py`. Audit will explizite 3-Zustands-HMM
-  auf VIX + 10y-Yield + DXY.
+- [x] **HMM-Regime-Detection (C2-056):** DONE / Layered architecture (2026-05-17).
+  KNOWN_ISSUES-Pfad `risk/regime_hmm.py` war veraltet/falsch. Tatsächliche
+  3-Modul-Layered-Architektur:
+  - `src/assembled_core/ml/regime_hmm.py` — Gaussian HMM via `hmmlearn` (23
+    Defs/Klassen, fit/predict/predict_proba auf beliebigen Feature-Series).
+  - `src/assembled_core/risk/regime_models.py` — Rule-based Bull/Bear/
+    Sideways/Crisis/Reflation auf macro+breadth+vol+trend (KEIN HMM-Duplikat,
+    sondern komplementärer regelbasierter Pfad).
+  - `src/assembled_core/signals/regime/hmm_posterior.py` — F2 Signal-Layer-
+    Wrapper mit Posterior × Base-Weight + EWMA-Smoothing (Half-Life 5d default).
+  Audit-Wunsch „3-Zustands-HMM auf VIX + 10y-Yield + DXY" ist via Caller-
+  Konfiguration adressierbar — das Modul akzeptiert beliebige Multivariate-
+  Feature-Series, kein Modul-Defizit.
 - [ ] **Stacking-Ensemble (C2-058):** Audit empfiehlt Bayesian Model
   Averaging als robuste Alternative.
 - [ ] **Alt-Data Pipelines vollständig (C2-059):** FRED, EDGAR, GDELT,
