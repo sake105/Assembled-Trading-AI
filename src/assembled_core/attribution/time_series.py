@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from assembled_core.attribution.schemas import CompositeAttribution
+from src.assembled_core.attribution.schemas import CompositeAttribution
 
 # ---------------------------------------------------------------------------
 # IC aggregation

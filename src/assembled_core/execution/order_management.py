@@ -17,7 +17,7 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 
-from assembled_core.execution.idempotency import (
+from src.assembled_core.execution.idempotency import (
     build_client_order_id,
     is_duplicate_error,
 )

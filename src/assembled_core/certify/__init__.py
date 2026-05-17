@@ -3,7 +3,7 @@
 From 43_BACKTEST_REPRODUCIBILITY_CERTIFICATE.md.
 """
 
-from assembled_core.certify.generator import (
+from src.assembled_core.certify.generator import (
     build_input_fingerprint,
     build_output_fingerprint,
     file_sha256,
@@ -14,7 +14,7 @@ from assembled_core.certify.generator import (
     save_certificate,
     verify_certificate,
 )
-from assembled_core.certify.schema import (
+from src.assembled_core.certify.schema import (
     EnvironmentFingerprint,
     InputFingerprint,
     OutputFingerprint,

@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from assembled_core.execution.rl_environment import (
+from src.assembled_core.execution.rl_environment import (
     GYM_AVAILABLE,
     ExecutionEnvConfig,
     OrderExecutionEnv,

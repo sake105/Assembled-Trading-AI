@@ -2,7 +2,7 @@
 
 Usage
 -----
-from assembled_core.config.env_validator import validate_env
+from src.assembled_core.config.env_validator import validate_env
 
 # Validate all required vars (raises RuntimeError if any are missing):
 validate_env()

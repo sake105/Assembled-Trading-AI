@@ -13,7 +13,7 @@ from pathlib import Path
 
 _logger = logging.getLogger(__name__)
 
-from assembled_core.attribution.schemas import CompositeAttribution
+from src.assembled_core.attribution.schemas import CompositeAttribution
 
 
 class AttributionStore:

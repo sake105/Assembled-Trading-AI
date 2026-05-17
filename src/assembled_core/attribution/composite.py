@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from assembled_core.attribution.schemas import CompositeAttribution
+from src.assembled_core.attribution.schemas import CompositeAttribution
 
 logger = logging.getLogger(__name__)
 

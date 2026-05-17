@@ -3,13 +3,13 @@
 From 38_FEATURE_ATTRIBUTION_DASHBOARD.md.
 """
 
-from assembled_core.attribution.composite import (
+from src.assembled_core.attribution.composite import (
     attribution_to_dict,
     build_attribution,
 )
-from assembled_core.attribution.schemas import CompositeAttribution
-from assembled_core.attribution.storage import AttributionStore
-from assembled_core.attribution.time_series import (
+from src.assembled_core.attribution.schemas import CompositeAttribution
+from src.assembled_core.attribution.storage import AttributionStore
+from src.assembled_core.attribution.time_series import (
     attributions_to_df,
     dead_feature_report,
     detect_attribution_drift,

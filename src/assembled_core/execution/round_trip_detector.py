@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from assembled_core.execution.pdt_tracker import DayTrade, PDTTracker
+from src.assembled_core.execution.pdt_tracker import DayTrade, PDTTracker
 
 
 class RoundTripDetector:
