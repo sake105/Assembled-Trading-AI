@@ -34,6 +34,14 @@ from src.assembled_core.portfolio.hierarchical_risk_parity import (  # noqa: F40
     compute_hrp_weights,
     hrp_with_turnover_control,
 )
+from src.assembled_core.portfolio.optimizers import (  # noqa: F401
+    OptimizerResult,
+    equal_risk_contribution_weights,
+    max_sharpe_weights,
+    mean_variance_efficient_frontier,
+    min_variance_weights,
+    multivariate_kelly_weights,
+)
 
 __all__ = [
     "apply_cost_aware_wrapper",
@@ -54,4 +62,10 @@ __all__ = [
     "AdaptiveConformalSizer",
     "compute_hrp_weights",
     "hrp_with_turnover_control",
+    "OptimizerResult",
+    "min_variance_weights",
+    "max_sharpe_weights",
+    "mean_variance_efficient_frontier",
+    "equal_risk_contribution_weights",
+    "multivariate_kelly_weights",
 ]

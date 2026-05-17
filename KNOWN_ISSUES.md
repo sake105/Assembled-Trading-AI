@@ -474,10 +474,13 @@ API-Routers (FastAPI dynamic registration), Feature-Module (config-driven), Data
 
 Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" identifizierte. Libraries sind teilweise gepinnt (`scipy`, `arch==8.0.0`, `hmmlearn`), aber kein dediziertes Modul im Repo. **Keine Aktion in der laufenden Dummy/Info-Flow-Plan-Welle (`docs/superpowers/plans/2026-05-17-dummy-data-and-info-flow.md`).**
 
-- [ ] **6.5.1 Portfolio-Optimierer** — Markowitz, Risk-Parity, fraktionaler Kelly
-  - **Ziel-Pfad:** `src/assembled_core/portfolio/optimizers/`
-  - **Voraussetzungen:** Covariance-Schätzer (Shrinkage), Constraints-Spec, Risk-Budget-Spec
-  - **Wert:** Höchster Quant-Hebel; ersetzt einfaches Equal-Weight/Quantile-Sizing
+- [x] **6.5.1 Portfolio-Optimierer** — Markowitz, Risk-Parity, fraktionaler Kelly — **DONE 2026-05-17**
+  - **Realisiert:** `src/assembled_core/portfolio/optimizers.py` — dependency-light Pure-numpy/scipy Referenz-Modul, ergänzt die 22 existierenden Portfolio-Module (kein Doppelstruktur)
+  - **Funktionen:** `min_variance_weights` + `max_sharpe_weights` (closed-form unconstrained + SLSQP constrained, mit `denom<0`-Fallback), `mean_variance_efficient_frontier` (n_points Grid mit ehrlicher `converged`-Spalte), `equal_risk_contribution_weights` (Maillard 2010 — echte Risk-Parity vs. inverse-vol in `position_sizing`), `multivariate_kelly_weights` (Thorp 2006 half-Kelly default, opt-in `renormalize_to_unity`)
+  - **Tests:** 26/26 grün (`tests/test_portfolio_optimizers.py`)
+  - **Review-Chain:** Stage 1 CONDITIONAL→PASS (3 MAJOR + 2 MINOR integriert: F-stage1-portopt-1 frontier silent-drop, -2 Kelly long_only semantics, -3 max_sharpe sign fallback, -5 PSD-check, F-minor-1 __init__-export). Stage 2 PASS (2 MINOR + 4 INFO, 4 davon integriert).
+  - **Doppelstruktur-Audit:** PASS — komplementär zu `riskfolio_optimizer`/`kelly_robust`/`hrp_sizing`/`black_litterman`/`market_neutral_optimizer`/`position_sizing.compute_risk_parity_weights` (inverse-vol, nicht ECHTE ERC).
+  - **Wert:** Höchster Quant-Hebel; dependency-light Audit-Referenz; closes cov→weights pipeline mit C4-072 DCC-GARCH.
 
 - [x] **6.5.2 GARCH / Vol-Modellierung** — KONSOLIDIERUNG Phase 1 DONE (2026-05-17): Kanonisches Modul = `garch_vol.py`. `garch_vol_forecast.py` deprecated mit `DeprecationWarning` + Migrationshinweis. Caller-Migration deferred (Phase 2).
   - **Kanonisch:** `src/assembled_core/risk/garch_vol.py` (GJR-GARCH(1,1) + rolling-window FALLBACK, defensive sizing inf/NaN, batch helper `compute_vol_forecasts`)
