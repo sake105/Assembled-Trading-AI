@@ -632,6 +632,14 @@ def bmp_t_statistic(
     BMP standardisation is robust to event-induced variance (each event's
     abnormal return is scaled by its own estimation-window noise level).
 
+    Note (F-senior-c4-081-2): this implementation uses the in-sample residual
+    std as sigma_i (large-T approximation per MacKinlay 1997). The full BMP
+    prediction-error correction
+    ``sigma_i * sqrt(1 + 1/T_est + (r_m_t - r_m_bar)² / Σ(r_m - r_m_bar)²)``
+    is ≈1.002 for T_est≥240 — practically negligible. Add the correction if
+    your estimation window is short (T_est < 100) and tight precision is
+    required.
+
     Args:
         abnormal_returns: Output from `compute_market_model_abnormal_returns`.
             Must contain `event_id_col`, `rel_day_col`, `ar_col`, `sigma_col`.
@@ -760,14 +768,19 @@ def compute_bhar(
     rows = []
     for event_id, grp in win_df.groupby(event_id_col, sort=False):
         sorted_grp = grp.sort_values(rel_day_col)
-        ar = sorted_grp[return_col].dropna().to_numpy()
-        mr = sorted_grp[market_return_col].dropna().to_numpy()
-        if len(ar) == 0 or len(mr) == 0:
+        # F-senior-c4-081-1 (2026-05-17): paired NaN mask, not separate dropna.
+        # Earlier impl `.dropna()`-ed each series independently then truncated
+        # to min length — if NaNs occur at different positions in asset vs
+        # market, the surviving values no longer correspond to the same rel-
+        # days, producing wrong compounded BHAR on real data with sparse gaps.
+        mask = sorted_grp[return_col].notna() & sorted_grp[market_return_col].notna()
+        if not mask.any():
             continue
-        # Use the shorter length (defensive)
-        n = min(len(ar), len(mr))
-        asset_compound = float(np.prod(1.0 + ar[:n]))
-        market_compound = float(np.prod(1.0 + mr[:n]))
+        ar = sorted_grp.loc[mask, return_col].to_numpy()
+        mr = sorted_grp.loc[mask, market_return_col].to_numpy()
+        n = len(ar)
+        asset_compound = float(np.prod(1.0 + ar))
+        market_compound = float(np.prod(1.0 + mr))
         rows.append(
             {
                 "event_id": event_id,

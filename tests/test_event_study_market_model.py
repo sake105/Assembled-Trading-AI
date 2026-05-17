@@ -260,3 +260,42 @@ def test_bhar_returns_empty_for_no_in_window_data():
     bhar_df = compute_bhar(panel, horizon_days=10)
     assert len(bhar_df) == 0
     assert list(bhar_df.columns) == ["event_id", "bhar", "n_obs_in_window"]
+
+
+def test_bhar_paired_nan_alignment(caplog):
+    """F-senior-c4-081-1 regression: when asset has NaN on day 3 and market has
+    NaN on day 5, those days must be EXCLUDED from BOTH series before
+    compounding. Earlier impl dropna-ed each series independently then
+    truncated — surviving values no longer aligned by rel_day."""
+    panel = pd.DataFrame(
+        [
+            {"event_id": 1, "rel_day": 0, "event_return": 0.01, "market_return": 0.005},
+            {"event_id": 1, "rel_day": 1, "event_return": 0.02, "market_return": 0.010},
+            {"event_id": 1, "rel_day": 2, "event_return": 0.03, "market_return": 0.015},
+            {
+                "event_id": 1,
+                "rel_day": 3,
+                "event_return": np.nan,
+                "market_return": 0.020,
+            },  # asset NaN
+            {"event_id": 1, "rel_day": 4, "event_return": 0.05, "market_return": 0.025},
+            {
+                "event_id": 1,
+                "rel_day": 5,
+                "event_return": 0.06,
+                "market_return": np.nan,
+            },  # market NaN
+        ]
+    )
+    bhar_df = compute_bhar(panel, horizon_days=5)
+    assert len(bhar_df) == 1
+    # Aligned: drop days 3 and 5 from BOTH → asset: [0.01, 0.02, 0.03, 0.05],
+    # market: [0.005, 0.010, 0.015, 0.025] (4 days each, same rel_days {0,1,2,4})
+    expected_asset = (1.01) * (1.02) * (1.03) * (1.05)
+    expected_market = (1.005) * (1.010) * (1.015) * (1.025)
+    expected_bhar = expected_asset - expected_market
+    actual = float(bhar_df.iloc[0]["bhar"])
+    assert (
+        abs(actual - expected_bhar) < 1e-9
+    ), f"expected {expected_bhar:.6f}, got {actual:.6f}"
+    assert int(bhar_df.iloc[0]["n_obs_in_window"]) == 4
