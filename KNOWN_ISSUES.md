@@ -991,8 +991,21 @@ durchgeführt wurden:
     BMP-t-significance unter known effect / non-effect, BHAR positive für +2%-jump etc.
   - **`scripts/run_event_study.py` Skeleton-Status (siehe §8.6) bleibt unverändert** —
     Wiring der neuen Funktionen in den CLI-Workflow ist separate Aufgabe.
-- [ ] **C4-083 PEAD-SUE EPS-Expected-Source:** IBES Consensus vs.
-  Random-Walk vs. seasonal RW — Klärung offen.
+- [x] **C4-083 PEAD-SUE EPS-Expected-Source** — DONE 2026-05-17: neues Modul
+  `src/assembled_core/features/pead_sue.py` macht die Expected-EPS-Quelle
+  **explizit und parametrisiert** (zuvor nur reported `eps_surprise` ohne
+  expected-EPS-Modell sichtbar):
+  - `compute_expected_eps_random_walk(eps)` — naive, E[EPS_t] = EPS_{t-1}
+  - `compute_expected_eps_seasonal_rw(eps, seasonality=4)` — Bernard-Thomas (1989)
+    PEAD-Baseline: E[EPS_t] = EPS_{t-4} (same quarter last year)
+  - `compute_expected_eps_foster(eps, seasonality=4, drift_window=4)` — Foster (1977):
+    seasonal RW + trailing YoY-drift, dominante pre-IBES-Spezifikation
+  - `compute_sue(eps, method)` mit `method='random_walk'|'seasonal_rw'|'foster'`
+  - `compute_sue_from_expected(actual, expected_eps)` für externe IBES-Consensus-Daten
+  - Returns `SueResult` (sue, expected_eps, forecast_error, sigma_forecast_error, n_events, method)
+  - 17 Tests: lag-correctness pro Modell, Foster-drift-Berechnung explizit
+    verifiziert, SUE-Standardisierung auf ~unit std, external-Pfad, edge cases.
+  - **IBES-Gold-Standard**: extern verfügbar, von Modul nicht abgerufen (paid Refinitiv/I/B/E/S-Daten). Wenn Caller IBES bekommt, einfach an `compute_sue_from_expected` übergeben.
 - [x] **C4-084 pairs_trading half-life via OU** — DONE 2026-05-17: neues Modul
   `src/assembled_core/signals/pairs_diagnostics.py` mit `ou_half_life(spread)`
   (AR(1)-OLS, λ = -slope, half-life = ln(2)/λ; ∞ bei nicht-mean-reverting Spread,
