@@ -48,6 +48,12 @@ def max_drawdown(equity: np.ndarray) -> float:
 
     Drawdown is defined as ``(equity[t] - max(equity[0..t])) / max(equity[0..t])``.
     Returns 0.0 if len(equity) < 2 (no drawdown possible).
+
+    Note: ``equity_curve_audit.py`` keeps a LOCAL extended variant
+    ``_max_drawdown`` that returns ``(mdd, duration_days, peak_idx)`` for
+    duration computation. The single-value MDD here matches that variant's
+    first tuple element — do NOT consolidate the two without preserving the
+    duration/peak-idx return shape.
     """
     if len(equity) < 2:
         return 0.0
