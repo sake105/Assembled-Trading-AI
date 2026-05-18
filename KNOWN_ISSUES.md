@@ -1090,8 +1090,22 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   referenziert im Header). Vier rule-based Signale: consecutive losses, intraday
   drawdown, etc. Thresholds in `configs/policy.yaml` unter `risk.tilt`. Wired in
   `ops/_paper_runner_gates.py` als Pre-Trade-Pause-Gate.
-- [ ] **Two-Account-Setup (C2-074):** Research-Account vs. Trading-Account
-  Promotion-Gate. ~6h Operations-Doc.
+- [x] **Two-Account-Setup (C2-074):** DONE 2026-05-18.
+  - `docs/TWO_ACCOUNT_SETUP.md` (NEU) — vollständiges Operations-Doc:
+    Account-R (Research) vs Account-T (Trading) Struktur, Promotion-Gate-
+    Checklist (10 Pflicht-Kriterien + 4 empfohlene), Demotion-Trigger (5
+    automatische Bedingungen), Workflow (6 Schritte), Audit-Cross-Reference.
+  - `scripts/ops/check_promotion_gate.py` (NEU, ~330 LOC) — automatisierter
+    Gate-Check: track_record_length ≥ 90d, rolling_sharpe 30/60/90 ≥ 1.0,
+    max_drawdown < 20%, DSR-proxy > 1.0, operator-flags (kill-switch +
+    pre-trade-gates confirmed) + 4 forensic-audit subprocess calls
+    (hold-out, survivorship, out-of-regime, fill-model).
+    Verdict: `ready` (alle 10 pass) / `blocked_minor` (≤ 2 fail) /
+    `blocked_major` (> 2 fail) / `blocked` (file/data error).
+  - Baseline-Lauf auf equity_curve_baseline.csv: 4/6 auto-checks pass
+    (track_record_length, rolling_sharpe, max_drawdown, dsr_proxy);
+    2 operator-flags expected-fail. Verdict `blocked_minor`.
+  - Tests: `tests/test_ops_promotion_gate.py` (18 Tests, alle pass).
 
 ### 8.11 Beyond-Tier-1 OSS / Career Items (audit C2-080..087)
 
