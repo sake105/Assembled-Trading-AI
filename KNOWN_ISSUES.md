@@ -900,8 +900,17 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
 - [ ] **12 GameDay-Drills über Jahr (C2-014):** ~24h, terminiert.
 - [ ] **Out-of-Universe-Test (C2-018):** Train US-S&P, Test STOXX600 + TOPIX.
   Benötigt EU-/JP-Daten.
-- [ ] **Out-of-Regime-Test (C2-019):** Train Bull / Test Bear etc. Benötigt
-  klare Regime-Labels für historische Sub-Perioden.
+- [x] **Out-of-Regime-Test (C2-019):** Infrastructure DONE 2026-05-18.
+  `scripts/forensic/out_of_regime_test.py` (NEU) klassifiziert equity-curve via
+  trailing-return-Sign (default 120d-window, ±5%-threshold) in Bull/Bear/Sideways/
+  Warmup. Per-Regime Sharpe/MDD/MeanRet + Edge-Consistency-Verdict
+  (`robust` / `regime_dependent` / `insufficient_data`).
+  Baseline-Lauf 2026-05-18: 713 Bull / 0 Bear / 2 Sideways / 119 Warmup —
+  Bull-Sharpe 3.94, **kein Bear-Sample** (Strategy hat keine 6m-Drawdown-Phase erlebt).
+  Tests: `tests/test_forensic_out_of_regime.py` (18 Tests, alle pass).
+  **Honest Disclosure im Report:** self-referential heuristic (Strategy hat eigene
+  Bull-Tage definiert). „Echter" Out-of-Regime-Test mit external benchmark (SPY)
+  ist C2-018 Out-of-Universe scope (extern, separat).
 - [ ] **DoubleML PLR + Causal Forest (C2-025/026):** `doubleml`, `econml`
   nicht im venv. ~10h pro Modell.
 - [ ] **Synthetic Control Showcase (C2-027):** Abadie-Diamond-Hainmueller —
