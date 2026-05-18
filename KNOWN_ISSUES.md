@@ -936,8 +936,14 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   Negativ-Kontrolle: different input → different hash. Echter 10y-Replay (full
   Pipeline) ist eigener Sprint mit DVC-Pin + multi-Stunden-Run; das Infrastruktur-
   Item für CI ist hier abgeschlossen.
-- [ ] **Adversarial Reviewer Notebook Pattern (C2-051):** CI-Hook für
-  `review_*.ipynb` pro `research_*.ipynb`. ~6h.
+- [x] **Adversarial Reviewer Notebook Pattern (C2-051):** DONE 2026-05-18.
+  CI-Hook etabliert: `scripts/ci/check_adversarial_reviewer_pattern.py` scannt
+  `research/` rekursiv (exkludiert `dead_ends/`), prüft pro `research_*.ipynb`
+  ob ein passendes `review_*.ipynb` existiert. Exit 1 wenn missing, exit 0 sonst.
+  Heute zero `research_*.ipynb` → no-op-Gate (Convention noch nicht adoptiert).
+  Wired in `.github/workflows/repo-health.yml` (monatlich + manual dispatch).
+  Tests: `tests/test_adversarial_reviewer_pattern.py` (15 Tests, alle pass —
+  inkl. End-to-End-Test gegen das echte research/-Verzeichnis).
 - [ ] **Signal-Bus Refactor (C2-053):** Redis-Streams oder in-process
   EventBus. Port existiert (Wave 17), Implementation fehlt.
 - [x] **Meta-Labeling 3-Stage Pipeline (C2-054):** DONE via existing modules

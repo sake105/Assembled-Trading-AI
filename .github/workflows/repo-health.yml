@@ -45,6 +45,13 @@ jobs:
           print("✅ All core packages import successfully")
           PY
 
+      - name: Adversarial Reviewer Notebook Pattern (audit C2-051)
+        run: |
+          python scripts/ci/check_adversarial_reviewer_pattern.py
+        # Convention: every research_*.ipynb must have a paired review_*.ipynb.
+        # Exits non-zero if any research notebook lacks an adversarial reviewer.
+        # Today: zero research_*.ipynb exist, so script is a no-op gate.
+
       - name: Write monthly report
         run: |
           mkdir -p .github
