@@ -21,10 +21,10 @@ Usage::
 
     python scripts/ci/check_adversarial_reviewer_pattern.py
     python scripts/ci/check_adversarial_reviewer_pattern.py --root research/
-    python scripts/ci/check_adversarial_reviewer_pattern.py --strict
 
 Exit codes:
-    0: all research notebooks have a corresponding review notebook
+    0: all research notebooks have a corresponding review notebook (or
+       no research_*.ipynb exist yet — convention not adopted)
     1: at least one research notebook lacks a review notebook
 """
 
@@ -85,12 +85,6 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=Path("research"),
         help="Directory to scan for research_*.ipynb notebooks (default: research/)",
-    )
-    parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="If set, treat zero research notebooks as a warning (convention "
-        "not yet adopted) — exit 0 but log explicitly.",
     )
     args = parser.parse_args(argv)
 
