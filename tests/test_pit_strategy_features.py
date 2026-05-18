@@ -340,3 +340,32 @@ def test_pit_negative_control_detects_leakage() -> None:
             atol=1e-9,
             rtol=0,
         )
+
+
+@pytest.mark.fast
+def test_pit_assert_pit_safe_helper_detects_real_leak() -> None:
+    """F-senior-6: end-to-end negative control for the `_assert_pit_safe`
+    helper itself. The earlier negative test only verified
+    `pd.testing.assert_series_equal` catches differing values — but did not
+    exercise `_assert_pit_safe` with a leaky `add_feature_fn`. This test
+    plugs a deliberately-leaky feature builder INTO the harness and asserts
+    the harness raises. Without this, a future refactor of `_assert_pit_safe`
+    could silently break the actual production negative-control path.
+    """
+
+    def _leaky_add_last_close(df: pd.DataFrame) -> pd.DataFrame:
+        """Inject a column whose value depends on the FUTURE — the future-most
+        ``close`` is broadcast to every row. PIT-violating by construction."""
+        out = df.sort_values("timestamp").copy()
+        out["leaky_future_constant"] = float(out["close"].iloc[-1])
+        return out
+
+    prices = [100.0, 102.0, 99.0, 105.0, 103.0, 110.0, 108.0, 112.0]
+    cut = 5
+    with pytest.raises(AssertionError, match="PIT violation"):
+        _assert_pit_safe(
+            prices,
+            cut=cut,
+            add_feature_fn=_leaky_add_last_close,
+            feature_cols=["leaky_future_constant"],
+        )

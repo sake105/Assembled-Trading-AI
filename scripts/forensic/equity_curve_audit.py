@@ -77,7 +77,14 @@ def _cagr(equity: np.ndarray, periods_per_year: int = 252) -> float:
 
 
 def _drawdown_duration_distribution(equity: np.ndarray) -> dict[str, float]:
-    """Distribution of drawdown durations (days underwater)."""
+    """Distribution of drawdown durations (days underwater).
+
+    F-senior-1: An episode counts contiguous days where ``equity < running_max``
+    (strict <). A day at the new high (equity == running_max) ENDS an episode
+    — even if equity drops on the next day, that's a new episode starting from
+    the higher peak. This matches the standard "days under water" definition
+    where touching the prior peak resets the underwater counter.
+    """
     if len(equity) < 2:
         return {}
     running_max = np.maximum.accumulate(equity)
@@ -166,7 +173,28 @@ def audit_equity_curve(
             f"missing 'equity' column in {equity_curve_path}. "
             f"Got columns: {list(df.columns)}"
         )
-    equity = df["equity"].to_numpy(dtype=float)
+    # F-senior-7: explicit dtype + positivity check on equity column.
+    # to_numpy(dtype=float) silently coerces strings like "$1,000.00" to NaN
+    # without warning. Validate after conversion to surface bad inputs early.
+    try:
+        equity = df["equity"].to_numpy(dtype=float)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(
+            f"'equity' column in {equity_curve_path} cannot be converted to "
+            f"float (got dtype {df['equity'].dtype}): {exc}"
+        ) from exc
+    if np.all(np.isnan(equity)):
+        raise ValueError(
+            f"'equity' column in {equity_curve_path} is all-NaN after float "
+            f"conversion (original dtype: {df['equity'].dtype}). Check for "
+            "string formatting like '$1,000.00' or empty cells."
+        )
+    if len(equity) > 0 and not (equity[0] > 0):
+        raise ValueError(
+            f"'equity' column starts non-positive ({equity[0]}), expected "
+            "initial capital > 0. Drawdown/CAGR math is undefined for "
+            "non-positive starting equity."
+        )
     if "daily_return" in df.columns:
         returns = df["daily_return"].dropna().to_numpy(dtype=float)
     else:
@@ -193,7 +221,10 @@ def audit_equity_curve(
             skew=skew_val,
             kurtosis=kurt_val,
         )
-    except Exception as exc:
+    except (ImportError, ValueError, TypeError) as exc:
+        # F-senior-3: narrow except — only swallow expected errors from
+        # missing module / API mismatch / bad numeric input. Lets real bugs
+        # in PSR propagate so they're not hidden by the soft-fail layer.
         logger.warning("PSR skipped: %s", exc)
     try:
         from src.assembled_core.qa.metrics import deflated_sharpe_ratio_from_returns
@@ -223,7 +254,8 @@ def audit_equity_curve(
                 1e-6,
             )
             min_trl = float((1.645 / sharpe) ** 2 * var_factor)
-    except Exception as exc:
+    except (ImportError, ValueError, TypeError) as exc:
+        # F-senior-3: narrow except — same rationale as PSR above.
         logger.warning("DSR skipped: %s", exc)
 
     # Bootstrap CI via shuffle_trades (block bootstrap, daily autocorrelation)
@@ -260,11 +292,12 @@ def audit_equity_curve(
                 "ci_hi_95": float(hi_ret),
             },
         }
-    except Exception as exc:
+    except (ImportError, ValueError, TypeError) as exc:
+        # F-senior-3 + F-senior-4: narrow except + explicit sentinel.
+        # shuffle_trades validates r<=-1.0 (ValueError), n_iterations>=1
+        # (ValueError), etc. — those are expected soft-fails. Real bugs
+        # in the bootstrap path propagate via other exception types.
         logger.warning("Bootstrap CI skipped: %s", exc)
-        # F-senior-4: explicit sentinel so JSON-readers can distinguish
-        # "bootstrap failed" from "not yet computed". Markdown renderer
-        # treats empty bootstrap_ci as missing-section; the sentinel surfaces.
         bootstrap_ci = {
             "error": str(exc),
             "error_type": type(exc).__name__,
