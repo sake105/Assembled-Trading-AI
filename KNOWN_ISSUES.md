@@ -896,9 +896,13 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   Transfer Entropy mit zwei Estimatoren (binned histogram + KSG-heuristic).
   KEIN `tigramite`/PyIF-Dep — pure numpy. Hinweis im Modul-Header: KSG-TE ist
   nicht vollständig Wibral, sondern heuristisch (sklearn lacks multivariate joint MI).
-- [ ] **Adaptive Conformal Inference (C2-031), Conformalized Quantile
-  Regression (C2-032), Cross-Conformal (C2-033):** Aufbauen auf
-  `qa/conformal.py` (Wave 16).
+- [x] **Adaptive Conformal Inference (C2-031), Conformalized Quantile** DONE
+  (2026-05-18 Audit). Vollständige Conformal-Inference-Suite:
+  `qa/conformal.py`, `qa/conformal_cross.py`, `qa/conformal_adaptive.py` (Adaptive),
+  `qa/conformal_quantile.py` (CQR), `portfolio/conformal_position.py` +
+  `portfolio/adaptive_conformal_position.py` für position sizing.
+  15 Files referenzieren Conformal-Konzepte (`kelly_uncertainty.py`, ops/decision_log,
+  api/routers/diagnostics).
 - [ ] **DRO Wasserstein / KL-Portfolio (C2-036/037):** benötigt
   `cvxpy + MOSEK` (akademische Lizenz). ~14h + 8h.
 - [ ] **Temporal Fusion Transformer (C2-039):** `pytorch-forecasting`.
