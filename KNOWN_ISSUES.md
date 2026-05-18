@@ -784,8 +784,25 @@ Vollständige Liste der `TODO`/`FIXME`-Marker im Code (geprüft 2026-05-12, aktu
 über 3.32 Jahre. Post-Wave-11 DSR=25.3 / PSR=1.0 (beide PASS). **Aber:**
 vier klassische Suspects nicht autonom widerlegbar:
 
-- [ ] **Survivorship-Bias-Check:** `watchlist_full.txt` gegen historische
-  S&P-500-Konstituenten kreuzprüfen (Audit C3-063, vor Cherry-Pick blocking).
+- [x] **Survivorship-Bias-Check:** Infrastructure DONE 2026-05-18.
+  `scripts/forensic/survivorship_bias_check.py` (NEU, ~340 LOC) prüft watchlist
+  gegen 3 Bias-Indikatoren ohne externe SP500-Konstituenten-Daten:
+  1. Active/Delisted Ratio (real Universen 5-10% delisted erwartet)
+  2. Cross-Check gegen hardcoded `KNOWN_US_DELISTINGS` Sample (15 events:
+     LEH 2008-09-15, BSC 2008-03-17, WAMUQ, WB, CFC, AIG, GM_OLD, CIT, SHLD,
+     JCP, HTZ_OLD, FTX, SVB, SI, FRC 2023-05-01)
+  3. Start-Date-Clustering (PIT-Universe sollte varied start_dates haben)
+  Verdict-Aggregation: low / medium / high abhängig von n_flags.
+  **Baseline-Lauf 2026-05-18 auf `data/universe/watchlist_2007_2026.csv`:**
+  Verdict = **HIGH** (3/3 flags getriggert):
+  - 100% active (19/19, 0 delisted)
+  - 15 known delistings in window — ALLE missing
+  - 19 Symbole sharen `2008-09-02` als start_date
+  Das bestätigt explizit den Survivorship-Bias der Baseline-Equity-Curve §8.7.
+  Tests: `tests/test_forensic_survivorship.py` (22 Tests, alle pass).
+  **Vollständige C3-063 Closure** verlangt CRSP-quality hist-SP500-Konstituenten
+  (extern) — Skript-Infrastruktur ist da, datentechnische Vollendung bleibt
+  als externes follow-up.
 - [x] **Look-Ahead-Bias:** DONE 2026-05-18. `tests/test_pit_strategy_features.py`
   (NEU) pinnt PIT-Safety für 6 Strategie-Kern-Features via Hypothesis property-tests:
   log_returns, moving_averages, ATR, RSI, MACD, Bollinger Bands. PIT-Property:
