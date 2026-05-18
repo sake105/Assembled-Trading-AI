@@ -814,7 +814,19 @@ verlangt DVC-Pin der yfinance-Daten + git-tag + Multi-Stunden-Backtest.
 - [x] DSR / White-Reality-Check / Calmar Bootstrap / MaxEnt Bootstrap / Walk-Forward —
   §8.13 Forensik-Items im Audit-Sweep abgeschlossen. **Hansen SPA C4-066 bleibt
   ERWEITERUNG-only-skip** (siehe §8.13 unten).
-- [ ] Equity-Curve-Audit (audit C3-030)
+- [x] Equity-Curve-Audit (audit C3-030) — Infrastructure DONE 2026-05-18.
+  `scripts/forensic/equity_curve_audit.py` (NEU) liest beliebige equity-curve CSV
+  und produziert JSON + Markdown Audit-Reports unter `output/qa/`. Statistiken:
+  DSR (Deflated Sharpe, Bailey-Lopez de Prado 2014), PSR (Probabilistic Sharpe
+  2012), Min-TRL heuristisch, Bootstrap-CIs via shuffle_trades (block_size=5),
+  Skew/Kurtosis/Jarque-Bera Normality, Ljung-Box Autokorrelation (lags 1/5/10/20),
+  Drawdown-Duration-Distribution.
+  Baseline-Lauf 2026-05-18 auf `output/equity_curve_baseline.csv` (835 Tage,
+  3.3y): Sharpe 3.896, CAGR 43.17%, MDD -4.52% (12d), DSR 24.83 (n_strategies=10),
+  PSR ≈ 1.0, Bootstrap 95% Sharpe-CI [2.97, 4.84]. Excess Kurtosis 3.74 +
+  positive Skew 0.77 — non-normal, Jarque-Bera rejects. KEINE Autokorrelation
+  (Ljung-Box p > 0.6 für alle Lags). 109 Drawdown-Episoden, max 54 Tage.
+  Tests: `tests/test_forensic_equity_curve_audit.py` (12 Tests, alle pass).
 - [x] Portfolio-Optimierer (Markowitz/ERC/Kelly) — §6.5.1 DONE (2026-05-17,
   commit 2feec16+e26ee81). HRP / Black-Litterman / Resampled-EF / CVaR / Max-Div
   bleiben separate Items in `portfolio/` (z. T. existieren bereits — siehe
