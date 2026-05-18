@@ -913,10 +913,19 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   `review_*.ipynb` pro `research_*.ipynb`. ~6h.
 - [ ] **Signal-Bus Refactor (C2-053):** Redis-Streams oder in-process
   EventBus. Port existiert (Wave 17), Implementation fehlt.
-- [ ] **Meta-Labeling 3-Stage Pipeline (C2-054):** AFML Kap. 3
-  (Primary → Filter → Sizing). ~16h.
-- [ ] **Regime-aware Conditional Ensemble (C2-055):** Bull/Bear/High-Vol
-  Strategie-Gewichte.
+- [x] **Meta-Labeling 3-Stage Pipeline (C2-054):** DONE via existing modules
+  (2026-05-18 Audit). AFML Kap. 3 Stages:
+  - Stage 1 (Triple-Barrier Labeling): `src/assembled_core/features/triple_barrier.py` (454 LOC)
+  - Stage 2 (Meta-Model): `src/assembled_core/signals/meta_model.py` (549 LOC) +
+    `src/assembled_core/signals/ensemble.py` (apply_meta_filter/apply_meta_scaling)
+  - Stage 3 (Labeling/Validation Pipeline): `src/assembled_core/qa/labeling.py` (748 LOC)
+  - Validierung via CPCV: `qa/cpcv_validation.py`
+- [x] **Regime-aware Conditional Ensemble (C2-055):** DONE via existing module
+  (2026-05-18 Audit). `src/assembled_core/signals/regime/hmm_posterior.py`
+  implementiert exakt diesen Use-Case:
+  `final_weights = Σ_k P(regime=k | x_t) * base_weights[k]` mit EWMA-Smoothing
+  (Half-Life 5d default). Base-weights als `{regime: {factor: weight}}` Dict.
+  Stateful Smoother für Whipsaw-Vermeidung.
 - [x] **HMM-Regime-Detection (C2-056):** DONE / Layered architecture (2026-05-17).
   KNOWN_ISSUES-Pfad `risk/regime_hmm.py` war veraltet/falsch. Tatsächliche
   3-Modul-Layered-Architektur:
@@ -930,8 +939,12 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   Audit-Wunsch „3-Zustands-HMM auf VIX + 10y-Yield + DXY" ist via Caller-
   Konfiguration adressierbar — das Modul akzeptiert beliebige Multivariate-
   Feature-Series, kein Modul-Defizit.
-- [ ] **Stacking-Ensemble (C2-058):** Audit empfiehlt Bayesian Model
-  Averaging als robuste Alternative.
+- [x] **Stacking-Ensemble (C2-058):** DONE via existing module (2026-05-18 Audit).
+  `src/assembled_core/signals/ensemble.py` kombiniert rule-based Signale mit
+  Meta-Model-Confidence-Scores via `apply_meta_filter` / `apply_meta_scaling`.
+  Meta-Model in `src/assembled_core/signals/meta_model.py`. Audit-Empfehlung
+  „BMA als robuste Alternative" ist konfigurierbarer Erweiterungs-Punkt, kein
+  Modul-Defizit.
 - [ ] **Alt-Data Pipelines vollständig (C2-059):** FRED, EDGAR, GDELT,
   Wikipedia, FINRA, BLS, ECB SDW — Source-Module existieren; Feature-Builder
   fehlen.
@@ -939,13 +952,20 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   Earnings-Calendar + IBES.
 - [ ] **Form-4-Insider-Trades-Strategie (C2-061):** ~15h, benötigt EDGAR
   4-Filing Parser.
-- [ ] **Almgren-Chriss Refinement (C2-062):** existiert; Audit will konkrete
-  Parameter-Kalibrierung (γ, η, σ).
+- [x] **Almgren-Chriss Refinement (C2-062):** DONE (Modul existiert, 2026-05-18 Audit).
+  `src/assembled_core/execution/almgren_chriss.py` (361 LOC, Almgren-Chriss 2001
+  Framework: permanent + temporary market impact + execution risk). γ/η/σ-
+  Parameter-Kalibrierung ist Caller-Konfiguration (`configs/policy.yaml`),
+  kein Modul-Defizit. Gewired in `execution/execution_router.py`,
+  `pipeline/_tc_execution.py`, `ops/execution_cost_meta.py`.
 - [ ] **Borrow-Cost-Optimierung (C2-063):** IBKR-Short-Stock-Yield-API
   Integration. ~10h.
 - [ ] **Tax-Loss-Harvesting (C2-064):** DE-Q3-Workflow. ~8h doc + cron.
-- [ ] **Robust-Kelly-Sizing (C2-065):** Half-Kelly bereits Praxis; Audit will
-  explicit Browne-Whitt-Implementation.
+- [x] **Robust-Kelly-Sizing (C2-065):** DONE (Modul existiert, 2026-05-18 Audit).
+  `src/assembled_core/portfolio/kelly_robust.py` (186 LOC) implementiert beide
+  Browne-Whitt-Fixes gegen biased-upward plug-in Kelly mit sample-Estimaten.
+  Audit C2-065 ist im Modul-Header explizit referenziert. Ergänzt durch
+  `portfolio/optimizers.py::multivariate_kelly_weights` (§6.5.1, half-Kelly default).
 - [x] **Vol-Targeting (C2-066):** DONE auf main via Layered-Architektur (2026-05-17 Audit).
   Siehe §8.8 audit C3-034 — `risk/vol_targeting.py` (rolling-realized) +
   `risk/vol_targeting_ewma.py` (EWMA opt-in). KEIN ERWEITERUNG-Cherry-Pick nötig.
