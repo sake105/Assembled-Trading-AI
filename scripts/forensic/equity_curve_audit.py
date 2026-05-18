@@ -36,6 +36,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+# F-S2-HOL-1 helper-extract: shared metric helpers live in _helpers.py
+# since 2026-05-18 to avoid duplicating across 4 forensic scripts.
+from scripts.forensic._helpers import annualised_sharpe as _annualised_sharpe
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,16 +48,13 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _annualised_sharpe(returns: np.ndarray, periods_per_year: int = 252) -> float:
-    mean = float(returns.mean())
-    std = float(returns.std(ddof=1))
-    if std <= 0:
-        return float("nan")
-    return mean / std * float(np.sqrt(periods_per_year))
-
-
 def _max_drawdown(equity: np.ndarray) -> tuple[float, int, int]:
-    """Returns (max_dd_pct, duration_days, peak_index)."""
+    """Returns (max_dd_pct, duration_days, peak_index).
+
+    Local extended variant of ``_helpers.max_drawdown`` that additionally
+    returns the trough/peak indices for duration computation. The single-
+    value max_dd matches ``_helpers.max_drawdown(equity)``.
+    """
     if len(equity) < 2:
         return 0.0, 0, 0
     running_max = np.maximum.accumulate(equity)

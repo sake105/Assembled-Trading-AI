@@ -46,6 +46,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+# F-S2-HOL-1 helper-extract: shared metric helpers live in _helpers.py.
+from scripts.forensic._helpers import (
+    annualised_sharpe as _annualised_sharpe,
+)
+from scripts.forensic._helpers import (
+    max_drawdown as _max_drawdown,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -83,24 +91,6 @@ def classify_regimes(
 # ---------------------------------------------------------------------------
 # Per-regime metrics
 # ---------------------------------------------------------------------------
-
-
-def _annualised_sharpe(returns: np.ndarray, periods_per_year: int = 252) -> float:
-    if len(returns) < 2:
-        return float("nan")
-    mean = float(returns.mean())
-    std = float(returns.std(ddof=1))
-    if std <= 0:
-        return float("nan")
-    return mean / std * float(np.sqrt(periods_per_year))
-
-
-def _max_drawdown(equity_subset: np.ndarray) -> float:
-    if len(equity_subset) < 2:
-        return 0.0
-    running_max = np.maximum.accumulate(equity_subset)
-    drawdowns = equity_subset / running_max - 1.0
-    return float(drawdowns.min())
 
 
 def per_regime_metrics(
