@@ -961,8 +961,23 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   ist C2-018 Out-of-Universe scope (extern, separat).
 - [ ] **DoubleML PLR + Causal Forest (C2-025/026):** `doubleml`, `econml`
   nicht im venv. ~10h pro Modell.
-- [ ] **Synthetic Control Showcase (C2-027):** Abadie-Diamond-Hainmueller —
-  Research-Notebook.
+- [x] **Synthetic Control Showcase (C2-027):** DONE 2026-05-18.
+  `src/assembled_core/qa/synthetic_control.py` (~260 LOC) implementiert
+  Abadie-Diamond-Hainmueller 2003/2010 Synthetic Control Method:
+  - `fit_synthetic_control(treated, donor_pool, treatment_period)` — constrained
+    least-squares (SLSQP) für convex-combination weights (sum=1, ≥0) auf
+    pre-treatment-fit
+  - `compute_treatment_effect(result, treated)` — observed minus synthetic
+  - `placebo_test(treated, donor_pool, treatment_period, rmse_filter_ratio=5.0)` —
+    Abadie-Diamond-Hainmueller-Inferenz: re-run für jeden donor als treated,
+    RMSE-Filter, two-sided p-value von |effect| ≥ |original|
+  Tests: `tests/test_synthetic_control.py` (20 tests, alle pass):
+  - Recovers known treatment effect (injected 5.0 → recovered <1.5 deviation)
+  - True weights [0.5, 0.3, 0.2, 0, 0] → dominant donors (0-2) get >60% weight
+  - Large effect (10.0) → p-value ≤ 0.5; zero effect → p-value ≥ 0.2
+  - Edge cases: 2-donor minimum, NaN-raise, length mismatch, etc.
+  References: Abadie-Gardeazabal 2003 (Basque conflict study), ADH 2010
+  (California tobacco control program). Pure scipy.optimize — kein cvxpy/MOSEK Dep.
 - [x] **Transfer Entropy Screen (C2-029):** DONE via §8.13 Forensik-Sweep.
   `src/assembled_core/qa/transfer_entropy.py` (263 LOC) implementiert Schreiber-2000
   Transfer Entropy mit zwei Estimatoren (binned histogram + KSG-heuristic).
