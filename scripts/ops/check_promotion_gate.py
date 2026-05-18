@@ -126,18 +126,16 @@ def check_forensic_audit(
     Returns pass=True if the script's emitted verdict is in expected_verdict.
     Pass=False if script fails or verdict not in set.
     """
-    cmd = [
-        sys.executable,
-        f"scripts/forensic/{script_name}.py",
-        "--input",
-        str(equity_path),
-    ]
-    # survivorship + fill_model_audit have different CLI signatures; handle
-    # them specifically.
-    if script_name == "survivorship_bias_check":
-        cmd = [sys.executable, "scripts/forensic/survivorship_bias_check.py"]
-    elif script_name == "fill_model_audit":
-        cmd = [sys.executable, "scripts/forensic/fill_model_audit.py"]
+    # F-senior-1: registry-style dispatch. Each script either takes the
+    # default `--input <equity>` signature OR has no equity arg (works on
+    # configs/static data). Add to NO_EQUITY_ARG when a new forensic script
+    # follows that pattern.
+    NO_EQUITY_ARG = {"survivorship_bias_check", "fill_model_audit"}
+    script_path = f"scripts/forensic/{script_name}.py"
+    if script_name in NO_EQUITY_ARG:
+        cmd = [sys.executable, script_path]
+    else:
+        cmd = [sys.executable, script_path, "--input", str(equity_path)]
     try:
         proc = subprocess.run(  # noqa: S603
             cmd,
