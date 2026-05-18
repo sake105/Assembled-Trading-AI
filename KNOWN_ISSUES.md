@@ -786,9 +786,12 @@ vier klassische Suspects nicht autonom widerlegbar:
 
 - [ ] **Survivorship-Bias-Check:** `watchlist_full.txt` gegen historische
   S&P-500-Konstituenten kreuzprüfen (Audit C3-063, vor Cherry-Pick blocking).
-- [ ] **Look-Ahead-Bias:** PIT-Property-Test heute deckt nur `rolling_mean` +
-  `pct_change` ab (`tests/test_property_fsm_pit.py`). Strategie-spezifische
-  Features sind nicht gepinnt.
+- [x] **Look-Ahead-Bias:** DONE 2026-05-18. `tests/test_pit_strategy_features.py`
+  (NEU) pinnt PIT-Safety für 6 Strategie-Kern-Features via Hypothesis property-tests:
+  log_returns, moving_averages, ATR, RSI, MACD, Bollinger Bands. PIT-Property:
+  ``f(prices[:k]) == f(prices)[:k]`` für beliebige Prefix-Längen. Negativ-Kontrolle
+  (leaky feature uses last value of series) verifiziert dass die Harness echte
+  Leaks erkennt. 7/7 Tests pass — alle 6 Features genuinely PIT-safe.
 - [ ] **Fill-Modell-Audit:** Commission/Slippage/Borrow-Cost Konventionen
   prüfen vs realer Broker-Statement-Vintage.
 - [ ] **Hold-Out-Leakage:** Permutation-p-Value (W4 / W15) noch nicht gegen
