@@ -66,9 +66,11 @@ def _make_synthetic_prices(seed: int = 42, n_days: int = 100) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     symbols = ["AAA", "BBB", "CCC"]
     rows = []
-    for sym in symbols:
-        # Symbol-deterministic price walk
-        sym_rng = np.random.default_rng(seed + hash(sym) % 1000)
+    for sym_idx, sym in enumerate(symbols):
+        # Symbol-deterministic price walk. F-senior-5: use enumerate index
+        # instead of hash(sym) because Python hash() is PYTHONHASHSEED-randomised
+        # across processes, which would break cross-host SHA-256 reproducibility.
+        sym_rng = np.random.default_rng(seed + sym_idx * 1000)
         log_returns = sym_rng.normal(0.0005, 0.012, size=n_days)
         prices = 100.0 * np.exp(np.cumsum(log_returns))
         for i, p in enumerate(prices):

@@ -210,12 +210,16 @@ def audit_equity_curve(
             )
         )
         # min-TRL = how many periods needed to beat sharpe_benchmark with PSR ≥ 0.95
-        # (no direct API; compute heuristic via PSR inverse)
+        # F-senior-2: standard Bailey-Lopez de Prado MinTRL formula uses
+        # EXCESS kurtosis (kurt_excess = kurt_raw - 3), not raw kurtosis-1.
+        # Variance factor of the Sharpe estimator (Bailey-LdP 2012, eq.4):
+        #   V[SR] = (1 - skew·SR + ((kurt_excess - 1)/4)·SR²) / (T - 1)
+        # MinTRL solves V[SR]·T = (z_α/SR)² → T = (z_α/SR)² · V_factor(T-1).
+        # Heuristic approximation drops the T-1 term and uses z_α=1.645 (one-sided 95%).
         if np.isfinite(dsr) and sharpe > 0:
-            # Heuristic: min_trl ≈ ((1.645 / SR) ** 2) * variance_factor
-            # variance_factor = 1 - skew*SR + ((kurt-1)/4)*SR^2
+            kurt_excess = kurt_val - 3.0
             var_factor = max(
-                1.0 - skew_val * sharpe + ((kurt_val - 1.0) / 4.0) * sharpe**2,
+                1.0 - skew_val * sharpe + ((kurt_excess - 1.0) / 4.0) * sharpe**2,
                 1e-6,
             )
             min_trl = float((1.645 / sharpe) ** 2 * var_factor)
@@ -258,6 +262,14 @@ def audit_equity_curve(
         }
     except Exception as exc:
         logger.warning("Bootstrap CI skipped: %s", exc)
+        # F-senior-4: explicit sentinel so JSON-readers can distinguish
+        # "bootstrap failed" from "not yet computed". Markdown renderer
+        # treats empty bootstrap_ci as missing-section; the sentinel surfaces.
+        bootstrap_ci = {
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+            "skipped": True,
+        }
 
     return {
         "input_path": str(equity_curve_path),
