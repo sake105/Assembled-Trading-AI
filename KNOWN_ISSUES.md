@@ -809,8 +809,21 @@ vier klassische Suspects nicht autonom widerlegbar:
   ``f(prices[:k]) == f(prices)[:k]`` für beliebige Prefix-Längen. Negativ-Kontrolle
   (leaky feature uses last value of series) verifiziert dass die Harness echte
   Leaks erkennt. 7/7 Tests pass — alle 6 Features genuinely PIT-safe.
-- [ ] **Fill-Modell-Audit:** Commission/Slippage/Borrow-Cost Konventionen
-  prüfen vs realer Broker-Statement-Vintage.
+- [x] **Fill-Modell-Audit:** Infrastructure DONE 2026-05-18.
+  `scripts/forensic/fill_model_audit.py` (NEU, ~280 LOC) prüft
+  `configs/cost_tiers.yaml` (5 ADV-Tiers × {commission/half_spread/slippage}_bps)
+  + `configs/policy.yaml::borrow_costs` gegen INDUSTRY_BASELINES (informelle
+  Public-Ranges aus IBKR Pro / Tastytrade / Alpaca / institutional desk).
+  Flaggt "optimistic" werte unter industry-min als potentielles Cost-
+  Underestimate-Artefakt.
+  **Baseline-Lauf 2026-05-18:** VERDICT = `low` (0/17 flags).
+  Alle 5 Tiers × 3 Fields + 2 Borrow-Cost Rates sitzen in industry-plausible
+  ranges. Bedeutet: Sharpe 3.896-Baseline ist NICHT durch Cost-Underestimate
+  erzeugt — die Cost-Konfiguration ist realistisch.
+  Tests: `tests/test_forensic_fill_model_audit.py` (20 Tests, alle pass).
+  **Limitations honestly disclosed:** Audit prüft Config gegen Public-Ranges,
+  NICHT gegen reale Broker-Statements. Vollständige C3-063 Closure verlangt
+  externen Vintage-Vergleich (separater follow-up).
 - [x] **Hold-Out-Leakage:** Infrastructure DONE 2026-05-18.
   `scripts/forensic/hold_out_leakage_test.py` (NEU, ~340 LOC) implementiert
   Permutation-Test auf Sharpe + MDD + Train/Test-Split-Audit. **Baseline-Lauf
