@@ -1065,7 +1065,22 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   `pipeline/_tc_execution.py`, `ops/execution_cost_meta.py`.
 - [ ] **Borrow-Cost-Optimierung (C2-063):** IBKR-Short-Stock-Yield-API
   Integration. ~10h.
-- [ ] **Tax-Loss-Harvesting (C2-064):** DE-Q3-Workflow. ~8h doc + cron.
+- [x] **Tax-Loss-Harvesting (C2-064):** DONE 2026-05-18.
+  - `docs/TAX_LOSS_HARVESTING.md` (NEU) — DE-Q3-Workflow (Q3-Review →
+    Q4-Ausführung → Jahresabschluss), Verlustverrechnungstopf §20(6) EStG,
+    No-Wash-Sale-DE-Konvention, Cross-Reference zu `accounting/tax_lots.py`
+    (FIFO+ECB) + `compliance/tax_report.py` (Anlage-KAP summary).
+  - `scripts/ops/check_tax_loss_harvest.py` (NEU, ~260 LOC) — read-only
+    Detection: (a) YTD realisierte Gewinne/Verluste per tax_year split,
+    (b) open-positions mit unrealized loss sortiert worst-first,
+    (c) cumulative-loss-path zum Offset realisierter Gewinne, min_n_positions
+    zur Neutralisation. **Keine Order-Generierung** (operator decides).
+    JSON + Markdown output.
+  - Tests: `tests/test_ops_tax_loss_harvest.py` (20 Tests, alle pass):
+    realized-pnl split (mixed, tax-year filter, empty, missing-cols, by-symbol);
+    candidates (losers-only, sorted, EUR-correct, FX-conversion, empty);
+    offset (zero-target, positive-net, negative-net=zero, cumulative-meets);
+    pipeline (basic, missing-files, JSON round-trip); markdown render.
 - [x] **Robust-Kelly-Sizing (C2-065):** DONE (Modul existiert, 2026-05-18 Audit).
   `src/assembled_core/portfolio/kelly_robust.py` (186 LOC) implementiert beide
   Browne-Whitt-Fixes gegen biased-upward plug-in Kelly mit sample-Estimaten.
