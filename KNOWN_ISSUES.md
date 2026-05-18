@@ -811,8 +811,26 @@ vier klassische Suspects nicht autonom widerlegbar:
   Leaks erkennt. 7/7 Tests pass — alle 6 Features genuinely PIT-safe.
 - [ ] **Fill-Modell-Audit:** Commission/Slippage/Borrow-Cost Konventionen
   prüfen vs realer Broker-Statement-Vintage.
-- [ ] **Hold-Out-Leakage:** Permutation-p-Value (W4 / W15) noch nicht gegen
-  diese CSV gelaufen — erfordert dedicated Backtest-Re-Run.
+- [x] **Hold-Out-Leakage:** Infrastructure DONE 2026-05-18.
+  `scripts/forensic/hold_out_leakage_test.py` (NEU, ~340 LOC) implementiert
+  Permutation-Test auf Sharpe + MDD + Train/Test-Split-Audit. **Baseline-Lauf
+  auf `output/equity_curve_baseline.csv` (835d):**
+  - Train Sharpe (584d): 3.7179
+  - Test Sharpe (251d): 5.0407 **(test > train → KEIN overfitting Pattern)**
+  - Sharpe decay train→test: -1.3228 (negative = test besser als train)
+  - Full-series MDD permutation p = 0.3740
+  - Test-set MDD permutation p = 0.2840
+  - **Verdict: `hold_out_edge_indistinguishable_from_random`**
+    (test_sharpe > 0 ABER MDD-Pfadabhängigkeit p ≥ 0.20 → nicht signifikant
+    unterscheidbar von zufälliger Permutation der gleichen returns).
+  Wichtiges Audit-Finding: Sharpe ist hoch + Test > Train, ABER die Pfad-
+  Sequenz der Drawdowns ist nicht statistisch unterscheidbar von random
+  ordering. Das schließt eine echte Edge nicht aus, lässt sie aber
+  unbestätigt mit 1000 Permutationen.
+  Tests: `tests/test_forensic_hold_out_leakage.py` (19 Tests, alle pass).
+  Honest degeneracy note im Sharpe-Permutation-Result: Permutation eines
+  i.i.d. Returns-Samples preserves Sharpe exakt; nur path-dependent MDD
+  ist informativ.
 
 **Pflicht vor jeder externen Zitation der Zahlen.** Der Re-Runner
 (`scripts/forensic/rerun_baseline.py`, Audit C4-049) ist **nicht** implementiert —
