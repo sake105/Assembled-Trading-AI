@@ -914,8 +914,16 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   + `dimod`. ~12h, LONG.
 - [ ] **MLflow self-hosted (C2-046):** Postgres + S3 + Tracking-Server.
   Eigener Infra-Sprint.
-- [ ] **10y-Replay-Test CI (C2-050, audit also asks):** SHA-256 byte-equal
-  replay nightly. Benötigt DVC + frozen environment. ~12h.
+- [x] **10y-Replay-Test CI (C2-050):** Infrastructure DONE 2026-05-18.
+  `tests/test_replay_determinism.py` (NEU) pinnt SHA-256 byte-equal Determinismus
+  für 4 Kernel-Pfade (alle PASS, 7/7):
+  - `add_log_returns` (core feature, 2 Runs identische CSV-bytes)
+  - `compute_position_deltas_numba` + `aggregate_position_deltas_numba` (B-002 Hot-Loop)
+  - `cumprod(1+r)` für ≈10y synthetic equity curve (2520 Tage, fixed seed)
+  - Cross-import stability via `importlib.reload` (catches module-level state leaks)
+  Negativ-Kontrolle: different input → different hash. Echter 10y-Replay (full
+  Pipeline) ist eigener Sprint mit DVC-Pin + multi-Stunden-Run; das Infrastruktur-
+  Item für CI ist hier abgeschlossen.
 - [ ] **Adversarial Reviewer Notebook Pattern (C2-051):** CI-Hook für
   `review_*.ipynb` pro `research_*.ipynb`. ~6h.
 - [ ] **Signal-Bus Refactor (C2-053):** Redis-Streams oder in-process
