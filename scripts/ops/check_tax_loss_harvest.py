@@ -136,9 +136,19 @@ def find_harvesting_candidates(
                 "entry_price": float(row["entry_price"]),
                 "current_price": float(row["current_price"]),
                 "unrealized_eur": round(float(row["unrealized_eur"]), 2),
-                "pct_loss": round(
-                    float((row["current_price"] / row["entry_price"] - 1.0) * 100.0),
-                    2,
+                # F-senior-1: entry_price=0 (corp-action artefact / bad CSV row)
+                # would raise ZeroDivisionError. Keep candidate in list (the
+                # unrealized_eur is still well-defined from qty * current_price)
+                # but report pct_loss as NaN to signal the data quality issue.
+                "pct_loss": (
+                    round(
+                        float(
+                            (row["current_price"] / row["entry_price"] - 1.0) * 100.0
+                        ),
+                        2,
+                    )
+                    if row["entry_price"]
+                    else float("nan")
                 ),
             }
         )

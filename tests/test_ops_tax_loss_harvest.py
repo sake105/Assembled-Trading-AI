@@ -159,6 +159,26 @@ class TestFindHarvestingCandidates:
         with pytest.raises(ValueError, match="missing columns"):
             find_harvesting_candidates(bad)
 
+    def test_entry_price_zero_does_not_crash(self) -> None:
+        """F-senior-1: entry_price=0 (corp-action artefact / bad CSV) must
+        not raise ZeroDivisionError. pct_loss becomes NaN; the position
+        stays in the candidate list because unrealized_eur is still
+        well-defined."""
+        import numpy as np
+
+        positions = pd.DataFrame(
+            {
+                "symbol": ["BAD"],
+                "qty": [10.0],
+                "entry_price": [0.0],
+                "current_price": [-1.0],  # contrived loss
+            }
+        )
+        candidates = find_harvesting_candidates(positions)
+        assert len(candidates) == 1
+        assert candidates[0]["symbol"] == "BAD"
+        assert np.isnan(candidates[0]["pct_loss"])
+
 
 # ---------------------------------------------------------------------------
 # compute_offset_potential
