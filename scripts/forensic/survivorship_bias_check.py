@@ -68,20 +68,21 @@ class KnownDelisting:
 
 
 KNOWN_US_DELISTINGS: tuple[KnownDelisting, ...] = (
+    # F-S2-SBC-2: only DEFINITE US-listed equity delistings. AIG (continued
+    # trading post-bailout, ticker survived) and FTX (private crypto exchange,
+    # never US-listed under that ticker on regular equity exchanges) were
+    # removed because they produce false positives — a strategy watchlist
+    # legitimately excluding them does not signal survivorship bias.
     KnownDelisting("LEH", "2008-09-15", "Lehman Brothers bankruptcy"),
     KnownDelisting("BSC", "2008-03-17", "Bear Stearns / JPM acquisition"),
     KnownDelisting("WAMUQ", "2008-09-26", "Washington Mutual bankruptcy"),
     KnownDelisting("WB", "2008-12-31", "Wachovia / Wells Fargo merger"),
     KnownDelisting("CFC", "2008-07-01", "Countrywide / BAC acquisition"),
-    KnownDelisting("AIG", "2008-09-16", "AIG bailout (continued trading post-event)"),
     KnownDelisting("GM_OLD", "2009-06-01", "Old General Motors bankruptcy"),
     KnownDelisting("CIT", "2009-11-01", "CIT Group bankruptcy"),
     KnownDelisting("SHLD", "2018-10-15", "Sears Holdings bankruptcy"),
     KnownDelisting("JCP", "2020-05-15", "JCPenney Chapter 11"),
     KnownDelisting("HTZ_OLD", "2020-05-22", "Hertz Chapter 11 (later relisted as HTZ)"),
-    KnownDelisting(
-        "FTX_OLD", "2022-11-11", "FTX collapse (private but cross-asset risk)"
-    ),
     KnownDelisting("SVB", "2023-03-10", "Silicon Valley Bank FDIC takeover"),
     KnownDelisting("SI", "2023-03-08", "Silvergate Capital wind-down"),
     KnownDelisting("FRC", "2023-05-01", "First Republic Bank FDIC takeover"),
@@ -110,14 +111,27 @@ def compute_active_delisted_ratio(df: pd.DataFrame) -> dict[str, Any]:
             "pct_active": None,
             "warning": "no 'status' column — cannot compute ratio",
         }
-    n_active = int((df["status"].astype(str).str.lower() == "active").sum())
-    n_delisted = n - n_active
-    return {
+    # F-S2-SBC-1: distinguish 'active' / 'delisted' / 'unknown' explicitly.
+    # NaN / "" / "unknown" / other typos must not silently inflate
+    # n_delisted (which would mask the survivorship signal).
+    status_norm = df["status"].fillna("unknown").astype(str).str.lower().str.strip()
+    n_active = int((status_norm == "active").sum())
+    n_delisted = int((status_norm == "delisted").sum())
+    n_unknown = n - n_active - n_delisted
+    out = {
         "n_total": n,
         "n_active": n_active,
         "n_delisted": n_delisted,
+        "n_unknown": n_unknown,
         "pct_active": round(100.0 * n_active / n, 2),
     }
+    if n_unknown > 0:
+        out["warning"] = (
+            f"{n_unknown} symbol(s) have status not in {{active, delisted}} "
+            "(NaN or unrecognised value). pct_active is computed against the "
+            "n_total denominator so unknowns are NOT counted as either."
+        )
+    return out
 
 
 def cross_check_known_delistings(
@@ -162,6 +176,13 @@ def check_start_date_clustering(df: pd.DataFrame) -> dict[str, Any]:
 
     A real PIT universe has varied start_dates (IPO dates, index inclusions).
     A single shared start_date suggests snapshot sampling.
+
+    F-S2-SBC-3: clustering signal triggers when ``unique <= 2 and len > 5``.
+    Threshold chosen because watchlist_2007_2026 has 19/19 at one date.
+    For production use across varying universe sizes, a ratio-based threshold
+    (``unique/len < 0.2``) would generalise better — current absolute
+    threshold is conservative on small universes (won't false-positive on
+    6 IPOs that happen to share 2 dates).
     """
     if "start_date" not in df.columns:
         return {"warning": "no 'start_date' column"}

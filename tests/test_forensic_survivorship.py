@@ -229,38 +229,31 @@ class TestRunSurvivorshipCheck:
         assert report["verdict"]["n_flags"] >= 2
 
     def test_low_risk_with_diverse_universe(self, tmp_path: Path) -> None:
-        """A universe with mixed status + varied start_dates + known
-        delistings included should NOT trigger high risk. Use 2008-only
-        window so only LEH (Sep) + BSC (Mar) are in scope — both present."""
+        """A universe with mixed status + varied start_dates + only the
+        known delisting that's in the window included should NOT trigger
+        any flag. Window Jan-Mar 2008: only BSC (2008-03-17) is in scope
+        and BSC is in the watchlist."""
         path = _make_watchlist_csv(
             tmp_path,
-            symbols=["AAPL", "LEH", "BSC", "MSFT", "GOOGL"],  # LEH/BSC present
-            statuses=["active", "delisted", "delisted", "active", "active"],
+            symbols=["AAPL", "BSC", "MSFT", "GOOGL"],
+            statuses=["active", "delisted", "active", "active"],
             start_dates=[
                 "2008-09-02",
-                "2005-03-15",
                 "2003-11-08",
                 "2010-01-10",
                 "2015-04-22",
             ],
         )
-        # 2008-window: LEH (Sep) + BSC (Mar) only. Both present → no flag.
-        # Note: AIG event date 2008-09-16 also in window — included in
-        # known delistings sample so AIG must also be in the watchlist
-        # to keep the test at 'low'. Adjusted window excludes AIG too.
+        # Window: only BSC (Mar 17) in scope; BSC present in watchlist.
+        # pct_active 75% (under 99%) → no flag-1.
+        # BSC present → no flag-2.
+        # Varied start_dates → no flag-3.
+        # Verdict = low.
         report = run_survivorship_check(
             path,
             expected_window_start="2008-01-01",
-            expected_window_end="2008-08-31",  # excludes AIG (Sep 16) + LEH (Sep 15)
+            expected_window_end="2008-03-31",
         )
-        # In Jan-Aug 2008 window: only BSC (Mar 17), CFC (Jul 1). BSC present.
-        # CFC missing → 1 flag → medium. Tighten window further.
-        report = run_survivorship_check(
-            path,
-            expected_window_start="2008-01-01",
-            expected_window_end="2008-03-31",  # only BSC + nothing else
-        )
-        # BSC present, no other events → 0 flags → low
         assert report["verdict"]["risk_level"] == "low"
 
     def test_missing_file_raises(self, tmp_path: Path) -> None:
