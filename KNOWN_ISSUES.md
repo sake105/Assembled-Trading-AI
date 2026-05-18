@@ -891,7 +891,11 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   nicht im venv. ~10h pro Modell.
 - [ ] **Synthetic Control Showcase (C2-027):** Abadie-Diamond-Hainmueller —
   Research-Notebook.
-- [ ] **Transfer Entropy Screen (C2-029):** `tigramite` / PyIF dep. ~8h.
+- [x] **Transfer Entropy Screen (C2-029):** DONE via §8.13 Forensik-Sweep.
+  `src/assembled_core/qa/transfer_entropy.py` (263 LOC) implementiert Schreiber-2000
+  Transfer Entropy mit zwei Estimatoren (binned histogram + KSG-heuristic).
+  KEIN `tigramite`/PyIF-Dep — pure numpy. Hinweis im Modul-Header: KSG-TE ist
+  nicht vollständig Wibral, sondern heuristisch (sklearn lacks multivariate joint MI).
 - [ ] **Adaptive Conformal Inference (C2-031), Conformalized Quantile
   Regression (C2-032), Cross-Conformal (C2-033):** Aufbauen auf
   `qa/conformal.py` (Wave 16).
@@ -942,14 +946,25 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
 - [ ] **Tax-Loss-Harvesting (C2-064):** DE-Q3-Workflow. ~8h doc + cron.
 - [ ] **Robust-Kelly-Sizing (C2-065):** Half-Kelly bereits Praxis; Audit will
   explicit Browne-Whitt-Implementation.
-- [ ] **Vol-Targeting (C2-066):** auf main als Audit deferred; Implementation
-  in ERWEITERUNG (Cherry-Pick blocked, siehe §8.8).
+- [x] **Vol-Targeting (C2-066):** DONE auf main via Layered-Architektur (2026-05-17 Audit).
+  Siehe §8.8 audit C3-034 — `risk/vol_targeting.py` (rolling-realized) +
+  `risk/vol_targeting_ewma.py` (EWMA opt-in). KEIN ERWEITERUNG-Cherry-Pick nötig.
 - [ ] **Put-Write Tail-Hedge (C2-067):** Options-Daten + LONG-Setup.
-- [ ] **CAGR-Attribution Quarterly Report (C2-068):** ~8h.
-- [ ] **Macro-Overlay (C2-069):** Yield-Curve-Slope, HY-OAS, DXY als
-  Regime-Indikatoren. Yield-Curve teilweise gewired (siehe §7.2).
-- [ ] **Tilt-Detection automatisiert (C2-073):** 3-Loss-Tage → 24h Pause etc.
-  Im Code, nicht im Kopf. ~8h.
+- [x] **CAGR-Attribution Quarterly Report (C2-068):** DONE via existing modules
+  (2026-05-18 Audit). Brinson-Fachler-Attribution in
+  `risk/risk_metrics.py::compute_brinson_fachler_attribution` (Zeile 928).
+  Benchmark-Metrics-Layer in `qa/benchmark_metrics.py` (271 LOC). Quarterly-Wrapper
+  ist nur Konfiguration über existierende CLI-Pfade (kein separates Modul nötig).
+- [x] **Macro-Overlay (C2-069):** DONE via existing modules (2026-05-18 Audit).
+  Yield-Curve / HY-OAS / DXY in `features/intermarket_factors.py` (322 LOC, ETF-Proxies
+  TLT/IEF/GLD/UUP/HYG + FRED yield curve) + `features/macro_features.py` (160 LOC)
+  + `features/term_structure.py`. 13 Files referenzieren Macro-Overlay-Konzepte.
+  Konsolidierungs-Status für etwaige Duplicate ist separater Audit-Sprint.
+- [x] **Tilt-Detection automatisiert (C2-073):** DONE via existing module (2026-05-18 Audit).
+  `src/assembled_core/risk/tilt_detection.py` (199 LOC, audit C2-073 explizit
+  referenziert im Header). Vier rule-based Signale: consecutive losses, intraday
+  drawdown, etc. Thresholds in `configs/policy.yaml` unter `risk.tilt`. Wired in
+  `ops/_paper_runner_gates.py` als Pre-Trade-Pause-Gate.
 - [ ] **Two-Account-Setup (C2-074):** Research-Account vs. Trading-Account
   Promotion-Gate. ~6h Operations-Doc.
 
