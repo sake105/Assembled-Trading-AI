@@ -54,7 +54,12 @@ def fetch_one(symbol: str, start: str, end: str) -> pd.DataFrame | None:
         ]
         df = raw[keep].copy()
         df.index = pd.to_datetime(df.index)
-        df.index.name = "date"
+        # F-dl-1 (2026-05-19): use the canonical column name `timestamp` at
+        # the producer boundary so per-symbol cache files match the consumer
+        # contract in load_eod_prices (data/prices_ingest.py:82). The old
+        # `date` name leaked through into 195 cache parquets and forced a
+        # defensive rename in every reader.
+        df.index.name = "timestamp"
         df["symbol"] = symbol
         return df
     except Exception as exc:
@@ -74,15 +79,18 @@ def consolidate(symbols: list[str]) -> pd.DataFrame:
             frames.append(df)
     if not frames:
         return pd.DataFrame()
-    panel = pd.concat(frames)
+    panel = pd.concat(frames, ignore_index=False)
     panel = panel.reset_index()
-    if "date" not in panel.columns and panel.index.name == "date":
-        panel = panel.reset_index()
-    panel = panel.sort_values(["date", "symbol"]).reset_index(drop=True)
-    # Downstream consumers (load_eod_prices, prices_ingest.py:82, multifactor_v2
-    # pipeline) require the column `timestamp`. yfinance gives us `date`; rename
-    # at the boundary so the writer side matches the canonical reader contract.
-    panel = panel.rename(columns={"date": "timestamp"})
+    # Legacy fallback (F-dl-1): older caches were written with index.name="date".
+    # Producer now writes "timestamp", so this branch only matters for caches
+    # built before 2026-05-19. Belt-and-suspenders.
+    if "timestamp" not in panel.columns and "date" in panel.columns:
+        panel = panel.rename(columns={"date": "timestamp"})
+    # F-dl-3 (2026-05-19): de-dup on (timestamp, symbol) so an overlapping
+    # re-run of fetch_one doesn't silently double rows in the panel. keep=last
+    # preserves the most recent download.
+    panel = panel.drop_duplicates(["timestamp", "symbol"], keep="last")
+    panel = panel.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
     return panel
 
 

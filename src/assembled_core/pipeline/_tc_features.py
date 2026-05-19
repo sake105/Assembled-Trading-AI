@@ -13,12 +13,48 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
 
 logger = logging.getLogger(__name__)
 
-# Warn-once guard for "[FEATURE-ENH] enhanced enrichment skipped" — without
-# this, a persistent build_core_ta_factors failure (e.g. schema mismatch in a
-# fresh panel) would emit one WARN per bar in backtests (1260+/5y) and bury
-# the real signal. Same E-018 mitigation pattern as
+# Warn-once registry for bundle-critical feature-build failures. Without dedup
+# a persistent error in any of these except blocks emits one WARN per bar in
+# backtests (1260+/5y) and buries the real signal. Same E-018 pattern as
 # multifactor_v2._GEO_RISK_ZERO_FILL_WARNED. Reset on process restart.
-_FEATURE_ENH_WARN_KEYS: set[str] = set()
+#
+# Bundle-critical = features that strategy bundles reference by name (rv_20,
+# trend_strength_*, behavioral_composite, news/macro panel cols, HMM regime).
+# Optional = decorative columns (seasonal, mean-reversion, interaction, ffd,
+# order-book-imbalance) where silent skip is acceptable noise control.
+_FEATURE_BUILD_WARN_KEYS: set[tuple[str, str]] = set()
+_FEATURE_ENH_WARN_KEYS = _FEATURE_BUILD_WARN_KEYS  # backwards-compat alias
+
+# 200 chars per exception message keeps near-identical errors that diverge late
+# in the string still distinguishable (Stage-1 F-1). 1024 keys is well past any
+# realistic per-process exception vocabulary (~12-20 prefixes × typical
+# distinct messages) — cap prevents monotonic growth in long-running daemons.
+_WARN_KEY_MAX_CHARS = 200
+_WARN_REGISTRY_MAX_KEYS = 1024
+
+
+def _warn_once_feature_skip(
+    prefix: str,
+    exc: BaseException,
+    log_obj: logging.Logger | None = None,
+) -> None:
+    """Emit a WARN on first occurrence per (prefix, exc-signature) per process,
+    DEBUG on subsequent repeats. Caller is responsible for keeping the except
+    graceful (no raise) — this only handles the log level. ``log_obj`` lets
+    callers route through ctx-specific loggers; falls back to module logger.
+
+    Registry is bounded at _WARN_REGISTRY_MAX_KEYS entries; once full, further
+    distinct keys are still logged at WARN (we don't silently demote) but are
+    not added to the registry — net effect: more WARN noise instead of stale
+    state. This is the explicit failure mode for the edge case."""
+    lg = log_obj or logger
+    key = (prefix, f"{type(exc).__name__}:{str(exc)[:_WARN_KEY_MAX_CHARS]}")
+    if key not in _FEATURE_BUILD_WARN_KEYS:
+        if len(_FEATURE_BUILD_WARN_KEYS) < _WARN_REGISTRY_MAX_KEYS:
+            _FEATURE_BUILD_WARN_KEYS.add(key)
+        lg.warning("%s skipped (first occurrence, repeats at DEBUG): %s", prefix, exc)
+    else:
+        lg.debug("%s skipped (repeat): %s", prefix, exc)
 
 
 def build_features(
@@ -208,7 +244,8 @@ def build_features(
                     ctx.regime_state = hmm_df.iloc[-1].get("regime_label", "sideways")
                     log.info("REGIME_HMM: detected regime='%s'", ctx.regime_state)
     except Exception as e:
-        log.debug("HMM regime detection skipped: %s", e)
+        # Bundle-critical: ctx.regime_state drives size_positions + risk gating.
+        _warn_once_feature_skip("[HMM-REGIME] regime detection", e, log)
 
     # --- Step 2.2: Enhanced enrichment (ta_factors_core + cross_sectional) ---
     # Skip in backtest mode when precomputed features are already present — re-running
@@ -263,21 +300,9 @@ def build_features(
                         normalize_to=enh_cfg.get("rank_normalize_to", "symmetric"),
                     )
     except Exception as e:
-        # 2026-05-19 audit: was log.debug — silent failures here meant the
-        # multifactor_v2 strategy ran in degraded mode (bundle factors missing)
-        # without any visible signal. WARN makes the failure observable while
-        # preserving graceful degradation (no raise). Warn-once dedup avoids
-        # per-bar log spam in backtests (Stage-2 F-tc-1 / anti-pattern E-018).
-        _key = f"{type(e).__name__}:{str(e)[:80]}"
-        if _key not in _FEATURE_ENH_WARN_KEYS:
-            _FEATURE_ENH_WARN_KEYS.add(_key)
-            log.warning(
-                "[FEATURE-ENH] enhanced enrichment skipped (first occurrence,"
-                " further repeats at DEBUG): %s",
-                e,
-            )
-        else:
-            log.debug("[FEATURE-ENH] enhanced enrichment skipped (repeat): %s", e)
+        # Bundle-critical: trend_strength_*, trailing_momentum_*, returns_* —
+        # all consumed by macro_world_etfs_core_bundle and multifactor_v2.
+        _warn_once_feature_skip("[FEATURE-ENH] enhanced enrichment", e, log)
 
     # --- Step 2.5 behavioral: adds behavioral_composite column ---
     try:
@@ -312,14 +337,16 @@ def build_features(
                             float(_bc.iloc[-1]) if len(_bc) > 0 else 0.0
                         )
                     except Exception as _exc:
-                        logger.debug(
-                            "[behavioral_composite] %s skipped: %s", _sym, _exc
-                        )
+                        # F-tc-3 (2026-05-19): use `log` (param-aware) not
+                        # `logger` (module-only) for consistency. Per-symbol
+                        # debug — keep at DEBUG (not bundle-critical here).
+                        log.debug("[behavioral_composite] %s skipped: %s", _sym, _exc)
                 if _beh_scores:
                     pwf = pwf.copy()
                     pwf["behavioral_composite"] = pwf["symbol"].map(_beh_scores)
     except Exception as e:
-        log.debug("[BEHAVIORAL] behavioral_features skipped: %s", e)
+        # Bundle-critical: behavioral_composite is referenced by composite bundles.
+        _warn_once_feature_skip("[BEHAVIORAL] behavioral_features", e, log)
 
     # --- Step 2.6: Seasonal features (zero look-ahead calendar columns) ---
     try:
@@ -428,7 +455,8 @@ def build_features(
                     pwf, windows=[int(w) for w in rv_cfg.get("windows", [20, 60])]
                 )
     except Exception as e:
-        log.debug("[RV] realized_volatility skipped: %s", e)
+        # Bundle-critical: rv_20 listed explicitly in macro_world_etfs_core_bundle.
+        _warn_once_feature_skip("[RV] realized_volatility", e, log)
 
     # --- Step 2.11: Fractional differentiation ffd_close ---
     try:
@@ -506,7 +534,9 @@ def build_features(
             else:
                 log.debug("[NEWS-FEATURES] enabled but no ctx.news_events — skipped")
     except Exception as e:
-        log.debug("[NEWS-FEATURES] news_features skipped: %s", e)
+        # Bundle-critical: news_sentiment_z + news_volume_spike are
+        # consumed by composite news bundles + meta-model features.
+        _warn_once_feature_skip("[NEWS-FEATURES] news_features", e, log)
 
     # --- Step 2.17: Macro intermarket enrichment from local macro.parquet ---
     # Broadcasts yield_curve_slope, credit_spread_change_5d,
@@ -590,7 +620,8 @@ def build_features(
                     len(pwf),
                 )
     except Exception as e:
-        log.debug("[MACRO-PANEL] macro_panel enrichment skipped: %s", e)
+        # Bundle-critical: macro_growth/inflation/risk_aversion regime cols.
+        _warn_once_feature_skip("[MACRO-PANEL] macro_panel", e, log)
 
     # ------------------------------------------------------------------
     # Step 2.18: News sentiment enrichment — per-symbol per-date features
@@ -635,6 +666,7 @@ def build_features(
                 len(pwf),
             )
     except Exception as e:
-        log.debug("[NEWS-PANEL] news_sentiment enrichment skipped: %s", e)
+        # Bundle-critical: news_sentiment columns merged into panel.
+        _warn_once_feature_skip("[NEWS-PANEL] news_sentiment", e, log)
 
     return pwf, prices_latest_update
