@@ -805,6 +805,11 @@ def _compute_congress_factors(
     return result
 
 
+# Warn-once guard for the geo-risk zero-fill path (Path 2). Module-scope so it
+# resets on process restart but never spams within a single backtest run.
+_GEO_RISK_ZERO_FILL_WARNED: dict[str, bool] = {"fired": False}
+
+
 def _compute_geo_risk_composite(
     latest_symbols: list[str],
     latest: pd.DataFrame,
@@ -813,15 +818,29 @@ def _compute_geo_risk_composite(
     """Factor 31: geo-political risk composite (Pfad B).
 
     Priority:
-    1. Pre-merged panel columns: gpr_index, acled_intensity, geo_risk_score.
-    2. Live fetch via compute_gpr_from_fred (FRED API). DISABLED in backtest mode
-       (when as_of is set) per F-B-1 BLOCKER fix: live fetch uses date.today()
-       and would leak future data into backtest replays.
-    3. Zero-fill (graceful degradation).
 
-    Sign convention: positive score = higher geopolitical risk → bearish signal
-    for equities. Negated before return so that high risk → negative factor input.
+    1. Pre-merged panel columns: ``gpr_index``, ``acled_intensity``,
+       ``geo_risk_score``. Wire a feeder into the panel build to populate.
+       Canonical source for ``gpr_index`` is the Caldara-Iacoviello GPR
+       CSV at https://www.matteoiacoviello.com/gpr.htm (free, monthly).
+    2. Zero-fill (graceful degradation) with explicit info log so the
+       dead path is observable, not silent.
+
+    Removed in 2026-05-19 external-data audit: a live FRED fetch of
+    ``GPRC``. That series does not exist in FRED — Caldara-Iacoviello
+    hosts GPR on matteoiacoviello.com only. The previous code silently
+    fell through to zero-fill while appearing to bootstrap, which
+    masked the unwired data path (memory 2026-05-11 falsifies the
+    geo-composite signal anyway on 19y backtest, p=0.448).
+
+    Sign convention: positive score = higher geopolitical risk → bearish
+    signal for equities. Negated before return so high risk → negative
+    factor input. ``as_of`` is accepted for API stability but is no
+    longer load-bearing (the remaining paths are deterministic).
     """
+    # Signature compatibility with sibling factor fns (e.g. insider_cluster F-B-2
+    # which still needs as_of). Remaining paths here are deterministic.
+    del as_of
     result: dict[str, pd.Series] = {}
     sym_idx = (
         latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
@@ -853,50 +872,18 @@ def _compute_geo_risk_composite(
         )
         return result
 
-    # Path 2: fetch live GPR from FRED (GPRC = historical, monthly series).
-    # F-B-1 BLOCKER fix: SKIP entirely in backtest mode (when as_of is set).
-    # Reason: date.today()-based fetch would inject future data into replays.
-    if as_of is not None:
-        logger.debug(
-            "[MF-V2] geo composite: as_of=%s set (backtest mode), skipping live FRED fetch, zero-fill",
-            as_of,
+    # Path 2: explicit zero-fill. INFO once per process (would otherwise spam
+    # per-bar in backtests, ~1260 logs / 5y daily); debug thereafter.
+    if not _GEO_RISK_ZERO_FILL_WARNED["fired"]:
+        logger.info(
+            "[MF-V2] geo_risk_composite: no panel data (gpr_index /"
+            " acled_intensity / geo_risk_score columns missing or zero) —"
+            " zero-filled. Wire a Caldara-Iacoviello GPR feeder into the"
+            " panel build to activate. (further hits at DEBUG)"
         )
-        result["geo_risk_composite"] = pd.Series(0.0, index=sym_idx.values)
-        return result
-
-    try:
-        import datetime as _dt
-        from src.assembled_core.features.geopolitical_features import (
-            compute_gpr_from_fred,
-        )
-        from src.assembled_core.data.sources.fred_source import fetch_fred_series
-
-        _end = _dt.date.today().isoformat()
-        _start = (
-            (_dt.date.today()).replace(year=_dt.date.today().year - 5)
-        ).isoformat()
-        _fred_df = fetch_fred_series(["GPRC"], _start, _end)
-        if not _fred_df.empty:
-            _gpr_vals = (
-                _fred_df[_fred_df["series_id"] == "GPRC"]
-                .set_index("timestamp")["value"]
-                .sort_index()
-                .dropna()
-            )
-            if len(_gpr_vals) >= 30:
-                gpr_features = compute_gpr_from_fred(_gpr_vals, rolling_window=252)
-                if not gpr_features.empty and "gpr_zscore" in gpr_features.columns:
-                    current_z = float(gpr_features["gpr_zscore"].dropna().iloc[-1])
-                    result["geo_risk_composite"] = pd.Series(
-                        -current_z, index=sym_idx.values
-                    )
-                    logger.debug("[MF-V2] geo composite (FRED): z=%.2f", current_z)
-                    return result
-    except Exception as exc:
-        logger.debug("[MF-V2] geo composite FRED fetch failed: %s", exc)
-
-    # Path 3: zero-fill (factor excluded from composite by zero-variance guard)
-    logger.debug("[MF-V2] geo composite: no data, zero-fill")
+        _GEO_RISK_ZERO_FILL_WARNED["fired"] = True
+    else:
+        logger.debug("[MF-V2] geo_risk_composite: zero-fill (no panel data)")
     result["geo_risk_composite"] = pd.Series(0.0, index=sym_idx.values)
     return result
 

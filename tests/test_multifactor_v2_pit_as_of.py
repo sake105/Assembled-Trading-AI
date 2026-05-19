@@ -238,7 +238,8 @@ class TestGeoRiskCompositeAsOf:
         assert (
             not fetch_called
         ), "F-B-1 regression: FRED fetch called in backtest mode (as_of set)"
-        # Path 3 zero-fill should kick in
+        # Path 2 zero-fill should kick in (Path 2 = final zero-fill since
+        # the live FRED fetch path was removed in 2026-05-19 audit)
         assert "geo_risk_composite" in result
         assert (result["geo_risk_composite"] == 0.0).all()
 
