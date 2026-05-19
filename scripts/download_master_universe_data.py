@@ -79,6 +79,10 @@ def consolidate(symbols: list[str]) -> pd.DataFrame:
     if "date" not in panel.columns and panel.index.name == "date":
         panel = panel.reset_index()
     panel = panel.sort_values(["date", "symbol"]).reset_index(drop=True)
+    # Downstream consumers (load_eod_prices, prices_ingest.py:82, multifactor_v2
+    # pipeline) require the column `timestamp`. yfinance gives us `date`; rename
+    # at the boundary so the writer side matches the canonical reader contract.
+    panel = panel.rename(columns={"date": "timestamp"})
     return panel
 
 

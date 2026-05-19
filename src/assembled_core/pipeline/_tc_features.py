@@ -13,6 +13,13 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
 
 logger = logging.getLogger(__name__)
 
+# Warn-once guard for "[FEATURE-ENH] enhanced enrichment skipped" — without
+# this, a persistent build_core_ta_factors failure (e.g. schema mismatch in a
+# fresh panel) would emit one WARN per bar in backtests (1260+/5y) and bury
+# the real signal. Same E-018 mitigation pattern as
+# multifactor_v2._GEO_RISK_ZERO_FILL_WARNED. Reset on process restart.
+_FEATURE_ENH_WARN_KEYS: set[str] = set()
+
 
 def build_features(
     prices: pd.DataFrame,
@@ -256,7 +263,21 @@ def build_features(
                         normalize_to=enh_cfg.get("rank_normalize_to", "symmetric"),
                     )
     except Exception as e:
-        log.debug("[FEATURE-ENH] enhanced enrichment skipped: %s", e)
+        # 2026-05-19 audit: was log.debug — silent failures here meant the
+        # multifactor_v2 strategy ran in degraded mode (bundle factors missing)
+        # without any visible signal. WARN makes the failure observable while
+        # preserving graceful degradation (no raise). Warn-once dedup avoids
+        # per-bar log spam in backtests (Stage-2 F-tc-1 / anti-pattern E-018).
+        _key = f"{type(e).__name__}:{str(e)[:80]}"
+        if _key not in _FEATURE_ENH_WARN_KEYS:
+            _FEATURE_ENH_WARN_KEYS.add(_key)
+            log.warning(
+                "[FEATURE-ENH] enhanced enrichment skipped (first occurrence,"
+                " further repeats at DEBUG): %s",
+                e,
+            )
+        else:
+            log.debug("[FEATURE-ENH] enhanced enrichment skipped (repeat): %s", e)
 
     # --- Step 2.5 behavioral: adds behavioral_composite column ---
     try:
