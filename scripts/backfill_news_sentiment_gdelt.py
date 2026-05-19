@@ -382,8 +382,10 @@ def merge_with_existing(
 ) -> pd.DataFrame:
     """Merge new GDELT rows with existing Finnhub rows.
 
-    Finnhub rows take precedence (higher quality). Only add GDELT rows
-    for dates not covered by Finnhub.
+    Finnhub rows take precedence (higher quality). GDELT rows fill the
+    gaps both before existing data starts AND after existing data ends.
+    Before 2026-05-19 audit this only prepended; forward-refresh use
+    cases (continuous daily fetch) silently lost their fresh data.
     """
     if not existing_path.exists():
         return new_df
@@ -391,26 +393,30 @@ def merge_with_existing(
     existing = pd.read_parquet(existing_path)
     existing["timestamp"] = pd.to_datetime(existing["timestamp"], utc=True)
 
-    # Find date range already covered in existing
     existing_min = existing["timestamp"].min()
+    existing_max = existing["timestamp"].max()
 
-    # Only keep new rows BEFORE the existing data starts
+    # Prepend rows older than existing_min, append rows newer than existing_max.
     new_before = new_df[new_df["timestamp"] < existing_min].copy()
+    new_after = new_df[new_df["timestamp"] > existing_max].copy()
     log.info(
-        "Existing: %d rows from %s | New GDELT: %d rows before %s",
+        "Existing: %d rows %s..%s | new prepend: %d (< %s) | new append: %d (> %s)",
         len(existing),
         existing_min.date(),
+        existing_max.date(),
         len(new_before),
         existing_min.date(),
+        len(new_after),
+        existing_max.date(),
     )
 
-    if new_before.empty:
+    if new_before.empty and new_after.empty:
         log.info(
-            "No new rows to prepend — existing data already covers the full range."
+            "No new rows to prepend or append — existing already covers the range."
         )
         return existing
 
-    combined = pd.concat([new_before, existing], ignore_index=True)
+    combined = pd.concat([new_before, existing, new_after], ignore_index=True)
     combined = combined.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     return combined
 
