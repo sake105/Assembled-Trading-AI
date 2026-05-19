@@ -42,6 +42,7 @@ References:
 
 from __future__ import annotations
 
+import pathlib
 from dataclasses import dataclass
 
 import numpy as np
@@ -359,9 +360,124 @@ def in_time_placebo_test(
     }
 
 
+def export_att_chart(
+    result: SyntheticControlResult,
+    treated: pd.Series,
+    output_path: str | pathlib.Path,
+    figsize: tuple[float, float] = (10.0, 6.0),
+) -> pathlib.Path:
+    """Export ATT (Average Treatment effect on the Treated) chart to PNG.
+
+    Plots treated vs synthetic counterfactual over time, with the post-treatment
+    gap shaded. Companion to ``output/qa/`` artefacts produced by the forensic
+    showcase scripts (parity with equity_curve_audit, survivorship_bias_check,
+    out_of_regime_test, etc.).
+
+    Args:
+        result: SyntheticControlResult from :func:`fit_synthetic_control`.
+        treated: Original treated series (must match result.synthetic_series
+            length and index).
+        output_path: PNG file path. Parent directories are created.
+        figsize: (width, height) inches.
+
+    Returns:
+        Resolved pathlib.Path of the saved file.
+
+    Raises:
+        ValueError: If treated and synthetic_series lengths differ.
+        ImportError: If matplotlib is not installed.
+    """
+    if len(treated) != len(result.synthetic_series):
+        raise ValueError(
+            f"treated has {len(treated)} rows, synthetic_series has "
+            f"{len(result.synthetic_series)} — must match"
+        )
+    try:
+        import matplotlib
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        raise ImportError(
+            "matplotlib is required for ATT chart export. "
+            "Install with: pip install matplotlib"
+        ) from e
+
+    # F-senior-1 (F-1): Don't hijack the backend if one is already initialised.
+    # Headless CI defaults to Agg; this only matters for interactive sessions.
+    if matplotlib.get_backend().lower() not in {"agg"}:
+        try:
+            matplotlib.use("Agg", force=False)
+        except Exception:
+            # If a backend is already locked, fall through and use whatever is set.
+            pass
+
+    treatment_idx = result.n_pre
+    treated_arr = treated.to_numpy(dtype=float)
+    x = np.arange(len(treated))
+
+    # F-senior-1 (F-4): reuse compute_treatment_effect for ATT (single source of truth).
+    te = compute_treatment_effect(result, treated)
+    post_te = te.iloc[treatment_idx:]
+    att = float(post_te.mean()) if len(post_te) > 0 else float("nan")
+    synthetic_arr = result.synthetic_series.to_numpy(dtype=float)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    try:
+        ax.plot(
+            x,
+            treated_arr,
+            label=f"Treated ({result.treated_name})",
+            linewidth=2,
+            color="#c0392b",
+        )
+        ax.plot(
+            x,
+            synthetic_arr,
+            label="Synthetic Control",
+            linewidth=2,
+            color="#2c3e50",
+            linestyle="--",
+        )
+        if treatment_idx < len(treated):
+            ax.fill_between(
+                x[treatment_idx:],
+                treated_arr[treatment_idx:],
+                synthetic_arr[treatment_idx:],
+                alpha=0.25,
+                color="#f39c12",
+                label="ATT gap",
+            )
+        ax.axvline(
+            treatment_idx,
+            color="black",
+            linestyle=":",
+            alpha=0.7,
+            label=f"Treatment (t={treatment_idx})",
+        )
+        ax.set_xlabel("Period", fontsize=12)
+        ax.set_ylabel("Outcome", fontsize=12)
+        ax.set_title(
+            f"Synthetic Control: {result.treated_name}  "
+            f"ATT={att:.4f}  pre-RMSE={result.pre_treatment_rmse:.4f}",
+            fontsize=13,
+            fontweight="bold",
+        )
+        ax.legend(loc="best", fontsize=10)
+        ax.grid(True, alpha=0.3)
+
+        output_path = pathlib.Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    finally:
+        # F-senior-1 (F-2): ensure figure is closed even if savefig raises.
+        plt.close(fig)
+    return output_path.resolve()
+
+
 __all__ = [
     "SyntheticControlResult",
     "compute_treatment_effect",
+    "export_att_chart",
     "fit_synthetic_control",
     "in_time_placebo_test",
     "placebo_test",

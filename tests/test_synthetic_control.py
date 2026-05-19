@@ -11,6 +11,7 @@ pytest.importorskip("scipy")
 from src.assembled_core.qa.synthetic_control import (
     SyntheticControlResult,
     compute_treatment_effect,
+    export_att_chart,
     fit_synthetic_control,
     in_time_placebo_test,
     placebo_test,
@@ -300,3 +301,53 @@ class TestInTimePlaceboTest:
         )
         for fake_period, _ in result["fake_effects"]:
             assert 20 <= fake_period < 70
+
+
+# ---------------------------------------------------------------------------
+# export_att_chart (F-senior-3 deferred follow-up)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.fast
+class TestExportAttChart:
+    def test_file_created(self, tmp_path) -> None:
+        pytest.importorskip("matplotlib")
+        treated, donors, t0 = _make_synthetic_data(treatment_effect=5.0)
+        result = fit_synthetic_control(treated, donors, t0)
+        out_path = tmp_path / "att.png"
+        saved = export_att_chart(result, treated, out_path)
+        assert saved.exists()
+        assert saved.stat().st_size > 0
+
+    def test_parent_dir_created(self, tmp_path) -> None:
+        pytest.importorskip("matplotlib")
+        treated, donors, t0 = _make_synthetic_data()
+        result = fit_synthetic_control(treated, donors, t0)
+        nested = tmp_path / "deep" / "nested" / "qa" / "att.png"
+        saved = export_att_chart(result, treated, nested)
+        assert saved.exists()
+
+    def test_length_mismatch_raises(self, tmp_path) -> None:
+        pytest.importorskip("matplotlib")
+        treated, donors, t0 = _make_synthetic_data()
+        result = fit_synthetic_control(treated, donors, t0)
+        short = treated.iloc[:10]
+        with pytest.raises(ValueError, match="must match"):
+            export_att_chart(result, short, tmp_path / "x.png")
+
+    def test_string_path_accepted(self, tmp_path) -> None:
+        pytest.importorskip("matplotlib")
+        treated, donors, t0 = _make_synthetic_data()
+        result = fit_synthetic_control(treated, donors, t0)
+        out_str = str(tmp_path / "att.png")
+        saved = export_att_chart(result, treated, out_str)
+        assert saved.exists()
+
+    def test_does_not_mutate_treated(self, tmp_path) -> None:
+        """Defensive: F-senior-3 follow-up should not modify caller data."""
+        pytest.importorskip("matplotlib")
+        treated, donors, t0 = _make_synthetic_data()
+        result = fit_synthetic_control(treated, donors, t0)
+        before = treated.copy(deep=True)
+        export_att_chart(result, treated, tmp_path / "att.png")
+        pd.testing.assert_series_equal(treated, before)
