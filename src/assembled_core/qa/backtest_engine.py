@@ -48,7 +48,8 @@ Example usage:
     >>> trades = result["trades"]  # Optional
 
 Zukünftige Integration:
-- Nutzt pipeline.backtest.simulate_equity für kostenfreie Simulation
+- Nutzt pipeline.portfolio.simulate_with_costs (mit cost-params=0) für kostenfreie
+  Simulation — single-source-of-truth, cash-aware (audit §9.6(d) 2026-05-19).
 - Nutzt pipeline.portfolio.simulate_with_costs für kostenbewusste Simulation
 - Nutzt execution.order_generation für Order-Generierung
 - Erweitert um Walk-Forward-Analyse, Monte-Carlo-Simulation, etc.
@@ -85,7 +86,10 @@ from src.assembled_core.features.ta_features import (
     add_log_returns,
     add_moving_averages,
 )
-from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
+
+# 2026-05-19 audit §9.6(d): no-costs runs no longer call simulate_equity here
+# (legacy unconstrained path); both with-costs and no-costs route through
+# simulate_with_costs with appropriate cost params for one source of truth.
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
 
 if TYPE_CHECKING:
@@ -723,9 +727,11 @@ def _pb_run_cycle_fn_loop(
     cash = start_capital
     profit_lock_state: dict[str, Any] | None = None
     current_positions = pd.DataFrame(columns=["symbol", "qty"])
-    _px_cache: dict[str, float] = (
-        {}
-    )  # last-known price per symbol (prevents fillna(0) gaps)
+    # last-known price per symbol (prevents fillna(0) gaps).
+    # fmt: off — pre-commit ruff 0.8.6 and black 24.10.0 disagree on the
+    # type-annotated empty-dict literal here, causing an unresolvable hook loop.
+    _px_cache: dict[str, float] = {}
+    # fmt: on
 
     for timestamp in timeline:
         if timestamp not in rebalance_timestamps_set:
@@ -981,11 +987,35 @@ def _pb_simulate_equity(
             )
             metrics["trades"] = len(orders_df)
         else:
-            equity = simulate_equity(prices, orders_df, start_capital)
-            metrics = compute_metrics(equity)
+            # 2026-05-19 audit §9.6(d): route no-costs runs through the same
+            # cash-aware simulator as with-costs, just with zero cost params.
+            # The legacy simulate_equity path has no cash-constraint check
+            # (src/assembled_core/pipeline/backtest.py:319), which lets
+            # positions grow on negative cash and produces catastrophic
+            # phantom losses in long backtests (mfv2 OOS 2025-01..2026-05-05
+            # collapsed from $103k to $27k on 2026-03-24 with the legacy
+            # path while the cash-aware path stayed at $92k on identical
+            # trades). One source of truth = simulate_with_costs.
+            equity, metrics, trades_df = simulate_with_costs(
+                orders=orders_df,
+                start_capital=start_capital,
+                commission_bps=0.0,
+                spread_w=0.0,
+                impact_w=0.0,
+                freq=fill_freq,
+                prices=prices,
+                strict_session_gate=strict_session_gate,
+            )
             metrics["trades"] = len(orders_df)
-            # For ledger integration, use orders_df as trades_df when costs are disabled
-            trades_df = pd.DataFrame()
+            # F-9.6d-1 (Stage-2 MAJOR): simulate_with_costs returns only
+            # {final_pf, sharpe, trades}. Legacy compute_metrics also exposed
+            # {rows, first, last}. Re-add them for schema-compatibility so
+            # external consumers reading result.metrics see the same keys
+            # under include_costs=False as before.
+            if not equity.empty and "equity" in equity.columns:
+                metrics.setdefault("rows", int(len(equity)))
+                metrics.setdefault("first", float(equity["equity"].iloc[0]))
+                metrics.setdefault("last", float(equity["equity"].iloc[-1]))
 
     # Step 4.5: Apply fill model pipeline (session gate -> limit -> partial)
     # This must happen BEFORE cost calculation, as costs are based on fill_qty
