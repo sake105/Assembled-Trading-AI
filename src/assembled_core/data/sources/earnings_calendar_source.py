@@ -40,7 +40,9 @@ class EarningsCalendarSource:
 
     Attributes:
         finnhub_api_key: Optional Finnhub API key (reads FINNHUB_API_KEY env var).
-        alphavantage_api_key: Optional Alpha Vantage key (reads ALPHAVANTAGE_API_KEY).
+        alphavantage_api_key: Optional Alpha Vantage key. Reads ALPHAVANTAGE_KEY
+            first (the canonical name used by alphavantage_source.py and .env),
+            then falls back to ALPHAVANTAGE_API_KEY for backwards-compat.
     """
 
     def __init__(
@@ -49,8 +51,10 @@ class EarningsCalendarSource:
         alphavantage_api_key: Optional[str] = None,
     ) -> None:
         self.finnhub_api_key = finnhub_api_key or os.environ.get("FINNHUB_API_KEY", "")
-        self.alphavantage_api_key = alphavantage_api_key or os.environ.get(
-            "ALPHAVANTAGE_API_KEY", ""
+        self.alphavantage_api_key = (
+            alphavantage_api_key
+            or os.environ.get("ALPHAVANTAGE_KEY", "")
+            or os.environ.get("ALPHAVANTAGE_API_KEY", "")
         )
 
     # ------------------------------------------------------------------
