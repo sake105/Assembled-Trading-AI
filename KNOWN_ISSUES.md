@@ -1336,3 +1336,146 @@ nur Collection-Noise.
 - Ruff + black + ruff-format: clean auf allen geänderten Files.
 - **NICHT verifiziert:** Ubuntu-CI (kein PR), slow-Marker-Suite, fresh
   paper-pilot-Run mit Wave-1-bis-17 Gate-Stack.
+
+---
+
+## 9. External-Data-Audit 2026-05-19
+
+**HEAD am Audit-Schluss:** `4e5b6f9` (12+ commits seit `87c0c33`).
+Vollständiger Session-Snapshot:
+`memory/session-2026-05-19-external-data-audit-and-wiring-fix.md`.
+
+### 9.1 Off-by-One `parents[4]` Silent-Degradation Triple — BEHOBEN (ad76a4c, 40171e2, c6ccd10)
+
+**Schwere:** MAJOR  
+**Status:** ✅ alle drei Stellen gefixt  
+
+Gleiches Pattern an drei unabhängigen Stellen, alle `src/assembled_core/<X>/<Y>.py` mit `parents[4]` statt korrekt `parents[3]`:
+
+- `intel/rss_fetcher.py` — `_CONFIG_PATH` resolved zu `F:\Python_Projekt\` statt `…\Aktiengerüst\`. `RSSFetcher()` ohne explicit `config_path` lud **0 Feeds**. `scripts/run_rss_fetch.py` lief seit unbekannter Zeit komplett leer. Tests passierten weil `config_path=_REAL_CONFIG` explizit übergeben wurde.
+- `ops/audit_trail.py` — `_DEFAULT_OUTPUT` schrieb `output/audit/trading_decisions.jsonl` außerhalb des Repos. Maskiert via `AUDIT_TRAIL_PATH` env override falls gesetzt.
+- `pipeline/_tc_signals.py` — Meta-Model-Bundle-Pfad. `except: pass` maskierte den Fehler komplett, threshold defaultete still zu `0.58`. Aktuell double-guarded (meta_model.enabled=false + policy confidence_threshold=0.52), daher keine Verhaltensänderung in der Live-Konfig. Bundle v2 hat decision_threshold=0.58 = identisch zum Fallback — würde aber bei künftiger Aktivierung dann tatsächlich laden.
+
+**Anti-Pattern:** silent-except + path-off-by-one. Gehört in `CLAUDE_CODING_ERRORS.md` als E-023 (Vorschlag).  
+**Lesson:** Modul-interne `parents[N]`-Counts brüchig nach Repo-Restrukturierungen. Ein zentraler `repo_root()`-Helper wäre safer.
+
+### 9.2 GDELT `news_sentiment_daily` Merge-Bug — BEHOBEN (7d8fa0c)
+
+**Schwere:** MAJOR (Data-Drift)  
+**Status:** ✅  
+
+`scripts/backfill_news_sentiment_gdelt.py:merge_with_existing()` war ursprünglich als Einmalig-Historical-Backfill konzipiert: nur Rows **vor** `existing_min` wurden prepended. Bei kontinuierlicher Daily-Refresh-Nutzung verloren fresh-Rows nach `existing_max` **stillschweigend**. Effekt: `news_sentiment_daily.parquet` stagnierte bei 2026-05-06 obwohl GDELT bis 2026-05-19 fetchte.
+
+Fix: prepend < `existing_min` **UND** append > `existing_max`. Live-Verifikation: 423 + 223 = 646 rows, range 2025-12-22..2026-05-19.
+
+### 9.3 multifactor_v2 GPRC Dead-Path + Observability — BEHOBEN (6be8ce3, c6ccd10, 4e5b6f9)
+
+**Schwere:** MAJOR (Silent-Degradation)  
+**Status:** ✅ Dead-Path entfernt + observability hergestellt  
+
+`_compute_geo_risk_composite` rief `fetch_fred_series(["GPRC"])` — **die Series existiert nicht in FRED** (Caldara-Iacoviello hostet GPR ausschließlich auf matteoiacoviello.com). Code fiel still auf zero-fill durch.  
+Memory 2026-05-11 hatte das Composite-Signal bereits auf 19y FALSIFIZIERT (p=0.448) — Silent-Dead war also nicht load-bearing, aber irreführend.
+
+Plus: `_tc_features.py` Step-2.2 enhanced enrichment except-Block loggte auf DEBUG → jegliche `build_core_ta_factors`-Failure blieb unsichtbar.  
+Fix: DEBUG → WARN mit warn-once dedup (E-018 mitigation, gleiches Pattern wie `_GEO_RISK_ZERO_FILL_WARNED`).
+
+### 9.4 RSS Feed-Rot + Mozilla UA Recovery — BEHOBEN (ed67b72, 48b3fbf)
+
+**Schwere:** MEDIUM  
+**Status:** ✅ — 138 → 96 enabled Feeds nach 2-Pass-Audit  
+
+Audit aller 138 Feeds aus `configs/intel/rss_feeds.yaml` zeigte:
+- 41 truly-dead (404 / DNS gaierror / HTML-statt-XML response) — entfernt
+- 14 mit `Mozilla/5.0` UA recovert (waren als 403 markiert) — wieder aktiv
+- 16 deeper Cloudflare/SEC-spec-UA-blocks bleiben annotiert
+- 2 als `enabled: false` Placeholder gehalten (`reuters_world`, `the_cradle`) wegen Test-Fixture-Abhängigkeit
+
+Neue ops-Tools: `scripts/ops/audit_rss_feeds.py` + `prune_rss_feeds.py` (idempotent via regex-strip auf `[audit-YYYY-MM-DD …]` tags).  
+Neue Anti-Pattern-Risk vermieden via test-fixture-respect + operator-disabled-skip.
+
+### 9.5 Env-Var Alias Mismatches — BEHOBEN (8d4f0ae)
+
+**Schwere:** MEDIUM  
+**Status:** ✅  
+
+- `earnings_calendar_source.py` las `ALPHAVANTAGE_API_KEY` aber `.env` hatte nur `ALPHAVANTAGE_KEY` → earnings-via-AV path silent dead. Fix: prefer canonical, fall back to alias.
+- `.github/workflows/daily-paper-reconcile.yml` referenzierte `secrets.ALPACA_SECRET_KEY` (existiert nicht in GH Secrets) UND injizierte env var `ALPACA_SECRET_KEY` (broker_adapter liest `ALPACA_API_SECRET`). Doppelt broken. Fix: kanonische Namen beidseitig.
+- `.env.example` zeigte Legacy-Aliase mit Placeholder-Werten — bereinigt zu Empty mit Kommentar.
+
+### 9.6 multifactor_v2 Signal-Quality — OFFEN (RESEARCH)
+
+**Schwere:** HIGH (Strategie-Wert)  
+**Status:** ⚠️ Wiring sauber, Signal underperform  
+
+Pipeline-Recheck OOS 2025-01-02..2026-05-05 (195 syms, with-costs):
+
+| Strategy | CAGR | Sharpe | MDD | Trades | PF |
+|----------|------|--------|-----|--------|-----|
+| trend_baseline | **+43.02%** | **1.44** | -12.68% | 2153 | 1.61 |
+| multifactor_v2 | -5.88% | -0.07 | -44.57% | 2482 | 0.92 |
+
+Identical mfv2-Result vor und nach Factor-Panel-Wiring → Strategy lief immer korrekt mit internem `build_core_ta_factors`; das pre-built Panel wurde via `load_eod_prices` (`data/prices_ingest.py:146`, non-OHLCV-Strip) verworfen. **Underperformance ist Signal-Quality, nicht Wiring.**
+
+Hypothesen für Research-Folge-Task:
+- Bundle-Gewichte falsch kalibriert für aktuelles Bull-Regime (HEAD nutzt `macro_world_etfs_core_bundle.yaml`)
+- Faktor-Crowding bei trend_strength + momentum-overlap
+- Mean-reversion-Anteil dominiert in einem Trend-Markt
+
+Caveat Survivorship-Bias: 195 syms = aktuell überlebende, kein PIT-Universe. Echte OOS-Aussage erst mit Index-Membership-Feed (siehe §0.1).
+
+### 9.7 Adjacent Findings aus Review-Chain Stage 2 — AKTIV
+
+**Status:** ⚠️ in dieser Session noch abzuarbeiten (User-Policy: "kein deferral")
+
+- **F-tc-2 (MAJOR):** 12 sibling debug-only except-Blöcke in `_tc_features.py` haben dasselbe Silent-Degradation-Risiko wie der gerade gefixte (Zeilen 172, 305, 325, 354, 369, 398, 414, 432, 464, 492, 576, 621). Inkonsistent: nur einer ist jetzt observable. Lösung: warn-once-Pattern auf alle bundle-kritischen Blöcke ausweiten + Policy-Kommentar.
+- **F-tc-3 (MINOR):** Line 298 nutzt `logger.debug` statt der modul-weiten `log`-Variable. NameError-Risiko wenn nicht-import-time gebunden.
+- **F-dl-1 (MAJOR):** `scripts/download_master_universe_data.py:57` schreibt per-symbol yfinance-Cache parquets mit `index.name = "date"`. Rename auf `timestamp` passiert nur in `consolidate()`. 195 cache-Files inkonsistent zu kanonischem Reader-Vertrag. Lösung: rename am Producer (`fetch_one`) ODER backfill der existierenden Caches.
+- **F-dl-2/3 (MINOR):** Dead-Branch in `consolidate()` Zeilen 79-81 + fehlende `drop_duplicates` auf `(timestamp, symbol)` Konkatenations-Layer.
+
+### 9.8 Pre-Commit Tooling: ruff ↔ black Disagreement — OFFEN (TOOLING)
+
+**Schwere:** MEDIUM (CI-Hygiene)  
+**Status:** ⚠️ Workaround via `# fmt: off` an einer Stelle (c6ccd10)  
+
+`.pre-commit-config.yaml` pinnt:
+- ruff `v0.8.6` (astral-sh/ruff-pre-commit)
+- black `24.10.0` (psf/black)
+
+Diese beiden disagreen auf chained `.fillna()` in `_tc_signals.py:328-333`:
+- ruff 0.8.6 will single-line `.fillna(1.0)`
+- black 24.10.0 will multi-line
+
+→ unresolvable hook-loop, weil ruff-format und black abwechselnd reformatieren. Workaround: `# fmt: off / # fmt: on` Markers (siehe `_tc_signals.py:327, 336`).
+
+Echte Lösung: ruff bumpen auf >= 0.14.x (Mass-Reformat-Risk auf 28+ Files → eigener Cleanup-Tag).
+
+Plus: `core.autocrlf=true` (global) ↔ `.gitattributes eol=lf` Konflikt — lokal auf `input` gesetzt (`git config --local core.autocrlf input`).
+
+### 9.9 Caldara-Iacoviello GPR Feeder gebaut aber nicht in Panel-Build verdrahtet — TEILWEISE (9666694)
+
+**Schwere:** LOW (Signal nicht load-bearing)  
+**Status:** ⚠️ Feeder ✅, Strategy-Konsum ❌
+
+- `scripts/ops/fetch_caldara_iacoviello_gpr.py` — fetcht `data_gpr_export.xls` (free, public), parst via xlrd, schreibt 5-col tidy `output/macro_gpr.parquet`. 1516 rows monthly 1900..2026-04-01. April 2026 GPR=230.77 (elevated).
+- `scripts/ops/build_factor_panel.py --with-gpr` mergt `gpr_index` via `merge_asof(direction='backward')` (PIT-safe: month t value ab t+1 verfügbar).
+- **Nicht verdrahtet:** trading_cycle / paper_runner Panel-Build ruft `build_factor_panel.py` **nicht** auf. `_compute_geo_risk_composite` Path-1 prüft `gpr_index` aus `latest`-DataFrame — die Spalte ist im laufenden Run nicht da. Folge: Path-2 zero-fill greift weiter, gpr-Daten bleiben ungenutzt.
+- Fix erfordert: Panel-Build-Pipeline `panel_store` um GPR-Source erweitern. Sensitive zone (`data/`), eigener Auftrag.
+
+### 9.10 Sicherheits-Anmerkung
+
+**Schwere:** MITTLERER ERINNERUNGSWERT  
+Finnhub-API-Key wurde am 2026-05-19 ~08:00 lokaler Zeit direkt im Chat gepostet (alter Key war 401 Unauthorized, Rotation). Anthropic-Chatlogs könnten retained sein. **Aktion:** Nach Session-Ende erneut bei `finnhub.io/dashboard` rotieren.
+
+### 9.11 Daten-Frische am Audit-Ende
+
+| Quelle | Bis | Volumen |
+|--------|-----|---------|
+| FRED macro | 2026-05-18 | 14 Series, 20533 rows |
+| NewsAPI | 2026-05-19 | 78 syms, 310 rows |
+| Polygon news | 2026-05-19 | 156 syms, 747 rows |
+| GDELT | 2026-05-19 | 27 syms, 423 rows |
+| news_sentiment_daily (fused) | 2026-05-19 | 646 rows nach merge-fix |
+| Caldara-Iacoviello GPR | 2026-04-01 | 1516 rows monthly |
+| RSS (effective) | live | 78 active feeds (von 96 konfiguriert) |
+| Master universe panel | 2026-05-18 | 195 syms, 262K rows |
+
