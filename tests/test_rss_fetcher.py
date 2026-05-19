@@ -203,9 +203,12 @@ class TestRSSFetcher:
         mock_fp.return_value = _make_feed_response([entry])
 
         fetcher = RSSFetcher(config_path=_REAL_CONFIG)
-        events = fetcher.fetch_feed("reuters_world", skip_seen=False)
+        # bbc_world: enabled, tier T1 (reuters_world is kept as enabled:false
+        # placeholder after 2026-05-19 audit — fetch_feed would short-circuit
+        # to [] on disabled feeds, so tests need an enabled feed here).
+        events = fetcher.fetch_feed("bbc_world", skip_seen=False)
         assert len(events) > 0
-        assert events[0].source_id == "reuters_world"
+        assert events[0].source_id == "bbc_world"
         assert events[0].source_tier == SourceTier.T1
 
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
@@ -220,8 +223,8 @@ class TestRSSFetcher:
         mock_fp.return_value = _make_feed_response([entry])
 
         fetcher = RSSFetcher(config_path=_REAL_CONFIG)
-        e1 = fetcher.fetch_feed("reuters_world", skip_seen=True)
-        e2 = fetcher.fetch_feed("reuters_world", skip_seen=True)
+        e1 = fetcher.fetch_feed("bbc_world", skip_seen=True)
+        e2 = fetcher.fetch_feed("bbc_world", skip_seen=True)
         assert len(e1) > 0
         assert len(e2) == 0  # already seen
 
@@ -231,7 +234,7 @@ class TestRSSFetcher:
 
         mock_get.side_effect = req.RequestException("timeout")
         fetcher = RSSFetcher(config_path=_REAL_CONFIG, retries=1)
-        events = fetcher.fetch_feed("reuters_world")
+        events = fetcher.fetch_feed("bbc_world")
         assert events == []
 
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
@@ -386,9 +389,9 @@ class TestAgeFilter:
         mock_fp.return_value = _make_feed_response([entry])
 
         fetcher = RSSFetcher(config_path=_REAL_CONFIG)
-        # Manually set max_age_hours = 24 on reuters_world cfg
-        fetcher._configs["reuters_world"].max_age_hours = 24
-        events = fetcher.fetch_feed("reuters_world", skip_seen=False)
+        # Manually set max_age_hours = 24 on bbc_world cfg
+        fetcher._configs["bbc_world"].max_age_hours = 24
+        events = fetcher.fetch_feed("bbc_world", skip_seen=False)
         assert events == [], "Entries older than max_age_hours should be filtered"
 
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
@@ -408,8 +411,8 @@ class TestAgeFilter:
         mock_fp.return_value = _make_feed_response([entry])
 
         fetcher = RSSFetcher(config_path=_REAL_CONFIG)
-        fetcher._configs["reuters_world"].max_age_hours = 48
-        events = fetcher.fetch_feed("reuters_world", skip_seen=False)
+        fetcher._configs["bbc_world"].max_age_hours = 48
+        events = fetcher.fetch_feed("bbc_world", skip_seen=False)
         assert len(events) > 0, "Recent entry should pass age filter"
 
 

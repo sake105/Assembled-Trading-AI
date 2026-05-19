@@ -1,34 +1,18 @@
 feeds:
 - id: reuters_world
-  name: Reuters World News
+  name: Reuters World News (retired)
   url: https://feeds.reuters.com/reuters/worldnews
   tier: T1
   focus: geopolitical
-  enabled: true
-- id: reuters_business
-  name: Reuters Business
-  url: https://feeds.reuters.com/reuters/businessnews
-  tier: T1
-  focus: economic
-  enabled: true
-- id: reuters_politics
-  name: Reuters Politics
-  url: https://feeds.reuters.com/Reuters/PoliticsNews
-  tier: T1
-  focus: political
-  enabled: true
-- id: ap_world
-  name: AP News - Top Headlines
-  url: https://feeds.apnews.com/apnews/topnews
-  tier: T1
+  enabled: false
+  notes: '[audit-2026-05-19 FAIL: URLError gaierror — placeholder for test fixture]'
+- id: the_cradle
+  name: The Cradle (404)
+  url: https://thecradle.co/rss
+  tier: T2
   focus: geopolitical
-  enabled: true
-- id: ap_politics
-  name: AP News - Politics
-  url: https://feeds.apnews.com/apnews/politics
-  tier: T1
-  focus: political
-  enabled: true
+  enabled: false
+  notes: '[audit-2026-05-19 FAIL: HTTPError 404 — placeholder for test fixture]'
 - id: bbc_world
   name: BBC World News
   url: https://feeds.bbci.co.uk/news/world/rss.xml
@@ -77,12 +61,6 @@ feeds:
   tier: T2
   focus: general
   enabled: true
-- id: the_cradle
-  name: The Cradle
-  url: https://thecradle.co/rss
-  tier: T2
-  focus: middle_east_geopolitical
-  enabled: true
 - id: middle_east_eye
   name: Middle East Eye
   url: https://www.middleeasteye.net/rss
@@ -107,12 +85,7 @@ feeds:
   tier: T2
   focus: middle_east_geopolitical
   enabled: true
-- id: gulf_news
-  name: Gulf News
-  url: https://gulfnews.com/rss
-  tier: T2
-  focus: middle_east_economic
-  enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: south_china_morning_post
   name: South China Morning Post - Asia
   url: https://www.scmp.com/rss/91/feed
@@ -130,12 +103,6 @@ feeds:
   url: https://www.thehindu.com/feeder/default.rss
   tier: T2
   focus: south_asia_geopolitical
-  enabled: true
-- id: jakarta_post
-  name: The Jakarta Post
-  url: https://www.thejakartapost.com/feed/rss
-  tier: T2
-  focus: southeast_asia
   enabled: true
 - id: defense_news
   name: Defense News
@@ -155,6 +122,7 @@ feeds:
   tier: T2
   focus: conflict_analysis
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: bellingcat
   name: Bellingcat (OSINT)
   url: https://www.bellingcat.com/feed/
@@ -185,6 +153,7 @@ feeds:
   tier: T2
   focus: national_security_legal
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: just_security
   name: Just Security
   url: https://www.justsecurity.org/feed/
@@ -203,47 +172,19 @@ feeds:
   tier: T2
   focus: geopolitical_analysis
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: rand_corp
   name: RAND Corporation
   url: https://www.rand.org/news.rss
   tier: T2
   focus: defense_policy_research
   enabled: true
-- id: csis
-  name: CSIS (Center for Strategic & International Studies)
-  url: https://www.csis.org/analysis/rss
-  tier: T2
-  focus: geopolitical_analysis
-  enabled: true
-- id: carnegie_endowment
-  name: Carnegie Endowment for International Peace
-  url: https://carnegieendowment.org/rss/solr.xml?q=*
-  tier: T2
-  focus: geopolitical_analysis
-  enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: atlantic_council
   name: Atlantic Council
   url: https://www.atlanticcouncil.org/feed/
   tier: T2
   focus: transatlantic_geopolitical
-  enabled: true
-- id: brookings
-  name: Brookings Institution
-  url: https://www.brookings.edu/feed/
-  tier: T2
-  focus: policy_economic
-  enabled: true
-- id: wilson_center
-  name: Wilson Center
-  url: https://www.wilsoncenter.org/rss.xml
-  tier: T2
-  focus: geopolitical_analysis
-  enabled: true
-- id: sipri
-  name: SIPRI (Stockholm International Peace Research Institute)
-  url: https://www.sipri.org/rss
-  tier: T2
-  focus: arms_conflict_research
   enabled: true
 - id: icg
   name: International Crisis Group
@@ -263,12 +204,6 @@ feeds:
   tier: T2
   focus: energy_commodities
   enabled: true
-- id: eia_news
-  name: EIA (US Energy Information Administration)
-  url: https://www.eia.gov/rss/news.xml
-  tier: T2
-  focus: energy_data
-  enabled: true
 - id: rigzone
   name: Rigzone (Oil & Gas)
   url: https://www.rigzone.com/news/rss/rigzone_latest.aspx
@@ -280,12 +215,6 @@ feeds:
   url: https://www.lngworldnews.com/feed/
   tier: T2
   focus: energy_lng
-  enabled: true
-- id: maritime_executive
-  name: The Maritime Executive
-  url: https://maritime-executive.com/feed
-  tier: T2
-  focus: shipping_maritime
   enabled: true
 - id: hellenic_shipping
   name: Hellenic Shipping News
@@ -305,48 +234,28 @@ feeds:
   tier: T2
   focus: sanctions_regulatory
   enabled: true
-- id: state_dept_press
-  name: US State Department Press Releases
-  url: https://www.state.gov/press-releases/feed/
-  tier: T2
-  focus: sanctions_geopolitical
-  enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: pentagon_news
   name: Pentagon / DoD News
   url: https://www.defense.gov/News/RSS/
   tier: T2
   focus: defense_official
   enabled: true
-- id: nato_news
-  name: NATO News
-  url: https://www.nato.int/cps/en/natohq/news.htm?selectedLocale=en&format=rss
-  tier: T2
-  focus: nato_geopolitical
-  enabled: true
-- id: un_news
-  name: UN News (English)
-  url: https://news.un.org/feed/subscribe/en/news/all/rss.xml
-  tier: T2
-  focus: international_geopolitical
-  enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: imf_news
   name: IMF News
   url: https://www.imf.org/en/News/rss
   tier: T2
   focus: economic_financial
   enabled: true
-- id: world_bank_news
-  name: World Bank News
-  url: https://www.worldbank.org/en/news/all/rss
-  tier: T2
-  focus: economic_development
-  enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: politico
   name: Politico
   url: https://www.politico.com/rss/politicopicks.xml
   tier: T2
   focus: political_economic
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: the_hill
   name: The Hill
   url: https://thehill.com/rss/syndicator/19110
@@ -395,12 +304,6 @@ feeds:
   tier: T1
   focus: geopolitical
   enabled: true
-- id: kyiv_independent
-  name: Kyiv Independent
-  url: https://kyivindependent.com/feed/
-  tier: T2
-  focus: ukraine_russia_conflict
-  enabled: true
 - id: ukraine_pravda_en
   name: Ukrayinska Pravda (English)
   url: https://www.pravda.com.ua/eng/rss/
@@ -413,41 +316,11 @@ feeds:
   tier: T2
   focus: ukraine_russia_conflict
   enabled: true
-- id: radio_free_asia
-  name: Radio Free Asia
-  url: https://www.rfa.org/english/feeds/rss.xml
-  tier: T2
-  focus: asia_geopolitical
-  enabled: true
 - id: nikkei_asia
   name: Nikkei Asia
   url: https://asia.nikkei.com/rss/feed/nar
   tier: T2
   focus: asia_economic_geopolitical
-  enabled: true
-- id: korea_herald
-  name: Korea Herald
-  url: https://www.koreaherald.com/common/rss.php
-  tier: T2
-  focus: northeast_asia
-  enabled: true
-- id: taipei_times
-  name: Taipei Times
-  url: https://www.taipeitimes.com/rss
-  tier: T2
-  focus: taiwan_china_geopolitical
-  enabled: true
-- id: straitstimes_world
-  name: Straits Times - World
-  url: https://www.straitstimes.com/global/rss.xml
-  tier: T2
-  focus: asia_geopolitical
-  enabled: true
-- id: euractiv
-  name: EurActiv
-  url: https://www.euractiv.com/sections/all-news/feed/
-  tier: T2
-  focus: eu_political_economic
   enabled: true
 - id: spiegel_international
   name: Der Spiegel International
@@ -466,18 +339,6 @@ feeds:
   url: https://en.mercopress.com/rss
   tier: T2
   focus: latin_america_geopolitical
-  enabled: true
-- id: africa_confidential
-  name: Africa Confidential (public RSS)
-  url: https://www.africa-confidential.com/rss
-  tier: T2
-  focus: africa_geopolitical
-  enabled: true
-- id: allafrica
-  name: AllAfrica Headlines
-  url: https://allafrica.com/tools/headlines/rdf/Africa/headlines.rdf
-  tier: T2
-  focus: africa_geopolitical
   enabled: true
 - id: marketwatch_top
   name: MarketWatch Top Stories
@@ -503,12 +364,6 @@ feeds:
   tier: T2
   focus: central_bank_policy
   enabled: true
-- id: bis_research
-  name: Bank for International Settlements
-  url: https://www.bis.org/rss/bis_research.xml
-  tier: T2
-  focus: financial_regulatory
-  enabled: true
 - id: defense_one
   name: Defense One
   url: https://www.defenseone.com/rss/all/
@@ -521,6 +376,7 @@ feeds:
   tier: T2
   focus: defense_policy
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: energy_monitor
   name: Energy Monitor
   url: https://www.energymonitor.ai/feed/
@@ -533,24 +389,12 @@ feeds:
   tier: T2
   focus: commodity_pricing
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: zerohedge
   name: ZeroHedge
   url: https://feeds.feedburner.com/zerohedge/feed
   tier: T3
   focus: financial_alternative
-  enabled: true
-- id: clash_report
-  name: Clash Report
-  url: https://clashreport.com/feed/
-  tier: T3
-  focus: conflict_military
-  enabled: true
-  note: Primary source is Twitter/X — RSS may lag. Telegram channel available.
-- id: moon_of_alabama
-  name: Moon of Alabama
-  url: https://www.moonofalabama.org/atom.xml
-  tier: T3
-  focus: geopolitical_alternative
   enabled: true
 - id: grayzone
   name: The Grayzone
@@ -614,20 +458,7 @@ feeds:
   focus: geopolitical_alternative
   enabled: false
   note: Very high misinfo risk — disabled by default
-- id: the_global_eye
-  name: The Global Eye
-  url: ''
-  tier: T3
-  focus: geopolitical_alternative
-  enabled: false
-  note: RSS URL unknown — add when found
-- id: tabz
-  name: Tabz
-  url: ''
-  tier: T3
-  focus: alternative_aggregator
-  enabled: false
-  note: RSS URL unknown — add when found
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: cnbc_economy
   name: CNBC Economy
   url: https://www.cnbc.com/id/20910258/device/rss/rss.html
@@ -658,12 +489,6 @@ feeds:
   tier: T1
   focus: central_bank_policy
   enabled: true
-- id: bis_speeches
-  name: BIS Speeches
-  url: https://www.bis.org/doclist/speeches.rss
-  tier: T1
-  focus: central_bank_policy
-  enabled: true
 - id: zerohedge_markets
   name: ZeroHedge Markets
   url: https://feeds.feedburner.com/zerohedge/feed
@@ -688,12 +513,7 @@ feeds:
   tier: T1
   focus: economic
   enabled: true
-- id: seeking_alpha_macro
-  name: Seeking Alpha Macro View
-  url: https://seekingalpha.com/feed/tag/macro-view.xml
-  tier: T2
-  focus: financial_economic
-  enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: calculated_risk
   name: Calculated Risk
   url: https://www.calculatedriskblog.com/feeds/posts/default
@@ -736,28 +556,10 @@ feeds:
   tier: T2
   focus: technology_semiconductors
   enabled: true
-- id: the_register_hardware
-  name: The Register Hardware
-  url: https://www.theregister.com/hardware/headlines.atom
-  tier: T2
-  focus: technology_industry
-  enabled: false
-- id: ai_business_news
-  name: AI Business
-  url: https://aibusiness.com/feed
-  tier: T2
-  focus: technology_ai
-  enabled: true
 - id: oilprice_main
   name: OilPrice.com
   url: https://oilprice.com/rss/main
   tier: T2
-  focus: energy_commodities
-  enabled: true
-- id: reuters_energy
-  name: Reuters Energy
-  url: https://feeds.reuters.com/reuters/energy
-  tier: T1
   focus: energy_commodities
   enabled: true
 - id: pv_magazine
@@ -784,42 +586,14 @@ feeds:
   tier: T1
   focus: energy_statistics
   enabled: true
-- id: commodity_weather
-  name: Commodity Weather Group
-  url: https://www.commodityweathergroup.com/feed/
-  tier: T3
-  focus: energy_weather
-  enabled: false
-- id: seeking_alpha_earnings
-  name: Seeking Alpha Earnings
-  url: https://seekingalpha.com/feed/tag/earnings.xml
-  tier: T2
-  focus: earnings_corporate
-  enabled: true
-- id: zacks_earnings
-  name: Zacks Earnings
-  url: https://www.zacks.com/rss/earnings.xml
-  tier: T2
-  focus: earnings_corporate
-  enabled: true
-- id: benzinga_earnings
-  name: Benzinga Earnings
-  url: https://www.benzinga.com/feeds/earnings
-  tier: T2
-  focus: earnings_corporate
-  enabled: true
+  notes: '[audit-2026-05-19 FAIL: TimeoutError: The read operation timed out]'
 - id: edgar_rss
   name: SEC EDGAR Latest Filings
   url: https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=40&search_text=&output=atom
   tier: T1
   focus: earnings_corporate_filings
   enabled: true
-- id: briefing_earnings
-  name: Briefing.com Earnings
-  url: https://www.briefing.com/rss/US_Earnings.xml
-  tier: T2
-  focus: earnings_corporate
-  enabled: false
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: defense_news_main
   name: Defense News
   url: https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml
@@ -832,9 +606,3 @@ feeds:
   tier: T2
   focus: defense_technology
   enabled: true
-- id: janes_defence
-  name: Janes Defence News
-  url: https://www.janes.com/feeds/news
-  tier: T2
-  focus: defense_military
-  enabled: false
