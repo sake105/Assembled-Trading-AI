@@ -319,6 +319,11 @@ def generate_signals(
                 signals = signals.copy()
                 _max_scale = float(bc_cfg.get("max_scale", 1.5))
                 _min_scale = float(bc_cfg.get("min_scale", 0.5))
+                # fmt: off
+                # pre-commit ruff 0.8.6 and black 24.10.0 disagree on the
+                # .fillna() block formatting (one collapses, the other expands)
+                # and cause an unresolvable hook loop. fmt: off is the
+                # minimal-scope workaround until tooling versions align.
                 signals["score"] = signals["score"].astype(float) * signals[
                     "symbol"
                 ].map(
@@ -331,6 +336,7 @@ def generate_signals(
                 ).fillna(
                     1.0
                 )
+                # fmt: on
     except Exception as e:
         log.debug("[SIGNAL-DIAG] bayesian_confidence skipped: %s", e)
 
@@ -561,7 +567,13 @@ def generate_signals(
             # Use bundle's calibrated threshold if policy doesn't override
             _policy_threshold = meta_cfg.get("confidence_threshold")
             if _policy_threshold is None:
-                _bundle_path = _Path(__file__).parents[4] / _model_path
+                # parents[3] from src/assembled_core/pipeline/_tc_signals.py
+                # = repo root. parents[4] was off-by-one (same pattern as
+                # rss_fetcher / audit_trail). The except: pass below masked
+                # the failure: bundle never loaded, threshold defaulted to
+                # 0.58. Double-guarded today (meta_model.enabled=false AND
+                # policy confidence_threshold=0.52), so no behavior change.
+                _bundle_path = _Path(__file__).resolve().parents[3] / _model_path
                 try:
                     _bundle = _jl.load(_bundle_path)
                     _threshold = float(_bundle.get("decision_threshold", 0.58))
