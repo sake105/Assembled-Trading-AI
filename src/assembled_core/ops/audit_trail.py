@@ -33,9 +33,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Output path — relative to repo root.  Override via AUDIT_TRAIL_PATH env var.
+# Output path — relative to repo root. Override via AUDIT_TRAIL_PATH env var.
+# parents[3] from src/assembled_core/ops/audit_trail.py = repo root.
+# (parents[4] was off-by-one; the audit trail was being written to the repo's
+# parent directory whenever AUDIT_TRAIL_PATH was unset. Fixed in 2026-05-19
+# external-data audit, same pattern as rss_fetcher.py.)
 _DEFAULT_OUTPUT = (
-    Path(__file__).resolve().parents[4] / "output" / "audit" / "trading_decisions.jsonl"
+    Path(__file__).resolve().parents[3] / "output" / "audit" / "trading_decisions.jsonl"
 )
 
 
