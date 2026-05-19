@@ -26,8 +26,13 @@ from src.assembled_core.intel.models import NewsEvent, SourceTier
 
 logger = logging.getLogger(__name__)
 
+# Path(__file__) = src/assembled_core/intel/rss_fetcher.py — parents[3] is the
+# repo root (Aktiengerüst). parents[4] was off-by-one and silently resolved to
+# the project's parent directory, so the script entry point (run_rss_fetch.py)
+# fetched 0 feeds when run with the default config_path. Tests pass an
+# explicit config_path so they never hit this code-path.
 _CONFIG_PATH = (
-    Path(__file__).resolve().parents[4] / "configs" / "intel" / "rss_feeds.yaml"
+    Path(__file__).resolve().parents[3] / "configs" / "intel" / "rss_feeds.yaml"
 )
 
 # Geopolitical keywords for relevance filtering (T2/T3 sources)
