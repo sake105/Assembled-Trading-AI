@@ -58,10 +58,25 @@ def main() -> int:
         default=[20, 60],
         help="Realized-volatility windows in trading days (default: 20 60).",
     )
+    parser.add_argument(
+        "--with-gpr",
+        action="store_true",
+        help="Merge gpr_index from output/macro_gpr.parquet (run "
+        "fetch_caldara_iacoviello_gpr.py to populate).",
+    )
+    parser.add_argument(
+        "--gpr-path",
+        default=str(_REPO_ROOT / "output" / "macro_gpr.parquet"),
+        help="Override GPR parquet path.",
+    )
     args = parser.parse_args()
 
     print(f"[START] reading {args.input_path}")
     df = pd.read_parquet(args.input_path)
+    # Yfinance-derived panels (download_master_universe_data.py) write `date`;
+    # earlier hand-built panels used `timestamp`. Normalize to `timestamp`.
+    if "timestamp" not in df.columns and "date" in df.columns:
+        df = df.rename(columns={"date": "timestamp"})
     print(
         f"  loaded: rows={len(df)} cols={len(df.columns)} syms={df['symbol'].nunique()}"
     )
@@ -70,6 +85,8 @@ def main() -> int:
     # Normalize timestamp dtype (some panels store tz-naive)
     if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    if df["timestamp"].dt.tz is None:
+        df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
 
     print("[STEP] build_core_ta_factors")
     df = build_core_ta_factors(df)
@@ -94,6 +111,38 @@ def main() -> int:
         if c in df.columns:
             nan_pct = df[c].isna().mean() * 100
             print(f"  {c}: nan%={nan_pct:.1f}")
+
+    # Optional: merge Caldara-Iacoviello GPR (monthly → ffill to daily).
+    # Populates the `gpr_index` column that _compute_geo_risk_composite reads
+    # (Path 1) — replaces the dead FRED GPRC fetch removed in 6be8ce3.
+    if args.with_gpr:
+        gpr_path = Path(args.gpr_path)
+        if not gpr_path.exists():
+            print(
+                f"[WARN] --with-gpr set but {gpr_path} missing; "
+                "run scripts/ops/fetch_caldara_iacoviello_gpr.py first."
+            )
+        else:
+            print(f"[STEP] merging gpr_index from {gpr_path}")
+            gpr = pd.read_parquet(gpr_path)[["timestamp", "gpr_index"]].copy()
+            # GPR is month-start; panel is daily. Forward-fill within each
+            # calendar month so every trading day inherits the prior month's
+            # value at month-start (matches PIT semantics — month t value is
+            # released during month t+1).
+            gpr["timestamp"] = pd.to_datetime(gpr["timestamp"], utc=True)
+            gpr = gpr.sort_values("timestamp")
+            # Use merge_asof on a sorted single-column key.
+            df = df.sort_values("timestamp").reset_index(drop=True)
+            df = pd.merge_asof(
+                df,
+                gpr,
+                on="timestamp",
+                direction="backward",
+            )
+            # Re-establish (symbol, timestamp) sort for downstream consumers.
+            df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+            nan_pct = df["gpr_index"].isna().mean() * 100
+            print(f"  gpr_index: nan%={nan_pct:.1f}")
 
     args.output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(args.output_path, index=False)
