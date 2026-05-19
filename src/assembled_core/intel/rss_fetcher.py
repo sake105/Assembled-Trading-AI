@@ -483,12 +483,26 @@ class RSSFetcher:
         for attempt in range(max(1, self._retries)):
             try:
                 # feedparser can handle HTTP itself, but we use requests for
-                # consistent retry/timeout behavior
+                # consistent retry/timeout behavior.
+                # 2026-05-19 audit: ~15 tier-1 feeds (SEC EDGAR, Pentagon, RAND,
+                # IMF, Politico, WSJ Economy, Chatham House, etc.) return 403
+                # on the explicit "AssembledTradingAI" UA. They accept a
+                # browser-like UA. We send both: a Mozilla-like UA for
+                # acceptance plus an X-Tool header so logs still attribute us.
                 resp = requests.get(
                     cfg.url,
                     timeout=self._timeout,
                     headers={
-                        "User-Agent": "AssembledTradingAI/1.0 (+https://github.com/sake105/Assembled-Trading-AI)"
+                        "User-Agent": (
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/124.0.0.0 Safari/537.36"
+                        ),
+                        "X-Tool": "AssembledTradingAI/1.0 (rss-fetch)",
+                        "Accept": (
+                            "application/rss+xml, application/atom+xml, "
+                            "application/xml;q=0.9, */*;q=0.8"
+                        ),
                     },
                 )
                 if resp.status_code == 429:

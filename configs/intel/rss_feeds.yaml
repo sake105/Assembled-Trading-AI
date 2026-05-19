@@ -49,6 +49,7 @@ feeds:
   tier: T1
   focus: eastern_europe_geopolitical
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: axios
   name: Axios
   url: https://api.axios.com/feed/
@@ -141,6 +142,7 @@ feeds:
   tier: T2
   focus: defense_procurement
   enabled: true
+  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: antiwar
   name: Antiwar.com Blog
   url: https://antiwar.com/blog/feed/
@@ -171,13 +173,6 @@ feeds:
   url: https://www.chathamhouse.org/rss.xml
   tier: T2
   focus: geopolitical_analysis
-  enabled: true
-  notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
-- id: rand_corp
-  name: RAND Corporation
-  url: https://www.rand.org/news.rss
-  tier: T2
-  focus: defense_policy_research
   enabled: true
   notes: '[audit-2026-05-19 FAIL: HTTPError 403]'
 - id: atlantic_council
@@ -586,7 +581,7 @@ feeds:
   tier: T1
   focus: energy_statistics
   enabled: true
-  notes: '[audit-2026-05-19 FAIL: TimeoutError: The read operation timed out]'
+  notes: '[audit-2026-05-19 SLOW: 8316ms > 4000ms threshold]'
 - id: edgar_rss
   name: SEC EDGAR Latest Filings
   url: https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=40&search_text=&output=atom

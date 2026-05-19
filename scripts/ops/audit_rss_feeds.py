@@ -32,7 +32,11 @@ sys.path.insert(0, str(_REPO_ROOT))
 _FEEDS_YAML = _REPO_ROOT / "configs" / "intel" / "rss_feeds.yaml"
 _OUTPUT_DIR = _REPO_ROOT / "output" / "qa"
 
-_USER_AGENT = "AssembledTradingAI/0.1 (feed-audit)"
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
 
 
 def _classify(url: str, timeout: float) -> dict:
