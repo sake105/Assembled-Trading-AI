@@ -27,9 +27,10 @@ from src.assembled_core.ema_config import get_default_ema_config
 from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.pipeline.backtest import (
     compute_metrics,
-    simulate_equity,
     write_backtest_report,
 )
+
+# simulate_with_costs already imported from pipeline.portfolio below (line 40+)
 from src.assembled_core.pipeline.io import (
     load_orders,
     load_prices,
@@ -572,8 +573,20 @@ def run_backtest_step(
 
     orders = load_orders(freq, output_dir=base, strict=False)
 
-    # Simulate
-    equity = simulate_equity(prices, orders, start_capital=start_capital)
+    # Simulate (audit §9.6(d), F-senior-3 2026-05-19): route through the
+    # cash-aware simulate_with_costs even in the no-costs orchestrator step
+    # so we avoid the unbounded-cash phantom-collapse bug of simulate_equity.
+    # commission_bps/spread_w/impact_w = 0 reproduce the cost-free intent.
+    equity, _sim_metrics, _trades = simulate_with_costs(
+        orders=orders,
+        start_capital=start_capital,
+        commission_bps=0.0,
+        spread_w=0.0,
+        impact_w=0.0,
+        freq=freq,
+        prices=prices,
+        strict_session_gate=True,
+    )
     metrics = compute_metrics(equity)
 
     # Write results

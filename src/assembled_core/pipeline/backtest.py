@@ -319,7 +319,28 @@ def _update_equity_mark_to_market(
 def simulate_equity(
     prices: pd.DataFrame, orders: pd.DataFrame, start_capital: float
 ) -> pd.DataFrame:
-    """Simulate equity curve from prices and orders (without costs).
+    """**DEPRECATED — use `simulate_with_costs(commission_bps=0, spread_w=0,
+    impact_w=0)` instead** (audit §9.6(d) 2026-05-19).
+
+    This function applies orders unconditionally — it has no cash-constraint
+    check. Concrete cliff observed: mfv2 OOS 2025-01..2026-05-05 no-costs
+    run dropped from $103,809 to $27,034 on 2026-03-24 (single bar) while
+    `simulate_with_costs` on byte-identical trades stayed at $92,360 and
+    continued to mark-to-market correctly. Canonical no-costs path is now
+    `src.assembled_core.pipeline.portfolio.simulate_with_costs` with all
+    cost params set to 0.
+
+    Retained for parity testing against
+    `pipeline.backtest_legacy._legacy_simulate_equity` (test_backtest_regression).
+    No remaining production caller after the orchestrator/backtest_engine
+    redirects of 2026-05-19. Do not introduce new callers.
+
+    No DeprecationWarning is raised at call time because the project's
+    pytest config treats `error::DeprecationWarning:src.assembled_core.pipeline.*`
+    as hard errors and the regression tests need this function to call
+    cleanly. The deprecation is documented here and enforced via review.
+
+    Simulate equity curve from prices and orders (no costs, no cash-constraint).
 
     Args:
         prices: DataFrame with columns: timestamp, symbol, close
