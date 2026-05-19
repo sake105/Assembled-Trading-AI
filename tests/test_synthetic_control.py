@@ -12,6 +12,7 @@ from src.assembled_core.qa.synthetic_control import (
     SyntheticControlResult,
     compute_treatment_effect,
     fit_synthetic_control,
+    in_time_placebo_test,
     placebo_test,
 )
 
@@ -230,3 +231,72 @@ def test_weights_pd_series_index_matches_donors() -> None:
     treated, donors, t0 = _make_synthetic_data()
     result = fit_synthetic_control(treated, donors, treatment_period=t0)
     assert list(result.weights.index) == list(donors.columns)
+
+
+# ---------------------------------------------------------------------------
+# in_time_placebo_test (F-senior-2 deferred follow-up)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.fast
+class TestInTimePlaceboTest:
+    def test_basic_run(self) -> None:
+        treated, donors, t0 = _make_synthetic_data(
+            n_periods=100, treatment_period=70, treatment_effect=5.0
+        )
+        result = in_time_placebo_test(
+            treated, donors, true_treatment_period=t0, min_pre_periods=20
+        )
+        assert "original_avg_post_effect" in result
+        assert "fake_effects" in result
+        assert "p_value" in result
+        # 50 fake periods (20..69) — actual count depends on convergence
+        assert result["n_fake_periods_tried"] > 0
+
+    def test_large_effect_low_p_value(self) -> None:
+        """Big injected effect at true date → original ≫ fake effects → low p."""
+        treated, donors, t0 = _make_synthetic_data(
+            n_periods=120, treatment_period=90, treatment_effect=20.0
+        )
+        result = in_time_placebo_test(
+            treated, donors, true_treatment_period=t0, min_pre_periods=20
+        )
+        # Original effect ≈ 20; fake effects should be order-of-magnitude smaller
+        if not np.isnan(result["p_value"]):
+            assert result["p_value"] < 0.3
+
+    def test_zero_effect_high_p_value(self) -> None:
+        """No injected effect → original similar to fake effects → high p."""
+        treated, donors, t0 = _make_synthetic_data(
+            n_periods=120, treatment_period=90, treatment_effect=0.0
+        )
+        result = in_time_placebo_test(
+            treated, donors, true_treatment_period=t0, min_pre_periods=20
+        )
+        # Without injection, original is just noise — p-value should be high
+        if not np.isnan(result["p_value"]) and result["n_fake_periods_tried"] > 5:
+            assert result["p_value"] > 0.2
+
+    def test_too_late_treatment_period_raises(self) -> None:
+        treated, donors, _ = _make_synthetic_data(n_periods=60)
+        with pytest.raises(ValueError, match="true_treatment_period"):
+            in_time_placebo_test(
+                treated, donors, true_treatment_period=60, min_pre_periods=20
+            )
+
+    def test_min_pre_too_large_returns_error(self) -> None:
+        treated, donors, _ = _make_synthetic_data(n_periods=60, treatment_period=30)
+        result = in_time_placebo_test(
+            treated, donors, true_treatment_period=30, min_pre_periods=40
+        )
+        assert "error" in result
+        assert result["n_fake_periods_tried"] == 0
+
+    def test_fake_effects_within_window(self) -> None:
+        """Every fake_period must be in [min_pre_periods, true_treatment_period)."""
+        treated, donors, t0 = _make_synthetic_data(n_periods=100, treatment_period=70)
+        result = in_time_placebo_test(
+            treated, donors, true_treatment_period=t0, min_pre_periods=20
+        )
+        for fake_period, _ in result["fake_effects"]:
+            assert 20 <= fake_period < 70

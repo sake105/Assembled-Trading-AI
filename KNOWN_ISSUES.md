@@ -978,6 +978,11 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   - Edge cases: 2-donor minimum, NaN-raise, length mismatch, etc.
   References: Abadie-Gardeazabal 2003 (Basque conflict study), ADH 2010
   (California tobacco control program). Pure scipy.optimize — kein cvxpy/MOSEK Dep.
+  **Erweiterung 2026-05-18:** `in_time_placebo_test` ergänzt (ADH 2010 §3.3) —
+  shuffle treatment date pre-period zur null-distribution-Schätzung. 6 zusätzliche
+  Tests (26/26 total). Komplementär zur space-Placebo: testet, ob Original-Effect
+  ungewöhnlich groß gegenüber eigener pre-treatment-Variabilität ist (vs. donor-pool
+  in placebo_test).
 - [x] **Transfer Entropy Screen (C2-029):** DONE via §8.13 Forensik-Sweep.
   `src/assembled_core/qa/transfer_entropy.py` (263 LOC) implementiert Schreiber-2000
   Transfer Entropy mit zwei Estimatoren (binned histogram + KSG-heuristic).

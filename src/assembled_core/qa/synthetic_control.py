@@ -275,9 +275,94 @@ def placebo_test(
     }
 
 
+def in_time_placebo_test(
+    treated: pd.Series,
+    donor_pool: pd.DataFrame,
+    true_treatment_period: int,
+    min_pre_periods: int = 20,
+) -> dict:
+    """In-time placebo: shift the treatment-period to earlier pre-periods,
+    fit the synthetic control, and compute the placebo treatment effect at
+    each fake date. A real treatment effect should be larger than any of
+    the fake-date effects within the pre-treatment window.
+
+    Following ADH 2010 §3.3: this is complementary to the in-space placebo
+    in :func:`placebo_test` — it tests whether the original effect size
+    is unusual given the strategy's own pre-treatment variability, not
+    given the donor pool's variability.
+
+    Args:
+        treated: Treated unit's outcome series.
+        donor_pool: Donor pool DataFrame.
+        true_treatment_period: The ACTUAL treatment date index.
+        min_pre_periods: Minimum pre-treatment periods required for each
+            fake-treatment fit (so the synthetic control has enough data).
+            Fake periods range over ``[min_pre_periods..true_treatment_period-1]``.
+
+    Returns:
+        Dict with:
+            - "original_avg_post_effect": effect at the true treatment date
+            - "fake_effects": list of (fake_period, avg_post_effect)
+            - "n_fake_periods_tried": int
+            - "p_value": fraction of fake effects with |effect| ≥ |original|
+              (NaN if no fake periods could be fit)
+    """
+    n = len(treated)
+    if true_treatment_period >= n:
+        raise ValueError(
+            f"true_treatment_period={true_treatment_period} ≥ len(treated)={n}"
+        )
+    if true_treatment_period <= min_pre_periods:
+        return {
+            "error": (
+                f"true_treatment_period={true_treatment_period} ≤ "
+                f"min_pre_periods={min_pre_periods} — no room for fake dates"
+            ),
+            "n_fake_periods_tried": 0,
+        }
+
+    # Original effect at the true treatment date
+    original = fit_synthetic_control(treated, donor_pool, true_treatment_period)
+    original_te = compute_treatment_effect(original, treated)
+    original_avg_post = float(original_te.iloc[true_treatment_period:].mean())
+
+    # Sweep fake treatment dates over [min_pre_periods, true_treatment_period)
+    fake_effects: list[tuple[int, float]] = []
+    for fake_period in range(min_pre_periods, true_treatment_period):
+        try:
+            fake_result = fit_synthetic_control(treated, donor_pool, fake_period)
+        except ValueError:
+            continue
+        fake_te = compute_treatment_effect(fake_result, treated)
+        # Only consider the [fake_period, true_treatment_period) window
+        # as the "fake post" — beyond that is the REAL treatment zone.
+        fake_post_slice = fake_te.iloc[fake_period:true_treatment_period]
+        if len(fake_post_slice) < 1:
+            continue
+        fake_avg = float(fake_post_slice.mean())
+        fake_effects.append((int(fake_period), fake_avg))
+
+    if not fake_effects:
+        p_value = float("nan")
+    else:
+        magnitudes = np.array([abs(e[1]) for e in fake_effects])
+        original_mag = abs(original_avg_post)
+        p_value = float((magnitudes >= original_mag).mean())
+
+    return {
+        "original_avg_post_effect": original_avg_post,
+        "true_treatment_period": int(true_treatment_period),
+        "fake_effects": fake_effects,
+        "n_fake_periods_tried": len(fake_effects),
+        "p_value": p_value,
+        "min_pre_periods": int(min_pre_periods),
+    }
+
+
 __all__ = [
     "SyntheticControlResult",
     "compute_treatment_effect",
     "fit_synthetic_control",
+    "in_time_placebo_test",
     "placebo_test",
 ]
