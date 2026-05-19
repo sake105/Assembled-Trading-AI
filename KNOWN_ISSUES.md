@@ -1402,35 +1402,53 @@ Neue Anti-Pattern-Risk vermieden via test-fixture-respect + operator-disabled-sk
 - `.github/workflows/daily-paper-reconcile.yml` referenzierte `secrets.ALPACA_SECRET_KEY` (existiert nicht in GH Secrets) UND injizierte env var `ALPACA_SECRET_KEY` (broker_adapter liest `ALPACA_API_SECRET`). Doppelt broken. Fix: kanonische Namen beidseitig.
 - `.env.example` zeigte Legacy-Aliase mit Placeholder-Werten — bereinigt zu Empty mit Kommentar.
 
-### 9.6 multifactor_v2 Signal-Quality — OFFEN (RESEARCH)
+### 9.6 multifactor_v2 Signal-Quality — TEILGEKLÄRT (5-Hypothesen-Sweep abgeschlossen 2026-05-19)
 
 **Schwere:** HIGH (Strategie-Wert)  
-**Status:** ⚠️ Wiring sauber, Signal underperform  
+**Status:** ✅ Diagnose abgeschlossen, ⚠️ Tuning offen  
 
-Pipeline-Recheck OOS 2025-01-02..2026-05-05 (195 syms, with-costs):
+**5-Hypothesen-Test Grid (mfv2 OOS 2025-01-02..2026-05-05, with-costs):**
 
-| Strategy | CAGR | Sharpe | MDD | Trades | PF |
-|----------|------|--------|-----|--------|-----|
-| trend_baseline | **+43.02%** | **1.44** | -12.68% | 2153 | 1.61 |
-| multifactor_v2 | -5.88% | -0.07 | -44.57% | 2482 | 0.92 |
+| # | Konfiguration | CAGR | Sharpe | MDD | Trades | Wirkt? |
+|---|--------------|-----:|-------:|----:|-------:|--------|
+| 0 | baseline (canonical 195 syms daily) | -7.74% | -0.07 | -44.57% | 2482 | — |
+| 1 | Top-50 ADV daily | +5.70% | 0.35 | -32.89% | 2701 | ✅ |
+| 2 | rv_20 weight 0.15→0.30 (bundle swap) | -7.74% | -0.07 | -44.57% | 2482 | ❌ no-op |
+| 3 | quality_broad bundle | -7.74% | -0.07 | -44.57% | 2482 | ❌ no-op |
+| 4 | weekly rebalance | +5.04% | 0.33 | -24.78% | 557 | ✅ |
+| 5 | Top-50 ADV + weekly (combo) | **+20.33%** | **0.97** | **-19.41%** | **614** | ✅✅ Synergie |
+| ref | trend_baseline 195 daily | **+43.02%** | **1.44** | -12.68% | 2153 | benchmark |
+| ref | trend_baseline Top-50 daily | +26.80% | 0.81 | -26.51% | 2257 | apples-to-apples |
 
-Identical mfv2-Result vor und nach Factor-Panel-Wiring → Strategy lief immer korrekt mit internem `build_core_ta_factors`; das pre-built Panel wurde via `load_eod_prices` (`data/prices_ingest.py:146`, non-OHLCV-Strip) verworfen. **Underperformance ist Signal-Quality, nicht Wiring.**
+**Discovery (Tests 2+3 erklärt):** `macro_world_etfs_core_bundle.yaml` ist **NICHT** der eigentliche Sizing-Input für mfv2. Die Strategy nutzt **31 interne Faktoren mit Regime-Weights** aus `DEFAULT_V2_WEIGHTS` in `src/assembled_core/strategies/multifactor_v2.py:241` plus optional `configs/factor_weights_by_regime.json`. Das `bundle` wird nur in `_tc_signals.py:425` Step 3.55 für den auxiliary `mf_score` Channel verwendet — Bundle-Swaps sind no-op für mfv2-Sizing/Selection. Diese Verwechslung war bisher in keiner Doku festgehalten.
 
-Hypothesen für Research-Folge-Task:
-- Bundle-Gewichte falsch kalibriert für aktuelles Bull-Regime (HEAD nutzt `macro_world_etfs_core_bundle.yaml`)
-- Faktor-Crowding bei trend_strength + momentum-overlap
-- Mean-reversion-Anteil dominiert in einem Trend-Markt
+**Cost-Drag-Befund:** Slippage hit `max_bps=50` cap auf small caps; $61 / $12k notional × 2482 trades ≈ $155k cost-drag. Im no-costs Run sogar -73% Loss — **Signal selbst ist negativ**, nicht nur Cost-Issue.
 
-Caveat Survivorship-Bias: 195 syms = aktuell überlebende, kein PIT-Universe. Echte OOS-Aussage erst mit Index-Membership-Feed (siehe §0.1).
+**Empirische Schlüsse:**
+- trend_baseline schlägt mfv2 auf jedem Setup (full 195 daily / top-50 daily / weekly).
+- mfv2-31-Faktor-Composite + Regime-Weights pay nicht off auf 2025-2026.
+- Best mfv2-Config gefunden: Top-50 ADV + weekly = +20.33% CAGR.
+- Underperformance hat zwei Ursachen: (a) Universe-Noise (small-cap chasing), (b) Turnover-Cost-Drag. Bundle ist NICHT die Ursache.
 
-### 9.7 Adjacent Findings aus Review-Chain Stage 2 — AKTIV
+**Offene Follow-ups (alle eigener Scope):**
+- (a) Top-50 ADV + weekly als mfv2 Default in `policy.yaml` festschreiben — operationaler Switch.
+- (b) trend_baseline als Primary, mfv2 als Secondary/regime-bound — strategische Reorganisation.
+- (c) `DEFAULT_V2_WEIGHTS` Research / Recalibration — Multi-Session, Rule-30 sensitive zone.
+- (d) Bizarrer Befund: with-costs Run produziert $91k final vs no-costs $27k — same byte-identical trades. Cash-Ledger / Margin-Path Reconciliation review nötig.
 
-**Status:** ⚠️ in dieser Session noch abzuarbeiten (User-Policy: "kein deferral")
+**Caveat Survivorship-Bias** unverändert: 195 syms / 50 syms = aktuell überlebende, kein PIT-Universe. Echte OOS-Aussage erst mit Index-Membership-Feed (siehe §0.1).
 
-- **F-tc-2 (MAJOR):** 12 sibling debug-only except-Blöcke in `_tc_features.py` haben dasselbe Silent-Degradation-Risiko wie der gerade gefixte (Zeilen 172, 305, 325, 354, 369, 398, 414, 432, 464, 492, 576, 621). Inkonsistent: nur einer ist jetzt observable. Lösung: warn-once-Pattern auf alle bundle-kritischen Blöcke ausweiten + Policy-Kommentar.
-- **F-tc-3 (MINOR):** Line 298 nutzt `logger.debug` statt der modul-weiten `log`-Variable. NameError-Risiko wenn nicht-import-time gebunden.
-- **F-dl-1 (MAJOR):** `scripts/download_master_universe_data.py:57` schreibt per-symbol yfinance-Cache parquets mit `index.name = "date"`. Rename auf `timestamp` passiert nur in `consolidate()`. 195 cache-Files inkonsistent zu kanonischem Reader-Vertrag. Lösung: rename am Producer (`fetch_one`) ODER backfill der existierenden Caches.
-- **F-dl-2/3 (MINOR):** Dead-Branch in `consolidate()` Zeilen 79-81 + fehlende `drop_duplicates` auf `(timestamp, symbol)` Konkatenations-Layer.
+### 9.7 Adjacent Findings aus Review-Chain Stage 2 — BEHOBEN (8bb5154)
+
+**Status:** ✅ alle 5 Findings closed in commit 8bb5154 (2026-05-19)
+
+- **F-tc-2 (MAJOR):** ✅ Shared `_warn_once_feature_skip()` helper mit bounded registry (200-char trunc, 1024-key cap) hinzugefügt. 7 bundle-kritische Sites promoted: FEATURE-ENH, HMM-REGIME, BEHAVIORAL, RV, NEWS-FEATURES, MACRO-PANEL, NEWS-PANEL. 6 decorative bei DEBUG belassen (verifiziert 0 bundle-refs).
+- **F-tc-3 (MINOR):** ✅ Line 343 `logger.debug` → `log.debug` mit Kommentar.
+- **F-dl-1 (MAJOR):** ✅ `fetch_one` schreibt jetzt `index.name = "timestamp"`. 195 existing cache-Files inplace backfilled (column name only, keine Wert-Änderung).
+- **F-dl-2 (MINOR):** ✅ Dead-Branch in `consolidate()` mit legacy-fallback ersetzt.
+- **F-dl-3 (MINOR):** ✅ `drop_duplicates(["timestamp","symbol"], keep="last")` vor sort hinzugefügt.
+
+Stage 1+2+3 Review-Chain durch (PASS_WITH_MINOR / PASS / PASS). Verbleibendes Adjacent: F-stage2-4 (INFO) `_FEATURE_ENH_WARN_KEYS` backwards-compat alias — investigation deferred.
 
 ### 9.8 Pre-Commit Tooling: ruff ↔ black Disagreement — OFFEN (TOOLING)
 
