@@ -575,3 +575,43 @@ def test_rebalance_timestamps_timezone_normalization(synthetic_prices_single_sym
     trade_ts = sorted(pd.to_datetime(result.trades["timestamp"].unique(), utc=True))
     expected_ts = sorted(pd.to_datetime(unique_ts, utc=True))
     assert trade_ts == expected_ts
+
+
+@pytest.mark.unit
+def test_backtest_engine_no_costs_trades_are_cash_gated(synthetic_prices_multi_year):
+    """§9.6(d) regression guard (F-9.6d-3, 2026-05-19).
+
+    Under include_costs=False, BacktestResult.trades MUST be the
+    cash-gated trades_df from simulate_with_costs (i.e. carry the
+    "status" and "fill_qty" columns), NOT the un-gated orders_df.
+
+    Before 3357fc9 the no-costs path used simulate_equity, and trades
+    were returned as orders_df under no-costs by an explicit gate.
+    Since 3357fc9 the no-costs path also routes through
+    simulate_with_costs(0,0,0), so trades_df is cash-gated and the
+    correct representation. This test locks that invariant in so a
+    future regression that re-introduces the include_costs gate
+    cannot silently flip BacktestResult.trades back to orders_df.
+    """
+    result = run_portfolio_backtest(
+        prices=synthetic_prices_multi_year,
+        signal_fn=dummy_signal_fn,
+        position_sizing_fn=dummy_position_sizing_fn,
+        start_capital=10000.0,
+        include_costs=False,
+        include_trades=True,
+    )
+
+    assert result.trades is not None, "trades must be returned when include_trades=True"
+    assert isinstance(result.trades, pd.DataFrame)
+
+    # Either the populated cash-gated trades_df, or the empty fallback —
+    # but if non-empty, it MUST be the simulator output (has status +
+    # fill_qty), not the orders_df request list.
+    if not result.trades.empty:
+        assert (
+            "status" in result.trades.columns
+        ), "no-costs result.trades missing 'status' — looks like orders_df fallback"
+        assert (
+            "fill_qty" in result.trades.columns
+        ), "no-costs result.trades missing 'fill_qty' — looks like orders_df fallback"

@@ -1559,9 +1559,26 @@ def run_portfolio_backtest(
 
     trades_for_result = None
     if include_trades:
+        # F-9.6d-3 (Stage-2 follow-up, 2026-05-19):
+        # Since 3357fc9 the no-costs branch also routes through
+        # simulate_with_costs(0,0,0), so trades_df is the cash-gated
+        # fill representation that matches the cash-gated equity curve.
+        # The non-empty check is the primary safety; the schema check
+        # ("status" + "fill_qty") is secondary defense against partial
+        # schemas (e.g. the empty-orders shortcut in portfolio.py
+        # returns a trades_df without status — empty check catches it).
+        # Pre-3357fc9 the no-costs path used simulate_equity (unbounded,
+        # no cash gate), so trades==orders was locally consistent. The
+        # old include_costs gate would now keep that un-gated request
+        # list under no-costs, breaking consistency with the cash-gated
+        # equity curve — hence dropped.
         trades_for_result = (
             trades_df
-            if (include_costs and not trades_df.empty and "status" in trades_df.columns)
+            if (
+                not trades_df.empty
+                and "status" in trades_df.columns
+                and "fill_qty" in trades_df.columns
+            )
             else orders_df
         )
 
