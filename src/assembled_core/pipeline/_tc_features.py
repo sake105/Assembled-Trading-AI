@@ -623,6 +623,25 @@ def build_features(
         # Bundle-critical: macro_growth/inflation/risk_aversion regime cols.
         _warn_once_feature_skip("[MACRO-PANEL] macro_panel", e, log)
 
+    # --- Step 2.17b: Caldara-Iacoviello GPR enrichment (§9.9 wiring) ---
+    # Populates the gpr_index column that _compute_geo_risk_composite (mfv2
+    # factor 31) reads via Path 1 (pre-merged panel columns) — replaces the
+    # dead FRED GPRC fetch removed in commit 6be8ce3 (the FRED series does
+    # not exist). Source data is produced by
+    # scripts/ops/fetch_caldara_iacoviello_gpr.py into output/macro_gpr.parquet
+    # (monthly, ~1516 rows 1900..present). Default-on but graceful: missing
+    # file → debug log + no panel mutation (Path 2 zero-fill continues).
+    try:
+        gpr_cfg = (policy.get("features") or {}).get("macro_gpr") or {}
+        if gpr_cfg.get("enabled", True):
+            from src.assembled_core.data.macro.gpr import merge_gpr_index_into_panel
+
+            gpr_path = gpr_cfg.get("path", "output/macro_gpr.parquet")
+            pwf = merge_gpr_index_into_panel(pwf, gpr_path)
+    except Exception as e:
+        # Non-critical: failure here just leaves Path 2 zero-fill active.
+        _warn_once_feature_skip("[MACRO-GPR] macro_gpr", e, log)
+
     # ------------------------------------------------------------------
     # Step 2.18: News sentiment enrichment — per-symbol per-date features
     # Source: output/news_sentiment_daily.parquet (Finnhub/NewsAPI/Polygon/RSS)

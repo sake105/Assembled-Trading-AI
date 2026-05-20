@@ -1470,15 +1470,17 @@ Echte Lösung: ruff bumpen auf >= 0.14.x (Mass-Reformat-Risk auf 28+ Files → e
 
 Plus: `core.autocrlf=true` (global) ↔ `.gitattributes eol=lf` Konflikt — lokal auf `input` gesetzt (`git config --local core.autocrlf input`).
 
-### 9.9 Caldara-Iacoviello GPR Feeder gebaut aber nicht in Panel-Build verdrahtet — TEILWEISE (9666694)
+### 9.9 Caldara-Iacoviello GPR Feeder Panel-Wiring — BEHOBEN (2026-05-20)
 
 **Schwere:** LOW (Signal nicht load-bearing)  
-**Status:** ⚠️ Feeder ✅, Strategy-Konsum ❌
+**Status:** ✅ Feeder + Strategy-Konsum verdrahtet
 
 - `scripts/ops/fetch_caldara_iacoviello_gpr.py` — fetcht `data_gpr_export.xls` (free, public), parst via xlrd, schreibt 5-col tidy `output/macro_gpr.parquet`. 1516 rows monthly 1900..2026-04-01. April 2026 GPR=230.77 (elevated).
 - `scripts/ops/build_factor_panel.py --with-gpr` mergt `gpr_index` via `merge_asof(direction='backward')` (PIT-safe: month t value ab t+1 verfügbar).
-- **Nicht verdrahtet:** trading_cycle / paper_runner Panel-Build ruft `build_factor_panel.py` **nicht** auf. `_compute_geo_risk_composite` Path-1 prüft `gpr_index` aus `latest`-DataFrame — die Spalte ist im laufenden Run nicht da. Folge: Path-2 zero-fill greift weiter, gpr-Daten bleiben ungenutzt.
-- Fix erfordert: Panel-Build-Pipeline `panel_store` um GPR-Source erweitern. Sensitive zone (`data/`), eigener Auftrag.
+- **Verdrahtet (2026-05-20):** Neues Modul `src/assembled_core/data/macro/gpr.py` mit `merge_gpr_index_into_panel(panel, gpr_path, release_lag_days=32)` (PIT-safe asof-merge mit publication-lag shift, row-order preserving, idempotent, NaT-guard). `_tc_features.py` Step 2.17b (renumbered — pre-existing block at line 646 already uses 2.18) ruft den Helper nach Step 2.17 macro-panel-merge auf, policy-gated via `features.macro_gpr.{enabled,path}` (default enabled, path `output/macro_gpr.parquet`). Graceful degradation: file missing → debug log + panel unchanged → mfv2 Path-2 zero-fill greift weiter wie zuvor.
+- **PIT release-lag (F-GPR-1):** Caldara-Iacoviello publiziert Monatswerte erst während des Folgemonats (typisch Anfang bis Mitte). Naive `merge_asof(backward)` würde einen Backtest-Bar dated 2026-02-01 den 2026-02-01 GPR-Wert sehen lassen, der real erst Mitte März öffentlich wäre — bis zu ~30 Tage look-ahead. Default `release_lag_days=32` shifted jeden GPR-Timestamp vor dem asof-Merge nach vorn (Feb-2026 stamped 2026-02-01 → publishable 2026-03-04). Parity/backfill-Aufrufer können `release_lag_days=0` setzen.
+- 10 Tests in `tests/test_macro_gpr.py`: file missing, raw asof lag=0, default-lag PIT-guard (regression), NaT-handling, schema-violation, idempotent, multi-symbol row-order, dedup, empty panel, no-timestamp panel.
+- Adjacent (Follow-up): `build_factor_panel.py` line 118-145 enthält weiterhin die alte inline GPR-Merge-Logik (kein release_lag_days, kein NaT-guard). DRYing das auf den neuen Helper ist ein eigener kleiner Cleanup-Auftrag, nicht im aktuellen Scope (Rule 60). Hint-Kommentar `# NOTE: duplicates merge_gpr_index_into_panel logic; DRY in follow-up` als kleiner pointer hinzugefügt.
 
 ### 9.10 Sicherheits-Anmerkung
 

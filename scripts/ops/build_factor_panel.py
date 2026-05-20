@@ -115,6 +115,10 @@ def main() -> int:
     # Optional: merge Caldara-Iacoviello GPR (monthly → ffill to daily).
     # Populates the `gpr_index` column that _compute_geo_risk_composite reads
     # (Path 1) — replaces the dead FRED GPRC fetch removed in 6be8ce3.
+    # NOTE: duplicates src/assembled_core/data/macro/gpr.merge_gpr_index_into_panel
+    # logic; DRY in follow-up per KNOWN_ISSUES §9.9 (Rule 60 adjacent). The
+    # inline path here does NOT apply release_lag_days or NaT-guard — fine for
+    # offline panel-build snapshots, unsafe for live PIT replay.
     if args.with_gpr:
         gpr_path = Path(args.gpr_path)
         if not gpr_path.exists():
