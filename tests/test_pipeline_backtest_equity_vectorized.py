@@ -299,3 +299,75 @@ def test_equity_multiple_symbols_vectorized() -> None:
     # = 1000 + 1000 + 1000 + 450 + 500 = 3950
     expected = cash + (10.0 * 100.0) + (5.0 * 200.0) + (3.0 * 150.0) + (2.0 * 250.0)
     assert abs(equity - expected) < 1e-6
+
+
+def _make_minimal_prices_orders() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Tiny prices+orders fixture for env-gate tests."""
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-02", "2024-01-03"], utc=True),
+            "symbol": ["AAPL", "AAPL"],
+            "close": [100.0, 101.0],
+        }
+    )
+    orders = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-02"], utc=True),
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [1.0],
+            "price": [100.0],
+        }
+    )
+    return prices, orders
+
+
+def test_simulate_equity_deprecation_warn_env_gated_off(monkeypatch, caplog) -> None:
+    """Default (env var unset): simulate_equity emits NO deprecation log.
+
+    Pyproject treats DeprecationWarning in pipeline.* as error, so the
+    deprecation cannot use warnings.warn. The env-gated log is the
+    runtime signal; without the gate it must stay silent so regression
+    tests don't drown in noise.
+    """
+    import src.assembled_core.pipeline.backtest as bt_mod
+
+    monkeypatch.delenv("ASSEMBLED_SIMULATE_EQUITY_DEPRECATION_WARN", raising=False)
+    monkeypatch.setattr(bt_mod, "_SIMULATE_EQUITY_DEPRECATION_LOGGED", False)
+
+    prices, orders = _make_minimal_prices_orders()
+    with caplog.at_level("WARNING", logger="src.assembled_core.pipeline.backtest"):
+        simulate_equity(prices, orders, start_capital=10000.0)
+
+    deprecation_messages = [
+        rec for rec in caplog.records if "simulate_equity is DEPRECATED" in rec.message
+    ]
+    assert (
+        deprecation_messages == []
+    ), "simulate_equity must NOT log deprecation when env var is unset"
+
+
+def test_simulate_equity_deprecation_warn_env_gated_on(monkeypatch, caplog) -> None:
+    """Env var truthy: simulate_equity logs deprecation exactly ONCE per process.
+
+    Guards against future accidental production callers (F-291be4f-2,
+    audit §9.6(d)).
+    """
+    import src.assembled_core.pipeline.backtest as bt_mod
+
+    monkeypatch.setenv("ASSEMBLED_SIMULATE_EQUITY_DEPRECATION_WARN", "1")
+    monkeypatch.setattr(bt_mod, "_SIMULATE_EQUITY_DEPRECATION_LOGGED", False)
+
+    prices, orders = _make_minimal_prices_orders()
+    with caplog.at_level("WARNING", logger="src.assembled_core.pipeline.backtest"):
+        simulate_equity(prices, orders, start_capital=10000.0)
+        # Second call must NOT re-log (warn-once)
+        simulate_equity(prices, orders, start_capital=10000.0)
+
+    deprecation_messages = [
+        rec for rec in caplog.records if "simulate_equity is DEPRECATED" in rec.message
+    ]
+    assert len(deprecation_messages) == 1, (
+        f"Expected exactly 1 deprecation log when env gate is on, "
+        f"got {len(deprecation_messages)}"
+    )

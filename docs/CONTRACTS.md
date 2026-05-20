@@ -313,6 +313,111 @@ if result.pre_trade_result is not None:
 
 ---
 
+## 5.5 Trades Contract (Post-Simulator)
+
+### Zweck
+Resultat-Schema nach `simulate_with_costs(...)` — die cash-gated, fill-modellierte Repräsentation der eingegangenen Orders. Dient als `BacktestResult.trades` und als Input für Ledger/Reconcile/Cost-Reporting.
+
+### Required Columns
+
+| Spalte | Typ | Beschreibung | Constraints |
+|--------|-----|--------------|-------------|
+| `timestamp` | `datetime64[ns, UTC]` | Bar-Timestamp (inherited from orders) | UTC-aware, nicht NaN |
+| `symbol` | `string` | Ticker (inherited from orders) | nicht NaN, nicht leer |
+| `side` | `string` | `"BUY"` oder `"SELL"` (inherited) | enum |
+| `qty` | `float64` | Requested quantity (inherited from orders) | ≥ 0 unter aktueller BUY/SELL-Konvention; `simulate_with_costs` arbeitet defensiv mit `abs(qty)` |
+| `price` | `float64` | Request price / decision price | unverändert vom orders-input |
+| `status` | `string` | Fill-Status nach Pipeline | enum: `filled`/`partial`/`rejected` |
+| `fill_qty` | `float64` | Tatsächlich gefillte Quantity (≤ `abs(qty)`) | 0 bei `rejected` |
+| `fill_price` | `float64` | Ausführungspreis (kann von `price` abweichen bei limit-/partial-fills) | NaN bei `rejected` |
+| `remaining_qty` | `float64` | `abs(qty) - fill_qty` | 0 bei `filled`, `qty` bei `rejected` |
+| `reject_reason` | `string` | Reason-Code bei `status=rejected`, sonst `""` | enum (s.u.) |
+| `notional` | `float64` | `abs(fill_qty) * abs(fill_price)` (legacy column, kein cash_delta-Input mehr) | ≥ 0, Skalar |
+| `commission_cash` | `float64` | Provisions-Kosten (≥ 0) | 0 bei commission_bps=0 |
+| `spread_cash` | `float64` | Spread-Kosten (≥ 0) | 0 bei spread_w=0 |
+| `slippage_cash` | `float64` | Slippage/Impact-Kosten (≥ 0) | 0 bei impact_w=0 |
+| `total_cost_cash` | `float64` | Summe der drei Cost-Komponenten | = `commission_cash + spread_cash + slippage_cash` |
+
+### Optional / Internal-Scratch-Spalten
+
+Die folgenden Spalten werden von `simulate_with_costs` an `trades_df` angehängt, sind aber nicht Teil des stabilen Contracts — Konsumenten **sollen sich nicht auf ihre Präsenz oder Semantik verlassen**:
+
+| Spalte | Typ | Beschreibung | Stabilität |
+|--------|-----|--------------|-----------|
+| `cash_delta` | `float64` | Signierter Cash-Effekt der Order (BUY=negativ, SELL=positiv, inkl. costs) | internal scratch — wird in `apply_cash_gate` als kumulativer Constraint genutzt |
+| `sign` | `float64` | `+1` für BUY, `-1` für SELL | internal scratch — convenience für portfolio.py |
+| `order_type` | `string` | `"market"` (default) oder `"limit"` | Optional input column; `apply_limit_order_fills` aktiv nur bei `"limit"` |
+| `limit_price` | `float64` | Limit-Preis für `order_type="limit"` | Optional input column; NaN → `reject_reason="LIMIT_PRICE_INVALID"` |
+
+### Status-Enum (Werte aus `apply_fill_model_pipeline`, lowercase)
+
+| Wert | Bedeutung |
+|------|-----------|
+| `"filled"` | Order voll gefüllt (`fill_qty == abs(qty)`) |
+| `"partial"` | Teil-Fill (`0 < fill_qty < abs(qty)`), z. B. cash-gated oder partial-fill-policy |
+| `"rejected"` | Vollständig abgewiesen (`fill_qty = 0`); Grund in `reject_reason` |
+
+### Reject-Reason-Enum (Spalte `reject_reason`, nur bei `status=rejected`)
+
+Producer-verified Werte aus `src/assembled_core/execution/fill_model.py`:
+
+| Wert | Bedeutung | Quelle (fill_model.py) |
+|------|-----------|------------------------|
+| `"INSUFFICIENT_CASH"` | Cash-Gate Reject | `apply_cash_gate` (line ~121) |
+| `"NOT_TRADING_DAY"` | Kalender-Reject (Feiertag/Wochenende) | `apply_session_gate` (line ~444) |
+| `"OUTSIDE_SESSION"` | Außerhalb der Handelszeiten | `apply_session_gate` (line ~484) |
+| `"SESSION_CHECK_FAILED"` | Calendar-Lookup raised exception (unknown date / out-of-range) | `apply_session_gate` fail-safe (line ~501) |
+| `"LIMIT_NOT_REACHED"` | Limit-Preis nicht erreicht im Bar-Range | `apply_limit_order_fills` (line ~798) |
+| `"LIMIT_PRICE_INVALID"` | `order_type="limit"` aber `limit_price` ist NaN/None | `apply_limit_order_fills` (line ~795) |
+| `"QC_FAIL_MIN_FILL_QTY"` | Partial-Fill-Quantity unter `min_fill_qty` | `apply_partial_fills` (line ~649) |
+| `"UNKNOWN"` | Kein spezifischer Grund gesetzt (Fallback) | `_ensure_reject_reason_filled` |
+
+**Reservierte Konstanten (nicht aktuell emittiert):** `MIN_QTY` (`REJECT_MIN_QTY`), `MIN_NOTIONAL` (`REJECT_MIN_NOTIONAL`), `RISK_LIMIT` (`REJECT_RISK_LIMIT`), `MAX_POSITION` (`REJECT_MAX_POSITION`) sind als Module-Level-Konstanten in `fill_model.py` line 57-62 definiert, aber **kein Producer in `simulate_with_costs` schreibt sie**. Sie sind reserviert für künftige risk-/paper-/OMS-Layer; Konsumenten dürfen sie als gültige enum-Werte erwarten, sollten aber nicht voraussetzen, dass sie aktuell auftreten.
+
+### Cash-Gate-Semantik (audit §9.6(d), 2026-05-19)
+
+`simulate_with_costs` enforced eine kumulative Cash-Schranke über `available_cash` und `apply_fill_model_pipeline`. Orders die nach Cost-Abzug zu Cash<0 führen würden, werden auf `status=rejected` (mit `reject_reason="INSUFFICIENT_CASH"`) bzw. `status=partial` gesetzt; `fill_qty` reflektiert die tatsächlich ausführbare Menge. Equity- und Trades-Repräsentation sind seither **konsistent** — beide kommen aus demselben Simulator (`simulate_with_costs`), auch unter `include_costs=False` (dann commission_bps=spread_w=impact_w=0). Im Default-Pfad (`partial_fill_model=None`, `start_capital>0`) ist `apply_fill_model_pipeline` row-preserving — rejected-Rows verbleiben mit `fill_qty=0`, und die Invariante `len(trades_df) == len(orders_df)` gilt. Bekannte Ausnahmen: (i) `partial_fill_model` non-None UND `qty==0`-Rows im Input — `apply_partial_fills` droppt diese explizit (fill_model.py:596). (ii) `start_capital <= 0` — `apply_cash_gate` early-returned das raw orders_df ohne schema-enrichment (siehe Edge-Case unten).
+
+**Edge-Case (empty-orders shortcut):** Wenn `orders_df` empty ist, gibt `simulate_with_costs` (portfolio.py:55-74) ein minimal-Schema trades_df mit nur den 5 Basis-Spalten zurück (`timestamp`, `symbol`, `side`, `qty`, `price`) — ohne `status`/`fill_qty`/`reject_reason`/cost-Spalten. Konsumenten müssen über Schema-Check (`"status" in trades_df.columns`) auf dieses Edge-Schema reagieren; row-count ist dann trivial 0==0. Siehe `qa/backtest_engine.py:1570-1583` als Referenz-Konsument.
+
+### Beispiel
+
+```python
+import pandas as pd
+
+# Gültiges Trades-Panel (Output von simulate_with_costs)
+trades = pd.DataFrame({
+    "timestamp": pd.date_range("2024-01-01", periods=3, freq="1d", tz="UTC"),
+    "symbol":   ["AAPL", "GOOGL", "AAPL"],
+    "side":     ["BUY",  "BUY",   "SELL"],
+    "qty":      [100.0,  50.0,    50.0],
+    "price":    [150.0,  2500.0,  151.0],
+    "status":   ["filled", "rejected", "filled"],
+    "fill_qty": [100.0,  0.0,     50.0],
+    "reject_reason": ["", "INSUFFICIENT_CASH", ""],
+    "commission_cash": [0.0, 0.0, 0.0],
+    "spread_cash":     [0.0, 0.0, 0.0],
+    "slippage_cash":   [0.0, 0.0, 0.0],
+    "total_cost_cash": [0.0, 0.0, 0.0],
+})
+
+# Validierung
+assert "status" in trades.columns and "fill_qty" in trades.columns
+assert trades["status"].isin(["filled", "partial", "rejected"]).all()
+assert (trades["fill_qty"] <= trades["qty"]).all()
+assert (trades["fill_qty"] >= 0).all()
+# Bei status=rejected muss reject_reason gesetzt sein (non-empty)
+rejected_mask = trades["status"] == "rejected"
+assert (trades.loc[rejected_mask, "reject_reason"].str.len() > 0).all()
+```
+
+### Validierungsfunktionen
+- `src.assembled_core.pipeline.portfolio.simulate_with_costs()`: Producer (canonical)
+- `src.assembled_core.execution.fill_model_pipeline.apply_fill_model_pipeline()`: Status/fill_qty-Setter
+- `src.assembled_core.execution.cost_columns.add_cost_columns_to_trades()`: Cost-Column-Anreicherung
+
+---
+
 ## 6. Equity Curve Contract
 
 ### Zweck
@@ -352,8 +457,8 @@ assert equity["equity"].isna().sum() == 0  # Keine NaNs
 - **Output:** `output/equity_curve_{freq}.csv`, `output/portfolio_equity_{freq}.csv`
 
 ### Validierungsfunktionen
-- `src.assembled_core.qa.backtest_engine.simulate_equity()`: Equity-Simulation
-- `src.assembled_core.pipeline.portfolio.simulate_with_costs()`: Portfolio-Simulation
+- `src.assembled_core.pipeline.portfolio.simulate_with_costs()`: Portfolio-Simulation (canonical; auch für no-costs via commission_bps=spread_w=impact_w=0)
+- `src.assembled_core.pipeline.backtest.simulate_equity()`: **DEPRECATED** (audit §9.6(d), 2026-05-19) — kein cash-constraint check, retained nur für parity-tests gegen `backtest_legacy`
 
 ---
 

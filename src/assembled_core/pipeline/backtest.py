@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +12,8 @@ import pandas as pd
 from src.assembled_core.config import OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
+
+_SIMULATE_EQUITY_DEPRECATION_LOGGED = False
 
 
 def _simulate_fills_per_order(
@@ -319,12 +322,16 @@ def _update_equity_mark_to_market(
 def simulate_equity(
     prices: pd.DataFrame, orders: pd.DataFrame, start_capital: float
 ) -> pd.DataFrame:
-    """**DEPRECATED — use `simulate_with_costs(commission_bps=0, spread_w=0,
-    impact_w=0)` instead** (audit §9.6(d) 2026-05-19).
+    """Simulate equity curve from prices and orders (no costs, no cash-constraint).
 
-    This function applies orders unconditionally — it has no cash-constraint
-    check. Concrete cliff observed: mfv2 OOS 2025-01..2026-05-05 no-costs
-    run dropped from $103,809 to $27,034 on 2026-03-24 (single bar) while
+    .. deprecated:: 2026-05-19
+       Use :func:`src.assembled_core.pipeline.portfolio.simulate_with_costs`
+       with ``commission_bps=0, spread_w=0, impact_w=0`` instead.
+       This function applies orders unconditionally — it has no
+       cash-constraint check (audit §9.6(d)).
+
+    Concrete cliff observed: mfv2 OOS 2025-01..2026-05-05 no-costs run
+    dropped from $103,809 to $27,034 on 2026-03-24 (single bar) while
     `simulate_with_costs` on byte-identical trades stayed at $92,360 and
     continued to mark-to-market correctly. Canonical no-costs path is now
     `src.assembled_core.pipeline.portfolio.simulate_with_costs` with all
@@ -338,9 +345,11 @@ def simulate_equity(
     No DeprecationWarning is raised at call time because the project's
     pytest config treats `error::DeprecationWarning:src.assembled_core.pipeline.*`
     as hard errors and the regression tests need this function to call
-    cleanly. The deprecation is documented here and enforced via review.
-
-    Simulate equity curve from prices and orders (no costs, no cash-constraint).
+    cleanly. The deprecation is documented here, enforced via review, and
+    a runtime warn-once log fires when the env var
+    ``ASSEMBLED_SIMULATE_EQUITY_DEPRECATION_WARN`` is truthy — set in
+    production environments to surface accidental callers without breaking
+    the parity tests.
 
     Args:
         prices: DataFrame with columns: timestamp, symbol, close
@@ -352,8 +361,24 @@ def simulate_equity(
         Sorted by timestamp
 
     Side effects:
-        None (pure function)
+        None (pure function). Emits a warn-once log at WARNING level if
+        ``ASSEMBLED_SIMULATE_EQUITY_DEPRECATION_WARN`` is set to a truthy
+        value (1, true, yes — case-insensitive).
     """
+    global _SIMULATE_EQUITY_DEPRECATION_LOGGED
+    if not _SIMULATE_EQUITY_DEPRECATION_LOGGED:
+        env_flag = os.environ.get("ASSEMBLED_SIMULATE_EQUITY_DEPRECATION_WARN", "")
+        if env_flag.strip().lower() in {"1", "true", "yes"}:
+            logger.warning(
+                "[Backtest] simulate_equity is DEPRECATED (audit §9.6(d), "
+                "2026-05-19). It has no cash-constraint check and can produce "
+                "unphysical equity curves. Use "
+                "src.assembled_core.pipeline.portfolio.simulate_with_costs("
+                "commission_bps=0, spread_w=0, impact_w=0) instead. This "
+                "warning fires once per process when "
+                "ASSEMBLED_SIMULATE_EQUITY_DEPRECATION_WARN is set."
+            )
+            _SIMULATE_EQUITY_DEPRECATION_LOGGED = True
     # Timeline & Price pivot
     prices = prices.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
     timeline = prices["timestamp"].sort_values().drop_duplicates().to_list()
