@@ -1506,16 +1506,16 @@ Finnhub-API-Key wurde am 2026-05-19 ~08:00 lokaler Zeit direkt im Chat gepostet 
 
 **Heutiger Dry-Run-Beweis:** 193 syms (statt 197 — EXAS/HOLX/KO/PEP per-symbol stale gedropt mit WARN-log), 85 LONG signals BEAR regime, 8 orders (SELL ALB/DELL/PLUG closes, PARTIAL LLY, BUY AMAT/IONQ/LRCX/MRVL/ROK auf aktuellen Preisen), exit_code=0. Broker-Equity nach 5 Tagen Pause: $91,539 (von $98,967 Pilot-Start = -7.5%).
 
-**Adjacent-Followups (alle Rule-60, eigener Scope):**
-- (a) F-RX-3: `adj_close = close` default für appended panel-rows. **Live-paper hot-path nicht betroffen** — `load_eod_prices:146` strippt adj_close bevor der Pilot ihn sieht (siehe memory 2026-05-19 wiring-finding). **Direct-parquet-Konsumenten (Backtests, factor stores)** sehen aber adj_close=close für recent appended rows und würden auf ex-Div-Tage Returns falsch berechnen. Folow-up: NaN sentinel statt close-fallback ODER detect-and-warn auf ex-Div-Lookup.
-- (b) F-RX-4: `shutil.move` → `pathlib.Path.replace` für Atomicity-Konsistenz mit `prewarm_price_cache.py`.
-- (c) F-RX-5: Refresh-Failure logged nur WARN ohne Alert-Surface. Status-JSON-File + halt-flag-on-fail wäre robuster.
-- (d) F-RX-6: `prewarm_price_cache.py` Step 1 in der .bat refresht nur MISSING syms, nicht STALE. Sollte um stale-row-refresh erweitert werden, oder zumindest mit max-time-budget.
-- (e) F-RX-7: Stale-cache-fallback-Pfad in `_load_prices:218-225` (yfinance down → stale cache). Mit per-symbol drop jetzt safe, aber sollte ggf. explizit blocken statt warnen.
-- (f) F-RX-8: PT30M ist ein Kompromiss. Interner soft-timeout (threading.Timer signal-Equivalent) mit graceful halt-ack-Flag wäre defensiver.
-- (g) F-RX-11: Manual-intent-clearing für stale broker_order_id ist wiederkehrend (2× in 5 Tagen). Auto-abandon-after-N-hours + Counter in Pilot-Manifest als Follow-up.
-- (h) KO/PEP/BRK-B/PG/etc. (Watchlist-Symbole, nicht im master_universe_panel) — Coverage-Gap im Panel-Build. Sollte entweder im Panel ergänzt oder aus Watchlist entfernt werden. Aktuell werden sie täglich gedropt mit WARN.
-- (i) EXAS, HOLX delisted (per yfinance "possibly delisted"). Aus Watchlist entfernen oder bewusst akzeptieren dass sie nicht traden.
+**Adjacent-Followups — Status nach FU-Sweep 2026-05-21:**
+- (a) F-RX-3 ✅ BEHOBEN: `adj_close = NaN` sentinel (statt close-fallback) für appended panel-rows. Live-paper hot-path strippt adj_close bei load_eod_prices:146 (unaffected); direct-parquet consumers sehen NaN-Sentinel → loud propagation statt silent dividend-misberechnung.
+- (b) F-RX-4 ✅ BEHOBEN: `shutil.move` → `pathlib.Path.replace` mit cleanup-tmp on exception.
+- (c) F-RX-5 ✅ BEHOBEN: `output/ops/refresh_cache_status.json` Sidecar mit `{ts_utc, rc, ok, cache_latest, panel_latest, rows_appended, error}` für ops monitoring.
+- (d) F-RX-6 ✅ BEHOBEN: `prewarm_price_cache.py` mit `--max-stale-days` (default 5) + `--max-symbols` (default 30, oldest-first budget). Refresht jetzt missing AND stale watchlist-syms, mit Rate-Limit-Budget gegen Task-Scheduler-Timeout.
+- (e) F-RX-7 ✅ BEHOBEN: `_load_prices` stale-cache-fallback-Pfad gibt jetzt `empty df` zurück + `CRITICAL`-log → `cmd_once:sys.exit(1)`. Kein silent stale-trading mehr.
+- (f) F-RX-8 ✅ BEHOBEN: `_arm_soft_timeout()` in `cmd_once` via threading.Timer (default 1500s = 25min, CLI-flag `--soft-timeout-seconds`). Bei Trip: halt-ack-flag geschrieben + `_SOFT_TIMEOUT_TRIPPED` gate; main flow exit(2) am nächsten `_check_soft_timeout` checkpoint. Verhindert Task-Scheduler-PT30M-hard-kill-mid-order.
+- (g) F-RX-11 ✅ BEHOBEN: `auto_abandon_stale_intents()` in `intent_store.py`. Wird in `run_paper_pilot.run_startup_checks()` aufgerufen — auto-marks pre-submit ORDER_SUBMIT mit leerem `broker_order_id` älter als 24h als `status=abandoned_auto`. Counter in `pilot_manifest.json.auto_abandoned_intents` für trend-tracking.
+- (h) ⚠️ OFFEN (Sensitive Zone): KO/PEP/BRK-B/PG/TSM/COIN/etc. (~25 Watchlist-Symbole, nicht im master_universe_panel). Coverage-Gap im Panel-Build. Mit (d) jetzt täglich per yfinance refresht (capped at 30 syms/day). Long-term: ins Panel-Build aufnehmen ODER bewusst aus Watchlist entfernen.
+- (i) ✅ BEHOBEN: EXAS, HOLX aus `watchlist.txt` auskommentiert mit reason-comment (2026-05-21 audit). Können bei Re-Listing wieder aktiviert werden.
 
 ### 9.11 Daten-Frische am Audit-Ende
 

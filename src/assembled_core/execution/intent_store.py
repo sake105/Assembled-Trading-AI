@@ -346,3 +346,93 @@ def find_pending_order_intents(
             completed_keys.add(key)
 
     return [r for k, r in submitted_keys.items() if k not in completed_keys]
+
+
+def auto_abandon_stale_intents(
+    *,
+    max_age_hours: float = 24.0,
+    require_empty_broker_order_id: bool = True,
+    store_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Auto-record ORDER_COMPLETE/status=abandoned for stale pre-submit intents.
+
+    F-RX-11 §9.12 (g) follow-up: pre-submit ORDER_SUBMIT records with empty
+    ``broker_order_id`` indicate the intent was logged but the broker never
+    confirmed (crash / DNS / rate-limit before broker.submit returned). Such
+    intents need manual reconciliation, which we already saw twice in five
+    days (memory 2026-05-19 + 2026-05-21). This helper automates the
+    "verified never reached broker → mark abandoned" decision so the warning
+    drains itself.
+
+    Safety rails:
+    - Only acts on intents older than ``max_age_hours`` (default 24h —
+      covers overnight scheduled retries).
+    - By default only acts on intents with empty ``broker_order_id`` (the
+      pre-submit case). Set ``require_empty_broker_order_id=False`` to also
+      sweep intents WITH broker ids (riskier; only use after broker-side
+      reconciliation confirms they never executed).
+    - Each abandonment writes an audit-trail ORDER_COMPLETE record with
+      ``status=abandoned_auto`` and ``reason`` including the original
+      timestamp and detected age.
+
+    Returns the list of intents that were just abandoned (empty if none).
+    """
+    from datetime import datetime, timezone
+
+    pending = find_pending_order_intents(store_path)
+    if not pending:
+        return []
+
+    now = datetime.now(timezone.utc)
+    abandoned: list[dict[str, Any]] = []
+    for intent in pending:
+        # F-RX-FU-2: wrap the entire per-intent parse so one malformed record
+        # (e.g. tz-naive ts from older format, non-iso string, non-str
+        # broker_order_id) doesn't abort the whole sweep. Each failure logs
+        # WARN and continues — the audit trail remains traceable.
+        try:
+            ts_str = intent.get("timestamp_utc", "")
+            if not ts_str:
+                continue
+            intent_ts = datetime.fromisoformat(ts_str)
+            # Coerce tz-naive to UTC so the subtraction below doesn't crash.
+            if intent_ts.tzinfo is None:
+                intent_ts = intent_ts.replace(tzinfo=timezone.utc)
+            age_hours = (now - intent_ts).total_seconds() / 3600.0
+            if age_hours < max_age_hours:
+                continue
+
+            metadata = intent.get("metadata", {}) or {}
+            if require_empty_broker_order_id:
+                bid = str(metadata.get("broker_order_id") or "").strip()
+                if bid:
+                    # Has a broker id — caller must reconcile manually.
+                    continue
+        except (ValueError, TypeError, AttributeError) as exc:
+            logger.warning(
+                "[INTENT] auto_abandon skipping malformed record key=%s: %s",
+                intent.get("idempotency_key", "?"),
+                exc,
+            )
+            continue
+
+        record_intent(
+            "ORDER_COMPLETE",
+            intent["idempotency_key"],
+            metadata={
+                "symbol": metadata.get("symbol", ""),
+                "side": metadata.get("side", ""),
+                "qty": metadata.get("qty", 0.0),
+                "filled_qty": 0.0,
+                "filled_price": 0.0,
+                "status": "abandoned_auto",
+                "reason": (
+                    f"auto-abandoned: pre-submit intent from {ts_str} "
+                    f"(age={age_hours:.1f}h > max_age_hours={max_age_hours}h), "
+                    f"broker_order_id was empty"
+                ),
+            },
+            store_path=store_path,
+        )
+        abandoned.append(intent)
+    return abandoned

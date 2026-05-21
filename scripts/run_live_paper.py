@@ -257,14 +257,22 @@ def _load_prices(app_cfg: dict):
     except Exception as exc:
         logger.warning("[run_live_paper] yfinance fetch failed: %s", exc)
 
-    # --- Final fallback: stale cache if we have nothing else ---
+    # --- Final fallback: BLOCK on stale cache (F-RX-7 §9.12 (e)) ---
+    # Previously this path returned the stale cache with a WARN log, letting
+    # the pilot trade on out-of-date prices when yfinance was down. With the
+    # per-symbol staleness filter the worst-case shrinks to "trade on the
+    # few syms that happen to be < 3d old", but partial-portfolio trading on
+    # network-outage days is still undesirable. Block instead — operator can
+    # see the run failed and either fix the data path or skip the day.
     if cache_prices is not None and not cache_prices.empty:
-        logger.warning(
-            "[run_live_paper] yfinance unavailable — falling back to STALE cache (%s). "
-            "Signals will be computed on out-of-date prices.",
+        logger.critical(
+            "[run_live_paper] yfinance unavailable AND cache is stale (%s) — "
+            "BLOCKING. No trades will be submitted on out-of-date prices. "
+            "Resolve the upstream data issue or run scripts/ops/"
+            "refresh_daily_cache_from_panel.py before retrying.",
             cache_stale_reason or "unknown age",
         )
-        return _drop_per_symbol_stale_rows(cache_prices)
+        return pd.DataFrame()
 
     logger.error("[run_live_paper] no price data available from any source")
     return pd.DataFrame()
@@ -385,16 +393,90 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
     return True
 
 
+_SOFT_TIMEOUT_TRIPPED: dict[str, bool] = {"flag": False}
+
+
+def _arm_soft_timeout(seconds: float) -> "object":
+    """F-RX-8 §9.12 (f): arm a soft-timeout that writes the halt-ack flag and
+    flips an in-process gate BEFORE the Task Scheduler's hard kill.
+
+    The Task Scheduler ExecutionTimeLimit (currently PT30M) hard-terminates
+    the process without any chance for cleanup — exactly the failure mode
+    that produced the stale pending intent on 2026-05-19 (mid-submission
+    kill). This soft-timeout fires at ``seconds`` (default <= the OS limit)
+    and:
+      - writes ``output/ops/halt_ack_required.json`` so the NEXT run is
+        blocked at the preflight gate (operator must clear via
+        scripts/ack_halt.py)
+      - flips ``_SOFT_TIMEOUT_TRIPPED`` which the main flow checks between
+        steps to bail out gracefully instead of submitting more orders
+      - logs CRITICAL so the per-day log captures the trip
+    Returns the Timer handle so the caller can cancel it on normal exit.
+    """
+    import threading
+    from datetime import datetime, timezone
+
+    def _fire() -> None:
+        _SOFT_TIMEOUT_TRIPPED["flag"] = True
+        try:
+            _write_halt_flag(
+                {
+                    "ts_utc": datetime.now(timezone.utc).isoformat(),
+                    "reason": (
+                        f"soft-timeout fired after {seconds:.0f}s in "
+                        f"run_live_paper.cmd_once — task was about to be "
+                        f"hard-killed by Task Scheduler. Next run is "
+                        f"halted until operator acks via scripts/ack_halt.py."
+                    ),
+                    "source": "run_live_paper._arm_soft_timeout",
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("[run_live_paper] halt-flag write failed: %s", exc)
+        logger.critical(
+            "[run_live_paper] SOFT TIMEOUT (%.0fs) — halt-ack flag set. "
+            "No further orders will be submitted; main flow will exit at "
+            "the next checkpoint.",
+            seconds,
+        )
+
+    t = threading.Timer(seconds, _fire)
+    t.daemon = True
+    t.start()
+    return t
+
+
+def _check_soft_timeout(stage: str) -> None:
+    """Exit gracefully if the soft-timeout has tripped. Called between major
+    cmd_once stages so we never submit new orders after the trip."""
+    if _SOFT_TIMEOUT_TRIPPED["flag"]:
+        logger.critical(
+            "[run_live_paper] soft-timeout already tripped before stage=%s "
+            "— exiting gracefully with rc=2",
+            stage,
+        )
+        sys.exit(2)
+
+
 def cmd_once(args):
     """Single execution cycle."""
     import pandas as pd
     from src.assembled_core.ops.paper_runner import run_paper_daily_one
 
+    # Soft-timeout default ~5min before the Task Scheduler PT30M hard kill,
+    # so the in-process bail-out wins the race. Operators can tighten via
+    # the --soft-timeout-seconds CLI flag below for short-window runs.
+    soft_timeout_s = float(getattr(args, "soft_timeout_seconds", 1500.0))
+    soft_timer = _arm_soft_timeout(soft_timeout_s) if soft_timeout_s > 0 else None
+
     app_cfg = _load_app_cfg()
     adapter = _create_adapter()
 
     if not _preflight_checks(adapter, app_cfg):
+        if soft_timer is not None:
+            soft_timer.cancel()
         sys.exit(1)
+    _check_soft_timeout("post_preflight")
 
     # Reset per-cycle counters
     adapter.reset_cycle_counters()
@@ -415,7 +497,10 @@ def cmd_once(args):
     prices = _load_prices(app_cfg)
     if prices.empty:
         logger.error("[run_live_paper] no prices available — aborting")
+        if soft_timer is not None:
+            soft_timer.cancel()
         sys.exit(1)
+    _check_soft_timeout("post_load_prices")
 
     exit_code, reconcile_status = run_paper_daily_one(
         as_of_ts=as_of,
@@ -427,6 +512,10 @@ def cmd_once(args):
         execution_mode=execution_mode,
         broker_adapter=adapter,
     )
+    # F-RX-FU-3: third checkpoint. If soft-timeout fired during order
+    # generation/submission, skip post-execution reconciliation (it can
+    # resume next run after operator clears halt-flag) and exit with rc=2.
+    _check_soft_timeout("post_run_paper_daily")
 
     # Post-execution reconciliation
     if execution_mode == "broker" and exit_code == 0:
@@ -513,6 +602,8 @@ def cmd_once(args):
         exit_code,
         reconcile_status,
     )
+    if soft_timer is not None:
+        soft_timer.cancel()
     sys.exit(exit_code)
 
 
@@ -619,6 +710,17 @@ def main():
     once_p = sub.add_parser("once", help="Run a single trading cycle")
     once_p.add_argument(
         "--dry-run", action="store_true", help="Log orders but don't submit to broker"
+    )
+    once_p.add_argument(
+        "--soft-timeout-seconds",
+        type=float,
+        default=1500.0,
+        help=(
+            "F-RX-8 soft-timeout (default 1500s = 25min). Writes the "
+            "halt-ack flag and exits at the next stage checkpoint, so the "
+            "Task Scheduler hard-kill (PT30M default) does not interrupt "
+            "mid-order. Set 0 to disable."
+        ),
     )
     once_p.set_defaults(func=cmd_once)
 

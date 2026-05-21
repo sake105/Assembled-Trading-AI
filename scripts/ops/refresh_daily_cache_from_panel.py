@@ -26,8 +26,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
+import json
 import logging
-import shutil
 import sys
 from pathlib import Path
 
@@ -38,6 +39,43 @@ logger = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "output" / "aggregates" / "daily.parquet"
 PANEL_PATH = ROOT / "data" / "sample" / "master_universe_panel.parquet"
+STATUS_PATH = ROOT / "output" / "ops" / "refresh_cache_status.json"
+
+
+def _write_status(
+    *,
+    rc: int,
+    cache_latest: object | None,
+    panel_latest: object | None,
+    rows_appended: int,
+    error: str | None = None,
+    status_path: Path | None = None,
+) -> None:
+    """Write a status JSON for ops monitoring (F-RX-5 follow-up §9.12 (c)).
+
+    The .bat catches errorlevel 1 and logs WARN to a per-day file, which has
+    no alert surface. This sidecar JSON gives downstream consumers (alerting,
+    halt-flag triggers, dashboards) a single load-then-check path. Best-effort
+    write: an exception here must not abort the refresh outcome.
+    """
+    if status_path is None:
+        status_path = STATUS_PATH
+    try:
+        status_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "ts_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "rc": int(rc),
+            "ok": rc >= 0,
+            "cache_latest": str(cache_latest) if cache_latest is not None else None,
+            "panel_latest": str(panel_latest) if panel_latest is not None else None,
+            "rows_appended": int(rows_appended),
+            "error": error,
+        }
+        tmp = status_path.with_name(status_path.name + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(status_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[refresh-cache] failed to write status JSON: %s", exc)
 
 
 def refresh(cache_path: Path, panel_path: Path, *, dry_run: bool) -> int:
@@ -46,9 +84,23 @@ def refresh(cache_path: Path, panel_path: Path, *, dry_run: bool) -> int:
 
     if not cache_path.exists():
         logger.error("[refresh-cache] cache not found: %s", cache_path)
+        _write_status(
+            rc=-1,
+            cache_latest=None,
+            panel_latest=None,
+            rows_appended=0,
+            error=f"cache not found: {cache_path}",
+        )
         return -1
     if not panel_path.exists():
         logger.error("[refresh-cache] panel not found: %s", panel_path)
+        _write_status(
+            rc=-1,
+            cache_latest=None,
+            panel_latest=None,
+            rows_appended=0,
+            error=f"panel not found: {panel_path}",
+        )
         return -1
 
     cache = pd.read_parquet(cache_path)
@@ -85,6 +137,12 @@ def refresh(cache_path: Path, panel_path: Path, *, dry_run: bool) -> int:
         logger.info(
             "[refresh-cache] no panel rows strictly newer than per-symbol cache max"
         )
+        _write_status(
+            rc=0,
+            cache_latest=cache_latest,
+            panel_latest=panel_latest,
+            rows_appended=0,
+        )
         return 0
 
     n_syms = new_rows["symbol"].nunique()
@@ -100,13 +158,31 @@ def refresh(cache_path: Path, panel_path: Path, *, dry_run: bool) -> int:
 
     if dry_run:
         logger.info("[refresh-cache] --dry-run set, not writing")
+        _write_status(
+            rc=int(len(new_rows)),
+            cache_latest=cache_latest,
+            panel_latest=panel_latest,
+            rows_appended=int(len(new_rows)),
+        )
         return len(new_rows)
 
-    # Panel lacks adj_close; default to close. Acceptable for the short
-    # horizon (last few days have no splits/dividends realistic enough to
-    # materially affect signals before the next full cache rebuild).
+    # F-RX-3 §9.12 (a): panel has no adj_close column. Live-paper hot-path
+    # is unaffected (load_eod_prices:146 strips adj_close before the pilot
+    # sees it). BUT direct-parquet consumers (backtests, factor stores) read
+    # the column. Setting adj_close = close would silently mis-handle
+    # ex-dividend dates. Use NaN as sentinel: consumers that compute returns
+    # from adj_close get NaN propagation (loud failure), and any consumer
+    # that uses .fillna(close) is making the same fallback choice explicit.
     if "adj_close" not in new_rows.columns:
-        new_rows["adj_close"] = new_rows["close"]
+        import numpy as np
+
+        new_rows["adj_close"] = np.nan
+        logger.warning(
+            "[refresh-cache] panel lacks adj_close — appended rows have "
+            "adj_close=NaN (sentinel). Direct-parquet consumers must guard "
+            "or fillna(close) explicitly; live-paper hot-path strips "
+            "adj_close at load_eod_prices:146 and is unaffected."
+        )
 
     # Reorder to match cache schema (drop any extra cols panel may carry).
     new_rows = new_rows[cache.columns.tolist()]
@@ -125,10 +201,27 @@ def refresh(cache_path: Path, panel_path: Path, *, dry_run: bool) -> int:
         merged["timestamp"].max(),
     )
 
-    tmp = cache_path.with_suffix(".parquet.tmp")
-    merged.to_parquet(tmp, index=False)
-    shutil.move(str(tmp), str(cache_path))
+    # F-RX-4 §9.12 (b): use Path.replace (atomic on same FS) instead of
+    # shutil.move (falls back to copy+remove across filesystems). Matches
+    # the idiom used in scripts/ops/prewarm_price_cache.py for consistency.
+    tmp = cache_path.with_name(cache_path.name + ".tmp")
+    try:
+        merged.to_parquet(tmp, index=False)
+        tmp.replace(cache_path)
+    except Exception:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+        raise
     logger.info("[refresh-cache] wrote %s", cache_path)
+    _write_status(
+        rc=int(len(new_rows)),
+        cache_latest=cache_latest,
+        panel_latest=panel_latest,
+        rows_appended=int(len(new_rows)),
+    )
     return len(new_rows)
 
 

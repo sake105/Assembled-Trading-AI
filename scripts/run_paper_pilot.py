@@ -202,6 +202,45 @@ def run_startup_checks() -> None:
             "[pilot-startup] Cancelled %d stale orders before trading cycle.",
             n_cancelled,
         )
+    # F-RX-11 §9.12 (g): auto-abandon stale ORDER_SUBMIT intents with empty
+    # broker_order_id older than 24h. These represent crash/network-failure
+    # cases where the intent was persisted but the broker submission never
+    # completed; they previously required manual reconciliation (twice in
+    # five days during the pilot outage 2026-05-15..21). Auto-abandonment
+    # writes a paired ORDER_COMPLETE/status=abandoned_auto audit record.
+    try:
+        from src.assembled_core.execution.intent_store import (
+            auto_abandon_stale_intents,
+        )
+
+        abandoned = auto_abandon_stale_intents(max_age_hours=24.0)
+        if abandoned:
+            logger.warning(
+                "[pilot-startup] auto-abandoned %d stale pre-submit intent(s) "
+                "(empty broker_order_id, age > 24h). See "
+                "output/ops/intent_store.jsonl for ORDER_COMPLETE/"
+                "status=abandoned_auto audit records.",
+                len(abandoned),
+            )
+            # Surface count via manifest for trend tracking. Stored in a
+            # rolling dict so the operator can spot increasing frequency
+            # (an indicator the upstream issue isn't being fixed).
+            try:
+                if PILOT_MANIFEST.exists():
+                    m = json.loads(PILOT_MANIFEST.read_text(encoding="utf-8"))
+                    m.setdefault("auto_abandoned_intents", []).append(
+                        {
+                            "ts_utc": datetime.now(timezone.utc).isoformat(),
+                            "count": len(abandoned),
+                        }
+                    )
+                    PILOT_MANIFEST.write_text(json.dumps(m, indent=2), encoding="utf-8")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "[pilot-startup] manifest counter update failed: %s", exc
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[pilot-startup] auto-abandon-intents step failed: %s", exc)
     logger.info("[pilot-startup] Startup checks complete.")
 
 
@@ -247,11 +286,16 @@ def cmd_run_day() -> int:
     # Invoke the paper runner for one cycle
     import subprocess
 
+    # F-RX-FU-1: subprocess timeout MUST exceed run_live_paper's soft-timeout
+    # (default 1500s = 25min) so the in-process bail-out can write halt-ack
+    # before this subprocess wrapper kills the child. With 1700s here the
+    # soft-timeout fires first, sets halt-flag, exits cleanly with rc=2,
+    # leaving the next run gated until operator clears the flag.
     result = subprocess.run(
         [sys.executable, "scripts/run_live_paper.py", "once"],
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=1700,
     )
     rc = result.returncode
     output = (result.stdout + result.stderr).lower()

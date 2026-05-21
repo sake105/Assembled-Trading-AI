@@ -79,8 +79,13 @@ def _make_panel(tmp_path: Path, latest: str, syms: list[str]) -> Path:
     return p
 
 
-def test_refresh_appends_fresher_panel_rows_and_defaults_adj_close(tmp_path):
-    """Panel newer than cache → append new rows, default adj_close = close."""
+def test_refresh_appends_fresher_panel_rows_and_sets_adj_close_nan(tmp_path):
+    """Panel newer than cache → append new rows. F-RX-3: panel lacks adj_close,
+    appended rows get NaN sentinel (NOT close) so direct-parquet consumers can
+    detect-and-handle. Live-paper hot-path strips adj_close at load and is
+    unaffected.
+    """
+
     mod = _load_module()
     cache_path = _make_cache(tmp_path, latest="2026-05-14")
     panel_path = _make_panel(tmp_path, latest="2026-05-18", syms=["AAPL", "MSFT"])
@@ -92,8 +97,13 @@ def test_refresh_appends_fresher_panel_rows_and_defaults_adj_close(tmp_path):
     assert out["timestamp"].max() == pd.Timestamp("2026-05-18", tz="UTC")
     new_rows = out[out["timestamp"] > pd.Timestamp("2026-05-14", tz="UTC")]
     assert len(new_rows) > 0
-    # Panel had no adj_close → defaulted to close
-    assert (new_rows["adj_close"] == new_rows["close"]).all()
+    # Panel had no adj_close → set to NaN sentinel (F-RX-3 §9.12 (a))
+    assert (
+        new_rows["adj_close"].isna().all()
+    ), "appended rows must carry NaN sentinel in adj_close, not silent close-fallback"
+    # Original cache rows still have their valid adj_close (close-equivalent)
+    cache_old = out[out["timestamp"] <= pd.Timestamp("2026-05-14", tz="UTC")]
+    assert not cache_old["adj_close"].isna().any()
     # Cache schema preserved (no extra panel cols leaked)
     assert set(out.columns) == {
         "timestamp",
@@ -105,6 +115,49 @@ def test_refresh_appends_fresher_panel_rows_and_defaults_adj_close(tmp_path):
         "adj_close",
         "volume",
     }
+
+
+def test_refresh_writes_status_json_with_payload(tmp_path, monkeypatch):
+    """F-RX-5 §9.12 (c): refresh writes a status JSON sidecar for ops monitoring."""
+    mod = _load_module()
+    status_path = tmp_path / "ops" / "refresh_cache_status.json"
+    monkeypatch.setattr(mod, "STATUS_PATH", status_path)
+
+    cache_path = _make_cache(tmp_path, latest="2026-05-14")
+    panel_path = _make_panel(tmp_path, latest="2026-05-18", syms=["AAPL"])
+
+    mod.refresh(cache_path, panel_path, dry_run=False)
+
+    assert status_path.exists()
+    import json as _json
+
+    payload = _json.loads(status_path.read_text(encoding="utf-8"))
+    assert payload["ok"] is True
+    assert payload["rc"] >= 0
+    assert payload["rows_appended"] > 0
+    assert "panel_latest" in payload and "cache_latest" in payload
+    assert payload["error"] is None
+
+
+def test_refresh_writes_status_json_on_missing_file(tmp_path, monkeypatch):
+    """Status JSON reports rc=-1 + error when source files are missing."""
+    mod = _load_module()
+    status_path = tmp_path / "ops" / "refresh_cache_status.json"
+    monkeypatch.setattr(mod, "STATUS_PATH", status_path)
+
+    rc = mod.refresh(
+        tmp_path / "nope_cache.parquet",
+        tmp_path / "nope_panel.parquet",
+        dry_run=False,
+    )
+    assert rc == -1
+    assert status_path.exists()
+    import json as _json
+
+    payload = _json.loads(status_path.read_text(encoding="utf-8"))
+    assert payload["ok"] is False
+    assert payload["rc"] == -1
+    assert payload["error"] is not None
 
 
 def test_refresh_idempotent_when_panel_not_newer(tmp_path):

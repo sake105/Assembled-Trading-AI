@@ -64,7 +64,7 @@ ELV
 EMR
 ENPH
 EOG
-EXAS
+# EXAS  # delisted/no data on yfinance per 2026-05-21 audit (latest 2026-03-23); re-enable if listing resumes
 FCX
 FDX
 FSLR
@@ -79,7 +79,7 @@ HAL
 HD
 HEI
 HII
-HOLX
+# HOLX  # delisted/no data on yfinance per 2026-05-21 audit (latest 2026-04-07); re-enable if listing resumes
 HON
 HPE
 HUM

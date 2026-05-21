@@ -60,6 +60,37 @@ def cache_symbols(path: Path = CACHE_PATH) -> set[str]:
     return set(df["symbol"].unique())
 
 
+def stale_cache_symbols(
+    watchlist: list[str],
+    max_age_days: int,
+    path: Path = CACHE_PATH,
+) -> list[str]:
+    """Return watchlist symbols in the cache whose own latest bar is > max_age_days old.
+
+    F-RX-6 §9.12 (d) follow-up: prewarm previously refreshed only MISSING
+    symbols (watchlist - cache). Symbols PRESENT in cache but stale per-symbol
+    (e.g. KO/PEP/BRK-B/PG @ 2026-05-01 while panel-refreshed peers are at
+    2026-05-18) stayed frozen forever — refresh_daily_cache_from_panel.py
+    can't fix them because they're not in the master_universe_panel. This
+    helper surfaces them so the prewarm path can yfinance-refresh them too.
+
+    Returns symbols sorted by ascending freshness (oldest first), so a
+    --max-symbols budget caps the work to the most-urgent ones.
+    """
+    if not path.exists():
+        return []
+    import pandas as pd
+
+    df = pd.read_parquet(path, columns=["symbol", "timestamp"])
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df = df[df["symbol"].isin(watchlist)]
+    per_sym = df.groupby("symbol")["timestamp"].max()
+    today = pd.Timestamp.now("UTC").normalize()
+    ages = (today - per_sym.dt.normalize()).dt.days
+    stale = ages[ages > max_age_days].sort_values(ascending=False)
+    return list(stale.index)
+
+
 def fetch_missing(missing: list[str], years: int) -> "pd.DataFrame":
     """Fetch the missing symbols via yfinance."""
     from src.assembled_core.data.sources.yfinance_source import fetch_prices_yfinance
@@ -130,6 +161,29 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Only report the gap, do not fetch or write",
     )
+    parser.add_argument(
+        "--max-stale-days",
+        type=int,
+        default=3,
+        help=(
+            "Refresh cache-present watchlist symbols whose own latest bar is "
+            "older than this many calendar days (default 3, aligned with "
+            "_drop_per_symbol_stale_rows max_age_days in run_live_paper.py so "
+            "there is no silent dead-zone of stale-but-not-prewarmed symbols "
+            "— F-RX-FU-4). Set to 0 to skip stale-row refresh entirely."
+        ),
+    )
+    parser.add_argument(
+        "--max-symbols",
+        type=int,
+        default=30,
+        help=(
+            "Hard budget on the number of symbols yfinance will be asked for "
+            "in one invocation (default 30). Caps wall-clock time when "
+            "rate-limited so the Task Scheduler ExecutionTimeLimit isn't hit. "
+            "Stale symbols are processed oldest-first."
+        ),
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -139,20 +193,36 @@ def main(argv: list[str] | None = None) -> int:
     watchlist = load_watchlist()
     cached = cache_symbols()
     missing = sorted(set(watchlist) - cached)
+    stale = (
+        stale_cache_symbols(watchlist, max_age_days=args.max_stale_days)
+        if args.max_stale_days > 0
+        else []
+    )
 
     print(
-        f"[prewarm] watchlist={len(watchlist)} cached={len(cached)} gap={len(missing)}"
+        f"[prewarm] watchlist={len(watchlist)} cached={len(cached)} "
+        f"missing={len(missing)} stale(>{args.max_stale_days}d)={len(stale)}"
     )
-    if not missing:
-        print("[prewarm] no gap — cache already has all watchlist symbols")
+
+    if not missing and not stale:
+        print("[prewarm] no gap, no stale rows — cache fully fresh")
         return 0
 
-    print(f"[prewarm] missing (first 20): {missing[:20]}")
+    # Budget: missing first (truly absent), then stale (refresh-eligible).
+    targets = missing + [s for s in stale if s not in missing]
+    if args.max_symbols > 0 and len(targets) > args.max_symbols:
+        print(
+            f"[prewarm] {len(targets)} targets exceeds --max-symbols={args.max_symbols} "
+            f"budget; deferring tail to next invocation"
+        )
+        targets = targets[: args.max_symbols]
+
+    print(f"[prewarm] will fetch (first 20): {targets[:20]}")
     if args.dry_run:
         print("[prewarm] DRY RUN — no fetch performed")
         return 0
 
-    df = fetch_missing(missing, years=args.years)
+    df = fetch_missing(targets, years=args.years)
     if df.empty:
         print("[prewarm] no data fetched — aborting merge")
         return 1
