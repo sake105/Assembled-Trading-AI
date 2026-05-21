@@ -453,3 +453,58 @@ def detect_delisted_symbols(
         "n_delisted": len(delisted),
         "terminal_values": terminal_values,
     }
+
+
+def select_top_adv_symbols(
+    prices: pd.DataFrame,
+    top_n: int,
+    *,
+    lookback_days: int = 20,
+) -> list[str]:
+    """§9.6 (a) ADV universe filter — return top-N symbols by trailing dollar-volume.
+
+    Dollar-volume per row = close × volume; per-symbol trailing mean over the
+    last ``lookback_days`` bars. Symbols are sorted descending by ADV; the
+    top ``top_n`` are returned in that order.
+
+    Use case: live paper pilot and backtest universes typically include
+    illiquid names whose realized slippage costs erode strategy edge. The
+    backtest sweep that motivated §9.6 (a) showed mfv2 Top-50 ADV +
+    weekly = +20.33% CAGR vs all-195-daily = -7.74% CAGR — most of the
+    delta was illiquidity drag on the long tail. Even for trend_baseline
+    (current primary post-Phase-2), restricting to liquid names reduces
+    transaction-cost noise.
+
+    Args:
+        prices: panel with timestamp, symbol, close, volume columns.
+        top_n: keep this many symbols (positive int). Returns fewer when
+            the input has fewer.
+        lookback_days: trailing window for ADV computation. Default 20
+            (~1 trading month).
+
+    Returns:
+        list of symbols sorted DESC by trailing ADV. Empty list when
+        prices is empty, missing required columns, or top_n <= 0.
+    """
+    if prices is None or prices.empty:
+        return []
+    required = {"timestamp", "symbol", "close", "volume"}
+    if not required.issubset(set(prices.columns)):
+        return []
+    if top_n <= 0:
+        return []
+
+    df = prices[["timestamp", "symbol", "close", "volume"]].copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df["close"] = pd.to_numeric(df["close"], errors="coerce")
+    df["volume"] = pd.to_numeric(df["volume"], errors="coerce")
+    df = df.dropna(subset=["close", "volume"])
+    if df.empty:
+        return []
+
+    df["dollar_volume"] = df["close"].astype(float) * df["volume"].astype(float)
+    df = df.sort_values(["symbol", "timestamp"])
+    # Trailing lookback per symbol — take the last `lookback_days` rows each.
+    recent = df.groupby("symbol", group_keys=False).tail(lookback_days)
+    adv = recent.groupby("symbol")["dollar_volume"].mean().sort_values(ascending=False)
+    return adv.head(top_n).index.tolist()

@@ -29,6 +29,16 @@ paper_runner:
     trailing_stop_pct: 0.10     # 10% trailing stop below HWM
     take_profit_pct: 0.15       # 15% profit -> sell 50% (rest under trailing)
 
+  # §9.6 (a) ADV universe filter (2026-05-21): optional restriction to the
+  # top-N most liquid symbols by trailing dollar-volume. Reduces transaction-
+  # cost drag from illiquid tail names. Backtest evidence: mfv2 Top-50 daily
+  # = +5.70% CAGR vs all-195-daily = -7.74%; illiquidity drag was the bulk of
+  # the delta. Default: filter OFF (full watchlist). Enable by setting
+  # min_adv_top_n to a positive int (e.g. 50 for top-50, 100 for top-100).
+  universe:
+    min_adv_top_n: null         # null/0 = no filter; e.g. 50 = top-50 by ADV
+    adv_lookback_days: 20       # trailing window for dollar-volume mean
+
   # §9.6 (b) Phase 2 shadow-mode (2026-05-21): mfv2 cannot run as shadow
   # under the price-only whitelist (it needs feature-pipeline-enriched
   # input). Disabled until F-S1-M2 feature-pipeline-aligned shadow path is

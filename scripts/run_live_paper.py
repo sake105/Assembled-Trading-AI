@@ -278,6 +278,62 @@ def _load_prices(app_cfg: dict):
     return pd.DataFrame()
 
 
+def _apply_adv_universe_filter(prices, paper_cfg: dict):
+    """§9.6 (a) ADV universe filter — restrict to top-N most liquid symbols.
+
+    Reads ``paper_runner.universe.{min_adv_top_n, adv_lookback_days}``.
+    When ``min_adv_top_n`` is a positive int (default None = no filter),
+    restricts the prices panel to the top-N symbols ranked by trailing
+    dollar-volume. Default lookback = 20 trading days. Best-effort:
+    failure logs WARNING and returns unfiltered prices.
+
+    Motivation: backtest evidence (memory 2026-05-19) showed mfv2 Top-50
+    daily = +5.70% CAGR vs all-195-daily = -7.74% CAGR — most of the
+    delta was illiquidity drag on the long tail. Even for trend_baseline,
+    restricting to liquid names reduces transaction-cost noise.
+    """
+    if prices is None or prices.empty:
+        return prices
+
+    universe_cfg = (paper_cfg or {}).get("universe") or {}
+    top_n = universe_cfg.get("min_adv_top_n")
+    if not top_n or int(top_n) <= 0:
+        return prices
+
+    lookback_days = int(universe_cfg.get("adv_lookback_days", 20))
+    try:
+        from src.assembled_core.data.universe import select_top_adv_symbols
+
+        keep = select_top_adv_symbols(
+            prices, top_n=int(top_n), lookback_days=lookback_days
+        )
+        if not keep:
+            logger.warning(
+                "[run_live_paper] ADV filter requested (top_n=%d) but produced "
+                "empty universe — returning unfiltered prices",
+                top_n,
+            )
+            return prices
+        before = prices["symbol"].nunique() if "symbol" in prices.columns else 0
+        filtered = prices[prices["symbol"].isin(keep)].reset_index(drop=True)
+        after = filtered["symbol"].nunique() if "symbol" in filtered.columns else 0
+        logger.info(
+            "[run_live_paper] ADV universe filter: %d → %d symbols "
+            "(top_n=%d, lookback=%dd)",
+            before,
+            after,
+            top_n,
+            lookback_days,
+        )
+        return filtered
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "[run_live_paper] ADV filter failed (%s) — returning unfiltered prices",
+            exc,
+        )
+        return prices
+
+
 def _preflight_checks(adapter, app_cfg: dict) -> bool:
     """Run pre-flight safety checks. Returns True if safe to proceed."""
     from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
@@ -500,6 +556,8 @@ def cmd_once(args):
         if soft_timer is not None:
             soft_timer.cancel()
         sys.exit(1)
+    # §9.6 (a): optional ADV-based universe restriction
+    prices = _apply_adv_universe_filter(prices, app_cfg.get("paper_runner") or {})
     _check_soft_timeout("post_load_prices")
 
     exit_code, reconcile_status = run_paper_daily_one(
