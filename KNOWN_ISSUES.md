@@ -1487,6 +1487,36 @@ Plus: `core.autocrlf=true` (global) ↔ `.gitattributes eol=lf` Konflikt — lok
 **Schwere:** MITTLERER ERINNERUNGSWERT  
 Finnhub-API-Key wurde am 2026-05-19 ~08:00 lokaler Zeit direkt im Chat gepostet (alter Key war 401 Unauthorized, Rotation). Anthropic-Chatlogs könnten retained sein. **Aktion:** Nach Session-Ende erneut bei `finnhub.io/dashboard` rotieren.
 
+### 9.12 Paper Pilot Recovery (2026-05-21) — BEHOBEN, Adjacent-Followups dokumentiert
+
+**Schwere:** HIGH (Pilot war 5 Tage außer Betrieb)  
+**Status:** ✅ Recovery deployed, Pilot dry-run heute 09:30 mit 8 orders generated exit_code=0
+
+**Root cause (3 verkettete):**
+1. `output/aggregates/daily.parquet` wurde nicht automatisch erfrischt — latest=2026-05-14 seit dem 15.05. Cache age > 3d Schwelle triggerte yfinance-Fallback.
+2. `_load_prices` global `cache.max()`-Check ließ einzelne stale Symbole maskiert durch — 27 syms (EXAS 59d, HOLX 44d delisted, KO/PEP/BRK-B/PG/etc. 20d) standen im Cache eingefroren, würden bei späterer Korrektur silent BUYs auf Monate-alte Preise routen.
+3. Task Scheduler `ExecutionTimeLimit=PT15M` hart-terminierte jeden run_live_paper-Lauf nach 15min während yfinance-Rate-Limit-Retries auf 197 Symbolen × ~10s lief.
+
+**Fix (commit F-pilot-recovery, 2026-05-21):**
+- NEW `scripts/ops/refresh_daily_cache_from_panel.py`: offline merge von `data/sample/master_universe_panel.parquet` (built durch tägliche pipeline, latest 2026-05-18) in `daily.parquet`. Per-symbol Vergleich (nicht global max) damit heterogene staleness pro symbol gefixt wird. Atomic write via tmp+move. `adj_close = close` default für panel-rows (panel hat keine adj-Spalte).
+- NEW `_drop_per_symbol_stale_rows()` Helper in `scripts/run_live_paper.py`: filtert Symbole mit eigenem latest-bar > 3 Tage. Wird auf ALLE return paths in `_load_prices` angewendet (cache-fresh, yfinance-success, stale-cache-fallback). Loud WARN-log mit symbol-Liste.
+- MODIFIED `scripts/daily_paper_trading.bat`: neuer Step 0 ruft refresh-script vor dem prewarm.
+- OS-Config: Task Scheduler `ExecutionTimeLimit` PT15M → PT30M (Kompromiss aus reviewer-Empfehlung PT20M-PT30M; PT1H wäre zu lax gewesen — hard-kill mitten in Order-Submission birgt partial-state risk, der genau zu dem Pending-Intent-Issue vom 19.05 führte).
+- One-shot manual reconcile: pending ORDER_SUBMIT MSFT BUY 5 vom 2026-05-19 04:48 UTC (broker_order_id leer, verifiziert nie beim Broker angekommen) als `status=abandoned` ORDER_COMPLETE record geschrieben → pending_intents count 1→0.
+
+**Heutiger Dry-Run-Beweis:** 193 syms (statt 197 — EXAS/HOLX/KO/PEP per-symbol stale gedropt mit WARN-log), 85 LONG signals BEAR regime, 8 orders (SELL ALB/DELL/PLUG closes, PARTIAL LLY, BUY AMAT/IONQ/LRCX/MRVL/ROK auf aktuellen Preisen), exit_code=0. Broker-Equity nach 5 Tagen Pause: $91,539 (von $98,967 Pilot-Start = -7.5%).
+
+**Adjacent-Followups (alle Rule-60, eigener Scope):**
+- (a) F-RX-3: `adj_close = close` default für appended panel-rows. **Live-paper hot-path nicht betroffen** — `load_eod_prices:146` strippt adj_close bevor der Pilot ihn sieht (siehe memory 2026-05-19 wiring-finding). **Direct-parquet-Konsumenten (Backtests, factor stores)** sehen aber adj_close=close für recent appended rows und würden auf ex-Div-Tage Returns falsch berechnen. Folow-up: NaN sentinel statt close-fallback ODER detect-and-warn auf ex-Div-Lookup.
+- (b) F-RX-4: `shutil.move` → `pathlib.Path.replace` für Atomicity-Konsistenz mit `prewarm_price_cache.py`.
+- (c) F-RX-5: Refresh-Failure logged nur WARN ohne Alert-Surface. Status-JSON-File + halt-flag-on-fail wäre robuster.
+- (d) F-RX-6: `prewarm_price_cache.py` Step 1 in der .bat refresht nur MISSING syms, nicht STALE. Sollte um stale-row-refresh erweitert werden, oder zumindest mit max-time-budget.
+- (e) F-RX-7: Stale-cache-fallback-Pfad in `_load_prices:218-225` (yfinance down → stale cache). Mit per-symbol drop jetzt safe, aber sollte ggf. explizit blocken statt warnen.
+- (f) F-RX-8: PT30M ist ein Kompromiss. Interner soft-timeout (threading.Timer signal-Equivalent) mit graceful halt-ack-Flag wäre defensiver.
+- (g) F-RX-11: Manual-intent-clearing für stale broker_order_id ist wiederkehrend (2× in 5 Tagen). Auto-abandon-after-N-hours + Counter in Pilot-Manifest als Follow-up.
+- (h) KO/PEP/BRK-B/PG/etc. (Watchlist-Symbole, nicht im master_universe_panel) — Coverage-Gap im Panel-Build. Sollte entweder im Panel ergänzt oder aus Watchlist entfernt werden. Aktuell werden sie täglich gedropt mit WARN.
+- (i) EXAS, HOLX delisted (per yfinance "possibly delisted"). Aus Watchlist entfernen oder bewusst akzeptieren dass sie nicht traden.
+
 ### 9.11 Daten-Frische am Audit-Ende
 
 | Quelle | Bis | Volumen |

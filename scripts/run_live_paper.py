@@ -112,12 +112,54 @@ def _create_adapter():
     return adapter
 
 
+def _drop_per_symbol_stale_rows(prices, max_age_days: int = 3):
+    """Drop symbols whose own latest bar is older than ``max_age_days`` days.
+
+    The global cache freshness check in ``_load_prices`` uses ``cache.max()``
+    which lets a single fresh symbol mask 26 stale ones (audit 2026-05-21,
+    F-RX-1): cache global max was 2026-05-18 (193 syms fresh), but 27 syms
+    were 20–59 days stale (EXAS/HOLX delisted, KO/PEP/BRK-B/etc. live but
+    unrefreshed). Without this filter, a dry-run today routed $60k of BUY
+    orders priced on 20–59 day-old data.
+
+    This filter is the per-symbol counterpart: drop the symbol entirely if
+    its own latest timestamp is older than ``max_age_days``. Delisted
+    symbols get pruned automatically; live-but-unrefreshed symbols surface
+    as a loud WARN so the coverage gap can be addressed at the data layer
+    instead of silently mispriced at the execution layer.
+    """
+    import pandas as pd
+
+    if prices is None or prices.empty or "timestamp" not in prices.columns:
+        return prices
+    today = pd.Timestamp.now("UTC").normalize()
+    ts = pd.to_datetime(prices["timestamp"], utc=True)
+    prices = prices.assign(timestamp=ts)
+    per_sym_latest = prices.groupby("symbol")["timestamp"].max()
+    ages = (today - per_sym_latest.dt.normalize()).dt.days
+    stale = per_sym_latest[ages > max_age_days]
+    if not stale.empty:
+        sample = ", ".join(sorted(stale.index)[:10]) + (
+            "..." if len(stale) > 10 else ""
+        )
+        logger.warning(
+            "[run_live_paper] dropping %d symbols with per-symbol staleness > %dd: %s",
+            len(stale),
+            max_age_days,
+            sample,
+        )
+        prices = prices[~prices["symbol"].isin(stale.index)].reset_index(drop=True)
+    return prices
+
+
 def _load_prices(app_cfg: dict):
     """Load prices for live paper trading.
 
     Strategy: fetch fresh data via yfinance (1 year history for features),
     fall back to local parquet cache if yfinance fails.
     Non-US symbols (containing '.') are skipped for Alpaca compatibility.
+    Per-symbol staleness filter (F-RX-1, 2026-05-21) drops symbols whose
+    own latest bar is > 3 calendar days old, regardless of the source path.
     """
     import pandas as pd
 
@@ -175,7 +217,7 @@ def _load_prices(app_cfg: dict):
                     cache_latest.date(),
                     age_days,
                 )
-                return cache_prices
+                return _drop_per_symbol_stale_rows(cache_prices)
             cache_stale_reason = f"cache latest={cache_latest.date()} age={age_days}d"
             logger.warning(
                 "[run_live_paper] cache is stale (%s) — fetching fresh from yfinance",
@@ -211,7 +253,7 @@ def _load_prices(app_cfg: dict):
                 len(prices),
                 fresh_latest.date() if hasattr(fresh_latest, "date") else fresh_latest,
             )
-            return prices
+            return _drop_per_symbol_stale_rows(prices)
     except Exception as exc:
         logger.warning("[run_live_paper] yfinance fetch failed: %s", exc)
 
@@ -222,7 +264,7 @@ def _load_prices(app_cfg: dict):
             "Signals will be computed on out-of-date prices.",
             cache_stale_reason or "unknown age",
         )
-        return cache_prices
+        return _drop_per_symbol_stale_rows(cache_prices)
 
     logger.error("[run_live_paper] no price data available from any source")
     return pd.DataFrame()
