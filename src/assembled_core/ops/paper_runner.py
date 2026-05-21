@@ -350,6 +350,54 @@ def _prd_make_strategy_fns(
 
         return _mf_signal_fn, _mf_sizing
 
+    if strategy_name == "trend_baseline":
+        # §9.6 (b) Phase 1 shadow-mode (2026-05-21): trend_baseline as a
+        # registered paper strategy. Backtest 2025-01..05 showed +43.02% CAGR /
+        # 1.44 Sharpe vs mfv2 -7.74% baseline. Used here as the shadow strategy
+        # for the live paper pilot (orders still come from the primary strategy).
+        # When elevated to primary in a future commit, this same registration
+        # becomes the active path.
+        from src.assembled_core.signals.rules_trend import (
+            generate_trend_signals_from_prices,
+        )
+
+        ma_fast = int(strategy_cfg.get("ma_fast") or 20)
+        ma_slow = int(strategy_cfg.get("ma_slow") or 60)
+        max_positions = int(strategy_cfg.get("max_positions") or 0)
+        target_invested_pct = float(strategy_cfg.get("target_invested_pct") or 1.0)
+
+        def _tb_signal_fn(df: pd.DataFrame) -> pd.DataFrame:
+            sig = generate_trend_signals_from_prices(
+                df, ma_fast=ma_fast, ma_slow=ma_slow
+            )
+            return sig
+
+        def _tb_sizing(sig: pd.DataFrame, cap: float) -> pd.DataFrame:
+            # Equal-weight on LONG signals; matches the backtest-config that
+            # produced +43% CAGR. Optional max_positions cap (top-N by score).
+            longs = sig[sig["direction"] == "LONG"].copy()
+            if longs.empty:
+                return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
+            if max_positions > 0 and len(longs) > max_positions:
+                if "score" in longs.columns:
+                    longs = longs.sort_values("score", ascending=False).head(
+                        max_positions
+                    )
+                else:
+                    longs = longs.head(max_positions)
+            n = len(longs)
+            weight = float(target_invested_pct) / float(n) if n > 0 else 0.0
+            targets = pd.DataFrame(
+                {
+                    "symbol": longs["symbol"].values,
+                    "target_weight": [weight] * n,
+                    "target_qty": [0.0] * n,
+                }
+            )
+            return targets
+
+        return _tb_signal_fn, _tb_sizing
+
     return _no_signal_fn, _no_sizing_fn
 
 
@@ -814,6 +862,156 @@ def _prd_write_artifacts(
         write_alerts_artifact(output_dir, alerts_list, generated_utc, app_cfg)
 
 
+def _prd_run_shadow_strategy(
+    *,
+    prices: pd.DataFrame,
+    paper_cfg: dict[str, Any],
+    output_dir: Path,
+    as_of_ts: pd.Timestamp,
+    primary_signals: pd.DataFrame | None,
+) -> None:
+    """§9.6 (b) Phase 1 shadow-mode (2026-05-21): run a secondary strategy
+    in parallel for signal comparison, without affecting orders/broker.
+
+    Reads ``paper_cfg.shadow_strategy.{enabled,name,...}`` from app_cfg.
+    When ``enabled=True`` (default ``False``), builds the shadow strategy via
+    ``_prd_make_strategy_fns`` and computes signals + target positions on the
+    same prices the main cycle saw. Writes ``shadow_signals.json`` +
+    ``shadow_targets.json`` to ``output_dir`` and logs a one-line comparison
+    summary against the primary signals (LONG counts, symbol overlap).
+
+    The shadow path:
+        - DOES NOT generate orders
+        - DOES NOT touch broker
+        - DOES NOT mutate any ledger / position state
+        - Pure observation for evaluating strategy switch candidates over N days
+
+    Best-effort: any exception logged at WARNING and execution continues —
+    shadow-mode failure must never block the primary pilot cycle.
+    """
+    import json
+
+    shadow_cfg = paper_cfg.get("shadow_strategy") or {}
+    if not shadow_cfg.get("enabled", False):
+        return
+
+    shadow_name = (shadow_cfg.get("name") or "").strip().lower()
+    if not shadow_name:
+        log.debug("[shadow] shadow_strategy.enabled=True but name missing — skipping")
+        return
+
+    try:
+        shadow_signal_fn, shadow_sizing_fn = _prd_make_strategy_fns(
+            shadow_name, shadow_cfg, ledger_state=None
+        )
+        shadow_signals_full = shadow_signal_fn(prices)
+        if shadow_signals_full is None:
+            shadow_signals_full = pd.DataFrame(
+                columns=["timestamp", "symbol", "direction", "score"]
+            )
+
+        # Comparison + sizing must operate on the LATEST bar per symbol
+        # (apples-to-apples vs primary which already comes out of
+        # run_trading_cycle at the as_of point). The full signal history
+        # remains the persisted artifact for post-hoc analysis.
+        if (
+            not shadow_signals_full.empty
+            and "timestamp" in shadow_signals_full.columns
+            and "symbol" in shadow_signals_full.columns
+        ):
+            shadow_signals = (
+                shadow_signals_full.sort_values("timestamp")
+                .groupby("symbol", group_keys=False)
+                .tail(1)
+                .reset_index(drop=True)
+            )
+        else:
+            shadow_signals = shadow_signals_full
+
+        # Compute hypothetical target positions on the latest bar's capital
+        # baseline (start_capital — shadow doesn't track its own equity).
+        start_capital = float(paper_cfg.get("start_capital", 100000.0))
+        try:
+            shadow_targets = shadow_sizing_fn(shadow_signals, start_capital)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[shadow] sizing_fn failed: %s — targets skipped", exc)
+            shadow_targets = pd.DataFrame(
+                columns=["symbol", "target_weight", "target_qty"]
+            )
+
+        # Persist for post-hoc comparison.
+        output_dir.mkdir(parents=True, exist_ok=True)
+        signals_path = output_dir / "shadow_signals.json"
+        targets_path = output_dir / "shadow_targets.json"
+        signals_payload = {
+            "as_of_utc": as_of_ts.isoformat(),
+            "strategy": shadow_name,
+            "config": {k: v for k, v in shadow_cfg.items() if k not in ("enabled",)},
+            # n_signals_total counts the LATEST-bar slice (apples-to-apples
+            # with primary signals). Full history kept under
+            # n_signals_full_history for post-hoc analysis.
+            "n_signals_total": int(len(shadow_signals)),
+            "n_long": (
+                int((shadow_signals["direction"] == "LONG").sum())
+                if "direction" in shadow_signals.columns
+                else 0
+            ),
+            "n_signals_full_history": int(len(shadow_signals_full)),
+            "signals": (
+                shadow_signals.assign(
+                    timestamp=shadow_signals["timestamp"].astype(str)
+                ).to_dict(orient="records")
+                if not shadow_signals.empty
+                else []
+            ),
+        }
+        targets_payload = {
+            "as_of_utc": as_of_ts.isoformat(),
+            "strategy": shadow_name,
+            "n_targets": int(len(shadow_targets)),
+            "targets": (
+                shadow_targets.to_dict(orient="records")
+                if not shadow_targets.empty
+                else []
+            ),
+        }
+        signals_path.write_text(json.dumps(signals_payload, indent=2), encoding="utf-8")
+        targets_path.write_text(json.dumps(targets_payload, indent=2), encoding="utf-8")
+
+        # Comparison summary against primary signals.
+        primary_long_count = 0
+        overlap_count = 0
+        if primary_signals is not None and not primary_signals.empty:
+            if "direction" in primary_signals.columns:
+                primary_long = primary_signals[primary_signals["direction"] == "LONG"]
+                primary_long_count = int(len(primary_long))
+                if not shadow_signals.empty and "direction" in shadow_signals.columns:
+                    shadow_long = shadow_signals[shadow_signals["direction"] == "LONG"]
+                    overlap_count = int(
+                        len(
+                            set(primary_long["symbol"]).intersection(
+                                set(shadow_long["symbol"])
+                            )
+                        )
+                    )
+        log.info(
+            "[shadow] %s — %d LONGs (primary=%d LONGs, overlap=%d). "
+            "Persisted to %s.",
+            shadow_name,
+            signals_payload["n_long"],
+            primary_long_count,
+            overlap_count,
+            output_dir,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "[shadow] shadow strategy '%s' failed (non-fatal, primary cycle "
+            "continues): %s",
+            shadow_name,
+            exc,
+        )
+
+
 def run_paper_daily_one(
     as_of_ts: pd.Timestamp,
     output_dir: Path,
@@ -926,6 +1124,16 @@ def run_paper_daily_one(
     if result.status != "success":
         log.error("Trading cycle failed: %s", result.error_message)
         return 1, None
+
+    # §9.6 (b) Phase 1 shadow-mode: optional parallel strategy run for signal
+    # comparison, no order/broker impact. Default off.
+    _prd_run_shadow_strategy(
+        prices=prices,
+        paper_cfg=paper_cfg,
+        output_dir=output_dir,
+        as_of_ts=as_of_ts,
+        primary_signals=result.signals,
+    )
 
     try:
         if (

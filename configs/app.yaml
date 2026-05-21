@@ -6,7 +6,7 @@ paper_runner:
   as_of: null             # optional timestamp override
   ledger_path: "output/runs/_paper_ledger/ledger_state.json"  # paper mode only
   strategy:
-    name: "multifactor_v2"   # multifactor_v2 | multifactor_v1 | ema_trend_v0 | none
+    name: "multifactor_v2"   # multifactor_v2 | multifactor_v1 | ema_trend_v0 | trend_baseline | none
     ema_fast: 20
     ema_slow: 60
     equal_weight: false         # score-based sizing (multi-factor score as weight)
@@ -18,6 +18,22 @@ paper_runner:
     stop_loss_pct: 0.08         # 8% stop-loss below entry
     trailing_stop_pct: 0.10     # 10% trailing stop below HWM
     take_profit_pct: 0.15       # 15% profit -> sell 50%
+
+  # §9.6 (b) Phase 1 shadow-mode (2026-05-21): run a second strategy in
+  # parallel for signal comparison only. No orders generated, no broker
+  # interaction. Writes shadow_signals.json + shadow_targets.json to the
+  # daily run directory for post-hoc comparison vs primary signals.
+  # Best-effort: any failure logs WARN and continues; never blocks the
+  # primary pilot cycle. Backtest evidence: trend_baseline OOS 2025-01..05
+  # produced +43.02% CAGR / 1.44 Sharpe vs mfv2 -7.74% baseline.
+  shadow_strategy:
+    enabled: true
+    name: "trend_baseline"
+    ma_fast: 20
+    ma_slow: 60
+    max_positions: 30           # cap equal-weight basket to top 30 LONGs
+    target_invested_pct: 1.0
+
   intel:
     mode: "real"           # real | sim | none
     run_news_pipeline: true
