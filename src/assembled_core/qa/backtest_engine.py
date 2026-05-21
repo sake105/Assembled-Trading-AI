@@ -74,12 +74,10 @@ from typing import TYPE_CHECKING
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
-from src.assembled_core.execution.transaction_costs import (
-    SlippageModel,
-    SpreadModel,
-    add_cost_columns_to_trades,
-    commission_model_from_cost_params,
-)
+
+# transaction_costs imports removed as F-9.6d-4 cleanup (2026-05-21):
+# Step 4.5+4.6 were the only consumers; both deleted as redundant after §9.6(d)
+# made simulate_with_costs the single source of fill-pipeline + cost-columns.
 from src.assembled_core.features.factor_store_integration import build_or_load_factors
 from src.assembled_core.features.ta_features import (
     add_all_features,
@@ -1017,61 +1015,29 @@ def _pb_simulate_equity(
                 metrics.setdefault("first", float(equity["equity"].iloc[0]))
                 metrics.setdefault("last", float(equity["equity"].iloc[-1]))
 
-    # Step 4.5: Apply fill model pipeline (session gate -> limit -> partial)
-    # This must happen BEFORE cost calculation, as costs are based on fill_qty
-    if not orders_df.empty:
-        from src.assembled_core.execution.fill_model_pipeline import (
-            apply_fill_model_pipeline,
-        )
-
-        orders_df = apply_fill_model_pipeline(
-            orders_df,
-            prices=prices,
-            freq=fill_freq,
-            partial_fill_model=None,
-            strict_session_gate=strict_session_gate,
-        )
-
-    # Step 4.6: Add cost columns to orders (if include_trades=True)
-    if include_trades and not orders_df.empty:
-        if include_costs:
-            if cost_model is not None:
-                commission_model = commission_model_from_cost_params(
-                    commission_bps=cost_model.commission_bps
-                )
-            else:
-                commission_model = commission_model_from_cost_params(
-                    commission_bps=commission_bps if commission_bps is not None else 0.0
-                )
-            spread_model = None
-            if spread_w is not None and spread_w > 0.0:
-                spread_model = SpreadModel(
-                    adv_window=20,
-                    buckets=None,
-                    fallback_spread_bps=spread_w * 100.0,
-                )
-            slippage_model = None
-            if impact_w is not None and impact_w > 0.0:
-                slippage_model = SlippageModel(
-                    vol_window=20,
-                    k=impact_w,
-                    min_bps=0.0,
-                    max_bps=50.0,
-                    fallback_slippage_bps=impact_w * 100.0,
-                )
-            orders_df = add_cost_columns_to_trades(
-                orders_df,
-                commission_model=commission_model,
-                spread_model=spread_model,
-                slippage_model=slippage_model,
-                prices=prices if include_trades else None,
-            )
-        else:
-            orders_df["commission_cash"] = 0.0
-            orders_df["spread_cash"] = 0.0
-            orders_df["slippage_cash"] = 0.0
-            orders_df["total_cost_cash"] = 0.0
-
+    # F-9.6d-4 (2026-05-21): removed legacy Step 4.5 + Step 4.6 (pipeline duplication).
+    #
+    # Pre-§9.6(d) (commit 3357fc9), the no-costs path went through the legacy
+    # `simulate_equity` which did NOT call apply_fill_model_pipeline and did
+    # NOT compute cost columns. Step 4.5 manually re-ran the fill pipeline on
+    # orders_df (without cash-gate, which simulate_equity also lacked) and
+    # Step 4.6 added cost columns. Both were the only way orders_df ended up
+    # with status/fill_qty/commission_cash etc.
+    #
+    # Post-§9.6(d), BOTH branches above route through `simulate_with_costs`,
+    # which internally calls apply_fill_model_pipeline WITH cash-gate
+    # (available_cash=start_capital) and `add_cost_columns_to_trades` on the
+    # returned `trades_df`. Re-applying the pipeline on the raw orders_df
+    # afterwards just produced a second, un-cash-gated copy that diverged
+    # from trades_df — the architectural duplication flagged by Stage-1
+    # F-S1-3 / Stage-2 F-S2-5 in the F-9.6d-3 review.
+    #
+    # Cleanup: both steps deleted. Downstream consumers (_pb_build_ledger
+    # at line 1115, trades_for_result selector at line ~1576) now consume
+    # `trades_df` directly. `orders_df` returned by this function is the
+    # raw order list (no status/fill_qty/cost cols) — used only as the
+    # empty fallback when trades_df is the empty-orders-shortcut frame
+    # from `simulate_with_costs` (portfolio.py:55-74).
     return equity, metrics, trades_df, orders_df
 
 
@@ -1135,9 +1101,16 @@ def _pb_build_ledger(
             build_ledger_from_trades,
         )
 
-        trades_for_ledger = orders_df.copy()
-        if include_costs and not trades_df.empty:
+        # F-9.6d-4 (2026-05-21): use cash-gated trades_df as the ledger source
+        # in BOTH include_costs branches (it has commission_cash=spread_cash=
+        # slippage_cash=0 under no-costs anyway). Pre-cleanup the no-costs
+        # branch used orders_df mutated by Step 4.5+4.6 — both removed.
+        # orders_df is now only the empty fallback when trades_df is the
+        # 5-col empty-orders-shortcut frame from portfolio.py:55-74.
+        if not trades_df.empty and "status" in trades_df.columns:
             trades_for_ledger = trades_df.copy()
+        else:
+            trades_for_ledger = orders_df.copy()
         snapshot_run_id = (
             broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
         )
