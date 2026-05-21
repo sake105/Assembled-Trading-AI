@@ -4,6 +4,26 @@ Usage:
     python scripts/download_master_universe_data.py --start 2021-01-01
     python scripts/download_master_universe_data.py --start 2021-01-01 --end 2026-05-01
     python scripts/download_master_universe_data.py --refresh-only AAPL,MSFT,NVDA
+
+CAVEAT for `--refresh-only` (audit 2026-05-21, F-RX12-MAJOR-1+2):
+Partial refresh creates HETEROGENEOUS freshness — the fetched subset reaches
+``end`` (today), while the other ~195 syms stay at whatever their previous
+last-fetched date was. The resulting panel has "ghost days" — dates where
+only the refreshed subset is present. Cross-sectional consumers reading
+``as_of = panel.timestamp.max()`` (or rank/zscore without min_universe_size
+guard) will operate on N=<subset_size> instead of N=195, producing trivial
+ranks / extreme z-scores for the refreshed syms.
+
+Two safe workflows:
+  (a) Use ``--refresh-only`` ONLY for one-shot universe extension (e.g.
+      adding KO+PEP today), then IMMEDIATELY trim the panel to the
+      pre-refresh global ``timestamp.max()`` so all syms share a uniform
+      tail. This is what 2026-05-21 §9.12 (h) closure did.
+  (b) Always follow a ``--refresh-only`` run with a full bulk refresh
+      (no flag) so the universe heals to uniform freshness.
+
+Operator decision: prefer (a) for adding new syms (cheap, predictable),
+prefer (b) when re-aligning the whole panel (expensive, full bulk fetch).
 """
 
 from __future__ import annotations
@@ -111,34 +131,44 @@ def main(argv: list[str] | None = None) -> int:
 
     end = args.end or pd.Timestamp.now().strftime("%Y-%m-%d")
 
-    symbols, meta = load_master_universe(args.universe)
+    all_symbols, meta = load_master_universe(args.universe)
 
+    # F-9.12-h (2026-05-21): `--refresh-only` previously narrowed BOTH fetch
+    # AND consolidate, which destructively rebuilt master_universe_panel.parquet
+    # with only the refresh subset (losing all other syms). Now `--refresh-only`
+    # only restricts the FETCH list; consolidate still iterates the full
+    # universe so existing cache files remain in the panel.
     if args.refresh_only:
         refresh_set = {s.strip().upper() for s in args.refresh_only.split(",")}
-        symbols = [s for s in symbols if s in refresh_set]
+        fetch_symbols = [s for s in all_symbols if s in refresh_set]
+    else:
+        fetch_symbols = all_symbols
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     PANEL_OUT.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"[START] Downloading {len(symbols)} symbols ({args.start} to {end})")
+    print(
+        f"[START] Downloading {len(fetch_symbols)} symbols "
+        f"(of {len(all_symbols)} in universe, {args.start} to {end})"
+    )
 
     ok, fail = 0, 0
-    for i, sym in enumerate(symbols, 1):
+    for i, sym in enumerate(fetch_symbols, 1):
         out_path = CACHE_DIR / f"{sym}.parquet"
         df = fetch_one(sym, args.start, end)
         if df is not None and not df.empty:
             df.to_parquet(out_path)
             ok += 1
             if i % 20 == 0:
-                print(f"  [{i}/{len(symbols)}] {ok} ok, {fail} fail")
+                print(f"  [{i}/{len(fetch_symbols)}] {ok} ok, {fail} fail")
         else:
             fail += 1
         time.sleep(args.delay)
 
     print(f"[OK] Download complete: {ok} ok, {fail} failed")
 
-    print("[START] Consolidating panel...")
-    panel = consolidate(symbols)
+    print("[START] Consolidating panel from ALL cached symbols...")
+    panel = consolidate(all_symbols)
     if not panel.empty:
         panel.to_parquet(PANEL_OUT, index=False)
         print(

@@ -180,6 +180,13 @@ sectors:
       - {ticker: UAA,  cap: mid,   mcap_b: 3,    type: equity}
       - {ticker: LULU, cap: large, mcap_b: 30,   type: equity}
       - {ticker: TJX,  cap: large, mcap_b: 140,  type: equity}
+      # Consumer staples (added 2026-05-21 §9.12 (h) closure): the watchlist
+      # included KO/PEP since wave-1 but they were missing from the YAML
+      # universe → not in master_universe_panel → 20-day per-symbol stale
+      # in daily.parquet until F-RX-6 prewarm picked them up via yfinance
+      # fallback. Adding them here so future panel rebuilds include them.
+      - {ticker: KO,   cap: large, mcap_b: 290,  type: equity}
+      - {ticker: PEP,  cap: large, mcap_b: 200,  type: equity}
       - {ticker: ROST, cap: large, mcap_b: 55,   type: equity}
       - {ticker: BKNG, cap: large, mcap_b: 150,  type: equity}
       - {ticker: ABNB, cap: large, mcap_b: 78,   type: equity}
