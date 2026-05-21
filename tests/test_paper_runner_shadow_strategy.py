@@ -145,26 +145,60 @@ def test_shadow_strategy_enabled_persists_signals_and_targets(tmp_path):
     assert tgt_payload["strategy"] == "trend_baseline"
 
 
-def test_shadow_strategy_graceful_failure_on_unknown_name(tmp_path, caplog):
-    """Unknown shadow strategy name → log debug, no crash, no files written."""
+def test_shadow_strategy_unknown_name_logs_warning_and_skips(tmp_path, caplog):
+    """F-S1-M1 §9.6 (b) Phase-2 pre-cond (ii) closure: unknown shadow strategy
+    name (or feature-dependent strategy like multifactor_*) is loud-skipped via
+    whitelist + WARNING log. Pre-fix this silently wrote empty JSON payloads
+    indistinguishable from genuine 'no signals today'. Now it produces neither
+    artifact and surfaces an explicit operator-actionable WARN message.
+    """
     paper_cfg = {
         "shadow_strategy": {"enabled": True, "name": "does_not_exist"},
     }
-    # Should not raise
-    _prd_run_shadow_strategy(
-        prices=_make_prices_multi_year(),
-        paper_cfg=paper_cfg,
-        output_dir=tmp_path,
-        as_of_ts=pd.Timestamp.now("UTC"),
-        primary_signals=None,
+    with caplog.at_level("WARNING", logger="src.assembled_core.ops.paper_runner"):
+        # Must not raise
+        _prd_run_shadow_strategy(
+            prices=_make_prices_multi_year(),
+            paper_cfg=paper_cfg,
+            output_dir=tmp_path,
+            as_of_ts=pd.Timestamp.now("UTC"),
+            primary_signals=None,
+        )
+
+    # No artifacts written for unsafe strategy
+    assert not (tmp_path / "shadow_signals.json").exists()
+    assert not (tmp_path / "shadow_targets.json").exists()
+
+    # Loud WARN with explicit whitelist reference
+    warn_messages = [
+        rec.message for rec in caplog.records if rec.levelname == "WARNING"
+    ]
+    assert any(
+        "does_not_exist" in m and "whitelist" in m for m in warn_messages
+    ), f"expected loud WARN about whitelist, got: {warn_messages}"
+
+
+def test_shadow_strategy_feature_dependent_name_blocked_by_whitelist(tmp_path, caplog):
+    """multifactor_v2 as shadow would silently degrade to zero-factor signals
+    on raw prices (no feature pipeline upstream). Whitelist blocks it.
+    """
+    paper_cfg = {
+        "shadow_strategy": {"enabled": True, "name": "multifactor_v2"},
+    }
+    with caplog.at_level("WARNING", logger="src.assembled_core.ops.paper_runner"):
+        _prd_run_shadow_strategy(
+            prices=_make_prices_multi_year(),
+            paper_cfg=paper_cfg,
+            output_dir=tmp_path,
+            as_of_ts=pd.Timestamp.now("UTC"),
+            primary_signals=None,
+        )
+    assert not (tmp_path / "shadow_signals.json").exists()
+    assert any(
+        "multifactor_v2" in rec.message and "whitelist" in rec.message
+        for rec in caplog.records
+        if rec.levelname == "WARNING"
     )
-    # _prd_make_strategy_fns falls through to _no_signal_fn for unknown names —
-    # shadow then writes empty payload (no crash). The point is no exception.
-    # (the test verifies the no-crash contract; file existence is implementation
-    # detail — for unknown name the helper still produces empty JSON)
-    assert (tmp_path / "shadow_signals.json").exists()
-    payload = json.loads((tmp_path / "shadow_signals.json").read_text())
-    assert payload["n_long"] == 0
 
 
 def test_shadow_strategy_enabled_but_no_name_skips(tmp_path):

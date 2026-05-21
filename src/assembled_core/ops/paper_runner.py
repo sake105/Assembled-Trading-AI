@@ -353,12 +353,18 @@ def _prd_make_strategy_fns(
     if strategy_name == "trend_baseline":
         # §9.6 (b) Phase 1 shadow-mode (2026-05-21): trend_baseline as a
         # registered paper strategy. Backtest 2025-01..05 showed +43.02% CAGR /
-        # 1.44 Sharpe vs mfv2 -7.74% baseline. Used here as the shadow strategy
-        # for the live paper pilot (orders still come from the primary strategy).
-        # When elevated to primary in a future commit, this same registration
-        # becomes the active path.
-        from src.assembled_core.signals.rules_trend import (
-            generate_trend_signals_from_prices,
+        # 1.44 Sharpe vs mfv2 -7.74% baseline.
+        # §9.6 (b) Phase 2 (2026-05-21): promoted from shadow to primary-eligible.
+        # Pre-condition (i) closed: tb_check_exits gives stop-loss / trailing /
+        # take-profit discipline, not just LONG → FLAT via MA-flip.
+        from src.assembled_core.strategies.trend_baseline import (
+            check_exit_signals as tb_check_exits,
+        )
+        from src.assembled_core.strategies.trend_baseline import (
+            compute_signals as tb_compute_signals,
+        )
+        from src.assembled_core.strategies.trend_baseline import (
+            compute_target_positions as tb_compute_targets,
         )
 
         ma_fast = int(strategy_cfg.get("ma_fast") or 20)
@@ -367,34 +373,54 @@ def _prd_make_strategy_fns(
         target_invested_pct = float(strategy_cfg.get("target_invested_pct") or 1.0)
 
         def _tb_signal_fn(df: pd.DataFrame) -> pd.DataFrame:
-            sig = generate_trend_signals_from_prices(
-                df, ma_fast=ma_fast, ma_slow=ma_slow
-            )
-            return sig
+            signals = tb_compute_signals(df, ma_fast=ma_fast, ma_slow=ma_slow)
+            # Wire exit signals (mirrors ema_trend_v0 / multifactor_v2 pattern
+            # in this same dispatch) — without this wire-up the exit gates
+            # configured under strategy.stop_loss_pct etc. would be defined
+            # but never consulted by the trading cycle.
+            if ledger_state and (ledger_state.get("positions") or {}):
+                prices_latest_exit = None
+                if df is not None and not df.empty and "close" in df.columns:
+                    prices_latest_exit = (
+                        df.groupby("symbol", group_keys=False)["close"]
+                        .last()
+                        .reset_index()
+                    )
+                exit_signals = tb_check_exits(
+                    ledger_state.get("positions", {}),
+                    prices_latest_exit,
+                    strategy_cfg,
+                )
+                if not exit_signals.empty:
+                    full_exits = exit_signals[exit_signals["exit_qty_pct"] >= 1.0]
+                    if not full_exits.empty:
+                        exit_syms = set(full_exits["symbol"])
+                        if not signals.empty:
+                            signals = signals[~signals["symbol"].isin(exit_syms)]
+                        for ex in full_exits.itertuples(index=False):
+                            log.info(
+                                "[TB] EXIT signal: %s — %s",
+                                ex.symbol,
+                                ex.exit_reason,
+                            )
+                    for ex in exit_signals[
+                        exit_signals["exit_qty_pct"] < 1.0
+                    ].itertuples(index=False):
+                        log.info(
+                            "[TB] PARTIAL EXIT signal: %s (%.0f%%) — %s",
+                            ex.symbol,
+                            ex.exit_qty_pct * 100,
+                            ex.exit_reason,
+                        )
+            return signals
 
         def _tb_sizing(sig: pd.DataFrame, cap: float) -> pd.DataFrame:
-            # Equal-weight on LONG signals; matches the backtest-config that
-            # produced +43% CAGR. Optional max_positions cap (top-N by score).
-            longs = sig[sig["direction"] == "LONG"].copy()
-            if longs.empty:
-                return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
-            if max_positions > 0 and len(longs) > max_positions:
-                if "score" in longs.columns:
-                    longs = longs.sort_values("score", ascending=False).head(
-                        max_positions
-                    )
-                else:
-                    longs = longs.head(max_positions)
-            n = len(longs)
-            weight = float(target_invested_pct) / float(n) if n > 0 else 0.0
-            targets = pd.DataFrame(
-                {
-                    "symbol": longs["symbol"].values,
-                    "target_weight": [weight] * n,
-                    "target_qty": [0.0] * n,
-                }
+            return tb_compute_targets(
+                sig,
+                cap,
+                max_positions=max_positions,
+                target_invested_pct=target_invested_pct,
             )
-            return targets
 
         return _tb_signal_fn, _tb_sizing
 
@@ -888,8 +914,26 @@ def _prd_run_shadow_strategy(
 
     Best-effort: any exception logged at WARNING and execution continues —
     shadow-mode failure must never block the primary pilot cycle.
+
+    Note on input asymmetry (F-S1-M2 §9.6 (b) Phase-2 pre-cond (iii)
+    closure 2026-05-21): the shadow signal_fn receives the RAW prices
+    panel passed in here. The primary cycle's signal_fn (via
+    run_trading_cycle → build_features) receives a feature-enriched
+    panel with ta_rsi_14_v1, trend_ema_spread, ta_macd_*, etc.
+    Price-only strategies (trend_baseline, ema_trend_v0) compute their
+    own MAs and are unaffected. multifactor_v1/v2 as shadows would
+    silently degrade to zero-factor signals on raw prices — the
+    whitelist below blocks those names from running as shadow until
+    a feature-pipeline-aligned shadow path is added.
     """
     import json
+
+    # F-S1-M1 §9.6 (b) Phase-2 pre-cond (ii) closure 2026-05-21:
+    # whitelist known price-only shadow-safe strategies. Unknown names log
+    # a loud WARNING and are skipped — the previous silent fall-through
+    # to _no_signal_fn produced empty payloads + misleading "n_long=0"
+    # comparison lines indistinguishable from genuine "no signals today".
+    _PRICE_ONLY_SHADOW_WHITELIST = {"trend_baseline", "ema_trend_v0"}
 
     shadow_cfg = paper_cfg.get("shadow_strategy") or {}
     if not shadow_cfg.get("enabled", False):
@@ -898,6 +942,17 @@ def _prd_run_shadow_strategy(
     shadow_name = (shadow_cfg.get("name") or "").strip().lower()
     if not shadow_name:
         log.debug("[shadow] shadow_strategy.enabled=True but name missing — skipping")
+        return
+
+    if shadow_name not in _PRICE_ONLY_SHADOW_WHITELIST:
+        log.warning(
+            "[shadow] strategy '%s' not in shadow-safe whitelist %s — "
+            "skipping (feature-pipeline-aligned shadow not implemented for "
+            "feature-dependent strategies; see KNOWN_ISSUES.md §9.6 (b) "
+            "Phase-2 pre-cond (iii))",
+            shadow_name,
+            sorted(_PRICE_ONLY_SHADOW_WHITELIST),
+        )
         return
 
     try:

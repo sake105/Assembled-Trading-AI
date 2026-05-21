@@ -6,33 +6,45 @@ paper_runner:
   as_of: null             # optional timestamp override
   ledger_path: "output/runs/_paper_ledger/ledger_state.json"  # paper mode only
   strategy:
-    name: "multifactor_v2"   # multifactor_v2 | multifactor_v1 | ema_trend_v0 | trend_baseline | none
-    ema_fast: 20
+    # §9.6 (b) Phase 2 (2026-05-21): primary switched from multifactor_v2 to
+    # trend_baseline. Backtest evidence: trend_baseline OOS 2025-01..05 =
+    # +43.02% CAGR / 1.44 Sharpe vs mfv2 -7.74% baseline. Phase-1 shadow-mode
+    # collected ~1 dry-run-day of overlap data (28 LONG vs 5 LONG, overlap 2).
+    # Phase-2 pre-conditions: (i) check_exit_signals ✅ (closed via
+    # strategies/trend_baseline.py); (ii) shadow whitelist WARN ✅;
+    # (iii) feature-pipeline-alignment doc ✅; (iv-vi) operator-validation
+    # required — Stage-1 risk-execution-reviewer must sign off.
+    name: "trend_baseline"   # multifactor_v2 | multifactor_v1 | ema_trend_v0 | trend_baseline | none
+    ma_fast: 20                 # trend_baseline MA-crossover fast window
+    ma_slow: 60                 # trend_baseline MA-crossover slow window
+    ema_fast: 20                # (legacy; ema_trend_v0 uses these)
     ema_slow: 60
-    equal_weight: false         # score-based sizing (multi-factor score as weight)
-    max_positions: 10           # top-N by composite score
-    min_position_weight: 0.03   # 3% minimum per position ($3k at $100k)
+    equal_weight: false         # (legacy; trend_baseline uses target_invested_pct/n)
+    max_positions: 30           # cap equal-weight basket to top 30 LONGs by score
+    min_position_weight: 0.03   # 3% minimum per position
     target_invested_pct: 0.80   # 80% capital target (20% cash reserve)
     min_signal_score: 0.0       # minimum composite score for LONG signal
-    # Exit management
+    # Exit management (trend_baseline uses these via check_exit_signals)
     stop_loss_pct: 0.08         # 8% stop-loss below entry
     trailing_stop_pct: 0.10     # 10% trailing stop below HWM
-    take_profit_pct: 0.15       # 15% profit -> sell 50%
+    take_profit_pct: 0.15       # 15% profit -> sell 50% (rest under trailing)
 
-  # §9.6 (b) Phase 1 shadow-mode (2026-05-21): run a second strategy in
-  # parallel for signal comparison only. No orders generated, no broker
-  # interaction. Writes shadow_signals.json + shadow_targets.json to the
-  # daily run directory for post-hoc comparison vs primary signals.
-  # Best-effort: any failure logs WARN and continues; never blocks the
-  # primary pilot cycle. Backtest evidence: trend_baseline OOS 2025-01..05
-  # produced +43.02% CAGR / 1.44 Sharpe vs mfv2 -7.74% baseline.
+  # §9.6 (b) Phase 2 shadow-mode (2026-05-21): mfv2 cannot run as shadow
+  # under the price-only whitelist (it needs feature-pipeline-enriched
+  # input). Disabled until F-S1-M2 feature-pipeline-aligned shadow path is
+  # added (KNOWN_ISSUES §9.6 (b) Phase-2 pre-cond iii). Shadow currently
+  # supports only trend_baseline + ema_trend_v0 (price-only).
   shadow_strategy:
-    enabled: true
-    name: "trend_baseline"
-    ma_fast: 20
-    ma_slow: 60
-    max_positions: 30           # cap equal-weight basket to top 30 LONGs
-    target_invested_pct: 1.0
+    enabled: false
+    name: "multifactor_v2"      # gated by whitelist; logs WARN and skips
+    ema_fast: 20
+    ema_slow: 60
+    max_positions: 10
+    target_invested_pct: 0.80
+    min_signal_score: 0.0
+    stop_loss_pct: 0.08
+    trailing_stop_pct: 0.10
+    take_profit_pct: 0.15
 
   intel:
     mode: "real"           # real | sim | none
