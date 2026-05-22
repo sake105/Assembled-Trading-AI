@@ -115,11 +115,11 @@ def main() -> int:
     # Optional: merge Caldara-Iacoviello GPR (monthly → ffill to daily).
     # Populates the `gpr_index` column that _compute_geo_risk_composite reads
     # (Path 1) — replaces the dead FRED GPRC fetch removed in 6be8ce3.
-    # NOTE: duplicates src/assembled_core/data/macro/gpr.merge_gpr_index_into_panel
-    # logic; DRY in follow-up per KNOWN_ISSUES §9.9 (Rule 60 adjacent). The
-    # inline path here does NOT apply release_lag_days or NaT-guard — fine for
-    # offline panel-build snapshots, unsafe for live PIT replay.
+    # release_lag_days=0: offline panel-builds use raw month-start values;
+    # PIT lag is applied at runtime by merge_gpr_index_into_panel in _tc_features.py.
     if args.with_gpr:
+        from src.assembled_core.data.macro.gpr import merge_gpr_index_into_panel
+
         gpr_path = Path(args.gpr_path)
         if not gpr_path.exists():
             print(
@@ -128,25 +128,12 @@ def main() -> int:
             )
         else:
             print(f"[STEP] merging gpr_index from {gpr_path}")
-            gpr = pd.read_parquet(gpr_path)[["timestamp", "gpr_index"]].copy()
-            # GPR is month-start; panel is daily. Forward-fill within each
-            # calendar month so every trading day inherits the prior month's
-            # value at month-start (matches PIT semantics — month t value is
-            # released during month t+1).
-            gpr["timestamp"] = pd.to_datetime(gpr["timestamp"], utc=True)
-            gpr = gpr.sort_values("timestamp")
-            # Use merge_asof on a sorted single-column key.
-            df = df.sort_values("timestamp").reset_index(drop=True)
-            df = pd.merge_asof(
-                df,
-                gpr,
-                on="timestamp",
-                direction="backward",
-            )
-            # Re-establish (symbol, timestamp) sort for downstream consumers.
-            df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-            nan_pct = df["gpr_index"].isna().mean() * 100
-            print(f"  gpr_index: nan%={nan_pct:.1f}")
+            df = merge_gpr_index_into_panel(df, gpr_path, release_lag_days=0)
+            if "gpr_index" in df.columns:
+                nan_pct = df["gpr_index"].isna().mean() * 100
+                print(f"  gpr_index: nan%={nan_pct:.1f}")
+            else:
+                print("[WARN] gpr_index not merged — check log for details")
 
     args.output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(args.output_path, index=False)

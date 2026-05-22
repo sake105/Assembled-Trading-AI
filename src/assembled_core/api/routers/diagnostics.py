@@ -82,12 +82,6 @@ _MODULE_REGISTRY: list[dict] = [
         "path": "src/assembled_core/qa/leakage_analyzer.py",
     },
     {
-        "module": "garch_vol_forecast",
-        "status": "canary",
-        "callers": 1,
-        "path": "src/assembled_core/features/garch_vol.py",
-    },
-    {
         "module": "profit_targets",
         "status": "canary",
         "callers": 0,

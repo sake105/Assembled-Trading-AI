@@ -3,7 +3,6 @@
 Covers:
   - features/liquidity_condition_index.py
   - risk/regime_hmm.py
-  - risk/garch_vol_forecast.py
   - signals/analyst_revisions.py
   - signals/pead_sue.py
   - features/residual_momentum.py
@@ -119,39 +118,6 @@ def test_regime_hmm_fit_without_hmmlearn():
         assert len(states) == n
     finally:
         mod.HMMLEARN_AVAILABLE = original
-
-
-# ---------------------------------------------------------------------------
-# GARCH vol forecast tests
-# ---------------------------------------------------------------------------
-
-
-def test_garch_vol_forecast_without_arch():
-    from src.assembled_core.risk import garch_vol_forecast as mod
-
-    original = mod._try_import_arch
-
-    mod._try_import_arch = lambda: None
-    try:
-        rets = pd.Series(np.random.randn(200) * 0.01)
-        result = mod.forecast_garch_vol(rets)
-        assert np.isnan(result)
-    finally:
-        mod._try_import_arch = original
-
-
-def test_garch_vol_target_size_fallback():
-    from src.assembled_core.risk.garch_vol_forecast import garch_vol_target_size
-    from src.assembled_core.risk import garch_vol_forecast as mod
-
-    original = mod._try_import_arch
-    mod._try_import_arch = lambda: None
-    try:
-        rets = pd.Series(np.random.randn(200) * 0.01)
-        size = garch_vol_target_size(rets)
-        assert size == 1.0  # fallback
-    finally:
-        mod._try_import_arch = original
 
 
 # ---------------------------------------------------------------------------
