@@ -523,6 +523,7 @@ def _prd_paper_fills_and_ledger(
     as_of_ts: pd.Timestamp,
     output_dir: Path,
     start_capital: float,
+    strategy_name: str = "none",
 ) -> str | None:
     """Simulate/execute fills, update ledger, write journal+TCA+post-trade. Returns reconcile_status."""
     import copy
@@ -650,13 +651,19 @@ def _prd_paper_fills_and_ledger(
     now_iso = pd.Timestamp.now("UTC").isoformat()
     append_equity_curve_deduped(state_after, now_iso, equity_after)
 
-    # Update drawdown damper in multifactor_v2 strategy layer
-    try:
-        from src.assembled_core.strategies.multifactor_v2 import update_drawdown_damper
+    # Update drawdown damper only when mfv2 is the active strategy — prevents
+    # cross-contamination of mfv2 state with equity from other strategies.
+    if strategy_name == "multifactor_v2":
+        try:
+            from src.assembled_core.strategies.multifactor_v2 import (
+                update_drawdown_damper,
+            )
 
-        update_drawdown_damper(float(equity_after), as_of_ts.date())
-    except Exception:
-        pass
+            update_drawdown_damper(float(equity_after), as_of_ts.date())
+        except ImportError as _imp_exc:
+            log.debug("[paper] DD-damper import failed: %s", _imp_exc)
+        except Exception as _exc:
+            log.debug("[paper] update_drawdown_damper raised %s at %s", _exc, as_of_ts)
     report = build_reconcile_report(
         as_of_utc=now_iso,
         ledger_before=ledger_before,
@@ -1118,7 +1125,7 @@ def run_paper_daily_one(
         position_sizing_fn=position_sizing_fn,
         capital=start_capital,
         write_outputs=False,
-        enable_risk_controls=False,
+        enable_risk_controls=True,
     )
     if mode == "paper" and ledger_state is not None:
         ctx.capital = equity_before
@@ -1219,6 +1226,7 @@ def run_paper_daily_one(
             as_of_ts=as_of_ts,
             output_dir=output_dir,
             start_capital=start_capital,
+            strategy_name=strategy_name,
         )
 
     _prd_write_artifacts(
