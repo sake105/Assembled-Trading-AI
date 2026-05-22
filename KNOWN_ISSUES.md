@@ -1173,9 +1173,11 @@ Alle erfordern externe Akteure, dokumentiert in `docs/COMPLIANCE_THRESHOLDS.md`:
 Verifikationen aus Audit C4-065..C4-084, die noch nicht erschöpfend
 durchgeführt wurden:
 
-- [ ] **C4-066 Hansen SPA in ERWEITERUNG:** Datei `erweiterung/backtest/hansen_spa.py`
-  fehlt (Audit listete sie). Wave-16 Hansen-SPA wrapper liegt auf main
-  unter `qa/spa_test.py`, ERWEITERUNG-Pfad bleibt offen.
+- [x] **C4-066 Hansen SPA in ERWEITERUNG:** DONE (2026-05-22, verifiziert).
+  `erweiterung/backtest/hansen_spa.py` existiert nicht — war nie nötig.
+  Kanonische Implementierung seit Wave-16 auf main: `src/assembled_core/qa/spa_test.py`
+  (audit C2-022, `arch.bootstrap.SPA` wrapper, `spa_p_values()`, `__all__` exportiert).
+  ERWEITERUNG-Branch-Pfad war ein Audit-Listen-Artefakt; main-Modul ist vollständig.
 - [x] **C4-072 DCC-GARCH cDCC-Variante (Aielli 2013)** — DONE 2026-05-17:
   Neues Modul `src/assembled_core/risk/dcc_garch.py` ersetzt den
   silent-stub-fallback in `portfolio/covariance.py:126` (`method='dcc_garch'`
