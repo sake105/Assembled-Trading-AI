@@ -163,9 +163,9 @@ def test_default_weights_sum_to_one() -> None:
     assert abs(total - 1.0) < 0.01
 
 
-def test_default_weights_has_31_active_factors() -> None:
-    """31 active factors after Pfad B geo_risk_composite addition."""
-    assert len(DEFAULT_V2_WEIGHTS) == 31
+def test_default_weights_has_34_active_factors() -> None:
+    """34 active factors after adding insider_cluster, pead_sue, buyback_drift (2026-05-23)."""
+    assert len(DEFAULT_V2_WEIGHTS) == 34
 
 
 def test_get_weights_unknown_regime_returns_defaults() -> None:
