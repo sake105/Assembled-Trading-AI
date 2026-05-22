@@ -227,7 +227,7 @@ def handle_rejection(reason: str, symbol: str) -> dict:
     """Route order rejection to the appropriate side-effect action.
 
     This is a synchronous routing helper — actual side effects (DB writes,
-    Slack alerts, cache updates) are delegated to the caller.
+    Telegram/email alerts, cache updates) are delegated to the caller.
 
     Args:
         reason: Rejection reason string (matches REJECTION_ACTIONS keys).
