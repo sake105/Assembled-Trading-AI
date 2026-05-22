@@ -20,7 +20,7 @@
    - `tail -n 1 output/runs/_kill_switch/kill_switch_audit.jsonl | python -m json.tool`
    - Note `reason`, `throttle_pct`, `trigger_source`, `timestamp`.
 3. Snapshot current ledger + last run folder.
-4. Notify stakeholders (Slack / email channel) with reason + audit entry.
+4. Notify stakeholders (Telegram / email channel) with reason + audit entry.
 
 ## Diagnosis
 

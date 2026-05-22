@@ -55,7 +55,7 @@ Only `live` and `paper` are in scope for the rest of this document.
 |---|---|---|
 | Real-time order/position monitor | FastAPI `/api/v1/monitoring/*` endpoints | < 5 s alert latency target (planned via Prometheus) |
 | Reconciliation (ledger vs broker) | `accounting/reconciliation.evaluate_reconcile_slo` + JSONL audit log | warn @ 5 bps, fail @ 25 bps cash diff |
-| Alert dispatch | `ops/alerting.AlertManager` — slack/telegram/email channels | cooldown configurable per rule |
+| Alert dispatch | `ops/alerting.AlertManager` — telegram/email/log channels | cooldown configurable per rule |
 | Audit log integrity | hash-chained JSONL (`kill_switch`), append-only fsync'd, `verify_audit_chain` API | tamper-evident |
 
 ## 4. Stress testing (RTS-6 Art. 9)
