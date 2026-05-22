@@ -1292,7 +1292,7 @@ durchgeführt wurden:
   - 17 Tests: lag-correctness pro Modell, Foster-drift-Berechnung explizit
     verifiziert, SUE-Standardisierung auf ~unit std, external-Pfad, edge cases.
   - **IBES-Gold-Standard**: extern verfügbar, von Modul nicht abgerufen (paid Refinitiv/I/B/E/S-Daten). Wenn Caller IBES bekommt, einfach an `compute_sue_from_expected` übergeben.
-  - **Follow-up (Rule 50, pre-existing):** Drei Module besitzen jetzt eine `compute_sue`-Funktion mit unterschiedlichen Signaturen — `signals/pead_sue.py` (Finnhub-Wrapper, scalar), `features/altdata_earnings_insider_factors.py::compute_sue(actual, estimated, std)` (pure scalar), und neu `features/pead_sue.py::compute_sue(eps_series, method) → SueResult`. Keine Import-Konflikte, aber Namensraum sollte konsolidiert werden — separate Audit-Welle.
+  - **Follow-up (Rule 50, pre-existing):** ✅ BEHOBEN (2026-05-22) — Namespace konsolidiert: `altdata_earnings_insider_factors.compute_sue(actual, estimated, std)` war nie aufgerufen (0 Caller, kein `__all__`-Eintrag, kein Export in `features/__init__.py`) und wurde gelöscht. `signals/pead_sue.compute_sue` (live Finnhub-Fetch) bleibt erhalten, Docstring erhält Note-Verweis auf kanonisches `features.pead_sue.compute_sue` / `compute_sue_from_expected` für Offline-/Research-Nutzung. Einziges kanonisches Modul für EPS-Modell-explizite SUE: `features/pead_sue.py`.
 - [x] **C4-084 pairs_trading half-life via OU** — DONE 2026-05-17: neues Modul
   `src/assembled_core/signals/pairs_diagnostics.py` mit `ou_half_life(spread)`
   (AR(1)-OLS, λ = -slope, half-life = ln(2)/λ; ∞ bei nicht-mean-reverting Spread,

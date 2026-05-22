@@ -25,7 +25,7 @@ def compute_sue(
     finnhub_client: Any,
     lookback_quarters: int = 8,
 ) -> float:
-    """Compute Standardized Unexpected Earnings for a ticker.
+    """Compute Standardized Unexpected Earnings for a ticker via live Finnhub fetch.
 
     Args:
         ticker: Stock ticker symbol
@@ -35,6 +35,12 @@ def compute_sue(
     Returns:
         SUE score. Positive = positive surprise, Negative = miss.
         Returns NaN if insufficient data.
+
+    Note:
+        This function fetches live data from the Finnhub API.
+        For offline/research-grade SUE with an explicit expected-EPS model
+        (seasonal RW, Foster, or external IBES consensus), use
+        ``features.pead_sue.compute_sue`` or ``features.pead_sue.compute_sue_from_expected``.
     """
     try:
         earnings = finnhub_client.company_earnings(ticker, limit=lookback_quarters + 1)

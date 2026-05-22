@@ -701,17 +701,3 @@ def compute_revision_momentum(
     if abs(estimate_30d_ago) < 1e-10:
         return 0.0
     return (current_estimate - estimate_30d_ago) / abs(estimate_30d_ago)
-
-
-def compute_sue(
-    actual_eps: float,
-    estimated_eps: float,
-    surprise_std: float,
-) -> float:
-    """Standardized Unexpected Earnings.
-
-    ``SUE = (actual - estimate) / std(surprises)``
-    """
-    if surprise_std < 1e-10:
-        return 0.0
-    return (actual_eps - estimated_eps) / surprise_std
