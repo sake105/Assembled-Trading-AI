@@ -1,4 +1,10 @@
-  # Assembled Trading AI - Backend
+# Assembled Trading AI — Backend
+
+[![Backend CI](https://github.com/sake105/Assembled-Trading-AI/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/sake105/Assembled-Trading-AI/actions/workflows/backend-ci.yml)
+[![Release Gate](https://github.com/sake105/Assembled-Trading-AI/actions/workflows/release-gate-ci.yml/badge.svg)](https://github.com/sake105/Assembled-Trading-AI/actions/workflows/release-gate-ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-orange.svg)](https://github.com/astral-sh/ruff)
+[![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](LICENSE)
 
 **Ein modulares Trading-Core-System für Daten-Ingest, Signal-Generierung, Backtesting und Portfolio-Simulation.**
 
