@@ -1,16 +1,16 @@
 window.SYSTEM_MAP_DATA = {
   "meta": {
-    "generated_at": "2026-05-22T16:59:21Z",
+    "generated_at": "2026-05-22T21:58:40Z",
     "generator_version": "0.2.0",
-    "source_commit": "852e598",
-    "node_count": 916,
-    "edge_count": 3592,
+    "source_commit": "65ffa82b",
+    "node_count": 927,
+    "edge_count": 3595,
     "circular_import_count": 58,
     "honest_status_summary": {
-      "green": 84,
+      "green": 87,
       "yellow": 31,
-      "orange": 501,
-      "red": 2,
+      "orange": 507,
+      "red": 4,
       "gray": 0
     }
   },
@@ -22,7 +22,7 @@ window.SYSTEM_MAP_DATA = {
       "parent": null,
       "purpose": "Rohdaten, Features, Signale, News, Intel — alles was vor der Entscheidung passiert.",
       "status": "orange",
-      "tests_count": 513,
+      "tests_count": 530,
       "loc": 0,
       "orphan": false,
       "in_cycle": false,
@@ -35,7 +35,7 @@ window.SYSTEM_MAP_DATA = {
       "parent": null,
       "purpose": "Strategie-Konstruktion, Portfolio-Aggregation, ML-Modelle.",
       "status": "red",
-      "tests_count": 85,
+      "tests_count": 101,
       "loc": 0,
       "orphan": false,
       "in_cycle": false,
@@ -61,7 +61,7 @@ window.SYSTEM_MAP_DATA = {
       "parent": null,
       "purpose": "QA, Compliance, Reports, Experiments — alles was prüft und dokumentiert.",
       "status": "orange",
-      "tests_count": 219,
+      "tests_count": 233,
       "loc": 0,
       "orphan": false,
       "in_cycle": false,
@@ -362,7 +362,7 @@ window.SYSTEM_MAP_DATA = {
       "label": "qa",
       "parent": "galaxy:assurance",
       "status": "orange",
-      "tests_count": 199,
+      "tests_count": 213,
       "loc": 0,
       "orphan": false,
       "in_cycle": false,
@@ -398,7 +398,7 @@ window.SYSTEM_MAP_DATA = {
       "label": "signals",
       "parent": "galaxy:market",
       "status": "orange",
-      "tests_count": 11,
+      "tests_count": 28,
       "loc": 0,
       "orphan": false,
       "in_cycle": false,
@@ -410,7 +410,7 @@ window.SYSTEM_MAP_DATA = {
       "label": "strategies",
       "parent": "galaxy:alpha",
       "status": "orange",
-      "tests_count": 51,
+      "tests_count": 67,
       "loc": 0,
       "orphan": false,
       "in_cycle": false,
@@ -1702,7 +1702,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "MLflow integration for backtest certificate logging. Soft-optional: requires mlflow>=2.0.0. Falls back to a no-op logger if not installed. Usage: from assembled_core.certify.mlflow_integration import log_certificate_to_mlflow log_certificate_to_mlflow(cert, experiment_name=\"backtest_v4\")",
       "status": "orange",
       "tests_count": 0,
-      "loc": 184,
+      "loc": 186,
       "fan_in": 0,
       "fan_out": 0,
       "complexity_score": 1,
@@ -1983,7 +1983,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Feature flag system for environment-specific rollout control. From 36_MULTI_ENVIRONMENT_SETUP.md §8. Flags follow a 4-stage lifecycle: off → shadow → canary → on Golden rule: new features in prod always start",
       "status": "orange",
       "tests_count": 0,
-      "loc": 115,
+      "loc": 117,
       "fan_in": 0,
       "fan_out": 4,
       "complexity_score": 1,
@@ -2207,7 +2207,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Common utilities for Finnhub API clients. This module provides shared functions for Finnhub API access, avoiding code duplication between finnhub_events.py and finnhub_news_macro.py.",
       "status": "orange",
       "tests_count": 0,
-      "loc": 73,
+      "loc": 72,
       "fan_in": 8,
       "fan_out": 7,
       "complexity_score": 1,
@@ -5380,7 +5380,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Fill model: Schema and contract for trades/fills with partial fill support. This module provides functions to convert orders to fills and ensure fill schema compliance.",
       "status": "green",
       "tests_count": 36,
-      "loc": 714,
+      "loc": 716,
       "fan_in": 19,
       "fan_out": 6,
       "complexity_score": 2,
@@ -6123,6 +6123,27 @@ window.SYSTEM_MAP_DATA = {
       "path": "src/assembled_core/features/__init__.py"
     },
     {
+      "id": "module:features.altdata_bls_features",
+      "type": "module",
+      "label": "altdata_bls_features.py",
+      "parent": "domain:features",
+      "purpose": "Alt-Data Feature Builder: BLS Labor Market Features. Transforms Bureau of Labor Statistics (BLS) time-series data into ML-ready macro labor-market features for use in factor models. BLS source columns (from bls_source.fetch_bls_series):",
+      "status": "orange",
+      "tests_count": 0,
+      "loc": 108,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 1.0,
+      "functions": [
+        "build_bls_labor_features"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/features/altdata_bls_features.py"
+    },
+    {
       "id": "module:features.altdata_earnings_insider_factors",
       "type": "module",
       "label": "altdata_earnings_insider_factors.py",
@@ -6146,6 +6167,27 @@ window.SYSTEM_MAP_DATA = {
       "path": "src/assembled_core/features/altdata_earnings_insider_factors.py"
     },
     {
+      "id": "module:features.altdata_finra_features",
+      "type": "module",
+      "label": "altdata_finra_features.py",
+      "parent": "domain:features",
+      "purpose": "Alt-Data Feature Builder: FINRA Short Interest Features. Transforms FINRA short interest data (from finra_source) into per-symbol ML-ready features for short-squeeze and sentiment analysis. FINRA source provides records with keys (from",
+      "status": "orange",
+      "tests_count": 0,
+      "loc": 137,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 1.0,
+      "functions": [
+        "build_finra_short_interest_features"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/features/altdata_finra_features.py"
+    },
+    {
       "id": "module:features.altdata_news_macro_factors",
       "type": "module",
       "label": "altdata_news_macro_factors.py",
@@ -6167,6 +6209,27 @@ window.SYSTEM_MAP_DATA = {
       "in_cycle": false,
       "duplicate_group": null,
       "path": "src/assembled_core/features/altdata_news_macro_factors.py"
+    },
+    {
+      "id": "module:features.altdata_wikipedia_features",
+      "type": "module",
+      "label": "altdata_wikipedia_features.py",
+      "parent": "domain:features",
+      "purpose": "Alt-Data Feature Builder: Wikipedia Pageview Attention Features. Transforms Wikipedia pageview data (from wikipedia_views_source) into per-symbol ML-ready attention features. Based on Moat et al. (2013, Nature Scientific Reports): Wikipedia pageviews with",
+      "status": "orange",
+      "tests_count": 0,
+      "loc": 165,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 1.0,
+      "functions": [
+        "build_wikipedia_attention_features"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/features/altdata_wikipedia_features.py"
     },
     {
       "id": "module:features.behavioral_features",
@@ -6322,7 +6385,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Cross-sectional Earnings Surprise and Insider Activity factors (B2.3). This module provides PIT-safe, cross-sectional factor computation for a single ``as_of_date`` and a symbol set. It is deliberately independent from the time-series",
       "status": "green",
       "tests_count": 16,
-      "loc": 186,
+      "loc": 185,
       "fan_in": 2,
       "fan_out": 0,
       "complexity_score": 1,
@@ -6664,7 +6727,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Cross-sectional News Sentiment and Macro Regime factors (B2.4). Companion to :mod:`earnings_insider_wrapper` (B2.3). Provides a PIT-safe single-snapshot interface for the multifactor dispatch — one row per symbol at a given ``as_of_date``.",
       "status": "green",
       "tests_count": 16,
-      "loc": 182,
+      "loc": 181,
       "fan_in": 2,
       "fan_out": 0,
       "complexity_score": 1,
@@ -6737,7 +6800,7 @@ window.SYSTEM_MAP_DATA = {
       "status": "orange",
       "tests_count": 0,
       "loc": 239,
-      "fan_in": 0,
+      "fan_in": 3,
       "fan_out": 0,
       "complexity_score": 1,
       "type_annotation_ratio": 1.0,
@@ -6748,7 +6811,7 @@ window.SYSTEM_MAP_DATA = {
         "compute_sue",
         "compute_sue_from_expected"
       ],
-      "orphan": true,
+      "orphan": false,
       "in_cycle": false,
       "duplicate_group": null,
       "path": "src/assembled_core/features/pead_sue.py"
@@ -7145,7 +7208,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "EDCL Phase C — Conviction-Score Engine. Aggregates the raw TriggerBasket conviction from Phase B with: 1. Historical event-type betas (via FeatureStore ASOF-join, PIT-safe) 2. Optional market-confirmation signal (market_confirmation.py) 3. Source-diversity",
       "status": "orange",
       "tests_count": 0,
-      "loc": 282,
+      "loc": 280,
       "fan_in": 7,
       "fan_out": 8,
       "complexity_score": 1,
@@ -7420,7 +7483,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Pydantic v2 models for the Intel/Crisis Alpha Pipeline.",
       "status": "orange",
       "tests_count": 0,
-      "loc": 375,
+      "loc": 373,
       "fan_in": 50,
       "fan_out": 0,
       "complexity_score": 1,
@@ -8581,6 +8644,31 @@ window.SYSTEM_MAP_DATA = {
       "path": "src/assembled_core/ml/lime_explainer.py"
     },
     {
+      "id": "module:ml.logic_tensor_network",
+      "type": "module",
+      "label": "logic_tensor_network.py",
+      "parent": "domain:ml",
+      "purpose": "Logic Tensor Network (LTN) for neuro-symbolic portfolio constraints — stub. Tier 4 research showcase item (audit C2-041): LTN (Badreddine et al. 2022) encodes logical constraints (e.g. \"if VIX > 30,",
+      "status": "red",
+      "tests_count": 0,
+      "loc": 107,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 0.57,
+      "functions": [
+        "add_constraint",
+        "fit",
+        "predict",
+        "satisfiability",
+        "is_available"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/ml/logic_tensor_network.py"
+    },
+    {
       "id": "module:ml.model_registry",
       "type": "module",
       "label": "model_registry.py",
@@ -8715,6 +8803,30 @@ window.SYSTEM_MAP_DATA = {
       "path": "src/assembled_core/ml/retraining_scheduler.py"
     },
     {
+      "id": "module:ml.temporal_fusion_transformer",
+      "type": "module",
+      "label": "temporal_fusion_transformer.py",
+      "parent": "domain:ml",
+      "purpose": "Temporal Fusion Transformer (TFT) for multi-horizon time-series forecasting — stub. Tier 3 research item (audit C2-039): TFT (Lim et al. 2021) for price / factor forecasting with interpretable attention heads.",
+      "status": "red",
+      "tests_count": 0,
+      "loc": 135,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 0.75,
+      "functions": [
+        "tft_forecast",
+        "fit",
+        "predict",
+        "is_available"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/ml/temporal_fusion_transformer.py"
+    },
+    {
       "id": "module:ops.__init__",
       "type": "module",
       "label": "__init__.py",
@@ -8785,7 +8897,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Alert Manager (Plan 11.9). Console/JSON/Webhook alerts with rate limiting.",
       "status": "orange",
       "tests_count": 0,
-      "loc": 82,
+      "loc": 84,
       "fan_in": 2,
       "fan_out": 0,
       "complexity_score": 1,
@@ -8808,7 +8920,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Multi-channel alerting system (Plan 11/10 §4.1). Reads configs/alerting.yaml. Fire events are dispatched to all matching channels with cooldown logic. Channels: telegram, email, log_only. Credentials are always read from environment variables",
       "status": "orange",
       "tests_count": 0,
-      "loc": 152,
+      "loc": 133,
       "fan_in": 18,
       "fan_out": 0,
       "complexity_score": 1,
@@ -9316,6 +9428,33 @@ window.SYSTEM_MAP_DATA = {
       "path": "src/assembled_core/ops/metrics_exporter.py"
     },
     {
+      "id": "module:ops.mlflow_tracking",
+      "type": "module",
+      "label": "mlflow_tracking.py",
+      "parent": "domain:ops",
+      "purpose": "MLflow experiment tracking integration — scaffold. Tier 3 infra item (audit C2-046): wires MLflow tracking into backtest and paper-pilot runs so experiments are reproducible and comparable. Activation: 1. Install: pip",
+      "status": "orange",
+      "tests_count": 0,
+      "loc": 162,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 0.88,
+      "functions": [
+        "tracking_run",
+        "log_metrics",
+        "log_equity_curve",
+        "log_model_params",
+        "get_best_run",
+        "to_dict",
+        "to_dict"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/ops/mlflow_tracking.py"
+    },
+    {
       "id": "module:ops.paper_ledger",
       "type": "module",
       "label": "paper_ledger.py",
@@ -9350,7 +9489,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "OPS-6: Paper daily runner — callable helper for one-day and range runs.",
       "status": "green",
       "tests_count": 8,
-      "loc": 1078,
+      "loc": 1077,
       "fan_in": 8,
       "fan_out": 92,
       "complexity_score": 1,
@@ -9954,7 +10093,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "_tc_signals — generate_signals(), _apply_evidence_gate(), _compute_news_triggers() extracted from trading_cycle_v2.",
       "status": "orange",
       "tests_count": 0,
-      "loc": 769,
+      "loc": 767,
       "fan_in": 4,
       "fan_out": 61,
       "complexity_score": 1,
@@ -9976,7 +10115,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "_tc_sizing — size_positions() and all _sp_* helpers extracted from trading_cycle_v2.",
       "status": "orange",
       "tests_count": 0,
-      "loc": 1752,
+      "loc": 1754,
       "fan_in": 16,
       "fan_out": 81,
       "complexity_score": 1,
@@ -10402,6 +10541,31 @@ window.SYSTEM_MAP_DATA = {
       "path": "src/assembled_core/portfolio/covariance.py"
     },
     {
+      "id": "module:portfolio.dro_portfolio",
+      "type": "module",
+      "label": "dro_portfolio.py",
+      "parent": "domain:portfolio",
+      "purpose": "Distributionally Robust Optimization (DRO) portfolio construction. Implements two DRO portfolio variants — audit items C2-036 and C2-037 — using only numpy and scipy so the module works without cvxpy or",
+      "status": "orange",
+      "tests_count": 0,
+      "loc": 319,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 1.0,
+      "functions": [
+        "wasserstein_dro_portfolio",
+        "kl_dro_portfolio",
+        "dro_portfolio",
+        "objective",
+        "grad_objective"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/portfolio/dro_portfolio.py"
+    },
+    {
       "id": "module:portfolio.hierarchical_risk_parity",
       "type": "module",
       "label": "hierarchical_risk_parity.py",
@@ -10644,6 +10808,29 @@ window.SYSTEM_MAP_DATA = {
       "path": "src/assembled_core/portfolio/position_sizing.py"
     },
     {
+      "id": "module:portfolio.quantum_portfolio",
+      "type": "module",
+      "label": "quantum_portfolio.py",
+      "parent": "domain:portfolio",
+      "purpose": "Quantum QUBO Portfolio Optimization — research showcase stub. Tier 4 showcase item (audit C2-042–044): formulates the portfolio selection problem as a Quadratic Unconstrained Binary Optimization (QUBO) problem suitable for D-Wave",
+      "status": "orange",
+      "tests_count": 0,
+      "loc": 193,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 1.0,
+      "functions": [
+        "build_qubo_matrix",
+        "solve_qubo_classical",
+        "quantum_portfolio"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/portfolio/quantum_portfolio.py"
+    },
+    {
       "id": "module:portfolio.regime_conditional_allocator",
       "type": "module",
       "label": "regime_conditional_allocator.py",
@@ -10701,7 +10888,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Strategy-level capital allocation. Provides two independent allocation mechanisms: 1. **StrategyAllocator** — signal-level ensemble combiner. Merges signals from multiple Strategy objects via weighted-average, majority-vote, or regime-conditional methods. 2. **Risk-parity vol-targeting** —",
       "status": "orange",
       "tests_count": 0,
-      "loc": 324,
+      "loc": 322,
       "fan_in": 5,
       "fan_out": 0,
       "complexity_score": 1,
@@ -10791,7 +10978,7 @@ window.SYSTEM_MAP_DATA = {
       "type": "module",
       "label": "alert_channel.py",
       "parent": "domain:ports",
-      "purpose": "AlertChannel port — domain-facing API for firing alerts. The domain says ``alerts.fire(\"kill_switch_activated\", {\"reason\": ...})``; the adapter routes that to Slack / Telegram / email / log per the configured channels",
+      "purpose": "AlertChannel port — domain-facing API for firing alerts. The domain says ``alerts.fire(\"kill_switch_activated\", {\"reason\": ...})``; the adapter routes that to Telegram / email / log per the configured channels (configs/alerting.yaml). The",
       "status": "orange",
       "tests_count": 0,
       "loc": 32,
@@ -10964,7 +11151,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Trade/signal anomaly detection — fat-finger, manipulation, strategy drift. Uses PyOD ensemble if installed; falls back to numpy-based IQR/Z-score detector.",
       "status": "orange",
       "tests_count": 0,
-      "loc": 144,
+      "loc": 145,
       "fan_in": 0,
       "fan_out": 0,
       "complexity_score": 1,
@@ -11384,6 +11571,30 @@ window.SYSTEM_MAP_DATA = {
       "in_cycle": false,
       "duplicate_group": null,
       "path": "src/assembled_core/qa/deflated_sharpe.py"
+    },
+    {
+      "id": "module:qa.differential_testing",
+      "type": "module",
+      "label": "differential_testing.py",
+      "parent": "domain:qa",
+      "purpose": "Differential testing: multi-implementation Sharpe ratio agreement. Audit reference: C2-006 — Differential Testing (Python / Polars / Numba Sharpe). Purpose ------- Verify that three independent implementations of the annualised Sharpe ratio",
+      "status": "green",
+      "tests_count": 14,
+      "loc": 234,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 0.91,
+      "functions": [
+        "sharpe_numpy",
+        "sharpe_polars",
+        "sharpe_numba",
+        "diff_test_sharpe"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/qa/differential_testing.py"
     },
     {
       "id": "module:qa.drawdown_decomposition",
@@ -12749,7 +12960,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "",
       "status": "green",
       "tests_count": 9,
-      "loc": 271,
+      "loc": 273,
       "fan_in": 9,
       "fan_out": 10,
       "complexity_score": 1,
@@ -13456,6 +13667,28 @@ window.SYSTEM_MAP_DATA = {
       "duplicate_group": null
     },
     {
+      "id": "module:signals.causal_ml",
+      "type": "module",
+      "label": "causal_ml.py",
+      "parent": "domain:signals",
+      "purpose": "Causal ML: Double-ML PLR and Causal Forest implementations. Audit references ---------------- * C2-025 — Double-ML Partially Linear Regression (PLR / Robinson 1988) * C2-026 — Causal Forest for heterogeneous treatment-effect",
+      "status": "green",
+      "tests_count": 17,
+      "loc": 396,
+      "fan_in": 0,
+      "fan_out": 0,
+      "complexity_score": 1,
+      "type_annotation_ratio": 1.0,
+      "functions": [
+        "fit_plr",
+        "fit_causal_forest"
+      ],
+      "orphan": true,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/signals/causal_ml.py"
+    },
+    {
       "id": "module:signals.composite_score",
       "type": "module",
       "label": "composite_score.py",
@@ -13592,7 +13825,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "ETF-Flow self-computed sector rotation signal. From 13_FREE_MODULE.md §13.13. ETF flows = Δ(Shares Outstanding) × NAV — proxy for institutional sector rotation. No external API needed: yfinance provides shares outstanding +",
       "status": "orange",
       "tests_count": 0,
-      "loc": 98,
+      "loc": 100,
       "fan_in": 4,
       "fan_out": 0,
       "complexity_score": 1,
@@ -14037,7 +14270,7 @@ window.SYSTEM_MAP_DATA = {
       "purpose": "Event-based signal rules module (Phase 6). This module provides signal generation based on event data: - Insider trading activity (net buys/sells) - Shipping route congestion Signal logic: - LONG (+1):",
       "status": "orange",
       "tests_count": 0,
-      "loc": 118,
+      "loc": 116,
       "fan_in": 6,
       "fan_out": 2,
       "complexity_score": 1,
@@ -14425,6 +14658,27 @@ window.SYSTEM_MAP_DATA = {
       "in_cycle": false,
       "duplicate_group": null,
       "path": "src/assembled_core/strategies/pairs_trading_v1.py"
+    },
+    {
+      "id": "module:strategies.pead_strategy",
+      "type": "module",
+      "label": "pead_strategy.py",
+      "parent": "domain:strategies",
+      "purpose": "PEAD (Post-Earnings Announcement Drift) Strategy. Implements the Bernard & Thomas (1989) PEAD strategy for signal generation: - On earnings release, compute Standardized Unexpected Earnings (SUE) - Long top-quintile SUE stocks,",
+      "status": "green",
+      "tests_count": 16,
+      "loc": 235,
+      "fan_in": 0,
+      "fan_out": 3,
+      "complexity_score": 1,
+      "type_annotation_ratio": 1.0,
+      "functions": [
+        "generate_pead_signals"
+      ],
+      "orphan": false,
+      "in_cycle": false,
+      "duplicate_group": null,
+      "path": "src/assembled_core/strategies/pead_strategy.py"
     },
     {
       "id": "module:strategies.signal_decay_gate",
@@ -15013,7 +15267,7 @@ window.SYSTEM_MAP_DATA = {
       "parent": null,
       "status": "gray",
       "tests_count": 0,
-      "loc": 452,
+      "loc": 454,
       "orphan": false,
       "in_cycle": false,
       "duplicate_group": null,
@@ -16551,7 +16805,7 @@ window.SYSTEM_MAP_DATA = {
       "parent": null,
       "status": "gray",
       "tests_count": 0,
-      "loc": 149,
+      "loc": 147,
       "orphan": false,
       "in_cycle": false,
       "duplicate_group": null,
@@ -17588,7 +17842,7 @@ window.SYSTEM_MAP_DATA = {
       "parent": null,
       "status": "gray",
       "tests_count": 0,
-      "loc": 567,
+      "loc": 571,
       "orphan": false,
       "in_cycle": false,
       "duplicate_group": null,
@@ -17926,7 +18180,7 @@ window.SYSTEM_MAP_DATA = {
       "parent": null,
       "status": "gray",
       "tests_count": 0,
-      "loc": 335,
+      "loc": 333,
       "orphan": false,
       "in_cycle": false,
       "duplicate_group": null,
@@ -38548,7 +38802,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2518:module:strategies.trend_baseline→module:signals.rules_trend",
+      "id": "e2518:module:strategies.pead_strategy→module:features.pead_sue",
+      "source": "module:strategies.pead_strategy",
+      "target": "module:features.pead_sue",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2519:module:strategies.pead_strategy→module:features.pead_sue",
+      "source": "module:strategies.pead_strategy",
+      "target": "module:features.pead_sue",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2520:module:strategies.pead_strategy→module:features.pead_sue",
+      "source": "module:strategies.pead_strategy",
+      "target": "module:features.pead_sue",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2521:module:strategies.trend_baseline→module:signals.rules_trend",
       "source": "module:strategies.trend_baseline",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -38556,7 +38834,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2519:module:strategies.trend_baseline→module:signals.rules_trend",
+      "id": "e2522:module:strategies.trend_baseline→module:signals.rules_trend",
       "source": "module:strategies.trend_baseline",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -38564,7 +38842,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2520:module:strategy.experiment_tracker→module:strategy.config",
+      "id": "e2523:module:strategy.experiment_tracker→module:strategy.config",
       "source": "module:strategy.experiment_tracker",
       "target": "module:strategy.config",
       "kind": "import",
@@ -38572,7 +38850,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2521:module:strategy.experiment_tracker→module:strategy.config",
+      "id": "e2524:module:strategy.experiment_tracker→module:strategy.config",
       "source": "module:strategy.experiment_tracker",
       "target": "module:strategy.config",
       "kind": "import",
@@ -38580,7 +38858,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2522:module:time.__init__→module:time.clock",
+      "id": "e2525:module:time.__init__→module:time.clock",
       "source": "module:time.__init__",
       "target": "module:time.clock",
       "kind": "import",
@@ -38588,7 +38866,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2523:module:time.__init__→module:time.clock",
+      "id": "e2526:module:time.__init__→module:time.clock",
       "source": "module:time.__init__",
       "target": "module:time.clock",
       "kind": "import",
@@ -38596,7 +38874,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2524:module:time.__init__→module:time.clock",
+      "id": "e2527:module:time.__init__→module:time.clock",
       "source": "module:time.__init__",
       "target": "module:time.clock",
       "kind": "import",
@@ -38604,7 +38882,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2525:module:utils.__init__→module:utils.dataframe",
+      "id": "e2528:module:utils.__init__→module:utils.dataframe",
       "source": "module:utils.__init__",
       "target": "module:utils.dataframe",
       "kind": "import",
@@ -38612,7 +38890,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2526:module:utils.__init__→module:utils.dataframe",
+      "id": "e2529:module:utils.__init__→module:utils.dataframe",
       "source": "module:utils.__init__",
       "target": "module:utils.dataframe",
       "kind": "import",
@@ -38620,7 +38898,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2527:module:utils.__init__→module:utils.dataframe",
+      "id": "e2530:module:utils.__init__→module:utils.dataframe",
       "source": "module:utils.__init__",
       "target": "module:utils.dataframe",
       "kind": "import",
@@ -38628,7 +38906,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2528:module:utils.__init__→module:utils.paths",
+      "id": "e2531:module:utils.__init__→module:utils.paths",
       "source": "module:utils.__init__",
       "target": "module:utils.paths",
       "kind": "import",
@@ -38636,7 +38914,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2529:module:utils.__init__→module:utils.paths",
+      "id": "e2532:module:utils.__init__→module:utils.paths",
       "source": "module:utils.__init__",
       "target": "module:utils.paths",
       "kind": "import",
@@ -38644,7 +38922,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2530:module:utils.__init__→module:utils.random_state",
+      "id": "e2533:module:utils.__init__→module:utils.random_state",
       "source": "module:utils.__init__",
       "target": "module:utils.random_state",
       "kind": "import",
@@ -38652,7 +38930,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2531:module:utils.__init__→module:utils.random_state",
+      "id": "e2534:module:utils.__init__→module:utils.random_state",
       "source": "module:utils.__init__",
       "target": "module:utils.random_state",
       "kind": "import",
@@ -38660,7 +38938,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2532:module:utils.__init__→module:utils.seeding",
+      "id": "e2535:module:utils.__init__→module:utils.seeding",
       "source": "module:utils.__init__",
       "target": "module:utils.seeding",
       "kind": "import",
@@ -38668,33 +38946,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2533:module:utils.__init__→module:utils.seeding",
+      "id": "e2536:module:utils.__init__→module:utils.seeding",
       "source": "module:utils.__init__",
       "target": "module:utils.seeding",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2534:module:utils.__init__→module:utils.time_constants",
-      "source": "module:utils.__init__",
-      "target": "module:utils.time_constants",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2535:module:utils.__init__→module:utils.time_constants",
-      "source": "module:utils.__init__",
-      "target": "module:utils.time_constants",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2536:module:utils.__init__→module:utils.time_constants",
-      "source": "module:utils.__init__",
-      "target": "module:utils.time_constants",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -38708,25 +38962,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2538:module:utils.__init__→module:utils.timing",
+      "id": "e2538:module:utils.__init__→module:utils.time_constants",
       "source": "module:utils.__init__",
-      "target": "module:utils.timing",
+      "target": "module:utils.time_constants",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2539:module:utils.__init__→module:utils.timing",
+      "id": "e2539:module:utils.__init__→module:utils.time_constants",
       "source": "module:utils.__init__",
-      "target": "module:utils.timing",
+      "target": "module:utils.time_constants",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2540:module:utils.__init__→module:utils.timing",
+      "id": "e2540:module:utils.__init__→module:utils.time_constants",
       "source": "module:utils.__init__",
-      "target": "module:utils.timing",
+      "target": "module:utils.time_constants",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -38740,7 +38994,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2542:module:utils.paths→module:config.__init__",
+      "id": "e2542:module:utils.__init__→module:utils.timing",
+      "source": "module:utils.__init__",
+      "target": "module:utils.timing",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2543:module:utils.__init__→module:utils.timing",
+      "source": "module:utils.__init__",
+      "target": "module:utils.timing",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2544:module:utils.__init__→module:utils.timing",
+      "source": "module:utils.__init__",
+      "target": "module:utils.timing",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2545:module:utils.paths→module:config.__init__",
       "source": "module:utils.paths",
       "target": "module:config.__init__",
       "kind": "import",
@@ -38748,7 +39026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2543:module:utils.paths→module:config.__init__",
+      "id": "e2546:module:utils.paths→module:config.__init__",
       "source": "module:utils.paths",
       "target": "module:config.__init__",
       "kind": "import",
@@ -38756,7 +39034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2544:entry_point:analysis.compare_backtests→module:qa.backtest_comparison",
+      "id": "e2547:entry_point:analysis.compare_backtests→module:qa.backtest_comparison",
       "source": "entry_point:analysis.compare_backtests",
       "target": "module:qa.backtest_comparison",
       "kind": "import",
@@ -38764,7 +39042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2545:entry_point:analysis.compare_backtests→module:qa.backtest_comparison",
+      "id": "e2548:entry_point:analysis.compare_backtests→module:qa.backtest_comparison",
       "source": "entry_point:analysis.compare_backtests",
       "target": "module:qa.backtest_comparison",
       "kind": "import",
@@ -38772,7 +39050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2546:entry_point:analysis.run_stress_test→module:qa.scenario_simulator",
+      "id": "e2549:entry_point:analysis.run_stress_test→module:qa.scenario_simulator",
       "source": "entry_point:analysis.run_stress_test",
       "target": "module:qa.scenario_simulator",
       "kind": "import",
@@ -38780,7 +39058,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2547:entry_point:analysis.run_stress_test→module:qa.scenario_simulator",
+      "id": "e2550:entry_point:analysis.run_stress_test→module:qa.scenario_simulator",
       "source": "entry_point:analysis.run_stress_test",
       "target": "module:qa.scenario_simulator",
       "kind": "import",
@@ -38788,7 +39066,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2548:entry_point:analysis.run_stress_test→module:ops.report_retention",
+      "id": "e2551:entry_point:analysis.run_stress_test→module:ops.report_retention",
       "source": "entry_point:analysis.run_stress_test",
       "target": "module:ops.report_retention",
       "kind": "import",
@@ -38796,7 +39074,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2549:entry_point:analysis.run_stress_test→module:ops.report_retention",
+      "id": "e2552:entry_point:analysis.run_stress_test→module:ops.report_retention",
       "source": "entry_point:analysis.run_stress_test",
       "target": "module:ops.report_retention",
       "kind": "import",
@@ -38804,7 +39082,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2550:entry_point:backtest_pairs_trading→module:strategies.pairs_trading_v1",
+      "id": "e2553:entry_point:backtest_pairs_trading→module:strategies.pairs_trading_v1",
       "source": "entry_point:backtest_pairs_trading",
       "target": "module:strategies.pairs_trading_v1",
       "kind": "import",
@@ -38812,7 +39090,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2551:entry_point:backtest_pairs_trading→module:strategies.pairs_trading_v1",
+      "id": "e2554:entry_point:backtest_pairs_trading→module:strategies.pairs_trading_v1",
       "source": "entry_point:backtest_pairs_trading",
       "target": "module:strategies.pairs_trading_v1",
       "kind": "import",
@@ -38820,7 +39098,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2552:entry_point:batch_runner→module:strategies.multifactor_v2",
+      "id": "e2555:entry_point:batch_runner→module:strategies.multifactor_v2",
       "source": "entry_point:batch_runner",
       "target": "module:strategies.multifactor_v2",
       "kind": "import",
@@ -38828,7 +39106,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2553:entry_point:batch_runner→module:strategies.multifactor_v2",
+      "id": "e2556:entry_point:batch_runner→module:strategies.multifactor_v2",
       "source": "entry_point:batch_runner",
       "target": "module:strategies.multifactor_v2",
       "kind": "import",
@@ -38836,7 +39114,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2554:entry_point:benchmark_backtest→module:config.__init__",
+      "id": "e2557:entry_point:benchmark_backtest→module:config.__init__",
       "source": "entry_point:benchmark_backtest",
       "target": "module:config.__init__",
       "kind": "import",
@@ -38844,7 +39122,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2555:entry_point:benchmark_backtest→module:config.__init__",
+      "id": "e2558:entry_point:benchmark_backtest→module:config.__init__",
       "source": "entry_point:benchmark_backtest",
       "target": "module:config.__init__",
       "kind": "import",
@@ -38852,7 +39130,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2556:entry_point:benchmark_backtest_engine→module:qa.backtest_engine",
+      "id": "e2559:entry_point:benchmark_backtest_engine→module:qa.backtest_engine",
       "source": "entry_point:benchmark_backtest_engine",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -38860,7 +39138,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2557:entry_point:benchmark_backtest_engine→module:qa.backtest_engine",
+      "id": "e2560:entry_point:benchmark_backtest_engine→module:qa.backtest_engine",
       "source": "entry_point:benchmark_backtest_engine",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -38868,15 +39146,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2558:entry_point:benchmark_backtest_engine→module:utils.timing",
-      "source": "entry_point:benchmark_backtest_engine",
-      "target": "module:utils.timing",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2559:entry_point:benchmark_backtest_engine→module:utils.timing",
+      "id": "e2561:entry_point:benchmark_backtest_engine→module:utils.timing",
       "source": "entry_point:benchmark_backtest_engine",
       "target": "module:utils.timing",
       "kind": "import",
@@ -38884,7 +39154,15 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2560:entry_point:build_golden_equity_baseline→module:qa.backtest_engine",
+      "id": "e2562:entry_point:benchmark_backtest_engine→module:utils.timing",
+      "source": "entry_point:benchmark_backtest_engine",
+      "target": "module:utils.timing",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2563:entry_point:build_golden_equity_baseline→module:qa.backtest_engine",
       "source": "entry_point:build_golden_equity_baseline",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -38892,7 +39170,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2561:entry_point:build_golden_equity_baseline→module:qa.backtest_engine",
+      "id": "e2564:entry_point:build_golden_equity_baseline→module:qa.backtest_engine",
       "source": "entry_point:build_golden_equity_baseline",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -38900,7 +39178,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2562:entry_point:check_data_completeness→module:config.settings",
+      "id": "e2565:entry_point:check_data_completeness→module:config.settings",
       "source": "entry_point:check_data_completeness",
       "target": "module:config.settings",
       "kind": "import",
@@ -38908,33 +39186,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2563:entry_point:check_data_completeness→module:config.settings",
+      "id": "e2566:entry_point:check_data_completeness→module:config.settings",
       "source": "entry_point:check_data_completeness",
       "target": "module:config.settings",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2564:entry_point:check_health→module:ops.health_check",
-      "source": "entry_point:check_health",
-      "target": "module:ops.health_check",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2565:entry_point:check_health→module:ops.health_check",
-      "source": "entry_point:check_health",
-      "target": "module:ops.health_check",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2566:entry_point:check_health→module:ops.health_check",
-      "source": "entry_point:check_health",
-      "target": "module:ops.health_check",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -38964,7 +39218,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2570:entry_point:ci.drift_check→module:qa.drift_detection",
+      "id": "e2570:entry_point:check_health→module:ops.health_check",
+      "source": "entry_point:check_health",
+      "target": "module:ops.health_check",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2571:entry_point:check_health→module:ops.health_check",
+      "source": "entry_point:check_health",
+      "target": "module:ops.health_check",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2572:entry_point:check_health→module:ops.health_check",
+      "source": "entry_point:check_health",
+      "target": "module:ops.health_check",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2573:entry_point:ci.drift_check→module:qa.drift_detection",
       "source": "entry_point:ci.drift_check",
       "target": "module:qa.drift_detection",
       "kind": "import",
@@ -38972,7 +39250,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2571:entry_point:ci.drift_check→module:qa.drift_detection",
+      "id": "e2574:entry_point:ci.drift_check→module:qa.drift_detection",
       "source": "entry_point:ci.drift_check",
       "target": "module:qa.drift_detection",
       "kind": "import",
@@ -38980,7 +39258,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2572:entry_point:ci.garch_check→module:risk.garch_vol",
+      "id": "e2575:entry_point:ci.garch_check→module:risk.garch_vol",
       "source": "entry_point:ci.garch_check",
       "target": "module:risk.garch_vol",
       "kind": "import",
@@ -38988,7 +39266,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2573:entry_point:ci.garch_check→module:risk.garch_vol",
+      "id": "e2576:entry_point:ci.garch_check→module:risk.garch_vol",
       "source": "entry_point:ci.garch_check",
       "target": "module:risk.garch_vol",
       "kind": "import",
@@ -38996,7 +39274,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2574:entry_point:ci.retraining_check→module:ml.retraining_scheduler",
+      "id": "e2577:entry_point:ci.retraining_check→module:ml.retraining_scheduler",
       "source": "entry_point:ci.retraining_check",
       "target": "module:ml.retraining_scheduler",
       "kind": "import",
@@ -39004,7 +39282,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2575:entry_point:ci.retraining_check→module:ml.retraining_scheduler",
+      "id": "e2578:entry_point:ci.retraining_check→module:ml.retraining_scheduler",
       "source": "entry_point:ci.retraining_check",
       "target": "module:ml.retraining_scheduler",
       "kind": "import",
@@ -39012,7 +39290,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2576:entry_point:ci.walk_forward_check→module:qa.walk_forward",
+      "id": "e2579:entry_point:ci.walk_forward_check→module:qa.walk_forward",
       "source": "entry_point:ci.walk_forward_check",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -39020,7 +39298,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2577:entry_point:ci.walk_forward_check→module:qa.walk_forward",
+      "id": "e2580:entry_point:ci.walk_forward_check→module:qa.walk_forward",
       "source": "entry_point:ci.walk_forward_check",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -39028,7 +39306,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2578:entry_point:cli→module:logging_config.__init__",
+      "id": "e2581:entry_point:cli→module:logging_config.__init__",
       "source": "entry_point:cli",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39036,7 +39314,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2579:entry_point:cli→module:logging_config.__init__",
+      "id": "e2582:entry_point:cli→module:logging_config.__init__",
       "source": "entry_point:cli",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39044,7 +39322,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2580:entry_point:cli→module:logging_config.__init__",
+      "id": "e2583:entry_point:cli→module:logging_config.__init__",
       "source": "entry_point:cli",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39052,7 +39330,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2581:entry_point:cli_factor_report→module:config.settings",
+      "id": "e2584:entry_point:cli_factor_report→module:config.settings",
       "source": "entry_point:cli_factor_report",
       "target": "module:config.settings",
       "kind": "import",
@@ -39060,7 +39338,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2582:entry_point:cli_factor_report→module:config.settings",
+      "id": "e2585:entry_point:cli_factor_report→module:config.settings",
       "source": "entry_point:cli_factor_report",
       "target": "module:config.settings",
       "kind": "import",
@@ -39068,7 +39346,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2583:entry_point:cli_factor_report→module:data.data_source",
+      "id": "e2586:entry_point:cli_factor_report→module:data.data_source",
       "source": "entry_point:cli_factor_report",
       "target": "module:data.data_source",
       "kind": "import",
@@ -39076,7 +39354,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2584:entry_point:cli_factor_report→module:data.data_source",
+      "id": "e2587:entry_point:cli_factor_report→module:data.data_source",
       "source": "entry_point:cli_factor_report",
       "target": "module:data.data_source",
       "kind": "import",
@@ -39084,7 +39362,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2585:entry_point:cli_factor_report→module:qa.factor_analysis",
+      "id": "e2588:entry_point:cli_factor_report→module:qa.factor_analysis",
       "source": "entry_point:cli_factor_report",
       "target": "module:qa.factor_analysis",
       "kind": "import",
@@ -39092,7 +39370,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2586:entry_point:cli_factor_report→module:qa.factor_analysis",
+      "id": "e2589:entry_point:cli_factor_report→module:qa.factor_analysis",
       "source": "entry_point:cli_factor_report",
       "target": "module:qa.factor_analysis",
       "kind": "import",
@@ -39100,7 +39378,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2587:entry_point:commands.backtest→module:config.settings",
+      "id": "e2590:entry_point:commands.backtest→module:config.settings",
       "source": "entry_point:commands.backtest",
       "target": "module:config.settings",
       "kind": "import",
@@ -39108,7 +39386,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2588:entry_point:commands.backtest→module:config.settings",
+      "id": "e2591:entry_point:commands.backtest→module:config.settings",
       "source": "entry_point:commands.backtest",
       "target": "module:config.settings",
       "kind": "import",
@@ -39116,7 +39394,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2589:entry_point:commands.backtest→module:logging_config.__init__",
+      "id": "e2592:entry_point:commands.backtest→module:logging_config.__init__",
       "source": "entry_point:commands.backtest",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39124,7 +39402,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2590:entry_point:commands.backtest→module:logging_config.__init__",
+      "id": "e2593:entry_point:commands.backtest→module:logging_config.__init__",
       "source": "entry_point:commands.backtest",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39132,7 +39410,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2591:entry_point:commands.backtest→module:logging_config.__init__",
+      "id": "e2594:entry_point:commands.backtest→module:logging_config.__init__",
       "source": "entry_point:commands.backtest",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39140,7 +39418,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2592:entry_point:commands.backtest→module:config.settings",
+      "id": "e2595:entry_point:commands.backtest→module:config.settings",
       "source": "entry_point:commands.backtest",
       "target": "module:config.settings",
       "kind": "import",
@@ -39148,7 +39426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2593:entry_point:commands.backtest→module:config.settings",
+      "id": "e2596:entry_point:commands.backtest→module:config.settings",
       "source": "entry_point:commands.backtest",
       "target": "module:config.settings",
       "kind": "import",
@@ -39156,7 +39434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2594:entry_point:commands.backtest→module:qa.experiment_tracking",
+      "id": "e2597:entry_point:commands.backtest→module:qa.experiment_tracking",
       "source": "entry_point:commands.backtest",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -39164,7 +39442,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2595:entry_point:commands.backtest→module:qa.experiment_tracking",
+      "id": "e2598:entry_point:commands.backtest→module:qa.experiment_tracking",
       "source": "entry_point:commands.backtest",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -39172,7 +39450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2596:entry_point:commands.ml→module:config.settings",
+      "id": "e2599:entry_point:commands.ml→module:config.settings",
       "source": "entry_point:commands.ml",
       "target": "module:config.settings",
       "kind": "import",
@@ -39180,7 +39458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2597:entry_point:commands.ml→module:config.settings",
+      "id": "e2600:entry_point:commands.ml→module:config.settings",
       "source": "entry_point:commands.ml",
       "target": "module:config.settings",
       "kind": "import",
@@ -39188,7 +39466,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2598:entry_point:commands.ml→module:logging_config.__init__",
+      "id": "e2601:entry_point:commands.ml→module:logging_config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39196,7 +39474,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2599:entry_point:commands.ml→module:logging_config.__init__",
+      "id": "e2602:entry_point:commands.ml→module:logging_config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39204,7 +39482,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2600:entry_point:commands.ml→module:logging_config.__init__",
+      "id": "e2603:entry_point:commands.ml→module:logging_config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39212,7 +39490,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2601:entry_point:commands.ml→module:config.__init__",
+      "id": "e2604:entry_point:commands.ml→module:config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:config.__init__",
       "kind": "import",
@@ -39220,7 +39498,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2602:entry_point:commands.ml→module:config.__init__",
+      "id": "e2605:entry_point:commands.ml→module:config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:config.__init__",
       "kind": "import",
@@ -39228,7 +39506,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2603:entry_point:commands.ml→module:data.prices_ingest",
+      "id": "e2606:entry_point:commands.ml→module:data.prices_ingest",
       "source": "entry_point:commands.ml",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -39236,7 +39514,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2604:entry_point:commands.ml→module:data.prices_ingest",
+      "id": "e2607:entry_point:commands.ml→module:data.prices_ingest",
       "source": "entry_point:commands.ml",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -39244,7 +39522,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2605:entry_point:commands.ml→module:data.prices_ingest",
+      "id": "e2608:entry_point:commands.ml→module:data.prices_ingest",
       "source": "entry_point:commands.ml",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -39252,7 +39530,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2606:entry_point:commands.ml→module:ema_config.__init__",
+      "id": "e2609:entry_point:commands.ml→module:ema_config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -39260,7 +39538,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2607:entry_point:commands.ml→module:ema_config.__init__",
+      "id": "e2610:entry_point:commands.ml→module:ema_config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -39268,7 +39546,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2608:entry_point:commands.ml→module:qa.backtest_engine",
+      "id": "e2611:entry_point:commands.ml→module:qa.backtest_engine",
       "source": "entry_point:commands.ml",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -39276,36 +39554,12 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2609:entry_point:commands.ml→module:qa.backtest_engine",
+      "id": "e2612:entry_point:commands.ml→module:qa.backtest_engine",
       "source": "entry_point:commands.ml",
       "target": "module:qa.backtest_engine",
       "kind": "import",
       "weight": 1,
       "circular": true
-    },
-    {
-      "id": "e2610:entry_point:commands.ml→module:features.ta_features",
-      "source": "entry_point:commands.ml",
-      "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2611:entry_point:commands.ml→module:features.ta_features",
-      "source": "entry_point:commands.ml",
-      "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2612:entry_point:commands.ml→module:features.ta_features",
-      "source": "entry_point:commands.ml",
-      "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
     },
     {
       "id": "e2613:entry_point:commands.ml→module:features.ta_features",
@@ -39316,7 +39570,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2614:entry_point:commands.ml→module:data.insider_ingest",
+      "id": "e2614:entry_point:commands.ml→module:features.ta_features",
+      "source": "entry_point:commands.ml",
+      "target": "module:features.ta_features",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2615:entry_point:commands.ml→module:features.ta_features",
+      "source": "entry_point:commands.ml",
+      "target": "module:features.ta_features",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2616:entry_point:commands.ml→module:features.ta_features",
+      "source": "entry_point:commands.ml",
+      "target": "module:features.ta_features",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2617:entry_point:commands.ml→module:data.insider_ingest",
       "source": "entry_point:commands.ml",
       "target": "module:data.insider_ingest",
       "kind": "import",
@@ -39324,7 +39602,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2615:entry_point:commands.ml→module:data.insider_ingest",
+      "id": "e2618:entry_point:commands.ml→module:data.insider_ingest",
       "source": "entry_point:commands.ml",
       "target": "module:data.insider_ingest",
       "kind": "import",
@@ -39332,7 +39610,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2616:entry_point:commands.ml→module:data.shipping_routes_ingest",
+      "id": "e2619:entry_point:commands.ml→module:data.shipping_routes_ingest",
       "source": "entry_point:commands.ml",
       "target": "module:data.shipping_routes_ingest",
       "kind": "import",
@@ -39340,7 +39618,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2617:entry_point:commands.ml→module:data.shipping_routes_ingest",
+      "id": "e2620:entry_point:commands.ml→module:data.shipping_routes_ingest",
       "source": "entry_point:commands.ml",
       "target": "module:data.shipping_routes_ingest",
       "kind": "import",
@@ -39348,7 +39626,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2618:entry_point:commands.ml→module:features.insider_features",
+      "id": "e2621:entry_point:commands.ml→module:features.insider_features",
       "source": "entry_point:commands.ml",
       "target": "module:features.insider_features",
       "kind": "import",
@@ -39356,7 +39634,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2619:entry_point:commands.ml→module:features.insider_features",
+      "id": "e2622:entry_point:commands.ml→module:features.insider_features",
       "source": "entry_point:commands.ml",
       "target": "module:features.insider_features",
       "kind": "import",
@@ -39364,7 +39642,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2620:entry_point:commands.ml→module:features.shipping_features",
+      "id": "e2623:entry_point:commands.ml→module:features.shipping_features",
       "source": "entry_point:commands.ml",
       "target": "module:features.shipping_features",
       "kind": "import",
@@ -39372,7 +39650,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2621:entry_point:commands.ml→module:features.shipping_features",
+      "id": "e2624:entry_point:commands.ml→module:features.shipping_features",
       "source": "entry_point:commands.ml",
       "target": "module:features.shipping_features",
       "kind": "import",
@@ -39380,7 +39658,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2622:entry_point:commands.ml→module:config.__init__",
+      "id": "e2625:entry_point:commands.ml→module:config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:config.__init__",
       "kind": "import",
@@ -39388,7 +39666,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2623:entry_point:commands.ml→module:config.__init__",
+      "id": "e2626:entry_point:commands.ml→module:config.__init__",
       "source": "entry_point:commands.ml",
       "target": "module:config.__init__",
       "kind": "import",
@@ -39396,33 +39674,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2624:entry_point:commands.ml→module:qa.dataset_builder",
+      "id": "e2627:entry_point:commands.ml→module:qa.dataset_builder",
       "source": "entry_point:commands.ml",
       "target": "module:qa.dataset_builder",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2625:entry_point:commands.ml→module:qa.dataset_builder",
-      "source": "entry_point:commands.ml",
-      "target": "module:qa.dataset_builder",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2626:entry_point:commands.ml→module:config.settings",
-      "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2627:entry_point:commands.ml→module:config.settings",
-      "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39436,7 +39690,23 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2629:entry_point:commands.ml→module:qa.dataset_builder",
+      "id": "e2629:entry_point:commands.ml→module:config.settings",
+      "source": "entry_point:commands.ml",
+      "target": "module:config.settings",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2630:entry_point:commands.ml→module:config.settings",
+      "source": "entry_point:commands.ml",
+      "target": "module:config.settings",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2631:entry_point:commands.ml→module:qa.dataset_builder",
       "source": "entry_point:commands.ml",
       "target": "module:qa.dataset_builder",
       "kind": "import",
@@ -39444,7 +39714,15 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2630:entry_point:commands.ml→module:qa.ml_evaluation",
+      "id": "e2632:entry_point:commands.ml→module:qa.dataset_builder",
+      "source": "entry_point:commands.ml",
+      "target": "module:qa.dataset_builder",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2633:entry_point:commands.ml→module:qa.ml_evaluation",
       "source": "entry_point:commands.ml",
       "target": "module:qa.ml_evaluation",
       "kind": "import",
@@ -39452,7 +39730,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2631:entry_point:commands.ml→module:qa.ml_evaluation",
+      "id": "e2634:entry_point:commands.ml→module:qa.ml_evaluation",
       "source": "entry_point:commands.ml",
       "target": "module:qa.ml_evaluation",
       "kind": "import",
@@ -39460,7 +39738,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2632:entry_point:commands.ml→module:qa.ml_evaluation",
+      "id": "e2635:entry_point:commands.ml→module:qa.ml_evaluation",
       "source": "entry_point:commands.ml",
       "target": "module:qa.ml_evaluation",
       "kind": "import",
@@ -39468,7 +39746,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2633:entry_point:commands.ml→module:signals.meta_model",
+      "id": "e2636:entry_point:commands.ml→module:signals.meta_model",
       "source": "entry_point:commands.ml",
       "target": "module:signals.meta_model",
       "kind": "import",
@@ -39476,7 +39754,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2634:entry_point:commands.ml→module:signals.meta_model",
+      "id": "e2637:entry_point:commands.ml→module:signals.meta_model",
       "source": "entry_point:commands.ml",
       "target": "module:signals.meta_model",
       "kind": "import",
@@ -39484,33 +39762,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2635:entry_point:commands.ml→module:signals.meta_model",
+      "id": "e2638:entry_point:commands.ml→module:signals.meta_model",
       "source": "entry_point:commands.ml",
       "target": "module:signals.meta_model",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2636:entry_point:commands.ml→module:qa.dataset_builder",
-      "source": "entry_point:commands.ml",
-      "target": "module:qa.dataset_builder",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2637:entry_point:commands.ml→module:qa.dataset_builder",
-      "source": "entry_point:commands.ml",
-      "target": "module:qa.dataset_builder",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2638:entry_point:commands.ml→module:qa.dataset_builder",
-      "source": "entry_point:commands.ml",
-      "target": "module:qa.dataset_builder",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39532,25 +39786,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2641:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2641:entry_point:commands.ml→module:qa.dataset_builder",
       "source": "entry_point:commands.ml",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:qa.dataset_builder",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2642:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2642:entry_point:commands.ml→module:qa.dataset_builder",
       "source": "entry_point:commands.ml",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:qa.dataset_builder",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2643:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2643:entry_point:commands.ml→module:qa.dataset_builder",
       "source": "entry_point:commands.ml",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:qa.dataset_builder",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39564,17 +39818,17 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2645:entry_point:commands.ml→module:config.settings",
+      "id": "e2645:entry_point:commands.ml→module:qa.experiment_tracking",
       "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2646:entry_point:commands.ml→module:config.settings",
+      "id": "e2646:entry_point:commands.ml→module:qa.experiment_tracking",
       "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39588,9 +39842,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2648:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2648:entry_point:commands.ml→module:config.settings",
       "source": "entry_point:commands.ml",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:config.settings",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39604,9 +39858,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2650:entry_point:commands.ml→module:config.settings",
+      "id": "e2650:entry_point:commands.ml→module:qa.experiment_tracking",
       "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39620,9 +39874,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2652:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2652:entry_point:commands.ml→module:config.settings",
       "source": "entry_point:commands.ml",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:config.settings",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39636,9 +39890,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2654:entry_point:commands.ml→module:config.settings",
+      "id": "e2654:entry_point:commands.ml→module:qa.experiment_tracking",
       "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39652,9 +39906,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2656:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2656:entry_point:commands.ml→module:config.settings",
       "source": "entry_point:commands.ml",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:config.settings",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39668,9 +39922,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2658:entry_point:commands.ml→module:config.settings",
+      "id": "e2658:entry_point:commands.ml→module:qa.experiment_tracking",
       "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39684,9 +39938,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2660:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2660:entry_point:commands.ml→module:config.settings",
       "source": "entry_point:commands.ml",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:config.settings",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39700,9 +39954,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2662:entry_point:commands.ml→module:config.settings",
+      "id": "e2662:entry_point:commands.ml→module:qa.experiment_tracking",
       "source": "entry_point:commands.ml",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -39716,7 +39970,23 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2664:entry_point:commands.ml→module:qa.experiment_tracking",
+      "id": "e2664:entry_point:commands.ml→module:config.settings",
+      "source": "entry_point:commands.ml",
+      "target": "module:config.settings",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2665:entry_point:commands.ml→module:config.settings",
+      "source": "entry_point:commands.ml",
+      "target": "module:config.settings",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2666:entry_point:commands.ml→module:qa.experiment_tracking",
       "source": "entry_point:commands.ml",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -39724,7 +39994,15 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2665:entry_point:commands.news→module:events.news",
+      "id": "e2667:entry_point:commands.ml→module:qa.experiment_tracking",
+      "source": "entry_point:commands.ml",
+      "target": "module:qa.experiment_tracking",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2668:entry_point:commands.news→module:events.news",
       "source": "entry_point:commands.news",
       "target": "module:events.news",
       "kind": "import",
@@ -39732,7 +40010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2666:entry_point:commands.news→module:events.news",
+      "id": "e2669:entry_point:commands.news→module:events.news",
       "source": "entry_point:commands.news",
       "target": "module:events.news",
       "kind": "import",
@@ -39740,7 +40018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2667:entry_point:commands.news→module:events.disclosures",
+      "id": "e2670:entry_point:commands.news→module:events.disclosures",
       "source": "entry_point:commands.news",
       "target": "module:events.disclosures",
       "kind": "import",
@@ -39748,7 +40026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2668:entry_point:commands.news→module:events.disclosures",
+      "id": "e2671:entry_point:commands.news→module:events.disclosures",
       "source": "entry_point:commands.news",
       "target": "module:events.disclosures",
       "kind": "import",
@@ -39756,7 +40034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2669:entry_point:commands.paper→module:logging_config.__init__",
+      "id": "e2672:entry_point:commands.paper→module:logging_config.__init__",
       "source": "entry_point:commands.paper",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39764,7 +40042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2670:entry_point:commands.paper→module:logging_config.__init__",
+      "id": "e2673:entry_point:commands.paper→module:logging_config.__init__",
       "source": "entry_point:commands.paper",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39772,7 +40050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2671:entry_point:commands.paper→module:logging_config.__init__",
+      "id": "e2674:entry_point:commands.paper→module:logging_config.__init__",
       "source": "entry_point:commands.paper",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39780,36 +40058,12 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2672:entry_point:commands.paper→module:data.prices_ingest",
+      "id": "e2675:entry_point:commands.paper→module:data.prices_ingest",
       "source": "entry_point:commands.paper",
       "target": "module:data.prices_ingest",
       "kind": "import",
       "weight": 1,
       "circular": false
-    },
-    {
-      "id": "e2673:entry_point:commands.paper→module:data.prices_ingest",
-      "source": "entry_point:commands.paper",
-      "target": "module:data.prices_ingest",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2674:entry_point:commands.paper→module:ops.paper_runner",
-      "source": "entry_point:commands.paper",
-      "target": "module:ops.paper_runner",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
-    },
-    {
-      "id": "e2675:entry_point:commands.paper→module:ops.paper_runner",
-      "source": "entry_point:commands.paper",
-      "target": "module:ops.paper_runner",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
     },
     {
       "id": "e2676:entry_point:commands.paper→module:data.prices_ingest",
@@ -39820,12 +40074,12 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2677:entry_point:commands.paper→module:data.prices_ingest",
+      "id": "e2677:entry_point:commands.paper→module:ops.paper_runner",
       "source": "entry_point:commands.paper",
-      "target": "module:data.prices_ingest",
+      "target": "module:ops.paper_runner",
       "kind": "import",
       "weight": 1,
-      "circular": false
+      "circular": true
     },
     {
       "id": "e2678:entry_point:commands.paper→module:ops.paper_runner",
@@ -39836,7 +40090,23 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2679:entry_point:commands.paper→module:ops.paper_runner",
+      "id": "e2679:entry_point:commands.paper→module:data.prices_ingest",
+      "source": "entry_point:commands.paper",
+      "target": "module:data.prices_ingest",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2680:entry_point:commands.paper→module:data.prices_ingest",
+      "source": "entry_point:commands.paper",
+      "target": "module:data.prices_ingest",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2681:entry_point:commands.paper→module:ops.paper_runner",
       "source": "entry_point:commands.paper",
       "target": "module:ops.paper_runner",
       "kind": "import",
@@ -39844,7 +40114,15 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2680:entry_point:commands.paper→module:ops.paper_summary",
+      "id": "e2682:entry_point:commands.paper→module:ops.paper_runner",
+      "source": "entry_point:commands.paper",
+      "target": "module:ops.paper_runner",
+      "kind": "import",
+      "weight": 1,
+      "circular": true
+    },
+    {
+      "id": "e2683:entry_point:commands.paper→module:ops.paper_summary",
       "source": "entry_point:commands.paper",
       "target": "module:ops.paper_summary",
       "kind": "import",
@@ -39852,7 +40130,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2681:entry_point:commands.paper→module:ops.paper_summary",
+      "id": "e2684:entry_point:commands.paper→module:ops.paper_summary",
       "source": "entry_point:commands.paper",
       "target": "module:ops.paper_summary",
       "kind": "import",
@@ -39860,7 +40138,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2682:entry_point:commands.paper→module:ops.paper_summary",
+      "id": "e2685:entry_point:commands.paper→module:ops.paper_summary",
       "source": "entry_point:commands.paper",
       "target": "module:ops.paper_summary",
       "kind": "import",
@@ -39868,7 +40146,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2683:entry_point:commands.paper→module:ops.experiment_runner",
+      "id": "e2686:entry_point:commands.paper→module:ops.experiment_runner",
       "source": "entry_point:commands.paper",
       "target": "module:ops.experiment_runner",
       "kind": "import",
@@ -39876,7 +40154,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2684:entry_point:commands.paper→module:ops.experiment_runner",
+      "id": "e2687:entry_point:commands.paper→module:ops.experiment_runner",
       "source": "entry_point:commands.paper",
       "target": "module:ops.experiment_runner",
       "kind": "import",
@@ -39884,7 +40162,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2685:entry_point:commands.paper→module:ops.compare",
+      "id": "e2688:entry_point:commands.paper→module:ops.compare",
       "source": "entry_point:commands.paper",
       "target": "module:ops.compare",
       "kind": "import",
@@ -39892,7 +40170,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2686:entry_point:commands.paper→module:ops.compare",
+      "id": "e2689:entry_point:commands.paper→module:ops.compare",
       "source": "entry_point:commands.paper",
       "target": "module:ops.compare",
       "kind": "import",
@@ -39900,7 +40178,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2687:entry_point:commands.paper→module:ops.intel_activity_summary",
+      "id": "e2690:entry_point:commands.paper→module:ops.intel_activity_summary",
       "source": "entry_point:commands.paper",
       "target": "module:ops.intel_activity_summary",
       "kind": "import",
@@ -39908,7 +40186,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2688:entry_point:commands.paper→module:ops.intel_activity_summary",
+      "id": "e2691:entry_point:commands.paper→module:ops.intel_activity_summary",
       "source": "entry_point:commands.paper",
       "target": "module:ops.intel_activity_summary",
       "kind": "import",
@@ -39916,7 +40194,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2689:entry_point:commands.paper→module:data.prices_ingest",
+      "id": "e2692:entry_point:commands.paper→module:data.prices_ingest",
       "source": "entry_point:commands.paper",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -39924,7 +40202,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2690:entry_point:commands.paper→module:data.prices_ingest",
+      "id": "e2693:entry_point:commands.paper→module:data.prices_ingest",
       "source": "entry_point:commands.paper",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -39932,7 +40210,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2691:entry_point:commands.paper→module:ops.inspect_data",
+      "id": "e2694:entry_point:commands.paper→module:ops.inspect_data",
       "source": "entry_point:commands.paper",
       "target": "module:ops.inspect_data",
       "kind": "import",
@@ -39940,7 +40218,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2692:entry_point:commands.paper→module:ops.inspect_data",
+      "id": "e2695:entry_point:commands.paper→module:ops.inspect_data",
       "source": "entry_point:commands.paper",
       "target": "module:ops.inspect_data",
       "kind": "import",
@@ -39948,7 +40226,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2693:entry_point:commands.run_daily→module:config.settings",
+      "id": "e2696:entry_point:commands.run_daily→module:config.settings",
       "source": "entry_point:commands.run_daily",
       "target": "module:config.settings",
       "kind": "import",
@@ -39956,7 +40234,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2694:entry_point:commands.run_daily→module:config.settings",
+      "id": "e2697:entry_point:commands.run_daily→module:config.settings",
       "source": "entry_point:commands.run_daily",
       "target": "module:config.settings",
       "kind": "import",
@@ -39964,7 +40242,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2695:entry_point:commands.run_daily→module:logging_config.__init__",
+      "id": "e2698:entry_point:commands.run_daily→module:logging_config.__init__",
       "source": "entry_point:commands.run_daily",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39972,7 +40250,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2696:entry_point:commands.run_daily→module:logging_config.__init__",
+      "id": "e2699:entry_point:commands.run_daily→module:logging_config.__init__",
       "source": "entry_point:commands.run_daily",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39980,7 +40258,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2697:entry_point:commands.run_daily→module:logging_config.__init__",
+      "id": "e2700:entry_point:commands.run_daily→module:logging_config.__init__",
       "source": "entry_point:commands.run_daily",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -39988,33 +40266,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2698:entry_point:commands.run_daily→module:config.settings",
+      "id": "e2701:entry_point:commands.run_daily→module:config.settings",
       "source": "entry_point:commands.run_daily",
       "target": "module:config.settings",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2699:entry_point:commands.run_daily→module:config.settings",
-      "source": "entry_point:commands.run_daily",
-      "target": "module:config.settings",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2700:entry_point:commands.run_daily→module:qa.experiment_tracking",
-      "source": "entry_point:commands.run_daily",
-      "target": "module:qa.experiment_tracking",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2701:entry_point:commands.run_daily→module:qa.experiment_tracking",
-      "source": "entry_point:commands.run_daily",
-      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40028,9 +40282,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2703:entry_point:commands.run_daily→module:config.settings",
+      "id": "e2703:entry_point:commands.run_daily→module:qa.experiment_tracking",
       "source": "entry_point:commands.run_daily",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40044,9 +40298,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2705:entry_point:commands.run_daily→module:qa.experiment_tracking",
+      "id": "e2705:entry_point:commands.run_daily→module:config.settings",
       "source": "entry_point:commands.run_daily",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:config.settings",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40060,9 +40314,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2707:entry_point:commands.run_daily→module:config.settings",
+      "id": "e2707:entry_point:commands.run_daily→module:qa.experiment_tracking",
       "source": "entry_point:commands.run_daily",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40076,9 +40330,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2709:entry_point:commands.run_daily→module:qa.experiment_tracking",
+      "id": "e2709:entry_point:commands.run_daily→module:config.settings",
       "source": "entry_point:commands.run_daily",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:config.settings",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40092,9 +40346,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2711:entry_point:commands.run_daily→module:config.settings",
+      "id": "e2711:entry_point:commands.run_daily→module:qa.experiment_tracking",
       "source": "entry_point:commands.run_daily",
-      "target": "module:config.settings",
+      "target": "module:qa.experiment_tracking",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40108,7 +40362,23 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2713:entry_point:commands.run_daily→module:qa.experiment_tracking",
+      "id": "e2713:entry_point:commands.run_daily→module:config.settings",
+      "source": "entry_point:commands.run_daily",
+      "target": "module:config.settings",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2714:entry_point:commands.run_daily→module:config.settings",
+      "source": "entry_point:commands.run_daily",
+      "target": "module:config.settings",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2715:entry_point:commands.run_daily→module:qa.experiment_tracking",
       "source": "entry_point:commands.run_daily",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -40116,7 +40386,15 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2714:entry_point:compare_strategies_trend_vs_event→module:config.__init__",
+      "id": "e2716:entry_point:commands.run_daily→module:qa.experiment_tracking",
+      "source": "entry_point:commands.run_daily",
+      "target": "module:qa.experiment_tracking",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2717:entry_point:compare_strategies_trend_vs_event→module:config.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:config.__init__",
       "kind": "import",
@@ -40124,7 +40402,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2715:entry_point:compare_strategies_trend_vs_event→module:config.__init__",
+      "id": "e2718:entry_point:compare_strategies_trend_vs_event→module:config.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:config.__init__",
       "kind": "import",
@@ -40132,7 +40410,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2716:entry_point:compare_strategies_trend_vs_event→module:config.__init__",
+      "id": "e2719:entry_point:compare_strategies_trend_vs_event→module:config.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:config.__init__",
       "kind": "import",
@@ -40140,7 +40418,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2717:entry_point:compare_strategies_trend_vs_event→module:costs.__init__",
+      "id": "e2720:entry_point:compare_strategies_trend_vs_event→module:costs.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -40148,7 +40426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2718:entry_point:compare_strategies_trend_vs_event→module:costs.__init__",
+      "id": "e2721:entry_point:compare_strategies_trend_vs_event→module:costs.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -40156,7 +40434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2719:entry_point:compare_strategies_trend_vs_event→module:costs.__init__",
+      "id": "e2722:entry_point:compare_strategies_trend_vs_event→module:costs.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -40164,7 +40442,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2720:entry_point:compare_strategies_trend_vs_event→module:data.prices_ingest",
+      "id": "e2723:entry_point:compare_strategies_trend_vs_event→module:data.prices_ingest",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -40172,7 +40450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2721:entry_point:compare_strategies_trend_vs_event→module:data.prices_ingest",
+      "id": "e2724:entry_point:compare_strategies_trend_vs_event→module:data.prices_ingest",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -40180,7 +40458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2722:entry_point:compare_strategies_trend_vs_event→module:ema_config.__init__",
+      "id": "e2725:entry_point:compare_strategies_trend_vs_event→module:ema_config.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -40188,7 +40466,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2723:entry_point:compare_strategies_trend_vs_event→module:ema_config.__init__",
+      "id": "e2726:entry_point:compare_strategies_trend_vs_event→module:ema_config.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -40196,7 +40474,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2724:entry_point:compare_strategies_trend_vs_event→module:logging_utils.__init__",
+      "id": "e2727:entry_point:compare_strategies_trend_vs_event→module:logging_utils.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -40204,7 +40482,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2725:entry_point:compare_strategies_trend_vs_event→module:logging_utils.__init__",
+      "id": "e2728:entry_point:compare_strategies_trend_vs_event→module:logging_utils.__init__",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -40212,7 +40490,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2726:entry_point:compare_strategies_trend_vs_event→module:qa.backtest_engine",
+      "id": "e2729:entry_point:compare_strategies_trend_vs_event→module:qa.backtest_engine",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -40220,7 +40498,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2727:entry_point:compare_strategies_trend_vs_event→module:qa.backtest_engine",
+      "id": "e2730:entry_point:compare_strategies_trend_vs_event→module:qa.backtest_engine",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -40228,7 +40506,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2728:entry_point:compare_strategies_trend_vs_event→module:qa.backtest_engine",
+      "id": "e2731:entry_point:compare_strategies_trend_vs_event→module:qa.backtest_engine",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -40236,7 +40514,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2729:entry_point:compare_strategies_trend_vs_event→module:qa.metrics",
+      "id": "e2732:entry_point:compare_strategies_trend_vs_event→module:qa.metrics",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -40244,7 +40522,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2730:entry_point:compare_strategies_trend_vs_event→module:qa.metrics",
+      "id": "e2733:entry_point:compare_strategies_trend_vs_event→module:qa.metrics",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -40252,7 +40530,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2731:entry_point:compare_strategies_trend_vs_event→module:qa.metrics",
+      "id": "e2734:entry_point:compare_strategies_trend_vs_event→module:qa.metrics",
       "source": "entry_point:compare_strategies_trend_vs_event",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -40260,7 +40538,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2732:entry_point:comparison.paper_trade_v1_v2→module:strategies.ema_trend_v0",
+      "id": "e2735:entry_point:comparison.paper_trade_v1_v2→module:strategies.ema_trend_v0",
       "source": "entry_point:comparison.paper_trade_v1_v2",
       "target": "module:strategies.ema_trend_v0",
       "kind": "import",
@@ -40268,7 +40546,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2733:entry_point:comparison.paper_trade_v1_v2→module:strategies.ema_trend_v0",
+      "id": "e2736:entry_point:comparison.paper_trade_v1_v2→module:strategies.ema_trend_v0",
       "source": "entry_point:comparison.paper_trade_v1_v2",
       "target": "module:strategies.ema_trend_v0",
       "kind": "import",
@@ -40276,7 +40554,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2734:entry_point:comparison.paper_trade_v1_v2→module:strategies.multifactor_v2",
+      "id": "e2737:entry_point:comparison.paper_trade_v1_v2→module:strategies.multifactor_v2",
       "source": "entry_point:comparison.paper_trade_v1_v2",
       "target": "module:strategies.multifactor_v2",
       "kind": "import",
@@ -40284,7 +40562,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2735:entry_point:comparison.paper_trade_v1_v2→module:strategies.multifactor_v2",
+      "id": "e2738:entry_point:comparison.paper_trade_v1_v2→module:strategies.multifactor_v2",
       "source": "entry_point:comparison.paper_trade_v1_v2",
       "target": "module:strategies.multifactor_v2",
       "kind": "import",
@@ -40292,7 +40570,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2736:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.ema_trend_v0",
+      "id": "e2739:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.ema_trend_v0",
       "source": "entry_point:comparison.parallel_backtest_v1_v2",
       "target": "module:strategies.ema_trend_v0",
       "kind": "import",
@@ -40300,7 +40578,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2737:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.ema_trend_v0",
+      "id": "e2740:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.ema_trend_v0",
       "source": "entry_point:comparison.parallel_backtest_v1_v2",
       "target": "module:strategies.ema_trend_v0",
       "kind": "import",
@@ -40308,7 +40586,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2738:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.multifactor_v2",
+      "id": "e2741:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.multifactor_v2",
       "source": "entry_point:comparison.parallel_backtest_v1_v2",
       "target": "module:strategies.multifactor_v2",
       "kind": "import",
@@ -40316,33 +40594,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2739:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.multifactor_v2",
+      "id": "e2742:entry_point:comparison.parallel_backtest_v1_v2→module:strategies.multifactor_v2",
       "source": "entry_point:comparison.parallel_backtest_v1_v2",
       "target": "module:strategies.multifactor_v2",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2740:entry_point:comparison.parallel_backtest_v1_v2→module:features.ta_features",
-      "source": "entry_point:comparison.parallel_backtest_v1_v2",
-      "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2741:entry_point:comparison.parallel_backtest_v1_v2→module:features.ta_features",
-      "source": "entry_point:comparison.parallel_backtest_v1_v2",
-      "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2742:entry_point:comparison.parallel_backtest_v1_v2→module:features.ta_features",
-      "source": "entry_point:comparison.parallel_backtest_v1_v2",
-      "target": "module:features.ta_features",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40356,7 +40610,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2744:entry_point:compute_signal_decay_profile→module:qa.signal_decay",
+      "id": "e2744:entry_point:comparison.parallel_backtest_v1_v2→module:features.ta_features",
+      "source": "entry_point:comparison.parallel_backtest_v1_v2",
+      "target": "module:features.ta_features",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2745:entry_point:comparison.parallel_backtest_v1_v2→module:features.ta_features",
+      "source": "entry_point:comparison.parallel_backtest_v1_v2",
+      "target": "module:features.ta_features",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2746:entry_point:comparison.parallel_backtest_v1_v2→module:features.ta_features",
+      "source": "entry_point:comparison.parallel_backtest_v1_v2",
+      "target": "module:features.ta_features",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2747:entry_point:compute_signal_decay_profile→module:qa.signal_decay",
       "source": "entry_point:compute_signal_decay_profile",
       "target": "module:qa.signal_decay",
       "kind": "import",
@@ -40364,7 +40642,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2745:entry_point:compute_signal_decay_profile→module:qa.signal_decay",
+      "id": "e2748:entry_point:compute_signal_decay_profile→module:qa.signal_decay",
       "source": "entry_point:compute_signal_decay_profile",
       "target": "module:qa.signal_decay",
       "kind": "import",
@@ -40372,7 +40650,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2746:entry_point:compute_signal_decay_profile→module:qa.signal_decay",
+      "id": "e2749:entry_point:compute_signal_decay_profile→module:qa.signal_decay",
       "source": "entry_point:compute_signal_decay_profile",
       "target": "module:qa.signal_decay",
       "kind": "import",
@@ -40380,7 +40658,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2747:entry_point:convert_rss_events_to_sentiment→module:intel.news_classifier",
+      "id": "e2750:entry_point:convert_rss_events_to_sentiment→module:intel.news_classifier",
       "source": "entry_point:convert_rss_events_to_sentiment",
       "target": "module:intel.news_classifier",
       "kind": "import",
@@ -40388,7 +40666,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2748:entry_point:convert_rss_events_to_sentiment→module:intel.news_classifier",
+      "id": "e2751:entry_point:convert_rss_events_to_sentiment→module:intel.news_classifier",
       "source": "entry_point:convert_rss_events_to_sentiment",
       "target": "module:intel.news_classifier",
       "kind": "import",
@@ -40396,7 +40674,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2749:entry_point:daily_decision_log→module:ops.audit_trail",
+      "id": "e2752:entry_point:daily_decision_log→module:ops.audit_trail",
       "source": "entry_point:daily_decision_log",
       "target": "module:ops.audit_trail",
       "kind": "import",
@@ -40404,7 +40682,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2750:entry_point:daily_decision_log→module:ops.audit_trail",
+      "id": "e2753:entry_point:daily_decision_log→module:ops.audit_trail",
       "source": "entry_point:daily_decision_log",
       "target": "module:ops.audit_trail",
       "kind": "import",
@@ -40412,7 +40690,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2751:entry_point:debug_event_signals→module:signals.rules_event_insider_shipping",
+      "id": "e2754:entry_point:debug_event_signals→module:signals.rules_event_insider_shipping",
       "source": "entry_point:debug_event_signals",
       "target": "module:signals.rules_event_insider_shipping",
       "kind": "import",
@@ -40420,7 +40698,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2752:entry_point:debug_event_signals→module:signals.rules_event_insider_shipping",
+      "id": "e2755:entry_point:debug_event_signals→module:signals.rules_event_insider_shipping",
       "source": "entry_point:debug_event_signals",
       "target": "module:signals.rules_event_insider_shipping",
       "kind": "import",
@@ -40428,7 +40706,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2753:entry_point:dev.analyze_backtest_results→module:qa.metrics",
+      "id": "e2756:entry_point:dev.analyze_backtest_results→module:qa.metrics",
       "source": "entry_point:dev.analyze_backtest_results",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -40436,7 +40714,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2754:entry_point:dev.analyze_backtest_results→module:qa.metrics",
+      "id": "e2757:entry_point:dev.analyze_backtest_results→module:qa.metrics",
       "source": "entry_point:dev.analyze_backtest_results",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -40444,7 +40722,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2755:entry_point:dev.bench_event_features_vectorized→module:features.event_features",
+      "id": "e2758:entry_point:dev.bench_event_features_vectorized→module:features.event_features",
       "source": "entry_point:dev.bench_event_features_vectorized",
       "target": "module:features.event_features",
       "kind": "import",
@@ -40452,7 +40730,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2756:entry_point:dev.bench_event_features_vectorized→module:features.event_features",
+      "id": "e2759:entry_point:dev.bench_event_features_vectorized→module:features.event_features",
       "source": "entry_point:dev.bench_event_features_vectorized",
       "target": "module:features.event_features",
       "kind": "import",
@@ -40460,7 +40738,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2757:entry_point:dev.bench_event_features_vectorized→module:features.event_features",
+      "id": "e2760:entry_point:dev.bench_event_features_vectorized→module:features.event_features",
       "source": "entry_point:dev.bench_event_features_vectorized",
       "target": "module:features.event_features",
       "kind": "import",
@@ -40468,7 +40746,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2758:entry_point:dev.create_sample_eod_data→module:config.__init__",
+      "id": "e2761:entry_point:dev.create_sample_eod_data→module:config.__init__",
       "source": "entry_point:dev.create_sample_eod_data",
       "target": "module:config.__init__",
       "kind": "import",
@@ -40476,7 +40754,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2759:entry_point:dev.create_sample_eod_data→module:config.__init__",
+      "id": "e2762:entry_point:dev.create_sample_eod_data→module:config.__init__",
       "source": "entry_point:dev.create_sample_eod_data",
       "target": "module:config.__init__",
       "kind": "import",
@@ -40484,7 +40762,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2760:entry_point:dev.run_full_system_backtests→module:signals.rules_trend",
+      "id": "e2763:entry_point:dev.run_full_system_backtests→module:signals.rules_trend",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -40492,7 +40770,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2761:entry_point:dev.run_full_system_backtests→module:signals.rules_trend",
+      "id": "e2764:entry_point:dev.run_full_system_backtests→module:signals.rules_trend",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -40500,7 +40778,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2762:entry_point:dev.run_full_system_backtests→module:portfolio.position_sizing",
+      "id": "e2765:entry_point:dev.run_full_system_backtests→module:portfolio.position_sizing",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -40508,7 +40786,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2763:entry_point:dev.run_full_system_backtests→module:portfolio.position_sizing",
+      "id": "e2766:entry_point:dev.run_full_system_backtests→module:portfolio.position_sizing",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -40516,7 +40794,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2764:entry_point:dev.run_full_system_backtests→module:qa.backtest_engine",
+      "id": "e2767:entry_point:dev.run_full_system_backtests→module:qa.backtest_engine",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -40524,7 +40802,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2765:entry_point:dev.run_full_system_backtests→module:qa.backtest_engine",
+      "id": "e2768:entry_point:dev.run_full_system_backtests→module:qa.backtest_engine",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -40532,7 +40810,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2766:entry_point:dev.run_full_system_backtests→module:qa.metrics",
+      "id": "e2769:entry_point:dev.run_full_system_backtests→module:qa.metrics",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -40540,7 +40818,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2767:entry_point:dev.run_full_system_backtests→module:qa.metrics",
+      "id": "e2770:entry_point:dev.run_full_system_backtests→module:qa.metrics",
       "source": "entry_point:dev.run_full_system_backtests",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -40548,7 +40826,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2770:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.context",
+      "id": "e2773:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.context",
       "source": "entry_point:dev.validate_crisis_alpha_covid2020",
       "target": "module:events.crisis_alpha.context",
       "kind": "import",
@@ -40556,7 +40834,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2771:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.context",
+      "id": "e2774:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.context",
       "source": "entry_point:dev.validate_crisis_alpha_covid2020",
       "target": "module:events.crisis_alpha.context",
       "kind": "import",
@@ -40564,7 +40842,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2772:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.state_machine",
+      "id": "e2775:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.state_machine",
       "source": "entry_point:dev.validate_crisis_alpha_covid2020",
       "target": "module:events.crisis_alpha.state_machine",
       "kind": "import",
@@ -40572,7 +40850,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2773:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.state_machine",
+      "id": "e2776:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.state_machine",
       "source": "entry_point:dev.validate_crisis_alpha_covid2020",
       "target": "module:events.crisis_alpha.state_machine",
       "kind": "import",
@@ -40580,7 +40858,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2774:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.state_machine",
+      "id": "e2777:entry_point:dev.validate_crisis_alpha_covid2020→module:events.crisis_alpha.state_machine",
       "source": "entry_point:dev.validate_crisis_alpha_covid2020",
       "target": "module:events.crisis_alpha.state_machine",
       "kind": "import",
@@ -40588,7 +40866,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2775:entry_point:download_altdata_finnhub_events→module:config.settings",
+      "id": "e2778:entry_point:download_altdata_finnhub_events→module:config.settings",
       "source": "entry_point:download_altdata_finnhub_events",
       "target": "module:config.settings",
       "kind": "import",
@@ -40596,7 +40874,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2776:entry_point:download_altdata_finnhub_events→module:config.settings",
+      "id": "e2779:entry_point:download_altdata_finnhub_events→module:config.settings",
       "source": "entry_point:download_altdata_finnhub_events",
       "target": "module:config.settings",
       "kind": "import",
@@ -40604,7 +40882,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2777:entry_point:download_altdata_finnhub_events→module:data.altdata.finnhub_events",
+      "id": "e2780:entry_point:download_altdata_finnhub_events→module:data.altdata.finnhub_events",
       "source": "entry_point:download_altdata_finnhub_events",
       "target": "module:data.altdata.finnhub_events",
       "kind": "import",
@@ -40612,7 +40890,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2778:entry_point:download_altdata_finnhub_events→module:data.altdata.finnhub_events",
+      "id": "e2781:entry_point:download_altdata_finnhub_events→module:data.altdata.finnhub_events",
       "source": "entry_point:download_altdata_finnhub_events",
       "target": "module:data.altdata.finnhub_events",
       "kind": "import",
@@ -40620,7 +40898,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2779:entry_point:download_altdata_finnhub_events→module:data.altdata.finnhub_events",
+      "id": "e2782:entry_point:download_altdata_finnhub_events→module:data.altdata.finnhub_events",
       "source": "entry_point:download_altdata_finnhub_events",
       "target": "module:data.altdata.finnhub_events",
       "kind": "import",
@@ -40628,7 +40906,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2780:entry_point:download_altdata_finnhub_news_macro→module:config.settings",
+      "id": "e2783:entry_point:download_altdata_finnhub_news_macro→module:config.settings",
       "source": "entry_point:download_altdata_finnhub_news_macro",
       "target": "module:config.settings",
       "kind": "import",
@@ -40636,33 +40914,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2781:entry_point:download_altdata_finnhub_news_macro→module:config.settings",
+      "id": "e2784:entry_point:download_altdata_finnhub_news_macro→module:config.settings",
       "source": "entry_point:download_altdata_finnhub_news_macro",
       "target": "module:config.settings",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2782:entry_point:download_altdata_finnhub_news_macro→module:data.altdata.finnhub_news_macro",
-      "source": "entry_point:download_altdata_finnhub_news_macro",
-      "target": "module:data.altdata.finnhub_news_macro",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2783:entry_point:download_altdata_finnhub_news_macro→module:data.altdata.finnhub_news_macro",
-      "source": "entry_point:download_altdata_finnhub_news_macro",
-      "target": "module:data.altdata.finnhub_news_macro",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2784:entry_point:download_altdata_finnhub_news_macro→module:data.altdata.finnhub_news_macro",
-      "source": "entry_point:download_altdata_finnhub_news_macro",
-      "target": "module:data.altdata.finnhub_news_macro",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40676,7 +40930,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2786:entry_point:download_master_universe_data→module:data.master_universe_loader",
+      "id": "e2786:entry_point:download_altdata_finnhub_news_macro→module:data.altdata.finnhub_news_macro",
+      "source": "entry_point:download_altdata_finnhub_news_macro",
+      "target": "module:data.altdata.finnhub_news_macro",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2787:entry_point:download_altdata_finnhub_news_macro→module:data.altdata.finnhub_news_macro",
+      "source": "entry_point:download_altdata_finnhub_news_macro",
+      "target": "module:data.altdata.finnhub_news_macro",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2788:entry_point:download_altdata_finnhub_news_macro→module:data.altdata.finnhub_news_macro",
+      "source": "entry_point:download_altdata_finnhub_news_macro",
+      "target": "module:data.altdata.finnhub_news_macro",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2789:entry_point:download_master_universe_data→module:data.master_universe_loader",
       "source": "entry_point:download_master_universe_data",
       "target": "module:data.master_universe_loader",
       "kind": "import",
@@ -40684,33 +40962,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2787:entry_point:download_master_universe_data→module:data.master_universe_loader",
+      "id": "e2790:entry_point:download_master_universe_data→module:data.master_universe_loader",
       "source": "entry_point:download_master_universe_data",
       "target": "module:data.master_universe_loader",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2788:entry_point:drills.drill_kill_switch→module:execution.kill_switch",
-      "source": "entry_point:drills.drill_kill_switch",
-      "target": "module:execution.kill_switch",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2789:entry_point:drills.drill_kill_switch→module:execution.kill_switch",
-      "source": "entry_point:drills.drill_kill_switch",
-      "target": "module:execution.kill_switch",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2790:entry_point:drills.drill_kill_switch→module:execution.kill_switch",
-      "source": "entry_point:drills.drill_kill_switch",
-      "target": "module:execution.kill_switch",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40724,7 +40978,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2793:entry_point:export_evidence_pack→module:accounting.evidence_pack",
+      "id": "e2792:entry_point:drills.drill_kill_switch→module:execution.kill_switch",
+      "source": "entry_point:drills.drill_kill_switch",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2793:entry_point:drills.drill_kill_switch→module:execution.kill_switch",
+      "source": "entry_point:drills.drill_kill_switch",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2794:entry_point:drills.drill_kill_switch→module:execution.kill_switch",
+      "source": "entry_point:drills.drill_kill_switch",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2796:entry_point:export_evidence_pack→module:accounting.evidence_pack",
       "source": "entry_point:export_evidence_pack",
       "target": "module:accounting.evidence_pack",
       "kind": "import",
@@ -40732,7 +41010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2794:entry_point:export_evidence_pack→module:accounting.evidence_pack",
+      "id": "e2797:entry_point:export_evidence_pack→module:accounting.evidence_pack",
       "source": "entry_point:export_evidence_pack",
       "target": "module:accounting.evidence_pack",
       "kind": "import",
@@ -40740,7 +41018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2795:entry_point:export_evidence_pack→module:accounting.evidence_pack",
+      "id": "e2798:entry_point:export_evidence_pack→module:accounting.evidence_pack",
       "source": "entry_point:export_evidence_pack",
       "target": "module:accounting.evidence_pack",
       "kind": "import",
@@ -40748,7 +41026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2796:entry_point:export_evidence_pack→module:config.__init__",
+      "id": "e2799:entry_point:export_evidence_pack→module:config.__init__",
       "source": "entry_point:export_evidence_pack",
       "target": "module:config.__init__",
       "kind": "import",
@@ -40756,7 +41034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2797:entry_point:export_evidence_pack→module:config.__init__",
+      "id": "e2800:entry_point:export_evidence_pack→module:config.__init__",
       "source": "entry_point:export_evidence_pack",
       "target": "module:config.__init__",
       "kind": "import",
@@ -40764,7 +41042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2798:entry_point:export_evidence_pack→module:logging_utils.__init__",
+      "id": "e2801:entry_point:export_evidence_pack→module:logging_utils.__init__",
       "source": "entry_point:export_evidence_pack",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -40772,7 +41050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2799:entry_point:export_evidence_pack→module:logging_utils.__init__",
+      "id": "e2802:entry_point:export_evidence_pack→module:logging_utils.__init__",
       "source": "entry_point:export_evidence_pack",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -40780,7 +41058,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2800:entry_point:fetch_earnings_calendar→module:data.sources.earnings_calendar_source",
+      "id": "e2803:entry_point:fetch_earnings_calendar→module:data.sources.earnings_calendar_source",
       "source": "entry_point:fetch_earnings_calendar",
       "target": "module:data.sources.earnings_calendar_source",
       "kind": "import",
@@ -40788,7 +41066,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2801:entry_point:fetch_earnings_calendar→module:data.sources.earnings_calendar_source",
+      "id": "e2804:entry_point:fetch_earnings_calendar→module:data.sources.earnings_calendar_source",
       "source": "entry_point:fetch_earnings_calendar",
       "target": "module:data.sources.earnings_calendar_source",
       "kind": "import",
@@ -40796,7 +41074,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2802:entry_point:fetch_news_alphavantage→module:data.master_universe_loader",
+      "id": "e2805:entry_point:fetch_news_alphavantage→module:data.master_universe_loader",
       "source": "entry_point:fetch_news_alphavantage",
       "target": "module:data.master_universe_loader",
       "kind": "import",
@@ -40804,7 +41082,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2803:entry_point:fetch_news_alphavantage→module:data.master_universe_loader",
+      "id": "e2806:entry_point:fetch_news_alphavantage→module:data.master_universe_loader",
       "source": "entry_point:fetch_news_alphavantage",
       "target": "module:data.master_universe_loader",
       "kind": "import",
@@ -40812,7 +41090,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2804:entry_point:fetch_news_newsapi→module:data.master_universe_loader",
+      "id": "e2807:entry_point:fetch_news_newsapi→module:data.master_universe_loader",
       "source": "entry_point:fetch_news_newsapi",
       "target": "module:data.master_universe_loader",
       "kind": "import",
@@ -40820,7 +41098,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2805:entry_point:fetch_news_newsapi→module:data.master_universe_loader",
+      "id": "e2808:entry_point:fetch_news_newsapi→module:data.master_universe_loader",
       "source": "entry_point:fetch_news_newsapi",
       "target": "module:data.master_universe_loader",
       "kind": "import",
@@ -40828,7 +41106,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2806:entry_point:fetch_news_polygon→module:data.master_universe_loader",
+      "id": "e2809:entry_point:fetch_news_polygon→module:data.master_universe_loader",
       "source": "entry_point:fetch_news_polygon",
       "target": "module:data.master_universe_loader",
       "kind": "import",
@@ -40836,33 +41114,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2807:entry_point:fetch_news_polygon→module:data.master_universe_loader",
+      "id": "e2810:entry_point:fetch_news_polygon→module:data.master_universe_loader",
       "source": "entry_point:fetch_news_polygon",
       "target": "module:data.master_universe_loader",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2808:entry_point:forensic.equity_curve_audit→module:qa.metrics",
-      "source": "entry_point:forensic.equity_curve_audit",
-      "target": "module:qa.metrics",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2809:entry_point:forensic.equity_curve_audit→module:qa.metrics",
-      "source": "entry_point:forensic.equity_curve_audit",
-      "target": "module:qa.metrics",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2810:entry_point:forensic.equity_curve_audit→module:qa.metrics",
-      "source": "entry_point:forensic.equity_curve_audit",
-      "target": "module:qa.metrics",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -40876,7 +41130,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2812:entry_point:forensic.equity_curve_audit→module:risk.monte_carlo",
+      "id": "e2812:entry_point:forensic.equity_curve_audit→module:qa.metrics",
+      "source": "entry_point:forensic.equity_curve_audit",
+      "target": "module:qa.metrics",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2813:entry_point:forensic.equity_curve_audit→module:qa.metrics",
+      "source": "entry_point:forensic.equity_curve_audit",
+      "target": "module:qa.metrics",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2814:entry_point:forensic.equity_curve_audit→module:qa.metrics",
+      "source": "entry_point:forensic.equity_curve_audit",
+      "target": "module:qa.metrics",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2815:entry_point:forensic.equity_curve_audit→module:risk.monte_carlo",
       "source": "entry_point:forensic.equity_curve_audit",
       "target": "module:risk.monte_carlo",
       "kind": "import",
@@ -40884,7 +41162,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2813:entry_point:forensic.equity_curve_audit→module:risk.monte_carlo",
+      "id": "e2816:entry_point:forensic.equity_curve_audit→module:risk.monte_carlo",
       "source": "entry_point:forensic.equity_curve_audit",
       "target": "module:risk.monte_carlo",
       "kind": "import",
@@ -40892,7 +41170,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2814:entry_point:generate_daily_qa_report→module:qa.bayesian_metrics",
+      "id": "e2817:entry_point:generate_daily_qa_report→module:qa.bayesian_metrics",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:qa.bayesian_metrics",
       "kind": "import",
@@ -40900,7 +41178,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2815:entry_point:generate_daily_qa_report→module:qa.bayesian_metrics",
+      "id": "e2818:entry_point:generate_daily_qa_report→module:qa.bayesian_metrics",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:qa.bayesian_metrics",
       "kind": "import",
@@ -40908,7 +41186,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2816:entry_point:generate_daily_qa_report→module:qa.bayesian_metrics",
+      "id": "e2819:entry_point:generate_daily_qa_report→module:qa.bayesian_metrics",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:qa.bayesian_metrics",
       "kind": "import",
@@ -40916,7 +41194,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2817:entry_point:generate_daily_qa_report→module:portfolio.strategy_allocator",
+      "id": "e2820:entry_point:generate_daily_qa_report→module:portfolio.strategy_allocator",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:portfolio.strategy_allocator",
       "kind": "import",
@@ -40924,7 +41202,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2818:entry_point:generate_daily_qa_report→module:portfolio.strategy_allocator",
+      "id": "e2821:entry_point:generate_daily_qa_report→module:portfolio.strategy_allocator",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:portfolio.strategy_allocator",
       "kind": "import",
@@ -40932,7 +41210,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2819:entry_point:generate_daily_qa_report→module:intel.news_rag",
+      "id": "e2822:entry_point:generate_daily_qa_report→module:intel.news_rag",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:intel.news_rag",
       "kind": "import",
@@ -40940,7 +41218,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2820:entry_point:generate_daily_qa_report→module:intel.news_rag",
+      "id": "e2823:entry_point:generate_daily_qa_report→module:intel.news_rag",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:intel.news_rag",
       "kind": "import",
@@ -40948,7 +41226,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2821:entry_point:generate_daily_qa_report→module:ml.differential_privacy",
+      "id": "e2824:entry_point:generate_daily_qa_report→module:ml.differential_privacy",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:ml.differential_privacy",
       "kind": "import",
@@ -40956,7 +41234,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2822:entry_point:generate_daily_qa_report→module:ml.differential_privacy",
+      "id": "e2825:entry_point:generate_daily_qa_report→module:ml.differential_privacy",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:ml.differential_privacy",
       "kind": "import",
@@ -40964,7 +41242,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2823:entry_point:generate_daily_qa_report→module:ml.differential_privacy",
+      "id": "e2826:entry_point:generate_daily_qa_report→module:ml.differential_privacy",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:ml.differential_privacy",
       "kind": "import",
@@ -40972,7 +41250,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2824:entry_point:generate_daily_qa_report→module:ops.trade_journal",
+      "id": "e2827:entry_point:generate_daily_qa_report→module:ops.trade_journal",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:ops.trade_journal",
       "kind": "import",
@@ -40980,7 +41258,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2825:entry_point:generate_daily_qa_report→module:ops.trade_journal",
+      "id": "e2828:entry_point:generate_daily_qa_report→module:ops.trade_journal",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:ops.trade_journal",
       "kind": "import",
@@ -40988,7 +41266,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2826:entry_point:generate_daily_qa_report→module:qa.sim_to_real_analyzer",
+      "id": "e2829:entry_point:generate_daily_qa_report→module:qa.sim_to_real_analyzer",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:qa.sim_to_real_analyzer",
       "kind": "import",
@@ -40996,7 +41274,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2827:entry_point:generate_daily_qa_report→module:qa.sim_to_real_analyzer",
+      "id": "e2830:entry_point:generate_daily_qa_report→module:qa.sim_to_real_analyzer",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:qa.sim_to_real_analyzer",
       "kind": "import",
@@ -41004,7 +41282,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2828:entry_point:generate_daily_qa_report→module:qa.sim_to_real_analyzer",
+      "id": "e2831:entry_point:generate_daily_qa_report→module:qa.sim_to_real_analyzer",
       "source": "entry_point:generate_daily_qa_report",
       "target": "module:qa.sim_to_real_analyzer",
       "kind": "import",
@@ -41012,7 +41290,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2829:entry_point:generate_risk_report→module:config.settings",
+      "id": "e2832:entry_point:generate_risk_report→module:config.settings",
       "source": "entry_point:generate_risk_report",
       "target": "module:config.settings",
       "kind": "import",
@@ -41020,7 +41298,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2830:entry_point:generate_risk_report→module:config.settings",
+      "id": "e2833:entry_point:generate_risk_report→module:config.settings",
       "source": "entry_point:generate_risk_report",
       "target": "module:config.settings",
       "kind": "import",
@@ -41028,7 +41306,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2831:entry_point:generate_risk_report→module:data.prices_ingest",
+      "id": "e2834:entry_point:generate_risk_report→module:data.prices_ingest",
       "source": "entry_point:generate_risk_report",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -41036,7 +41314,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2832:entry_point:generate_risk_report→module:data.prices_ingest",
+      "id": "e2835:entry_point:generate_risk_report→module:data.prices_ingest",
       "source": "entry_point:generate_risk_report",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -41044,7 +41322,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2833:entry_point:generate_risk_report→module:qa.metrics",
+      "id": "e2836:entry_point:generate_risk_report→module:qa.metrics",
       "source": "entry_point:generate_risk_report",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -41052,33 +41330,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2834:entry_point:generate_risk_report→module:qa.metrics",
+      "id": "e2837:entry_point:generate_risk_report→module:qa.metrics",
       "source": "entry_point:generate_risk_report",
       "target": "module:qa.metrics",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2835:entry_point:generate_risk_report→module:risk.factor_exposures",
-      "source": "entry_point:generate_risk_report",
-      "target": "module:risk.factor_exposures",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2836:entry_point:generate_risk_report→module:risk.factor_exposures",
-      "source": "entry_point:generate_risk_report",
-      "target": "module:risk.factor_exposures",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2837:entry_point:generate_risk_report→module:risk.factor_exposures",
-      "source": "entry_point:generate_risk_report",
-      "target": "module:risk.factor_exposures",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -41092,25 +41346,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2839:entry_point:generate_risk_report→module:risk.regime_analysis",
+      "id": "e2839:entry_point:generate_risk_report→module:risk.factor_exposures",
       "source": "entry_point:generate_risk_report",
-      "target": "module:risk.regime_analysis",
+      "target": "module:risk.factor_exposures",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2840:entry_point:generate_risk_report→module:risk.regime_analysis",
+      "id": "e2840:entry_point:generate_risk_report→module:risk.factor_exposures",
       "source": "entry_point:generate_risk_report",
-      "target": "module:risk.regime_analysis",
+      "target": "module:risk.factor_exposures",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2841:entry_point:generate_risk_report→module:risk.regime_analysis",
+      "id": "e2841:entry_point:generate_risk_report→module:risk.factor_exposures",
       "source": "entry_point:generate_risk_report",
-      "target": "module:risk.regime_analysis",
+      "target": "module:risk.factor_exposures",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -41124,25 +41378,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2843:entry_point:generate_risk_report→module:risk.risk_metrics",
+      "id": "e2843:entry_point:generate_risk_report→module:risk.regime_analysis",
       "source": "entry_point:generate_risk_report",
-      "target": "module:risk.risk_metrics",
+      "target": "module:risk.regime_analysis",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2844:entry_point:generate_risk_report→module:risk.risk_metrics",
+      "id": "e2844:entry_point:generate_risk_report→module:risk.regime_analysis",
       "source": "entry_point:generate_risk_report",
-      "target": "module:risk.risk_metrics",
+      "target": "module:risk.regime_analysis",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2845:entry_point:generate_risk_report→module:risk.risk_metrics",
+      "id": "e2845:entry_point:generate_risk_report→module:risk.regime_analysis",
       "source": "entry_point:generate_risk_report",
-      "target": "module:risk.risk_metrics",
+      "target": "module:risk.regime_analysis",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -41164,7 +41418,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2848:entry_point:generate_sample_event_data→module:data.insider_ingest",
+      "id": "e2848:entry_point:generate_risk_report→module:risk.risk_metrics",
+      "source": "entry_point:generate_risk_report",
+      "target": "module:risk.risk_metrics",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2849:entry_point:generate_risk_report→module:risk.risk_metrics",
+      "source": "entry_point:generate_risk_report",
+      "target": "module:risk.risk_metrics",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2850:entry_point:generate_risk_report→module:risk.risk_metrics",
+      "source": "entry_point:generate_risk_report",
+      "target": "module:risk.risk_metrics",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2851:entry_point:generate_sample_event_data→module:data.insider_ingest",
       "source": "entry_point:generate_sample_event_data",
       "target": "module:data.insider_ingest",
       "kind": "import",
@@ -41172,7 +41450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2849:entry_point:generate_sample_event_data→module:data.insider_ingest",
+      "id": "e2852:entry_point:generate_sample_event_data→module:data.insider_ingest",
       "source": "entry_point:generate_sample_event_data",
       "target": "module:data.insider_ingest",
       "kind": "import",
@@ -41180,7 +41458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2850:entry_point:generate_sample_event_data→module:data.shipping_routes_ingest",
+      "id": "e2853:entry_point:generate_sample_event_data→module:data.shipping_routes_ingest",
       "source": "entry_point:generate_sample_event_data",
       "target": "module:data.shipping_routes_ingest",
       "kind": "import",
@@ -41188,7 +41466,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2851:entry_point:generate_sample_event_data→module:data.shipping_routes_ingest",
+      "id": "e2854:entry_point:generate_sample_event_data→module:data.shipping_routes_ingest",
       "source": "entry_point:generate_sample_event_data",
       "target": "module:data.shipping_routes_ingest",
       "kind": "import",
@@ -41196,7 +41474,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2852:entry_point:generate_tca_report→module:qa.metrics",
+      "id": "e2855:entry_point:generate_tca_report→module:qa.metrics",
       "source": "entry_point:generate_tca_report",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -41204,33 +41482,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2853:entry_point:generate_tca_report→module:qa.metrics",
+      "id": "e2856:entry_point:generate_tca_report→module:qa.metrics",
       "source": "entry_point:generate_tca_report",
       "target": "module:qa.metrics",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2854:entry_point:generate_tca_report→module:risk.transaction_costs",
-      "source": "entry_point:generate_tca_report",
-      "target": "module:risk.transaction_costs",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2855:entry_point:generate_tca_report→module:risk.transaction_costs",
-      "source": "entry_point:generate_tca_report",
-      "target": "module:risk.transaction_costs",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2856:entry_point:generate_tca_report→module:risk.transaction_costs",
-      "source": "entry_point:generate_tca_report",
-      "target": "module:risk.transaction_costs",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -41252,7 +41506,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2859:entry_point:health_check→module:config.policy_loader",
+      "id": "e2859:entry_point:generate_tca_report→module:risk.transaction_costs",
+      "source": "entry_point:generate_tca_report",
+      "target": "module:risk.transaction_costs",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2860:entry_point:generate_tca_report→module:risk.transaction_costs",
+      "source": "entry_point:generate_tca_report",
+      "target": "module:risk.transaction_costs",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2861:entry_point:generate_tca_report→module:risk.transaction_costs",
+      "source": "entry_point:generate_tca_report",
+      "target": "module:risk.transaction_costs",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2862:entry_point:health_check→module:config.policy_loader",
       "source": "entry_point:health_check",
       "target": "module:config.policy_loader",
       "kind": "import",
@@ -41260,7 +41538,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2860:entry_point:health_check→module:config.policy_loader",
+      "id": "e2863:entry_point:health_check→module:config.policy_loader",
       "source": "entry_point:health_check",
       "target": "module:config.policy_loader",
       "kind": "import",
@@ -41268,7 +41546,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2861:entry_point:health_check→module:config.policy_schema",
+      "id": "e2864:entry_point:health_check→module:config.policy_schema",
       "source": "entry_point:health_check",
       "target": "module:config.policy_schema",
       "kind": "import",
@@ -41276,7 +41554,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2862:entry_point:health_check→module:config.policy_schema",
+      "id": "e2865:entry_point:health_check→module:config.policy_schema",
       "source": "entry_point:health_check",
       "target": "module:config.policy_schema",
       "kind": "import",
@@ -41284,7 +41562,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2863:entry_point:health_check→module:config.policy_schema",
+      "id": "e2866:entry_point:health_check→module:config.policy_schema",
       "source": "entry_point:health_check",
       "target": "module:config.policy_schema",
       "kind": "import",
@@ -41292,7 +41570,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2864:entry_point:import_broker_snapshot→module:accounting.broker_snapshot_importer",
+      "id": "e2867:entry_point:import_broker_snapshot→module:accounting.broker_snapshot_importer",
       "source": "entry_point:import_broker_snapshot",
       "target": "module:accounting.broker_snapshot_importer",
       "kind": "import",
@@ -41300,7 +41578,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2865:entry_point:import_broker_snapshot→module:accounting.broker_snapshot_importer",
+      "id": "e2868:entry_point:import_broker_snapshot→module:accounting.broker_snapshot_importer",
       "source": "entry_point:import_broker_snapshot",
       "target": "module:accounting.broker_snapshot_importer",
       "kind": "import",
@@ -41308,7 +41586,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2866:entry_point:import_broker_snapshot→module:config.__init__",
+      "id": "e2869:entry_point:import_broker_snapshot→module:config.__init__",
       "source": "entry_point:import_broker_snapshot",
       "target": "module:config.__init__",
       "kind": "import",
@@ -41316,7 +41594,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2867:entry_point:import_broker_snapshot→module:config.__init__",
+      "id": "e2870:entry_point:import_broker_snapshot→module:config.__init__",
       "source": "entry_point:import_broker_snapshot",
       "target": "module:config.__init__",
       "kind": "import",
@@ -41324,7 +41602,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2868:entry_point:import_broker_snapshot→module:logging_utils.__init__",
+      "id": "e2871:entry_point:import_broker_snapshot→module:logging_utils.__init__",
       "source": "entry_point:import_broker_snapshot",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -41332,7 +41610,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2869:entry_point:import_broker_snapshot→module:logging_utils.__init__",
+      "id": "e2872:entry_point:import_broker_snapshot→module:logging_utils.__init__",
       "source": "entry_point:import_broker_snapshot",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -41340,7 +41618,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2870:entry_point:inspect_paper_track_data→module:utils.paths",
+      "id": "e2873:entry_point:inspect_paper_track_data→module:utils.paths",
       "source": "entry_point:inspect_paper_track_data",
       "target": "module:utils.paths",
       "kind": "import",
@@ -41348,7 +41626,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2871:entry_point:inspect_paper_track_data→module:utils.paths",
+      "id": "e2874:entry_point:inspect_paper_track_data→module:utils.paths",
       "source": "entry_point:inspect_paper_track_data",
       "target": "module:utils.paths",
       "kind": "import",
@@ -41356,7 +41634,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2872:entry_point:liveness_check→module:ops.heartbeat",
+      "id": "e2875:entry_point:liveness_check→module:ops.heartbeat",
       "source": "entry_point:liveness_check",
       "target": "module:ops.heartbeat",
       "kind": "import",
@@ -41364,33 +41642,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2873:entry_point:liveness_check→module:ops.heartbeat",
+      "id": "e2876:entry_point:liveness_check→module:ops.heartbeat",
       "source": "entry_point:liveness_check",
       "target": "module:ops.heartbeat",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2874:entry_point:news_validation.level_a_classification→module:signals.news_validation",
-      "source": "entry_point:news_validation.level_a_classification",
-      "target": "module:signals.news_validation",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2875:entry_point:news_validation.level_a_classification→module:signals.news_validation",
-      "source": "entry_point:news_validation.level_a_classification",
-      "target": "module:signals.news_validation",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2876:entry_point:news_validation.level_a_classification→module:signals.news_validation",
-      "source": "entry_point:news_validation.level_a_classification",
-      "target": "module:signals.news_validation",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -41404,24 +41658,24 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2878:entry_point:news_validation.level_b_event_study→module:signals.news_validation",
-      "source": "entry_point:news_validation.level_b_event_study",
+      "id": "e2878:entry_point:news_validation.level_a_classification→module:signals.news_validation",
+      "source": "entry_point:news_validation.level_a_classification",
       "target": "module:signals.news_validation",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2879:entry_point:news_validation.level_b_event_study→module:signals.news_validation",
-      "source": "entry_point:news_validation.level_b_event_study",
+      "id": "e2879:entry_point:news_validation.level_a_classification→module:signals.news_validation",
+      "source": "entry_point:news_validation.level_a_classification",
       "target": "module:signals.news_validation",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2880:entry_point:news_validation.level_b_event_study→module:signals.news_validation",
-      "source": "entry_point:news_validation.level_b_event_study",
+      "id": "e2880:entry_point:news_validation.level_a_classification→module:signals.news_validation",
+      "source": "entry_point:news_validation.level_a_classification",
       "target": "module:signals.news_validation",
       "kind": "import",
       "weight": 1,
@@ -41444,7 +41698,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2883:entry_point:ops.build_factor_panel→module:features.ta_factors_core",
+      "id": "e2883:entry_point:news_validation.level_b_event_study→module:signals.news_validation",
+      "source": "entry_point:news_validation.level_b_event_study",
+      "target": "module:signals.news_validation",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2884:entry_point:news_validation.level_b_event_study→module:signals.news_validation",
+      "source": "entry_point:news_validation.level_b_event_study",
+      "target": "module:signals.news_validation",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2885:entry_point:news_validation.level_b_event_study→module:signals.news_validation",
+      "source": "entry_point:news_validation.level_b_event_study",
+      "target": "module:signals.news_validation",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2886:entry_point:ops.build_factor_panel→module:features.ta_factors_core",
       "source": "entry_point:ops.build_factor_panel",
       "target": "module:features.ta_factors_core",
       "kind": "import",
@@ -41452,7 +41730,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2884:entry_point:ops.build_factor_panel→module:features.ta_factors_core",
+      "id": "e2887:entry_point:ops.build_factor_panel→module:features.ta_factors_core",
       "source": "entry_point:ops.build_factor_panel",
       "target": "module:features.ta_factors_core",
       "kind": "import",
@@ -41460,7 +41738,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2885:entry_point:ops.build_factor_panel→module:features.ta_liquidity_vol_factors",
+      "id": "e2888:entry_point:ops.build_factor_panel→module:features.ta_liquidity_vol_factors",
       "source": "entry_point:ops.build_factor_panel",
       "target": "module:features.ta_liquidity_vol_factors",
       "kind": "import",
@@ -41468,7 +41746,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2886:entry_point:ops.build_factor_panel→module:features.ta_liquidity_vol_factors",
+      "id": "e2889:entry_point:ops.build_factor_panel→module:features.ta_liquidity_vol_factors",
       "source": "entry_point:ops.build_factor_panel",
       "target": "module:features.ta_liquidity_vol_factors",
       "kind": "import",
@@ -41476,7 +41754,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2887:entry_point:ops.build_factor_panel→module:data.macro.gpr",
+      "id": "e2890:entry_point:ops.build_factor_panel→module:data.macro.gpr",
       "source": "entry_point:ops.build_factor_panel",
       "target": "module:data.macro.gpr",
       "kind": "import",
@@ -41484,7 +41762,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2888:entry_point:ops.build_factor_panel→module:data.macro.gpr",
+      "id": "e2891:entry_point:ops.build_factor_panel→module:data.macro.gpr",
       "source": "entry_point:ops.build_factor_panel",
       "target": "module:data.macro.gpr",
       "kind": "import",
@@ -41492,7 +41770,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2889:entry_point:ops.prewarm_price_cache→module:data.sources.yfinance_source",
+      "id": "e2892:entry_point:ops.prewarm_price_cache→module:data.sources.yfinance_source",
       "source": "entry_point:ops.prewarm_price_cache",
       "target": "module:data.sources.yfinance_source",
       "kind": "import",
@@ -41500,7 +41778,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2890:entry_point:ops.prewarm_price_cache→module:data.sources.yfinance_source",
+      "id": "e2893:entry_point:ops.prewarm_price_cache→module:data.sources.yfinance_source",
       "source": "entry_point:ops.prewarm_price_cache",
       "target": "module:data.sources.yfinance_source",
       "kind": "import",
@@ -41508,7 +41786,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2891:entry_point:ops.reconcile_pending_intents→module:execution.broker_adapter",
+      "id": "e2894:entry_point:ops.reconcile_pending_intents→module:execution.broker_adapter",
       "source": "entry_point:ops.reconcile_pending_intents",
       "target": "module:execution.broker_adapter",
       "kind": "import",
@@ -41516,33 +41794,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2892:entry_point:ops.reconcile_pending_intents→module:execution.broker_adapter",
+      "id": "e2895:entry_point:ops.reconcile_pending_intents→module:execution.broker_adapter",
       "source": "entry_point:ops.reconcile_pending_intents",
       "target": "module:execution.broker_adapter",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2893:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features",
-      "source": "entry_point:perf.bench_polars_vs_pandas",
-      "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2894:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features",
-      "source": "entry_point:perf.bench_polars_vs_pandas",
-      "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2895:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features",
-      "source": "entry_point:perf.bench_polars_vs_pandas",
-      "target": "module:features.ta_features",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -41564,25 +41818,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2898:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features_polars",
+      "id": "e2898:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features",
       "source": "entry_point:perf.bench_polars_vs_pandas",
-      "target": "module:features.ta_features_polars",
+      "target": "module:features.ta_features",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2899:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features_polars",
+      "id": "e2899:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features",
       "source": "entry_point:perf.bench_polars_vs_pandas",
-      "target": "module:features.ta_features_polars",
+      "target": "module:features.ta_features",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2900:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features_polars",
+      "id": "e2900:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features",
       "source": "entry_point:perf.bench_polars_vs_pandas",
-      "target": "module:features.ta_features_polars",
+      "target": "module:features.ta_features",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -41604,7 +41858,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2903:entry_point:prewarm_factor_store→module:data.factor_store",
+      "id": "e2903:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features_polars",
+      "source": "entry_point:perf.bench_polars_vs_pandas",
+      "target": "module:features.ta_features_polars",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2904:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features_polars",
+      "source": "entry_point:perf.bench_polars_vs_pandas",
+      "target": "module:features.ta_features_polars",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2905:entry_point:perf.bench_polars_vs_pandas→module:features.ta_features_polars",
+      "source": "entry_point:perf.bench_polars_vs_pandas",
+      "target": "module:features.ta_features_polars",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2906:entry_point:prewarm_factor_store→module:data.factor_store",
       "source": "entry_point:prewarm_factor_store",
       "target": "module:data.factor_store",
       "kind": "import",
@@ -41612,7 +41890,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2904:entry_point:prewarm_factor_store→module:data.factor_store",
+      "id": "e2907:entry_point:prewarm_factor_store→module:data.factor_store",
       "source": "entry_point:prewarm_factor_store",
       "target": "module:data.factor_store",
       "kind": "import",
@@ -41620,7 +41898,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2905:entry_point:prewarm_factor_store→module:features.factor_store_integration",
+      "id": "e2908:entry_point:prewarm_factor_store→module:features.factor_store_integration",
       "source": "entry_point:prewarm_factor_store",
       "target": "module:features.factor_store_integration",
       "kind": "import",
@@ -41628,7 +41906,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2906:entry_point:prewarm_factor_store→module:features.factor_store_integration",
+      "id": "e2909:entry_point:prewarm_factor_store→module:features.factor_store_integration",
       "source": "entry_point:prewarm_factor_store",
       "target": "module:features.factor_store_integration",
       "kind": "import",
@@ -41636,7 +41914,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2907:entry_point:prewarm_factor_store→module:data.__init__",
+      "id": "e2910:entry_point:prewarm_factor_store→module:data.__init__",
       "source": "entry_point:prewarm_factor_store",
       "target": "module:data.__init__",
       "kind": "import",
@@ -41644,7 +41922,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2908:entry_point:prewarm_factor_store→module:data.__init__",
+      "id": "e2911:entry_point:prewarm_factor_store→module:data.__init__",
       "source": "entry_point:prewarm_factor_store",
       "target": "module:data.__init__",
       "kind": "import",
@@ -41652,7 +41930,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2909:entry_point:profile_backtest→module:qa.backtest_engine",
+      "id": "e2912:entry_point:profile_backtest→module:qa.backtest_engine",
       "source": "entry_point:profile_backtest",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -41660,7 +41938,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2910:entry_point:profile_backtest→module:qa.backtest_engine",
+      "id": "e2913:entry_point:profile_backtest→module:qa.backtest_engine",
       "source": "entry_point:profile_backtest",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -41668,7 +41946,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2911:entry_point:profile_job→module:config.settings",
+      "id": "e2914:entry_point:profile_job→module:config.settings",
       "source": "entry_point:profile_job",
       "target": "module:config.settings",
       "kind": "import",
@@ -41676,7 +41954,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2912:entry_point:profile_job→module:config.settings",
+      "id": "e2915:entry_point:profile_job→module:config.settings",
       "source": "entry_point:profile_job",
       "target": "module:config.settings",
       "kind": "import",
@@ -41684,7 +41962,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2913:entry_point:quantify_realism_delta→module:qa.walk_forward",
+      "id": "e2916:entry_point:quantify_realism_delta→module:qa.walk_forward",
       "source": "entry_point:quantify_realism_delta",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -41692,7 +41970,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2914:entry_point:quantify_realism_delta→module:qa.walk_forward",
+      "id": "e2917:entry_point:quantify_realism_delta→module:qa.walk_forward",
       "source": "entry_point:quantify_realism_delta",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -41700,7 +41978,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2915:entry_point:quantify_realism_delta→module:qa.walk_forward",
+      "id": "e2918:entry_point:quantify_realism_delta→module:qa.walk_forward",
       "source": "entry_point:quantify_realism_delta",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -41708,7 +41986,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2916:entry_point:quantify_realism_delta→module:qa.backtest_engine",
+      "id": "e2919:entry_point:quantify_realism_delta→module:qa.backtest_engine",
       "source": "entry_point:quantify_realism_delta",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -41716,7 +41994,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2917:entry_point:quantify_realism_delta→module:qa.backtest_engine",
+      "id": "e2920:entry_point:quantify_realism_delta→module:qa.backtest_engine",
       "source": "entry_point:quantify_realism_delta",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -41724,7 +42002,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2918:entry_point:release_gate_walk_forward→module:qa.deflated_sharpe",
+      "id": "e2921:entry_point:release_gate_walk_forward→module:qa.deflated_sharpe",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:qa.deflated_sharpe",
       "kind": "import",
@@ -41732,7 +42010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2919:entry_point:release_gate_walk_forward→module:qa.deflated_sharpe",
+      "id": "e2922:entry_point:release_gate_walk_forward→module:qa.deflated_sharpe",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:qa.deflated_sharpe",
       "kind": "import",
@@ -41740,7 +42018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2920:entry_point:release_gate_walk_forward→module:qa.walk_forward",
+      "id": "e2923:entry_point:release_gate_walk_forward→module:qa.walk_forward",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -41748,7 +42026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2921:entry_point:release_gate_walk_forward→module:qa.walk_forward",
+      "id": "e2924:entry_point:release_gate_walk_forward→module:qa.walk_forward",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -41756,7 +42034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2922:entry_point:release_gate_walk_forward→module:qa.walk_forward",
+      "id": "e2925:entry_point:release_gate_walk_forward→module:qa.walk_forward",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:qa.walk_forward",
       "kind": "import",
@@ -41764,7 +42042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2923:entry_point:release_gate_walk_forward→module:signals.rules_trend",
+      "id": "e2926:entry_point:release_gate_walk_forward→module:signals.rules_trend",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -41772,7 +42050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2924:entry_point:release_gate_walk_forward→module:signals.rules_trend",
+      "id": "e2927:entry_point:release_gate_walk_forward→module:signals.rules_trend",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -41780,7 +42058,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2925:entry_point:release_gate_walk_forward→module:portfolio.position_sizing",
+      "id": "e2928:entry_point:release_gate_walk_forward→module:portfolio.position_sizing",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -41788,7 +42066,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2926:entry_point:release_gate_walk_forward→module:portfolio.position_sizing",
+      "id": "e2929:entry_point:release_gate_walk_forward→module:portfolio.position_sizing",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -41796,7 +42074,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2927:entry_point:release_gate_walk_forward→module:qa.backtest_engine",
+      "id": "e2930:entry_point:release_gate_walk_forward→module:qa.backtest_engine",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -41804,7 +42082,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2928:entry_point:release_gate_walk_forward→module:qa.backtest_engine",
+      "id": "e2931:entry_point:release_gate_walk_forward→module:qa.backtest_engine",
       "source": "entry_point:release_gate_walk_forward",
       "target": "module:qa.backtest_engine",
       "kind": "import",
@@ -41812,7 +42090,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2929:entry_point:report_shadow_delta→module:ops.shadow_mode",
+      "id": "e2932:entry_point:report_shadow_delta→module:ops.shadow_mode",
       "source": "entry_point:report_shadow_delta",
       "target": "module:ops.shadow_mode",
       "kind": "import",
@@ -41820,7 +42098,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2930:entry_point:report_shadow_delta→module:ops.shadow_mode",
+      "id": "e2933:entry_point:report_shadow_delta→module:ops.shadow_mode",
       "source": "entry_point:report_shadow_delta",
       "target": "module:ops.shadow_mode",
       "kind": "import",
@@ -41828,7 +42106,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2931:entry_point:report_shadow_delta→module:ops.shadow_mode",
+      "id": "e2934:entry_point:report_shadow_delta→module:ops.shadow_mode",
       "source": "entry_point:report_shadow_delta",
       "target": "module:ops.shadow_mode",
       "kind": "import",
@@ -41836,7 +42114,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2932:entry_point:run_analysis_1y→module:data.cost_model_policy",
+      "id": "e2935:entry_point:run_analysis_1y→module:data.cost_model_policy",
       "source": "entry_point:run_analysis_1y",
       "target": "module:data.cost_model_policy",
       "kind": "import",
@@ -41844,7 +42122,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2933:entry_point:run_analysis_1y→module:data.cost_model_policy",
+      "id": "e2936:entry_point:run_analysis_1y→module:data.cost_model_policy",
       "source": "entry_point:run_analysis_1y",
       "target": "module:data.cost_model_policy",
       "kind": "import",
@@ -41852,7 +42130,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2934:entry_point:run_analysis_1y→module:features.ta_features",
+      "id": "e2937:entry_point:run_analysis_1y→module:features.ta_features",
       "source": "entry_point:run_analysis_1y",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -41860,7 +42138,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2935:entry_point:run_analysis_1y→module:features.ta_features",
+      "id": "e2938:entry_point:run_analysis_1y→module:features.ta_features",
       "source": "entry_point:run_analysis_1y",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -41868,7 +42146,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2936:entry_point:run_analysis_1y→module:ml.__init__",
+      "id": "e2939:entry_point:run_analysis_1y→module:ml.__init__",
       "source": "entry_point:run_analysis_1y",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -41876,7 +42154,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2937:entry_point:run_analysis_1y→module:ml.__init__",
+      "id": "e2940:entry_point:run_analysis_1y→module:ml.__init__",
       "source": "entry_point:run_analysis_1y",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -41884,7 +42162,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2938:entry_point:run_analysis_1y→module:ml.__init__",
+      "id": "e2941:entry_point:run_analysis_1y→module:ml.__init__",
       "source": "entry_point:run_analysis_1y",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -41892,7 +42170,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2939:entry_point:run_analysis_1y→module:qa.benchmark_metrics",
+      "id": "e2942:entry_point:run_analysis_1y→module:qa.benchmark_metrics",
       "source": "entry_point:run_analysis_1y",
       "target": "module:qa.benchmark_metrics",
       "kind": "import",
@@ -41900,7 +42178,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2940:entry_point:run_analysis_1y→module:qa.benchmark_metrics",
+      "id": "e2943:entry_point:run_analysis_1y→module:qa.benchmark_metrics",
       "source": "entry_point:run_analysis_1y",
       "target": "module:qa.benchmark_metrics",
       "kind": "import",
@@ -41908,7 +42186,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2941:entry_point:run_analysis_1y→module:risk.liquidity_scoring",
+      "id": "e2944:entry_point:run_analysis_1y→module:risk.liquidity_scoring",
       "source": "entry_point:run_analysis_1y",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -41916,7 +42194,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2942:entry_point:run_analysis_1y→module:risk.liquidity_scoring",
+      "id": "e2945:entry_point:run_analysis_1y→module:risk.liquidity_scoring",
       "source": "entry_point:run_analysis_1y",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -41924,7 +42202,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2943:entry_point:run_analysis_1y→module:signals.rules_trend",
+      "id": "e2946:entry_point:run_analysis_1y→module:signals.rules_trend",
       "source": "entry_point:run_analysis_1y",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -41932,7 +42210,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2944:entry_point:run_analysis_1y→module:signals.rules_trend",
+      "id": "e2947:entry_point:run_analysis_1y→module:signals.rules_trend",
       "source": "entry_point:run_analysis_1y",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -41940,7 +42218,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2945:entry_point:run_api→module:api.app",
+      "id": "e2948:entry_point:run_api→module:api.app",
       "source": "entry_point:run_api",
       "target": "module:api.app",
       "kind": "import",
@@ -41948,7 +42226,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2946:entry_point:run_api→module:api.app",
+      "id": "e2949:entry_point:run_api→module:api.app",
       "source": "entry_point:run_api",
       "target": "module:api.app",
       "kind": "import",
@@ -41956,7 +42234,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2947:entry_point:run_backtest_strategy→module:config.__init__",
+      "id": "e2950:entry_point:run_backtest_strategy→module:config.__init__",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.__init__",
       "kind": "import",
@@ -41964,7 +42242,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2948:entry_point:run_backtest_strategy→module:config.__init__",
+      "id": "e2951:entry_point:run_backtest_strategy→module:config.__init__",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.__init__",
       "kind": "import",
@@ -41972,7 +42250,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2949:entry_point:run_backtest_strategy→module:config.settings",
+      "id": "e2952:entry_point:run_backtest_strategy→module:config.settings",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.settings",
       "kind": "import",
@@ -41980,7 +42258,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2950:entry_point:run_backtest_strategy→module:config.settings",
+      "id": "e2953:entry_point:run_backtest_strategy→module:config.settings",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.settings",
       "kind": "import",
@@ -41988,7 +42266,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2951:entry_point:run_backtest_strategy→module:costs.__init__",
+      "id": "e2954:entry_point:run_backtest_strategy→module:costs.__init__",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -41996,7 +42274,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2952:entry_point:run_backtest_strategy→module:costs.__init__",
+      "id": "e2955:entry_point:run_backtest_strategy→module:costs.__init__",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -42004,7 +42282,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2953:entry_point:run_backtest_strategy→module:costs.__init__",
+      "id": "e2956:entry_point:run_backtest_strategy→module:costs.__init__",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -42012,7 +42290,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2954:entry_point:run_backtest_strategy→module:data.prices_ingest",
+      "id": "e2957:entry_point:run_backtest_strategy→module:data.prices_ingest",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -42020,7 +42298,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2955:entry_point:run_backtest_strategy→module:data.prices_ingest",
+      "id": "e2958:entry_point:run_backtest_strategy→module:data.prices_ingest",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -42028,7 +42306,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2956:entry_point:run_backtest_strategy→module:data.prices_ingest",
+      "id": "e2959:entry_point:run_backtest_strategy→module:data.prices_ingest",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -42036,7 +42314,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2957:entry_point:run_backtest_strategy→module:data.security_master",
+      "id": "e2960:entry_point:run_backtest_strategy→module:data.security_master",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.security_master",
       "kind": "import",
@@ -42044,7 +42322,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2958:entry_point:run_backtest_strategy→module:data.security_master",
+      "id": "e2961:entry_point:run_backtest_strategy→module:data.security_master",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.security_master",
       "kind": "import",
@@ -42052,7 +42330,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2959:entry_point:run_backtest_strategy→module:data.security_master",
+      "id": "e2962:entry_point:run_backtest_strategy→module:data.security_master",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.security_master",
       "kind": "import",
@@ -42060,7 +42338,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2960:entry_point:run_backtest_strategy→module:ema_config.__init__",
+      "id": "e2963:entry_point:run_backtest_strategy→module:ema_config.__init__",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -42068,7 +42346,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2961:entry_point:run_backtest_strategy→module:ema_config.__init__",
+      "id": "e2964:entry_point:run_backtest_strategy→module:ema_config.__init__",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -42076,7 +42354,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2962:entry_point:run_backtest_strategy→module:pipeline.trading_cycle_shared",
+      "id": "e2965:entry_point:run_backtest_strategy→module:pipeline.trading_cycle_shared",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:pipeline.trading_cycle_shared",
       "kind": "import",
@@ -42084,7 +42362,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2963:entry_point:run_backtest_strategy→module:pipeline.trading_cycle_shared",
+      "id": "e2966:entry_point:run_backtest_strategy→module:pipeline.trading_cycle_shared",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:pipeline.trading_cycle_shared",
       "kind": "import",
@@ -42092,7 +42370,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2964:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
+      "id": "e2967:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -42100,36 +42378,12 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2965:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
+      "id": "e2968:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
       "weight": 1,
       "circular": false
-    },
-    {
-      "id": "e2966:entry_point:run_backtest_strategy→module:qa.backtest_engine",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:qa.backtest_engine",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
-    },
-    {
-      "id": "e2967:entry_point:run_backtest_strategy→module:qa.backtest_engine",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:qa.backtest_engine",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
-    },
-    {
-      "id": "e2968:entry_point:run_backtest_strategy→module:qa.backtest_engine",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:qa.backtest_engine",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
     },
     {
       "id": "e2969:entry_point:run_backtest_strategy→module:qa.backtest_engine",
@@ -42140,7 +42394,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e2970:entry_point:run_backtest_strategy→module:qa.metrics",
+      "id": "e2970:entry_point:run_backtest_strategy→module:qa.backtest_engine",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:qa.backtest_engine",
+      "kind": "import",
+      "weight": 1,
+      "circular": true
+    },
+    {
+      "id": "e2971:entry_point:run_backtest_strategy→module:qa.backtest_engine",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:qa.backtest_engine",
+      "kind": "import",
+      "weight": 1,
+      "circular": true
+    },
+    {
+      "id": "e2972:entry_point:run_backtest_strategy→module:qa.backtest_engine",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:qa.backtest_engine",
+      "kind": "import",
+      "weight": 1,
+      "circular": true
+    },
+    {
+      "id": "e2973:entry_point:run_backtest_strategy→module:qa.metrics",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -42148,7 +42426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2971:entry_point:run_backtest_strategy→module:qa.metrics",
+      "id": "e2974:entry_point:run_backtest_strategy→module:qa.metrics",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.metrics",
       "kind": "import",
@@ -42156,7 +42434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2972:entry_point:run_backtest_strategy→module:qa.qa_gates",
+      "id": "e2975:entry_point:run_backtest_strategy→module:qa.qa_gates",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.qa_gates",
       "kind": "import",
@@ -42164,7 +42442,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2973:entry_point:run_backtest_strategy→module:qa.qa_gates",
+      "id": "e2976:entry_point:run_backtest_strategy→module:qa.qa_gates",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.qa_gates",
       "kind": "import",
@@ -42172,7 +42450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2974:entry_point:run_backtest_strategy→module:qa.qa_gates",
+      "id": "e2977:entry_point:run_backtest_strategy→module:qa.qa_gates",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.qa_gates",
       "kind": "import",
@@ -42180,7 +42458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2975:entry_point:run_backtest_strategy→module:reports.daily_qa_report",
+      "id": "e2978:entry_point:run_backtest_strategy→module:reports.daily_qa_report",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:reports.daily_qa_report",
       "kind": "import",
@@ -42188,7 +42466,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2976:entry_point:run_backtest_strategy→module:reports.daily_qa_report",
+      "id": "e2979:entry_point:run_backtest_strategy→module:reports.daily_qa_report",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:reports.daily_qa_report",
       "kind": "import",
@@ -42196,7 +42474,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2977:entry_point:run_backtest_strategy→module:reports.metrics_export",
+      "id": "e2980:entry_point:run_backtest_strategy→module:reports.metrics_export",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:reports.metrics_export",
       "kind": "import",
@@ -42204,7 +42482,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2978:entry_point:run_backtest_strategy→module:reports.metrics_export",
+      "id": "e2981:entry_point:run_backtest_strategy→module:reports.metrics_export",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:reports.metrics_export",
       "kind": "import",
@@ -42212,7 +42490,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2979:entry_point:run_backtest_strategy→module:signals.rules_event_insider_shipping",
+      "id": "e2982:entry_point:run_backtest_strategy→module:signals.rules_event_insider_shipping",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:signals.rules_event_insider_shipping",
       "kind": "import",
@@ -42220,7 +42498,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2980:entry_point:run_backtest_strategy→module:signals.rules_event_insider_shipping",
+      "id": "e2983:entry_point:run_backtest_strategy→module:signals.rules_event_insider_shipping",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:signals.rules_event_insider_shipping",
       "kind": "import",
@@ -42228,7 +42506,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2981:entry_point:run_backtest_strategy→module:signals.rules_trend",
+      "id": "e2984:entry_point:run_backtest_strategy→module:signals.rules_trend",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -42236,33 +42514,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2982:entry_point:run_backtest_strategy→module:signals.rules_trend",
+      "id": "e2985:entry_point:run_backtest_strategy→module:signals.rules_trend",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:signals.rules_trend",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2983:entry_point:run_backtest_strategy→module:strategies.multifactor_long_short",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:strategies.multifactor_long_short",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2984:entry_point:run_backtest_strategy→module:strategies.multifactor_long_short",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:strategies.multifactor_long_short",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2985:entry_point:run_backtest_strategy→module:strategies.multifactor_long_short",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:strategies.multifactor_long_short",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42276,7 +42530,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2987:entry_point:run_backtest_strategy→module:utils.timing",
+      "id": "e2987:entry_point:run_backtest_strategy→module:strategies.multifactor_long_short",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:strategies.multifactor_long_short",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2988:entry_point:run_backtest_strategy→module:strategies.multifactor_long_short",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:strategies.multifactor_long_short",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2989:entry_point:run_backtest_strategy→module:strategies.multifactor_long_short",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:strategies.multifactor_long_short",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e2990:entry_point:run_backtest_strategy→module:utils.timing",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:utils.timing",
       "kind": "import",
@@ -42284,7 +42562,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2988:entry_point:run_backtest_strategy→module:utils.timing",
+      "id": "e2991:entry_point:run_backtest_strategy→module:utils.timing",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:utils.timing",
       "kind": "import",
@@ -42292,7 +42570,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2989:entry_point:run_backtest_strategy→module:utils.timing",
+      "id": "e2992:entry_point:run_backtest_strategy→module:utils.timing",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:utils.timing",
       "kind": "import",
@@ -42300,7 +42578,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2990:entry_point:run_backtest_strategy→module:config.factor_bundles",
+      "id": "e2993:entry_point:run_backtest_strategy→module:config.factor_bundles",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.factor_bundles",
       "kind": "import",
@@ -42308,7 +42586,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2991:entry_point:run_backtest_strategy→module:config.factor_bundles",
+      "id": "e2994:entry_point:run_backtest_strategy→module:config.factor_bundles",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.factor_bundles",
       "kind": "import",
@@ -42316,7 +42594,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2992:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e2995:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -42324,33 +42602,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2993:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e2996:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2994:entry_point:run_backtest_strategy→module:strategies.multifactor_v2",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:strategies.multifactor_v2",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2995:entry_point:run_backtest_strategy→module:strategies.multifactor_v2",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:strategies.multifactor_v2",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e2996:entry_point:run_backtest_strategy→module:strategies.multifactor_v2",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:strategies.multifactor_v2",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42364,25 +42618,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e2998:entry_point:run_backtest_strategy→module:utils.random_state",
+      "id": "e2998:entry_point:run_backtest_strategy→module:strategies.multifactor_v2",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:utils.random_state",
+      "target": "module:strategies.multifactor_v2",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e2999:entry_point:run_backtest_strategy→module:utils.random_state",
+      "id": "e2999:entry_point:run_backtest_strategy→module:strategies.multifactor_v2",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:utils.random_state",
+      "target": "module:strategies.multifactor_v2",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3000:entry_point:run_backtest_strategy→module:utils.random_state",
+      "id": "e3000:entry_point:run_backtest_strategy→module:strategies.multifactor_v2",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:utils.random_state",
+      "target": "module:strategies.multifactor_v2",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42396,7 +42650,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3002:entry_point:run_backtest_strategy→module:features.market_breadth",
+      "id": "e3002:entry_point:run_backtest_strategy→module:utils.random_state",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:utils.random_state",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3003:entry_point:run_backtest_strategy→module:utils.random_state",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:utils.random_state",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3004:entry_point:run_backtest_strategy→module:utils.random_state",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:utils.random_state",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3005:entry_point:run_backtest_strategy→module:features.market_breadth",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.market_breadth",
       "kind": "import",
@@ -42404,33 +42682,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3003:entry_point:run_backtest_strategy→module:features.market_breadth",
+      "id": "e3006:entry_point:run_backtest_strategy→module:features.market_breadth",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.market_breadth",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3004:entry_point:run_backtest_strategy→module:features.ta_liquidity_vol_factors",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:features.ta_liquidity_vol_factors",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3005:entry_point:run_backtest_strategy→module:features.ta_liquidity_vol_factors",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:features.ta_liquidity_vol_factors",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3006:entry_point:run_backtest_strategy→module:features.ta_liquidity_vol_factors",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:features.ta_liquidity_vol_factors",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42444,7 +42698,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3008:entry_point:run_backtest_strategy→module:data.insider_ingest",
+      "id": "e3008:entry_point:run_backtest_strategy→module:features.ta_liquidity_vol_factors",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:features.ta_liquidity_vol_factors",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3009:entry_point:run_backtest_strategy→module:features.ta_liquidity_vol_factors",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:features.ta_liquidity_vol_factors",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3010:entry_point:run_backtest_strategy→module:features.ta_liquidity_vol_factors",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:features.ta_liquidity_vol_factors",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3011:entry_point:run_backtest_strategy→module:data.insider_ingest",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.insider_ingest",
       "kind": "import",
@@ -42452,7 +42730,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3009:entry_point:run_backtest_strategy→module:data.insider_ingest",
+      "id": "e3012:entry_point:run_backtest_strategy→module:data.insider_ingest",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.insider_ingest",
       "kind": "import",
@@ -42460,7 +42738,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3010:entry_point:run_backtest_strategy→module:data.shipping_routes_ingest",
+      "id": "e3013:entry_point:run_backtest_strategy→module:data.shipping_routes_ingest",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.shipping_routes_ingest",
       "kind": "import",
@@ -42468,7 +42746,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3011:entry_point:run_backtest_strategy→module:data.shipping_routes_ingest",
+      "id": "e3014:entry_point:run_backtest_strategy→module:data.shipping_routes_ingest",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.shipping_routes_ingest",
       "kind": "import",
@@ -42476,7 +42754,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3012:entry_point:run_backtest_strategy→module:features.insider_features",
+      "id": "e3015:entry_point:run_backtest_strategy→module:features.insider_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.insider_features",
       "kind": "import",
@@ -42484,7 +42762,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3013:entry_point:run_backtest_strategy→module:features.insider_features",
+      "id": "e3016:entry_point:run_backtest_strategy→module:features.insider_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.insider_features",
       "kind": "import",
@@ -42492,7 +42770,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3014:entry_point:run_backtest_strategy→module:features.shipping_features",
+      "id": "e3017:entry_point:run_backtest_strategy→module:features.shipping_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.shipping_features",
       "kind": "import",
@@ -42500,7 +42778,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3015:entry_point:run_backtest_strategy→module:features.shipping_features",
+      "id": "e3018:entry_point:run_backtest_strategy→module:features.shipping_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.shipping_features",
       "kind": "import",
@@ -42508,7 +42786,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3016:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
+      "id": "e3019:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -42516,7 +42794,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3017:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
+      "id": "e3020:entry_point:run_backtest_strategy→module:portfolio.position_sizing",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -42524,7 +42802,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3018:entry_point:run_backtest_strategy→module:data.data_source",
+      "id": "e3021:entry_point:run_backtest_strategy→module:data.data_source",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.data_source",
       "kind": "import",
@@ -42532,7 +42810,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3019:entry_point:run_backtest_strategy→module:data.data_source",
+      "id": "e3022:entry_point:run_backtest_strategy→module:data.data_source",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.data_source",
       "kind": "import",
@@ -42540,7 +42818,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3020:entry_point:run_backtest_strategy→module:qa.data_qc",
+      "id": "e3023:entry_point:run_backtest_strategy→module:qa.data_qc",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.data_qc",
       "kind": "import",
@@ -42548,7 +42826,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3021:entry_point:run_backtest_strategy→module:qa.data_qc",
+      "id": "e3024:entry_point:run_backtest_strategy→module:qa.data_qc",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.data_qc",
       "kind": "import",
@@ -42556,7 +42834,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3022:entry_point:run_backtest_strategy→module:qa.data_qc",
+      "id": "e3025:entry_point:run_backtest_strategy→module:qa.data_qc",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.data_qc",
       "kind": "import",
@@ -42564,7 +42842,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3023:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "id": "e3026:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -42572,7 +42850,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3024:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "id": "e3027:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -42580,7 +42858,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3025:entry_point:run_backtest_strategy→module:qa.tca",
+      "id": "e3028:entry_point:run_backtest_strategy→module:qa.tca",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.tca",
       "kind": "import",
@@ -42588,7 +42866,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3026:entry_point:run_backtest_strategy→module:qa.tca",
+      "id": "e3029:entry_point:run_backtest_strategy→module:qa.tca",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.tca",
       "kind": "import",
@@ -42596,7 +42874,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3027:entry_point:run_backtest_strategy→module:qa.tca",
+      "id": "e3030:entry_point:run_backtest_strategy→module:qa.tca",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.tca",
       "kind": "import",
@@ -42604,7 +42882,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3028:entry_point:run_backtest_strategy→module:data.factor_store",
+      "id": "e3031:entry_point:run_backtest_strategy→module:data.factor_store",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.factor_store",
       "kind": "import",
@@ -42612,7 +42890,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3029:entry_point:run_backtest_strategy→module:data.factor_store",
+      "id": "e3032:entry_point:run_backtest_strategy→module:data.factor_store",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.factor_store",
       "kind": "import",
@@ -42620,7 +42898,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3030:entry_point:run_backtest_strategy→module:features.factor_store_integration",
+      "id": "e3033:entry_point:run_backtest_strategy→module:features.factor_store_integration",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.factor_store_integration",
       "kind": "import",
@@ -42628,7 +42906,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3031:entry_point:run_backtest_strategy→module:features.factor_store_integration",
+      "id": "e3034:entry_point:run_backtest_strategy→module:features.factor_store_integration",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.factor_store_integration",
       "kind": "import",
@@ -42636,7 +42914,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3032:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e3035:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -42644,33 +42922,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3033:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e3036:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3034:entry_point:run_backtest_strategy→module:data.factor_store",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:data.factor_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3035:entry_point:run_backtest_strategy→module:data.factor_store",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:data.factor_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3036:entry_point:run_backtest_strategy→module:data.factor_store",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:data.factor_store",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42684,25 +42938,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3038:entry_point:run_backtest_strategy→module:data.universe",
+      "id": "e3038:entry_point:run_backtest_strategy→module:data.factor_store",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:data.universe",
+      "target": "module:data.factor_store",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3039:entry_point:run_backtest_strategy→module:data.universe",
+      "id": "e3039:entry_point:run_backtest_strategy→module:data.factor_store",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:data.universe",
+      "target": "module:data.factor_store",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3040:entry_point:run_backtest_strategy→module:data.universe",
+      "id": "e3040:entry_point:run_backtest_strategy→module:data.factor_store",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:data.universe",
+      "target": "module:data.factor_store",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42724,7 +42978,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3043:entry_point:run_backtest_strategy→module:data.corporate_actions",
+      "id": "e3043:entry_point:run_backtest_strategy→module:data.universe",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:data.universe",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3044:entry_point:run_backtest_strategy→module:data.universe",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:data.universe",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3045:entry_point:run_backtest_strategy→module:data.universe",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:data.universe",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3046:entry_point:run_backtest_strategy→module:data.corporate_actions",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.corporate_actions",
       "kind": "import",
@@ -42732,7 +43010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3044:entry_point:run_backtest_strategy→module:data.corporate_actions",
+      "id": "e3047:entry_point:run_backtest_strategy→module:data.corporate_actions",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.corporate_actions",
       "kind": "import",
@@ -42740,7 +43018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3045:entry_point:run_backtest_strategy→module:data.corporate_actions",
+      "id": "e3048:entry_point:run_backtest_strategy→module:data.corporate_actions",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.corporate_actions",
       "kind": "import",
@@ -42748,7 +43026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3046:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "id": "e3049:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -42756,7 +43034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3047:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "id": "e3050:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.experiment_tracking",
       "kind": "import",
@@ -42764,7 +43042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3048:entry_point:run_backtest_strategy→module:config.policy_loader",
+      "id": "e3051:entry_point:run_backtest_strategy→module:config.policy_loader",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.policy_loader",
       "kind": "import",
@@ -42772,7 +43050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3049:entry_point:run_backtest_strategy→module:config.policy_loader",
+      "id": "e3052:entry_point:run_backtest_strategy→module:config.policy_loader",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.policy_loader",
       "kind": "import",
@@ -42780,7 +43058,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3050:entry_point:run_backtest_strategy→module:config.factor_bundles",
+      "id": "e3053:entry_point:run_backtest_strategy→module:config.factor_bundles",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.factor_bundles",
       "kind": "import",
@@ -42788,7 +43066,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3051:entry_point:run_backtest_strategy→module:config.factor_bundles",
+      "id": "e3054:entry_point:run_backtest_strategy→module:config.factor_bundles",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:config.factor_bundles",
       "kind": "import",
@@ -42796,7 +43074,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3052:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e3055:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -42804,7 +43082,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3053:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e3056:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -42812,7 +43090,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3054:entry_point:run_backtest_strategy→module:data.sources.cboe_source",
+      "id": "e3057:entry_point:run_backtest_strategy→module:data.sources.cboe_source",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.sources.cboe_source",
       "kind": "import",
@@ -42820,7 +43098,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3055:entry_point:run_backtest_strategy→module:data.sources.cboe_source",
+      "id": "e3058:entry_point:run_backtest_strategy→module:data.sources.cboe_source",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:data.sources.cboe_source",
       "kind": "import",
@@ -42828,7 +43106,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3056:entry_point:run_backtest_strategy→module:features.intermarket_factors",
+      "id": "e3059:entry_point:run_backtest_strategy→module:features.intermarket_factors",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.intermarket_factors",
       "kind": "import",
@@ -42836,7 +43114,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3057:entry_point:run_backtest_strategy→module:features.intermarket_factors",
+      "id": "e3060:entry_point:run_backtest_strategy→module:features.intermarket_factors",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.intermarket_factors",
       "kind": "import",
@@ -42844,7 +43122,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3058:entry_point:run_backtest_strategy→module:features.altdata_earnings_insider_factors",
+      "id": "e3061:entry_point:run_backtest_strategy→module:features.altdata_earnings_insider_factors",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.altdata_earnings_insider_factors",
       "kind": "import",
@@ -42852,7 +43130,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3059:entry_point:run_backtest_strategy→module:features.altdata_earnings_insider_factors",
+      "id": "e3062:entry_point:run_backtest_strategy→module:features.altdata_earnings_insider_factors",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.altdata_earnings_insider_factors",
       "kind": "import",
@@ -42860,7 +43138,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3060:entry_point:run_backtest_strategy→module:features.altdata_news_macro_factors",
+      "id": "e3063:entry_point:run_backtest_strategy→module:features.altdata_news_macro_factors",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.altdata_news_macro_factors",
       "kind": "import",
@@ -42868,7 +43146,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3061:entry_point:run_backtest_strategy→module:features.altdata_news_macro_factors",
+      "id": "e3064:entry_point:run_backtest_strategy→module:features.altdata_news_macro_factors",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.altdata_news_macro_factors",
       "kind": "import",
@@ -42876,7 +43154,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3062:entry_point:run_backtest_strategy→module:qa.bootstrap_metrics",
+      "id": "e3065:entry_point:run_backtest_strategy→module:qa.bootstrap_metrics",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.bootstrap_metrics",
       "kind": "import",
@@ -42884,33 +43162,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3063:entry_point:run_backtest_strategy→module:qa.bootstrap_metrics",
+      "id": "e3066:entry_point:run_backtest_strategy→module:qa.bootstrap_metrics",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:qa.bootstrap_metrics",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3064:entry_point:run_backtest_strategy→module:risk.monte_carlo",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:risk.monte_carlo",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3065:entry_point:run_backtest_strategy→module:risk.monte_carlo",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:risk.monte_carlo",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3066:entry_point:run_backtest_strategy→module:risk.monte_carlo",
-      "source": "entry_point:run_backtest_strategy",
-      "target": "module:risk.monte_carlo",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42924,25 +43178,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3068:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "id": "e3068:entry_point:run_backtest_strategy→module:risk.monte_carlo",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:risk.monte_carlo",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3069:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "id": "e3069:entry_point:run_backtest_strategy→module:risk.monte_carlo",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:risk.monte_carlo",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3070:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "id": "e3070:entry_point:run_backtest_strategy→module:risk.monte_carlo",
       "source": "entry_point:run_backtest_strategy",
-      "target": "module:qa.experiment_tracking",
+      "target": "module:risk.monte_carlo",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -42988,7 +43242,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3076:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e3076:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:qa.experiment_tracking",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3077:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:qa.experiment_tracking",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3078:entry_point:run_backtest_strategy→module:qa.experiment_tracking",
+      "source": "entry_point:run_backtest_strategy",
+      "target": "module:qa.experiment_tracking",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3079:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -42996,7 +43274,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3077:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e3080:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -43004,7 +43282,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3078:entry_point:run_backtest_strategy→module:features.ta_features",
+      "id": "e3081:entry_point:run_backtest_strategy→module:features.ta_features",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -43012,7 +43290,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3079:entry_point:run_backtest_strategy→module:risk.regime_models",
+      "id": "e3082:entry_point:run_backtest_strategy→module:risk.regime_models",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:risk.regime_models",
       "kind": "import",
@@ -43020,33 +43298,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3080:entry_point:run_backtest_strategy→module:risk.regime_models",
+      "id": "e3083:entry_point:run_backtest_strategy→module:risk.regime_models",
       "source": "entry_point:run_backtest_strategy",
       "target": "module:risk.regime_models",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3081:entry_point:run_cost_calibration→module:execution.cost_model_calibrator",
-      "source": "entry_point:run_cost_calibration",
-      "target": "module:execution.cost_model_calibrator",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3082:entry_point:run_cost_calibration→module:execution.cost_model_calibrator",
-      "source": "entry_point:run_cost_calibration",
-      "target": "module:execution.cost_model_calibrator",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3083:entry_point:run_cost_calibration→module:execution.cost_model_calibrator",
-      "source": "entry_point:run_cost_calibration",
-      "target": "module:execution.cost_model_calibrator",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -43060,7 +43314,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3085:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.context",
+      "id": "e3085:entry_point:run_cost_calibration→module:execution.cost_model_calibrator",
+      "source": "entry_point:run_cost_calibration",
+      "target": "module:execution.cost_model_calibrator",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3086:entry_point:run_cost_calibration→module:execution.cost_model_calibrator",
+      "source": "entry_point:run_cost_calibration",
+      "target": "module:execution.cost_model_calibrator",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3087:entry_point:run_cost_calibration→module:execution.cost_model_calibrator",
+      "source": "entry_point:run_cost_calibration",
+      "target": "module:execution.cost_model_calibrator",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3088:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.context",
       "source": "entry_point:run_crisis_alpha_worker",
       "target": "module:events.crisis_alpha.context",
       "kind": "import",
@@ -43068,7 +43346,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3086:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.context",
+      "id": "e3089:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.context",
       "source": "entry_point:run_crisis_alpha_worker",
       "target": "module:events.crisis_alpha.context",
       "kind": "import",
@@ -43076,7 +43354,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3087:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.pipeline",
+      "id": "e3090:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.pipeline",
       "source": "entry_point:run_crisis_alpha_worker",
       "target": "module:events.crisis_alpha.pipeline",
       "kind": "import",
@@ -43084,7 +43362,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3088:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.pipeline",
+      "id": "e3091:entry_point:run_crisis_alpha_worker→module:events.crisis_alpha.pipeline",
       "source": "entry_point:run_crisis_alpha_worker",
       "target": "module:events.crisis_alpha.pipeline",
       "kind": "import",
@@ -43092,7 +43370,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3089:entry_point:run_daily→module:config.settings",
+      "id": "e3092:entry_point:run_daily→module:config.settings",
       "source": "entry_point:run_daily",
       "target": "module:config.settings",
       "kind": "import",
@@ -43100,7 +43378,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3090:entry_point:run_daily→module:config.settings",
+      "id": "e3093:entry_point:run_daily→module:config.settings",
       "source": "entry_point:run_daily",
       "target": "module:config.settings",
       "kind": "import",
@@ -43108,7 +43386,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3091:entry_point:run_daily→module:data.prices_ingest",
+      "id": "e3094:entry_point:run_daily→module:data.prices_ingest",
       "source": "entry_point:run_daily",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -43116,7 +43394,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3092:entry_point:run_daily→module:data.prices_ingest",
+      "id": "e3095:entry_point:run_daily→module:data.prices_ingest",
       "source": "entry_point:run_daily",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -43124,7 +43402,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3093:entry_point:run_daily→module:data.prices_ingest",
+      "id": "e3096:entry_point:run_daily→module:data.prices_ingest",
       "source": "entry_point:run_daily",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -43132,7 +43410,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3094:entry_point:run_daily→module:data.security_master",
+      "id": "e3097:entry_point:run_daily→module:data.security_master",
       "source": "entry_point:run_daily",
       "target": "module:data.security_master",
       "kind": "import",
@@ -43140,7 +43418,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3095:entry_point:run_daily→module:data.security_master",
+      "id": "e3098:entry_point:run_daily→module:data.security_master",
       "source": "entry_point:run_daily",
       "target": "module:data.security_master",
       "kind": "import",
@@ -43148,7 +43426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3096:entry_point:run_daily→module:data.security_master",
+      "id": "e3099:entry_point:run_daily→module:data.security_master",
       "source": "entry_point:run_daily",
       "target": "module:data.security_master",
       "kind": "import",
@@ -43156,7 +43434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3097:entry_point:run_daily→module:execution.safe_bridge",
+      "id": "e3100:entry_point:run_daily→module:execution.safe_bridge",
       "source": "entry_point:run_daily",
       "target": "module:execution.safe_bridge",
       "kind": "import",
@@ -43164,7 +43442,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3098:entry_point:run_daily→module:execution.safe_bridge",
+      "id": "e3101:entry_point:run_daily→module:execution.safe_bridge",
       "source": "entry_point:run_daily",
       "target": "module:execution.safe_bridge",
       "kind": "import",
@@ -43172,7 +43450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3099:entry_point:run_daily→module:logging_utils.__init__",
+      "id": "e3102:entry_point:run_daily→module:logging_utils.__init__",
       "source": "entry_point:run_daily",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -43180,7 +43458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3100:entry_point:run_daily→module:logging_utils.__init__",
+      "id": "e3103:entry_point:run_daily→module:logging_utils.__init__",
       "source": "entry_point:run_daily",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -43188,7 +43466,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3101:entry_point:run_daily→module:pipeline.trading_cycle_shared",
+      "id": "e3104:entry_point:run_daily→module:pipeline.trading_cycle_shared",
       "source": "entry_point:run_daily",
       "target": "module:pipeline.trading_cycle_shared",
       "kind": "import",
@@ -43196,7 +43474,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3102:entry_point:run_daily→module:pipeline.trading_cycle_shared",
+      "id": "e3105:entry_point:run_daily→module:pipeline.trading_cycle_shared",
       "source": "entry_point:run_daily",
       "target": "module:pipeline.trading_cycle_shared",
       "kind": "import",
@@ -43204,7 +43482,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3103:entry_point:run_daily→module:pipeline.trading_cycle_v2",
+      "id": "e3106:entry_point:run_daily→module:pipeline.trading_cycle_v2",
       "source": "entry_point:run_daily",
       "target": "module:pipeline.trading_cycle_v2",
       "kind": "import",
@@ -43212,7 +43490,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3104:entry_point:run_daily→module:pipeline.trading_cycle_v2",
+      "id": "e3107:entry_point:run_daily→module:pipeline.trading_cycle_v2",
       "source": "entry_point:run_daily",
       "target": "module:pipeline.trading_cycle_v2",
       "kind": "import",
@@ -43220,7 +43498,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3105:entry_point:run_daily→module:portfolio.position_sizing",
+      "id": "e3108:entry_point:run_daily→module:portfolio.position_sizing",
       "source": "entry_point:run_daily",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -43228,7 +43506,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3106:entry_point:run_daily→module:portfolio.position_sizing",
+      "id": "e3109:entry_point:run_daily→module:portfolio.position_sizing",
       "source": "entry_point:run_daily",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -43236,7 +43514,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3107:entry_point:run_daily→module:signals.rules_trend",
+      "id": "e3110:entry_point:run_daily→module:signals.rules_trend",
       "source": "entry_point:run_daily",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -43244,7 +43522,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3108:entry_point:run_daily→module:signals.rules_trend",
+      "id": "e3111:entry_point:run_daily→module:signals.rules_trend",
       "source": "entry_point:run_daily",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -43252,7 +43530,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3109:entry_point:run_daily→module:utils.timing",
+      "id": "e3112:entry_point:run_daily→module:utils.timing",
       "source": "entry_point:run_daily",
       "target": "module:utils.timing",
       "kind": "import",
@@ -43260,7 +43538,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3110:entry_point:run_daily→module:utils.timing",
+      "id": "e3113:entry_point:run_daily→module:utils.timing",
       "source": "entry_point:run_daily",
       "target": "module:utils.timing",
       "kind": "import",
@@ -43268,7 +43546,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3111:entry_point:run_daily→module:utils.timing",
+      "id": "e3114:entry_point:run_daily→module:utils.timing",
       "source": "entry_point:run_daily",
       "target": "module:utils.timing",
       "kind": "import",
@@ -43276,7 +43554,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3112:entry_point:run_daily→module:qa.data_qc",
+      "id": "e3115:entry_point:run_daily→module:qa.data_qc",
       "source": "entry_point:run_daily",
       "target": "module:qa.data_qc",
       "kind": "import",
@@ -43284,7 +43562,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3113:entry_point:run_daily→module:qa.data_qc",
+      "id": "e3116:entry_point:run_daily→module:qa.data_qc",
       "source": "entry_point:run_daily",
       "target": "module:qa.data_qc",
       "kind": "import",
@@ -43292,7 +43570,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3114:entry_point:run_daily→module:qa.data_qc",
+      "id": "e3117:entry_point:run_daily→module:qa.data_qc",
       "source": "entry_point:run_daily",
       "target": "module:qa.data_qc",
       "kind": "import",
@@ -43300,7 +43578,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3115:entry_point:run_daily→module:accounting.broker_snapshot_importer",
+      "id": "e3118:entry_point:run_daily→module:accounting.broker_snapshot_importer",
       "source": "entry_point:run_daily",
       "target": "module:accounting.broker_snapshot_importer",
       "kind": "import",
@@ -43308,7 +43586,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3116:entry_point:run_daily→module:accounting.broker_snapshot_importer",
+      "id": "e3119:entry_point:run_daily→module:accounting.broker_snapshot_importer",
       "source": "entry_point:run_daily",
       "target": "module:accounting.broker_snapshot_importer",
       "kind": "import",
@@ -43316,7 +43594,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3117:entry_point:run_daily→module:data.factor_store",
+      "id": "e3120:entry_point:run_daily→module:data.factor_store",
       "source": "entry_point:run_daily",
       "target": "module:data.factor_store",
       "kind": "import",
@@ -43324,7 +43602,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3118:entry_point:run_daily→module:data.factor_store",
+      "id": "e3121:entry_point:run_daily→module:data.factor_store",
       "source": "entry_point:run_daily",
       "target": "module:data.factor_store",
       "kind": "import",
@@ -43332,7 +43610,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3119:entry_point:run_daily→module:data.factor_store",
+      "id": "e3122:entry_point:run_daily→module:data.factor_store",
       "source": "entry_point:run_daily",
       "target": "module:data.factor_store",
       "kind": "import",
@@ -43340,7 +43618,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3120:entry_point:run_daily→module:features.incremental_updates",
+      "id": "e3123:entry_point:run_daily→module:features.incremental_updates",
       "source": "entry_point:run_daily",
       "target": "module:features.incremental_updates",
       "kind": "import",
@@ -43348,7 +43626,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3121:entry_point:run_daily→module:features.incremental_updates",
+      "id": "e3124:entry_point:run_daily→module:features.incremental_updates",
       "source": "entry_point:run_daily",
       "target": "module:features.incremental_updates",
       "kind": "import",
@@ -43356,7 +43634,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3122:entry_point:run_daily→module:features.ta_features",
+      "id": "e3125:entry_point:run_daily→module:features.ta_features",
       "source": "entry_point:run_daily",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -43364,7 +43642,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3123:entry_point:run_daily→module:features.ta_features",
+      "id": "e3126:entry_point:run_daily→module:features.ta_features",
       "source": "entry_point:run_daily",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -43372,7 +43650,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3124:entry_point:run_daily→module:accounting.broker_snapshot_store",
+      "id": "e3127:entry_point:run_daily→module:accounting.broker_snapshot_store",
       "source": "entry_point:run_daily",
       "target": "module:accounting.broker_snapshot_store",
       "kind": "import",
@@ -43380,7 +43658,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3125:entry_point:run_daily→module:accounting.broker_snapshot_store",
+      "id": "e3128:entry_point:run_daily→module:accounting.broker_snapshot_store",
       "source": "entry_point:run_daily",
       "target": "module:accounting.broker_snapshot_store",
       "kind": "import",
@@ -43388,33 +43666,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3126:entry_point:run_daily→module:data.calendar",
+      "id": "e3129:entry_point:run_daily→module:data.calendar",
       "source": "entry_point:run_daily",
       "target": "module:data.calendar",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3127:entry_point:run_daily→module:data.calendar",
-      "source": "entry_point:run_daily",
-      "target": "module:data.calendar",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3128:entry_point:run_daily→module:data.factor_store",
-      "source": "entry_point:run_daily",
-      "target": "module:data.factor_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3129:entry_point:run_daily→module:data.factor_store",
-      "source": "entry_point:run_daily",
-      "target": "module:data.factor_store",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -43428,7 +43682,23 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3131:entry_point:run_daily→module:data.calendar",
+      "id": "e3131:entry_point:run_daily→module:data.factor_store",
+      "source": "entry_point:run_daily",
+      "target": "module:data.factor_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3132:entry_point:run_daily→module:data.factor_store",
+      "source": "entry_point:run_daily",
+      "target": "module:data.factor_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3133:entry_point:run_daily→module:data.calendar",
       "source": "entry_point:run_daily",
       "target": "module:data.calendar",
       "kind": "import",
@@ -43436,25 +43706,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3132:entry_point:run_daily_scheduler→module:ops.daily_scheduler",
-      "source": "entry_point:run_daily_scheduler",
-      "target": "module:ops.daily_scheduler",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3133:entry_point:run_daily_scheduler→module:ops.daily_scheduler",
-      "source": "entry_point:run_daily_scheduler",
-      "target": "module:ops.daily_scheduler",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3134:entry_point:run_daily_scheduler→module:ops.daily_scheduler",
-      "source": "entry_point:run_daily_scheduler",
-      "target": "module:ops.daily_scheduler",
+      "id": "e3134:entry_point:run_daily→module:data.calendar",
+      "source": "entry_point:run_daily",
+      "target": "module:data.calendar",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -43468,7 +43722,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3136:entry_point:run_disclosure_event_study→module:qa.event_study",
+      "id": "e3136:entry_point:run_daily_scheduler→module:ops.daily_scheduler",
+      "source": "entry_point:run_daily_scheduler",
+      "target": "module:ops.daily_scheduler",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3137:entry_point:run_daily_scheduler→module:ops.daily_scheduler",
+      "source": "entry_point:run_daily_scheduler",
+      "target": "module:ops.daily_scheduler",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3138:entry_point:run_daily_scheduler→module:ops.daily_scheduler",
+      "source": "entry_point:run_daily_scheduler",
+      "target": "module:ops.daily_scheduler",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3139:entry_point:run_disclosure_event_study→module:qa.event_study",
       "source": "entry_point:run_disclosure_event_study",
       "target": "module:qa.event_study",
       "kind": "import",
@@ -43476,7 +43754,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3137:entry_point:run_disclosure_event_study→module:qa.event_study",
+      "id": "e3140:entry_point:run_disclosure_event_study→module:qa.event_study",
       "source": "entry_point:run_disclosure_event_study",
       "target": "module:qa.event_study",
       "kind": "import",
@@ -43484,7 +43762,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3138:entry_point:run_disclosure_event_study→module:qa.event_study",
+      "id": "e3141:entry_point:run_disclosure_event_study→module:qa.event_study",
       "source": "entry_point:run_disclosure_event_study",
       "target": "module:qa.event_study",
       "kind": "import",
@@ -43492,7 +43770,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3139:entry_point:run_disclosures_worker→module:events.disclosures.pipeline",
+      "id": "e3142:entry_point:run_disclosures_worker→module:events.disclosures.pipeline",
       "source": "entry_point:run_disclosures_worker",
       "target": "module:events.disclosures.pipeline",
       "kind": "import",
@@ -43500,7 +43778,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3140:entry_point:run_disclosures_worker→module:events.disclosures.pipeline",
+      "id": "e3143:entry_point:run_disclosures_worker→module:events.disclosures.pipeline",
       "source": "entry_point:run_disclosures_worker",
       "target": "module:events.disclosures.pipeline",
       "kind": "import",
@@ -43508,7 +43786,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3141:entry_point:run_eod_pipeline→module:config.__init__",
+      "id": "e3144:entry_point:run_eod_pipeline→module:config.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:config.__init__",
       "kind": "import",
@@ -43516,7 +43794,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3142:entry_point:run_eod_pipeline→module:config.__init__",
+      "id": "e3145:entry_point:run_eod_pipeline→module:config.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:config.__init__",
       "kind": "import",
@@ -43524,7 +43802,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3143:entry_point:run_eod_pipeline→module:config.__init__",
+      "id": "e3146:entry_point:run_eod_pipeline→module:config.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:config.__init__",
       "kind": "import",
@@ -43532,7 +43810,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3144:entry_point:run_eod_pipeline→module:costs.__init__",
+      "id": "e3147:entry_point:run_eod_pipeline→module:costs.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -43540,7 +43818,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3145:entry_point:run_eod_pipeline→module:costs.__init__",
+      "id": "e3148:entry_point:run_eod_pipeline→module:costs.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -43548,7 +43826,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3146:entry_point:run_eod_pipeline→module:logging_config.__init__",
+      "id": "e3149:entry_point:run_eod_pipeline→module:logging_config.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -43556,7 +43834,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3147:entry_point:run_eod_pipeline→module:logging_config.__init__",
+      "id": "e3150:entry_point:run_eod_pipeline→module:logging_config.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -43564,7 +43842,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3148:entry_point:run_eod_pipeline→module:logging_config.__init__",
+      "id": "e3151:entry_point:run_eod_pipeline→module:logging_config.__init__",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -43572,7 +43850,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3149:entry_point:run_eod_pipeline→module:pipeline.orchestrator",
+      "id": "e3152:entry_point:run_eod_pipeline→module:pipeline.orchestrator",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:pipeline.orchestrator",
       "kind": "import",
@@ -43580,7 +43858,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3150:entry_point:run_eod_pipeline→module:pipeline.orchestrator",
+      "id": "e3153:entry_point:run_eod_pipeline→module:pipeline.orchestrator",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:pipeline.orchestrator",
       "kind": "import",
@@ -43588,7 +43866,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3151:entry_point:run_eod_pipeline→module:config.settings",
+      "id": "e3154:entry_point:run_eod_pipeline→module:config.settings",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:config.settings",
       "kind": "import",
@@ -43596,7 +43874,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3152:entry_point:run_eod_pipeline→module:config.settings",
+      "id": "e3155:entry_point:run_eod_pipeline→module:config.settings",
       "source": "entry_point:run_eod_pipeline",
       "target": "module:config.settings",
       "kind": "import",
@@ -43604,7 +43882,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3153:entry_point:run_event_study→module:config.settings",
+      "id": "e3156:entry_point:run_event_study→module:config.settings",
       "source": "entry_point:run_event_study",
       "target": "module:config.settings",
       "kind": "import",
@@ -43612,7 +43890,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3154:entry_point:run_event_study→module:config.settings",
+      "id": "e3157:entry_point:run_event_study→module:config.settings",
       "source": "entry_point:run_event_study",
       "target": "module:config.settings",
       "kind": "import",
@@ -43620,7 +43898,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3155:entry_point:run_event_study→module:data.data_source",
+      "id": "e3158:entry_point:run_event_study→module:data.data_source",
       "source": "entry_point:run_event_study",
       "target": "module:data.data_source",
       "kind": "import",
@@ -43628,33 +43906,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3156:entry_point:run_event_study→module:data.data_source",
+      "id": "e3159:entry_point:run_event_study→module:data.data_source",
       "source": "entry_point:run_event_study",
       "target": "module:data.data_source",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3157:entry_point:run_event_study→module:qa.event_study",
-      "source": "entry_point:run_event_study",
-      "target": "module:qa.event_study",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3158:entry_point:run_event_study→module:qa.event_study",
-      "source": "entry_point:run_event_study",
-      "target": "module:qa.event_study",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3159:entry_point:run_event_study→module:qa.event_study",
-      "source": "entry_point:run_event_study",
-      "target": "module:qa.event_study",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -43668,7 +43922,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3161:entry_point:run_experiments→module:data.cost_model_policy",
+      "id": "e3161:entry_point:run_event_study→module:qa.event_study",
+      "source": "entry_point:run_event_study",
+      "target": "module:qa.event_study",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3162:entry_point:run_event_study→module:qa.event_study",
+      "source": "entry_point:run_event_study",
+      "target": "module:qa.event_study",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3163:entry_point:run_event_study→module:qa.event_study",
+      "source": "entry_point:run_event_study",
+      "target": "module:qa.event_study",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3164:entry_point:run_experiments→module:data.cost_model_policy",
       "source": "entry_point:run_experiments",
       "target": "module:data.cost_model_policy",
       "kind": "import",
@@ -43676,7 +43954,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3162:entry_point:run_experiments→module:data.cost_model_policy",
+      "id": "e3165:entry_point:run_experiments→module:data.cost_model_policy",
       "source": "entry_point:run_experiments",
       "target": "module:data.cost_model_policy",
       "kind": "import",
@@ -43684,7 +43962,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3163:entry_point:run_experiments→module:features.ta_features",
+      "id": "e3166:entry_point:run_experiments→module:features.ta_features",
       "source": "entry_point:run_experiments",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -43692,7 +43970,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3164:entry_point:run_experiments→module:features.ta_features",
+      "id": "e3167:entry_point:run_experiments→module:features.ta_features",
       "source": "entry_point:run_experiments",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -43700,7 +43978,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3165:entry_point:run_experiments→module:ml.__init__",
+      "id": "e3168:entry_point:run_experiments→module:ml.__init__",
       "source": "entry_point:run_experiments",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -43708,7 +43986,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3166:entry_point:run_experiments→module:ml.__init__",
+      "id": "e3169:entry_point:run_experiments→module:ml.__init__",
       "source": "entry_point:run_experiments",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -43716,7 +43994,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3167:entry_point:run_experiments→module:ml.__init__",
+      "id": "e3170:entry_point:run_experiments→module:ml.__init__",
       "source": "entry_point:run_experiments",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -43724,7 +44002,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3168:entry_point:run_experiments→module:portfolio.cost_aware_optimizer",
+      "id": "e3171:entry_point:run_experiments→module:portfolio.cost_aware_optimizer",
       "source": "entry_point:run_experiments",
       "target": "module:portfolio.cost_aware_optimizer",
       "kind": "import",
@@ -43732,7 +44010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3169:entry_point:run_experiments→module:portfolio.cost_aware_optimizer",
+      "id": "e3172:entry_point:run_experiments→module:portfolio.cost_aware_optimizer",
       "source": "entry_point:run_experiments",
       "target": "module:portfolio.cost_aware_optimizer",
       "kind": "import",
@@ -43740,7 +44018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3170:entry_point:run_experiments→module:portfolio.cost_aware_optimizer",
+      "id": "e3173:entry_point:run_experiments→module:portfolio.cost_aware_optimizer",
       "source": "entry_point:run_experiments",
       "target": "module:portfolio.cost_aware_optimizer",
       "kind": "import",
@@ -43748,7 +44026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3171:entry_point:run_experiments→module:qa.benchmark_metrics",
+      "id": "e3174:entry_point:run_experiments→module:qa.benchmark_metrics",
       "source": "entry_point:run_experiments",
       "target": "module:qa.benchmark_metrics",
       "kind": "import",
@@ -43756,7 +44034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3172:entry_point:run_experiments→module:qa.benchmark_metrics",
+      "id": "e3175:entry_point:run_experiments→module:qa.benchmark_metrics",
       "source": "entry_point:run_experiments",
       "target": "module:qa.benchmark_metrics",
       "kind": "import",
@@ -43764,7 +44042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3173:entry_point:run_experiments→module:risk.liquidity_scoring",
+      "id": "e3176:entry_point:run_experiments→module:risk.liquidity_scoring",
       "source": "entry_point:run_experiments",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -43772,7 +44050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3174:entry_point:run_experiments→module:risk.liquidity_scoring",
+      "id": "e3177:entry_point:run_experiments→module:risk.liquidity_scoring",
       "source": "entry_point:run_experiments",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -43780,7 +44058,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3175:entry_point:run_experiments→module:risk.liquidity_scoring",
+      "id": "e3178:entry_point:run_experiments→module:risk.liquidity_scoring",
       "source": "entry_point:run_experiments",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -43788,7 +44066,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3176:entry_point:run_experiments→module:risk.trailing_stops",
+      "id": "e3179:entry_point:run_experiments→module:risk.trailing_stops",
       "source": "entry_point:run_experiments",
       "target": "module:risk.trailing_stops",
       "kind": "import",
@@ -43796,33 +44074,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3177:entry_point:run_experiments→module:risk.trailing_stops",
+      "id": "e3180:entry_point:run_experiments→module:risk.trailing_stops",
       "source": "entry_point:run_experiments",
       "target": "module:risk.trailing_stops",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3178:entry_point:run_experiments→module:risk.trailing_stops",
-      "source": "entry_point:run_experiments",
-      "target": "module:risk.trailing_stops",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3179:entry_point:run_experiments→module:signals.rules_trend",
-      "source": "entry_point:run_experiments",
-      "target": "module:signals.rules_trend",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3180:entry_point:run_experiments→module:signals.rules_trend",
-      "source": "entry_point:run_experiments",
-      "target": "module:signals.rules_trend",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -43836,7 +44090,23 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3182:entry_point:run_experiments→module:risk.trailing_stops",
+      "id": "e3182:entry_point:run_experiments→module:signals.rules_trend",
+      "source": "entry_point:run_experiments",
+      "target": "module:signals.rules_trend",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3183:entry_point:run_experiments→module:signals.rules_trend",
+      "source": "entry_point:run_experiments",
+      "target": "module:signals.rules_trend",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3184:entry_point:run_experiments→module:risk.trailing_stops",
       "source": "entry_point:run_experiments",
       "target": "module:risk.trailing_stops",
       "kind": "import",
@@ -43844,7 +44114,15 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3183:entry_point:run_factor_analysis→module:config.settings",
+      "id": "e3185:entry_point:run_experiments→module:risk.trailing_stops",
+      "source": "entry_point:run_experiments",
+      "target": "module:risk.trailing_stops",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3186:entry_point:run_factor_analysis→module:config.settings",
       "source": "entry_point:run_factor_analysis",
       "target": "module:config.settings",
       "kind": "import",
@@ -43852,7 +44130,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3184:entry_point:run_factor_analysis→module:config.settings",
+      "id": "e3187:entry_point:run_factor_analysis→module:config.settings",
       "source": "entry_point:run_factor_analysis",
       "target": "module:config.settings",
       "kind": "import",
@@ -43860,7 +44138,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3185:entry_point:run_factor_analysis→module:data.data_source",
+      "id": "e3188:entry_point:run_factor_analysis→module:data.data_source",
       "source": "entry_point:run_factor_analysis",
       "target": "module:data.data_source",
       "kind": "import",
@@ -43868,7 +44146,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3186:entry_point:run_factor_analysis→module:data.data_source",
+      "id": "e3189:entry_point:run_factor_analysis→module:data.data_source",
       "source": "entry_point:run_factor_analysis",
       "target": "module:data.data_source",
       "kind": "import",
@@ -43876,7 +44154,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3187:entry_point:run_factor_analysis→module:features.altdata_earnings_insider_factors",
+      "id": "e3190:entry_point:run_factor_analysis→module:features.altdata_earnings_insider_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.altdata_earnings_insider_factors",
       "kind": "import",
@@ -43884,7 +44162,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3188:entry_point:run_factor_analysis→module:features.altdata_earnings_insider_factors",
+      "id": "e3191:entry_point:run_factor_analysis→module:features.altdata_earnings_insider_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.altdata_earnings_insider_factors",
       "kind": "import",
@@ -43892,7 +44170,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3189:entry_point:run_factor_analysis→module:features.altdata_earnings_insider_factors",
+      "id": "e3192:entry_point:run_factor_analysis→module:features.altdata_earnings_insider_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.altdata_earnings_insider_factors",
       "kind": "import",
@@ -43900,7 +44178,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3190:entry_point:run_factor_analysis→module:features.altdata_news_macro_factors",
+      "id": "e3193:entry_point:run_factor_analysis→module:features.altdata_news_macro_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.altdata_news_macro_factors",
       "kind": "import",
@@ -43908,7 +44186,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3191:entry_point:run_factor_analysis→module:features.altdata_news_macro_factors",
+      "id": "e3194:entry_point:run_factor_analysis→module:features.altdata_news_macro_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.altdata_news_macro_factors",
       "kind": "import",
@@ -43916,7 +44194,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3192:entry_point:run_factor_analysis→module:features.altdata_news_macro_factors",
+      "id": "e3195:entry_point:run_factor_analysis→module:features.altdata_news_macro_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.altdata_news_macro_factors",
       "kind": "import",
@@ -43924,7 +44202,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3193:entry_point:run_factor_analysis→module:features.ta_factors_core",
+      "id": "e3196:entry_point:run_factor_analysis→module:features.ta_factors_core",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.ta_factors_core",
       "kind": "import",
@@ -43932,7 +44210,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3194:entry_point:run_factor_analysis→module:features.ta_factors_core",
+      "id": "e3197:entry_point:run_factor_analysis→module:features.ta_factors_core",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.ta_factors_core",
       "kind": "import",
@@ -43940,7 +44218,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3195:entry_point:run_factor_analysis→module:features.ta_liquidity_vol_factors",
+      "id": "e3198:entry_point:run_factor_analysis→module:features.ta_liquidity_vol_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.ta_liquidity_vol_factors",
       "kind": "import",
@@ -43948,7 +44226,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3196:entry_point:run_factor_analysis→module:features.ta_liquidity_vol_factors",
+      "id": "e3199:entry_point:run_factor_analysis→module:features.ta_liquidity_vol_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.ta_liquidity_vol_factors",
       "kind": "import",
@@ -43956,7 +44234,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3197:entry_point:run_factor_analysis→module:features.ta_liquidity_vol_factors",
+      "id": "e3200:entry_point:run_factor_analysis→module:features.ta_liquidity_vol_factors",
       "source": "entry_point:run_factor_analysis",
       "target": "module:features.ta_liquidity_vol_factors",
       "kind": "import",
@@ -43964,7 +44242,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3198:entry_point:run_factor_analysis→module:logging_config.__init__",
+      "id": "e3201:entry_point:run_factor_analysis→module:logging_config.__init__",
       "source": "entry_point:run_factor_analysis",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -43972,33 +44250,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3199:entry_point:run_factor_analysis→module:logging_config.__init__",
+      "id": "e3202:entry_point:run_factor_analysis→module:logging_config.__init__",
       "source": "entry_point:run_factor_analysis",
       "target": "module:logging_config.__init__",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3200:entry_point:run_factor_analysis→module:qa.factor_analysis",
-      "source": "entry_point:run_factor_analysis",
-      "target": "module:qa.factor_analysis",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3201:entry_point:run_factor_analysis→module:qa.factor_analysis",
-      "source": "entry_point:run_factor_analysis",
-      "target": "module:qa.factor_analysis",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3202:entry_point:run_factor_analysis→module:qa.factor_analysis",
-      "source": "entry_point:run_factor_analysis",
-      "target": "module:qa.factor_analysis",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -44052,7 +44306,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3209:entry_point:run_full_experiments→module:features.ta_features",
+      "id": "e3209:entry_point:run_factor_analysis→module:qa.factor_analysis",
+      "source": "entry_point:run_factor_analysis",
+      "target": "module:qa.factor_analysis",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3210:entry_point:run_factor_analysis→module:qa.factor_analysis",
+      "source": "entry_point:run_factor_analysis",
+      "target": "module:qa.factor_analysis",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3211:entry_point:run_factor_analysis→module:qa.factor_analysis",
+      "source": "entry_point:run_factor_analysis",
+      "target": "module:qa.factor_analysis",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3212:entry_point:run_full_experiments→module:features.ta_features",
       "source": "entry_point:run_full_experiments",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -44060,7 +44338,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3210:entry_point:run_full_experiments→module:features.ta_features",
+      "id": "e3213:entry_point:run_full_experiments→module:features.ta_features",
       "source": "entry_point:run_full_experiments",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -44068,7 +44346,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3211:entry_point:run_full_experiments→module:ml.__init__",
+      "id": "e3214:entry_point:run_full_experiments→module:ml.__init__",
       "source": "entry_point:run_full_experiments",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -44076,7 +44354,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3212:entry_point:run_full_experiments→module:ml.__init__",
+      "id": "e3215:entry_point:run_full_experiments→module:ml.__init__",
       "source": "entry_point:run_full_experiments",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -44084,7 +44362,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3213:entry_point:run_full_experiments→module:ml.__init__",
+      "id": "e3216:entry_point:run_full_experiments→module:ml.__init__",
       "source": "entry_point:run_full_experiments",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -44092,7 +44370,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3214:entry_point:run_full_experiments→module:portfolio.cost_aware_optimizer",
+      "id": "e3217:entry_point:run_full_experiments→module:portfolio.cost_aware_optimizer",
       "source": "entry_point:run_full_experiments",
       "target": "module:portfolio.cost_aware_optimizer",
       "kind": "import",
@@ -44100,7 +44378,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3215:entry_point:run_full_experiments→module:portfolio.cost_aware_optimizer",
+      "id": "e3218:entry_point:run_full_experiments→module:portfolio.cost_aware_optimizer",
       "source": "entry_point:run_full_experiments",
       "target": "module:portfolio.cost_aware_optimizer",
       "kind": "import",
@@ -44108,7 +44386,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3216:entry_point:run_full_experiments→module:portfolio.cost_aware_optimizer",
+      "id": "e3219:entry_point:run_full_experiments→module:portfolio.cost_aware_optimizer",
       "source": "entry_point:run_full_experiments",
       "target": "module:portfolio.cost_aware_optimizer",
       "kind": "import",
@@ -44116,7 +44394,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3217:entry_point:run_full_experiments→module:portfolio.market_neutral_optimizer",
+      "id": "e3220:entry_point:run_full_experiments→module:portfolio.market_neutral_optimizer",
       "source": "entry_point:run_full_experiments",
       "target": "module:portfolio.market_neutral_optimizer",
       "kind": "import",
@@ -44124,7 +44402,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3218:entry_point:run_full_experiments→module:portfolio.market_neutral_optimizer",
+      "id": "e3221:entry_point:run_full_experiments→module:portfolio.market_neutral_optimizer",
       "source": "entry_point:run_full_experiments",
       "target": "module:portfolio.market_neutral_optimizer",
       "kind": "import",
@@ -44132,7 +44410,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3219:entry_point:run_full_experiments→module:portfolio.market_neutral_optimizer",
+      "id": "e3222:entry_point:run_full_experiments→module:portfolio.market_neutral_optimizer",
       "source": "entry_point:run_full_experiments",
       "target": "module:portfolio.market_neutral_optimizer",
       "kind": "import",
@@ -44140,7 +44418,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3220:entry_point:run_full_experiments→module:qa.benchmark_metrics",
+      "id": "e3223:entry_point:run_full_experiments→module:qa.benchmark_metrics",
       "source": "entry_point:run_full_experiments",
       "target": "module:qa.benchmark_metrics",
       "kind": "import",
@@ -44148,7 +44426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3221:entry_point:run_full_experiments→module:qa.benchmark_metrics",
+      "id": "e3224:entry_point:run_full_experiments→module:qa.benchmark_metrics",
       "source": "entry_point:run_full_experiments",
       "target": "module:qa.benchmark_metrics",
       "kind": "import",
@@ -44156,7 +44434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3222:entry_point:run_full_experiments→module:risk.crowding_detector",
+      "id": "e3225:entry_point:run_full_experiments→module:risk.crowding_detector",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.crowding_detector",
       "kind": "import",
@@ -44164,7 +44442,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3223:entry_point:run_full_experiments→module:risk.crowding_detector",
+      "id": "e3226:entry_point:run_full_experiments→module:risk.crowding_detector",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.crowding_detector",
       "kind": "import",
@@ -44172,7 +44450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3224:entry_point:run_full_experiments→module:risk.liquidity_scoring",
+      "id": "e3227:entry_point:run_full_experiments→module:risk.liquidity_scoring",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -44180,7 +44458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3225:entry_point:run_full_experiments→module:risk.liquidity_scoring",
+      "id": "e3228:entry_point:run_full_experiments→module:risk.liquidity_scoring",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -44188,7 +44466,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3226:entry_point:run_full_experiments→module:risk.liquidity_scoring",
+      "id": "e3229:entry_point:run_full_experiments→module:risk.liquidity_scoring",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.liquidity_scoring",
       "kind": "import",
@@ -44196,7 +44474,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3227:entry_point:run_full_experiments→module:risk.trailing_stops",
+      "id": "e3230:entry_point:run_full_experiments→module:risk.trailing_stops",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.trailing_stops",
       "kind": "import",
@@ -44204,7 +44482,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3228:entry_point:run_full_experiments→module:risk.trailing_stops",
+      "id": "e3231:entry_point:run_full_experiments→module:risk.trailing_stops",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.trailing_stops",
       "kind": "import",
@@ -44212,7 +44490,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3229:entry_point:run_full_experiments→module:risk.trailing_stops",
+      "id": "e3232:entry_point:run_full_experiments→module:risk.trailing_stops",
       "source": "entry_point:run_full_experiments",
       "target": "module:risk.trailing_stops",
       "kind": "import",
@@ -44220,7 +44498,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3230:entry_point:run_full_experiments→module:signals.rules_trend",
+      "id": "e3233:entry_point:run_full_experiments→module:signals.rules_trend",
       "source": "entry_point:run_full_experiments",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -44228,7 +44506,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3231:entry_point:run_full_experiments→module:signals.rules_trend",
+      "id": "e3234:entry_point:run_full_experiments→module:signals.rules_trend",
       "source": "entry_point:run_full_experiments",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -44236,7 +44514,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3232:entry_point:run_full_experiments→module:data.cost_model_policy",
+      "id": "e3235:entry_point:run_full_experiments→module:data.cost_model_policy",
       "source": "entry_point:run_full_experiments",
       "target": "module:data.cost_model_policy",
       "kind": "import",
@@ -44244,7 +44522,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3233:entry_point:run_full_experiments→module:data.cost_model_policy",
+      "id": "e3236:entry_point:run_full_experiments→module:data.cost_model_policy",
       "source": "entry_point:run_full_experiments",
       "target": "module:data.cost_model_policy",
       "kind": "import",
@@ -44252,7 +44530,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3234:entry_point:run_intel_cycle→module:intel.__init__",
+      "id": "e3237:entry_point:run_intel_cycle→module:intel.__init__",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.__init__",
       "kind": "import",
@@ -44260,7 +44538,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3235:entry_point:run_intel_cycle→module:intel.crisis_alpha_worker",
+      "id": "e3238:entry_point:run_intel_cycle→module:intel.crisis_alpha_worker",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.crisis_alpha_worker",
       "kind": "import",
@@ -44268,7 +44546,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3236:entry_point:run_intel_cycle→module:intel.geo_trigger",
+      "id": "e3239:entry_point:run_intel_cycle→module:intel.geo_trigger",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.geo_trigger",
       "kind": "import",
@@ -44276,7 +44554,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3237:entry_point:run_intel_cycle→module:intel.shock_propagation",
+      "id": "e3240:entry_point:run_intel_cycle→module:intel.shock_propagation",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.shock_propagation",
       "kind": "import",
@@ -44284,7 +44562,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3238:entry_point:run_intel_cycle→module:intel.dependency_graph",
+      "id": "e3241:entry_point:run_intel_cycle→module:intel.dependency_graph",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.dependency_graph",
       "kind": "import",
@@ -44292,7 +44570,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3239:entry_point:run_intel_cycle→module:intel.dependency_graph",
+      "id": "e3242:entry_point:run_intel_cycle→module:intel.dependency_graph",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.dependency_graph",
       "kind": "import",
@@ -44300,7 +44578,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3240:entry_point:run_intel_cycle→module:intel.health_monitor",
+      "id": "e3243:entry_point:run_intel_cycle→module:intel.health_monitor",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.health_monitor",
       "kind": "import",
@@ -44308,7 +44586,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3241:entry_point:run_intel_cycle→module:intel.health_monitor",
+      "id": "e3244:entry_point:run_intel_cycle→module:intel.health_monitor",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.health_monitor",
       "kind": "import",
@@ -44316,7 +44594,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3242:entry_point:run_intel_cycle→module:intel.market_confirmation",
+      "id": "e3245:entry_point:run_intel_cycle→module:intel.market_confirmation",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.market_confirmation",
       "kind": "import",
@@ -44324,7 +44602,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3243:entry_point:run_intel_cycle→module:intel.market_confirmation",
+      "id": "e3246:entry_point:run_intel_cycle→module:intel.market_confirmation",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.market_confirmation",
       "kind": "import",
@@ -44332,7 +44610,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3244:entry_point:run_intel_cycle→module:intel.models",
+      "id": "e3247:entry_point:run_intel_cycle→module:intel.models",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.models",
       "kind": "import",
@@ -44340,7 +44618,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3245:entry_point:run_intel_cycle→module:intel.models",
+      "id": "e3248:entry_point:run_intel_cycle→module:intel.models",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.models",
       "kind": "import",
@@ -44348,7 +44626,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3246:entry_point:run_intel_cycle→module:intel.models",
+      "id": "e3249:entry_point:run_intel_cycle→module:intel.models",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.models",
       "kind": "import",
@@ -44356,7 +44634,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3247:entry_point:run_intel_cycle→module:intel.news_cluster",
+      "id": "e3250:entry_point:run_intel_cycle→module:intel.news_cluster",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_cluster",
       "kind": "import",
@@ -44364,7 +44642,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3248:entry_point:run_intel_cycle→module:intel.news_cluster",
+      "id": "e3251:entry_point:run_intel_cycle→module:intel.news_cluster",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_cluster",
       "kind": "import",
@@ -44372,7 +44650,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3249:entry_point:run_intel_cycle→module:intel.news_dedupe",
+      "id": "e3252:entry_point:run_intel_cycle→module:intel.news_dedupe",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_dedupe",
       "kind": "import",
@@ -44380,7 +44658,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3250:entry_point:run_intel_cycle→module:intel.news_dedupe",
+      "id": "e3253:entry_point:run_intel_cycle→module:intel.news_dedupe",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_dedupe",
       "kind": "import",
@@ -44388,7 +44666,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3251:entry_point:run_intel_cycle→module:intel.news_ingest",
+      "id": "e3254:entry_point:run_intel_cycle→module:intel.news_ingest",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_ingest",
       "kind": "import",
@@ -44396,7 +44674,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3252:entry_point:run_intel_cycle→module:intel.news_ingest",
+      "id": "e3255:entry_point:run_intel_cycle→module:intel.news_ingest",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_ingest",
       "kind": "import",
@@ -44404,7 +44682,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3253:entry_point:run_intel_cycle→module:intel.news_signal_aggregator",
+      "id": "e3256:entry_point:run_intel_cycle→module:intel.news_signal_aggregator",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_signal_aggregator",
       "kind": "import",
@@ -44412,7 +44690,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3254:entry_point:run_intel_cycle→module:intel.news_signal_aggregator",
+      "id": "e3257:entry_point:run_intel_cycle→module:intel.news_signal_aggregator",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_signal_aggregator",
       "kind": "import",
@@ -44420,7 +44698,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3255:entry_point:run_intel_cycle→module:intel.news_entity_mapper",
+      "id": "e3258:entry_point:run_intel_cycle→module:intel.news_entity_mapper",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_entity_mapper",
       "kind": "import",
@@ -44428,7 +44706,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3256:entry_point:run_intel_cycle→module:intel.news_entity_mapper",
+      "id": "e3259:entry_point:run_intel_cycle→module:intel.news_entity_mapper",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_entity_mapper",
       "kind": "import",
@@ -44436,7 +44714,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3257:entry_point:run_intel_cycle→module:intel.rss_fetcher",
+      "id": "e3260:entry_point:run_intel_cycle→module:intel.rss_fetcher",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.rss_fetcher",
       "kind": "import",
@@ -44444,7 +44722,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3258:entry_point:run_intel_cycle→module:intel.rss_fetcher",
+      "id": "e3261:entry_point:run_intel_cycle→module:intel.rss_fetcher",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.rss_fetcher",
       "kind": "import",
@@ -44452,7 +44730,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3259:entry_point:run_intel_cycle→module:intel.news_event_store",
+      "id": "e3262:entry_point:run_intel_cycle→module:intel.news_event_store",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_event_store",
       "kind": "import",
@@ -44460,7 +44738,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3260:entry_point:run_intel_cycle→module:intel.news_event_store",
+      "id": "e3263:entry_point:run_intel_cycle→module:intel.news_event_store",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_event_store",
       "kind": "import",
@@ -44468,7 +44746,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3261:entry_point:run_intel_cycle→module:intel.news_velocity",
+      "id": "e3264:entry_point:run_intel_cycle→module:intel.news_velocity",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_velocity",
       "kind": "import",
@@ -44476,7 +44754,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3262:entry_point:run_intel_cycle→module:intel.news_velocity",
+      "id": "e3265:entry_point:run_intel_cycle→module:intel.news_velocity",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_velocity",
       "kind": "import",
@@ -44484,7 +44762,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3263:entry_point:run_intel_cycle→module:intel.news_enricher",
+      "id": "e3266:entry_point:run_intel_cycle→module:intel.news_enricher",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_enricher",
       "kind": "import",
@@ -44492,7 +44770,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3264:entry_point:run_intel_cycle→module:intel.news_enricher",
+      "id": "e3267:entry_point:run_intel_cycle→module:intel.news_enricher",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_enricher",
       "kind": "import",
@@ -44500,7 +44778,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3265:entry_point:run_intel_cycle→module:intel.sector_news_overlay",
+      "id": "e3268:entry_point:run_intel_cycle→module:intel.sector_news_overlay",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.sector_news_overlay",
       "kind": "import",
@@ -44508,7 +44786,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3266:entry_point:run_intel_cycle→module:intel.sector_news_overlay",
+      "id": "e3269:entry_point:run_intel_cycle→module:intel.sector_news_overlay",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.sector_news_overlay",
       "kind": "import",
@@ -44516,7 +44794,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3267:entry_point:run_intel_cycle→module:intel.news_alerts",
+      "id": "e3270:entry_point:run_intel_cycle→module:intel.news_alerts",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_alerts",
       "kind": "import",
@@ -44524,7 +44802,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3268:entry_point:run_intel_cycle→module:intel.news_alerts",
+      "id": "e3271:entry_point:run_intel_cycle→module:intel.news_alerts",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_alerts",
       "kind": "import",
@@ -44532,7 +44810,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3269:entry_point:run_intel_cycle→module:intel.news_macro_calendar",
+      "id": "e3272:entry_point:run_intel_cycle→module:intel.news_macro_calendar",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_macro_calendar",
       "kind": "import",
@@ -44540,7 +44818,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3270:entry_point:run_intel_cycle→module:intel.news_macro_calendar",
+      "id": "e3273:entry_point:run_intel_cycle→module:intel.news_macro_calendar",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_macro_calendar",
       "kind": "import",
@@ -44548,7 +44826,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3271:entry_point:run_intel_cycle→module:intel.news_sentiment_drift",
+      "id": "e3274:entry_point:run_intel_cycle→module:intel.news_sentiment_drift",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_sentiment_drift",
       "kind": "import",
@@ -44556,7 +44834,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3272:entry_point:run_intel_cycle→module:intel.news_sentiment_drift",
+      "id": "e3275:entry_point:run_intel_cycle→module:intel.news_sentiment_drift",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_sentiment_drift",
       "kind": "import",
@@ -44564,7 +44842,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3273:entry_point:run_intel_cycle→module:intel.news_ticker_velocity",
+      "id": "e3276:entry_point:run_intel_cycle→module:intel.news_ticker_velocity",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_ticker_velocity",
       "kind": "import",
@@ -44572,7 +44850,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3274:entry_point:run_intel_cycle→module:intel.news_ticker_velocity",
+      "id": "e3277:entry_point:run_intel_cycle→module:intel.news_ticker_velocity",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_ticker_velocity",
       "kind": "import",
@@ -44580,7 +44858,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3275:entry_point:run_intel_cycle→module:intel.news_semantic_dedup",
+      "id": "e3278:entry_point:run_intel_cycle→module:intel.news_semantic_dedup",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_semantic_dedup",
       "kind": "import",
@@ -44588,7 +44866,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3276:entry_point:run_intel_cycle→module:intel.news_semantic_dedup",
+      "id": "e3279:entry_point:run_intel_cycle→module:intel.news_semantic_dedup",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_semantic_dedup",
       "kind": "import",
@@ -44596,7 +44874,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3277:entry_point:run_intel_cycle→module:intel.news_entity_graph",
+      "id": "e3280:entry_point:run_intel_cycle→module:intel.news_entity_graph",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_entity_graph",
       "kind": "import",
@@ -44604,7 +44882,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3278:entry_point:run_intel_cycle→module:intel.news_entity_graph",
+      "id": "e3281:entry_point:run_intel_cycle→module:intel.news_entity_graph",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_entity_graph",
       "kind": "import",
@@ -44612,7 +44890,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3279:entry_point:run_intel_cycle→module:intel.news_contradiction",
+      "id": "e3282:entry_point:run_intel_cycle→module:intel.news_contradiction",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_contradiction",
       "kind": "import",
@@ -44620,7 +44898,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3280:entry_point:run_intel_cycle→module:intel.news_contradiction",
+      "id": "e3283:entry_point:run_intel_cycle→module:intel.news_contradiction",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_contradiction",
       "kind": "import",
@@ -44628,7 +44906,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3281:entry_point:run_intel_cycle→module:ml.__init__",
+      "id": "e3284:entry_point:run_intel_cycle→module:ml.__init__",
       "source": "entry_point:run_intel_cycle",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -44636,7 +44914,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3282:entry_point:run_intel_cycle→module:ml.__init__",
+      "id": "e3285:entry_point:run_intel_cycle→module:ml.__init__",
       "source": "entry_point:run_intel_cycle",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -44644,7 +44922,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3283:entry_point:run_intel_cycle→module:intel.news_archiver",
+      "id": "e3286:entry_point:run_intel_cycle→module:intel.news_archiver",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_archiver",
       "kind": "import",
@@ -44652,33 +44930,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3284:entry_point:run_intel_cycle→module:intel.news_archiver",
+      "id": "e3287:entry_point:run_intel_cycle→module:intel.news_archiver",
       "source": "entry_point:run_intel_cycle",
       "target": "module:intel.news_archiver",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3285:entry_point:run_kill_switch_worker→module:execution.intent_store",
-      "source": "entry_point:run_kill_switch_worker",
-      "target": "module:execution.intent_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3286:entry_point:run_kill_switch_worker→module:execution.intent_store",
-      "source": "entry_point:run_kill_switch_worker",
-      "target": "module:execution.intent_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3287:entry_point:run_kill_switch_worker→module:execution.intent_store",
-      "source": "entry_point:run_kill_switch_worker",
-      "target": "module:execution.intent_store",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -44692,7 +44946,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3289:entry_point:run_kill_switch_worker→module:execution.safe_bridge",
+      "id": "e3289:entry_point:run_kill_switch_worker→module:execution.intent_store",
+      "source": "entry_point:run_kill_switch_worker",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3290:entry_point:run_kill_switch_worker→module:execution.intent_store",
+      "source": "entry_point:run_kill_switch_worker",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3291:entry_point:run_kill_switch_worker→module:execution.intent_store",
+      "source": "entry_point:run_kill_switch_worker",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3292:entry_point:run_kill_switch_worker→module:execution.safe_bridge",
       "source": "entry_point:run_kill_switch_worker",
       "target": "module:execution.safe_bridge",
       "kind": "import",
@@ -44700,7 +44978,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3290:entry_point:run_kill_switch_worker→module:execution.safe_bridge",
+      "id": "e3293:entry_point:run_kill_switch_worker→module:execution.safe_bridge",
       "source": "entry_point:run_kill_switch_worker",
       "target": "module:execution.safe_bridge",
       "kind": "import",
@@ -44708,7 +44986,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3291:entry_point:run_leakage_audit→module:qa.leakage_analyzer",
+      "id": "e3294:entry_point:run_leakage_audit→module:qa.leakage_analyzer",
       "source": "entry_point:run_leakage_audit",
       "target": "module:qa.leakage_analyzer",
       "kind": "import",
@@ -44716,7 +44994,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3292:entry_point:run_leakage_audit→module:qa.leakage_analyzer",
+      "id": "e3295:entry_point:run_leakage_audit→module:qa.leakage_analyzer",
       "source": "entry_point:run_leakage_audit",
       "target": "module:qa.leakage_analyzer",
       "kind": "import",
@@ -44724,7 +45002,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3293:entry_point:run_live_paper→module:logging_config.__init__",
+      "id": "e3296:entry_point:run_live_paper→module:logging_config.__init__",
       "source": "entry_point:run_live_paper",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -44732,7 +45010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3294:entry_point:run_live_paper→module:logging_config.__init__",
+      "id": "e3297:entry_point:run_live_paper→module:logging_config.__init__",
       "source": "entry_point:run_live_paper",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -44740,7 +45018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3295:entry_point:run_live_paper→module:logging_config.__init__",
+      "id": "e3298:entry_point:run_live_paper→module:logging_config.__init__",
       "source": "entry_point:run_live_paper",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -44748,7 +45026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3296:entry_point:run_live_paper→module:execution.broker_adapter",
+      "id": "e3299:entry_point:run_live_paper→module:execution.broker_adapter",
       "source": "entry_point:run_live_paper",
       "target": "module:execution.broker_adapter",
       "kind": "import",
@@ -44756,7 +45034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3297:entry_point:run_live_paper→module:execution.broker_adapter",
+      "id": "e3300:entry_point:run_live_paper→module:execution.broker_adapter",
       "source": "entry_point:run_live_paper",
       "target": "module:execution.broker_adapter",
       "kind": "import",
@@ -44764,7 +45042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3298:entry_point:run_live_paper→module:execution.kill_switch",
+      "id": "e3301:entry_point:run_live_paper→module:execution.kill_switch",
       "source": "entry_point:run_live_paper",
       "target": "module:execution.kill_switch",
       "kind": "import",
@@ -44772,7 +45050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3299:entry_point:run_live_paper→module:execution.kill_switch",
+      "id": "e3302:entry_point:run_live_paper→module:execution.kill_switch",
       "source": "entry_point:run_live_paper",
       "target": "module:execution.kill_switch",
       "kind": "import",
@@ -44780,7 +45058,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3300:entry_point:run_live_paper→module:ops.paper_runner",
+      "id": "e3303:entry_point:run_live_paper→module:ops.paper_runner",
       "source": "entry_point:run_live_paper",
       "target": "module:ops.paper_runner",
       "kind": "import",
@@ -44788,7 +45066,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3301:entry_point:run_live_paper→module:ops.paper_runner",
+      "id": "e3304:entry_point:run_live_paper→module:ops.paper_runner",
       "source": "entry_point:run_live_paper",
       "target": "module:ops.paper_runner",
       "kind": "import",
@@ -44796,33 +45074,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3302:entry_point:run_live_paper→module:execution.position_sync",
+      "id": "e3305:entry_point:run_live_paper→module:execution.position_sync",
       "source": "entry_point:run_live_paper",
       "target": "module:execution.position_sync",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3303:entry_point:run_live_paper→module:execution.position_sync",
-      "source": "entry_point:run_live_paper",
-      "target": "module:execution.position_sync",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3304:entry_point:run_live_paper→module:ops.paper_ledger",
-      "source": "entry_point:run_live_paper",
-      "target": "module:ops.paper_ledger",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3305:entry_point:run_live_paper→module:ops.paper_ledger",
-      "source": "entry_point:run_live_paper",
-      "target": "module:ops.paper_ledger",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -44836,9 +45090,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3307:entry_point:run_live_paper→module:execution.position_sync",
+      "id": "e3307:entry_point:run_live_paper→module:ops.paper_ledger",
       "source": "entry_point:run_live_paper",
-      "target": "module:execution.position_sync",
+      "target": "module:ops.paper_ledger",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -44852,127 +45106,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3309:entry_point:run_live_paper→module:ops.paper_ledger",
-      "source": "entry_point:run_live_paper",
-      "target": "module:ops.paper_ledger",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3310:entry_point:run_live_paper→module:data.prices_ingest",
-      "source": "entry_point:run_live_paper",
-      "target": "module:data.prices_ingest",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3311:entry_point:run_live_paper→module:data.prices_ingest",
-      "source": "entry_point:run_live_paper",
-      "target": "module:data.prices_ingest",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3312:entry_point:run_live_paper→module:data.sources.yfinance_source",
-      "source": "entry_point:run_live_paper",
-      "target": "module:data.sources.yfinance_source",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3313:entry_point:run_live_paper→module:data.sources.yfinance_source",
-      "source": "entry_point:run_live_paper",
-      "target": "module:data.sources.yfinance_source",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3314:entry_point:run_live_paper→module:data.universe",
-      "source": "entry_point:run_live_paper",
-      "target": "module:data.universe",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3315:entry_point:run_live_paper→module:data.universe",
-      "source": "entry_point:run_live_paper",
-      "target": "module:data.universe",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3316:entry_point:run_live_paper→module:execution.kill_switch",
-      "source": "entry_point:run_live_paper",
-      "target": "module:execution.kill_switch",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3317:entry_point:run_live_paper→module:execution.kill_switch",
-      "source": "entry_point:run_live_paper",
-      "target": "module:execution.kill_switch",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3318:entry_point:run_live_paper→module:execution.intent_store",
-      "source": "entry_point:run_live_paper",
-      "target": "module:execution.intent_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3319:entry_point:run_live_paper→module:execution.intent_store",
-      "source": "entry_point:run_live_paper",
-      "target": "module:execution.intent_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3320:entry_point:run_live_paper→module:ops.experience_log",
-      "source": "entry_point:run_live_paper",
-      "target": "module:ops.experience_log",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3321:entry_point:run_live_paper→module:ops.experience_log",
-      "source": "entry_point:run_live_paper",
-      "target": "module:ops.experience_log",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3322:entry_point:run_live_paper→module:config.env_validator",
-      "source": "entry_point:run_live_paper",
-      "target": "module:config.env_validator",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3323:entry_point:run_live_paper→module:config.env_validator",
-      "source": "entry_point:run_live_paper",
-      "target": "module:config.env_validator",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3324:entry_point:run_live_paper→module:execution.position_sync",
+      "id": "e3309:entry_point:run_live_paper→module:execution.position_sync",
       "source": "entry_point:run_live_paper",
       "target": "module:execution.position_sync",
       "kind": "import",
@@ -44980,7 +45114,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3325:entry_point:run_live_paper→module:execution.position_sync",
+      "id": "e3310:entry_point:run_live_paper→module:execution.position_sync",
       "source": "entry_point:run_live_paper",
       "target": "module:execution.position_sync",
       "kind": "import",
@@ -44988,7 +45122,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3326:entry_point:run_live_paper→module:ops.paper_ledger",
+      "id": "e3311:entry_point:run_live_paper→module:ops.paper_ledger",
       "source": "entry_point:run_live_paper",
       "target": "module:ops.paper_ledger",
       "kind": "import",
@@ -44996,7 +45130,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3327:entry_point:run_live_paper→module:ops.paper_ledger",
+      "id": "e3312:entry_point:run_live_paper→module:ops.paper_ledger",
       "source": "entry_point:run_live_paper",
       "target": "module:ops.paper_ledger",
       "kind": "import",
@@ -45004,25 +45138,145 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3328:entry_point:run_ml_factor_validation→module:ml.__init__",
-      "source": "entry_point:run_ml_factor_validation",
-      "target": "module:ml.__init__",
+      "id": "e3313:entry_point:run_live_paper→module:data.prices_ingest",
+      "source": "entry_point:run_live_paper",
+      "target": "module:data.prices_ingest",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3329:entry_point:run_ml_factor_validation→module:ml.__init__",
-      "source": "entry_point:run_ml_factor_validation",
-      "target": "module:ml.__init__",
+      "id": "e3314:entry_point:run_live_paper→module:data.prices_ingest",
+      "source": "entry_point:run_live_paper",
+      "target": "module:data.prices_ingest",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3330:entry_point:run_ml_factor_validation→module:ml.__init__",
-      "source": "entry_point:run_ml_factor_validation",
-      "target": "module:ml.__init__",
+      "id": "e3315:entry_point:run_live_paper→module:data.sources.yfinance_source",
+      "source": "entry_point:run_live_paper",
+      "target": "module:data.sources.yfinance_source",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3316:entry_point:run_live_paper→module:data.sources.yfinance_source",
+      "source": "entry_point:run_live_paper",
+      "target": "module:data.sources.yfinance_source",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3317:entry_point:run_live_paper→module:data.universe",
+      "source": "entry_point:run_live_paper",
+      "target": "module:data.universe",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3318:entry_point:run_live_paper→module:data.universe",
+      "source": "entry_point:run_live_paper",
+      "target": "module:data.universe",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3319:entry_point:run_live_paper→module:execution.kill_switch",
+      "source": "entry_point:run_live_paper",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3320:entry_point:run_live_paper→module:execution.kill_switch",
+      "source": "entry_point:run_live_paper",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3321:entry_point:run_live_paper→module:execution.intent_store",
+      "source": "entry_point:run_live_paper",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3322:entry_point:run_live_paper→module:execution.intent_store",
+      "source": "entry_point:run_live_paper",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3323:entry_point:run_live_paper→module:ops.experience_log",
+      "source": "entry_point:run_live_paper",
+      "target": "module:ops.experience_log",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3324:entry_point:run_live_paper→module:ops.experience_log",
+      "source": "entry_point:run_live_paper",
+      "target": "module:ops.experience_log",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3325:entry_point:run_live_paper→module:config.env_validator",
+      "source": "entry_point:run_live_paper",
+      "target": "module:config.env_validator",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3326:entry_point:run_live_paper→module:config.env_validator",
+      "source": "entry_point:run_live_paper",
+      "target": "module:config.env_validator",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3327:entry_point:run_live_paper→module:execution.position_sync",
+      "source": "entry_point:run_live_paper",
+      "target": "module:execution.position_sync",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3328:entry_point:run_live_paper→module:execution.position_sync",
+      "source": "entry_point:run_live_paper",
+      "target": "module:execution.position_sync",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3329:entry_point:run_live_paper→module:ops.paper_ledger",
+      "source": "entry_point:run_live_paper",
+      "target": "module:ops.paper_ledger",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3330:entry_point:run_live_paper→module:ops.paper_ledger",
+      "source": "entry_point:run_live_paper",
+      "target": "module:ops.paper_ledger",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45068,17 +45322,17 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3336:entry_point:run_ml_factor_validation→module:qa.metrics",
+      "id": "e3336:entry_point:run_ml_factor_validation→module:ml.__init__",
       "source": "entry_point:run_ml_factor_validation",
-      "target": "module:qa.metrics",
+      "target": "module:ml.__init__",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3337:entry_point:run_ml_factor_validation→module:qa.metrics",
+      "id": "e3337:entry_point:run_ml_factor_validation→module:ml.__init__",
       "source": "entry_point:run_ml_factor_validation",
-      "target": "module:qa.metrics",
+      "target": "module:ml.__init__",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45092,17 +45346,17 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3339:entry_point:run_ml_factor_validation→module:ml.__init__",
+      "id": "e3339:entry_point:run_ml_factor_validation→module:qa.metrics",
       "source": "entry_point:run_ml_factor_validation",
-      "target": "module:ml.__init__",
+      "target": "module:qa.metrics",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3340:entry_point:run_ml_factor_validation→module:ml.__init__",
+      "id": "e3340:entry_point:run_ml_factor_validation→module:qa.metrics",
       "source": "entry_point:run_ml_factor_validation",
-      "target": "module:ml.__init__",
+      "target": "module:qa.metrics",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45116,7 +45370,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3342:entry_point:run_news_worker→module:events.news.dedupe_store",
+      "id": "e3342:entry_point:run_ml_factor_validation→module:ml.__init__",
+      "source": "entry_point:run_ml_factor_validation",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3343:entry_point:run_ml_factor_validation→module:ml.__init__",
+      "source": "entry_point:run_ml_factor_validation",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3344:entry_point:run_ml_factor_validation→module:ml.__init__",
+      "source": "entry_point:run_ml_factor_validation",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3345:entry_point:run_news_worker→module:events.news.dedupe_store",
       "source": "entry_point:run_news_worker",
       "target": "module:events.news.dedupe_store",
       "kind": "import",
@@ -45124,7 +45402,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3343:entry_point:run_news_worker→module:events.news.dedupe_store",
+      "id": "e3346:entry_point:run_news_worker→module:events.news.dedupe_store",
       "source": "entry_point:run_news_worker",
       "target": "module:events.news.dedupe_store",
       "kind": "import",
@@ -45132,7 +45410,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3344:entry_point:run_news_worker→module:events.news.pipeline",
+      "id": "e3347:entry_point:run_news_worker→module:events.news.pipeline",
       "source": "entry_point:run_news_worker",
       "target": "module:events.news.pipeline",
       "kind": "import",
@@ -45140,7 +45418,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3345:entry_point:run_news_worker→module:events.news.pipeline",
+      "id": "e3348:entry_point:run_news_worker→module:events.news.pipeline",
       "source": "entry_point:run_news_worker",
       "target": "module:events.news.pipeline",
       "kind": "import",
@@ -45148,7 +45426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3346:entry_point:run_paper_live→module:execution.kill_switch",
+      "id": "e3349:entry_point:run_paper_live→module:execution.kill_switch",
       "source": "entry_point:run_paper_live",
       "target": "module:execution.kill_switch",
       "kind": "import",
@@ -45156,7 +45434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3347:entry_point:run_paper_live→module:execution.kill_switch",
+      "id": "e3350:entry_point:run_paper_live→module:execution.kill_switch",
       "source": "entry_point:run_paper_live",
       "target": "module:execution.kill_switch",
       "kind": "import",
@@ -45164,7 +45442,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3348:entry_point:run_paper_live→module:execution.broker_adapter",
+      "id": "e3351:entry_point:run_paper_live→module:execution.broker_adapter",
       "source": "entry_point:run_paper_live",
       "target": "module:execution.broker_adapter",
       "kind": "import",
@@ -45172,7 +45450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3349:entry_point:run_paper_live→module:execution.broker_adapter",
+      "id": "e3352:entry_point:run_paper_live→module:execution.broker_adapter",
       "source": "entry_point:run_paper_live",
       "target": "module:execution.broker_adapter",
       "kind": "import",
@@ -45180,15 +45458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3350:entry_point:run_paper_live→module:ops.alerting",
-      "source": "entry_point:run_paper_live",
-      "target": "module:ops.alerting",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3351:entry_point:run_paper_live→module:ops.alerting",
+      "id": "e3353:entry_point:run_paper_live→module:ops.alerting",
       "source": "entry_point:run_paper_live",
       "target": "module:ops.alerting",
       "kind": "import",
@@ -45196,25 +45466,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3352:entry_point:run_paper_pilot→module:execution.broker_adapter",
-      "source": "entry_point:run_paper_pilot",
-      "target": "module:execution.broker_adapter",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3353:entry_point:run_paper_pilot→module:execution.broker_adapter",
-      "source": "entry_point:run_paper_pilot",
-      "target": "module:execution.broker_adapter",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3354:entry_point:run_paper_pilot→module:execution.broker_adapter",
-      "source": "entry_point:run_paper_pilot",
-      "target": "module:execution.broker_adapter",
+      "id": "e3354:entry_point:run_paper_live→module:ops.alerting",
+      "source": "entry_point:run_paper_live",
+      "target": "module:ops.alerting",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45228,7 +45482,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3356:entry_point:run_paper_pilot→module:execution.intent_store",
+      "id": "e3356:entry_point:run_paper_pilot→module:execution.broker_adapter",
+      "source": "entry_point:run_paper_pilot",
+      "target": "module:execution.broker_adapter",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3357:entry_point:run_paper_pilot→module:execution.broker_adapter",
+      "source": "entry_point:run_paper_pilot",
+      "target": "module:execution.broker_adapter",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3358:entry_point:run_paper_pilot→module:execution.broker_adapter",
+      "source": "entry_point:run_paper_pilot",
+      "target": "module:execution.broker_adapter",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3359:entry_point:run_paper_pilot→module:execution.intent_store",
       "source": "entry_point:run_paper_pilot",
       "target": "module:execution.intent_store",
       "kind": "import",
@@ -45236,7 +45514,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3357:entry_point:run_paper_pilot→module:execution.intent_store",
+      "id": "e3360:entry_point:run_paper_pilot→module:execution.intent_store",
       "source": "entry_point:run_paper_pilot",
       "target": "module:execution.intent_store",
       "kind": "import",
@@ -45244,7 +45522,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3358:entry_point:run_paper_track→module:logging_config.__init__",
+      "id": "e3361:entry_point:run_paper_track→module:logging_config.__init__",
       "source": "entry_point:run_paper_track",
       "target": "module:logging_config.__init__",
       "kind": "import",
@@ -45252,36 +45530,12 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3359:entry_point:run_paper_track→module:logging_config.__init__",
+      "id": "e3362:entry_point:run_paper_track→module:logging_config.__init__",
       "source": "entry_point:run_paper_track",
       "target": "module:logging_config.__init__",
       "kind": "import",
       "weight": 1,
       "circular": false
-    },
-    {
-      "id": "e3360:entry_point:run_paper_track→module:paper.paper_track",
-      "source": "entry_point:run_paper_track",
-      "target": "module:paper.paper_track",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
-    },
-    {
-      "id": "e3361:entry_point:run_paper_track→module:paper.paper_track",
-      "source": "entry_point:run_paper_track",
-      "target": "module:paper.paper_track",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
-    },
-    {
-      "id": "e3362:entry_point:run_paper_track→module:paper.paper_track",
-      "source": "entry_point:run_paper_track",
-      "target": "module:paper.paper_track",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
     },
     {
       "id": "e3363:entry_point:run_paper_track→module:paper.paper_track",
@@ -45316,20 +45570,20 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3367:entry_point:run_paper_track→module:utils.random_state",
+      "id": "e3367:entry_point:run_paper_track→module:paper.paper_track",
       "source": "entry_point:run_paper_track",
-      "target": "module:utils.random_state",
+      "target": "module:paper.paper_track",
       "kind": "import",
       "weight": 1,
-      "circular": false
+      "circular": true
     },
     {
-      "id": "e3368:entry_point:run_paper_track→module:utils.random_state",
+      "id": "e3368:entry_point:run_paper_track→module:paper.paper_track",
       "source": "entry_point:run_paper_track",
-      "target": "module:utils.random_state",
+      "target": "module:paper.paper_track",
       "kind": "import",
       "weight": 1,
-      "circular": false
+      "circular": true
     },
     {
       "id": "e3369:entry_point:run_paper_track→module:paper.paper_track",
@@ -45340,7 +45594,23 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3370:entry_point:run_paper_track→module:paper.paper_track",
+      "id": "e3370:entry_point:run_paper_track→module:utils.random_state",
+      "source": "entry_point:run_paper_track",
+      "target": "module:utils.random_state",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3371:entry_point:run_paper_track→module:utils.random_state",
+      "source": "entry_point:run_paper_track",
+      "target": "module:utils.random_state",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3372:entry_point:run_paper_track→module:paper.paper_track",
       "source": "entry_point:run_paper_track",
       "target": "module:paper.paper_track",
       "kind": "import",
@@ -45348,28 +45618,12 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3371:entry_point:run_paper_track→module:paper.intel_runner",
+      "id": "e3373:entry_point:run_paper_track→module:paper.paper_track",
       "source": "entry_point:run_paper_track",
-      "target": "module:paper.intel_runner",
+      "target": "module:paper.paper_track",
       "kind": "import",
       "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3372:entry_point:run_paper_track→module:paper.intel_runner",
-      "source": "entry_point:run_paper_track",
-      "target": "module:paper.intel_runner",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3373:entry_point:run_paper_track→module:paper.intel_runner",
-      "source": "entry_point:run_paper_track",
-      "target": "module:paper.intel_runner",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
+      "circular": true
     },
     {
       "id": "e3374:entry_point:run_paper_track→module:paper.intel_runner",
@@ -45388,7 +45642,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3376:entry_point:run_paper_track→module:paper.georisk_gate",
+      "id": "e3376:entry_point:run_paper_track→module:paper.intel_runner",
+      "source": "entry_point:run_paper_track",
+      "target": "module:paper.intel_runner",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3377:entry_point:run_paper_track→module:paper.intel_runner",
+      "source": "entry_point:run_paper_track",
+      "target": "module:paper.intel_runner",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3378:entry_point:run_paper_track→module:paper.intel_runner",
+      "source": "entry_point:run_paper_track",
+      "target": "module:paper.intel_runner",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3379:entry_point:run_paper_track→module:paper.georisk_gate",
       "source": "entry_point:run_paper_track",
       "target": "module:paper.georisk_gate",
       "kind": "import",
@@ -45396,7 +45674,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3377:entry_point:run_paper_track→module:paper.georisk_gate",
+      "id": "e3380:entry_point:run_paper_track→module:paper.georisk_gate",
       "source": "entry_point:run_paper_track",
       "target": "module:paper.georisk_gate",
       "kind": "import",
@@ -45404,7 +45682,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3378:entry_point:run_post_trade_analysis→module:qa.learning_store",
+      "id": "e3381:entry_point:run_post_trade_analysis→module:qa.learning_store",
       "source": "entry_point:run_post_trade_analysis",
       "target": "module:qa.learning_store",
       "kind": "import",
@@ -45412,7 +45690,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3379:entry_point:run_post_trade_analysis→module:qa.learning_store",
+      "id": "e3382:entry_point:run_post_trade_analysis→module:qa.learning_store",
       "source": "entry_point:run_post_trade_analysis",
       "target": "module:qa.learning_store",
       "kind": "import",
@@ -45420,33 +45698,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3380:entry_point:run_post_trade_analysis→module:qa.learning_store",
+      "id": "e3383:entry_point:run_post_trade_analysis→module:qa.learning_store",
       "source": "entry_point:run_post_trade_analysis",
       "target": "module:qa.learning_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3381:entry_point:run_post_trade_analysis→module:qa.post_trade_analyzer",
-      "source": "entry_point:run_post_trade_analysis",
-      "target": "module:qa.post_trade_analyzer",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3382:entry_point:run_post_trade_analysis→module:qa.post_trade_analyzer",
-      "source": "entry_point:run_post_trade_analysis",
-      "target": "module:qa.post_trade_analyzer",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3383:entry_point:run_post_trade_analysis→module:qa.post_trade_analyzer",
-      "source": "entry_point:run_post_trade_analysis",
-      "target": "module:qa.post_trade_analyzer",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45460,25 +45714,25 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3385:entry_point:run_preflight_checks→module:execution.kill_switch",
-      "source": "entry_point:run_preflight_checks",
-      "target": "module:execution.kill_switch",
+      "id": "e3385:entry_point:run_post_trade_analysis→module:qa.post_trade_analyzer",
+      "source": "entry_point:run_post_trade_analysis",
+      "target": "module:qa.post_trade_analyzer",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3386:entry_point:run_preflight_checks→module:execution.kill_switch",
-      "source": "entry_point:run_preflight_checks",
-      "target": "module:execution.kill_switch",
+      "id": "e3386:entry_point:run_post_trade_analysis→module:qa.post_trade_analyzer",
+      "source": "entry_point:run_post_trade_analysis",
+      "target": "module:qa.post_trade_analyzer",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3387:entry_point:run_preflight_checks→module:execution.kill_switch",
-      "source": "entry_point:run_preflight_checks",
-      "target": "module:execution.kill_switch",
+      "id": "e3387:entry_point:run_post_trade_analysis→module:qa.post_trade_analyzer",
+      "source": "entry_point:run_post_trade_analysis",
+      "target": "module:qa.post_trade_analyzer",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45492,7 +45746,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3389:entry_point:run_preflight_checks→module:utils.market_calendar",
+      "id": "e3389:entry_point:run_preflight_checks→module:execution.kill_switch",
+      "source": "entry_point:run_preflight_checks",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3390:entry_point:run_preflight_checks→module:execution.kill_switch",
+      "source": "entry_point:run_preflight_checks",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3391:entry_point:run_preflight_checks→module:execution.kill_switch",
+      "source": "entry_point:run_preflight_checks",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3392:entry_point:run_preflight_checks→module:utils.market_calendar",
       "source": "entry_point:run_preflight_checks",
       "target": "module:utils.market_calendar",
       "kind": "import",
@@ -45500,7 +45778,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3390:entry_point:run_preflight_checks→module:utils.market_calendar",
+      "id": "e3393:entry_point:run_preflight_checks→module:utils.market_calendar",
       "source": "entry_point:run_preflight_checks",
       "target": "module:utils.market_calendar",
       "kind": "import",
@@ -45508,7 +45786,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3391:entry_point:run_reconcile_worker→module:accounting.position_engine",
+      "id": "e3394:entry_point:run_reconcile_worker→module:accounting.position_engine",
       "source": "entry_point:run_reconcile_worker",
       "target": "module:accounting.position_engine",
       "kind": "import",
@@ -45516,7 +45794,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3392:entry_point:run_reconcile_worker→module:accounting.position_engine",
+      "id": "e3395:entry_point:run_reconcile_worker→module:accounting.position_engine",
       "source": "entry_point:run_reconcile_worker",
       "target": "module:accounting.position_engine",
       "kind": "import",
@@ -45524,7 +45802,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3393:entry_point:run_reconcile_worker→module:accounting.reconciliation",
+      "id": "e3396:entry_point:run_reconcile_worker→module:accounting.reconciliation",
       "source": "entry_point:run_reconcile_worker",
       "target": "module:accounting.reconciliation",
       "kind": "import",
@@ -45532,7 +45810,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3394:entry_point:run_reconcile_worker→module:accounting.reconciliation",
+      "id": "e3397:entry_point:run_reconcile_worker→module:accounting.reconciliation",
       "source": "entry_point:run_reconcile_worker",
       "target": "module:accounting.reconciliation",
       "kind": "import",
@@ -45540,7 +45818,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3395:entry_point:run_reconcile_worker→module:execution.intent_store",
+      "id": "e3398:entry_point:run_reconcile_worker→module:execution.intent_store",
       "source": "entry_point:run_reconcile_worker",
       "target": "module:execution.intent_store",
       "kind": "import",
@@ -45548,7 +45826,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3396:entry_point:run_reconcile_worker→module:execution.intent_store",
+      "id": "e3399:entry_point:run_reconcile_worker→module:execution.intent_store",
       "source": "entry_point:run_reconcile_worker",
       "target": "module:execution.intent_store",
       "kind": "import",
@@ -45556,7 +45834,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3397:entry_point:run_reconcile_worker→module:execution.intent_store",
+      "id": "e3400:entry_point:run_reconcile_worker→module:execution.intent_store",
       "source": "entry_point:run_reconcile_worker",
       "target": "module:execution.intent_store",
       "kind": "import",
@@ -45564,7 +45842,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3398:entry_point:run_rss_fetch→module:intel.models",
+      "id": "e3401:entry_point:run_rss_fetch→module:intel.models",
       "source": "entry_point:run_rss_fetch",
       "target": "module:intel.models",
       "kind": "import",
@@ -45572,7 +45850,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3399:entry_point:run_rss_fetch→module:intel.models",
+      "id": "e3402:entry_point:run_rss_fetch→module:intel.models",
       "source": "entry_point:run_rss_fetch",
       "target": "module:intel.models",
       "kind": "import",
@@ -45580,7 +45858,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3400:entry_point:run_rss_fetch→module:intel.news_entity_mapper",
+      "id": "e3403:entry_point:run_rss_fetch→module:intel.news_entity_mapper",
       "source": "entry_point:run_rss_fetch",
       "target": "module:intel.news_entity_mapper",
       "kind": "import",
@@ -45588,7 +45866,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3401:entry_point:run_rss_fetch→module:intel.news_entity_mapper",
+      "id": "e3404:entry_point:run_rss_fetch→module:intel.news_entity_mapper",
       "source": "entry_point:run_rss_fetch",
       "target": "module:intel.news_entity_mapper",
       "kind": "import",
@@ -45596,7 +45874,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3402:entry_point:run_rss_fetch→module:intel.rss_fetcher",
+      "id": "e3405:entry_point:run_rss_fetch→module:intel.rss_fetcher",
       "source": "entry_point:run_rss_fetch",
       "target": "module:intel.rss_fetcher",
       "kind": "import",
@@ -45604,33 +45882,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3403:entry_point:run_rss_fetch→module:intel.rss_fetcher",
+      "id": "e3406:entry_point:run_rss_fetch→module:intel.rss_fetcher",
       "source": "entry_point:run_rss_fetch",
       "target": "module:intel.rss_fetcher",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3404:entry_point:run_stop_worker→module:execution.intent_store",
-      "source": "entry_point:run_stop_worker",
-      "target": "module:execution.intent_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3405:entry_point:run_stop_worker→module:execution.intent_store",
-      "source": "entry_point:run_stop_worker",
-      "target": "module:execution.intent_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3406:entry_point:run_stop_worker→module:execution.intent_store",
-      "source": "entry_point:run_stop_worker",
-      "target": "module:execution.intent_store",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45644,7 +45898,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3408:entry_point:run_stress_replay→module:qa.scenario_engine",
+      "id": "e3408:entry_point:run_stop_worker→module:execution.intent_store",
+      "source": "entry_point:run_stop_worker",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3409:entry_point:run_stop_worker→module:execution.intent_store",
+      "source": "entry_point:run_stop_worker",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3410:entry_point:run_stop_worker→module:execution.intent_store",
+      "source": "entry_point:run_stop_worker",
+      "target": "module:execution.intent_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3411:entry_point:run_stress_replay→module:qa.scenario_engine",
       "source": "entry_point:run_stress_replay",
       "target": "module:qa.scenario_engine",
       "kind": "import",
@@ -45652,7 +45930,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3409:entry_point:run_stress_replay→module:qa.scenario_engine",
+      "id": "e3412:entry_point:run_stress_replay→module:qa.scenario_engine",
       "source": "entry_point:run_stress_replay",
       "target": "module:qa.scenario_engine",
       "kind": "import",
@@ -45660,7 +45938,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3410:entry_point:run_stress_replay→module:qa.scenario_engine",
+      "id": "e3413:entry_point:run_stress_replay→module:qa.scenario_engine",
       "source": "entry_point:run_stress_replay",
       "target": "module:qa.scenario_engine",
       "kind": "import",
@@ -45668,7 +45946,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3411:entry_point:run_validation_and_drift_checks→module:config.settings",
+      "id": "e3414:entry_point:run_validation_and_drift_checks→module:config.settings",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:config.settings",
       "kind": "import",
@@ -45676,7 +45954,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3412:entry_point:run_validation_and_drift_checks→module:config.settings",
+      "id": "e3415:entry_point:run_validation_and_drift_checks→module:config.settings",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:config.settings",
       "kind": "import",
@@ -45684,7 +45962,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3413:entry_point:run_validation_and_drift_checks→module:logging_utils.__init__",
+      "id": "e3416:entry_point:run_validation_and_drift_checks→module:logging_utils.__init__",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -45692,7 +45970,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3414:entry_point:run_validation_and_drift_checks→module:logging_utils.__init__",
+      "id": "e3417:entry_point:run_validation_and_drift_checks→module:logging_utils.__init__",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:logging_utils.__init__",
       "kind": "import",
@@ -45700,7 +45978,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3415:entry_point:run_validation_and_drift_checks→module:qa.drift_detection",
+      "id": "e3418:entry_point:run_validation_and_drift_checks→module:qa.drift_detection",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:qa.drift_detection",
       "kind": "import",
@@ -45708,7 +45986,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3416:entry_point:run_validation_and_drift_checks→module:qa.drift_detection",
+      "id": "e3419:entry_point:run_validation_and_drift_checks→module:qa.drift_detection",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:qa.drift_detection",
       "kind": "import",
@@ -45716,7 +45994,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3417:entry_point:run_validation_and_drift_checks→module:qa.drift_detection",
+      "id": "e3420:entry_point:run_validation_and_drift_checks→module:qa.drift_detection",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:qa.drift_detection",
       "kind": "import",
@@ -45724,7 +46002,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3418:entry_point:run_validation_and_drift_checks→module:qa.validation",
+      "id": "e3421:entry_point:run_validation_and_drift_checks→module:qa.validation",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:qa.validation",
       "kind": "import",
@@ -45732,7 +46010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3419:entry_point:run_validation_and_drift_checks→module:qa.validation",
+      "id": "e3422:entry_point:run_validation_and_drift_checks→module:qa.validation",
       "source": "entry_point:run_validation_and_drift_checks",
       "target": "module:qa.validation",
       "kind": "import",
@@ -45740,7 +46018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3420:entry_point:run_walk_forward_analysis→module:config.settings",
+      "id": "e3423:entry_point:run_walk_forward_analysis→module:config.settings",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:config.settings",
       "kind": "import",
@@ -45748,7 +46026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3421:entry_point:run_walk_forward_analysis→module:config.settings",
+      "id": "e3424:entry_point:run_walk_forward_analysis→module:config.settings",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:config.settings",
       "kind": "import",
@@ -45756,7 +46034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3422:entry_point:run_walk_forward_analysis→module:costs.__init__",
+      "id": "e3425:entry_point:run_walk_forward_analysis→module:costs.__init__",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -45764,7 +46042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3423:entry_point:run_walk_forward_analysis→module:costs.__init__",
+      "id": "e3426:entry_point:run_walk_forward_analysis→module:costs.__init__",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:costs.__init__",
       "kind": "import",
@@ -45772,7 +46050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3424:entry_point:run_walk_forward_analysis→module:data.prices_ingest",
+      "id": "e3427:entry_point:run_walk_forward_analysis→module:data.prices_ingest",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -45780,36 +46058,12 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3425:entry_point:run_walk_forward_analysis→module:data.prices_ingest",
+      "id": "e3428:entry_point:run_walk_forward_analysis→module:data.prices_ingest",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:data.prices_ingest",
       "kind": "import",
       "weight": 1,
       "circular": false
-    },
-    {
-      "id": "e3426:entry_point:run_walk_forward_analysis→module:qa.walk_forward",
-      "source": "entry_point:run_walk_forward_analysis",
-      "target": "module:qa.walk_forward",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
-    },
-    {
-      "id": "e3427:entry_point:run_walk_forward_analysis→module:qa.walk_forward",
-      "source": "entry_point:run_walk_forward_analysis",
-      "target": "module:qa.walk_forward",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
-    },
-    {
-      "id": "e3428:entry_point:run_walk_forward_analysis→module:qa.walk_forward",
-      "source": "entry_point:run_walk_forward_analysis",
-      "target": "module:qa.walk_forward",
-      "kind": "import",
-      "weight": 1,
-      "circular": true
     },
     {
       "id": "e3429:entry_point:run_walk_forward_analysis→module:qa.walk_forward",
@@ -45820,7 +46074,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": true
     },
     {
-      "id": "e3430:entry_point:run_walk_forward_analysis→module:signals.rules_trend",
+      "id": "e3430:entry_point:run_walk_forward_analysis→module:qa.walk_forward",
+      "source": "entry_point:run_walk_forward_analysis",
+      "target": "module:qa.walk_forward",
+      "kind": "import",
+      "weight": 1,
+      "circular": true
+    },
+    {
+      "id": "e3431:entry_point:run_walk_forward_analysis→module:qa.walk_forward",
+      "source": "entry_point:run_walk_forward_analysis",
+      "target": "module:qa.walk_forward",
+      "kind": "import",
+      "weight": 1,
+      "circular": true
+    },
+    {
+      "id": "e3432:entry_point:run_walk_forward_analysis→module:qa.walk_forward",
+      "source": "entry_point:run_walk_forward_analysis",
+      "target": "module:qa.walk_forward",
+      "kind": "import",
+      "weight": 1,
+      "circular": true
+    },
+    {
+      "id": "e3433:entry_point:run_walk_forward_analysis→module:signals.rules_trend",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -45828,7 +46106,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3431:entry_point:run_walk_forward_analysis→module:signals.rules_trend",
+      "id": "e3434:entry_point:run_walk_forward_analysis→module:signals.rules_trend",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:signals.rules_trend",
       "kind": "import",
@@ -45836,7 +46114,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3432:entry_point:run_walk_forward_analysis→module:strategies.multifactor_long_short",
+      "id": "e3435:entry_point:run_walk_forward_analysis→module:strategies.multifactor_long_short",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:strategies.multifactor_long_short",
       "kind": "import",
@@ -45844,7 +46122,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3433:entry_point:run_walk_forward_analysis→module:strategies.multifactor_long_short",
+      "id": "e3436:entry_point:run_walk_forward_analysis→module:strategies.multifactor_long_short",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:strategies.multifactor_long_short",
       "kind": "import",
@@ -45852,7 +46130,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3434:entry_point:run_walk_forward_analysis→module:strategies.multifactor_long_short",
+      "id": "e3437:entry_point:run_walk_forward_analysis→module:strategies.multifactor_long_short",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:strategies.multifactor_long_short",
       "kind": "import",
@@ -45860,7 +46138,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3435:entry_point:run_walk_forward_analysis→module:ema_config.__init__",
+      "id": "e3438:entry_point:run_walk_forward_analysis→module:ema_config.__init__",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -45868,7 +46146,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3436:entry_point:run_walk_forward_analysis→module:ema_config.__init__",
+      "id": "e3439:entry_point:run_walk_forward_analysis→module:ema_config.__init__",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:ema_config.__init__",
       "kind": "import",
@@ -45876,7 +46154,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3437:entry_point:run_walk_forward_analysis→module:portfolio.position_sizing",
+      "id": "e3440:entry_point:run_walk_forward_analysis→module:portfolio.position_sizing",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:portfolio.position_sizing",
       "kind": "import",
@@ -45884,33 +46162,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3438:entry_point:run_walk_forward_analysis→module:portfolio.position_sizing",
+      "id": "e3441:entry_point:run_walk_forward_analysis→module:portfolio.position_sizing",
       "source": "entry_point:run_walk_forward_analysis",
       "target": "module:portfolio.position_sizing",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3439:entry_point:seed_questdb_from_csv→module:data.tick_store",
-      "source": "entry_point:seed_questdb_from_csv",
-      "target": "module:data.tick_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3440:entry_point:seed_questdb_from_csv→module:data.tick_store",
-      "source": "entry_point:seed_questdb_from_csv",
-      "target": "module:data.tick_store",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3441:entry_point:seed_questdb_from_csv→module:data.tick_store",
-      "source": "entry_point:seed_questdb_from_csv",
-      "target": "module:data.tick_store",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45924,7 +46178,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3443:entry_point:smoke_test_paper→module:intel.news_triggers_loader",
+      "id": "e3443:entry_point:seed_questdb_from_csv→module:data.tick_store",
+      "source": "entry_point:seed_questdb_from_csv",
+      "target": "module:data.tick_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3444:entry_point:seed_questdb_from_csv→module:data.tick_store",
+      "source": "entry_point:seed_questdb_from_csv",
+      "target": "module:data.tick_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3445:entry_point:seed_questdb_from_csv→module:data.tick_store",
+      "source": "entry_point:seed_questdb_from_csv",
+      "target": "module:data.tick_store",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3446:entry_point:smoke_test_paper→module:intel.news_triggers_loader",
       "source": "entry_point:smoke_test_paper",
       "target": "module:intel.news_triggers_loader",
       "kind": "import",
@@ -45932,33 +46210,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3444:entry_point:smoke_test_paper→module:intel.news_triggers_loader",
+      "id": "e3447:entry_point:smoke_test_paper→module:intel.news_triggers_loader",
       "source": "entry_point:smoke_test_paper",
       "target": "module:intel.news_triggers_loader",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3445:entry_point:smoke_test_paper→module:execution.kill_switch",
-      "source": "entry_point:smoke_test_paper",
-      "target": "module:execution.kill_switch",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3446:entry_point:smoke_test_paper→module:execution.kill_switch",
-      "source": "entry_point:smoke_test_paper",
-      "target": "module:execution.kill_switch",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3447:entry_point:smoke_test_paper→module:execution.kill_switch",
-      "source": "entry_point:smoke_test_paper",
-      "target": "module:execution.kill_switch",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -45980,7 +46234,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3450:entry_point:smoke_test_paper→module:strategies.multifactor_v2",
+      "id": "e3450:entry_point:smoke_test_paper→module:execution.kill_switch",
+      "source": "entry_point:smoke_test_paper",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3451:entry_point:smoke_test_paper→module:execution.kill_switch",
+      "source": "entry_point:smoke_test_paper",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3452:entry_point:smoke_test_paper→module:execution.kill_switch",
+      "source": "entry_point:smoke_test_paper",
+      "target": "module:execution.kill_switch",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3453:entry_point:smoke_test_paper→module:strategies.multifactor_v2",
       "source": "entry_point:smoke_test_paper",
       "target": "module:strategies.multifactor_v2",
       "kind": "import",
@@ -45988,7 +46266,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3451:entry_point:smoke_test_paper→module:strategies.multifactor_v2",
+      "id": "e3454:entry_point:smoke_test_paper→module:strategies.multifactor_v2",
       "source": "entry_point:smoke_test_paper",
       "target": "module:strategies.multifactor_v2",
       "kind": "import",
@@ -45996,7 +46274,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3452:entry_point:snapshot_alpaca_balance→module:execution.broker_adapter",
+      "id": "e3455:entry_point:snapshot_alpaca_balance→module:execution.broker_adapter",
       "source": "entry_point:snapshot_alpaca_balance",
       "target": "module:execution.broker_adapter",
       "kind": "import",
@@ -46004,7 +46282,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3453:entry_point:snapshot_alpaca_balance→module:execution.broker_adapter",
+      "id": "e3456:entry_point:snapshot_alpaca_balance→module:execution.broker_adapter",
       "source": "entry_point:snapshot_alpaca_balance",
       "target": "module:execution.broker_adapter",
       "kind": "import",
@@ -46012,7 +46290,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3454:entry_point:summarize_factor_rankings→module:qa.factor_ranking",
+      "id": "e3457:entry_point:summarize_factor_rankings→module:qa.factor_ranking",
       "source": "entry_point:summarize_factor_rankings",
       "target": "module:qa.factor_ranking",
       "kind": "import",
@@ -46020,7 +46298,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3455:entry_point:summarize_factor_rankings→module:qa.factor_ranking",
+      "id": "e3458:entry_point:summarize_factor_rankings→module:qa.factor_ranking",
       "source": "entry_point:summarize_factor_rankings",
       "target": "module:qa.factor_ranking",
       "kind": "import",
@@ -46028,7 +46306,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3456:entry_point:test_pipeline_integration→module:config.settings",
+      "id": "e3459:entry_point:test_pipeline_integration→module:config.settings",
       "source": "entry_point:test_pipeline_integration",
       "target": "module:config.settings",
       "kind": "import",
@@ -46036,7 +46314,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3457:entry_point:test_pipeline_integration→module:config.settings",
+      "id": "e3460:entry_point:test_pipeline_integration→module:config.settings",
       "source": "entry_point:test_pipeline_integration",
       "target": "module:config.settings",
       "kind": "import",
@@ -46044,7 +46322,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3458:entry_point:test_pipeline_integration→module:data.data_source",
+      "id": "e3461:entry_point:test_pipeline_integration→module:data.data_source",
       "source": "entry_point:test_pipeline_integration",
       "target": "module:data.data_source",
       "kind": "import",
@@ -46052,7 +46330,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3459:entry_point:test_pipeline_integration→module:data.data_source",
+      "id": "e3462:entry_point:test_pipeline_integration→module:data.data_source",
       "source": "entry_point:test_pipeline_integration",
       "target": "module:data.data_source",
       "kind": "import",
@@ -46060,7 +46338,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3460:entry_point:test_pipeline_integration→module:features.ta_factors_core",
+      "id": "e3463:entry_point:test_pipeline_integration→module:features.ta_factors_core",
       "source": "entry_point:test_pipeline_integration",
       "target": "module:features.ta_factors_core",
       "kind": "import",
@@ -46068,7 +46346,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3461:entry_point:test_pipeline_integration→module:features.ta_factors_core",
+      "id": "e3464:entry_point:test_pipeline_integration→module:features.ta_factors_core",
       "source": "entry_point:test_pipeline_integration",
       "target": "module:features.ta_factors_core",
       "kind": "import",
@@ -46076,7 +46354,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3462:entry_point:train_rl_executor→module:execution.rl_environment",
+      "id": "e3465:entry_point:train_rl_executor→module:execution.rl_environment",
       "source": "entry_point:train_rl_executor",
       "target": "module:execution.rl_environment",
       "kind": "import",
@@ -46084,7 +46362,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3463:entry_point:train_rl_executor→module:execution.rl_environment",
+      "id": "e3466:entry_point:train_rl_executor→module:execution.rl_environment",
       "source": "entry_point:train_rl_executor",
       "target": "module:execution.rl_environment",
       "kind": "import",
@@ -46092,33 +46370,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3464:entry_point:train_rl_executor→module:execution.rl_environment",
+      "id": "e3467:entry_point:train_rl_executor→module:execution.rl_environment",
       "source": "entry_point:train_rl_executor",
       "target": "module:execution.rl_environment",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3465:entry_point:train_rl_executor→module:execution.rl_execution",
-      "source": "entry_point:train_rl_executor",
-      "target": "module:execution.rl_execution",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3466:entry_point:train_rl_executor→module:execution.rl_execution",
-      "source": "entry_point:train_rl_executor",
-      "target": "module:execution.rl_execution",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3467:entry_point:train_rl_executor→module:execution.rl_execution",
-      "source": "entry_point:train_rl_executor",
-      "target": "module:execution.rl_execution",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46132,7 +46386,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3469:entry_point:training.build_factor_panel→module:features.ta_features",
+      "id": "e3469:entry_point:train_rl_executor→module:execution.rl_execution",
+      "source": "entry_point:train_rl_executor",
+      "target": "module:execution.rl_execution",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3470:entry_point:train_rl_executor→module:execution.rl_execution",
+      "source": "entry_point:train_rl_executor",
+      "target": "module:execution.rl_execution",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3471:entry_point:train_rl_executor→module:execution.rl_execution",
+      "source": "entry_point:train_rl_executor",
+      "target": "module:execution.rl_execution",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3472:entry_point:training.build_factor_panel→module:features.ta_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -46140,7 +46418,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3470:entry_point:training.build_factor_panel→module:features.ta_features",
+      "id": "e3473:entry_point:training.build_factor_panel→module:features.ta_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.ta_features",
       "kind": "import",
@@ -46148,7 +46426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3471:entry_point:training.build_factor_panel→module:features.correlation_features",
+      "id": "e3474:entry_point:training.build_factor_panel→module:features.correlation_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.correlation_features",
       "kind": "import",
@@ -46156,7 +46434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3472:entry_point:training.build_factor_panel→module:features.correlation_features",
+      "id": "e3475:entry_point:training.build_factor_panel→module:features.correlation_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.correlation_features",
       "kind": "import",
@@ -46164,7 +46442,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3473:entry_point:training.build_factor_panel→module:features.macro_features",
+      "id": "e3476:entry_point:training.build_factor_panel→module:features.macro_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.macro_features",
       "kind": "import",
@@ -46172,7 +46450,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3474:entry_point:training.build_factor_panel→module:features.macro_features",
+      "id": "e3477:entry_point:training.build_factor_panel→module:features.macro_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.macro_features",
       "kind": "import",
@@ -46180,7 +46458,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3475:entry_point:training.build_factor_panel→module:features.mean_reversion_factors",
+      "id": "e3478:entry_point:training.build_factor_panel→module:features.mean_reversion_factors",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.mean_reversion_factors",
       "kind": "import",
@@ -46188,33 +46466,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3476:entry_point:training.build_factor_panel→module:features.mean_reversion_factors",
+      "id": "e3479:entry_point:training.build_factor_panel→module:features.mean_reversion_factors",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.mean_reversion_factors",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3477:entry_point:training.build_factor_panel→module:features.ta_liquidity_vol_factors",
-      "source": "entry_point:training.build_factor_panel",
-      "target": "module:features.ta_liquidity_vol_factors",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3478:entry_point:training.build_factor_panel→module:features.ta_liquidity_vol_factors",
-      "source": "entry_point:training.build_factor_panel",
-      "target": "module:features.ta_liquidity_vol_factors",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3479:entry_point:training.build_factor_panel→module:features.ta_liquidity_vol_factors",
-      "source": "entry_point:training.build_factor_panel",
-      "target": "module:features.ta_liquidity_vol_factors",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46236,7 +46490,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3482:entry_point:training.build_factor_panel→module:features.market_breadth",
+      "id": "e3482:entry_point:training.build_factor_panel→module:features.ta_liquidity_vol_factors",
+      "source": "entry_point:training.build_factor_panel",
+      "target": "module:features.ta_liquidity_vol_factors",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3483:entry_point:training.build_factor_panel→module:features.ta_liquidity_vol_factors",
+      "source": "entry_point:training.build_factor_panel",
+      "target": "module:features.ta_liquidity_vol_factors",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3484:entry_point:training.build_factor_panel→module:features.ta_liquidity_vol_factors",
+      "source": "entry_point:training.build_factor_panel",
+      "target": "module:features.ta_liquidity_vol_factors",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3485:entry_point:training.build_factor_panel→module:features.market_breadth",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.market_breadth",
       "kind": "import",
@@ -46244,7 +46522,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3483:entry_point:training.build_factor_panel→module:features.market_breadth",
+      "id": "e3486:entry_point:training.build_factor_panel→module:features.market_breadth",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.market_breadth",
       "kind": "import",
@@ -46252,7 +46530,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3484:entry_point:training.build_factor_panel→module:features.geopolitical_features",
+      "id": "e3487:entry_point:training.build_factor_panel→module:features.geopolitical_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.geopolitical_features",
       "kind": "import",
@@ -46260,7 +46538,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3485:entry_point:training.build_factor_panel→module:features.geopolitical_features",
+      "id": "e3488:entry_point:training.build_factor_panel→module:features.geopolitical_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.geopolitical_features",
       "kind": "import",
@@ -46268,7 +46546,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3486:entry_point:training.build_factor_panel→module:features.altdata_earnings_insider_factors",
+      "id": "e3489:entry_point:training.build_factor_panel→module:features.altdata_earnings_insider_factors",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.altdata_earnings_insider_factors",
       "kind": "import",
@@ -46276,7 +46554,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3487:entry_point:training.build_factor_panel→module:features.altdata_earnings_insider_factors",
+      "id": "e3490:entry_point:training.build_factor_panel→module:features.altdata_earnings_insider_factors",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.altdata_earnings_insider_factors",
       "kind": "import",
@@ -46284,7 +46562,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3488:entry_point:training.build_factor_panel→module:features.supply_chain_features",
+      "id": "e3491:entry_point:training.build_factor_panel→module:features.supply_chain_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.supply_chain_features",
       "kind": "import",
@@ -46292,7 +46570,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3489:entry_point:training.build_factor_panel→module:features.supply_chain_features",
+      "id": "e3492:entry_point:training.build_factor_panel→module:features.supply_chain_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.supply_chain_features",
       "kind": "import",
@@ -46300,7 +46578,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3490:entry_point:training.build_factor_panel→module:features.intermarket_factors",
+      "id": "e3493:entry_point:training.build_factor_panel→module:features.intermarket_factors",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.intermarket_factors",
       "kind": "import",
@@ -46308,7 +46586,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3491:entry_point:training.build_factor_panel→module:features.intermarket_factors",
+      "id": "e3494:entry_point:training.build_factor_panel→module:features.intermarket_factors",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.intermarket_factors",
       "kind": "import",
@@ -46316,7 +46594,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3492:entry_point:training.build_factor_panel→module:features.intermarket_factors",
+      "id": "e3495:entry_point:training.build_factor_panel→module:features.intermarket_factors",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.intermarket_factors",
       "kind": "import",
@@ -46324,7 +46602,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3493:entry_point:training.build_factor_panel→module:features.congress_features",
+      "id": "e3496:entry_point:training.build_factor_panel→module:features.congress_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.congress_features",
       "kind": "import",
@@ -46332,7 +46610,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3494:entry_point:training.build_factor_panel→module:features.congress_features",
+      "id": "e3497:entry_point:training.build_factor_panel→module:features.congress_features",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:features.congress_features",
       "kind": "import",
@@ -46340,7 +46618,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3495:entry_point:training.build_factor_panel→module:qa.factor_analysis",
+      "id": "e3498:entry_point:training.build_factor_panel→module:qa.factor_analysis",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:qa.factor_analysis",
       "kind": "import",
@@ -46348,7 +46626,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3496:entry_point:training.build_factor_panel→module:qa.factor_analysis",
+      "id": "e3499:entry_point:training.build_factor_panel→module:qa.factor_analysis",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:qa.factor_analysis",
       "kind": "import",
@@ -46356,7 +46634,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3497:entry_point:training.build_factor_panel→module:ml.__init__",
+      "id": "e3500:entry_point:training.build_factor_panel→module:ml.__init__",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -46364,7 +46642,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3498:entry_point:training.build_factor_panel→module:ml.__init__",
+      "id": "e3501:entry_point:training.build_factor_panel→module:ml.__init__",
       "source": "entry_point:training.build_factor_panel",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -46372,7 +46650,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3499:entry_point:training.train_full_ml_stack→module:ml.__init__",
+      "id": "e3502:entry_point:training.train_full_ml_stack→module:ml.__init__",
       "source": "entry_point:training.train_full_ml_stack",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -46380,33 +46658,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3500:entry_point:training.train_full_ml_stack→module:ml.__init__",
+      "id": "e3503:entry_point:training.train_full_ml_stack→module:ml.__init__",
       "source": "entry_point:training.train_full_ml_stack",
       "target": "module:ml.__init__",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3501:entry_point:training.train_full_ml_stack→module:ml.__init__",
-      "source": "entry_point:training.train_full_ml_stack",
-      "target": "module:ml.__init__",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3502:entry_point:training.train_full_ml_stack→module:ml.model_registry",
-      "source": "entry_point:training.train_full_ml_stack",
-      "target": "module:ml.model_registry",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3503:entry_point:training.train_full_ml_stack→module:ml.model_registry",
-      "source": "entry_point:training.train_full_ml_stack",
-      "target": "module:ml.model_registry",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46420,17 +46674,17 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3505:entry_point:training.train_full_ml_stack→module:ml.__init__",
+      "id": "e3505:entry_point:training.train_full_ml_stack→module:ml.model_registry",
       "source": "entry_point:training.train_full_ml_stack",
-      "target": "module:ml.__init__",
+      "target": "module:ml.model_registry",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3506:entry_point:training.train_full_ml_stack→module:ml.__init__",
+      "id": "e3506:entry_point:training.train_full_ml_stack→module:ml.model_registry",
       "source": "entry_point:training.train_full_ml_stack",
-      "target": "module:ml.__init__",
+      "target": "module:ml.model_registry",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46452,24 +46706,24 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3509:entry_point:training.train_meta_labeler→module:ml.__init__",
-      "source": "entry_point:training.train_meta_labeler",
+      "id": "e3509:entry_point:training.train_full_ml_stack→module:ml.__init__",
+      "source": "entry_point:training.train_full_ml_stack",
       "target": "module:ml.__init__",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3510:entry_point:training.train_meta_labeler→module:ml.__init__",
-      "source": "entry_point:training.train_meta_labeler",
+      "id": "e3510:entry_point:training.train_full_ml_stack→module:ml.__init__",
+      "source": "entry_point:training.train_full_ml_stack",
       "target": "module:ml.__init__",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3511:entry_point:training.train_meta_labeler→module:ml.__init__",
-      "source": "entry_point:training.train_meta_labeler",
+      "id": "e3511:entry_point:training.train_full_ml_stack→module:ml.__init__",
+      "source": "entry_point:training.train_full_ml_stack",
       "target": "module:ml.__init__",
       "kind": "import",
       "weight": 1,
@@ -46484,7 +46738,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3513:entry_point:training.train_meta_model→module:ml.feature_selection",
+      "id": "e3513:entry_point:training.train_meta_labeler→module:ml.__init__",
+      "source": "entry_point:training.train_meta_labeler",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3514:entry_point:training.train_meta_labeler→module:ml.__init__",
+      "source": "entry_point:training.train_meta_labeler",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3515:entry_point:training.train_meta_labeler→module:ml.__init__",
+      "source": "entry_point:training.train_meta_labeler",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3516:entry_point:training.train_meta_model→module:ml.feature_selection",
       "source": "entry_point:training.train_meta_model",
       "target": "module:ml.feature_selection",
       "kind": "import",
@@ -46492,7 +46770,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3514:entry_point:training.train_meta_model→module:ml.feature_selection",
+      "id": "e3517:entry_point:training.train_meta_model→module:ml.feature_selection",
       "source": "entry_point:training.train_meta_model",
       "target": "module:ml.feature_selection",
       "kind": "import",
@@ -46500,7 +46778,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3515:entry_point:training.train_meta_model→module:ml.feature_selection",
+      "id": "e3518:entry_point:training.train_meta_model→module:ml.feature_selection",
       "source": "entry_point:training.train_meta_model",
       "target": "module:ml.feature_selection",
       "kind": "import",
@@ -46508,7 +46786,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3516:entry_point:training.train_meta_model→module:ml.purged_cv",
+      "id": "e3519:entry_point:training.train_meta_model→module:ml.purged_cv",
       "source": "entry_point:training.train_meta_model",
       "target": "module:ml.purged_cv",
       "kind": "import",
@@ -46516,7 +46794,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3517:entry_point:training.train_meta_model→module:ml.purged_cv",
+      "id": "e3520:entry_point:training.train_meta_model→module:ml.purged_cv",
       "source": "entry_point:training.train_meta_model",
       "target": "module:ml.purged_cv",
       "kind": "import",
@@ -46524,7 +46802,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3518:entry_point:training.train_meta_model→module:ml.__init__",
+      "id": "e3521:entry_point:training.train_meta_model→module:ml.__init__",
       "source": "entry_point:training.train_meta_model",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -46532,33 +46810,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3519:entry_point:training.train_meta_model→module:ml.__init__",
+      "id": "e3522:entry_point:training.train_meta_model→module:ml.__init__",
       "source": "entry_point:training.train_meta_model",
       "target": "module:ml.__init__",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3520:entry_point:training.train_meta_model→module:ml.__init__",
-      "source": "entry_point:training.train_meta_model",
-      "target": "module:ml.__init__",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3521:entry_point:training.train_meta_model→module:signals.meta_model",
-      "source": "entry_point:training.train_meta_model",
-      "target": "module:signals.meta_model",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3522:entry_point:training.train_meta_model→module:signals.meta_model",
-      "source": "entry_point:training.train_meta_model",
-      "target": "module:signals.meta_model",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46572,17 +46826,17 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3524:entry_point:training.train_meta_model→module:ml.__init__",
+      "id": "e3524:entry_point:training.train_meta_model→module:signals.meta_model",
       "source": "entry_point:training.train_meta_model",
-      "target": "module:ml.__init__",
+      "target": "module:signals.meta_model",
       "kind": "import",
       "weight": 1,
       "circular": false
     },
     {
-      "id": "e3525:entry_point:training.train_meta_model→module:ml.__init__",
+      "id": "e3525:entry_point:training.train_meta_model→module:signals.meta_model",
       "source": "entry_point:training.train_meta_model",
-      "target": "module:ml.__init__",
+      "target": "module:signals.meta_model",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46596,7 +46850,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3527:entry_point:training.train_meta_model_v4→module:qa.cpcv_validation",
+      "id": "e3527:entry_point:training.train_meta_model→module:ml.__init__",
+      "source": "entry_point:training.train_meta_model",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3528:entry_point:training.train_meta_model→module:ml.__init__",
+      "source": "entry_point:training.train_meta_model",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3529:entry_point:training.train_meta_model→module:ml.__init__",
+      "source": "entry_point:training.train_meta_model",
+      "target": "module:ml.__init__",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3530:entry_point:training.train_meta_model_v4→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v4",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46604,7 +46882,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3528:entry_point:training.train_meta_model_v4→module:qa.cpcv_validation",
+      "id": "e3531:entry_point:training.train_meta_model_v4→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v4",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46612,7 +46890,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3529:entry_point:training.train_meta_model_v4→module:qa.cpcv_validation",
+      "id": "e3532:entry_point:training.train_meta_model_v4→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v4",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46620,7 +46898,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3530:entry_point:training.train_meta_model_v4→module:qa.leakage_analyzer",
+      "id": "e3533:entry_point:training.train_meta_model_v4→module:qa.leakage_analyzer",
       "source": "entry_point:training.train_meta_model_v4",
       "target": "module:qa.leakage_analyzer",
       "kind": "import",
@@ -46628,7 +46906,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3531:entry_point:training.train_meta_model_v4→module:qa.leakage_analyzer",
+      "id": "e3534:entry_point:training.train_meta_model_v4→module:qa.leakage_analyzer",
       "source": "entry_point:training.train_meta_model_v4",
       "target": "module:qa.leakage_analyzer",
       "kind": "import",
@@ -46636,7 +46914,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3532:entry_point:training.train_meta_model_v5→module:qa.cpcv_validation",
+      "id": "e3535:entry_point:training.train_meta_model_v5→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v5",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46644,7 +46922,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3533:entry_point:training.train_meta_model_v5→module:qa.cpcv_validation",
+      "id": "e3536:entry_point:training.train_meta_model_v5→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v5",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46652,7 +46930,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3534:entry_point:training.train_meta_model_v6→module:qa.cpcv_validation",
+      "id": "e3537:entry_point:training.train_meta_model_v6→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v6",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46660,7 +46938,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3535:entry_point:training.train_meta_model_v6→module:qa.cpcv_validation",
+      "id": "e3538:entry_point:training.train_meta_model_v6→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v6",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46668,7 +46946,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3536:entry_point:training.train_meta_model_v7→module:qa.cpcv_validation",
+      "id": "e3539:entry_point:training.train_meta_model_v7→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v7",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46676,7 +46954,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3537:entry_point:training.train_meta_model_v7→module:qa.cpcv_validation",
+      "id": "e3540:entry_point:training.train_meta_model_v7→module:qa.cpcv_validation",
       "source": "entry_point:training.train_meta_model_v7",
       "target": "module:qa.cpcv_validation",
       "kind": "import",
@@ -46684,7 +46962,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3538:entry_point:training.train_news_embeddings→module:ml.__init__",
+      "id": "e3541:entry_point:training.train_news_embeddings→module:ml.__init__",
       "source": "entry_point:training.train_news_embeddings",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -46692,7 +46970,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3539:entry_point:training.train_news_embeddings→module:ml.__init__",
+      "id": "e3542:entry_point:training.train_news_embeddings→module:ml.__init__",
       "source": "entry_point:training.train_news_embeddings",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -46700,7 +46978,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3540:entry_point:training.train_news_embeddings→module:ml.__init__",
+      "id": "e3543:entry_point:training.train_news_embeddings→module:ml.__init__",
       "source": "entry_point:training.train_news_embeddings",
       "target": "module:ml.__init__",
       "kind": "import",
@@ -46708,7 +46986,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3541:entry_point:training.train_regime_weights→module:ml.regime_hmm",
+      "id": "e3544:entry_point:training.train_regime_weights→module:ml.regime_hmm",
       "source": "entry_point:training.train_regime_weights",
       "target": "module:ml.regime_hmm",
       "kind": "import",
@@ -46716,7 +46994,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3542:entry_point:training.train_regime_weights→module:ml.regime_hmm",
+      "id": "e3545:entry_point:training.train_regime_weights→module:ml.regime_hmm",
       "source": "entry_point:training.train_regime_weights",
       "target": "module:ml.regime_hmm",
       "kind": "import",
@@ -46724,7 +47002,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3543:entry_point:update_prices→module:data.sources.polygon_source",
+      "id": "e3546:entry_point:update_prices→module:data.sources.polygon_source",
       "source": "entry_point:update_prices",
       "target": "module:data.sources.polygon_source",
       "kind": "import",
@@ -46732,7 +47010,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3544:entry_point:update_prices→module:data.sources.polygon_source",
+      "id": "e3547:entry_point:update_prices→module:data.sources.polygon_source",
       "source": "entry_point:update_prices",
       "target": "module:data.sources.polygon_source",
       "kind": "import",
@@ -46740,7 +47018,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3545:entry_point:update_prices→module:data.sources.yfinance_source",
+      "id": "e3548:entry_point:update_prices→module:data.sources.yfinance_source",
       "source": "entry_point:update_prices",
       "target": "module:data.sources.yfinance_source",
       "kind": "import",
@@ -46748,7 +47026,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3546:entry_point:update_prices→module:data.sources.yfinance_source",
+      "id": "e3549:entry_point:update_prices→module:data.sources.yfinance_source",
       "source": "entry_point:update_prices",
       "target": "module:data.sources.yfinance_source",
       "kind": "import",
@@ -46756,7 +47034,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3547:entry_point:update_prices→module:data.prices_ingest",
+      "id": "e3550:entry_point:update_prices→module:data.prices_ingest",
       "source": "entry_point:update_prices",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -46764,7 +47042,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3548:entry_point:update_prices→module:data.prices_ingest",
+      "id": "e3551:entry_point:update_prices→module:data.prices_ingest",
       "source": "entry_point:update_prices",
       "target": "module:data.prices_ingest",
       "kind": "import",
@@ -46772,7 +47050,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3549:entry_point:validate_cpcv→module:ml.purged_cv",
+      "id": "e3552:entry_point:validate_cpcv→module:ml.purged_cv",
       "source": "entry_point:validate_cpcv",
       "target": "module:ml.purged_cv",
       "kind": "import",
@@ -46780,7 +47058,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3550:entry_point:validate_cpcv→module:ml.purged_cv",
+      "id": "e3553:entry_point:validate_cpcv→module:ml.purged_cv",
       "source": "entry_point:validate_cpcv",
       "target": "module:ml.purged_cv",
       "kind": "import",
@@ -46788,7 +47066,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3551:entry_point:validate_edcl_conviction→module:intel.trigger_basket",
+      "id": "e3554:entry_point:validate_edcl_conviction→module:intel.trigger_basket",
       "source": "entry_point:validate_edcl_conviction",
       "target": "module:intel.trigger_basket",
       "kind": "import",
@@ -46796,7 +47074,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3552:entry_point:validate_edcl_conviction→module:intel.trigger_basket",
+      "id": "e3555:entry_point:validate_edcl_conviction→module:intel.trigger_basket",
       "source": "entry_point:validate_edcl_conviction",
       "target": "module:intel.trigger_basket",
       "kind": "import",
@@ -46804,7 +47082,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3553:entry_point:validate_edcl_conviction→module:intel.trigger_basket",
+      "id": "e3556:entry_point:validate_edcl_conviction→module:intel.trigger_basket",
       "source": "entry_point:validate_edcl_conviction",
       "target": "module:intel.trigger_basket",
       "kind": "import",
@@ -46812,7 +47090,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3554:entry_point:validate_edcl_conviction→module:intel.conviction_engine",
+      "id": "e3557:entry_point:validate_edcl_conviction→module:intel.conviction_engine",
       "source": "entry_point:validate_edcl_conviction",
       "target": "module:intel.conviction_engine",
       "kind": "import",
@@ -46820,33 +47098,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3555:entry_point:validate_edcl_conviction→module:intel.conviction_engine",
+      "id": "e3558:entry_point:validate_edcl_conviction→module:intel.conviction_engine",
       "source": "entry_point:validate_edcl_conviction",
       "target": "module:intel.conviction_engine",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3556:entry_point:validation.validate_adaptive_ac→module:execution.execution_router",
-      "source": "entry_point:validation.validate_adaptive_ac",
-      "target": "module:execution.execution_router",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3557:entry_point:validation.validate_adaptive_ac→module:execution.execution_router",
-      "source": "entry_point:validation.validate_adaptive_ac",
-      "target": "module:execution.execution_router",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3558:entry_point:validation.validate_adaptive_ac→module:execution.execution_router",
-      "source": "entry_point:validation.validate_adaptive_ac",
-      "target": "module:execution.execution_router",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46868,7 +47122,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3561:entry_point:validation.validate_garch_paths→module:data.synthetic_generator",
+      "id": "e3561:entry_point:validation.validate_adaptive_ac→module:execution.execution_router",
+      "source": "entry_point:validation.validate_adaptive_ac",
+      "target": "module:execution.execution_router",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3562:entry_point:validation.validate_adaptive_ac→module:execution.execution_router",
+      "source": "entry_point:validation.validate_adaptive_ac",
+      "target": "module:execution.execution_router",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3563:entry_point:validation.validate_adaptive_ac→module:execution.execution_router",
+      "source": "entry_point:validation.validate_adaptive_ac",
+      "target": "module:execution.execution_router",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3564:entry_point:validation.validate_garch_paths→module:data.synthetic_generator",
       "source": "entry_point:validation.validate_garch_paths",
       "target": "module:data.synthetic_generator",
       "kind": "import",
@@ -46876,33 +47154,9 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3562:entry_point:validation.validate_garch_paths→module:data.synthetic_generator",
+      "id": "e3565:entry_point:validation.validate_garch_paths→module:data.synthetic_generator",
       "source": "entry_point:validation.validate_garch_paths",
       "target": "module:data.synthetic_generator",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3563:entry_point:validation.validate_svi_calibration→module:risk.vol_surface_svi",
-      "source": "entry_point:validation.validate_svi_calibration",
-      "target": "module:risk.vol_surface_svi",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3564:entry_point:validation.validate_svi_calibration→module:risk.vol_surface_svi",
-      "source": "entry_point:validation.validate_svi_calibration",
-      "target": "module:risk.vol_surface_svi",
-      "kind": "import",
-      "weight": 1,
-      "circular": false
-    },
-    {
-      "id": "e3565:entry_point:validation.validate_svi_calibration→module:risk.vol_surface_svi",
-      "source": "entry_point:validation.validate_svi_calibration",
-      "target": "module:risk.vol_surface_svi",
       "kind": "import",
       "weight": 1,
       "circular": false
@@ -46924,7 +47178,31 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3569:entry_point:verify_evidence_pack→module:accounting.evidence_pack",
+      "id": "e3568:entry_point:validation.validate_svi_calibration→module:risk.vol_surface_svi",
+      "source": "entry_point:validation.validate_svi_calibration",
+      "target": "module:risk.vol_surface_svi",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3569:entry_point:validation.validate_svi_calibration→module:risk.vol_surface_svi",
+      "source": "entry_point:validation.validate_svi_calibration",
+      "target": "module:risk.vol_surface_svi",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3570:entry_point:validation.validate_svi_calibration→module:risk.vol_surface_svi",
+      "source": "entry_point:validation.validate_svi_calibration",
+      "target": "module:risk.vol_surface_svi",
+      "kind": "import",
+      "weight": 1,
+      "circular": false
+    },
+    {
+      "id": "e3572:entry_point:verify_evidence_pack→module:accounting.evidence_pack",
       "source": "entry_point:verify_evidence_pack",
       "target": "module:accounting.evidence_pack",
       "kind": "import",
@@ -46932,7 +47210,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3570:entry_point:verify_evidence_pack→module:accounting.evidence_pack",
+      "id": "e3573:entry_point:verify_evidence_pack→module:accounting.evidence_pack",
       "source": "entry_point:verify_evidence_pack",
       "target": "module:accounting.evidence_pack",
       "kind": "import",
@@ -46940,7 +47218,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3571:workflow:accounting-ci→entry_point:dev.run_checks",
+      "id": "e3574:workflow:accounting-ci→entry_point:dev.run_checks",
       "source": "workflow:accounting-ci",
       "target": "entry_point:dev.run_checks",
       "kind": "trigger",
@@ -46948,7 +47226,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3572:workflow:backend-ci→entry_point:00_seed_demo_data",
+      "id": "e3575:workflow:backend-ci→entry_point:00_seed_demo_data",
       "source": "workflow:backend-ci",
       "target": "entry_point:00_seed_demo_data",
       "kind": "trigger",
@@ -46956,7 +47234,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3573:workflow:ci→entry_point:00_seed_demo_data",
+      "id": "e3576:workflow:ci→entry_point:00_seed_demo_data",
       "source": "workflow:ci",
       "target": "entry_point:00_seed_demo_data",
       "kind": "trigger",
@@ -46964,7 +47242,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3574:workflow:ci→entry_point:dev.run_checks",
+      "id": "e3577:workflow:ci→entry_point:dev.run_checks",
       "source": "workflow:ci",
       "target": "entry_point:dev.run_checks",
       "kind": "trigger",
@@ -46972,7 +47250,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3575:workflow:daily-diagnostics→entry_point:ci.drift_check",
+      "id": "e3578:workflow:daily-diagnostics→entry_point:ci.drift_check",
       "source": "workflow:daily-diagnostics",
       "target": "entry_point:ci.drift_check",
       "kind": "trigger",
@@ -46980,7 +47258,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3576:workflow:daily-paper-reconcile→entry_point:run_reconcile_worker",
+      "id": "e3579:workflow:daily-paper-reconcile→entry_point:run_reconcile_worker",
       "source": "workflow:daily-paper-reconcile",
       "target": "entry_point:run_reconcile_worker",
       "kind": "trigger",
@@ -46988,7 +47266,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3577:workflow:daily-paper-reconcile→entry_point:generate_daily_qa_report",
+      "id": "e3580:workflow:daily-paper-reconcile→entry_point:generate_daily_qa_report",
       "source": "workflow:daily-paper-reconcile",
       "target": "entry_point:generate_daily_qa_report",
       "kind": "trigger",
@@ -46996,7 +47274,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3578:workflow:disclosures-worker-ci→entry_point:run_disclosures_worker",
+      "id": "e3581:workflow:disclosures-worker-ci→entry_point:run_disclosures_worker",
       "source": "workflow:disclosures-worker-ci",
       "target": "entry_point:run_disclosures_worker",
       "kind": "trigger",
@@ -47004,7 +47282,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3579:workflow:earnings-calendar-refresh→entry_point:fetch_earnings_calendar",
+      "id": "e3582:workflow:earnings-calendar-refresh→entry_point:fetch_earnings_calendar",
       "source": "workflow:earnings-calendar-refresh",
       "target": "entry_point:fetch_earnings_calendar",
       "kind": "trigger",
@@ -47012,7 +47290,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3580:workflow:evidence-pack-ci→entry_point:dev.run_checks",
+      "id": "e3583:workflow:evidence-pack-ci→entry_point:dev.run_checks",
       "source": "workflow:evidence-pack-ci",
       "target": "entry_point:dev.run_checks",
       "kind": "trigger",
@@ -47020,7 +47298,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3581:workflow:fail-drill→entry_point:run_alert_drill",
+      "id": "e3584:workflow:fail-drill→entry_point:run_alert_drill",
       "source": "workflow:fail-drill",
       "target": "entry_point:run_alert_drill",
       "kind": "trigger",
@@ -47028,7 +47306,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3582:workflow:news-worker-ci→entry_point:run_news_worker",
+      "id": "e3585:workflow:news-worker-ci→entry_point:run_news_worker",
       "source": "workflow:news-worker-ci",
       "target": "entry_point:run_news_worker",
       "kind": "trigger",
@@ -47036,7 +47314,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3583:workflow:nightly-runall→entry_point:ci.nightly_smoke",
+      "id": "e3586:workflow:nightly-runall→entry_point:ci.nightly_smoke",
       "source": "workflow:nightly-runall",
       "target": "entry_point:ci.nightly_smoke",
       "kind": "trigger",
@@ -47044,7 +47322,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3584:workflow:ops-evidence-ci→entry_point:dev.run_checks",
+      "id": "e3587:workflow:ops-evidence-ci→entry_point:dev.run_checks",
       "source": "workflow:ops-evidence-ci",
       "target": "entry_point:dev.run_checks",
       "kind": "trigger",
@@ -47052,7 +47330,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3585:workflow:paper-trading-ci→entry_point:ack_halt",
+      "id": "e3588:workflow:paper-trading-ci→entry_point:ack_halt",
       "source": "workflow:paper-trading-ci",
       "target": "entry_point:ack_halt",
       "kind": "trigger",
@@ -47060,7 +47338,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3586:workflow:paper-trading-ci→entry_point:run_paper_pilot",
+      "id": "e3589:workflow:paper-trading-ci→entry_point:run_paper_pilot",
       "source": "workflow:paper-trading-ci",
       "target": "entry_point:run_paper_pilot",
       "kind": "trigger",
@@ -47068,7 +47346,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3587:workflow:paper-trading-ci→entry_point:snapshot_alpaca_balance",
+      "id": "e3590:workflow:paper-trading-ci→entry_point:snapshot_alpaca_balance",
       "source": "workflow:paper-trading-ci",
       "target": "entry_point:snapshot_alpaca_balance",
       "kind": "trigger",
@@ -47076,7 +47354,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3588:workflow:prewarm-factor-store→entry_point:prewarm_factor_store",
+      "id": "e3591:workflow:prewarm-factor-store→entry_point:prewarm_factor_store",
       "source": "workflow:prewarm-factor-store",
       "target": "entry_point:prewarm_factor_store",
       "kind": "trigger",
@@ -47084,7 +47362,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3589:workflow:release-gate-ci→entry_point:dev.release_sprint13",
+      "id": "e3592:workflow:release-gate-ci→entry_point:dev.release_sprint13",
       "source": "workflow:release-gate-ci",
       "target": "entry_point:dev.release_sprint13",
       "kind": "trigger",
@@ -47092,7 +47370,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3590:workflow:release-gate-ci→entry_point:release_gate_walk_forward",
+      "id": "e3593:workflow:release-gate-ci→entry_point:release_gate_walk_forward",
       "source": "workflow:release-gate-ci",
       "target": "entry_point:release_gate_walk_forward",
       "kind": "trigger",
@@ -47100,7 +47378,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3591:workflow:repo-health→entry_point:ci.check_adversarial_reviewer_pattern",
+      "id": "e3594:workflow:repo-health→entry_point:ci.check_adversarial_reviewer_pattern",
       "source": "workflow:repo-health",
       "target": "entry_point:ci.check_adversarial_reviewer_pattern",
       "kind": "trigger",
@@ -47108,7 +47386,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3592:workflow:secrets-scan→entry_point:detect_secrets_baseline_diff",
+      "id": "e3595:workflow:secrets-scan→entry_point:detect_secrets_baseline_diff",
       "source": "workflow:secrets-scan",
       "target": "entry_point:detect_secrets_baseline_diff",
       "kind": "trigger",
@@ -47116,7 +47394,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3593:workflow:signal-decay-update→entry_point:compute_signal_decay_profile",
+      "id": "e3596:workflow:signal-decay-update→entry_point:compute_signal_decay_profile",
       "source": "workflow:signal-decay-update",
       "target": "entry_point:compute_signal_decay_profile",
       "kind": "trigger",
@@ -47124,7 +47402,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3594:workflow:weekly-drills→entry_point:drills.drill_kill_switch",
+      "id": "e3597:workflow:weekly-drills→entry_point:drills.drill_kill_switch",
       "source": "workflow:weekly-drills",
       "target": "entry_point:drills.drill_kill_switch",
       "kind": "trigger",
@@ -47132,7 +47410,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3595:workflow:weekly-drills→entry_point:drills.drill_halt_flag",
+      "id": "e3598:workflow:weekly-drills→entry_point:drills.drill_halt_flag",
       "source": "workflow:weekly-drills",
       "target": "entry_point:drills.drill_halt_flag",
       "kind": "trigger",
@@ -47140,7 +47418,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3596:workflow:weekly-research→entry_point:ci.walk_forward_check",
+      "id": "e3599:workflow:weekly-research→entry_point:ci.walk_forward_check",
       "source": "workflow:weekly-research",
       "target": "entry_point:ci.walk_forward_check",
       "kind": "trigger",
@@ -47148,7 +47426,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3597:workflow:weekly-research→entry_point:ci.garch_check",
+      "id": "e3600:workflow:weekly-research→entry_point:ci.garch_check",
       "source": "workflow:weekly-research",
       "target": "entry_point:ci.garch_check",
       "kind": "trigger",
@@ -47156,7 +47434,7 @@ window.SYSTEM_MAP_DATA = {
       "circular": false
     },
     {
-      "id": "e3598:workflow:weekly-research→entry_point:ci.retraining_check",
+      "id": "e3601:workflow:weekly-research→entry_point:ci.retraining_check",
       "source": "workflow:weekly-research",
       "target": "entry_point:ci.retraining_check",
       "kind": "trigger",

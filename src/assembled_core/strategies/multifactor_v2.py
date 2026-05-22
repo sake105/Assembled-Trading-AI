@@ -239,53 +239,56 @@ def update_drawdown_damper(
 # ---------------------------------------------------------------------------
 
 DEFAULT_V2_WEIGHTS: dict[str, float] = {
-    # --- TA factors (1-17): 64% total (Pfad B 60% + 2026-05-22 +4pp from zeroed factors) ---
-    "trend_ema_spread": 0.10,  # was 0.08; +0.02 (trend realignment 2026-05-22)
-    "trend_ma200_position": 0.08,  # was 0.06; +0.02 (trend realignment 2026-05-22)
-    "trend_adx_strength": 0.04,  # was 0.05
-    "trend_macd_hist": 0.04,  # was 0.05
-    "mom_rsi_centered": 0.05,  # was 0.06
-    "mom_volume_weighted": 0.04,  # was 0.05
+    # --- TA factors (1-17): 62% total ---
+    "trend_ema_spread": 0.09,  # was 0.10; -0.01 to fund new fundamental factors
+    "trend_ma200_position": 0.07,  # was 0.08; -0.01 to fund new fundamental factors
+    "trend_adx_strength": 0.04,
+    "trend_macd_hist": 0.04,
+    "mom_rsi_centered": 0.05,
+    "mom_volume_weighted": 0.04,
     "mom_obv_trend": 0.03,
-    "mr_bollinger_pctb": 0.03,  # was 0.04
+    "mr_bollinger_pctb": 0.03,
     "mr_stoch_oversold": 0.03,
-    "vol_abnormal": 0.02,  # was 0.03
-    "vol_tick_imbalance": 0.02,  # was 0.03
-    "vola_regime_score": 0.03,
+    "vol_abnormal": 0.02,
+    "vol_tick_imbalance": 0.02,
+    "vola_regime_score": 0.02,  # was 0.03; -0.01 to fund new fundamental factors
     "vola_vov_penalty": 0.03,
-    "breadth_above_ma": 0.03,  # was 0.04
+    "breadth_above_ma": 0.03,
     "breadth_ad_line": 0.03,
-    "mr_zscore_reversal_3d": 0.02,  # was 0.03
-    "mr_rsi_extreme_uptrend": 0.02,  # was 0.03
+    "mr_zscore_reversal_3d": 0.02,
+    "mr_rsi_extreme_uptrend": 0.02,
     # --- Sector (18) ---
     "sector_rotation_bias": 0.04,
-    # --- Earnings/Insider (19-20) ---
-    "earnings_surprise_z": 0.03,
-    "insider_activity_score": 0.00,  # was 0.02; zeroed 2026-05-22: all 59k rows = 'unknown'
-    # --- News/Macro (21-24): 13% total ---
-    "news_sentiment_7d": 0.05,  # was 0.02
-    "news_volume_spike": 0.03,  # was 0.01
-    "macro_growth_momentum": 0.03,  # was 0.02
-    "macro_inflation_surprise": 0.02,  # was 0.01
-    # --- Intermarket (25-27): 8% total (was 6%) ---
-    "intermarket_bond_equity": 0.03,  # was 0.02
-    "intermarket_credit_spread": 0.03,  # was 0.02
+    # --- Earnings/Insider/Cluster (19-22) ---
+    "earnings_surprise_z": 0.02,  # was 0.03; -0.01 to fund new fundamental factors
+    "insider_activity_score": 0.00,  # zeroed 2026-05-22: all 59k rows = 'unknown'
+    "insider_cluster_score": 0.02,  # NEW 2026-05-23: EDGAR cluster signal (active)
+    "pead_sue_score": 0.03,  # NEW 2026-05-23: post-earnings drift (active)
+    # --- News/Macro (23-26): 12% total ---
+    "news_sentiment_7d": 0.04,  # was 0.05; -0.01 to fund new fundamental factors
+    "news_volume_spike": 0.03,
+    "macro_growth_momentum": 0.03,
+    "macro_inflation_surprise": 0.02,
+    # --- Intermarket (27-29): 8% total ---
+    "intermarket_bond_equity": 0.03,
+    "intermarket_credit_spread": 0.03,
     "intermarket_yield_curve": 0.02,
-    # --- Options (28-29) ---
+    # --- Options (30-31) ---
     "options_put_call_extreme": 0.02,
-    "vix_regime_score": 0.01,  # was 0.02
-    # --- Congress (30) ---
-    "congress_activity": 0.00,  # was 0.02; zeroed 2026-05-22: no data files in system
-    # --- Geo composite (31): NEW — Pfad B ---
-    "geo_risk_composite": 0.05,
+    "vix_regime_score": 0.01,
+    # --- Congress (32) ---
+    "congress_activity": 0.00,  # zeroed 2026-05-22: no data files in system
+    # --- Geo composite (33): Pfad B ---
+    "geo_risk_composite": 0.04,  # was 0.05; -0.01 to fund new fundamental factors
+    # --- Buyback drift (34): NEW ---
+    "buyback_drift_score": 0.01,  # NEW 2026-05-23: corporate buyback drift (active)
     # NOTE: crash_probability_inverse is applied as a multiplicative scaler
     # on the final composite, not as an additive factor.
-    # Sum = 1.00  (TA=0.64, sector=0.04, earn+ins=0.03, news/macro=0.13,
-    #              intermarket=0.08, options=0.03, congress=0.00, geo=0.05)
-    # Pfad B 2026-05-05: news+macro 3%→13%, intermarket 6%→8%, geo +5%,
-    #                    TA reduced 73%→60%, vix_regime 2%→1%.
-    # 2026-05-22: insider+congress zeroed (data quality); 4pp reallocated to
-    #             trend_ema_spread+trend_ma200_position (trend alignment).
+    # Sum = 1.00  (TA=0.61, sector=0.04, earn/ins/cluster=0.07, news/macro=0.12,
+    #              intermarket=0.08, options=0.03, congress=0.00, geo=0.04, buyback=0.01)
+    # 2026-05-23: added insider_cluster_score+pead_sue_score+buyback_drift_score
+    #             (all actively computed but absent from fallback dict — AF-003 fix).
+    #             6pp redistributed from trend/vola/earnings/news/intermarket/geo.
 }
 
 # ---------------------------------------------------------------------------
@@ -341,6 +344,15 @@ def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | N
         }
         if not regimes:
             return None
+        for regime, weights in regimes.items():
+            w_sum = sum(v for v in weights.values() if isinstance(v, (int, float)))
+            if abs(w_sum - 1.0) > 0.05:
+                logger.warning(
+                    "[MF-V2] Regime '%s' weight sum %.4f deviates >5%% from 1.0 "
+                    "(runtime renormalization will compensate)",
+                    regime,
+                    w_sum,
+                )
         _REGIME_WEIGHTS_CACHE.set(cache_key, regimes)
         logger.info(
             "[MF-V2] Loaded regime weights for regimes: %s", list(regimes.keys())

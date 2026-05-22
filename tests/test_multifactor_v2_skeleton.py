@@ -182,7 +182,7 @@ def test_v2_default_weights_shape_and_sum() -> None:
     """
     weights = multifactor_v2.DEFAULT_V2_WEIGHTS
     assert isinstance(weights, dict)
-    assert len(weights) == 31, f"expected 31 active factors, got {len(weights)}"
+    assert len(weights) == 34, f"expected 34 active factors, got {len(weights)}"
 
     total = sum(weights.values())
     assert abs(total - 1.0) <= 0.02, (
