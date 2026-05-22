@@ -237,3 +237,37 @@
 - Nie `git add -A` über teilweise-migrierten Stand committen.
 **Erkannt in:** Commit `e4e88cc` (Sweep src/ only) → Stage-1 test-runner F-test-1 MAJOR → Fix in Commit `43299ce` (Sweep tests/ + scripts/ ergänzt). 32 Files total in der vollständigen Migration.
 **Referenzen:** CLAUDE.md Rule 50 (Doppelstrukturen), Rule 60 (one problem per change), Stage-1 test-runner Findings 2026-05-17.
+
+## E-023 — Too-broad Detection-Token führt zu Silent False-Positive Cooldown
+**Datum:** 2026-05-22
+**Kategorie:** detection-logic / silent-degradation
+**Was passierte:** In commit `30d9c3d` (API key rotator) enthielt `_RATE_LIMIT_TOKENS` den Eintrag `"thank you for using alpha vantage"` — die Standard-Begrüßungs/Branding-Phrase, die AV in **vielen** Response-Bodys verwendet, nicht nur in Rate-Limit-Replies. Konkrete falsche Matches: Premium-Required-Replies, Invalid-API-Key-Replies, Deprecated-Endpoint-Notices. Folge: `is_rate_limit_signal()` lieferte für jede dieser Antworten True → der working Key wurde 3600s gecooled → für die nächste 1h waren alle nachfolgenden Symbole im Run abgeschnitten von AV, obwohl der Key nicht erschöpft war. Cooldown wurde zudem persistiert (`output/ops/api_key_usage.json`) → überlebte Process-Restart.
+**Warum falsch:** Detection-Tokens, die auf Vendor-Branding/Greeting matchen statt auf das spezifische Fehler-Pattern, feuern auf ALLES vom Provider — nicht nur auf die Fehlerklasse, die gemeint war. Blast radius bei False-Positive: 1h × (pool size − 1) verlorene Quota plus persistente State-Pollution.
+**Wie erkennen:**
+- "Working Key wird scheinbar grundlos cooled-down, obwohl ich gerade erst Quota benutzt habe."
+- Cooldown-Trigger-Logs feuern bei Non-429-Responses ("invalid key", "premium endpoint", "no data" etc.).
+- `_RATE_LIMIT_TOKENS` (oder äquivalente Detection-Listen) enthält Wörter/Phrasen, die NICHT exklusiv für Rate-Limit-Fälle sind.
+**Wie vermeiden:**
+- Detection-Tokens müssen **spezifisch** für die Fehlerklasse sein, nicht für den Vendor. Bevorzugt: HTTP-Statuscode (`status_code == 429`, `code == 429`) als Primärsignal.
+- Text-Match nur für Vendor-spezifische Throttle-Wordings, die NICHT in anderen Responses des gleichen Vendors auftreten (z.B. "api call frequency", "calls per minute", "calls per day" — alle exklusiv für AV-Throttle).
+- Pflicht: **False-Positive-Regression-Tests**. Für jeden Token im Detector mindestens ein Test, der ein nicht-rate-limit-Response mit ähnlichem Wording prüft und `False` erwartet.
+- Bei Token-Co-Occurrence-Heuristik (z.B. "429" + co-token): Co-Tokens müssen ebenfalls spezifisch sein (keine isolierten Wörter wie "rate"/"limit"/"quota" allein).
+**Erkannt in:** Commit `30d9c3d` → Stage-1 risk-execution-reviewer F-AKR2-1 HIGH + F-AKR2-2 MAJOR (single-token false positives) → Fix in Commit `a39077b` (Tokens präzisiert + 6 false-positive Regression-Tests).
+**Referenzen:** Stage-1 risk-review 2026-05-22, CLAUDE.md Rule 30 (Risk-Execution-Safeguards — silent-degradation), Rule 40 (Test-Honesty — positiv- AND negativ-cases).
+
+## E-024 — Infrastructure shipped without consumer wiring
+**Datum:** 2026-05-22
+**Kategorie:** wiring-gap / completeness
+**Was passierte:** Commit `30d9c3d` lieferte einen voll funktionsfähigen `ApiKeyRotator` mit `mark_rate_limited()`/`get_key()`/Cooldown-Persistence + 21 Unit-Tests. Aber: **kein einziger Client rief tatsächlich `mark_rate_limited()` bei 429 auf**. Das heißt: das Cooldown-Halbsystem des Rotators war in der echten Codebase toter Code. Round-Robin allein verteilte Last → User-Wunsch "wenn einer erschöpft, zum nächsten wechseln" war **nicht** funktional eingelöst, weil kein Client die Exhaustion zurückmeldete. Zusätzlich: `alphavantage_source.py` (Daily-OHLCV, schmerzhafteste Quota im System mit 25 req/Tag) war gar nicht via Rotator gewired. Tests gaben PASS (Rotator-Mechanik korrekt), aber das User-Intent war nicht erfüllt.
+**Warum falsch:** "Infrastruktur gebaut" ≠ "User-Intent eingelöst". Helper-Funktionen, Pools, Detection-Mechanismen sind nur dann nützlich, wenn die Consumer-Pfade sie tatsächlich aufrufen. Tests, die nur die Infrastruktur direkt prüfen (Rotator-API), sagen nichts über die End-to-End-Funktionalität aus.
+**Wie erkennen:**
+- Stage-3 Auditor (oder Reviewer) fragt: "Funktioniert das User-Intent durch den Code, oder nur die Komponente?"
+- Strukturierte Per-Call-Site-Enumeration: für jeden Provider/Pfad die Consumer-Surface auflisten und prüfen, ob jeder Call die neue Infrastruktur tatsächlich nutzt.
+- Spotcheck: `grep -rn "mark_rate_limited\|<new_helper>" src/` — wenn die Anzahl der Aufruf-Stellen vergleichbar mit der Anzahl der Fetch-Call-Sites ist → wahrscheinlich gewired. Sonst → Wiring-Gap.
+**Wie vermeiden:**
+- "End-to-end wired" als Claim erfordert: pro Consumer-Pfad mindestens (a) `get_key()`-Call, (b) `mark_rate_limited()`-Call in 429-except-Branch, (c) re-resolve nach mark wenn loop-basiert.
+- Pre-Commit-Checkliste: für jedes neue Infrastructure-Modul die Liste der erwarteten Consumer-Pfade explizit notieren + pro Pfad verifizieren.
+- Tests sollten **mindestens einen** Test mit gemocktem HTTP-Layer haben, der einen vollen Rate-Limit-Loop simuliert (429 → mark → next-call uses different key) durch den echten Client-Pfad, nicht nur durch direkte Rotator-API-Calls.
+- Commit-Message muss ehrlich trennen zwischen "Infrastructure built" und "Consumer wired" — bei Gap explizit dokumentieren.
+**Erkannt in:** Commit `30d9c3d` (rotator built, clients not wired for 429-feedback) → Stage-2 senior-reviewer F-senior-AKR-2 MAJOR + F-senior-AKR-1 (AV not wired) → Fix in Commit `a39077b` (5 Clients × 5+ Call-Sites alle gewired, within-loop rotation für Finnhub/AV/Polygon/NewsAPI).
+**Referenzen:** Stage-2 senior-review + Stage-3 auditor 2026-05-22, CLAUDE.md Rule 60 (one problem per change — Infrastruktur OHNE Wiring ist nicht "one problem complete").
