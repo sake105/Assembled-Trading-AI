@@ -1711,10 +1711,9 @@ def size_positions(
         log.debug("[CONFORMAL] quantile sizing skipped: %s", e)
 
     # --- Item 43: Halt-check — remove halted symbols from final target positions ---
-    # Uses ctx.kill_switch_state if populated (set by paper_runner / risk controls).
-    # A per-symbol halt registry is a TODO (60s-refresh cache); for now we filter
-    # symbols present in a halt-set stored on the context under `halted_symbols`.
-    # TODO: wire a 60s-refresh symbol-level halt cache here when halt feed is available.
+    # halt-cache is wired in ops/_paper_runner_gates.apply_halt_cache_gate
+    # (utils.halt_cache.HaltCache, TTL default 60s via policy.halt_cache.ttl_seconds,
+    # default-off — requires policy.halt_cache.enabled=true). Results land in ctx.halted_symbols.
     try:
         _raw_halted = getattr(ctx, "halted_symbols", None)
         if _raw_halted is None:

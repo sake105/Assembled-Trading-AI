@@ -751,10 +751,9 @@ Vollständige Liste der `TODO`/`FIXME`-Marker im Code (geprüft 2026-05-12, aktu
   60s-refresh Halt-Cache wurde in Wave 20 (`ed9a126`) bereits gewired via
   `ops/_paper_runner_gates.apply_halt_cache_gate` + `utils.halt_cache.HaltCache`
   (TTL 60s). Dieses Call-Site konsumiert nur `ctx.halted_symbols`.
-  **Code-Edit aufgeschoben** auf eine eigene Formatier-Welle: ruff-format
-  0.8.6 (pre-commit) vs black 24.10.0 (pre-commit) sind auf diesem File in
-  pre-existing Konflikt (Zeilen 760, 1815 — unabhängig von dieser Welle),
-  was jeden Edit hier in eine Hook-Ping-Pong-Schleife schickt.
+  **Code-Edit jetzt abgeschlossen (2026-05-22, §9.8-Fix):** obsoleter TODO-Kommentar
+  aus Zeilen 1715-1717 entfernt, durch faktische Beschreibung ersetzt
+  (halt_cache wired in ops/_paper_runner_gates, TTL=60s).
 - [x] **`scripts/run_event_study.py`** — **BEHOBEN (Wave 22, 2026-05-14):**
   Skeleton durch echte CLI-Implementierung ersetzt. Wired die drei
   existierenden `qa/event_study.py`-Funktionen (`build_event_window_prices`,
@@ -1332,7 +1331,7 @@ nur Collection-Noise.
 - mypy strict: 6 safety-critical Files (kill_switch, order_lifecycle,
   api/auth, utils/retry, utils/clock_drift, reproducibility) + 16 hexagonal
   Files clean.
-- Ruff + black + ruff-format: clean auf allen geänderten Files.
+- Ruff + ruff-format: clean auf allen geänderten Files. [Stand 2026-05-12, vor §9.8-Fix — black-Erwähnung historisch]
 - **NICHT verifiziert:** Ubuntu-CI (kein PR), slow-Marker-Suite, fresh
   paper-pilot-Run mit Wave-1-bis-17 Gate-Stack.
 
