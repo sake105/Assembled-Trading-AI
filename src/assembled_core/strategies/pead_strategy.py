@@ -75,18 +75,21 @@ class PEADConfig:
 def _compute_sue_for_symbol(
     sym_df: pd.DataFrame,
     config: PEADConfig,
-) -> pd.Series:
-    """Return a Series mapping earnings_date → sue_score for one symbol.
+) -> tuple[pd.Series, str]:
+    """Return (sue_series, path_name) for one symbol.
+
+    path_name ∈ {"sigma", "raw", "none"} — indicates the normalization used:
+      "sigma"  = sigma-normalised forecast error (compute_sue_from_expected /
+                 compute_sue with seasonal_rw, sigma estimated on full history)
+      "raw"    = (actual - estimate) / |estimate| (single-event shortcut, different scale)
+      "none"   = empty series, no SUE computed
 
     Requires the FULL PIT-safe earnings history for the symbol (not just the
     drift-window slice) so that sigma estimation uses sufficient observations.
-
-    Uses external estimate if eps_estimate is available; else falls back to
-    compute_sue() on eps_actual history.  Returns empty Series on failure.
     """
     sym_df = sym_df.sort_values("earnings_date")
+    _empty: pd.Series = pd.Series(dtype=float, name="sue")
 
-    # If we have both actual and external estimate, prefer external path
     has_estimate = (
         "eps_estimate" in sym_df.columns and sym_df["eps_estimate"].notna().any()
     )
@@ -103,27 +106,23 @@ def _compute_sue_for_symbol(
                 result = compute_sue_from_expected(
                     actual[common_mask], estimate[common_mask]
                 )
-                return result.sue
+                return result.sue, "sigma"
             except Exception as exc:  # noqa: BLE001
                 logger.debug(
                     "[PEAD] compute_sue_from_expected failed for symbol — %s", exc
                 )
 
-    # Fallback: in-module SUE on eps_actual history
     if has_actual:
         actual = sym_df.set_index("earnings_date")["eps_actual"].dropna()
-        # Need enough history for the chosen method
         min_obs = 6  # seasonal_rw needs ≥ seasonality+2 = 6 for default seasonality=4
         if len(actual) >= min_obs:
             try:
                 result = compute_sue(actual, method=config.sue_method)  # type: ignore[arg-type]
-                return result.sue
+                return result.sue, "sigma"
             except Exception as exc:  # noqa: BLE001
                 logger.debug("[PEAD] compute_sue fallback failed — %s", exc)
 
-    # Single-event shortcut: use eps_estimate if only one row
-    # SUE = (actual - estimate) / |estimate| (simple normalization — different scale
-    # from the sigma-normalized path above; only comparable within this path)
+    # Single-event shortcut: raw (actual-estimate)/|estimate| — different scale from sigma path
     if has_actual and has_estimate:
         merged = sym_df.dropna(subset=["eps_actual", "eps_estimate"])
         if len(merged) >= 1:
@@ -135,11 +134,14 @@ def _compute_sue_for_symbol(
                 sue_scores.append((row["earnings_date"], (act - est) / denom))
             if sue_scores:
                 dates, values = zip(*sue_scores)
-                return pd.Series(
-                    list(values), index=pd.DatetimeIndex(list(dates)), name="sue"
+                return (
+                    pd.Series(
+                        list(values), index=pd.DatetimeIndex(list(dates)), name="sue"
+                    ),
+                    "raw",
                 )
 
-    return pd.Series(dtype=float, name="sue")
+    return _empty, "none"
 
 
 def generate_pead_signals(
@@ -210,7 +212,7 @@ def generate_pead_signals(
         if symbol not in windowed_symbols:
             continue
 
-        sue_series = _compute_sue_for_symbol(sym_df, config)
+        sue_series, sue_path = _compute_sue_for_symbol(sym_df, config)
 
         # Most-recent windowed event date for this symbol
         sym_windowed = sym_df[sym_df["earnings_date"] >= window_start]
@@ -229,6 +231,7 @@ def generate_pead_signals(
                 "symbol": symbol,
                 "earnings_date": latest_date,
                 "sue_score": sue_val,
+                "sue_path": sue_path,
             }
         )
 

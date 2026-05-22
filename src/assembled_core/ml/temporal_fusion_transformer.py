@@ -5,10 +5,11 @@ forecasting with interpretable attention heads.  Full implementation requires
 ``pytorch-forecasting`` + PyTorch, which are not in the standard venv.
 
 This stub exposes the intended interface so callers can be written and tested
-before the heavy ML stack is installed.  When ``pytorch_forecasting`` and
-``torch`` are available, ``TFTForecaster`` delegates to
-``pytorch_forecasting.TemporalFusionTransformer``; otherwise it raises
-``NotImplementedError`` with a clear activation message.
+before the heavy ML stack is installed.  ``fit()`` and ``predict()`` currently
+raise ``NotImplementedError`` regardless of whether ``pytorch_forecasting``
+is installed — the delegation path is the planned activation target (audit
+C2-039) but has not yet been implemented.  ``HAS_PYTORCH_FORECASTING`` flag
+is exported for conditional use by callers.
 
 Activation requirements:
     pip install torch torchvision pytorch-forecasting pytorch-lightning

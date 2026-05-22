@@ -946,7 +946,9 @@ Aus Audit C2 (compass_artifact_wf-05256797), nicht in diesem Sweep umgesetzt:
   `tests/test_order_fsm_concolic.py` — 14 concrete regression tests + 4 symbolic
   property stubs (P1–P4). Concrete tests always run; symbolic tests activate via
   `pip install crosshair-tool` + `crosshair check tests/test_order_fsm_concolic.py`.
-  Full symbolic verification of Order-FSM properties P1–P4 documented and ready.
+  **NOTE (Stage 3 finding 2026-05-22):** Test verifies a standalone FSM definition;
+  the production OrderState enum in `execution/` uses different state names. Follow-up:
+  wire concolic test to real production FSM (C2-007-followup, ~2h, medium priority).
 - [ ] **LitmusChaos auf k3s (C2-012):** k3s-Setup + ChaosEngine YAMLs.
   ~10h.
 - [ ] **12 GameDay-Drills über Jahr (C2-014):** ~24h, terminiert.
