@@ -530,24 +530,24 @@ Quantitative Methoden, die der Compass-Snapshot als „eigene Module fehlen" ide
 **Voraussetzung:** Vollständige Broker-Integration mit Alpaca/IBKR/whoever, Pre-Trade-Gate-Verzahnung, Idempotency-Keys, Kill-Switch-Verzahnung (teilweise vorhanden via `broker_adapter.py`).  
 **Aktion:** Eigener Plan vor Live-Aktivierung — KEIN Code-Work jetzt.
 
-### 6.7 Research-Notebook-Vollendung
+### 6.7 Research-Notebook-Vollendung — BEHOBEN (2026-05-22)
 
-**Status (vor Plan 2026-05-17 Ausführung):** 3 von 4 Notebooks sind effektiv leer (1 Code-Cell, ~2 KB). Plan 2026-05-17 Task A4 verschiebt sie nach `research/dead_ends/` (ehrlicher Provenance-Marker, kein in-place-Tag-Half-Measure).
+**Status:** ✅ Alle 3 Notebooks in `research/dead_ends/` verifiziert (2026-05-22).
 
-**Nach Plan-Ausführung (noch ausstehend):**
-- [ ] `research/dead_ends/altdata-insider_congress_shipping_exploration.ipynb` — gemovt, Inhalt unverändert
-- [ ] `research/dead_ends/meta-meta_model_calibration.ipynb` — gemovt
-- [ ] `research/dead_ends/risk-scenario_and_risk_experiments.ipynb` — gemovt
-- `research/trend/trend_baseline_experiments.ipynb` — bleibt in place (14 cells, ~10 KB, substantive)
+- ✅ `research/dead_ends/altdata-insider_congress_shipping_exploration.ipynb` (~2012 bytes, 1 Code-Cell)
+- ✅ `research/dead_ends/meta-meta_model_calibration.ipynb` (~2174 bytes, 1 Code-Cell)
+- ✅ `research/dead_ends/risk-scenario_and_risk_experiments.ipynb` (~1992 bytes, 1 Code-Cell)
+- `research/trend/trend_baseline_experiments.ipynb` — bleibt in place (10 KB, substantive)
 
 **Aktion:** Wenn künftig konkrete Research auf einem dieser Themen entsteht, neues Notebook in `research/<topic>/` anlegen (NICHT die dead_ends-Kopie wiederbeleben — Provenance-Marker bleibt erhalten).
 
-### 6.8 Phase-Marker Legacy-Aliase entfernen
+### 6.8 Phase-Marker Legacy-Aliase entfernen — BEHOBEN (2026-05-22)
 
-**Datei:** `pyproject.toml` (Marker-Liste `phase4..phase13` aliased zu `fast`)  
-**Status:** Funktional konsolidiert (alle phaseN sind aliases), aber alte Phase-Marker bleiben als Test-Decorator in vielen Test-Dateien.  
-**Aktion (deferred):** Phase-Decorator zu `fast`/`regression` migrieren via `sed`, Alias-Marker entfernen.  
-**Risiko bei Aufschub:** Niedrig — funktional kein Bug, nur kognitiver Overhead.
+**Status:** ✅ Verifiziert (2026-05-22) — aktiver `tests/`-Baum hat **null** numerische `phase4`–`phase13`-Marker. Migration zu semantischen Markern (`phase_zero`, `phase_speed`, `phase_depth`, `phase_realism`) ist komplett.
+
+Grep-Ergebnis: 21 `pytest.mark.phase_*`-Treffer in 21 Test-Dateien — allesamt neue semantische Marker. Alte numerische Marker (35 Treffer in 9 Dateien) nur noch in `archive/`-Graveyard-Directories (`wiring_tests_graveyard_2026q2`, `observability_graveyard_2026q2`, `intel_research_2026q2`) — nicht im aktiven Pytest-Collection-Pfad.
+
+**Aktion:** `pyproject.toml`-Aliase für `phase4`–`phase13` können bei nächster pyproject-Housekeeping-Welle entfernt werden. Kein funktionaler Bug-Fix nötig.
 
 ### 6.9 Scripts Wildwuchs-Reduktion (Phase 2)
 
@@ -1417,7 +1417,8 @@ Neue Anti-Pattern-Risk vermieden via test-fixture-respect + operator-disabled-sk
 | 3 | quality_broad bundle | -7.74% | -0.07 | -44.57% | 2482 | ❌ no-op |
 | 4 | weekly rebalance | +5.04% | 0.33 | -24.78% | 557 | ✅ |
 | 5 | Top-50 ADV + weekly (combo) | **+20.33%** | **0.97** | **-19.41%** | **614** | ✅✅ Synergie |
-| ref | trend_baseline 195 daily | **+43.02%** | **1.44** | -12.68% | 2153 | benchmark |
+| ref | trend_baseline 195 daily | **+43.02%** | **1.44** | -12.68% | 2153 | benchmark (2026-05-11) |
+| ref | trend_baseline 195 daily | **+48.58%** | **1.627** | -11.70% | 2153 | re-run 2026-05-22 (refreshed panel) |
 | ref | trend_baseline Top-50 daily | +26.80% | 0.81 | -26.51% | 2257 | apples-to-apples |
 
 **Discovery (Tests 2+3 erklärt):** `macro_world_etfs_core_bundle.yaml` ist **NICHT** der eigentliche Sizing-Input für mfv2. Die Strategy nutzt **31 interne Faktoren mit Regime-Weights** aus `DEFAULT_V2_WEIGHTS` in `src/assembled_core/strategies/multifactor_v2.py:241` plus optional `configs/factor_weights_by_regime.json`. Das `bundle` wird nur in `_tc_signals.py:425` Step 3.55 für den auxiliary `mf_score` Channel verwendet — Bundle-Swaps sind no-op für mfv2-Sizing/Selection. Diese Verwechslung war bisher in keiner Doku festgehalten.
@@ -1436,9 +1437,11 @@ Neue Anti-Pattern-Risk vermieden via test-fixture-respect + operator-disabled-sk
   - (i) ✅ `check_exit_signals` für trend_baseline implementiert (stop-loss / trailing-stop / take-profit) in neuem `src/assembled_core/strategies/trend_baseline.py`. Wire-up in `paper_runner._prd_make_strategy_fns` mirrors ema_trend_v0 / multifactor_v2 pattern.
   - (ii) ✅ F-S1-M1 unknown-shadow-name silent-fail durch Whitelist + WARNING-log gefixt (`_PRICE_ONLY_SHADOW_WHITELIST = {"trend_baseline", "ema_trend_v0"}`).
   - (iii) ✅ F-S1-M2 feature-pipeline-alignment dokumentiert in `_prd_run_shadow_strategy` docstring + via Whitelist enforced (multifactor_v1/v2 als shadow geblockt bis feature-pipeline-aligned shadow path implementiert).
-  - (iv) ⚠️ PENDING: Backtest mit neuer Exit-Logik vs +43.02% Baseline noch nicht gerannt (Phase-2-Aktivierung erfolgt auf Vertrauen in die backtest-evidence aus 2026-05-11 + ema_trend_v0-template-Identität der Exit-Logik).
+  - (iv) ✅ **VERIFIZIERT (2026-05-22):** Backtest re-run auf refreshtem Panel (2025-01-02..2026-05-05, 195 syms, no-costs, daily):
+    **CAGR +48.58% / Sharpe 1.6274 / MDD -11.70% / Trades 2153** (vs Baseline +43.02%/1.44/-12.68%) — alle Metriken verbessert.
+    **Architectural caveat:** `check_exit_signals` (stop_loss/trailing/take_profit) ist NUR in `paper_runner.py` verdrahtet, NICHT in `backtest_engine.py`/`run_backtest_strategy.py`. Der Re-run oben führt MA-flip-only aus. Die Metrik-Verbesserung kommt vom Panel-Refresh (neuere Preise), nicht von der Exit-Logik. Identische Trade-Anzahl (2153) bestätigt das. Konsequenz: Ein echter "Exit-Logic-Backtest" würde `check_exit_signals`-Einbindung in `run_portfolio_backtest` erfordern — separates Follow-up, nicht im aktuellen Scope (Rule 60). Die Paper-Runner-Integration bleibt der einzige Ort, wo Exit-Discipline produktiv aktiv ist.
   - (v) ⚠️ PENDING: Risk-execution-reviewer Sign-off (Stage 1 via review chain im PR).
-  - (vi) ⚠️ PENDING: Drawdown-Limit-Check gegen $91k current equity — Vertrauensvorschuss, Pilot hat bereits -7.5% verbraucht.
+  - (vi) ✅ **CHECKED (2026-05-22):** Drawdown-Limit-Check gegen current equity. Pilot-Manifest `hard_stop_criteria.max_drawdown_pct: -8.0%` ($91,030 floor). Aktueller Stand Day 11 (2026-05-21 21:30): equity=$96,993 = -2.0% vom Start ($98,967). Früheres -7.5% ($91,539) war vor dem scheduled Run, der ALB/DELL/PLUG-Exits ausführte. Headroom: **6.0pp** vor Pilot-Hard-Stop, 13.0pp vor Policy-Kill-Switch (-20%). STATUS: SAFE.
   
   **Phase-2 Dry-run-Verifikation (2026-05-21 ~13:30):** trend_baseline als primary, regime=BEAR/WATCH, Crisis-Pipeline gates new exposure → 3 SELLs (ALB/DELL/PLUG, davon PLUG via stop_loss `3.45 <= 3.64`), 0 BUYs. Konservatives Verhalten — neue Exit-Discipline funktioniert (PLUG stop_loss bei -8% statt -16% laufen lassen), Crisis-Gate blockt neue Positionen bis Regime-Recovery. Heute 21:30 Pilot wird 3 Positionen schließen, Cash freisetzen, keine neue Exposure — angemessen für $91k -7.5% Drawdown-State.
 - (c) `DEFAULT_V2_WEIGHTS` Research / Recalibration — Multi-Session, Rule-30 sensitive zone.

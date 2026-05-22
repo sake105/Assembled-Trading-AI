@@ -100,3 +100,6 @@ autonomous/
 .claude/.review_markers/
 .claude/.review_skip
 .claude/.review_skip_log.jsonl
+
+# QA backtest bootstrap artifacts (regenerable, produced by backtest_engine.py)
+qa/bootstrap_backtest_*.json
