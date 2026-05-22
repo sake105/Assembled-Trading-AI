@@ -165,6 +165,36 @@ def test_fetch_missing_alpaca_no_credentials_returns_empty(tmp_path, monkeypatch
     assert df.empty
 
 
+def test_write_failed_symbols_creates_json(tmp_path):
+    """write_failed_symbols must write parseable JSON with expected keys."""
+    import json
+
+    mod = _load_module()
+    out = tmp_path / "failed.json"
+    mod.write_failed_symbols(["AAPL", "MSFT"], reason="yfinance_empty", path=out)
+
+    assert out.exists()
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["symbols"] == ["AAPL", "MSFT"]
+    assert data["count"] == 2
+    assert data["reason"] == "yfinance_empty"
+    assert "timestamp" in data
+
+
+def test_write_failed_symbols_overwrites_previous(tmp_path):
+    """Second call overwrites first — no stale accumulation."""
+    import json
+
+    mod = _load_module()
+    out = tmp_path / "failed.json"
+    mod.write_failed_symbols(["OLD"], reason="first", path=out)
+    mod.write_failed_symbols(["NEW1", "NEW2"], reason="second", path=out)
+
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["symbols"] == ["NEW1", "NEW2"]
+    assert data["reason"] == "second"
+
+
 def test_fetch_missing_alpaca_sdk_unavailable_returns_empty(tmp_path, monkeypatch):
     """fetch_missing_alpaca must return empty DataFrame when alpaca-py not installed."""
     import sys

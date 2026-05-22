@@ -184,6 +184,40 @@ def fetch_missing_alpaca(missing: list[str], years: int) -> "pd.DataFrame":
     return df
 
 
+_FAILED_SYMBOLS_PATH = ROOT / "output" / "prewarm_failed_symbols.json"
+
+
+def write_failed_symbols(
+    symbols: list[str],
+    reason: str,
+    path: Path = _FAILED_SYMBOLS_PATH,
+) -> None:
+    """Persist symbols that could not be fetched for cross-run monitoring.
+
+    stale_cache_symbols() will re-surface them on the next run, but this file
+    lets an operator (or future health-check script) detect persistent per-symbol
+    failures without tailing per-day scheduler logs.
+    """
+    import json
+
+    payload = {
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "reason": reason,
+        "symbols": sorted(symbols),
+        "count": len(symbols),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    tmp.replace(path)
+    logger.warning(
+        "[prewarm] %d symbols unfetched — logged to %s (reason: %s)",
+        len(symbols),
+        path,
+        reason,
+    )
+
+
 def fetch_missing(missing: list[str], years: int) -> "pd.DataFrame":
     """Fetch the missing symbols via yfinance; raises YFinanceRateLimitError on HTTP 429."""
     from src.assembled_core.data.sources.yfinance_source import fetch_prices_yfinance
@@ -316,20 +350,30 @@ def main(argv: list[str] | None = None) -> int:
         print("[prewarm] DRY RUN — no fetch performed")
         return 0
 
+    fetch_reason = "yfinance"
     try:
         df = fetch_missing(targets, years=args.years)
     except YFinanceRateLimitError as exc:
         print(
             f"[prewarm] yfinance rate-limited ({exc}) — falling back to Alpaca bars API"
         )
+        fetch_reason = "alpaca_fallback"
         df = fetch_missing_alpaca(targets, years=args.years)
     except Exception as exc:  # noqa: BLE001
         print(f"[prewarm] fetch failed: {exc} — aborting merge")
+        write_failed_symbols(targets, reason=f"fetch_exception:{type(exc).__name__}")
         return 1
 
     if df.empty:
         print("[prewarm] no data fetched — aborting merge")
+        write_failed_symbols(targets, reason=f"{fetch_reason}_empty")
         return 1
+
+    # Record any symbols that still had no data after the fetch
+    fetched_syms = set(df["symbol"].unique()) if "symbol" in df.columns else set()
+    still_missing = [s for s in targets if s not in fetched_syms]
+    if still_missing:
+        write_failed_symbols(still_missing, reason=f"{fetch_reason}_partial")
 
     total = merge_and_save(df)
     print(f"[prewarm] cache updated: {total:,} total rows")

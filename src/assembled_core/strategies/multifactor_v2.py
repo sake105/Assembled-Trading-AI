@@ -318,6 +318,17 @@ def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | N
 
     Cache key = (path, mtime) so the cache auto-invalidates when the
     weights file is updated on disk without requiring an explicit clear.
+
+    Intentionally-zeroed per-regime factors in factor_weights_by_regime.json:
+      - insider_activity_score: 0.0 in all regimes (data 100% "unknown")
+      - congress_activity: 0.0 in all regimes (no data files exist)
+      - buyback_drift_score: 0.0 in crisis regime only — buyback programmes
+        are typically suspended during market crises (regulatory halt, liquidity
+        constraints, board blackout) making the signal uninformative or
+        misleading precisely when crisis regime is active.
+    These zeros are intentional policy, not data gaps. The live dead-factor
+    filter (abs().sum() <= FACTOR_ZERO_VARIANCE_EPS) already excludes them
+    from the composite at scoring time regardless of the weight value.
     """
     path = cfg.get("regime_weights_path", "configs/factor_weights_by_regime.json")
     _p = Path(path)
