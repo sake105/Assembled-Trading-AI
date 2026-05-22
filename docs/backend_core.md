@@ -595,12 +595,9 @@ def test_something(tmp_output_dir, monkeypatch):
 ### Tools
 
 **Ruff:**
-- Schneller Linter für Python (ersetzt flake8, isort, etc.)
+- Schneller Linter und Formatter für Python (ersetzt flake8, isort, black, etc.)
 - Prüft Syntax-Fehler, unbenutzte Imports, Code-Style
-
-**Black:**
-- Code-Formatter für konsistentes Formatting
-- Automatische Formatierung nach PEP 8
+- `ruff format` übernimmt die Code-Formatierung (ruff-format ersetzt black)
 
 **mypy:**
 - Static Type Checker für Python
