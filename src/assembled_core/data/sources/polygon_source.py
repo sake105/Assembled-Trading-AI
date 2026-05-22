@@ -51,16 +51,38 @@ def _get_api_key() -> str | None:
         return key if key else None
 
 
+def _mark_429_if_applicable(key: str | None, exc_or_response: object) -> None:
+    """Cool down `key` if exc_or_response is a rate-limit signal.
+
+    Polygon free tier is 5 req/min — short cooldown is enough to rotate
+    through the pool while the per-minute window resets.
+    """
+    if not key:
+        return
+    try:
+        from src.assembled_core.utils.api_key_rotator import (
+            get_rotator,
+            is_rate_limit_signal,
+        )
+
+        if is_rate_limit_signal(exc_or_response):
+            get_rotator().mark_rate_limited("polygon", key, cooldown_seconds=70.0)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _fetch_single_symbol(
     symbol: str,
     start_date: str,
     end_date: str,
     timespan: str,
     api_key: str,
-) -> pd.DataFrame | None:
+) -> tuple[pd.DataFrame | None, bool]:
     """Fetch aggregate bars for one symbol from Polygon.io.
 
-    Returns None on any error or if no data is available.
+    Returns (df_or_None, was_rate_limited). The bool tells the outer
+    loop whether key-rotation is warranted (only rotate on rate-limit;
+    don't waste a quota slot on missing-symbol / network errors).
     """
     try:
         from polygon import RESTClient  # noqa: PLC0415
@@ -68,7 +90,7 @@ def _fetch_single_symbol(
         logger.error(
             "[ERROR] polygon-api-client not installed. Run: pip install polygon-api-client>=1.12.0"
         )
-        return None
+        return None, False
 
     try:
         client = RESTClient(api_key=api_key)
@@ -87,7 +109,7 @@ def _fetch_single_symbol(
             logger.warning(
                 "[WARN] polygon: no data for %s (%s – %s)", symbol, start_date, end_date
             )
-            return None
+            return None, False
 
         rows = []
         for bar in aggs:
@@ -106,11 +128,16 @@ def _fetch_single_symbol(
             )
 
         df = pd.DataFrame(rows)
-        return df
+        return df, False
 
     except Exception as exc:  # noqa: BLE001
+        from src.assembled_core.utils.api_key_rotator import is_rate_limit_signal
+
+        rate_limited = is_rate_limit_signal(exc)
+        if rate_limited:
+            _mark_429_if_applicable(api_key, exc)
         logger.error("[ERROR] polygon: failed to fetch %s — %s", symbol, exc)
-        return None
+        return None, rate_limited
 
 
 def fetch_prices_polygon(
@@ -153,7 +180,17 @@ def fetch_prices_polygon(
             # Respect free-tier rate limit between requests
             time.sleep(_FREE_TIER_DELAY_S)
 
-        df = _fetch_single_symbol(sym, start_date, end_date, timespan, api_key)
+        df, rate_limited = _fetch_single_symbol(
+            sym, start_date, end_date, timespan, api_key
+        )
+        if df is None and rate_limited:
+            # Only rotate when the previous fetch was actually rate-limited.
+            # Non-rate-limit None (network error, missing symbol, import
+            # error) does NOT cool the key and does NOT warrant rotation.
+            rotated = _get_api_key()
+            if rotated and rotated != api_key:
+                api_key = rotated
+                logger.info("[INFO] polygon: rotated to next key after 429")
         if df is not None and not df.empty:
             frames.append(df)
 

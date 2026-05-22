@@ -44,9 +44,47 @@ _FRED_CACHE_TTL: float = 21600.0  # 6 hours in seconds
 
 
 def _get_api_key() -> str | None:
-    """Return FRED_API_KEY from environment, or None if not set."""
+    """Return next available FRED key from the rotator pool, or None.
+
+    Multi-key rotation (2026-05-22): the rotator pools FRED_API_KEY,
+    FRED_API_KEY_2/3/..., and FRED_API_KEYS (comma-separated). Backward
+    compat: when only FRED_API_KEY is set, the pool has 1 key and the
+    rotator behaves identically to the prior single-key path. If the
+    rotator import fails (defensive against test-only circular imports),
+    falls back to direct env read.
+    """
+    try:
+        from src.assembled_core.utils.api_key_rotator import get_rotator
+
+        rotated = get_rotator().get_key("fred")
+        if rotated:
+            return rotated
+    except Exception:  # noqa: BLE001
+        pass
     key = os.environ.get("FRED_API_KEY", "").strip()
     return key if key else None
+
+
+def _mark_429_if_applicable(key: str | None, exc_or_response: object) -> None:
+    """If exc_or_response looks like a rate-limit signal, cool down `key`.
+
+    Best-effort. Silently no-op if rotator import fails, key is None, or
+    the signal is not a rate-limit pattern.
+    """
+    if not key:
+        return
+    try:
+        from src.assembled_core.utils.api_key_rotator import (
+            get_rotator,
+            is_rate_limit_signal,
+        )
+
+        if is_rate_limit_signal(exc_or_response):
+            # FRED limit is 120 req/min — short cooldown is enough to
+            # rotate through the pool while a key recovers.
+            get_rotator().mark_rate_limited("fred", key, cooldown_seconds=60.0)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _fetch_single_series(
@@ -54,8 +92,16 @@ def _fetch_single_series(
     start_date: str,
     end_date: str,
     fred_client: object,
-) -> pd.DataFrame | None:
-    """Fetch one FRED series.  Returns None on failure."""
+    api_key: str | None = None,
+) -> tuple[pd.DataFrame | None, bool]:
+    """Fetch one FRED series. Returns (df_or_None, was_rate_limited).
+
+    On rate-limit signals, marks `api_key` cooled-down so subsequent
+    fetches in the same run rotate to a different key from the pool.
+    The bool tells the caller whether retry-with-rotated-key is justified
+    (avoids wasting a second call on a missing-series or invalid-key
+    failure that won't be fixed by switching keys).
+    """
     try:
         raw = fred_client.get_series(  # type: ignore[attr-defined]
             series_id,
@@ -69,7 +115,7 @@ def _fetch_single_series(
                 start_date,
                 end_date,
             )
-            return None
+            return None, False
 
         df = raw.reset_index()
         df.columns = ["timestamp", "value"]
@@ -78,11 +124,16 @@ def _fetch_single_series(
         df = df[["timestamp", "series_id", "value"]].copy()
         # Drop NaN observations (FRED sometimes returns them for missing release days)
         df = df.dropna(subset=["value"])
-        return df
+        return df, False
 
     except Exception as exc:  # noqa: BLE001
+        from src.assembled_core.utils.api_key_rotator import is_rate_limit_signal
+
+        rate_limited = is_rate_limit_signal(exc)
+        if rate_limited:
+            _mark_429_if_applicable(api_key, exc)
         logger.error("[ERROR] fred: failed to fetch series %s — %s", series_id, exc)
-        return None
+        return None, rate_limited
 
 
 def fetch_fred_series(
@@ -132,8 +183,31 @@ def fetch_fred_series(
             logger.debug("[OK] fred: cache hit for %s", sid)
             df = cached[1]
         else:
-            df = _fetch_single_series(sid, start_date, end_date, fred)
-            _FRED_CACHE[cache_key] = (now, df)
+            df, rate_limited = _fetch_single_series(
+                sid, start_date, end_date, fred, api_key=api_key
+            )
+            # Retry with a rotated key ONLY for rate-limit failures.
+            # Missing-series / invalid-key / network errors won't benefit
+            # from another key — retrying would waste a quota slot.
+            if df is None and rate_limited:
+                next_key = _get_api_key()
+                if next_key and next_key != api_key:
+                    api_key = next_key
+                    try:
+                        from fredapi import Fred  # noqa: PLC0415
+
+                        fred = Fred(api_key=api_key)
+                        df, _ = _fetch_single_series(
+                            sid, start_date, end_date, fred, api_key=api_key
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "[WARN] fred: rotation retry failed for %s — %s", sid, exc
+                        )
+            # F-AKR2-10: do NOT cache None — let the next call retry.
+            # Otherwise a transient failure blocks the series for 6h.
+            if df is not None and not df.empty:
+                _FRED_CACHE[cache_key] = (now, df)
         if df is not None and not df.empty:
             frames.append(df)
 

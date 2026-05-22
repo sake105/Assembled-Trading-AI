@@ -38,11 +38,13 @@ _POST_EARNINGS_DAYS = 3  # flag raised this many days after earnings
 class EarningsCalendarSource:
     """Fetches earnings calendar data and builds earnings-timing factors.
 
-    Attributes:
-        finnhub_api_key: Optional Finnhub API key (reads FINNHUB_API_KEY env var).
-        alphavantage_api_key: Optional Alpha Vantage key. Reads ALPHAVANTAGE_KEY
-            first (the canonical name used by alphavantage_source.py and .env),
-            then falls back to ALPHAVANTAGE_API_KEY for backwards-compat.
+    Key handling (2026-05-22): keys are resolved lazily per fetch call via
+    the rotator pool, NOT cached at __init__. This is necessary for
+    rotation to work across long-lived instances — a key may go into
+    cooldown between fetches, and the next fetch must pick a fresh one.
+    Explicit constructor args still win (caller override). When the
+    rotator pool has 1 key, behavior is identical to the prior single-key
+    path.
     """
 
     def __init__(
@@ -50,30 +52,70 @@ class EarningsCalendarSource:
         finnhub_api_key: Optional[str] = None,
         alphavantage_api_key: Optional[str] = None,
     ) -> None:
-        # Multi-key rotation (2026-05-22): explicit args win (caller override),
-        # then rotator pool, then direct env fallback for backward compat.
+        # Explicit overrides stored as-is; None means "resolve per call".
+        self._finnhub_key_override = finnhub_api_key or None
+        self._alphavantage_key_override = alphavantage_api_key or None
+
+    # ------------------------------------------------------------------
+    # Lazy key resolution (per fetch call, not per init)
+    # ------------------------------------------------------------------
+
+    def _current_finnhub_key(self) -> str:
+        if self._finnhub_key_override:
+            return self._finnhub_key_override
         try:
             from src.assembled_core.utils.api_key_rotator import get_rotator
 
-            _rotator = get_rotator()
+            rotated = get_rotator().get_key("finnhub")
+            if rotated:
+                return rotated
         except Exception:  # noqa: BLE001
-            _rotator = None
+            pass
+        return os.environ.get("FINNHUB_API_KEY", "")
 
-        if finnhub_api_key:
-            self.finnhub_api_key = finnhub_api_key
-        else:
-            self.finnhub_api_key = (
-                _rotator.get_key("finnhub") if _rotator else None
-            ) or os.environ.get("FINNHUB_API_KEY", "")
+    def _current_alphavantage_key(self) -> str:
+        if self._alphavantage_key_override:
+            return self._alphavantage_key_override
+        try:
+            from src.assembled_core.utils.api_key_rotator import get_rotator
 
-        if alphavantage_api_key:
-            self.alphavantage_api_key = alphavantage_api_key
-        else:
-            self.alphavantage_api_key = (
-                (_rotator.get_key("alphavantage") if _rotator else None)
-                or os.environ.get("ALPHAVANTAGE_KEY", "")
-                or os.environ.get("ALPHAVANTAGE_API_KEY", "")
+            rotated = get_rotator().get_key("alphavantage")
+            if rotated:
+                return rotated
+        except Exception:  # noqa: BLE001
+            pass
+        return (
+            os.environ.get("ALPHAVANTAGE_KEY", "")
+            or os.environ.get("ALPHAVANTAGE_API_KEY", "")
+            or ""
+        )
+
+    @property
+    def finnhub_api_key(self) -> str:
+        """Resolved Finnhub key for the *current* moment (lazy)."""
+        return self._current_finnhub_key()
+
+    @property
+    def alphavantage_api_key(self) -> str:
+        """Resolved Alpha Vantage key for the *current* moment (lazy)."""
+        return self._current_alphavantage_key()
+
+    def _mark_429(self, provider: str, key: str, exc_or_response: object) -> None:
+        if not key:
+            return
+        try:
+            from src.assembled_core.utils.api_key_rotator import (
+                get_rotator,
+                is_rate_limit_signal,
             )
+
+            if is_rate_limit_signal(exc_or_response):
+                cooldown = 70.0 if provider == "finnhub" else 3600.0
+                get_rotator().mark_rate_limited(
+                    provider, key, cooldown_seconds=cooldown
+                )
+        except Exception:  # noqa: BLE001
+            pass
 
     # ------------------------------------------------------------------
     # Fetching
@@ -112,9 +154,14 @@ class EarningsCalendarSource:
             except Exception as exc:
                 logger.debug("[EarningsCalendar] yfinance failed for %s: %s", sym, exc)
 
-            if self.finnhub_api_key:
+            # Capture once per symbol — pass the resolved key into the
+            # fetch so cursor advances only ONCE per logical attempt.
+            finnhub_key = self._current_finnhub_key()
+            if finnhub_key:
                 try:
-                    result = self._fetch_finnhub(sym, start_date, end_date)
+                    result = self._fetch_finnhub(
+                        sym, start_date, end_date, api_key=finnhub_key
+                    )
                     if result:
                         rows.extend(result)
                         continue
@@ -240,17 +287,25 @@ class EarningsCalendarSource:
         symbol: str,
         start_date: datetime,
         end_date: datetime,
+        api_key: str | None = None,
     ) -> list[dict]:
-        """Fetch earnings via Finnhub API."""
+        """Fetch earnings via Finnhub API.
+
+        If `api_key` is None, resolves once via _current_finnhub_key();
+        passing an explicit key avoids a redundant rotator cursor advance
+        when the caller already resolved it (see fetch_calendar loop).
+        """
         import json
         import urllib.request
 
+        if not api_key:
+            api_key = self._current_finnhub_key()
         url = (
             f"https://finnhub.io/api/v1/calendar/earnings"
             f"?symbol={symbol}"
             f"&from={start_date.strftime('%Y-%m-%d')}"
             f"&to={end_date.strftime('%Y-%m-%d')}"
-            f"&token={self.finnhub_api_key}"
+            f"&token={api_key}"
         )
         # URL is built from a fixed finnhub.io endpoint with validated params.
         import urllib.error
@@ -267,6 +322,9 @@ class EarningsCalendarSource:
                     )
                     return []
         except (urllib.error.URLError, urllib.error.HTTPError, OSError) as exc:
+            # _mark_429 internally calls is_rate_limit_signal which handles
+            # both HTTPError.code == 429 and rate-limit text patterns.
+            self._mark_429("finnhub", api_key, exc)
             logger.warning(
                 "[EarningsCalendar] Finnhub network error for %s: %s", symbol, exc
             )

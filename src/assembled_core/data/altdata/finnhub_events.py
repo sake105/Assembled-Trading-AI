@@ -10,6 +10,7 @@ import pandas as pd
 from src.assembled_core.data.altdata.finnhub_common import (
     FINNHUB_BASE_URL,
     get_finnhub_session,
+    mark_finnhub_rate_limited,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ def fetch_earnings_events(
         response.raise_for_status()
         data = response.json()
     except Exception as exc:
+        mark_finnhub_rate_limited(api_key, exc)
         logger.warning("[finnhub_events] fetch_earnings_events failed: %s", exc)
         return _EMPTY_EVENTS.copy()
 
@@ -141,6 +143,17 @@ def fetch_insider_events(
             response.raise_for_status()
             data = response.json()
         except Exception as exc:
+            mark_finnhub_rate_limited(api_key, exc)
+            try:
+                from src.assembled_core.utils.api_key_rotator import get_rotator
+
+                rotated = get_rotator().get_key("finnhub")
+                if rotated and rotated != api_key:
+                    api_key = rotated
+                    params["token"] = api_key
+                    logger.info("[finnhub_events] rotated to next key after error")
+            except Exception:  # noqa: BLE001
+                pass
             logger.warning(
                 "[finnhub_events] fetch_insider_events(%s) failed: %s", sym, exc
             )

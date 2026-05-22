@@ -37,8 +37,48 @@ _RATE_LIMIT_SLEEP = 12.5  # seconds between requests (5/min free tier)
 
 
 def _get_api_key() -> str | None:
+    """Return next available Alpha Vantage key from the rotator pool, or None.
+
+    Multi-key rotation (2026-05-22): the rotator pools ALPHAVANTAGE_KEY
+    (legacy), ALPHAVANTAGE_API_KEY (canonical), ALPHAVANTAGE_API_KEY_2/3/...
+    and ALPHAVANTAGE_API_KEYS (comma-separated). Backward compat: when
+    only ALPHAVANTAGE_KEY is set, the pool has 1 key. Defensive fallback
+    to direct env read if rotator import fails.
+    """
+    try:
+        from src.assembled_core.utils.api_key_rotator import get_rotator
+
+        rotated = get_rotator().get_key("alphavantage")
+        if rotated:
+            return rotated
+    except Exception:  # noqa: BLE001
+        pass
     key = os.environ.get("ALPHAVANTAGE_KEY", "").strip()
     return key if key else None
+
+
+def _mark_429_if_applicable(key: str | None, exc_or_response: object) -> None:
+    """Mark `key` cooled-down if exc_or_response is a rate-limit signal.
+
+    AV free tier is 25 req/day, 5 req/min — when we hit either limit, the
+    response body contains "Note" or "Information" with rate-limit wording
+    (no HTTP-429). Default cooldown 1h covers the day-quota case; the
+    per-minute case will self-clear faster but 1h is safe.
+    """
+    if not key:
+        return
+    try:
+        from src.assembled_core.utils.api_key_rotator import (
+            get_rotator,
+            is_rate_limit_signal,
+        )
+
+        if is_rate_limit_signal(exc_or_response):
+            get_rotator().mark_rate_limited(
+                "alphavantage", key, cooldown_seconds=3600.0
+            )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def fetch_prices_alphavantage(
@@ -97,21 +137,63 @@ def fetch_prices_alphavantage(
                 "datatype": "json",
             }
             resp = requests.get(_BASE_URL, params=params, timeout=30)
+            if resp.status_code == 429:
+                # Explicit HTTP-429 from AV (rare on free tier; usually
+                # returns 200 + "Note" body, see below).
+                _mark_429_if_applicable(api_key, resp)
+                rotated = _get_api_key()
+                if rotated and rotated != api_key:
+                    api_key = rotated
+                    logger.info("[INFO] alphavantage: rotated to next key after 429")
+                    continue
+                logger.warning(
+                    "[WARN] alphavantage: 429 with no alternate key — skipping %s",
+                    symbol,
+                )
+                continue
             resp.raise_for_status()
             data = resp.json()
 
             if "Note" in data:
+                # "Note" is AV's free-tier throttle wording — almost always
+                # rate-limit shaped. mark_429 will still verify via the
+                # central detector, then we rotate for the next symbol.
+                _mark_429_if_applicable(api_key, data["Note"])
                 logger.warning(
                     "[WARN] alphavantage: rate limit hit for %s — %s",
                     symbol,
                     data["Note"],
                 )
+                rotated = _get_api_key()
+                if rotated and rotated != api_key:
+                    api_key = rotated
+                    logger.info(
+                        "[INFO] alphavantage: rotated to next key after rate-limit Note"
+                    )
                 continue
             if "Information" in data:
+                # "Information" can be ANY notice (premium-required, invalid
+                # key, deprecated endpoint, throttle, etc.). Only rotate
+                # when the text is unambiguously a rate-limit signal —
+                # otherwise we'd needlessly cool down a working key for
+                # a non-throttle reply.
+                info_text = data["Information"]
+                from src.assembled_core.utils.api_key_rotator import (
+                    is_rate_limit_signal,
+                )
+
+                if is_rate_limit_signal(info_text):
+                    _mark_429_if_applicable(api_key, info_text)
+                    rotated = _get_api_key()
+                    if rotated and rotated != api_key:
+                        api_key = rotated
+                        logger.info(
+                            "[INFO] alphavantage: rotated after rate-limit Information"
+                        )
                 logger.warning(
                     "[WARN] alphavantage: API message for %s — %s",
                     symbol,
-                    data["Information"],
+                    info_text,
                 )
                 continue
 
@@ -146,6 +228,7 @@ def fetch_prices_alphavantage(
                 )
 
         except Exception as exc:
+            _mark_429_if_applicable(api_key, exc)
             logger.error("[ERROR] alphavantage: failed to fetch %s — %s", symbol, exc)
 
     if not frames:

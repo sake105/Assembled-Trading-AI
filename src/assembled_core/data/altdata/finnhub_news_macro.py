@@ -9,6 +9,7 @@ import pandas as pd
 from src.assembled_core.data.altdata.finnhub_common import (
     FINNHUB_BASE_URL,
     get_finnhub_session,
+    mark_finnhub_rate_limited,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,24 @@ def fetch_news(
                 response.raise_for_status()
                 items = response.json()
             except Exception as exc:
+                mark_finnhub_rate_limited(api_key, exc)
+                # Within-loop rotation: if mark cooled the current key,
+                # the next get_key returns a different one. Re-resolve so
+                # subsequent symbols don't keep hammering the cooled key.
+                try:
+                    from src.assembled_core.utils.api_key_rotator import (
+                        get_rotator,
+                    )
+
+                    rotated = get_rotator().get_key("finnhub")
+                    if rotated and rotated != api_key:
+                        api_key = rotated
+                        params["token"] = api_key
+                        logger.info(
+                            "[finnhub_news_macro] rotated to next key after error"
+                        )
+                except Exception:  # noqa: BLE001
+                    pass
                 logger.warning(
                     "[finnhub_news_macro] fetch_news(%s) failed: %s", sym, exc
                 )
@@ -72,6 +91,7 @@ def fetch_news(
             response.raise_for_status()
             items = response.json()
         except Exception as exc:
+            mark_finnhub_rate_limited(api_key, exc)
             logger.warning("[finnhub_news_macro] fetch_news(market) failed: %s", exc)
             return pd.DataFrame(
                 columns=["timestamp", "symbol", "headline", "news_id", "event_type"]
@@ -188,6 +208,7 @@ def fetch_macro_series(
         response.raise_for_status()
         data = response.json()
     except Exception as exc:
+        mark_finnhub_rate_limited(api_key, exc)
         logger.warning("[finnhub_news_macro] fetch_macro_series failed: %s", exc)
         return pd.DataFrame(columns=["timestamp", "macro_code", "value", "country"])
 

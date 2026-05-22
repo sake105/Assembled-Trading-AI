@@ -71,3 +71,31 @@ def get_finnhub_session(settings: Settings) -> tuple:
     )
 
     return session, api_key.strip()
+
+
+def mark_finnhub_rate_limited(key: str | None, exc_or_response: object) -> None:
+    """Cool down `key` in the rotator pool if exc_or_response signals 429.
+
+    Call from each finnhub fetch site's except branch (or on 429 status):
+        try:
+            response = session.get(...)
+            response.raise_for_status()
+        except Exception as exc:
+            mark_finnhub_rate_limited(api_key, exc)
+            ...
+
+    Finnhub free tier: 60 calls/minute → short cooldown. Best-effort:
+    silent no-op if rotator unavailable or signal is not rate-limit.
+    """
+    if not key:
+        return
+    try:
+        from src.assembled_core.utils.api_key_rotator import (
+            get_rotator,
+            is_rate_limit_signal,
+        )
+
+        if is_rate_limit_signal(exc_or_response):
+            get_rotator().mark_rate_limited("finnhub", key, cooldown_seconds=70.0)
+    except Exception:  # noqa: BLE001
+        pass

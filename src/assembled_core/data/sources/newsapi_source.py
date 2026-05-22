@@ -92,6 +92,27 @@ def _get_api_key() -> str | None:
     return key if key else None
 
 
+def _mark_429_if_applicable(key: str | None, exc_or_response: object) -> None:
+    """Cool down `key` for newsapi when exc_or_response is rate-limit-shaped.
+
+    newsapi.ai free tier resets daily (100 calls/day). 1h cooldown is the
+    operational sweet spot: long enough to stop hammering, short enough to
+    self-recover within a daily run.
+    """
+    if not key:
+        return
+    try:
+        from src.assembled_core.utils.api_key_rotator import (
+            get_rotator,
+            is_rate_limit_signal,
+        )
+
+        if is_rate_limit_signal(exc_or_response):
+            get_rotator().mark_rate_limited("newsapi", key, cooldown_seconds=3600.0)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def fetch_news_headlines(
     keywords: list[str],
     from_date: str,
@@ -160,6 +181,13 @@ def fetch_news_headlines(
                 headers={"Content-Type": "application/json"},
                 timeout=20,
             )
+            if resp.status_code == 429:
+                _mark_429_if_applicable(api_key, resp)
+                rotated = _get_api_key()
+                if rotated and rotated != api_key:
+                    api_key = rotated
+                    logger.info("[INFO] newsapi: rotated to next key after 429")
+                continue
             resp.raise_for_status()
             data = resp.json()
 
@@ -190,6 +218,7 @@ def fetch_news_headlines(
             logger.debug("[OK] newsapi: %d articles for query '%s'", len(rows), query)
 
         except Exception as exc:
+            _mark_429_if_applicable(api_key, exc)
             logger.error("[ERROR] newsapi: failed for query '%s' — %s", query, exc)
 
     if not frames:

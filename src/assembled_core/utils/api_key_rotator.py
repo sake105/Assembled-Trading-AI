@@ -1,12 +1,12 @@
 """API key rotation pool for rate-limited external providers.
 
-Background (2026-05-22): we use four keyed-API providers — Alpha Vantage,
-Polygon, NewsAPI, Finnhub — each with single-key tight rate limits on the
-free tier (25 req/day for AV, 100 req/day for NewsAPI, 60 req/min for
-Finnhub, 5 req/min for Polygon). Single-key consumption regularly hits
-limits during daily ingestion runs. Multi-key pool with 429-driven cooldown
-rotation lets us linearly scale daily/minutely quota without scraping
-work-arounds.
+Background (2026-05-22): we use five keyed-API providers — Alpha Vantage,
+Polygon, NewsAPI, Finnhub, FRED — each with single-key tight rate limits
+on the free tier (25 req/day for AV, 100 req/day for NewsAPI, 60 req/min
+for Finnhub, 5 req/min for Polygon, 120 req/min for FRED). Single-key
+consumption regularly hits limits during daily ingestion runs. Multi-key
+pool with 429-driven cooldown rotation lets us linearly scale daily/
+minutely quota without scraping work-arounds.
 
 Env-var convention (two equivalent forms, both supported):
     Form A (comma-separated list):
@@ -63,6 +63,7 @@ _PROVIDER_ENV_PREFIX: dict[str, str] = {
     "polygon": "POLYGON",
     "newsapi": "NEWSAPI",
     "finnhub": "FINNHUB",
+    "fred": "FRED",
 }
 
 
@@ -71,8 +72,9 @@ _PROVIDER_ENV_PREFIX: dict[str, str] = {
 _PROVIDER_LEGACY_ALIASES: dict[str, list[str]] = {
     "alphavantage": ["ALPHAVANTAGE_KEY"],
     "newsapi": ["NEWSAPI_KEY"],
-    "finnhub": ["ASSEMBLED_FINNHUB_API_KEY"],
+    "finnhub": ["ASSEMBLED_FINNHUB_API_KEY", "FINNHUB_KEY"],
     "polygon": [],
+    "fred": [],
 }
 
 
@@ -369,3 +371,69 @@ def reset_singleton() -> None:
 def known_providers() -> Iterable[str]:
     """List of provider names this rotator understands."""
     return tuple(_PROVIDER_ENV_PREFIX.keys())
+
+
+# ---------------------------------------------------------------------------
+# 429 / rate-limit detection
+# ---------------------------------------------------------------------------
+# Used by client wrappers to decide whether to call `mark_rate_limited()`
+# on an error path. Keeping detection central means all clients agree on
+# what counts as a rate-limit signal — no per-client divergence.
+#
+# Design choice (post-review F-AKR2-1/2): be conservative. A false-positive
+# 429 detection cools down a working key for an hour, blocking legitimate
+# traffic. Therefore the text-only path requires SPECIFIC, unambiguous
+# rate-limit phrases — not just one of "rate"/"limit"/"quota" individually.
+# Generic vendor greetings (e.g. AV's "Thank you for using Alpha Vantage"
+# preamble that appears in MANY non-rate-limit responses including
+# premium-required and invalid-key) are NOT in this token list.
+_RATE_LIMIT_TOKENS = (
+    "rate limit",
+    "rate-limit",
+    "ratelimit",
+    "too many requests",
+    "quota exceeded",
+    "api call frequency",  # AV free-tier "Note" body — specific to throttle
+    "calls per minute",  # AV throttle wording (always co-occurs with quota)
+    "calls per day",  # AV daily-quota wording
+    "daily request limit",
+    "monthly request limit",
+)
+
+
+def is_rate_limit_signal(response_or_exc: object | None) -> bool:
+    """Return True if `response_or_exc` looks like a rate-limit signal.
+
+    Handles three shapes:
+        - HTTP response objects with .status_code == 429
+        - Exceptions wrapping a response (e.g. requests.HTTPError.response)
+        - Any object whose str() repr contains a SPECIFIC rate-limit phrase
+
+    Conservative by design: returns False on uncertain matches so we never
+    flag a non-429 error as rate-limited (which would needlessly cool down
+    a working key). Specifically, single-token matches like "rate" or
+    "limit" or "quota" alone do NOT trigger — only the full phrases in
+    `_RATE_LIMIT_TOKENS` plus the explicit "429" substring path.
+    """
+    if response_or_exc is None:
+        return False
+    status = getattr(response_or_exc, "status_code", None)
+    if status == 429:
+        return True
+    # urllib.error.HTTPError uses `.code` instead of `.status_code`.
+    code = getattr(response_or_exc, "code", None)
+    if code == 429:
+        return True
+    inner = getattr(response_or_exc, "response", None)
+    if inner is not None and (
+        getattr(inner, "status_code", None) == 429
+        or getattr(inner, "code", None) == 429
+    ):
+        return True
+    text = str(response_or_exc).lower()
+    # Explicit 429 numeric appearing alongside a rate-limit hint.
+    if "429" in text and any(
+        tok in text for tok in ("too many", "rate limit", "quota")
+    ):
+        return True
+    return any(tok in text for tok in _RATE_LIMIT_TOKENS)
