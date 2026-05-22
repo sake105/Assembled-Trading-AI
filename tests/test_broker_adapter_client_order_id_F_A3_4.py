@@ -93,9 +93,9 @@ def test_submit_market_order_passes_client_order_id_to_sdk_F_A3_4(adapter):
     assert len(captured_request) == 1
     req = captured_request[0]
     # MarketOrderRequest must have client_order_id set
-    assert hasattr(
-        req, "client_order_id"
-    ), "F-A3-4 regression: MarketOrderRequest must have client_order_id field"
+    assert hasattr(req, "client_order_id"), (
+        "F-A3-4 regression: MarketOrderRequest must have client_order_id field"
+    )
     coid = getattr(req, "client_order_id", None)
     assert coid is not None
     assert coid.startswith("ata-")

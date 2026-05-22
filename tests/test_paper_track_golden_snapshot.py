@@ -137,9 +137,9 @@ def test_paper_track_golden_snapshot(tmp_path: Path):
             assert result.status == "success", f"Day {date.date()} should succeed"
 
         # Verify we got 5 equity values (one per day)
-        assert (
-            len(equity_values) == 5
-        ), f"Expected 5 equity values, got {len(equity_values)}"
+        assert len(equity_values) == 5, (
+            f"Expected 5 equity values, got {len(equity_values)}"
+        )
 
         # Store actual snapshot (first run establishes golden values)
         # In production, we'd commit these values and assert they match
@@ -169,17 +169,17 @@ def test_paper_track_golden_snapshot(tmp_path: Path):
         )
 
         # Verify snapshot values are reasonable (positive, finite, increasing or stable)
-        assert all(
-            eq > 0 for eq in actual_equity_snapshot
-        ), "All equity values should be positive"
-        assert all(
-            np.isfinite(eq) for eq in actual_equity_snapshot
-        ), "All equity values should be finite"
+        assert all(eq > 0 for eq in actual_equity_snapshot), (
+            "All equity values should be positive"
+        )
+        assert all(np.isfinite(eq) for eq in actual_equity_snapshot), (
+            "All equity values should be finite"
+        )
         # Equity can decrease due to costs/trades, so we don't assert monotonic increase
         # But it should be within reasonable bounds (e.g., within 50% of seed capital)
-        assert all(
-            50000.0 <= eq <= 200000.0 for eq in actual_equity_snapshot
-        ), f"Equity values should be within reasonable bounds, got: {actual_equity_snapshot}"
+        assert all(50000.0 <= eq <= 200000.0 for eq in actual_equity_snapshot), (
+            f"Equity values should be within reasonable bounds, got: {actual_equity_snapshot}"
+        )
 
         # If golden snapshot is defined, compare with it
         # (In production, uncomment and update GOLDEN_EQUITY_SNAPSHOT with actual values)

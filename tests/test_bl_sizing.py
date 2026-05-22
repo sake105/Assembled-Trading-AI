@@ -151,9 +151,9 @@ def test_compute_bl_target_weights_positive_view_beats_negative() -> None:
 
     views = pd.Series({"POS": 1.5, "NEG": -1.5})
     w = compute_bl_target_weights(panel, views, target_gross=1.0)
-    assert (
-        w["POS"] > w["NEG"]
-    ), f"positive view should dominate: POS={w['POS']}, NEG={w['NEG']}"
+    assert w["POS"] > w["NEG"], (
+        f"positive view should dominate: POS={w['POS']}, NEG={w['NEG']}"
+    )
 
 
 @pytest.mark.fast

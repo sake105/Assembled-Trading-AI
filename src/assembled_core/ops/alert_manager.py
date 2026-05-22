@@ -67,7 +67,9 @@ class AlertManager:
         log_fn = (
             logger.info
             if level == "INFO"
-            else logger.warning if level == "WARNING" else logger.critical
+            else logger.warning
+            if level == "WARNING"
+            else logger.critical
         )
         log_fn("[ALERT][%s] %s: %s", level, source, message)
 

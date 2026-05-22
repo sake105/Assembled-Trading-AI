@@ -60,9 +60,9 @@ class TestDecimalCashAccumulation:
         out = apply_fills_to_ledger(state, fills)
         # 100 × 0.1 × 10 = 100.00 deducted
         expected = 10_000.0 - 100.0
-        assert (
-            abs(out["cash"] - expected) < 0.01
-        ), f"Cash drift detected: got {out['cash']}, expected {expected}"
+        assert abs(out["cash"] - expected) < 0.01, (
+            f"Cash drift detected: got {out['cash']}, expected {expected}"
+        )
 
     def test_cash_is_float_in_output(self) -> None:
         from src.assembled_core.ops.paper_ledger import apply_fills_to_ledger
@@ -172,9 +172,9 @@ class TestHaltCheck:
         ):
             tp, _, _ = size_positions(signals, ctx)
         if not tp.empty and "symbol" in tp.columns:
-            assert (
-                "MSFT" not in tp["symbol"].tolist()
-            ), "Halted symbol MSFT must not appear in final target_positions"
+            assert "MSFT" not in tp["symbol"].tolist(), (
+                "Halted symbol MSFT must not appear in final target_positions"
+            )
 
     def test_non_halted_symbols_retained(self) -> None:
         from src.assembled_core.pipeline._tc_sizing import size_positions
@@ -306,9 +306,9 @@ class TestBuyingPowerPreCheck:
 
         if not tp.empty and "target_weight" in tp.columns:
             gross = float(tp["target_weight"].abs().sum())
-            assert (
-                gross <= 0.951
-            ), f"Gross weight {gross:.4f} exceeds buying-power limit after pre-check"
+            assert gross <= 0.951, (
+                f"Gross weight {gross:.4f} exceeds buying-power limit after pre-check"
+            )
 
     def test_underweight_portfolio_not_scaled(self) -> None:
         """When gross weight <= 0.95, no scale-down occurs."""

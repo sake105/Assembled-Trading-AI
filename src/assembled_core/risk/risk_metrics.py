@@ -864,7 +864,7 @@ def compute_monte_carlo_var(
         n_assets = ret_arr.shape[1]
 
     if len(ret_arr) < 30 or n_assets < 1:
-        return {f"mc_var_{int(cl*100)}": 0.0 for cl in confidence_levels}
+        return {f"mc_var_{int(cl * 100)}": 0.0 for cl in confidence_levels}
 
     if weights is None:
         weights = np.ones(n_assets) / n_assets

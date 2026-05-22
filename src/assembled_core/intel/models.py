@@ -254,9 +254,7 @@ class NewsEvent(BaseModel):
     corroboration_score: float = 0.0  # [0,1]; 1.0 = fully corroborated
     corroboration_n_sources: int = 0  # number of distinct sources reporting this story
     # --- Taxonomy category (Wave 2) ---
-    category: str = (
-        "SONSTIGE"  # FINANZEN/KONFLIKTE/GEOPOLITIK/ROHSTOFFE/TECHNOLOGIE/POLITIK/SONSTIGE
-    )
+    category: str = "SONSTIGE"  # FINANZEN/KONFLIKTE/GEOPOLITIK/ROHSTOFFE/TECHNOLOGIE/POLITIK/SONSTIGE
 
     model_config = {"frozen": False}
 

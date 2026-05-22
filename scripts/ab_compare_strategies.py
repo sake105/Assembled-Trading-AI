@@ -325,18 +325,18 @@ def main(argv: list[str] | None = None) -> int:
     md_path.write_text(md_content, encoding="utf-8")
 
     # Print summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"A/B COMPARISON: {args.label_a} vs {args.label_b}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for k in ["cagr_pct", "sharpe", "mdd_pct"]:
         va, vb = ma.get(k, "?"), mb.get(k, "?")
         print(f"  {k:12s}: A={va}  B={vb}")
     print(f"\nSharpe test: {sig.get('interpretation', 'N/A')}")
     print(
-        f"  p={sig.get('p_value','?')}, significant_95={sig.get('significant_95','?')}"
+        f"  p={sig.get('p_value', '?')}, significant_95={sig.get('significant_95', '?')}"
     )
     print(f"\nReports: {json_path.name}, {md_path.name}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     return 0
 
@@ -459,7 +459,9 @@ def _print_comparison_table(ma: dict, mb: dict, sig: dict) -> None:
             try:
                 delta = round(float(vb) - float(va), 2)
                 sign = "+" if delta > 0 else ""
-                print(f"{lbl:<22} {va:>{col_w}}  {vb:>{col_w}}  {sign+str(delta):>12}")
+                print(
+                    f"{lbl:<22} {va:>{col_w}}  {vb:>{col_w}}  {sign + str(delta):>12}"
+                )
             except (TypeError, ValueError):
                 print(f"{lbl:<22} {str(va):>{col_w}}  {str(vb):>{col_w}}  {'—':>12}")
         else:
@@ -467,7 +469,7 @@ def _print_comparison_table(ma: dict, mb: dict, sig: dict) -> None:
     print("=" * len(header))
     print(f"\nSharpe significance test: {sig.get('interpretation', 'N/A')}")
     print(
-        f"  z={sig.get('z_stat','?')}  p={sig.get('p_value','?')}  sig_95={sig.get('significant_95','?')}"
+        f"  z={sig.get('z_stat', '?')}  p={sig.get('p_value', '?')}  sig_95={sig.get('significant_95', '?')}"
     )
 
 

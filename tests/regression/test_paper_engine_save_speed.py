@@ -54,6 +54,6 @@ def test_save_state_round_trips_via_atomic_writer(tmp_path: Path) -> None:
     assert reloaded == payload
     # Minimal encoding: no newlines / no multi-line indent after the opening brace.
     raw = target.read_text(encoding="utf-8")
-    assert "\n" not in raw.rstrip(
-        "\n"
-    ), f"State file is multi-line — indent keyword may have slipped back in:\n{raw!r}"
+    assert "\n" not in raw.rstrip("\n"), (
+        f"State file is multi-line — indent keyword may have slipped back in:\n{raw!r}"
+    )

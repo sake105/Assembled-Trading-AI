@@ -330,13 +330,13 @@ class TestExposureChangesByRegime:
 
                         gross_exposure = total_long + total_short
                         # Allow some tolerance (positions might not exactly match due to quantile selection)
-                        assert (
-                            abs(gross_exposure - expected_gross) < 0.3
-                        ), f"Expected gross exposure ~{expected_gross}, got {gross_exposure}"
+                        assert abs(gross_exposure - expected_gross) < 0.3, (
+                            f"Expected gross exposure ~{expected_gross}, got {gross_exposure}"
+                        )
 
-                        assert (
-                            net_exposure > 0
-                        ), f"Expected positive net exposure in bull, got {net_exposure}"
+                        assert net_exposure > 0, (
+                            f"Expected positive net exposure in bull, got {net_exposure}"
+                        )
 
     def test_crisis_regime_low_exposure(
         self,
@@ -443,9 +443,9 @@ class TestExposureChangesByRegime:
                             ).get("max_gross_exposure", 0.6)
 
                             # Crisis should have lower exposure than default
-                            assert (
-                                gross_exposure <= expected_gross + 0.2
-                            ), f"Expected gross exposure <= {expected_gross + 0.2} in {regime_label}, got {gross_exposure}"
+                            assert gross_exposure <= expected_gross + 0.2, (
+                                f"Expected gross exposure <= {expected_gross + 0.2} in {regime_label}, got {gross_exposure}"
+                            )
 
 
 class TestNoOverlayBehaviourUnchanged:
@@ -521,9 +521,9 @@ class TestNoOverlayBehaviourUnchanged:
 
                 # Should use fixed max_gross_exposure (approximately)
                 # Allow tolerance due to equal-weighting within quantiles
-                assert (
-                    abs(gross_exposure - config.max_gross_exposure) < 0.3
-                ), f"Expected gross exposure ~{config.max_gross_exposure}, got {gross_exposure}"
+                assert abs(gross_exposure - config.max_gross_exposure) < 0.3, (
+                    f"Expected gross exposure ~{config.max_gross_exposure}, got {gross_exposure}"
+                )
 
 
 class TestRegimeOverlayIntegration:

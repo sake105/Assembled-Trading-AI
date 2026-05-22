@@ -93,8 +93,7 @@ pip install -e ".[dev]"
 Installiert zusätzlich:
 - `pytest`: Test-Framework
 - `pytest-cov`: Coverage-Reports
-- `black`: Code-Formatierung
-- `ruff`: Linting
+- `ruff`: Linting und Code-Formatierung (ruff-format ersetzt black)
 
 ### Tests ausführen
 
@@ -105,7 +104,7 @@ pytest tests/
 ### Code-Formatierung
 
 ```bash
-black src/ tests/
+ruff format src/ tests/
 ```
 
 ### Linting

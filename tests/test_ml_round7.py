@@ -55,7 +55,7 @@ def test_signal_decay_report_halflife(tmp_path):
         tracker.record_snapshot(
             {"sig1": pd.Series(pred)},
             {5: pd.Series(actual_ret)},
-            as_of=f"2025-01-{ic_noise*10:02.0f}",
+            as_of=f"2025-01-{ic_noise * 10:02.0f}",
         )
 
     report = tracker.get_report("sig1")
@@ -176,9 +176,9 @@ def test_smoothing_preserves_capital_scaling():
     assert "target_qty" in result.columns
     expected = result["target_weight"] * total_capital
     diff = (result["target_qty"] - expected).abs().max()
-    assert (
-        diff < 1e-6
-    ), f"target_qty lost capital scaling after smoothing (max diff {diff})"
+    assert diff < 1e-6, (
+        f"target_qty lost capital scaling after smoothing (max diff {diff})"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1175,7 +1175,7 @@ def test_retraining_scheduler_hard_enforces_auto_deploy_false(tmp_path):
 
     cfg = tmp_path / "self_learning.yaml"
     cfg.write_text(
-        "self_learning:\n" "  retraining:\n" "    auto_deploy: true\n",
+        "self_learning:\n  retraining:\n    auto_deploy: true\n",
         encoding="ascii",
     )
     scheduler = RetrainingScheduler(config_path=cfg)

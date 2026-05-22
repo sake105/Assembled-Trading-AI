@@ -687,9 +687,9 @@ def cmd_reconcile_only(args):
     ledger_state = load_ledger_state(ledger_path)
     sync_result = sync_positions_from_broker(adapter, ledger_state)
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Position Sync Result: {'OK' if sync_result.ok else 'MISMATCH'}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     print(f"Ledger cash:  ${sync_result.ledger_cash:,.2f}")
     print(f"Broker cash:  ${sync_result.broker_cash:,.2f}")
     print(f"Cash diff:    ${sync_result.cash_diff:,.2f}")

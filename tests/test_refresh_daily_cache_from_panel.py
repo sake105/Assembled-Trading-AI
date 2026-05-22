@@ -98,9 +98,9 @@ def test_refresh_appends_fresher_panel_rows_and_sets_adj_close_nan(tmp_path):
     new_rows = out[out["timestamp"] > pd.Timestamp("2026-05-14", tz="UTC")]
     assert len(new_rows) > 0
     # Panel had no adj_close → set to NaN sentinel (F-RX-3 §9.12 (a))
-    assert (
-        new_rows["adj_close"].isna().all()
-    ), "appended rows must carry NaN sentinel in adj_close, not silent close-fallback"
+    assert new_rows["adj_close"].isna().all(), (
+        "appended rows must carry NaN sentinel in adj_close, not silent close-fallback"
+    )
     # Original cache rows still have their valid adj_close (close-equivalent)
     cache_old = out[out["timestamp"] <= pd.Timestamp("2026-05-14", tz="UTC")]
     assert not cache_old["adj_close"].isna().any()

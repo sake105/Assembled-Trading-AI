@@ -181,9 +181,9 @@ class TestSimulatePathsBlockBootstrap:
         sim_mean = float(np.mean(log_returns))
         # Allow 3× standard error tolerance
         tol = 3 * abs(hist_mean) + 0.001
-        assert (
-            abs(sim_mean - hist_mean) < tol
-        ), f"sim_mean={sim_mean:.5f} too far from hist_mean={hist_mean:.5f}"
+        assert abs(sim_mean - hist_mean) < tol, (
+            f"sim_mean={sim_mean:.5f} too far from hist_mean={hist_mean:.5f}"
+        )
 
     def test_block_bootstrap_block_size_one_equals_iid_bootstrap(self):
         """Block size=1 is equivalent to i.i.d. bootstrap — should work without error."""
@@ -535,8 +535,7 @@ class TestShuffleResultToQuantileDict:
         result = permute_trades(returns, n_iterations=5000, seed=0)
         d = shuffle_result_to_quantile_dict(result, n_trades=100)
         assert d["cagr"]["p50"] > 0.5, (
-            f"CAGR p50={d['cagr']['p50']:.4f} suspiciously small; "
-            "BLOCKER-1 regression?"
+            f"CAGR p50={d['cagr']['p50']:.4f} suspiciously small; BLOCKER-1 regression?"
         )
 
 

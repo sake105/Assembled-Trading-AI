@@ -36,9 +36,9 @@ def test_production_sources_no_placeholder_active():
     sources = load_sources_registry("configs/news/sources.yaml")
     for s in sources:
         if s.active:
-            assert (
-                "example.com" not in s.domain
-            ), f"Placeholder source {s.source_id} with domain {s.domain} must not be active"
+            assert "example.com" not in s.domain, (
+                f"Placeholder source {s.source_id} with domain {s.domain} must not be active"
+            )
 
 
 def test_production_gdelt_query_is_broad():
@@ -211,9 +211,9 @@ def test_gdelt_source_processed_in_pipeline(tmp_path, monkeypatch):
 
     events = result["events"]
     sources_seen = {e.source_id for e in events}
-    assert (
-        "gdelt_default" in sources_seen
-    ), "GDELT events must appear in pipeline output"
+    assert "gdelt_default" in sources_seen, (
+        "GDELT events must appear in pipeline output"
+    )
     assert "rss_bbc_world" in sources_seen, "BBC events must appear in pipeline output"
     assert len(events) == 3
 
@@ -311,12 +311,12 @@ def test_output_dir_isolation_dedupe_store(tmp_path, monkeypatch):
     )
 
     expected_db = experiment_dir / "cache" / "dedupe_store.sqlite"
-    assert (
-        expected_db.exists()
-    ), "dedupe_store.sqlite must be in experiment-specific dir"
-    assert (
-        not sentinel_global.exists()
-    ), "No global db should be created for unrelated path"
+    assert expected_db.exists(), (
+        "dedupe_store.sqlite must be in experiment-specific dir"
+    )
+    assert not sentinel_global.exists(), (
+        "No global db should be created for unrelated path"
+    )
 
 
 def test_fresh_experiment_gets_fresh_output(tmp_path, monkeypatch):

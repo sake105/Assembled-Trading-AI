@@ -177,9 +177,9 @@ class TestBuildCoreTaFactors:
             }
 
             # At least some factors should have non-null values (except forward returns at the end)
-            assert (
-                sum(non_null_counts.values()) > 0
-            ), f"No non-null factors for {symbol}"
+            assert sum(non_null_counts.values()) > 0, (
+                f"No non-null factors for {symbol}"
+            )
 
 
 class TestMultiHorizonReturns:
@@ -196,16 +196,16 @@ class TestMultiHorizonReturns:
         returns_1m = result["returns_1m"].dropna()
         if len(returns_1m) > 0:
             # For monotonic increasing prices, returns should be positive
-            assert (
-                returns_1m > 0
-            ).all(), "Forward returns should be positive for increasing prices"
+            assert (returns_1m > 0).all(), (
+                "Forward returns should be positive for increasing prices"
+            )
 
         # Check returns_12m (252 days forward)
         returns_12m = result["returns_12m"].dropna()
         if len(returns_12m) > 0:
-            assert (
-                returns_12m > 0
-            ).all(), "12-month returns should be positive for increasing prices"
+            assert (returns_12m > 0).all(), (
+                "12-month returns should be positive for increasing prices"
+            )
 
     def test_forward_returns_nan_at_end(self, sample_price_panel):
         """Test that forward returns are NaN at the end (no future data available)."""
@@ -217,12 +217,12 @@ class TestMultiHorizonReturns:
 
             # Last row should have NaN for long-horizon returns
             last_row = symbol_data.iloc[-1]
-            assert pd.isna(
-                last_row["returns_12m"]
-            ), "Last row should have NaN for 12m returns"
-            assert pd.isna(
-                last_row["returns_6m"]
-            ), "Last row should have NaN for 6m returns"
+            assert pd.isna(last_row["returns_12m"]), (
+                "Last row should have NaN for 12m returns"
+            )
+            assert pd.isna(last_row["returns_6m"]), (
+                "Last row should have NaN for 6m returns"
+            )
 
     def test_momentum_12m_excl_1m(self, monotonic_price_data):
         """Test momentum_12m_excl_1m computation."""
@@ -232,9 +232,9 @@ class TestMultiHorizonReturns:
 
         if len(momentum) > 0:
             # For monotonic increasing prices, momentum should be positive
-            assert (
-                momentum > 0
-            ).all(), "Momentum should be positive for increasing prices"
+            assert (momentum > 0).all(), (
+                "Momentum should be positive for increasing prices"
+            )
 
 
 class TestTrendStrengthFactors:
@@ -249,9 +249,9 @@ class TestTrendStrengthFactors:
         if len(trend_strength_20) > 0:
             # Most values should be positive (except early rows where MA is still catching up)
             positive_ratio = (trend_strength_20 > 0).sum() / len(trend_strength_20)
-            assert (
-                positive_ratio > 0.7
-            ), "Most trend strength values should be positive for uptrend"
+            assert positive_ratio > 0.7, (
+                "Most trend strength values should be positive for uptrend"
+            )
 
     def test_trend_strength_all_lookbacks_present(self, sample_price_panel):
         """Test that all trend strength factors (20, 50, 200) are computed."""
@@ -311,9 +311,9 @@ class TestShortTermReversal:
             ratio = within_range / len(reversal_1d)
 
             # Most z-scores should be within reasonable range
-            assert (
-                ratio > 0.9
-            ), f"Too many extreme z-scores: {within_range}/{len(reversal_1d)} within [-5, 5]"
+            assert ratio > 0.9, (
+                f"Too many extreme z-scores: {within_range}/{len(reversal_1d)} within [-5, 5]"
+            )
 
     def test_reversal_symmetry(self, sample_price_panel):
         """Test that reversal factors are computed per symbol (no cross-contamination)."""
@@ -328,9 +328,9 @@ class TestShortTermReversal:
                 reversal_values[symbol] = symbol_data["reversal_1d"].mean()
 
             # Values should differ (not all identical)
-            assert (
-                len(set(reversal_values.values())) > 1
-            ), "Reversal values should differ between symbols"
+            assert len(set(reversal_values.values())) > 1, (
+                "Reversal values should differ between symbols"
+            )
 
 
 class TestFactorRelationships:
@@ -349,17 +349,17 @@ class TestFactorRelationships:
         returns_1m = result["returns_1m"].dropna()
         if len(returns_1m) > 10:
             positive_ratio = (returns_1m > 0).sum() / len(returns_1m)
-            assert (
-                positive_ratio > 0.8
-            ), "Most forward returns should be positive for increasing prices"
+            assert positive_ratio > 0.8, (
+                "Most forward returns should be positive for increasing prices"
+            )
 
         # Check trend strength (excluding early rows where MA is still warming up)
         trend_strength = result["trend_strength_20"].iloc[50:].dropna()
         if len(trend_strength) > 10:
             positive_ratio = (trend_strength > 0).sum() / len(trend_strength)
-            assert (
-                positive_ratio > 0.7
-            ), "Most trend strength should be positive for uptrend"
+            assert positive_ratio > 0.7, (
+                "Most trend strength should be positive for uptrend"
+            )
 
     def test_timestamp_sorting_preserved(self, sample_price_panel):
         """Test that timestamps remain sorted per symbol after factor computation."""
@@ -370,9 +370,9 @@ class TestFactorRelationships:
 
             # Timestamps should be in ascending order
             timestamps = symbol_data["timestamp"]
-            assert (
-                timestamps.is_monotonic_increasing
-            ), f"Timestamps not sorted for {symbol}"
+            assert timestamps.is_monotonic_increasing, (
+                f"Timestamps not sorted for {symbol}"
+            )
 
 
 class TestEdgeCases:

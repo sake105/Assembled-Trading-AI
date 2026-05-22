@@ -202,9 +202,9 @@ def _assert_engine_survives(scenario: str, prices: pd.DataFrame) -> None:
         strict_session_gate=False,
     )
 
-    assert (
-        result.equity is not None and not result.equity.empty
-    ), f"[{scenario}] equity curve empty — engine aborted silently"
+    assert result.equity is not None and not result.equity.empty, (
+        f"[{scenario}] equity curve empty — engine aborted silently"
+    )
     eq = result.equity["equity"].to_numpy(dtype=np.float64)
 
     # Invariant 1 — no NaN / inf.

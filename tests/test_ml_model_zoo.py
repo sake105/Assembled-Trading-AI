@@ -100,9 +100,9 @@ def test_build_default_model_zoo():
     models = build_default_model_zoo()
 
     assert isinstance(models, list)
-    assert (
-        len(models) >= 3
-    ), "Should have at least 3 models (linear, ridge, random_forest)"
+    assert len(models) >= 3, (
+        "Should have at least 3 models (linear, ridge, random_forest)"
+    )
 
     # Check that all models have required attributes
     for model in models:
@@ -222,9 +222,9 @@ def test_model_zoo_prefers_regularized_model(
 
         # With our synthetic data (clear linear relationship), Ridge should achieve decent R²
         # We use a lower threshold (0.3) to account for small dataset and noise
-        assert (
-            max_ridge_r2 > 0.3
-        ), f"At least one Ridge model should achieve R² > 0.3, got {max_ridge_r2:.4f}"
+        assert max_ridge_r2 > 0.3, (
+            f"At least one Ridge model should achieve R² > 0.3, got {max_ridge_r2:.4f}"
+        )
 
     # Also check that at least one model overall achieved reasonable performance
     if "test_r2_mean" in summary_df.columns:
@@ -234,9 +234,9 @@ def test_model_zoo_prefers_regularized_model(
 
     if len(successful_models) > 0:
         max_r2 = successful_models["test_r2_mean"].max()
-        assert (
-            max_r2 > 0.2
-        ), f"At least one model should achieve R² > 0.2, got {max_r2:.4f}"
+        assert max_r2 > 0.2, (
+            f"At least one model should achieve R² > 0.2, got {max_r2:.4f}"
+        )
 
 
 @pytest.mark.advanced
@@ -274,9 +274,9 @@ def test_ml_model_zoo_cli_subcommand(
     )
 
     # Check exit code
-    assert (
-        result.returncode == 0
-    ), f"CLI command failed. STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    assert result.returncode == 0, (
+        f"CLI command failed. STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    )
 
     # Check that summary CSV was created
     csv_path = output_dir / "ml_model_zoo_summary.csv"

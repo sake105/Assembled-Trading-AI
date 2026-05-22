@@ -44,9 +44,9 @@ def test_negative_price_fails() -> None:
     report = run_price_panel_qc(prices, freq="1d")
 
     assert not report.ok, "Report should not be OK (has FAIL issues)"
-    assert (
-        report.summary["fail_count"] >= 2
-    ), "Should have at least 2 FAIL issues (negative and zero)"
+    assert report.summary["fail_count"] >= 2, (
+        "Should have at least 2 FAIL issues (negative and zero)"
+    )
 
     # Check for negative_price issues
     negative_issues = [
@@ -77,9 +77,9 @@ def test_duplicate_symbol_timestamp_fails() -> None:
     report = run_price_panel_qc(prices, freq="1d")
 
     assert not report.ok, "Report should not be OK (has FAIL issues)"
-    assert (
-        report.summary["fail_count"] >= 2
-    ), "Should have at least 2 FAIL issues (duplicates)"
+    assert report.summary["fail_count"] >= 2, (
+        "Should have at least 2 FAIL issues (duplicates)"
+    )
 
     # Check for duplicate_rows issues
     duplicate_issues = [
@@ -195,9 +195,9 @@ def test_stale_price_flagged() -> None:
 
     # Should have stale_price issues
     stale_issues = [issue for issue in report.issues if issue.check == "stale_price"]
-    assert (
-        len(stale_issues) >= 2
-    ), "Should have at least 2 stale_price issues (4x 150, 4x 152)"
+    assert len(stale_issues) >= 2, (
+        "Should have at least 2 stale_price issues (4x 150, 4x 152)"
+    )
 
     # Verify severity
     for issue in stale_issues:
@@ -303,9 +303,9 @@ def test_deterministic_issue_ordering() -> None:
     warn_indices = [i for i, issue in enumerate(issues) if issue.severity == "WARN"]
 
     if fail_indices and warn_indices:
-        assert max(fail_indices) < min(
-            warn_indices
-        ), "FAIL issues should come before WARN issues"
+        assert max(fail_indices) < min(warn_indices), (
+            "FAIL issues should come before WARN issues"
+        )
 
     # Verify ordering within same severity: check name, then symbol, then timestamp
     for i in range(len(issues) - 1):
@@ -315,9 +315,9 @@ def test_deterministic_issue_ordering() -> None:
         if issue1.severity == issue2.severity:
             # Same severity: check name
             if issue1.check != issue2.check:
-                assert (
-                    issue1.check < issue2.check
-                ), "Issues should be sorted by check name"
+                assert issue1.check < issue2.check, (
+                    "Issues should be sorted by check name"
+                )
             elif issue1.symbol != issue2.symbol:
                 # Same check: check symbol
                 sym1 = issue1.symbol or ""
@@ -325,9 +325,9 @@ def test_deterministic_issue_ordering() -> None:
                 assert sym1 <= sym2, "Issues should be sorted by symbol"
             elif issue1.timestamp is not None and issue2.timestamp is not None:
                 # Same check and symbol: check timestamp
-                assert (
-                    issue1.timestamp <= issue2.timestamp
-                ), "Issues should be sorted by timestamp"
+                assert issue1.timestamp <= issue2.timestamp, (
+                    "Issues should be sorted by timestamp"
+                )
 
 
 def test_qc_report_json_serialization(tmp_path: Path) -> None:

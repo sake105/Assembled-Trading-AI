@@ -117,7 +117,9 @@ def emit_startup_banner() -> None:
         mode = (
             mode_attr.value
             if hasattr(mode_attr, "value")
-            else str(mode_attr) if mode_attr else "unknown"
+            else str(mode_attr)
+            if mode_attr
+            else "unknown"
         )
     except Exception:
         env = "unknown"

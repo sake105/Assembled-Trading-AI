@@ -93,10 +93,10 @@ jobs:
           set -o pipefail
           ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py 2>&1 | tee -a backend_ci_log.txt
       
-      - name: Run black (format check)
+      - name: Run ruff-format (format check)
         run: |
           set -o pipefail
-          black --check src tests scripts --exclude "/(scripts/tools|scripts/00_seed_demo_data.py)/" 2>&1 | tee -a backend_ci_log.txt
+          ruff format --check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py 2>&1 | tee -a backend_ci_log.txt
       
       - name: Run mypy (type checking)
         run: |

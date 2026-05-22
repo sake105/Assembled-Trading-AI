@@ -43,9 +43,9 @@ def test_commission_bps_only() -> None:
     expected = np.array([10.0, 20.0, 5.0])
 
     np.testing.assert_array_almost_equal(commission_cash, expected, decimal=10)
-    assert not np.any(
-        np.isnan(commission_cash)
-    ), "Commission cash should not contain NaNs"
+    assert not np.any(np.isnan(commission_cash)), (
+        "Commission cash should not contain NaNs"
+    )
     assert np.all(commission_cash >= 0.0), "Commission cash should be non-negative"
 
 
@@ -63,9 +63,9 @@ def test_commission_fixed_only() -> None:
     expected = np.array([1.5, 1.5, 1.5])
 
     np.testing.assert_array_almost_equal(commission_cash, expected, decimal=10)
-    assert not np.any(
-        np.isnan(commission_cash)
-    ), "Commission cash should not contain NaNs"
+    assert not np.any(np.isnan(commission_cash)), (
+        "Commission cash should not contain NaNs"
+    )
     assert np.all(commission_cash >= 0.0), "Commission cash should be non-negative"
 
 
@@ -88,9 +88,9 @@ def test_commission_bps_plus_fixed() -> None:
     expected = np.array([6.0, 11.0, 3.5])
 
     np.testing.assert_array_almost_equal(commission_cash, expected, decimal=10)
-    assert not np.any(
-        np.isnan(commission_cash)
-    ), "Commission cash should not contain NaNs"
+    assert not np.any(np.isnan(commission_cash)), (
+        "Commission cash should not contain NaNs"
+    )
     assert np.all(commission_cash >= 0.0), "Commission cash should be non-negative"
 
 
@@ -111,19 +111,19 @@ def test_commission_deterministic_no_nans() -> None:
     )
 
     # All finite values should produce finite commission
-    assert not np.any(
-        np.isnan(commission_cash_finite)
-    ), "Commission cash should not contain NaNs for finite notional"
-    assert np.all(
-        commission_cash_finite >= 0.0
-    ), "Commission cash should be non-negative"
+    assert not np.any(np.isnan(commission_cash_finite)), (
+        "Commission cash should not contain NaNs for finite notional"
+    )
+    assert np.all(commission_cash_finite >= 0.0), (
+        "Commission cash should be non-negative"
+    )
 
     # Test with inf (should handle gracefully)
     commission_cash_all = compute_commission_cash(notional, n_trades, model)
     # inf * bps = inf, which is acceptable (costs are always positive)
-    assert np.all(
-        commission_cash_all >= 0.0
-    ), "Commission cash should be non-negative (even with inf)"
+    assert np.all(commission_cash_all >= 0.0), (
+        "Commission cash should be non-negative (even with inf)"
+    )
 
 
 def test_add_cost_columns_to_trades() -> None:
@@ -154,12 +154,12 @@ def test_add_cost_columns_to_trades() -> None:
 
     # Verify no NaNs
     for col in required_cost_cols:
-        assert (
-            not trades_with_costs[col].isna().any()
-        ), f"Cost column {col} should not contain NaNs"
-        assert (
-            trades_with_costs[col] >= 0.0
-        ).all(), f"Cost column {col} should be non-negative"
+        assert not trades_with_costs[col].isna().any(), (
+            f"Cost column {col} should not contain NaNs"
+        )
+        assert (trades_with_costs[col] >= 0.0).all(), (
+            f"Cost column {col} should be non-negative"
+        )
 
     # Verify commission_cash calculation
     # AAPL: 100 * 150 = 15000 notional, 10 bps = 15.0
@@ -171,12 +171,12 @@ def test_add_cost_columns_to_trades() -> None:
     )
 
     # Verify spread_cash and slippage_cash are zero (default)
-    assert (
-        trades_with_costs["spread_cash"] == 0.0
-    ).all(), "spread_cash should default to 0.0"
-    assert (
-        trades_with_costs["slippage_cash"] == 0.0
-    ).all(), "slippage_cash should default to 0.0"
+    assert (trades_with_costs["spread_cash"] == 0.0).all(), (
+        "spread_cash should default to 0.0"
+    )
+    assert (trades_with_costs["slippage_cash"] == 0.0).all(), (
+        "slippage_cash should default to 0.0"
+    )
 
     # Verify total_cost_cash = commission_cash (since spread and slippage are 0)
     np.testing.assert_array_almost_equal(

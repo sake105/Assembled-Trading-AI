@@ -30,7 +30,8 @@ def test_build_client_order_id_deterministic_by_intent():
 
     base_hash = compute_intent_hash("AAPL", "buy", 10.0, "twap", 150.0)
     expected_ids = [
-        build_client_order_id(f"twap_slice_{i+1}_of_3", base_hash, 0) for i in range(3)
+        build_client_order_id(f"twap_slice_{i + 1}_of_3", base_hash, 0)
+        for i in range(3)
     ]
     # All IDs use the idempotency prefix
     for oid in expected_ids:
@@ -39,7 +40,8 @@ def test_build_client_order_id_deterministic_by_intent():
     assert len(set(expected_ids)) == 3
     # Calling again gives same IDs (deterministic)
     ids2 = [
-        build_client_order_id(f"twap_slice_{i+1}_of_3", base_hash, 0) for i in range(3)
+        build_client_order_id(f"twap_slice_{i + 1}_of_3", base_hash, 0)
+        for i in range(3)
     ]
     assert expected_ids == ids2, "Deterministic: same intent always produces same IDs"
 
@@ -68,9 +70,9 @@ def test_no_uuid4_in_paper_trading_engine_source():
     import src.assembled_core.execution.paper_trading_engine as mod
 
     src_text = inspect.getsource(mod)
-    assert (
-        "uuid.uuid4()" not in src_text
-    ), "paper_trading_engine must use idempotency module, not uuid.uuid4()"
+    assert "uuid.uuid4()" not in src_text, (
+        "paper_trading_engine must use idempotency module, not uuid.uuid4()"
+    )
 
 
 @pytest.mark.fast
@@ -80,6 +82,6 @@ def test_is_duplicate_error_wired_in_broker_adapter():
     import src.assembled_core.execution.broker_adapter as mod
 
     src_text = inspect.getsource(mod)
-    assert (
-        "is_duplicate_error" in src_text
-    ), "broker_adapter must use is_duplicate_error from idempotency module"
+    assert "is_duplicate_error" in src_text, (
+        "broker_adapter must use is_duplicate_error from idempotency module"
+    )

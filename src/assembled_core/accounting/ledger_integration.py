@@ -255,7 +255,6 @@ def build_ledger_from_trades(
             broker_meta["broker_view_source"] = "paper_view"
 
     try:
-
         reconciliation_result = reconcile_ledger_vs_broker(
             ledger_positions_df=positions_df[["symbol", "qty"]].copy(),
             ledger_cash=cash_balance,

@@ -20,7 +20,7 @@ pytest tests/ -q --ignore=tests/regression/test_htb_rate_table.py
 
 ```bash
 ruff check src/ scripts/ tests/
-black --check src/ scripts/ tests/
+ruff format --check src/ scripts/ tests/
 ```
 
 ## Commit conventions

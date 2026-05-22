@@ -92,9 +92,9 @@ def test_factor_store_roundtrip(tmp_path: Path) -> None:
     # Verify same set of (timestamp, symbol) pairs
     original_keys = set(zip(original_sorted["timestamp"], original_sorted["symbol"]))
     loaded_keys = set(zip(loaded_sorted["timestamp"], loaded_sorted["symbol"]))
-    assert (
-        original_keys == loaded_keys
-    ), "Loaded DataFrame should have same (timestamp, symbol) pairs"
+    assert original_keys == loaded_keys, (
+        "Loaded DataFrame should have same (timestamp, symbol) pairs"
+    )
 
     # Verify values roundtrip correctly (allow for small floating point differences)
     pd.testing.assert_frame_equal(
@@ -153,9 +153,9 @@ def test_factor_store_list_available(tmp_path: Path) -> None:
 
     # Verify required keys in first panel
     required_keys = {"factor_group", "freq", "universe_key", "years"}
-    assert required_keys.issubset(
-        set(available[0].keys())
-    ), f"Result items should contain keys: {required_keys}"
+    assert required_keys.issubset(set(available[0].keys())), (
+        f"Result items should contain keys: {required_keys}"
+    )
 
     # Verify at least one panel with factor_group == "ta"
     ta_panels = [p for p in available if p.get("factor_group") == "ta"]
@@ -208,16 +208,16 @@ def test_factor_store_point_in_time(tmp_path: Path) -> None:
     assert not loaded_df.empty, "Loaded DataFrame should not be empty"
     max_timestamp = loaded_df["timestamp"].max()
     end_utc = pd.Timestamp("2022-01-02", tz="UTC")
-    assert (
-        max_timestamp <= end_utc
-    ), f"Max timestamp ({max_timestamp}) should be <= 2022-01-02"
+    assert max_timestamp <= end_utc, (
+        f"Max timestamp ({max_timestamp}) should be <= 2022-01-02"
+    )
 
     # Verify there is no 2022-01-03 row
     dates_in_result = set(loaded_df["timestamp"].dt.date)
     excluded_date = pd.Timestamp("2022-01-03").date()
-    assert (
-        excluded_date not in dates_in_result
-    ), "Should not contain data for 2022-01-03 (beyond end date)"
+    assert excluded_date not in dates_in_result, (
+        "Should not contain data for 2022-01-03 (beyond end date)"
+    )
 
 
 @pytest.mark.advanced
@@ -262,9 +262,9 @@ def test_factor_store_multiple_groups(tmp_path: Path) -> None:
         factors_root=tmp_path,
     )
     assert loaded_ta is not None
-    assert (
-        "factor_mom" in loaded_ta.columns
-    ), "Should contain factor_mom from 'ta' group"
+    assert "factor_mom" in loaded_ta.columns, (
+        "Should contain factor_mom from 'ta' group"
+    )
 
     # Load "alt_insider" group
     loaded_insider = load_factors(
@@ -276,9 +276,9 @@ def test_factor_store_multiple_groups(tmp_path: Path) -> None:
         factors_root=tmp_path,
     )
     assert loaded_insider is not None
-    assert (
-        "factor_insider" in loaded_insider.columns
-    ), "Should contain factor_insider from 'alt_insider' group"
+    assert "factor_insider" in loaded_insider.columns, (
+        "Should contain factor_insider from 'alt_insider' group"
+    )
 
     assert len(loaded_ta) == len(dates), "Loaded ta should have correct number of rows"
 
@@ -400,6 +400,6 @@ def test_load_factors_invalid_date_range(tmp_path: Path) -> None:
         end_date=pd.Timestamp("2022-01-01", tz="UTC"),  # start > end
         factors_root=tmp_path,
     )
-    assert (
-        loaded is None or loaded.empty
-    ), "Should return None or empty when start > end"
+    assert loaded is None or loaded.empty, (
+        "Should return None or empty when start > end"
+    )

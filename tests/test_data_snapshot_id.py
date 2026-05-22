@@ -91,9 +91,9 @@ def test_snapshot_id_order_invariant() -> None:
     id1 = compute_price_panel_snapshot_id(prices1, freq="1d")
     id2 = compute_price_panel_snapshot_id(prices2, freq="1d")
 
-    assert (
-        id1 == id2
-    ), "Different row order should produce same snapshot ID (order-invariant)"
+    assert id1 == id2, (
+        "Different row order should produce same snapshot ID (order-invariant)"
+    )
 
 
 def test_snapshot_id_dtype_invariant() -> None:
@@ -117,9 +117,9 @@ def test_snapshot_id_dtype_invariant() -> None:
     id1 = compute_price_panel_snapshot_id(prices1, freq="1d")
     id2 = compute_price_panel_snapshot_id(prices2, freq="1d")
 
-    assert (
-        id1 == id2
-    ), "Different dtypes with same values should produce same snapshot ID"
+    assert id1 == id2, (
+        "Different dtypes with same values should produce same snapshot ID"
+    )
 
 
 def test_snapshot_id_timezone_invariant() -> None:
@@ -172,9 +172,9 @@ def test_snapshot_id_timezone_invariant() -> None:
     id3 = compute_price_panel_snapshot_id(prices3, freq="1d")
 
     # Naive timestamps (assumed UTC) should match UTC-aware timestamps with same values
-    assert (
-        id1 == id3
-    ), "Naive timestamps (assumed UTC) should match UTC-aware timestamps"
+    assert id1 == id3, (
+        "Naive timestamps (assumed UTC) should match UTC-aware timestamps"
+    )
 
 
 def test_snapshot_id_freq_dependent() -> None:
@@ -292,9 +292,9 @@ def test_snapshot_id_source_meta_order_invariant() -> None:
     id1 = compute_price_panel_snapshot_id(prices, freq="1d", source_meta=meta1)
     id2 = compute_price_panel_snapshot_id(prices, freq="1d", source_meta=meta2)
 
-    assert (
-        id1 == id2
-    ), "Source metadata key order should not affect snapshot ID (keys are sorted)"
+    assert id1 == id2, (
+        "Source metadata key order should not affect snapshot ID (keys are sorted)"
+    )
 
 
 def test_snapshot_id_duplicate_handling() -> None:
@@ -334,9 +334,9 @@ def test_snapshot_id_duplicate_handling() -> None:
     )
 
     id_no_dup = compute_price_panel_snapshot_id(prices_no_dup, freq="1d")
-    assert (
-        snapshot_id == id_no_dup
-    ), "Duplicate handling should produce same ID as deduped data"
+    assert snapshot_id == id_no_dup, (
+        "Duplicate handling should produce same ID as deduped data"
+    )
 
 
 def test_snapshot_id_handles_inf() -> None:

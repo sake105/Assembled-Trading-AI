@@ -143,9 +143,9 @@ def test_dcc_vs_cdcc_q_bar_differs():
     r_dcc = fit_dcc_garch(df, method="dcc")
     r_cdcc = fit_dcc_garch(df, method="cdcc")
     # The off-diagonals should be similar in direction but not identical
-    assert not np.allclose(
-        r_dcc.q_bar, r_cdcc.q_bar, atol=1e-6
-    ), "cDCC correction should produce different Q̄ than standard DCC"
+    assert not np.allclose(r_dcc.q_bar, r_cdcc.q_bar, atol=1e-6), (
+        "cDCC correction should produce different Q̄ than standard DCC"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -237,9 +237,9 @@ def test_estimate_covariance_dcc_garch_routes_to_real_module():
     assert isinstance(cov_dcc, pd.DataFrame)
     assert cov_dcc.shape == (3, 3)
     # DCC covariance should NOT equal sample covariance (proves the route)
-    assert not np.allclose(
-        cov_dcc.to_numpy(), cov_sample.to_numpy(), atol=1e-9
-    ), "DCC-GARCH should produce different cov than sample (silent-stub regression test)"
+    assert not np.allclose(cov_dcc.to_numpy(), cov_sample.to_numpy(), atol=1e-9), (
+        "DCC-GARCH should produce different cov than sample (silent-stub regression test)"
+    )
 
 
 def test_estimate_covariance_cdcc_routes_to_real_module():

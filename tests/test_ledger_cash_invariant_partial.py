@@ -80,9 +80,9 @@ def test_cash_invariant_partial_fills():
     assert "fill_qty" in trades_df.columns, "trades_df should have fill_qty column"
     assert "fill_price" in trades_df.columns, "trades_df should have fill_price column"
     assert "cash_delta" in trades_df.columns, "trades_df should have cash_delta column"
-    assert (
-        "total_cost_cash" in trades_df.columns
-    ), "trades_df should have total_cost_cash column"
+    assert "total_cost_cash" in trades_df.columns, (
+        "trades_df should have total_cost_cash column"
+    )
 
     # Calculate expected cash_delta manually using fill_qty
     # BUY: -(fill_qty * fill_price + total_cost_cash)

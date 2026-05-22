@@ -170,12 +170,12 @@ class TestGenerateMultifactorLongShortSignals:
         assert signals["direction"].isin(["LONG", "SHORT"]).all()
 
         # Should have both long and short signals (with 5 symbols and 0.2 quantile)
-        assert (
-            signals["direction"] == "LONG"
-        ).any(), "Should have at least one LONG signal"
-        assert (
-            signals["direction"] == "SHORT"
-        ).any(), "Should have at least one SHORT signal"
+        assert (signals["direction"] == "LONG").any(), (
+            "Should have at least one LONG signal"
+        )
+        assert (signals["direction"] == "SHORT").any(), (
+            "Should have at least one SHORT signal"
+        )
 
     def test_top_bottom_quantile_selection(self, sample_factors_df, simple_bundle_yaml):
         """Test that signals correspond to top/bottom quantiles of mf_score."""
@@ -431,9 +431,9 @@ class TestComputeMultifactorLongShortPositions:
         net_weight = positions["target_weight"].sum()
 
         # Should be approximately equal (allowing for floating point errors)
-        assert (
-            abs(total_long_weight - total_short_weight) < 1e-6
-        ), f"Long weights ({total_long_weight}) should ≈ short weights ({total_short_weight})"
+        assert abs(total_long_weight - total_short_weight) < 1e-6, (
+            f"Long weights ({total_long_weight}) should ≈ short weights ({total_short_weight})"
+        )
         assert abs(net_weight) < 1e-6, f"Net weight should be ≈ 0, got {net_weight}"
 
     def test_equal_weighting_within_sides(self, simple_bundle_yaml):
@@ -483,17 +483,17 @@ class TestComputeMultifactorLongShortPositions:
         long_positions = positions[positions["target_weight"] > 0]
         if len(long_positions) > 1:
             long_weights = long_positions["target_weight"].values
-            assert np.allclose(
-                long_weights, long_weights[0]
-            ), f"Long positions should be equal-weighted, got {long_weights}"
+            assert np.allclose(long_weights, long_weights[0]), (
+                f"Long positions should be equal-weighted, got {long_weights}"
+            )
 
         # Short positions should have equal weights (absolute values)
         short_positions = positions[positions["target_weight"] < 0]
         if len(short_positions) > 1:
             short_weights = abs(short_positions["target_weight"].values)
-            assert np.allclose(
-                short_weights, short_weights[0]
-            ), f"Short positions should be equal-weighted, got {short_weights}"
+            assert np.allclose(short_weights, short_weights[0]), (
+                f"Short positions should be equal-weighted, got {short_weights}"
+            )
 
     def test_max_gross_exposure_constraint(self, simple_bundle_yaml):
         """Test that max_gross_exposure limits total exposure."""
@@ -547,9 +547,9 @@ class TestComputeMultifactorLongShortPositions:
         )
         gross_weight = total_long_weight + total_short_weight
 
-        assert (
-            gross_weight <= config.max_gross_exposure + 1e-6
-        ), f"Gross exposure ({gross_weight}) should be <= max_gross_exposure ({config.max_gross_exposure})"
+        assert gross_weight <= config.max_gross_exposure + 1e-6, (
+            f"Gross exposure ({gross_weight}) should be <= max_gross_exposure ({config.max_gross_exposure})"
+        )
 
     def test_empty_signals_returns_empty_dataframe(self, simple_bundle_yaml):
         """Test that empty signals return empty positions DataFrame."""
@@ -631,9 +631,9 @@ class TestStrategyIntegration:
             )
 
             assert not positions.empty, "Should compute positions"
-            assert len(positions) == len(
-                first_timestamp_signals
-            ), "Should have one position per signal"
+            assert len(positions) == len(first_timestamp_signals), (
+                "Should have one position per signal"
+            )
 
             # Verify positions have correct structure
             assert "symbol" in positions.columns

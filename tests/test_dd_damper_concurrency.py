@@ -92,9 +92,9 @@ class TestDDDamperConcurrency:
         assert state["peak_equity"] > 0, "peak_equity must be positive"
 
         # current_equity must be a finite float
-        assert isinstance(
-            state["current_equity"], float
-        ), "current_equity must be float"
+        assert isinstance(state["current_equity"], float), (
+            "current_equity must be float"
+        )
         assert math.isfinite(state["current_equity"]), "current_equity must be finite"
 
         # damper_active must be bool
@@ -102,9 +102,9 @@ class TestDDDamperConcurrency:
 
         # damper_until is either None or a date
         if state["damper_until"] is not None:
-            assert isinstance(
-                state["damper_until"], datetime.date
-            ), "damper_until must be datetime.date or None"
+            assert isinstance(state["damper_until"], datetime.date), (
+                "damper_until must be datetime.date or None"
+            )
 
         # All threads must have returned ok
         errors = [(i, r) for i, r in enumerate(results) if r is None or r[0] != "ok"]
@@ -135,9 +135,9 @@ class TestDDDamperConcurrency:
             t.join(timeout=10.0)
 
         state = _mfv2._DD_DAMPER
-        assert (
-            state["peak_equity"] >= expected_peak
-        ), f"peak_equity {state['peak_equity']} < expected {expected_peak}"
+        assert state["peak_equity"] >= expected_peak, (
+            f"peak_equity {state['peak_equity']} < expected {expected_peak}"
+        )
 
     def test_reset_clears_state(self) -> None:
         """reset_dd_damper must restore the initial state regardless of prior calls."""

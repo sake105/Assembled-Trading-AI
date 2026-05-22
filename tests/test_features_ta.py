@@ -104,9 +104,9 @@ def test_add_moving_averages():
 
     # Check MA values are close to price (for first few rows, MA ≈ price)
     first_rows = df.groupby("symbol").head(5)
-    assert (
-        first_rows["ma_20"] - first_rows["close"]
-    ).abs().max() < 10.0, "Early MA values should be close to price"
+    assert (first_rows["ma_20"] - first_rows["close"]).abs().max() < 10.0, (
+        "Early MA values should be close to price"
+    )
 
     # Check MA is smoother than price (lower std)
     ma_20_std = df.groupby("symbol")["ma_20"].std()
@@ -161,9 +161,9 @@ def test_add_rsi():
     )
     valid_rsi = subsequent.dropna()
     if len(valid_rsi) > 0:
-        assert (valid_rsi >= 0).all() and (
-            valid_rsi <= 100
-        ).all(), "RSI should be in [0, 100]"
+        assert (valid_rsi >= 0).all() and (valid_rsi <= 100).all(), (
+            "RSI should be in [0, 100]"
+        )
 
 
 def test_add_all_features():
@@ -183,9 +183,9 @@ def test_add_all_features():
     # Check no columns are completely NaN
     feature_cols = ["log_return", "ma_20", "ma_50", "atr_14", "rsi_14"]
     for col in feature_cols:
-        assert (
-            df[col].notna().any()
-        ), f"Feature column '{col}' should have non-NaN values"
+        assert df[col].notna().any(), (
+            f"Feature column '{col}' should have non-NaN values"
+        )
 
 
 def test_add_log_returns_missing_column():

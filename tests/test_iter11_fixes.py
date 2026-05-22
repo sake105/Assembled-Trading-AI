@@ -50,9 +50,9 @@ class TestEarningsCalendarUtcDatetime:
         start = received_start[0]
         end = received_end[0]
 
-        assert (
-            start.tzinfo is not None
-        ), f"start_date must be tz-aware, got naive: {start}"
+        assert start.tzinfo is not None, (
+            f"start_date must be tz-aware, got naive: {start}"
+        )
         assert end.tzinfo is not None, f"end_date must be tz-aware, got naive: {end}"
         assert start.tzinfo == timezone.utc or str(start.tzinfo) in (
             "UTC",
@@ -78,9 +78,9 @@ class TestEarningsCalendarUtcDatetime:
         now = datetime.now(tz=timezone.utc)
         end = received_end[0]
         delta_days = (end - now).days
-        assert (
-            55 <= delta_days <= 65
-        ), f"end_date should be ~60 days in the future, got {delta_days} days"
+        assert 55 <= delta_days <= 65, (
+            f"end_date should be ~60 days in the future, got {delta_days} days"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +115,9 @@ class TestFindAllDrawdownsFlushesAtEnd:
             ]  # falling phase: DD never closes
         )
         drawdowns = find_all_drawdowns(returns, min_depth=0.03, min_duration=2)
-        assert (
-            len(drawdowns) >= 1
-        ), "Expected at least 1 drawdown — the open DD at series end must be flushed"
+        assert len(drawdowns) >= 1, (
+            "Expected at least 1 drawdown — the open DD at series end must be flushed"
+        )
         last_dd = drawdowns[-1]
         assert last_dd.max_drawdown < 0, "Drawdown value must be negative"
 
@@ -159,9 +159,9 @@ class TestFindAllDrawdownsFlushesAtEnd:
             ]
         )
         drawdowns = find_all_drawdowns(returns, min_depth=0.04, min_duration=1)
-        assert (
-            len(drawdowns) == 2
-        ), f"Expected 2 drawdowns (one recovered, one open at end), got {len(drawdowns)}"
+        assert len(drawdowns) == 2, (
+            f"Expected 2 drawdowns (one recovered, one open at end), got {len(drawdowns)}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -196,9 +196,9 @@ class TestQualityGateSpikeThreshold:
         )
         _check_price_spikes(df, result, spike_threshold=3.0)
 
-        assert any(
-            "price_spikes" in w for w in result.checks_warned
-        ), f"Expected 'price_spikes' in checks_warned, got: {result.checks_warned}"
+        assert any("price_spikes" in w for w in result.checks_warned), (
+            f"Expected 'price_spikes' in checks_warned, got: {result.checks_warned}"
+        )
 
     def test_small_daily_moves_not_flagged(self):
         """Normal daily moves (<3σ) must not trigger a spike warning."""
@@ -217,9 +217,9 @@ class TestQualityGateSpikeThreshold:
         _check_price_spikes(df, result, spike_threshold=3.0)
 
         spike_warnings = [w for w in result.checks_warned if "price_spikes" in w]
-        assert (
-            not spike_warnings
-        ), f"Small moves should not trigger spike warning, got: {spike_warnings}"
+        assert not spike_warnings, (
+            f"Small moves should not trigger spike warning, got: {spike_warnings}"
+        )
 
     def test_ten_sigma_move_was_previously_undetected(self):
         """Verify the OLD 30-sigma threshold would have missed a 15-sigma move."""
@@ -254,6 +254,6 @@ class TestQualityGateSpikeThreshold:
 
         # With noisy baseline, 20% spike should be caught by 3σ threshold
         # (before fix: would need 30σ to flag, missing this)
-        assert any(
-            "price_spikes" in w for w in result.checks_warned
-        ), "Expected 20% spike to be flagged with 3σ threshold"
+        assert any("price_spikes" in w for w in result.checks_warned), (
+            "Expected 20% spike to be flagged with 3σ threshold"
+        )

@@ -101,14 +101,14 @@ def test_risk_report_contains_regime_section_when_enabled(tmp_path: Path):
         else:
             # Regime analysis may have failed silently (e.g., insufficient data)
             # Check that basic report still exists
-            assert (
-                "Risk Report" in report_content
-            ), "Even if regime analysis fails, basic report should be generated"
+            assert "Risk Report" in report_content, (
+                "Even if regime analysis fails, basic report should be generated"
+            )
     else:
         # Report generation failed - should have clear error
-        assert (
-            result.returncode != 0
-        ), "If report not generated, should return non-zero exit code"
+        assert result.returncode != 0, (
+            "If report not generated, should return non-zero exit code"
+        )
         # Error is acceptable for smoke test (data loading issues, etc.)
 
 
@@ -153,9 +153,9 @@ def test_risk_report_without_regime_analysis(tmp_path: Path):
     if report_file.exists():
         report_content = report_file.read_text(encoding="utf-8")
         # Should have basic risk metrics
-        assert (
-            "Risk" in report_content or "Metrics" in report_content
-        ), "Risk report should contain risk metrics"
+        assert "Risk" in report_content or "Metrics" in report_content, (
+            "Risk report should contain risk metrics"
+        )
     else:
         # If failed, should have clear error message
         assert result.returncode != 0, "Should return non-zero on failure"

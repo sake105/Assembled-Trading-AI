@@ -34,9 +34,9 @@ def test_candidate_blocked_when_reconciliation_failed():
         reconcile_report_path=reconcile_report,
     )
 
-    assert (
-        candidate_allowed is False
-    ), "Candidate should be blocked when reconciliation failed"
+    assert candidate_allowed is False, (
+        "Candidate should be blocked when reconciliation failed"
+    )
     assert "Reconciliation failed" in message
     assert reconcile_report in message, "Message should contain report link"
     assert "candidate NOT allowed" in message
@@ -50,9 +50,9 @@ def test_candidate_allowed_when_reconciliation_passed():
         reconciliation_ok=True,
     )
 
-    assert (
-        candidate_allowed is True
-    ), "Candidate should be allowed when reconciliation passed"
+    assert candidate_allowed is True, (
+        "Candidate should be allowed when reconciliation passed"
+    )
     assert "Robustness pack passed" in message
     assert "Reconciliation passed" in message
     assert "candidate allowed" in message
@@ -66,9 +66,9 @@ def test_candidate_allowed_when_reconciliation_none_backward_compatible():
         reconciliation_ok=None,
     )
 
-    assert (
-        candidate_allowed is True
-    ), "Candidate should be allowed when reconciliation_ok=None (backward compatible)"
+    assert candidate_allowed is True, (
+        "Candidate should be allowed when reconciliation_ok=None (backward compatible)"
+    )
     assert "Robustness pack passed" in message
     assert "Reconciliation not run" in message
     assert "backward compatible" in message
@@ -86,15 +86,15 @@ def test_candidate_blocked_when_both_robustness_and_reconciliation_failed():
         reconcile_report_path=reconcile_report,
     )
 
-    assert (
-        candidate_allowed is False
-    ), "Candidate should be blocked when both gates failed"
+    assert candidate_allowed is False, (
+        "Candidate should be blocked when both gates failed"
+    )
     assert "Robustness pack failed" in message
     assert robustness_pack in message, "Message should contain robustness pack link"
     assert "Reconciliation failed" in message
-    assert (
-        reconcile_report in message
-    ), "Message should contain reconciliation report link"
+    assert reconcile_report in message, (
+        "Message should contain reconciliation report link"
+    )
     assert "candidate NOT allowed" in message
 
 
@@ -113,9 +113,9 @@ def test_candidate_message_includes_report_links_when_available():
 
     assert candidate_allowed is True
     assert robustness_pack in message, "Message should include robustness pack path"
-    assert (
-        reconcile_report in message
-    ), "Message should include reconciliation report path"
+    assert reconcile_report in message, (
+        "Message should include reconciliation report path"
+    )
 
     # Test with only reconciliation report
     candidate_allowed, message = check_candidate_allowed(
@@ -125,9 +125,9 @@ def test_candidate_message_includes_report_links_when_available():
     )
 
     assert candidate_allowed is False
-    assert (
-        reconcile_report in message
-    ), "Message should include reconciliation report path when reconciliation fails"
+    assert reconcile_report in message, (
+        "Message should include reconciliation report path when reconciliation fails"
+    )
 
 
 def test_candidate_combined_gates_all_none_blocks():
@@ -137,9 +137,9 @@ def test_candidate_combined_gates_all_none_blocks():
         reconciliation_ok=None,
     )
 
-    assert (
-        candidate_allowed is False
-    ), "Candidate should be blocked when robustness_ok is None (robustness required)"
+    assert candidate_allowed is False, (
+        "Candidate should be blocked when robustness_ok is None (robustness required)"
+    )
     assert "Robustness pack not run" in message
     assert "Reconciliation not run" in message
     assert "candidate NOT allowed" in message
@@ -152,9 +152,9 @@ def test_candidate_combined_gates_robustness_none_reconciliation_true_blocks():
         reconciliation_ok=True,
     )
 
-    assert (
-        candidate_allowed is False
-    ), "Candidate should be blocked when robustness_ok is None (robustness required)"
+    assert candidate_allowed is False, (
+        "Candidate should be blocked when robustness_ok is None (robustness required)"
+    )
     assert "Robustness pack not run" in message
     assert "candidate NOT allowed" in message
 
@@ -166,9 +166,9 @@ def test_candidate_combined_gates_robustness_true_reconciliation_none():
         reconciliation_ok=None,
     )
 
-    assert (
-        candidate_allowed is True
-    ), "Candidate should be allowed (reconciliation None is backward compatible)"
+    assert candidate_allowed is True, (
+        "Candidate should be allowed (reconciliation None is backward compatible)"
+    )
     assert "Robustness pack passed" in message
     assert "Reconciliation not run" in message
     assert "backward compatible" in message
@@ -183,9 +183,9 @@ def test_candidate_combined_gates_robustness_false_reconciliation_none():
         reconciliation_ok=None,
     )
 
-    assert (
-        candidate_allowed is False
-    ), "Candidate should be blocked when robustness fails (even if reconciliation is None)"
+    assert candidate_allowed is False, (
+        "Candidate should be blocked when robustness fails (even if reconciliation is None)"
+    )
     assert "Robustness pack failed" in message
     assert "Reconciliation not run" in message
     assert "candidate NOT allowed" in message
@@ -199,9 +199,9 @@ def test_candidate_combined_gates_robustness_none_reconciliation_false():
         reconcile_report_path="reconcile_report_test/reconcile_2024-01-15.json",
     )
 
-    assert (
-        candidate_allowed is False
-    ), "Candidate should be blocked when reconciliation fails (even if robustness is None)"
+    assert candidate_allowed is False, (
+        "Candidate should be blocked when reconciliation fails (even if robustness is None)"
+    )
     assert "Robustness pack not run" in message
     assert "Reconciliation failed" in message
     assert "candidate NOT allowed" in message

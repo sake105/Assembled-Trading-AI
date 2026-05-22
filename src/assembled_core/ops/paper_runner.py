@@ -1057,8 +1057,7 @@ def _prd_run_shadow_strategy(
                         )
                     )
         log.info(
-            "[shadow] %s — %d LONGs (primary=%d LONGs, overlap=%d). "
-            "Persisted to %s.",
+            "[shadow] %s — %d LONGs (primary=%d LONGs, overlap=%d). Persisted to %s.",
             shadow_name,
             signals_payload["n_long"],
             primary_long_count,

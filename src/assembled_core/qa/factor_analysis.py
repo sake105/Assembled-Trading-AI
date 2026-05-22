@@ -292,7 +292,6 @@ def compute_factor_ic(
 
     # For each timestamp (group), compute IC for each factor
     for group_value, group_data in result_df.groupby(group_col, sort=True):
-
         # Filter rows with valid forward return
         valid_mask = group_data[fwd_return_col].notna()
         group_data_valid = group_data[valid_mask]
@@ -838,7 +837,6 @@ def compute_ic(
     ic_data = {}
 
     for timestamp, timestamp_data in result_df.groupby(timestamp_col, sort=True):
-
         # Filter rows with valid forward return
         valid_mask = timestamp_data[forward_returns_col].notna()
         timestamp_data_valid = timestamp_data[valid_mask]

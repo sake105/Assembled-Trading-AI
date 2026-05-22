@@ -180,9 +180,9 @@ class TestBuildMultifactorSignal:
                 and len(googl_score) > 0
                 and not (np.isnan(aapl_score[0]) or np.isnan(googl_score[0]))
             ):
-                assert (
-                    aapl_score[0] > googl_score[0]
-                ), f"At {timestamp}, AAPL mf_score ({aapl_score[0]}) should be > GOOGL mf_score ({googl_score[0]})"
+                assert aapl_score[0] > googl_score[0], (
+                    f"At {timestamp}, AAPL mf_score ({aapl_score[0]}) should be > GOOGL mf_score ({googl_score[0]})"
+                )
 
     def test_direction_negative_inverts_factor(
         self, sample_factors_df, sample_bundle_mixed_directions
@@ -242,9 +242,9 @@ class TestBuildMultifactorSignal:
         z_col = "returns_12m_z"
         if z_col in result.df.columns:
             z_values = result.df[z_col].dropna()
-            assert (
-                z_values.abs().max() < 10.0
-            ), f"Z-scores should be reasonable after winsorizing, got max={z_values.abs().max()}"
+            assert z_values.abs().max() < 10.0, (
+                f"Z-scores should be reasonable after winsorizing, got max={z_values.abs().max()}"
+            )
 
     def test_zscore_crosssectional_mean_zero_std_one(
         self, sample_factors_df, sample_bundle_positive
@@ -272,15 +272,15 @@ class TestBuildMultifactorSignal:
                     )  # Population std (as used in function)
 
                     # Mean should be approximately 0 (allowing for floating point errors)
-                    assert (
-                        abs(mean_val) < 1e-10
-                    ), f"Z-score mean should be ≈0, got {mean_val} for {factor_name} at {timestamp}"
+                    assert abs(mean_val) < 1e-10, (
+                        f"Z-score mean should be ≈0, got {mean_val} for {factor_name} at {timestamp}"
+                    )
 
                     # Std should be approximately 1 (allowing for floating point errors or single value)
                     if len(ts_data) > 1:
-                        assert (
-                            abs(std_val - 1.0) < 1e-10 or std_val == 0.0
-                        ), f"Z-score std should be ≈1, got {std_val} for {factor_name} at {timestamp}"
+                        assert abs(std_val - 1.0) < 1e-10 or std_val == 0.0, (
+                            f"Z-score std should be ≈1, got {std_val} for {factor_name} at {timestamp}"
+                        )
 
     def test_missing_factors_are_logged(
         self, sample_factors_df, sample_bundle_positive
@@ -406,9 +406,9 @@ class TestSelectTopBottom:
             # Check that top symbol has long flag
             top_symbol_data = ts_data[ts_data["symbol"] == top_symbol]
             if len(top_symbol_data) > 0:
-                assert (
-                    top_symbol_data["mf_long_flag"].iloc[0] == 1
-                ), f"Top symbol {top_symbol} at {timestamp} should have mf_long_flag=1"
+                assert top_symbol_data["mf_long_flag"].iloc[0] == 1, (
+                    f"Top symbol {top_symbol} at {timestamp} should have mf_long_flag=1"
+                )
 
     def test_bottom_quantile_selection(self, sample_factors_df, sample_bundle_positive):
         """Test that bottom quantile symbols are correctly flagged as short."""
@@ -435,9 +435,9 @@ class TestSelectTopBottom:
             # Check that bottom symbol has short flag
             bottom_symbol_data = ts_data[ts_data["symbol"] == bottom_symbol]
             if len(bottom_symbol_data) > 0:
-                assert (
-                    bottom_symbol_data["mf_short_flag"].iloc[0] == 1
-                ), f"Bottom symbol {bottom_symbol} at {timestamp} should have mf_short_flag=1"
+                assert bottom_symbol_data["mf_short_flag"].iloc[0] == 1, (
+                    f"Bottom symbol {bottom_symbol} at {timestamp} should have mf_short_flag=1"
+                )
 
     def test_quantile_per_timestamp(self, sample_factors_df, sample_bundle_positive):
         """Test that quantiles are computed per timestamp (cross-sectional)."""
@@ -453,17 +453,17 @@ class TestSelectTopBottom:
 
         # Check that we have long flags for multiple timestamps
         timestamps_with_long = result[result["mf_long_flag"] == 1]["timestamp"].unique()
-        assert (
-            len(timestamps_with_long) > 0
-        ), "Should have long flags for at least one timestamp"
+        assert len(timestamps_with_long) > 0, (
+            "Should have long flags for at least one timestamp"
+        )
 
         # Check that we have short flags for multiple timestamps
         timestamps_with_short = result[result["mf_short_flag"] == 1][
             "timestamp"
         ].unique()
-        assert (
-            len(timestamps_with_short) > 0
-        ), "Should have short flags for at least one timestamp"
+        assert len(timestamps_with_short) > 0, (
+            "Should have short flags for at least one timestamp"
+        )
 
     def test_invalid_quantiles_raise_error(
         self, sample_factors_df, sample_bundle_positive

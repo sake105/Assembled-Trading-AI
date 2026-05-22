@@ -39,24 +39,24 @@ def test_load_eod_prices_from_sample_file():
         assert col in df.columns, f"Column '{col}' should be present"
 
     # Assert data types
-    assert pd.api.types.is_datetime64_any_dtype(
-        df["timestamp"]
-    ), "Timestamp should be datetime"
+    assert pd.api.types.is_datetime64_any_dtype(df["timestamp"]), (
+        "Timestamp should be datetime"
+    )
     assert df["timestamp"].dt.tz is not None, "Timestamp should be timezone-aware (UTC)"
 
     for col in ["open", "high", "low", "close", "volume"]:
-        assert pd.api.types.is_numeric_dtype(
-            df[col]
-        ), f"Column '{col}' should be numeric"
+        assert pd.api.types.is_numeric_dtype(df[col]), (
+            f"Column '{col}' should be numeric"
+        )
 
     # Assert minimum data
     assert len(df) >= 30, "Should have at least 30 rows (30 days * 1 symbol minimum)"
     assert df["symbol"].nunique() >= 1, "Should have at least 1 symbol"
 
     # Assert sorting
-    assert df.equals(
-        df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    ), "DataFrame should be sorted by symbol, then timestamp"
+    assert df.equals(df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)), (
+        "DataFrame should be sorted by symbol, then timestamp"
+    )
 
 
 def test_load_eod_prices_filter_by_symbols():
@@ -118,9 +118,9 @@ def test_validate_price_data_valid():
     assert "issues" in result
 
     # With valid sample data, should be valid
-    assert (
-        result["valid"] is True or len(result["issues"]) == 0
-    ), f"Sample data should be valid, but got issues: {result['issues']}"
+    assert result["valid"] is True or len(result["issues"]) == 0, (
+        f"Sample data should be valid, but got issues: {result['issues']}"
+    )
     assert result["row_count"] > 0
     assert result["symbol_count"] > 0
 

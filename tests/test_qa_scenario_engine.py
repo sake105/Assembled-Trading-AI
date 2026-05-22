@@ -129,9 +129,9 @@ def test_scenario_equity_crash_basic(synthetic_prices):
         # Check that price is reduced by approximately 20%
         expected_ratio = 1 + scenario.shock_magnitude  # 0.8
         actual_ratio = symbol_after / symbol_before
-        assert (
-            abs(actual_ratio - expected_ratio) < 0.01
-        ), f"Price ratio mismatch for {symbol}"
+        assert abs(actual_ratio - expected_ratio) < 0.01, (
+            f"Price ratio mismatch for {symbol}"
+        )
 
 
 def test_scenario_equity_crash_with_end(synthetic_prices):
@@ -214,9 +214,9 @@ def test_scenario_vol_spike(synthetic_prices):
                 shocked_vol = shocked_returns.loc[shock_indices].std()
 
                 # Shocked volatility should be higher (approximately 2x, but may vary due to compounding)
-                assert (
-                    shocked_vol > original_vol
-                ), f"Volatility should increase for {symbol}"
+                assert shocked_vol > original_vol, (
+                    f"Volatility should increase for {symbol}"
+                )
 
 
 def test_scenario_shipping_blockade(synthetic_prices):
@@ -280,9 +280,9 @@ def test_scenario_shipping_blockade(synthetic_prices):
                 )
 
                 # Shipping ratio should be lower (more negative impact)
-                assert (
-                    shipping_ratio < non_shipping_ratio
-                ), "Shipping symbol should have stronger shock"
+                assert shipping_ratio < non_shipping_ratio, (
+                    "Shipping symbol should have stronger shock"
+                )
 
 
 def test_scenario_empty_prices():

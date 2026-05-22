@@ -238,9 +238,9 @@ class TestMultiDomainGdelt:
             "finance",
         }
         for domain in expected_domains:
-            assert (
-                domain in GDELT_QUERIES
-            ), f"Domain '{domain}' missing from GDELT_QUERIES"
+            assert domain in GDELT_QUERIES, (
+                f"Domain '{domain}' missing from GDELT_QUERIES"
+            )
 
     def test_fetch_multi_domain_returns_tuple(self):
         """fetch_gdelt_multi_domain returns (items, failures, stats) tuple."""

@@ -255,9 +255,9 @@ def test_trading_cycle_vs_legacy_orders_identical() -> None:
     assert not cycle_sorted[["symbol", "side", "qty"]].isna().any().any()
 
     # Check order counts match
-    assert len(legacy_sorted) == len(
-        cycle_sorted
-    ), f"Order count mismatch: legacy={len(legacy_sorted)}, cycle={len(cycle_sorted)}"
+    assert len(legacy_sorted) == len(cycle_sorted), (
+        f"Order count mismatch: legacy={len(legacy_sorted)}, cycle={len(cycle_sorted)}"
+    )
 
     # If both have orders, check symbol/side combinations match
     if not legacy_sorted.empty and not cycle_sorted.empty:
@@ -265,9 +265,9 @@ def test_trading_cycle_vs_legacy_orders_identical() -> None:
         cycle_keys = set(zip(cycle_sorted["symbol"], cycle_sorted["side"]))
 
         # Keys should match (same symbols and sides)
-        assert (
-            legacy_keys == cycle_keys
-        ), f"Order keys mismatch: legacy={legacy_keys}, cycle={cycle_keys}"
+        assert legacy_keys == cycle_keys, (
+            f"Order keys mismatch: legacy={legacy_keys}, cycle={cycle_keys}"
+        )
 
         # Check quantities and prices are close (within tolerance for float comparison)
         for key in legacy_keys:
@@ -279,14 +279,14 @@ def test_trading_cycle_vs_legacy_orders_identical() -> None:
             ].iloc[0]
 
             # Quantities should be identical (exact)
-            assert (
-                legacy_row["qty"] == cycle_row["qty"]
-            ), f"Qty mismatch for {key}: legacy={legacy_row['qty']}, cycle={cycle_row['qty']}"
+            assert legacy_row["qty"] == cycle_row["qty"], (
+                f"Qty mismatch for {key}: legacy={legacy_row['qty']}, cycle={cycle_row['qty']}"
+            )
 
             # Prices should be close (within 0.01 tolerance)
-            assert (
-                abs(legacy_row["price"] - cycle_row["price"]) < 0.01
-            ), f"Price mismatch for {key}: legacy={legacy_row['price']}, cycle={cycle_row['price']}"
+            assert abs(legacy_row["price"] - cycle_row["price"]) < 0.01, (
+                f"Price mismatch for {key}: legacy={legacy_row['price']}, cycle={cycle_row['price']}"
+            )
 
 
 def test_trading_cycle_orders_structure() -> None:
@@ -320,15 +320,15 @@ def test_trading_cycle_orders_structure() -> None:
 
     # Check required columns
     required_cols = {"timestamp", "symbol", "side", "qty", "price"}
-    assert required_cols.issubset(
-        set(orders.columns)
-    ), f"Missing required columns. Expected: {required_cols}, Got: {set(orders.columns)}"
+    assert required_cols.issubset(set(orders.columns)), (
+        f"Missing required columns. Expected: {required_cols}, Got: {set(orders.columns)}"
+    )
 
     # Check no NaNs in critical columns
     if not orders.empty:
-        assert (
-            not orders[["symbol", "side", "qty"]].isna().any().any()
-        ), "Orders contain NaNs in symbol, side, or qty columns"
+        assert not orders[["symbol", "side", "qty"]].isna().any().any(), (
+            "Orders contain NaNs in symbol, side, or qty columns"
+        )
 
         # Check side values are valid
         valid_sides = {"BUY", "SELL"}

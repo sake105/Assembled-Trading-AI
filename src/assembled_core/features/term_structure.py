@@ -48,9 +48,9 @@ class TermStructureFeatures:
                     components = pca.transform(X)
                     for i in range(components.shape[1]):
                         pc = pd.Series(
-                            components[:, i], index=X.index, name=f"vix_pc{i+1}"
+                            components[:, i], index=X.index, name=f"vix_pc{i + 1}"
                         )
-                        out[f"vix_pc{i+1}"] = pc
+                        out[f"vix_pc{i + 1}"] = pc
             except ImportError:
                 pass
 

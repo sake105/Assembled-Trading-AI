@@ -56,9 +56,9 @@ class TestEarningsInsiderAsOf:
             _compute_earnings_insider_factors(_SYMBOLS, {}, as_of=_BACKTEST_DATE)
 
         if captured:
-            assert (
-                captured[0].normalize() == _BACKTEST_DATE.normalize()
-            ), "as_of passed to load_earnings_history must match the bar date"
+            assert captured[0].normalize() == _BACKTEST_DATE.normalize(), (
+                "as_of passed to load_earnings_history must match the bar date"
+            )
 
     def test_defaults_to_now_when_as_of_none(self) -> None:
         """When as_of=None the function falls back gracefully (no crash)."""
@@ -201,9 +201,9 @@ class TestComputeSignalsBarAsOf:
 
         expected_date = pd.Timestamp(target_date).date()
         for ts in captured_earnings + captured_news:
-            assert (
-                ts.normalize().date() == expected_date
-            ), f"as_of={ts} does not match panel max date {expected_date} — look-ahead bias"
+            assert ts.normalize().date() == expected_date, (
+                f"as_of={ts} does not match panel max date {expected_date} — look-ahead bias"
+            )
 
 
 class TestGeoRiskCompositeAsOf:
@@ -235,9 +235,9 @@ class TestGeoRiskCompositeAsOf:
         ):
             result = _compute_geo_risk_composite(_SYMBOLS, latest, as_of=_BACKTEST_DATE)
 
-        assert (
-            not fetch_called
-        ), "F-B-1 regression: FRED fetch called in backtest mode (as_of set)"
+        assert not fetch_called, (
+            "F-B-1 regression: FRED fetch called in backtest mode (as_of set)"
+        )
         # Path 2 zero-fill should kick in (Path 2 = final zero-fill since
         # the live FRED fetch path was removed in 2026-05-19 audit)
         assert "geo_risk_composite" in result
@@ -284,9 +284,9 @@ class TestInsiderClusterFactorAsOf:
                 _SYMBOLS, latest, as_of=_BACKTEST_DATE
             )
 
-        assert (
-            not live_called
-        ), "F-B-2 regression: cluster_buy_score (uses date.today) called in backtest"
+        assert not live_called, (
+            "F-B-2 regression: cluster_buy_score (uses date.today) called in backtest"
+        )
         # Path 3 fallback returns empty result; the call site map().fillna(0.0) handles it
         # We accept either empty result or zero-filled result
         if "insider_cluster_score" in result:
@@ -336,9 +336,9 @@ class TestBuybackDriftFactorAsOf:
                 _SYMBOLS, latest, as_of=_BACKTEST_DATE
             )
 
-        assert (
-            not live_called
-        ), "F-B-3 regression: buyback_signal_score (uses date.today) called in backtest"
+        assert not live_called, (
+            "F-B-3 regression: buyback_signal_score (uses date.today) called in backtest"
+        )
         if "buyback_drift_score" in result:
             assert (result["buyback_drift_score"] == 0.0).all()
 

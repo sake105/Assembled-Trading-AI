@@ -657,7 +657,7 @@ def _load_ic_timeseries(ic_dir: Path) -> pd.DataFrame | None:
     for fp in parquet_files:
         try:
             df = pd.read_parquet(fp)
-            _log(f"Loaded {fp.name}: {len(df)} rows, {len(df.columns)-1} factors")
+            _log(f"Loaded {fp.name}: {len(df)} rows, {len(df.columns) - 1} factors")
             frames.append(df)
         except Exception as exc:
             _warn(f"Failed to load {fp}: {exc!r}")

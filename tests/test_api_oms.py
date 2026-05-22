@@ -472,12 +472,12 @@ def test_smoke_signal_to_oms_flow(client: TestClient):
 
     # All orders should have correct source and route
     for order in backtest_orders[: len(filled_orders)]:  # Check first N orders
-        assert (
-            order.get("source") == "CLI_BACKTEST"
-        ), f"Order {order.get('order_id')} should have source=CLI_BACKTEST"
-        assert (
-            order.get("route") == "PAPER"
-        ), f"Order {order.get('order_id')} should have route=PAPER"
+        assert order.get("source") == "CLI_BACKTEST", (
+            f"Order {order.get('order_id')} should have source=CLI_BACKTEST"
+        )
+        assert order.get("route") == "PAPER", (
+            f"Order {order.get('order_id')} should have route=PAPER"
+        )
         assert "order_id" in order
         assert "symbol" in order
         assert "side" in order

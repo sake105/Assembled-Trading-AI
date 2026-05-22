@@ -139,9 +139,9 @@ def test_build_event_feature_panel_equivalence() -> None:
     )
 
     # Assert: Same number of rows
-    assert len(result_legacy) == len(
-        result_vectorized
-    ), f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
+    assert len(result_legacy) == len(result_vectorized), (
+        f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
+    )
 
     # Assert: Same sorting (deterministic)
     pd.testing.assert_frame_equal(
@@ -230,9 +230,9 @@ def test_add_disclosure_count_feature_equivalence() -> None:
     )
 
     # Assert: Same number of rows
-    assert len(result_legacy) == len(
-        result_vectorized
-    ), f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
+    assert len(result_legacy) == len(result_vectorized), (
+        f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
+    )
 
     # Sort both by symbol, timestamp for comparison
     result_legacy_sorted = result_legacy.sort_values(

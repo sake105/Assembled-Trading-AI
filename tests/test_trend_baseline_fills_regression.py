@@ -95,9 +95,9 @@ def test_trend_baseline_produces_fills_and_equity_time_series():
 
     # Equity curve must be a time series (one row per bar), not a single row
     assert result.equity is not None and not result.equity.empty
-    assert (
-        len(result.equity) > 10
-    ), f"equity_curve must have > 10 rows (time series), got {len(result.equity)}"
+    assert len(result.equity) > 10, (
+        f"equity_curve must have > 10 rows (time series), got {len(result.equity)}"
+    )
 
     # At least one trade must be filled (not all rejected)
     if result.trades is not None and not result.trades.empty:
@@ -105,9 +105,9 @@ def test_trend_baseline_produces_fills_and_equity_time_series():
         not_rejected = (
             result.trades.get("status", pd.Series(dtype=str)) != "rejected"
         ).any()
-        assert (
-            has_fill or not_rejected
-        ), "At least one trade must have fill_qty > 0 or status != rejected (trend baseline should get fills)"
+        assert has_fill or not_rejected, (
+            "At least one trade must have fill_qty > 0 or status != rejected (trend baseline should get fills)"
+        )
 
         # If any rejected, reject_reason must be present and ASCII-only
         rejected = result.trades[
@@ -116,9 +116,9 @@ def test_trend_baseline_produces_fills_and_equity_time_series():
         if not rejected.empty:
             assert "reject_reason" in result.trades.columns
             for val in result.trades["reject_reason"].dropna().astype(str):
-                assert (
-                    val == "" or val.isascii()
-                ), f"reject_reason must be ASCII-only, got {val!r}"
+                assert val == "" or val.isascii(), (
+                    f"reject_reason must be ASCII-only, got {val!r}"
+                )
     else:
         # No trades at all: allow only if strategy produced no signals; still require equity rows
         assert len(result.equity) > 10
@@ -158,13 +158,13 @@ def test_order_generation_converts_notional_to_shares():
     # qty must be in shares: 3333.33 / 140 ~ 23.8
     expected_shares = target_notional / price
     for _, row in orders.iterrows():
-        assert (
-            abs(row["qty"] - expected_shares) < 1.0
-        ), f"qty should be ~{expected_shares:.1f} (shares), got {row['qty']}"
+        assert abs(row["qty"] - expected_shares) < 1.0, (
+            f"qty should be ~{expected_shares:.1f} (shares), got {row['qty']}"
+        )
         notional = row["qty"] * row["price"]
-        assert (
-            notional <= 2.0 * start_capital
-        ), f"order notional {notional} should be <= 2*equity"
+        assert notional <= 2.0 * start_capital, (
+            f"order notional {notional} should be <= 2*equity"
+        )
     assert orders.attrs.get("qty_unit") == "shares"
 
 

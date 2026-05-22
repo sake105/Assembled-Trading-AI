@@ -135,6 +135,6 @@ def test_sanity_ema_param_change_shifts_equity(approved_dir):
     result_v1 = _run_minimal_backtest(bars, ema_short=20, ema_long=50)
     result_v2 = _run_minimal_backtest(bars, ema_short=10, ema_long=30)
     # They should differ (different EMA periods → different signals → different P&L)
-    assert not result_v1["equity"].equals(
-        result_v2["equity"]
-    ), "Different EMA params produced identical equity — snapshot would miss param changes"
+    assert not result_v1["equity"].equals(result_v2["equity"]), (
+        "Different EMA params produced identical equity — snapshot would miss param changes"
+    )

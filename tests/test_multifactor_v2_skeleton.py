@@ -185,9 +185,9 @@ def test_v2_default_weights_shape_and_sum() -> None:
     assert len(weights) == 31, f"expected 31 active factors, got {len(weights)}"
 
     total = sum(weights.values())
-    assert (
-        abs(total - 1.0) <= 0.02
-    ), f"factor weights should sum to ~1.0 (tol 0.02); got {total:.4f}"
+    assert abs(total - 1.0) <= 0.02, (
+        f"factor weights should sum to ~1.0 (tol 0.02); got {total:.4f}"
+    )
 
     # All weights should be positive
     for name, w in weights.items():

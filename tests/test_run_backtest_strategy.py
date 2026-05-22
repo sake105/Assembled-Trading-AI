@@ -103,9 +103,9 @@ def test_run_backtest_strategy_smoke(
         )
 
         # Should succeed
-        assert (
-            result.returncode == 0
-        ), f"Script failed with exit code {result.returncode}. Output: {result.stdout}\nError: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Script failed with exit code {result.returncode}. Output: {result.stdout}\nError: {result.stderr}"
+        )
 
         # Check that report was generated
         report_files = list(
@@ -147,9 +147,9 @@ def test_run_backtest_strategy_missing_prices(tmp_path: Path, monkeypatch):
         )
 
         # Should fail with exit code 1
-        assert (
-            result.returncode == 1
-        ), f"Script should fail but got exit code {result.returncode}"
+        assert result.returncode == 1, (
+            f"Script should fail but got exit code {result.returncode}"
+        )
         assert (
             "not found" in result.stderr.lower()
             or "FileNotFoundError" in result.stderr
@@ -233,9 +233,9 @@ def test_run_backtest_strategy_with_universe(
         )
 
         # Should succeed
-        assert (
-            result.returncode == 0
-        ), f"Script failed. Output: {result.stdout}\nError: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Script failed. Output: {result.stdout}\nError: {result.stderr}"
+        )
         assert "Backtest completed" in result.stdout or "Final PF" in result.stdout
 
     finally:
@@ -271,9 +271,9 @@ def test_run_backtest_strategy_no_costs(
             timeout=180,
         )
 
-        assert (
-            result.returncode == 0
-        ), f"Script failed. Output: {result.stdout}\nError: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Script failed. Output: {result.stdout}\nError: {result.stderr}"
+        )
         assert "With Costs: False" in result.stdout
 
     finally:
@@ -314,9 +314,9 @@ def test_run_backtest_strategy_custom_costs(
             timeout=180,
         )
 
-        assert (
-            result.returncode == 0
-        ), f"Script failed. Output: {result.stdout}\nError: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Script failed. Output: {result.stdout}\nError: {result.stderr}"
+        )
         assert "commission_bps=1.0" in result.stdout or "Cost Model" in result.stdout
 
     finally:

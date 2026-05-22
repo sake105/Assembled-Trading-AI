@@ -73,9 +73,9 @@ def test_oil_spike_raises_energy():
             & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
             & (shocked["timestamp"] <= pd.Timestamp(SHOCK_END))
         ]["close"].mean()
-        assert (
-            new > orig
-        ), f"{sym}: expected shock to raise price, got orig={orig:.2f} new={new:.2f}"
+        assert new > orig, (
+            f"{sym}: expected shock to raise price, got orig={orig:.2f} new={new:.2f}"
+        )
 
 
 def test_oil_spike_drags_non_energy():
@@ -104,9 +104,9 @@ def test_oil_spike_drags_non_energy():
             & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
             & (shocked["timestamp"] <= pd.Timestamp(SHOCK_END))
         ]["close"].mean()
-        assert (
-            new < orig
-        ), f"{sym}: expected drag to lower price, got orig={orig:.2f} new={new:.2f}"
+        assert new < orig, (
+            f"{sym}: expected drag to lower price, got orig={orig:.2f} new={new:.2f}"
+        )
 
 
 def test_oil_spike_custom_affected_symbols():
@@ -164,9 +164,9 @@ def test_gold_flight_raises_gold():
             & (shocked["timestamp"] >= pd.Timestamp(SHOCK_DATE))
             & (shocked["timestamp"] <= pd.Timestamp(SHOCK_END))
         ]["close"].mean()
-        assert (
-            new > orig
-        ), f"{sym}: expected gold to rise, got orig={orig:.2f} new={new:.2f}"
+        assert new > orig, (
+            f"{sym}: expected gold to rise, got orig={orig:.2f} new={new:.2f}"
+        )
 
 
 # ---------------------------------------------------------------------------

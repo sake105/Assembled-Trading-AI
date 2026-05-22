@@ -2991,7 +2991,7 @@ def main() -> None:
         result = engine.run_paper_day(args.date, dry_run=args.dry_run)
         print(
             f"[PAPER] {result.date} | {result.status} | "
-            f"equity={result.equity_after:.2f} | return={result.daily_return*100:.2f}% | "
+            f"equity={result.equity_after:.2f} | return={result.daily_return * 100:.2f}% | "
             f"fills={result.n_fills} | cost={result.total_cost_bps:.1f}bps"
         )
         if result.errors:

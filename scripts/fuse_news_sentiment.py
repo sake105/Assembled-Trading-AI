@@ -92,9 +92,7 @@ def _load_source(path: Path, label: str) -> "pd.DataFrame | None":  # noqa: F821
     ]
 
 
-def fuse(
-    dry_run: bool = False, out_path: Path = FUSED_OUT
-) -> "pd.DataFrame":  # noqa: F821
+def fuse(dry_run: bool = False, out_path: Path = FUSED_OUT) -> "pd.DataFrame":  # noqa: F821
     import pandas as pd
 
     frames: list[pd.DataFrame] = []

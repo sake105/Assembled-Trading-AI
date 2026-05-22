@@ -117,8 +117,9 @@ class TradeAnomalyDetector:
         self._baseline_stats = {}
         for i, col in enumerate(cols):
             col_data = X[:, i]
-            q1, q3 = float(np.percentile(col_data, 25)), float(
-                np.percentile(col_data, 75)
+            q1, q3 = (
+                float(np.percentile(col_data, 25)),
+                float(np.percentile(col_data, 75)),
             )
             iqr = q3 - q1
             mean = float(col_data.mean())

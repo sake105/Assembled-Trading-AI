@@ -84,7 +84,7 @@ def validate_ohlc(df: pd.DataFrame) -> int:
     n_bad = int(bad.sum())
     if n_bad > 0:
         logger.warning(
-            f"OHLC validation: {n_bad} rows with invalid relationships ({n_bad/len(df)*100:.1f}%)"
+            f"OHLC validation: {n_bad} rows with invalid relationships ({n_bad / len(df) * 100:.1f}%)"
         )
     else:
         logger.info("OHLC validation: all rows consistent")
@@ -125,7 +125,7 @@ def main() -> None:
     failed = []
 
     for i, sym in enumerate(symbols):
-        logger.info(f"[{i+1}/{len(symbols)}] Fetching {sym}...")
+        logger.info(f"[{i + 1}/{len(symbols)}] Fetching {sym}...")
         df = fetch_symbol(sym, args.start, args.end)
         if df is not None and not df.empty:
             all_dfs.append(df)

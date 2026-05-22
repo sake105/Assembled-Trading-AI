@@ -81,9 +81,9 @@ def test_walk_forward_cli_runs_with_dummy_config(tmp_path: Path):
 
     # Should parse arguments correctly (may fail on data loading, which is OK)
     # We mainly want to ensure it doesn't crash with argument errors
-    assert (
-        result.returncode != 0 or output_dir.exists()
-    ), "CLI should run or create output directory"
+    assert result.returncode != 0 or output_dir.exists(), (
+        "CLI should run or create output directory"
+    )
 
 
 @pytest.mark.advanced
@@ -145,4 +145,6 @@ def test_walk_forward_cli_via_cli_py(tmp_path: Path):
         "error" not in result.stderr.lower()
         or "data" in result.stderr.lower()
         or "file" in result.stderr.lower()
-    ), "CLI should either succeed or fail with data-related errors, not argument parsing errors"
+    ), (
+        "CLI should either succeed or fail with data-related errors, not argument parsing errors"
+    )

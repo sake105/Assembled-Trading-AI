@@ -77,9 +77,9 @@ def test_rebalance_weekly_reduces_trades():
         rebalance_schedule="weekly",
     )
     # Same equity timeline (one row per bar)
-    assert len(result_daily.equity) == len(
-        result_weekly.equity
-    ), "equity DataFrame length must be equal (same timeline)"
+    assert len(result_daily.equity) == len(result_weekly.equity), (
+        "equity DataFrame length must be equal (same timeline)"
+    )
     # Weekly should have fewer filled trades
     filled_daily = (
         (result_daily.trades["fill_qty"].fillna(0).astype(float) > 0).sum()
@@ -91,6 +91,6 @@ def test_rebalance_weekly_reduces_trades():
         if result_weekly.trades is not None and not result_weekly.trades.empty
         else 0
     )
-    assert (
-        filled_weekly < filled_daily
-    ), f"weekly rebalance should have fewer fills: weekly={filled_weekly}, daily={filled_daily}"
+    assert filled_weekly < filled_daily, (
+        f"weekly rebalance should have fewer fills: weekly={filled_weekly}, daily={filled_daily}"
+    )

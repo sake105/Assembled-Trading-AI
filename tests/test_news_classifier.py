@@ -176,9 +176,9 @@ class TestNewsClassifier:
         ]
         for title in titles:
             result = classify_news_event(title)
-            assert (
-                0.0 <= result.confidence <= 1.0
-            ), f"Confidence out of range for: {title!r}"
+            assert 0.0 <= result.confidence <= 1.0, (
+                f"Confidence out of range for: {title!r}"
+            )
 
     def test_classify_batch(self):
         titles = [

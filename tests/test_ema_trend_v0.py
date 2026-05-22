@@ -143,6 +143,6 @@ def test_paper_run_ema_produces_trades(tmp_path: Path) -> None:
             data = json.loads(orders_file.read_text(encoding="utf-8"))
             items = data.get("items") or []
             total_orders += len(items)
-    assert (
-        total_orders > 0
-    ), "Expected at least one order over 10 days with EMA strategy"
+    assert total_orders > 0, (
+        "Expected at least one order over 10 days with EMA strategy"
+    )

@@ -224,9 +224,9 @@ class TestTcExecutionNegativeQtyWarning:
         ):
             result = route_orders(targets, ctx)
 
-        assert any(
-            "negative qty" in r.message.lower() for r in caplog.records
-        ), "Expected a WARNING about negative qty"
+        assert any("negative qty" in r.message.lower() for r in caplog.records), (
+            "Expected a WARNING about negative qty"
+        )
         # After abs(), all qty should be non-negative
         assert (result["qty"] >= 0).all()
 

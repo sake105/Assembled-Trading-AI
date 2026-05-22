@@ -164,9 +164,9 @@ def test_fill_qty_always_le_qty() -> None:
     fills = apply_partial_fills(trades, prices=prices, partial_fill_model=model)
 
     # Verify fill_qty <= qty for all rows
-    assert (
-        fills["fill_qty"] <= fills["qty"].abs()
-    ).all(), "fill_qty should always be <= qty"
+    assert (fills["fill_qty"] <= fills["qty"].abs()).all(), (
+        "fill_qty should always be <= qty"
+    )
     assert (fills["remaining_qty"] >= 0.0).all(), "remaining_qty should always be >= 0"
 
 

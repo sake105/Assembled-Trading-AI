@@ -92,8 +92,7 @@ pytest -m "not external" --maxfail=3
 ### Development Dependencies
 - `pytest>=7.0.0`
 - `pytest-cov>=4.0.0`
-- `ruff>=0.1.0`
-- `black>=23.0.0`
+- `ruff>=0.14.0`
 - `mypy>=1.5.0`
 
 Alle Dependencies sind in `pyproject.toml` und `requirements.txt` dokumentiert.

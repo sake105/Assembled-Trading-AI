@@ -95,9 +95,9 @@ def test_sector_limit_enforced_end_to_end() -> None:
     # If orders exist, they should be filtered/reduced by sector limit
     if not result.orders_filtered.empty:
         # If orders exist, verify they are filtered/reduced
-        assert len(result.orders_filtered) <= len(
-            result.orders
-        ), "Orders should be filtered/reduced"
+        assert len(result.orders_filtered) <= len(result.orders), (
+            "Orders should be filtered/reduced"
+        )
 
 
 def test_missing_security_master_rule_enabled_fail_fast() -> None:
@@ -341,6 +341,6 @@ def test_security_master_loading_integration() -> None:
         )
 
         result = run_trading_cycle(ctx)
-        assert (
-            result.status == "success"
-        ), "Trading cycle should succeed with loaded security master"
+        assert result.status == "success", (
+            "Trading cycle should succeed with loaded security master"
+        )

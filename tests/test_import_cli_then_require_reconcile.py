@@ -122,9 +122,9 @@ def test_cli_import_then_require_reconcile(tmp_path: Path):
     assert "broker_meta" in ledger_result
     broker_meta = ledger_result["broker_meta"]
     assert broker_meta is not None
-    assert (
-        broker_meta["broker_view_source"] == "stored_snapshot"
-    ), f"Expected stored_snapshot, got {broker_meta['broker_view_source']}"
+    assert broker_meta["broker_view_source"] == "stored_snapshot", (
+        f"Expected stored_snapshot, got {broker_meta['broker_view_source']}"
+    )
     assert broker_meta["broker_snapshot_run_id"] == run_id
     assert broker_meta["broker_snapshot_path"] is not None
 
@@ -132,17 +132,17 @@ def test_cli_import_then_require_reconcile(tmp_path: Path):
     date_str = snapshot_date
     report_dir = output_dir / "reconcile_report_ledger_run_001"
     report_json_path = report_dir / f"reconcile_{date_str}.json"
-    assert (
-        report_json_path.exists()
-    ), f"Reconciliation report JSON should exist at {report_json_path}"
+    assert report_json_path.exists(), (
+        f"Reconciliation report JSON should exist at {report_json_path}"
+    )
 
     # Verify report JSON contains broker_meta
     with report_json_path.open("r", encoding="utf-8") as f:
         report_data = json.load(f)
 
-    assert (
-        "broker_meta" in report_data
-    ), "Reconciliation report JSON should contain broker_meta"
+    assert "broker_meta" in report_data, (
+        "Reconciliation report JSON should contain broker_meta"
+    )
     assert report_data["broker_meta"]["broker_view_source"] == "stored_snapshot"
     assert report_data["broker_meta"]["broker_snapshot_run_id"] == run_id
 

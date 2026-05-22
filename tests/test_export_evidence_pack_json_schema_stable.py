@@ -157,6 +157,6 @@ def test_export_json_schema_stable(tmp_path: Path) -> None:
     )
     assert run2.returncode == 0
     out2_bytes = run2.stdout
-    assert (
-        out1_bytes == out2_bytes
-    ), "Two runs must produce identical JSON bytes (deterministic)"
+    assert out1_bytes == out2_bytes, (
+        "Two runs must produce identical JSON bytes (deterministic)"
+    )

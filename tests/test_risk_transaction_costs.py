@@ -230,9 +230,9 @@ def test_compute_cost_adjusted_risk_metrics_basic():
 
     # Check that net Sharpe should be <= gross Sharpe (costs reduce returns)
     if metrics["net_sharpe"] is not None and metrics["gross_sharpe"] is not None:
-        assert (
-            metrics["net_sharpe"] <= metrics["gross_sharpe"] + 1e-6
-        ), "Net Sharpe should be <= Gross Sharpe"
+        assert metrics["net_sharpe"] <= metrics["gross_sharpe"] + 1e-6, (
+            "Net Sharpe should be <= Gross Sharpe"
+        )
 
     # Check period count
     assert metrics["n_periods"] == len(returns)

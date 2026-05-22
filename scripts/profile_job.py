@@ -388,7 +388,7 @@ def update_performance_profile_md(
                 f.write(f"   - Cumulative time: {cumulative_time:.3f}s\n")
                 f.write(f"   - Calls: {calls}\n")
                 if calls > 0:
-                    f.write(f"   - Per-call time: {cumulative_time/calls:.6f}s\n")
+                    f.write(f"   - Per-call time: {cumulative_time / calls:.6f}s\n")
                 f.write("\n")
         else:
             f.write("**Top-3 Hotspots:** (none extracted)\n\n")

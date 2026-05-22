@@ -18,9 +18,9 @@ def test_cli_batch_backtest_help() -> None:
         text=True,
         timeout=10,
     )
-    assert (
-        result.returncode == 0
-    ), f"Expected exit code 0, got {result.returncode}. stderr: {result.stderr}"
+    assert result.returncode == 0, (
+        f"Expected exit code 0, got {result.returncode}. stderr: {result.stderr}"
+    )
     assert "batch_backtest" in result.stdout.lower() or "batch" in result.stdout.lower()
     assert "--config-file" in result.stdout
 
@@ -34,7 +34,7 @@ def test_batch_backtest_script_help() -> None:
         text=True,
         timeout=10,
     )
-    assert (
-        result.returncode == 0
-    ), f"Expected exit code 0, got {result.returncode}. stderr: {result.stderr}"
+    assert result.returncode == 0, (
+        f"Expected exit code 0, got {result.returncode}. stderr: {result.stderr}"
+    )
     assert "--config-file" in result.stdout

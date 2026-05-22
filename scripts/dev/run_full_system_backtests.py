@@ -376,7 +376,7 @@ def run_sweep(
     results = []
     start_capital = 10000.0
     for i, (ma_fast, ma_slow) in enumerate(grid):
-        print(f"Sweep {i+1}/{len(grid)}: ma_fast={ma_fast} ma_slow={ma_slow}")
+        print(f"Sweep {i + 1}/{len(grid)}: ma_fast={ma_fast} ma_slow={ma_slow}")
         signal_fn = _create_trend_signal_fn(ma_fast=ma_fast, ma_slow=ma_slow)
 
         def _sizing_fn(sig, cap):

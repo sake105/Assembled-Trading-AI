@@ -303,9 +303,9 @@ def test_backtest_engine_multi_year(synthetic_prices_multi_year):
 
     # Check equity values are sensible
     assert equity["equity"].min() >= 0, "Equity should not be negative"
-    assert equity["equity"].iloc[0] == pytest.approx(
-        10000.0, abs=1.0
-    ), "Start equity should be ~10000"
+    assert equity["equity"].iloc[0] == pytest.approx(10000.0, abs=1.0), (
+        "Start equity should be ~10000"
+    )
 
     # Check daily_return
     assert equity["daily_return"].dtype in [
@@ -609,9 +609,9 @@ def test_backtest_engine_no_costs_trades_are_cash_gated(synthetic_prices_multi_y
     # but if non-empty, it MUST be the simulator output (has status +
     # fill_qty), not the orders_df request list.
     if not result.trades.empty:
-        assert (
-            "status" in result.trades.columns
-        ), "no-costs result.trades missing 'status' — looks like orders_df fallback"
-        assert (
-            "fill_qty" in result.trades.columns
-        ), "no-costs result.trades missing 'fill_qty' — looks like orders_df fallback"
+        assert "status" in result.trades.columns, (
+            "no-costs result.trades missing 'status' — looks like orders_df fallback"
+        )
+        assert "fill_qty" in result.trades.columns, (
+            "no-costs result.trades missing 'fill_qty' — looks like orders_df fallback"
+        )

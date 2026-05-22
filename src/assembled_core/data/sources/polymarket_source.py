@@ -94,7 +94,7 @@ def fetch_active_markets(
         return []
 
     markets: list[dict[str, Any]] = []
-    for item in (data if isinstance(data, list) else data.get("markets", [])):
+    for item in data if isinstance(data, list) else data.get("markets", []):
         if geo_filter:
             question_lower = str(item.get("question", "")).lower()
             if not any(kw in question_lower for kw in GEO_KEYWORDS):

@@ -97,9 +97,9 @@ def test_export_metrics_json_basic(tmp_path: Path):
 
     # Check that sharpe alias exists
     assert "sharpe" in metrics_dict, "Alias 'sharpe' should be present"
-    assert metrics_dict["sharpe"] == metrics_dict.get(
-        "sharpe_ratio"
-    ), "Alias 'sharpe' should match 'sharpe_ratio'"
+    assert metrics_dict["sharpe"] == metrics_dict.get("sharpe_ratio"), (
+        "Alias 'sharpe' should match 'sharpe_ratio'"
+    )
 
 
 def test_export_metrics_json_with_trades(tmp_path: Path):
@@ -128,21 +128,21 @@ def test_export_metrics_json_with_trades(tmp_path: Path):
     trade_keys = ["total_trades", "trades", "hit_rate", "profit_factor", "turnover"]
 
     for key in trade_keys:
-        assert (
-            key in metrics_dict
-        ), f"Trade key '{key}' should be present in metrics.json"
+        assert key in metrics_dict, (
+            f"Trade key '{key}' should be present in metrics.json"
+        )
 
     # Check that trades alias exists
     assert "trades" in metrics_dict, "Alias 'trades' should be present"
-    assert metrics_dict["trades"] == metrics_dict.get(
-        "total_trades"
-    ), "Alias 'trades' should match 'total_trades'"
+    assert metrics_dict["trades"] == metrics_dict.get("total_trades"), (
+        "Alias 'trades' should match 'total_trades'"
+    )
 
     # Check that total_trades is an integer or None
     if metrics_dict["total_trades"] is not None:
-        assert isinstance(
-            metrics_dict["total_trades"], int
-        ), "total_trades should be an integer or None"
+        assert isinstance(metrics_dict["total_trades"], int), (
+            "total_trades should be an integer or None"
+        )
 
 
 def test_export_metrics_json_deterministic_keys(tmp_path: Path):
@@ -214,9 +214,9 @@ def test_export_metrics_json_normalizes_nan_inf(tmp_path: Path):
         if value is None:
             assert key in metrics_dict, f"Key '{key}' should be present (even if None)"
         elif isinstance(value, float):
-            assert not (
-                pd.isna(value) or math.isinf(value)
-            ), f"Value for '{key}' should not be NaN or inf: {value}"
+            assert not (pd.isna(value) or math.isinf(value)), (
+                f"Value for '{key}' should not be NaN or inf: {value}"
+            )
 
 
 def test_export_metrics_json_timestamp_format(tmp_path: Path):
@@ -245,9 +245,9 @@ def test_export_metrics_json_timestamp_format(tmp_path: Path):
     assert "end_date" in metrics_dict, "end_date should be present"
 
     if metrics_dict["start_date"] is not None:
-        assert isinstance(
-            metrics_dict["start_date"], str
-        ), "start_date should be a string"
+        assert isinstance(metrics_dict["start_date"], str), (
+            "start_date should be a string"
+        )
         # Should be ISO 8601 format (contains 'T' or has date format)
         assert (
             "T" in metrics_dict["start_date"] or len(metrics_dict["start_date"]) >= 10
@@ -255,6 +255,6 @@ def test_export_metrics_json_timestamp_format(tmp_path: Path):
 
     if metrics_dict["end_date"] is not None:
         assert isinstance(metrics_dict["end_date"], str), "end_date should be a string"
-        assert (
-            "T" in metrics_dict["end_date"] or len(metrics_dict["end_date"]) >= 10
-        ), "end_date should be ISO 8601 format"
+        assert "T" in metrics_dict["end_date"] or len(metrics_dict["end_date"]) >= 10, (
+            "end_date should be ISO 8601 format"
+        )

@@ -96,18 +96,18 @@ def test_run_daily_eod_smoke(tmp_path: Path, monkeypatch):
 
     # Check filename format: orders_YYYYMMDD.csv
     expected_filename = f"orders_{test_date.strftime('%Y%m%d')}.csv"
-    assert (
-        safe_path.name == expected_filename
-    ), f"Filename should be {expected_filename}, got {safe_path.name}"
+    assert safe_path.name == expected_filename, (
+        f"Filename should be {expected_filename}, got {safe_path.name}"
+    )
 
     # Read and verify CSV
     df = pd.read_csv(safe_path)
 
     # Check columns
     expected_cols = ["Ticker", "Side", "Quantity", "PriceType", "Comment"]
-    assert (
-        list(df.columns) == expected_cols
-    ), f"Columns should be {expected_cols}, got {list(df.columns)}"
+    assert list(df.columns) == expected_cols, (
+        f"Columns should be {expected_cols}, got {list(df.columns)}"
+    )
 
     # Check that we have some orders (may be empty if no signals, but structure should be correct)
     # At minimum, the file should exist with correct schema
@@ -118,9 +118,9 @@ def test_run_daily_eod_smoke(tmp_path: Path, monkeypatch):
         assert df["Side"].isin(["BUY", "SELL"]).all(), "Sides should be BUY or SELL"
         assert (df["Quantity"] > 0).all(), "Quantities should be positive"
         assert df["PriceType"].iloc[0] == "MARKET", "PriceType should be MARKET"
-        assert (
-            df["Comment"].iloc[0] == "EOD Strategy - Daily MVP"
-        ), "Comment should match"
+        assert df["Comment"].iloc[0] == "EOD Strategy - Daily MVP", (
+            "Comment should match"
+        )
 
 
 def test_run_daily_eod_with_universe(tmp_path: Path, monkeypatch):
@@ -190,9 +190,9 @@ def test_run_daily_eod_universe_missing_symbols(tmp_path: Path, monkeypatch, cap
 
     # If orders exist, they should only be for AAPL
     if len(df) > 0:
-        assert (
-            df["Ticker"] == "AAPL"
-        ).all(), "Orders should only be for AAPL (only symbol with data)"
+        assert (df["Ticker"] == "AAPL").all(), (
+            "Orders should only be for AAPL (only symbol with data)"
+        )
 
 
 def test_run_daily_eod_no_symbols_after_filtering(tmp_path: Path, monkeypatch, capsys):

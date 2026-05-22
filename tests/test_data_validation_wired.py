@@ -43,9 +43,9 @@ def test_validate_price_data_has_callers():
     # load_eod_prices itself counts (it's an internal call)
     # Also check the function is called inside prices_ingest
     ingest_text = pathlib.Path("src/assembled_core/data/prices_ingest.py").read_text()
-    assert (
-        "validate_price_data(" in ingest_text
-    ), "validate_price_data must be called inside load_eod_prices"
+    assert "validate_price_data(" in ingest_text, (
+        "validate_price_data must be called inside load_eod_prices"
+    )
 
 
 @pytest.mark.fast

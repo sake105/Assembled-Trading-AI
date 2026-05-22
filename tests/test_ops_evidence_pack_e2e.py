@@ -66,9 +66,9 @@ def test_ops_evidence_pack_e2e(tmp_path: Path) -> None:
         cwd=str(ROOT),
     )
 
-    assert (
-        result.returncode == 0
-    ), f"CLI import failed: {result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"CLI import failed: {result.stdout}\n{result.stderr}"
+    )
 
     # Snapshot files should exist
     snapshot_dir = output_dir / f"broker_snapshot_{snapshot_run_id}"
@@ -136,9 +136,9 @@ def test_ops_evidence_pack_e2e(tmp_path: Path) -> None:
     # Reconcile JSON
     reconcile_dir = output_dir / f"reconcile_report_{ledger_run_id}"
     reconcile_json_path = reconcile_dir / f"reconcile_{snapshot_date_str}.json"
-    assert (
-        reconcile_json_path.exists()
-    ), f"Reconciliation JSON should exist at {reconcile_json_path}"
+    assert reconcile_json_path.exists(), (
+        f"Reconciliation JSON should exist at {reconcile_json_path}"
+    )
 
     with reconcile_json_path.open("r", encoding="utf-8") as f:
         reconcile_data = json.load(f)
@@ -150,9 +150,9 @@ def test_ops_evidence_pack_e2e(tmp_path: Path) -> None:
     # Accounting JSON
     accounting_dir = output_dir / f"accounting_report_{ledger_run_id}"
     accounting_json_path = accounting_dir / f"accounting_{snapshot_date_str}.json"
-    assert (
-        accounting_json_path.exists()
-    ), f"Accounting JSON should exist at {accounting_json_path}"
+    assert accounting_json_path.exists(), (
+        f"Accounting JSON should exist at {accounting_json_path}"
+    )
 
     with accounting_json_path.open("r", encoding="utf-8") as f:
         accounting_data = json.load(f)

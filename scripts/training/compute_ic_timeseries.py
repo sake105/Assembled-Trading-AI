@@ -233,7 +233,7 @@ def compute_ic_timeseries_all_factors(
         out_path = output_dir / f"ic_timeseries_{horizon_key}.parquet"
         ic_df.to_parquet(out_path, index=False)
         _log(
-            f"[OK] Saved IC timeseries {horizon_key} -> {out_path} ({len(ic_df)} rows, {len(ic_df.columns)-1} factors)"
+            f"[OK] Saved IC timeseries {horizon_key} -> {out_path} ({len(ic_df)} rows, {len(ic_df.columns) - 1} factors)"
         )
 
         ic_timeseries[horizon_key] = ic_df
@@ -348,12 +348,12 @@ def _print_factor_table(
     table = pd.DataFrame(rows).sort_values("ic_ir", ascending=False, na_position="last")
 
     print()
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     print(f"  Factor IC Rankings -- Horizon: {horizon_key}")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     header = f"{'Factor':<35} {'MeanIC':>8} {'IC-IR':>7} {'HitRatio':>9} {'t-stat':>8} {'N':>6}"
     print(header)
-    print(f"{'-'*80}")
+    print(f"{'-' * 80}")
 
     for row in table.itertuples(index=False):
         mean_ic_str = (
@@ -368,7 +368,7 @@ def _print_factor_table(
             f"{row.factor:<35} {mean_ic_str} {ic_ir_str} {hit_str} {t_str} {int(row.n_periods):>6}"
         )
 
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     print()
 
 

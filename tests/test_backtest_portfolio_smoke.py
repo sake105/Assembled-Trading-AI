@@ -74,17 +74,17 @@ def test_simulate_equity_basic():
 
     # Equity curve should have same length as price timeline (unique timestamps)
     unique_price_timestamps = prices["timestamp"].unique()
-    assert len(equity) == len(
-        unique_price_timestamps
-    ), f"Equity length ({len(equity)}) should match price timeline length ({len(unique_price_timestamps)})"
+    assert len(equity) == len(unique_price_timestamps), (
+        f"Equity length ({len(equity)}) should match price timeline length ({len(unique_price_timestamps)})"
+    )
 
     # Equity should always be positive
     assert (equity["equity"] > 0).all(), "Equity should always be positive"
 
     # First equity should equal start capital
-    assert (
-        abs(equity["equity"].iloc[0] - start_capital) < 1e-6
-    ), f"First equity should equal start capital ({start_capital})"
+    assert abs(equity["equity"].iloc[0] - start_capital) < 1e-6, (
+        f"First equity should equal start capital ({start_capital})"
+    )
 
 
 def test_simulate_equity_with_trades():
@@ -138,9 +138,9 @@ def test_simulate_with_costs_basic():
     assert isinstance(trades_df, pd.DataFrame), "trades_df should be a DataFrame"
     # trades_df should have expected columns (at minimum: timestamp, symbol, side, qty, price)
     if not trades_df.empty:
-        assert (
-            "timestamp" in trades_df.columns
-        ), "trades_df should have timestamp column"
+        assert "timestamp" in trades_df.columns, (
+            "trades_df should have timestamp column"
+        )
         assert "symbol" in trades_df.columns, "trades_df should have symbol column"
 
 
@@ -157,6 +157,6 @@ def test_simulate_with_costs_equity_positive():
                     orders, start_capital, commission_bps, spread_w, impact_w, "5min"
                 )
 
-                assert (
-                    equity["equity"] > 0
-                ).all(), f"Equity should be positive with costs: comm={commission_bps}, spread={spread_w}, impact={impact_w}"
+                assert (equity["equity"] > 0).all(), (
+                    f"Equity should be positive with costs: comm={commission_bps}, spread={spread_w}, impact={impact_w}"
+                )

@@ -193,9 +193,9 @@ def test_pack_zip_deterministic_checksums(tmp_path: Path) -> None:
     else:
         # Fallback: at least verify checksums match (already done above)
         # This handles cases where ZIP metadata (timestamps) differ but content is same
-        assert (
-            checksums1 == checksums2
-        ), "Checksums should match even if ZIP bytes differ"
+        assert checksums1 == checksums2, (
+            "Checksums should match even if ZIP bytes differ"
+        )
 
 
 def test_pack_zip_namelist_sorted(tmp_path: Path) -> None:
@@ -253,20 +253,20 @@ def test_pack_zip_namelist_sorted(tmp_path: Path) -> None:
 
     # Verify all paths are POSIX (no backslashes, no .., no leading /)
     for entry_name in namelist:
-        assert (
-            "\\" not in entry_name
-        ), f"ZIP entry should not contain backslashes: {entry_name}"
-        assert (
-            ".." not in entry_name
-        ), f"ZIP entry should not contain '..': {entry_name}"
-        assert not entry_name.startswith(
-            "/"
-        ), f"ZIP entry should not be absolute: {entry_name}"
+        assert "\\" not in entry_name, (
+            f"ZIP entry should not contain backslashes: {entry_name}"
+        )
+        assert ".." not in entry_name, (
+            f"ZIP entry should not contain '..': {entry_name}"
+        )
+        assert not entry_name.startswith("/"), (
+            f"ZIP entry should not be absolute: {entry_name}"
+        )
 
     # Verify pack manifest is in ZIP
-    assert any(
-        "pack_manifest_" in name for name in namelist
-    ), "Pack manifest should be in ZIP"
+    assert any("pack_manifest_" in name for name in namelist), (
+        "Pack manifest should be in ZIP"
+    )
 
 
 def test_pack_compression_stored_deterministic_bytes(tmp_path: Path) -> None:
@@ -315,9 +315,9 @@ def test_pack_compression_stored_deterministic_bytes(tmp_path: Path) -> None:
     zip_bytes1 = zip_path1.read_bytes()
     with manifest_path1.open("r", encoding="utf-8") as f:
         manifest1 = json.load(f)
-    assert (
-        manifest1.get("zip_compression") == "stored"
-    ), "Manifest must record zip_compression: stored"
+    assert manifest1.get("zip_compression") == "stored", (
+        "Manifest must record zip_compression: stored"
+    )
 
     zip_path1.unlink()
     manifest_path1.unlink()
@@ -336,6 +336,6 @@ def test_pack_compression_stored_deterministic_bytes(tmp_path: Path) -> None:
         manifest2 = json.load(f)
     assert manifest2.get("zip_compression") == "stored"
 
-    assert (
-        zip_bytes1 == zip_bytes2
-    ), "Two builds with compression=stored must yield identical ZIP bytes"
+    assert zip_bytes1 == zip_bytes2, (
+        "Two builds with compression=stored must yield identical ZIP bytes"
+    )

@@ -127,19 +127,19 @@ def test_regime_scenario_kpi_stable(tmp_path: Path, scenario_name: str) -> None:
             f"{scenario_name}: circuit breaker should reject orders at "
             f"benchmark_return={scenario['benchmark_return']}, got {len(out)}"
         )
-        assert (
-            getattr(eng, "_last_circuit_breaker_reason", None) is not None
-        ), f"{scenario_name}: breaker reason should be recorded"
+        assert getattr(eng, "_last_circuit_breaker_reason", None) is not None, (
+            f"{scenario_name}: breaker reason should be recorded"
+        )
 
     # KPI sanity — n_fills should respect the expected bound.
     if "n_fills_max" in expected:
-        assert (
-            result.n_fills <= expected["n_fills_max"]
-        ), f"{scenario_name}: n_fills={result.n_fills} exceeds max {expected['n_fills_max']}"
+        assert result.n_fills <= expected["n_fills_max"], (
+            f"{scenario_name}: n_fills={result.n_fills} exceeds max {expected['n_fills_max']}"
+        )
     if "n_fills_min" in expected:
-        assert (
-            result.n_fills >= expected["n_fills_min"]
-        ), f"{scenario_name}: n_fills={result.n_fills} below min {expected['n_fills_min']}"
+        assert result.n_fills >= expected["n_fills_min"], (
+            f"{scenario_name}: n_fills={result.n_fills} below min {expected['n_fills_min']}"
+        )
 
     # The engine must have produced a manifest even under stress.
     manifest = (

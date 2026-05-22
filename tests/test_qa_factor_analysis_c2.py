@@ -102,9 +102,9 @@ class TestBuildFactorPortfolioReturns:
         assert "n" in result.columns
 
         # Check that we have data for quantiles (may be fewer than 5 if qcut fails due to duplicates)
-        assert (
-            result["quantile"].nunique() >= 3
-        ), f"Should have at least 3 quantiles, got {result['quantile'].nunique()}"
+        assert result["quantile"].nunique() >= 3, (
+            f"Should have at least 3 quantiles, got {result['quantile'].nunique()}"
+        )
 
     def test_quantile_ordering(self, sample_factor_data_with_returns):
         """Test that higher quantiles have higher returns (for perfect factor)."""
@@ -204,9 +204,9 @@ class TestBuildLongShortPortfolioReturns:
             ]
             if not ls_row.empty:
                 actual_ls = ls_row["ls_return"].iloc[0]
-                assert (
-                    abs(actual_ls - expected_ls) < 0.0001
-                ), f"LS return should be Q5 - Q1: expected {expected_ls}, got {actual_ls}"
+                assert abs(actual_ls - expected_ls) < 0.0001, (
+                    f"LS return should be Q5 - Q1: expected {expected_ls}, got {actual_ls}"
+                )
 
     def test_custom_quantiles_v2(self, sample_portfolio_returns):
         """Test that custom low/high quantiles work."""
@@ -236,9 +236,9 @@ class TestBuildLongShortPortfolioReturns:
         """Test that gross_exposure is 2.0 for long/short."""
         result = build_long_short_portfolio_returns(sample_portfolio_returns)
 
-        assert (
-            result["gross_exposure"] == 2.0
-        ).all(), "Gross exposure should be 2.0 for long/short portfolios"
+        assert (result["gross_exposure"] == 2.0).all(), (
+            "Gross exposure should be 2.0 for long/short portfolios"
+        )
 
 
 class TestSummarizeFactorPortfolios:
@@ -350,9 +350,9 @@ class TestComputeDeflatedSharpeRatio:
         dsr_multiple = compute_deflated_sharpe_ratio(sharpe, n_obs, n_trials=10)
 
         # Multiple trials should result in lower (or equal) DSR
-        assert (
-            dsr_multiple <= dsr_single + 0.1
-        ), "Multiple trials should reduce DSR (accounting for multiple testing)"
+        assert dsr_multiple <= dsr_single + 0.1, (
+            "Multiple trials should reduce DSR (accounting for multiple testing)"
+        )
 
     def test_edge_case_low_sharpe(self):
         """Test edge case with low Sharpe ratio."""

@@ -188,6 +188,6 @@ def test_no_recompute_when_no_caps_configured() -> None:
             security_meta_df=None,
         )
 
-    assert (
-        call_count["compute_exposures"] == 0
-    ), "Optimization: no caps configured → no compute_exposures calls expected"
+    assert call_count["compute_exposures"] == 0, (
+        "Optimization: no caps configured → no compute_exposures calls expected"
+    )

@@ -73,13 +73,13 @@ def test_two_orders_proportionally_reduced_when_turnover_exceeds_cap() -> None:
         assert "total_turnover" in r["explain"], "explain should have total_turnover"
         assert "cap" in r["explain"], "explain should have cap"
         assert "scale_factor" in r["explain"], "explain should have scale_factor"
-        assert (
-            abs(r["explain"]["total_turnover"] - 2.5) < 1e-10
-        ), "total_turnover should be 2.5"
+        assert abs(r["explain"]["total_turnover"] - 2.5) < 1e-10, (
+            "total_turnover should be 2.5"
+        )
         assert abs(r["explain"]["cap"] - 0.5) < 1e-10, "cap should be 0.5"
-        assert (
-            abs(r["explain"]["scale_factor"] - 0.2) < 1e-10
-        ), "scale_factor should be 0.2"
+        assert abs(r["explain"]["scale_factor"] - 0.2) < 1e-10, (
+            "scale_factor should be 0.2"
+        )
 
 
 def test_deterministic_rounding() -> None:
@@ -129,16 +129,16 @@ def test_deterministic_rounding() -> None:
     ), "Reduction should be deterministic"
 
     # Reduction reasons should be identical
-    assert (
-        result1.reduced_orders == result2.reduced_orders
-    ), "Reduction reasons should be identical"
+    assert result1.reduced_orders == result2.reduced_orders, (
+        "Reduction reasons should be identical"
+    )
 
     # Verify rounding: 33 * (0.3 / 0.495) ≈ 20.0
     expected_qty = int(33.0 * (0.3 / 0.495))  # Floor rounding
     actual_qty = filtered1["qty"].iloc[0]
-    assert (
-        abs(actual_qty - expected_qty) < 1e-10
-    ), f"Qty should be rounded to {expected_qty}, got {actual_qty}"
+    assert abs(actual_qty - expected_qty) < 1e-10, (
+        f"Qty should be rounded to {expected_qty}, got {actual_qty}"
+    )
 
 
 def test_turnover_below_cap_unchanged() -> None:
@@ -277,6 +277,6 @@ def test_negative_qty_handled_correctly() -> None:
     expected_qty = -int(100.0 * (0.5 / 1.5))  # Should be -33
     actual_qty = filtered["qty"].iloc[0]
     assert actual_qty < 0.0, "Qty should be negative (SELL)"
-    assert (
-        abs(actual_qty - expected_qty) < 1e-10
-    ), f"Qty should be {expected_qty}, got {actual_qty}"
+    assert abs(actual_qty - expected_qty) < 1e-10, (
+        f"Qty should be {expected_qty}, got {actual_qty}"
+    )

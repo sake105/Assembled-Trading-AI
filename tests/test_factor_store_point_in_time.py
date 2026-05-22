@@ -100,9 +100,9 @@ def test_load_factors_with_end_date_filter(temp_factor_store, multi_year_factors
 
     # Verify max timestamp is <= end_date
     max_timestamp = loaded_df["timestamp"].max()
-    assert (
-        max_timestamp <= end_date
-    ), f"Max timestamp {max_timestamp} should be <= end_date {end_date}"
+    assert max_timestamp <= end_date, (
+        f"Max timestamp {max_timestamp} should be <= end_date {end_date}"
+    )
 
     # Verify we got some data (not empty)
     assert len(loaded_df) > 0, "Should have some rows before end_date"
@@ -138,15 +138,15 @@ def test_load_factors_with_start_date_filter(temp_factor_store, multi_year_facto
     assert not loaded_df.empty
 
     # Verify no rows before start_date
-    assert (
-        loaded_df["timestamp"] >= start_date
-    ).all(), "All rows should be >= start_date"
+    assert (loaded_df["timestamp"] >= start_date).all(), (
+        "All rows should be >= start_date"
+    )
 
     # Verify min timestamp is >= start_date
     min_timestamp = loaded_df["timestamp"].min()
-    assert (
-        min_timestamp >= start_date
-    ), f"Min timestamp {min_timestamp} should be >= start_date {start_date}"
+    assert min_timestamp >= start_date, (
+        f"Min timestamp {min_timestamp} should be >= start_date {start_date}"
+    )
 
     # Verify we got some data (not empty)
     assert len(loaded_df) > 0, "Should have some rows after start_date"
@@ -185,21 +185,21 @@ def test_load_factors_with_date_range_filter(temp_factor_store, multi_year_facto
     assert not loaded_df.empty
 
     # Verify all rows are within date range
-    assert (
-        loaded_df["timestamp"] >= start_date
-    ).all(), "All rows should be >= start_date"
+    assert (loaded_df["timestamp"] >= start_date).all(), (
+        "All rows should be >= start_date"
+    )
     assert (loaded_df["timestamp"] <= end_date).all(), "All rows should be <= end_date"
 
     # Verify min and max timestamps
     min_timestamp = loaded_df["timestamp"].min()
     max_timestamp = loaded_df["timestamp"].max()
 
-    assert (
-        min_timestamp >= start_date
-    ), f"Min timestamp {min_timestamp} should be >= start_date {start_date}"
-    assert (
-        max_timestamp <= end_date
-    ), f"Max timestamp {max_timestamp} should be <= end_date {end_date}"
+    assert min_timestamp >= start_date, (
+        f"Min timestamp {min_timestamp} should be >= start_date {start_date}"
+    )
+    assert max_timestamp <= end_date, (
+        f"Max timestamp {max_timestamp} should be <= end_date {end_date}"
+    )
 
 
 def test_load_factors_with_as_of_pit_filter(temp_factor_store, multi_year_factors_df):
@@ -232,15 +232,15 @@ def test_load_factors_with_as_of_pit_filter(temp_factor_store, multi_year_factor
     assert not loaded_df.empty
 
     # Verify no rows after as_of (strict PIT safety: <= as_of)
-    assert (
-        loaded_df["timestamp"] <= as_of
-    ).all(), "All rows should be <= as_of (PIT safety)"
+    assert (loaded_df["timestamp"] <= as_of).all(), (
+        "All rows should be <= as_of (PIT safety)"
+    )
 
     # Verify max timestamp is <= as_of
     max_timestamp = loaded_df["timestamp"].max()
-    assert (
-        max_timestamp <= as_of
-    ), f"Max timestamp {max_timestamp} should be <= as_of {as_of}"
+    assert max_timestamp <= as_of, (
+        f"Max timestamp {max_timestamp} should be <= as_of {as_of}"
+    )
 
     # Verify we got some data
     assert len(loaded_df) > 0, "Should have some rows <= as_of"
@@ -282,14 +282,14 @@ def test_load_factors_as_of_takes_precedence_over_end_date(
     assert not loaded_df.empty
 
     # Verify all rows are <= as_of (not end_date)
-    assert (
-        loaded_df["timestamp"] <= as_of
-    ).all(), "All rows should be <= as_of (takes precedence)"
+    assert (loaded_df["timestamp"] <= as_of).all(), (
+        "All rows should be <= as_of (takes precedence)"
+    )
 
     max_timestamp = loaded_df["timestamp"].max()
-    assert (
-        max_timestamp <= as_of
-    ), f"Max timestamp {max_timestamp} should be <= as_of {as_of} (not end_date {end_date})"
+    assert max_timestamp <= as_of, (
+        f"Max timestamp {max_timestamp} should be <= as_of {as_of} (not end_date {end_date})"
+    )
 
 
 def test_load_factors_empty_result_when_all_data_after_start(
@@ -322,9 +322,9 @@ def test_load_factors_empty_result_when_all_data_after_start(
 
     # Should return None or empty DataFrame
     if loaded_df is not None:
-        assert (
-            loaded_df.empty
-        ), "Should return empty DataFrame when all data is before start_date"
+        assert loaded_df.empty, (
+            "Should return empty DataFrame when all data is before start_date"
+        )
 
 
 def test_load_factors_empty_result_when_all_data_before_end(
@@ -357,6 +357,6 @@ def test_load_factors_empty_result_when_all_data_before_end(
 
     # Should return None or empty DataFrame
     if loaded_df is not None:
-        assert (
-            loaded_df.empty
-        ), "Should return empty DataFrame when all data is after end_date"
+        assert loaded_df.empty, (
+            "Should return empty DataFrame when all data is after end_date"
+        )

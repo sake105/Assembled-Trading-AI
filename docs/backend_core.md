@@ -615,7 +615,7 @@ pip install -e ".[dev]"
 
 Oder einzeln:
 ```bash
-pip install ruff black mypy
+pip install ruff mypy
 ```
 
 ### Verwendung
@@ -629,13 +629,13 @@ ruff check src tests scripts
 ruff check --fix src tests scripts
 ```
 
-**Black (Formatting):**
+**ruff-format (Formatting):**
 ```bash
 # Code formatieren
-black src tests scripts
+ruff format src tests scripts
 
 # Nur prüfen (keine Änderungen)
-black --check src tests scripts
+ruff format --check src tests scripts
 ```
 
 **mypy (Type Checking):**
@@ -656,10 +656,6 @@ mypy src/assembled_core
 - `select = ["E", "F", "I"]` - Errors, pyflakes, isort
 - `line-length = 88`
 
-**Black:**
-- `target-version = ["py310"]`
-- `line-length = 88`
-
 **mypy:**
 - `python_version = "3.10"`
 - `strict = False` - Moderater Modus (nicht zu strikt)
@@ -669,7 +665,7 @@ mypy src/assembled_core
 
 **Vor Commits:**
 - `ruff check src tests` - Offensichtliche Fehler prüfen
-- `black src tests scripts` - Code formatieren
+- `ruff format src tests scripts` - Code formatieren
 - `mypy` auf Kernmodulen - Type-Checks (optional)
 
 **CI/CD (Zukunft):**

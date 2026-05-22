@@ -62,9 +62,9 @@ def test_utc_normalization_naive_and_tz_aware() -> None:
 
     # Verify: all timestamps are UTC-aware
     for col in ["event_date", "disclosure_date", "effective_date"]:
-        assert (
-            normalized_naive[col].dt.tz is not None
-        ), f"{col} should be timezone-aware"
+        assert normalized_naive[col].dt.tz is not None, (
+            f"{col} should be timezone-aware"
+        )
         assert str(normalized_naive[col].dt.tz) == "UTC", f"{col} should be UTC"
 
 

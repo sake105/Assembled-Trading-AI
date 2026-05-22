@@ -49,9 +49,9 @@ def test_backtest_mode_adds_cost_columns(tmp_path):
     )
     out = book_fills(result, ctx)
 
-    assert (
-        "total_cost_cash" in out.orders_filtered.columns
-    ), "backtest mode must add cost columns via add_cost_columns_to_trades"
+    assert "total_cost_cash" in out.orders_filtered.columns, (
+        "backtest mode must add cost columns via add_cost_columns_to_trades"
+    )
     assert "commission_cash" in out.orders_filtered.columns
 
 
@@ -98,9 +98,9 @@ def test_live_mode_does_not_add_cost_columns(tmp_path):
     )
     out = book_fills(result, ctx)
 
-    assert (
-        "total_cost_cash" not in out.orders_filtered.columns
-    ), "live mode must NOT add cost columns"
+    assert "total_cost_cash" not in out.orders_filtered.columns, (
+        "live mode must NOT add cost columns"
+    )
 
 
 @pytest.mark.fast
@@ -110,6 +110,6 @@ def test_add_cost_columns_wired_in_v2_source():
     import src.assembled_core.pipeline.trading_cycle_v2 as mod
 
     src_text = inspect.getsource(mod)
-    assert (
-        "add_cost_columns_to_trades" in src_text
-    ), "trading_cycle_v2 must wire add_cost_columns_to_trades in book_fills"
+    assert "add_cost_columns_to_trades" in src_text, (
+        "trading_cycle_v2 must wire add_cost_columns_to_trades in book_fills"
+    )

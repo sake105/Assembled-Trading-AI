@@ -71,12 +71,12 @@ def test_normalize_signals_zscore_basic():
     # Check that mean is approximately 0 and std is approximately 1 per timestamp
     for date in dates:
         date_signals = normalized.loc[date, "signal_value"]
-        assert (
-            abs(date_signals.mean()) < 1e-10
-        ), f"Mean should be 0 for {date}, got {date_signals.mean()}"
-        assert (
-            abs(date_signals.std() - 1.0) < 1e-10
-        ), f"Std should be 1 for {date}, got {date_signals.std()}"
+        assert abs(date_signals.mean()) < 1e-10, (
+            f"Mean should be 0 for {date}, got {date_signals.mean()}"
+        )
+        assert abs(date_signals.std() - 1.0) < 1e-10, (
+            f"Std should be 1 for {date}, got {date_signals.std()}"
+        )
 
     # Check that original DataFrame was not modified
     assert "signal_value" in signals.columns
@@ -156,9 +156,9 @@ def test_make_signal_frame_basic(sample_raw_scores, sample_signal_metadata):
     for date in signal_frame.index.unique():
         date_signals = signal_frame.loc[date, "signal_value"]
         if len(date_signals) > 1:
-            assert (
-                abs(date_signals.mean()) < 0.1
-            ), f"Mean should be close to 0 for {date}"
+            assert abs(date_signals.mean()) < 0.1, (
+                f"Mean should be close to 0 for {date}"
+            )
 
 
 @pytest.mark.advanced

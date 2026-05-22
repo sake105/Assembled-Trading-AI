@@ -80,24 +80,24 @@ def test_backtest_write_broker_snapshot_smoke(tmp_path: Path):
 
     # Verify result has broker_snapshot_path in meta
     assert result.meta is not None, "Result should have meta dict"
-    assert (
-        "broker_snapshot_path" in result.meta
-    ), "Meta should contain broker_snapshot_path"
+    assert "broker_snapshot_path" in result.meta, (
+        "Meta should contain broker_snapshot_path"
+    )
 
     broker_snapshot_path = result.meta.get("broker_snapshot_path")
     assert broker_snapshot_path is not None, "broker_snapshot_path should not be None"
 
     # Verify snapshot directory exists
     snapshot_dir = output_dir / broker_snapshot_path
-    assert (
-        snapshot_dir.exists()
-    ), f"Broker snapshot directory should exist: {snapshot_dir}"
+    assert snapshot_dir.exists(), (
+        f"Broker snapshot directory should exist: {snapshot_dir}"
+    )
 
     # Verify snapshot JSON file exists (find by pattern)
     snapshot_files = list(snapshot_dir.glob("snapshot_*.json"))
-    assert (
-        len(snapshot_files) > 0
-    ), f"At least one snapshot JSON file should exist in {snapshot_dir}"
+    assert len(snapshot_files) > 0, (
+        f"At least one snapshot JSON file should exist in {snapshot_dir}"
+    )
 
     # Load and verify schema
     snapshot_file = snapshot_files[0]

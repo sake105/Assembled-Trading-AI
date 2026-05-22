@@ -101,9 +101,9 @@ def test_tca_report_basic(sample_backtest_dir: Path, tmp_path: Path):
     assert tca_report_file.exists(), f"TCA report file not found: {tca_report_file}"
 
     # Check that risk summary exists (because equity curve was provided)
-    assert (
-        tca_risk_summary_file.exists()
-    ), f"TCA risk summary file not found: {tca_risk_summary_file}"
+    assert tca_risk_summary_file.exists(), (
+        f"TCA risk summary file not found: {tca_risk_summary_file}"
+    )
 
     # Check that files are not empty
     assert tca_trades_file.stat().st_size > 0
@@ -149,9 +149,9 @@ def test_tca_report_without_equity_curve(
 
     # Risk summary should not exist (no equity curve)
     tca_risk_summary_file = output_dir / "tca_risk_summary.csv"
-    assert (
-        not tca_risk_summary_file.exists()
-    ), "Risk summary should not exist without equity curve"
+    assert not tca_risk_summary_file.exists(), (
+        "Risk summary should not exist without equity curve"
+    )
 
 
 @pytest.mark.advanced
@@ -227,9 +227,9 @@ def test_tca_report_with_custom_cost_params(sample_backtest_dir: Path, tmp_path:
     total_cost_default = tca_trades_df_default["cost_total"].sum()
 
     # Custom costs should be higher
-    assert (
-        total_cost_custom > total_cost_default
-    ), "Higher cost parameters should result in higher total costs"
+    assert total_cost_custom > total_cost_default, (
+        "Higher cost parameters should result in higher total costs"
+    )
 
 
 @pytest.mark.advanced

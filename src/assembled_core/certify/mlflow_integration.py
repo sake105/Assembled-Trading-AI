@@ -145,7 +145,9 @@ def _log_output_metrics(output: Any) -> None:
     out_dict = (
         output.__dict__
         if hasattr(output, "__dict__")
-        else dict(output) if hasattr(output, "__iter__") else {}
+        else dict(output)
+        if hasattr(output, "__iter__")
+        else {}
     )
     if not out_dict:
         out_dict = {attr: getattr(output, attr, None) for attr in metric_attrs}

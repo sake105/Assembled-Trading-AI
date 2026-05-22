@@ -210,9 +210,9 @@ def test_paper_track_cli_help():
         cmd, capture_output=True, text=True, cwd=Path(__file__).parent.parent
     )
 
-    assert (
-        result.returncode == 0
-    ), f"Help should exit with code 0. stderr: {result.stderr}"
+    assert result.returncode == 0, (
+        f"Help should exit with code 0. stderr: {result.stderr}"
+    )
     assert "config-file" in result.stdout, "Help should mention --config-file"
     assert "as-of" in result.stdout, "Help should mention --as-of"
     assert "start-date" in result.stdout, "Help should mention --start-date"
@@ -286,9 +286,9 @@ def test_paper_track_cli_single_day_dry_run(tmp_path: Path, monkeypatch):
 
     # dry-run: keine Outputs
     strategy_dir = output_root / "paper_test"
-    assert (
-        not strategy_dir.exists() or not (strategy_dir / "runs").exists()
-    ), "Dry-run should not create run directories"
+    assert not strategy_dir.exists() or not (strategy_dir / "runs").exists(), (
+        "Dry-run should not create run directories"
+    )
 
 
 @pytest.mark.advanced
@@ -333,9 +333,9 @@ def test_paper_track_cli_single_day_writes_outputs(tmp_path: Path, monkeypatch):
     assert run_dir.exists(), "Run directory should exist"
     assert (run_dir / "daily_summary.json").exists(), "daily_summary.json should exist"
     assert (run_dir / "daily_summary.md").exists(), "daily_summary.md should exist"
-    assert (
-        run_dir / "equity_snapshot.json"
-    ).exists(), "equity_snapshot.json should exist"
+    assert (run_dir / "equity_snapshot.json").exists(), (
+        "equity_snapshot.json should exist"
+    )
 
     state_file = output_root / "paper_test" / "state" / "state.json"
     assert state_file.exists(), "State file should exist"
@@ -400,9 +400,9 @@ def test_paper_track_cli_range_creates_multiple_run_dirs(tmp_path: Path, monkeyp
 
     # List all run directories
     run_dirs = sorted([d for d in base.iterdir() if d.is_dir()])
-    assert (
-        len(run_dirs) >= 3
-    ), f"Should have at least 3 run directories, got {len(run_dirs)}: {[d.name for d in run_dirs]}"
+    assert len(run_dirs) >= 3, (
+        f"Should have at least 3 run directories, got {len(run_dirs)}: {[d.name for d in run_dirs]}"
+    )
 
     # Check specific dates
     assert (base / "20240101").exists(), "Run directory for 2024-01-01 should exist"
@@ -424,6 +424,6 @@ def test_paper_track_cli_range_creates_multiple_run_dirs(tmp_path: Path, monkeyp
     with open(state_file, "r", encoding="utf-8") as f:
         state_data = json.load(f)
 
-    assert (
-        state_data["last_run_date"] == "2024-01-03T00:00:00+00:00"
-    ), "State should be updated to last run date"
+    assert state_data["last_run_date"] == "2024-01-03T00:00:00+00:00", (
+        "State should be updated to last run date"
+    )

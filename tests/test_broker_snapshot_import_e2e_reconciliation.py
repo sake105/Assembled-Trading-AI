@@ -235,18 +235,18 @@ def test_reconcile_report_includes_broker_meta_after_require(tmp_path: Path):
     report_dir = output_dir / f"reconcile_report_{run_id}"
     report_json_path = report_dir / f"reconcile_{date_str}.json"
 
-    assert (
-        report_json_path.exists()
-    ), f"Reconciliation report JSON should exist at {report_json_path}"
+    assert report_json_path.exists(), (
+        f"Reconciliation report JSON should exist at {report_json_path}"
+    )
 
     # Load and verify JSON
     with report_json_path.open("r", encoding="utf-8") as f:
         report_data = json.load(f)
 
     # Assert: broker_meta keys vorhanden und deterministisch (source/run_id/date/path)
-    assert (
-        "broker_meta" in report_data
-    ), "Reconciliation report JSON should contain broker_meta"
+    assert "broker_meta" in report_data, (
+        "Reconciliation report JSON should contain broker_meta"
+    )
     broker_meta_in_report = report_data["broker_meta"]
     assert broker_meta_in_report is not None
     assert broker_meta_in_report["broker_view_source"] == "stored_snapshot"

@@ -8,7 +8,6 @@ import pytest
 
 
 class TestCorrelationFeatures:
-
     def test_import(self):
         from src.assembled_core.features.correlation_features import (
             compute_avg_pairwise_correlation,
@@ -104,7 +103,6 @@ class TestCorrelationFeatures:
 
 
 class TestSupplyChainFeatures:
-
     def test_import_v2(self):
         from src.assembled_core.features.supply_chain_features import (
             build_supply_chain_features,
@@ -160,7 +158,6 @@ class TestSupplyChainFeatures:
 
 
 class TestGPRFeatures:
-
     def test_import_v3(self):
         from src.assembled_core.features.geopolitical_features import compute_gpr_proxy
 
@@ -201,7 +198,6 @@ class TestGPRFeatures:
 
 
 class TestWeaponizedInterdependence:
-
     def test_import_v4(self):
         import pytest
 
@@ -283,7 +279,6 @@ class TestWeaponizedInterdependence:
 
 
 class TestScenarioTrees:
-
     def test_import_v5(self):
         import pytest
 
@@ -358,7 +353,6 @@ def _scipy_available():
 
 
 class TestHRP:
-
     def test_import_v6(self):
         from src.assembled_core.portfolio.hierarchical_risk_parity import (
             compute_hrp_weights,
@@ -421,7 +415,6 @@ class TestHRP:
 
 
 class TestBarbellStrategy:
-
     def test_import_v7(self):
         import pytest
 
@@ -504,7 +497,6 @@ class TestBarbellStrategy:
 
 
 class TestMonteCarloVaR:
-
     def test_import_v8(self):
         from src.assembled_core.risk.risk_metrics import compute_monte_carlo_var
 
@@ -558,7 +550,6 @@ class TestMonteCarloVaR:
 
 
 class TestBrinsonFachler:
-
     def test_import_v9(self):
         from src.assembled_core.risk.risk_metrics import (
             compute_brinson_fachler_attribution,
@@ -619,7 +610,6 @@ class TestBrinsonFachler:
 
 
 class TestVolatilityFeatures:
-
     def test_import_v10(self):
         import pytest
 
@@ -651,7 +641,6 @@ class TestVolatilityFeatures:
 
 
 class TestICWeightsAndNeutralization:
-
     def test_neutralize_by_group(self):
         from src.assembled_core.signals.multifactor_signal import neutralize_by_group
 

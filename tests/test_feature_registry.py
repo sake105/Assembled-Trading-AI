@@ -66,14 +66,14 @@ def test_feature_names_are_namespaced() -> None:
     for name in FEATURE_REGISTRY.keys():
         # Check prefix
         has_valid_prefix = any(name.startswith(prefix) for prefix in valid_prefixes)
-        assert (
-            has_valid_prefix
-        ), f"Feature {name} does not start with valid prefix {valid_prefixes}"
+        assert has_valid_prefix, (
+            f"Feature {name} does not start with valid prefix {valid_prefixes}"
+        )
 
         # Check version suffix
-        assert (
-            name.endswith("_v1") or name.endswith("_v2") or "_v" in name
-        ), f"Feature {name} does not have version suffix (_v{{number}})"
+        assert name.endswith("_v1") or name.endswith("_v2") or "_v" in name, (
+            f"Feature {name} does not have version suffix (_v{{number}})"
+        )
 
         # Check metadata namespace matches prefix
         metadata = FEATURE_REGISTRY[name]
@@ -81,9 +81,9 @@ def test_feature_names_are_namespaced() -> None:
         assert namespace is not None, f"Feature {name} missing namespace in metadata"
 
         expected_prefix = f"{namespace}_"
-        assert name.startswith(
-            expected_prefix
-        ), f"Feature {name} prefix does not match namespace {namespace}"
+        assert name.startswith(expected_prefix), (
+            f"Feature {name} prefix does not match namespace {namespace}"
+        )
 
 
 def test_no_duplicate_feature_columns() -> None:
@@ -137,15 +137,15 @@ def test_registry_list_features_by_namespace() -> None:
     """Test list_features_by_namespace() function."""
     ta_features = list_features_by_namespace("ta")
     assert len(ta_features) > 0, "Should have TA features"
-    assert all(
-        f.startswith("ta_") for f in ta_features
-    ), "All features should start with 'ta_'"
+    assert all(f.startswith("ta_") for f in ta_features), (
+        "All features should start with 'ta_'"
+    )
 
     vol_features = list_features_by_namespace("vol")
     assert len(vol_features) > 0, "Should have volatility features"
-    assert all(
-        f.startswith("vol_") for f in vol_features
-    ), "All features should start with 'vol_'"
+    assert all(f.startswith("vol_") for f in vol_features), (
+        "All features should start with 'vol_'"
+    )
 
     # Test empty namespace
     empty_features = list_features_by_namespace("nonexistent")
@@ -203,9 +203,9 @@ def test_feature_generation_creates_namespaced_columns() -> None:
     ]
 
     for col in expected_legacy:
-        assert (
-            col in features.columns
-        ), f"Legacy column {col} should exist (compatibility)"
+        assert col in features.columns, (
+            f"Legacy column {col} should exist (compatibility)"
+        )
 
 
 def test_feature_registry_validation_fails_on_duplicate() -> None:

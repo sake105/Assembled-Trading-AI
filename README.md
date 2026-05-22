@@ -30,12 +30,12 @@ source .venv/bin/activate
 ### 3. Dependencies installieren
 
 ```bash
-pip install -e ".[dev,ml,ml-boost,ml-tune,ml-explain,ml-nlp,ml-hmm,ml-online,scipy,intermarket,historical-data,system_check,all]"
+pip install -e ".[dev,ml,ml-boost,ml-tune,ml-explain,ml-nlp,ml-hmm,ml-online,scipy,perf,intermarket,historical-data,system_check,all]"
 ```
 
 Dies installiert:
 - Core-Dependencies (pandas, numpy, fastapi, etc.)
-- Dev-Dependencies (pytest, ruff, black, mypy)
+- Dev-Dependencies (pytest, ruff, mypy)
 - Alle optionalen Extras (ML, NLP, Intermarket, etc.)
 
 **Minimale Installation (nur Dev):** `pip install -e ".[dev]"` — die Standard-Suite (`pytest -q`) läuft ohne optionale Pakete; fehlende Abhängigkeit führt zu SKIP, nicht ERROR. FastAPI ist Core-Dependency. Marker: `requires_scipy`, `requires_fastapi`, `requires_sklearn` in `pytest.ini`.
@@ -740,7 +740,7 @@ Die CI prüft bei jedem Push/PR auf `main` und `feature/*` Branches:
 
 - **Tests**: Alle Backend-Tests (Phase 4-11) mit `pytest -W error`
 - **Linting**: Code-Qualität mit `ruff check`
-- **Formatting**: Code-Format mit `black --check`
+- **Formatting**: Code-Format mit `ruff format --check`
 - **Type Checking**: Statische Typprüfung mit `mypy` (optional, non-blocking)
 
 **Unterstützte Python-Versionen**: 3.10, 3.11
@@ -803,7 +803,7 @@ logger.info("Pipeline started")
 
 - **Python:** PEP 8, Type Hints, Docstrings
 - **Linting:** `ruff check`
-- **Formatting:** `black`
+- **Formatting:** `ruff format`
 - **Type Checking:** `mypy` (optional)
 
 ### Git-Workflow

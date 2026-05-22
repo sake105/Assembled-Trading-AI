@@ -45,8 +45,7 @@ def _validate_columns(df: pd.DataFrame, required: tuple[str, ...], name: str) ->
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValueError(
-            f"{name} is missing required columns: {missing}. "
-            f"Got: {list(df.columns)}"
+            f"{name} is missing required columns: {missing}. Got: {list(df.columns)}"
         )
 
 

@@ -518,7 +518,7 @@ def test_importance_tracker_record_and_prune(tmp_path):
             X=X,
             y=y,
             feature_cols=["useful", "noise"],
-            as_of=f"2025-01-{i+1:02d}",
+            as_of=f"2025-01-{i + 1:02d}",
             n_repeats=3,
         )
 

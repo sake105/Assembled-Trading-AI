@@ -52,9 +52,9 @@ def test_run_daily_broker_snapshot_args_help():
 
     # Check that main() function exists
     assert hasattr(run_daily_module, "main"), "main() function should exist"
-    assert hasattr(
-        run_daily_module, "run_daily_eod"
-    ), "run_daily_eod() function should exist"
+    assert hasattr(run_daily_module, "run_daily_eod"), (
+        "run_daily_eod() function should exist"
+    )
 
     # Check that run_daily_eod() has broker snapshot parameters
     import inspect
@@ -62,18 +62,18 @@ def test_run_daily_broker_snapshot_args_help():
     sig = inspect.signature(run_daily_module.run_daily_eod)
     params = list(sig.parameters.keys())
 
-    assert (
-        "broker_snapshot_policy" in params
-    ), "broker_snapshot_policy parameter should exist"
-    assert (
-        "write_broker_snapshot" in params
-    ), "write_broker_snapshot parameter should exist"
-    assert (
-        "broker_snapshot_run_id" in params
-    ), "broker_snapshot_run_id parameter should exist"
-    assert (
-        "broker_snapshot_file" in params
-    ), "broker_snapshot_file parameter should exist"
-    assert (
-        "broker_snapshot_date" in params
-    ), "broker_snapshot_date parameter should exist"
+    assert "broker_snapshot_policy" in params, (
+        "broker_snapshot_policy parameter should exist"
+    )
+    assert "write_broker_snapshot" in params, (
+        "write_broker_snapshot parameter should exist"
+    )
+    assert "broker_snapshot_run_id" in params, (
+        "broker_snapshot_run_id parameter should exist"
+    )
+    assert "broker_snapshot_file" in params, (
+        "broker_snapshot_file parameter should exist"
+    )
+    assert "broker_snapshot_date" in params, (
+        "broker_snapshot_date parameter should exist"
+    )

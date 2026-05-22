@@ -129,9 +129,9 @@ def test_buy_order_reduced_when_exceeds_limit() -> None:
     # Since we're BUYing, we reduce qty from 10 to 1.67
     assert len(filtered) == 1, "Order should not be blocked"
     assert filtered["qty"].iloc[0] < 10.0, "Order qty should be reduced"
-    assert (
-        abs(filtered["qty"].iloc[0] - 1.67) < 0.1
-    ), "Order qty should be reduced to ~1.67"
+    assert abs(filtered["qty"].iloc[0] - 1.67) < 0.1, (
+        "Order qty should be reduced to ~1.67"
+    )
 
     # Check that reduction reason is recorded
     assert len(result.reduced_orders) > 0, "Should have reduction reason"
@@ -244,9 +244,9 @@ def test_deterministic_reduction() -> None:
     ), "Reduction should be deterministic"
 
     # Reduction reasons should be identical
-    assert (
-        result1.reduced_orders == result2.reduced_orders
-    ), "Reduction reasons should be identical"
+    assert result1.reduced_orders == result2.reduced_orders, (
+        "Reduction reasons should be identical"
+    )
 
 
 def test_equity_zero_raises_error() -> None:
@@ -288,9 +288,9 @@ def test_equity_zero_raises_error() -> None:
 
     # Should have blocked reason
     assert not result.is_ok, "Should fail with equity = 0"
-    assert any(
-        "equity" in reason.lower() for reason in result.blocked_reasons
-    ), "Should mention equity in error"
+    assert any("equity" in reason.lower() for reason in result.blocked_reasons), (
+        "Should mention equity in error"
+    )
 
 
 def test_missing_price_raises_error() -> None:
@@ -333,6 +333,6 @@ def test_missing_price_raises_error() -> None:
 
     # Should have blocked reason
     assert not result.is_ok, "Should fail with missing price"
-    assert any(
-        "price" in reason.lower() for reason in result.blocked_reasons
-    ), "Should mention price in error"
+    assert any("price" in reason.lower() for reason in result.blocked_reasons), (
+        "Should mention price in error"
+    )

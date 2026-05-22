@@ -7,7 +7,6 @@ import pandas as pd
 
 
 class TestCircuitBreaker:
-
     def test_import(self):
         from src.assembled_core.execution.fill_model import check_circuit_breaker
 
@@ -56,7 +55,6 @@ class TestCircuitBreaker:
 
 
 class TestAdversarialFill:
-
     def test_import_v2(self):
         from src.assembled_core.execution.fill_model import (
             compute_adversarial_fill_cost,
@@ -119,7 +117,6 @@ class TestAdversarialFill:
 
 
 class TestBenchmarkMetrics:
-
     def test_import_v3(self):
         from src.assembled_core.qa.metrics import compute_benchmark_relative_metrics
 
@@ -169,7 +166,6 @@ class TestBenchmarkMetrics:
 
 
 class TestPermutationTest:
-
     def test_import_v4(self):
         from src.assembled_core.qa.metrics import permutation_test_sharpe
 
@@ -211,7 +207,6 @@ class TestPermutationTest:
 
 
 class TestDailyPnLReconciliation:
-
     def test_import_v5(self):
         from src.assembled_core.accounting.reconciliation import reconcile_daily_pnl
 

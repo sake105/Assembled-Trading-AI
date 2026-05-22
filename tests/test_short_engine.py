@@ -480,9 +480,9 @@ class TestInverseETFSelector:
             )
             if instrument and instrument in INVERSE_ETF_PROFILES:
                 profile = INVERSE_ETF_PROFILES[instrument]
-                assert (
-                    abs(profile.leverage) <= 1
-                ), f"{instrument} has leverage {profile.leverage} — should not be selected"
+                assert abs(profile.leverage) <= 1, (
+                    f"{instrument} has leverage {profile.leverage} — should not be selected"
+                )
 
     def test_decay_adjusted_return(self):
         from src.assembled_core.portfolio.inverse_etf_selector import InverseETFSelector

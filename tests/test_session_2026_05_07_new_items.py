@@ -1345,9 +1345,9 @@ class TestABCompareScript:
         assert hasattr(mod, "main_csv"), "main_csv() (CSV mode) must be defined"
         assert hasattr(mod, "_sharpe_z_test"), "_sharpe_z_test() must be defined"
         assert hasattr(mod, "_load_equity_csv"), "_load_equity_csv() must be defined"
-        assert hasattr(
-            mod, "_metrics_from_returns"
-        ), "_metrics_from_returns() must be defined"
+        assert hasattr(mod, "_metrics_from_returns"), (
+            "_metrics_from_returns() must be defined"
+        )
 
     def test_cli_csv_comparison(self, tmp_path):
         """CSV mode: compares two synthetic equity curves and returns exit code 0 or 1."""
@@ -1361,7 +1361,7 @@ class TestABCompareScript:
                 w = csv.writer(f)
                 w.writerow(["date", "equity"])
                 for i, v in enumerate(values):
-                    w.writerow([f"2024-01-{i+1:02d}", v])
+                    w.writerow([f"2024-01-{i + 1:02d}", v])
 
         # Strategy A: steady growth
         eq_a = [100 + i * 0.5 for i in range(40)]
@@ -1424,9 +1424,9 @@ class TestMaxExposureMultiplierCap:
             Path(__file__).resolve().parents[1]
             / "src/assembled_core/pipeline/_tc_sizing.py"
         ).read_text(encoding="utf-8")
-        assert (
-            "_MAX_EXPOSURE_MULT = 3.0" in src
-        ), "_MAX_EXPOSURE_MULT = 3.0 not found — value was changed without review"
+        assert "_MAX_EXPOSURE_MULT = 3.0" in src, (
+            "_MAX_EXPOSURE_MULT = 3.0 not found — value was changed without review"
+        )
 
     def test_min_exposure_floor_present(self):
         """_MIN_EXPOSURE_MULT floor (0.05) must exist adjacent to the cap."""
@@ -1436,9 +1436,9 @@ class TestMaxExposureMultiplierCap:
             Path(__file__).resolve().parents[1]
             / "src/assembled_core/pipeline/_tc_sizing.py"
         ).read_text(encoding="utf-8")
-        assert (
-            "_MIN_EXPOSURE_MULT = 0.05" in src
-        ), "_MIN_EXPOSURE_MULT = 0.05 not found in _tc_sizing.py"
+        assert "_MIN_EXPOSURE_MULT = 0.05" in src, (
+            "_MIN_EXPOSURE_MULT = 0.05 not found in _tc_sizing.py"
+        )
 
     def test_multiplier_cap_code_path_verified(self):
         """The cap branch must exist and log a warning — structure check."""
@@ -1471,19 +1471,19 @@ class TestPathlibMigration:
             / "src/assembled_core/config/policy_loader.py"
         ).read_text(encoding="utf-8")
         # os.path.getmtime and os.path.isfile must be gone; os.environ.get is fine
-        assert (
-            "os.path.getmtime" not in src
-        ), "os.path.getmtime should be replaced with pathlib"
-        assert (
-            "os.path.isfile" not in src
-        ), "os.path.isfile should be replaced with pathlib"
-        assert (
-            "os.path.exists" not in src
-        ), "os.path.exists should be replaced with pathlib"
+        assert "os.path.getmtime" not in src, (
+            "os.path.getmtime should be replaced with pathlib"
+        )
+        assert "os.path.isfile" not in src, (
+            "os.path.isfile should be replaced with pathlib"
+        )
+        assert "os.path.exists" not in src, (
+            "os.path.exists should be replaced with pathlib"
+        )
         # pathlib should be used for file stat
-        assert (
-            ".stat().st_mtime" in src
-        ), "pathlib stat() must be used instead of os.path.getmtime"
+        assert ".stat().st_mtime" in src, (
+            "pathlib stat() must be used instead of os.path.getmtime"
+        )
 
     def test_multifactor_v2_no_os_import(self):
         """multifactor_v2.py must no longer import os at module level."""
@@ -1502,9 +1502,9 @@ class TestPathlibMigration:
             and n.col_offset == 0
             and any(alias.name == "os" for alias in n.names)
         ]
-        assert (
-            not top_os_imports
-        ), "os should not be imported at module level in multifactor_v2"
+        assert not top_os_imports, (
+            "os should not be imported at module level in multifactor_v2"
+        )
 
 
 # ─── Backlog Item 103: decision_log.py ───────────────────────────────────────
@@ -1567,9 +1567,9 @@ class TestDecisionLogger:
         dlog = DecisionLogger(log_dir=tmp_path, auto_flush=False)
         n = dlog.flush()
         assert n == 0
-        assert (
-            list(tmp_path.iterdir()) == []
-        ), "No files should be created for empty flush"
+        assert list(tmp_path.iterdir()) == [], (
+            "No files should be created for empty flush"
+        )
 
 
 # ─── Backlog Item 84: Quarter-end guard in policy.yaml ───────────────────────
@@ -2733,9 +2733,9 @@ class TestBorrowRateConfig:
             or policy.get("borrow_rate_default")
         )
         if rate is not None:
-            assert (
-                0.001 <= float(rate) <= 0.10
-            ), f"Borrow rate {rate} outside realistic range [0.1%, 10%]"
+            assert 0.001 <= float(rate) <= 0.10, (
+                f"Borrow rate {rate} outside realistic range [0.1%, 10%]"
+            )
 
     def test_risk_limits_has_cost_controls(self):
         """risk_limits section should exist with commission or slippage controls."""
@@ -3450,9 +3450,9 @@ class TestPositionEngineSimplePnL:
         events = self._make_events()
         result = build_positions_from_ledger(events, start_cash=0.0)
         pos_df = result["positions_df"]
-        assert (
-            len(pos_df) == 0
-        ), f"Expected empty positions after full close, got {len(pos_df)} rows"
+        assert len(pos_df) == 0, (
+            f"Expected empty positions after full close, got {len(pos_df)} rows"
+        )
 
     def test_cash_balance_correct_after_round_trip(self):
         """Cash after buy@150 sell@160: net cash flow = -15000 + 16000 = +$1000."""
@@ -3708,9 +3708,9 @@ class TestComplianceAllowedSources:
         for name in dir(rl):
             if name.endswith(("_PER_MINUTE", "_PER_HOUR", "_PER_DAY", "_PER_SEC")):
                 val = getattr(rl, name)
-                assert (
-                    isinstance(val, int) and val > 0
-                ), f"{name}={val} should be positive int"
+                assert isinstance(val, int) and val > 0, (
+                    f"{name}={val} should be positive int"
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -4231,9 +4231,9 @@ class TestNumpyImportTradingCycleShared:
             Path(__file__).resolve().parents[1]
             / "src/assembled_core/pipeline/trading_cycle_shared.py"
         ).read_text(encoding="utf-8")
-        assert (
-            "import numpy" in src
-        ), "numpy must be imported in trading_cycle_shared.py"
+        assert "import numpy" in src, (
+            "numpy must be imported in trading_cycle_shared.py"
+        )
 
     def test_module_imports_without_error(self):
         import src.assembled_core.pipeline.trading_cycle_shared  # noqa: F401
@@ -4613,9 +4613,9 @@ class TestPickleLoadingPolicy:
             Path(__file__).resolve().parents[1]
             / "src/assembled_core/ml/model_registry.py"
         ).read_text(encoding="utf-8")
-        assert (
-            "pickle.load" not in src
-        ), "model_registry.py should not use raw pickle.load"
+        assert "pickle.load" not in src, (
+            "model_registry.py should not use raw pickle.load"
+        )
 
     def test_joblib_dump_used_for_saving(self):
         from pathlib import Path
@@ -4755,9 +4755,9 @@ class TestDatetimeTimezoneAwareness:
             / "src/assembled_core/pipeline/_tc_sizing.py"
         ).read_text(encoding="utf-8")
         naive_count = src.count("datetime.now()") - src.count("datetime.now(tz")
-        assert (
-            naive_count == 0
-        ), f"Found {naive_count} naive datetime.now() calls in _tc_sizing"
+        assert naive_count == 0, (
+            f"Found {naive_count} naive datetime.now() calls in _tc_sizing"
+        )
 
     def test_no_utcnow_in_core_accounting(self):
         from pathlib import Path
@@ -4859,9 +4859,9 @@ class TestLoggingHotPath:
         # Count f-string debug calls — ideally zero or minimal
         fstring_debug = src.count('log.debug(f"') + src.count("log.debug(f'")
         # Warn if excessive — threshold is lenient (some f-string debug is okay)
-        assert (
-            fstring_debug < 10
-        ), f"multifactor_v2 has {fstring_debug} f-string debug calls"
+        assert fstring_debug < 10, (
+            f"multifactor_v2 has {fstring_debug} f-string debug calls"
+        )
 
     def test_structured_log_module_importable(self):
         from src.assembled_core.ops.decision_log import DecisionLogger
@@ -5237,9 +5237,9 @@ class TestNoqaF401Count:
             .glob("src/assembled_core/**/*.py")
             for src in [f.read_text(encoding="utf-8", errors="ignore")]
         )
-        assert (
-            count < 150
-        ), f"Excessive F401 noqa: {count} — check for unintentional suppressions"
+        assert count < 150, (
+            f"Excessive F401 noqa: {count} — check for unintentional suppressions"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -5282,9 +5282,9 @@ class TestCIWorkflowCoverage:
         workflows = list(
             (Path(__file__).resolve().parents[1] / ".github/workflows").glob("*.yml")
         )
-        assert (
-            len(workflows) >= 5
-        ), f"Expected at least 5 workflows, got {len(workflows)}"
+        assert len(workflows) >= 5, (
+            f"Expected at least 5 workflows, got {len(workflows)}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -5306,9 +5306,9 @@ class TestNoqaOverallBound:
             .glob("src/assembled_core/**/*.py")
             for src in [f.read_text(encoding="utf-8", errors="ignore")]
         )
-        assert (
-            count < 400
-        ), f"Total noqa suppressions = {count} — review for accumulation"
+        assert count < 400, (
+            f"Total noqa suppressions = {count} — review for accumulation"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -5498,9 +5498,9 @@ class TestNetworkTimeoutCoverage:
             Path(__file__).resolve().parents[1]
             / "src/assembled_core/intel/rss_fetcher.py"
         ).read_text(encoding="utf-8")
-        assert (
-            "timeout" in src.lower()
-        ), "rss_fetcher.py should set an explicit request timeout"
+        assert "timeout" in src.lower(), (
+            "rss_fetcher.py should set an explicit request timeout"
+        )
 
     def test_edgar_fetcher_has_timeout(self):
         from pathlib import Path
@@ -5511,9 +5511,9 @@ class TestNetworkTimeoutCoverage:
         if not edgar_candidates:
             pytest.skip("No EDGAR fetcher found")
         src = edgar_candidates[0].read_text(encoding="utf-8")
-        assert (
-            "timeout" in src.lower()
-        ), f"{edgar_candidates[0].name} should set a timeout"
+        assert "timeout" in src.lower(), (
+            f"{edgar_candidates[0].name} should set a timeout"
+        )
 
     def test_rate_limits_module_has_sec_edgar_constant(self):
         from src.assembled_core.compliance.rate_limits import SEC_EDGAR_MAX_REQ_PER_SEC
@@ -5602,9 +5602,9 @@ class TestSecurityToolsCoverage:
             tool in all_config
             for tool in ["pip-audit", "safety", "bandit", "gitleaks", "detect-secrets"]
         )
-        assert (
-            has_audit
-        ), "No security scanning tool found in CI workflows or pre-commit config"
+        assert has_audit, (
+            "No security scanning tool found in CI workflows or pre-commit config"
+        )
 
     def test_pre_commit_config_not_empty(self):
         from pathlib import Path
@@ -5965,9 +5965,9 @@ class TestFOMCDayHandling:
         if result.returncode != 0:
             pytest.skip("count failed")
         count = int(result.stdout.strip())
-        assert (
-            count >= 3
-        ), f"FOMC only referenced {count} times — Fed day risk not modeled"
+        assert count >= 3, (
+            f"FOMC only referenced {count} times — Fed day risk not modeled"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -5990,9 +5990,9 @@ class TestMAAnnouncementHandling:
                 total += txt.count("merger") + txt.count("acquisition")
             except Exception:
                 pass
-        assert (
-            total >= 3
-        ), f"M&A barely mentioned ({total}) — no acquisition-event handling"
+        assert total >= 3, (
+            f"M&A barely mentioned ({total}) — no acquisition-event handling"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6011,9 +6011,9 @@ class TestSettingWithCopyWarning:
             for f in Path("src/assembled_core").rglob("*.py")
             if "__pycache__" not in str(f)
         )
-        assert (
-            total > 50
-        ), f".copy() used only {total} times — SettingWithCopyWarning risk"
+        assert total > 50, (
+            f".copy() used only {total} times — SettingWithCopyWarning risk"
+        )
 
     def test_pandas_is_modern(self):
         import pandas as pd
@@ -6081,9 +6081,9 @@ class TestPhantomModulesCount:
             pytest.skip("trading_cycle_shared.py not found")
         txt = critical.read_text(errors="ignore")
         top = "\n".join(txt.splitlines()[:30])
-        assert (
-            "except ImportError" not in top
-        ), "trading_cycle_shared.py has try/except ImportError at top level"
+        assert "except ImportError" not in top, (
+            "trading_cycle_shared.py has try/except ImportError at top level"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6161,9 +6161,9 @@ class TestRequirementsLockFile:
         from pathlib import Path
 
         lock = Path(__file__).resolve().parents[1] / "requirements.lock"
-        assert (
-            lock.exists()
-        ), "requirements.lock missing — CI reproducibility unverified"
+        assert lock.exists(), (
+            "requirements.lock missing — CI reproducibility unverified"
+        )
 
     def test_both_files_non_trivial(self):
         from pathlib import Path
@@ -6236,9 +6236,9 @@ class TestConfigDirectoryConsolidation:
             return  # already consolidated — ideal
         legacy_count = len([f for f in config_legacy.rglob("*") if f.is_file()])
         configs_count = len([f for f in (root / "configs").rglob("*") if f.is_file()])
-        assert (
-            legacy_count < configs_count
-        ), f"config/ ({legacy_count}) >= configs/ ({configs_count}) — consolidation inverted"
+        assert legacy_count < configs_count, (
+            f"config/ ({legacy_count}) >= configs/ ({configs_count}) — consolidation inverted"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6262,9 +6262,9 @@ class TestPrePostMarketAwareness:
                 or "extended_hours" in f.read_text(errors="ignore").lower()
             )
         )
-        assert (
-            total >= 1
-        ), "pre/post market not referenced — trading-hours logic undefined"
+        assert total >= 1, (
+            "pre/post market not referenced — trading-hours logic undefined"
+        )
 
     def test_market_calendar_has_hours_check(self):
         from pathlib import Path
@@ -6407,9 +6407,9 @@ class TestProductionAsserts:
             or ln.strip().startswith("raise RuntimeError")
             or ln.strip().startswith("raise AssertionError")
         )
-        assert (
-            total > 100
-        ), f"Only {total} invariant-guard raises — defensive programming missing"
+        assert total > 100, (
+            f"Only {total} invariant-guard raises — defensive programming missing"
+        )
 
     def test_pre_trade_checks_have_assertions(self):
         from pathlib import Path
@@ -6422,9 +6422,9 @@ class TestProductionAsserts:
             for f in pre_trade.rglob("*.py")
             if "__pycache__" not in str(f)
         )
-        assert (
-            has_guards
-        ), "No raise-guards in execution layer — pre-trade invariants missing"
+        assert has_guards, (
+            "No raise-guards in execution layer — pre-trade invariants missing"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6592,9 +6592,9 @@ class TestCodeLanguageMix:
             pytest.skip("No comment lines found")
         ratio = de_lines / total_comment_lines
         # German comments should be < 10% of all comment lines
-        assert (
-            ratio < 0.10
-        ), f"German comments are {ratio:.1%} of all comments — English should dominate"
+        assert ratio < 0.10, (
+            f"German comments are {ratio:.1%} of all comments — English should dominate"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6673,9 +6673,9 @@ class TestSessionTestFileGrowth:
             for node in ast.walk(tree)
             if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
         ]
-        assert (
-            len(test_funcs) > 400
-        ), f"Session test file has only {len(test_funcs)} test functions"
+        assert len(test_funcs) > 400, (
+            f"Session test file has only {len(test_funcs)} test functions"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6726,9 +6726,9 @@ class TestNoDuplicateImplementations:
             if "__pycache__" not in str(f) and "backtest_engine" in f.name.lower()
         ]
         # Only one canonical backtest_engine.py
-        assert (
-            len(backtest_files) <= 2
-        ), f"Multiple backtest engine files: {[f.name for f in backtest_files]}"
+        assert len(backtest_files) <= 2, (
+            f"Multiple backtest engine files: {[f.name for f in backtest_files]}"
+        )
 
     def test_single_position_engine(self):
         from pathlib import Path
@@ -6739,9 +6739,9 @@ class TestNoDuplicateImplementations:
             if "__pycache__" not in str(f) and "position_engine" in f.name.lower()
         ]
         # Should be one canonical position engine
-        assert (
-            len(pos_files) <= 2
-        ), f"Multiple position engine files: {[f.name for f in pos_files]}"
+        assert len(pos_files) <= 2, (
+            f"Multiple position engine files: {[f.name for f in pos_files]}"
+        )
 
     def test_single_ledger_file(self):
         from pathlib import Path
@@ -6754,9 +6754,9 @@ class TestNoDuplicateImplementations:
             and "ledger_store" not in f.name.lower()
         ]
         # One canonical ledger
-        assert (
-            len(ledger_files) <= 3
-        ), f"Too many ledger files: {[f.name for f in ledger_files]}"
+        assert len(ledger_files) <= 3, (
+            f"Too many ledger files: {[f.name for f in ledger_files]}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6819,9 +6819,9 @@ class TestETFTrackingError:
             for f in Path("src/assembled_core").rglob("*.py")
             if "__pycache__" not in str(f)
         )
-        assert (
-            total > 0
-        ), "ETF tracking error not referenced anywhere — ETF risk unmodeled"
+        assert total > 0, (
+            "ETF tracking error not referenced anywhere — ETF risk unmodeled"
+        )
 
     def test_etf_flows_module_exists(self):
         from pathlib import Path
@@ -6854,9 +6854,9 @@ class TestMagicNumbersPolicy:
             and "=" in ln
             and ln.split("=")[0].strip().isupper()
         ]
-        assert (
-            len(upper_consts) > 3
-        ), f"mfv2 has only {len(upper_consts)} UPPER_CASE constants — magic numbers likely"
+        assert len(upper_consts) > 3, (
+            f"mfv2 has only {len(upper_consts)} UPPER_CASE constants — magic numbers likely"
+        )
 
     def test_policy_yaml_has_numeric_params(self):
         from pathlib import Path
@@ -6894,9 +6894,9 @@ class TestFinalSessionCount:
             for n in ast.walk(tree)
             if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")
         ]
-        assert (
-            len(test_funcs) > 440
-        ), f"Session test file has only {len(test_funcs)} tests — expected >440"
+        assert len(test_funcs) > 440, (
+            f"Session test file has only {len(test_funcs)} tests — expected >440"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -6919,9 +6919,9 @@ class TestConfigFileCount:
             if f.suffix in (".yaml", ".yml", ".json") and f.is_file()
         ]
         # Currently ~53 — cap at 100 to prevent config sprawl
-        assert (
-            len(yaml_files) < 100
-        ), f"Too many config files ({len(yaml_files)}) — configs/ is sprawling"
+        assert len(yaml_files) < 100, (
+            f"Too many config files ({len(yaml_files)}) — configs/ is sprawling"
+        )
 
     def test_policy_yaml_exists(self):
         from pathlib import Path
@@ -6945,9 +6945,9 @@ class TestKillSwitchWiring:
         if not tc.exists():
             pytest.skip("trading_cycle_shared.py not found")
         txt = tc.read_text(errors="ignore").lower()
-        assert (
-            "kill_switch" in txt or "halt" in txt or "kill" in txt
-        ), "kill_switch not referenced in trading_cycle_shared.py"
+        assert "kill_switch" in txt or "halt" in txt or "kill" in txt, (
+            "kill_switch not referenced in trading_cycle_shared.py"
+        )
 
     def test_kill_switch_module_importable(self):
         try:
@@ -7175,9 +7175,9 @@ class TestHardImportCriticalModules:
         lines = txt.splitlines()[:50]
         top = "\n".join(lines)
         has_phantom = "except ImportError" in top or "except ModuleNotFoundError" in top
-        assert (
-            not has_phantom
-        ), "pre_trade_checks.py has phantom-import pattern at top level — silent degradation risk"
+        assert not has_phantom, (
+            "pre_trade_checks.py has phantom-import pattern at top level — silent degradation risk"
+        )
 
     def test_ledger_hard_imports(self):
         from pathlib import Path
@@ -7188,9 +7188,9 @@ class TestHardImportCriticalModules:
         txt = ledger.read_text(errors="ignore")
         top = "\n".join(txt.splitlines()[:40])
         has_phantom = "except ImportError" in top
-        assert (
-            not has_phantom
-        ), "accounting/ledger.py has try/except ImportError at top — silent degradation risk"
+        assert not has_phantom, (
+            "accounting/ledger.py has try/except ImportError at top — silent degradation risk"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -7261,9 +7261,9 @@ class TestBacktest20232024Period:
     def test_backtest_seed_arg_exists_in_runner(self):
         runner = Path(__file__).parents[1] / "scripts" / "run_backtest_strategy.py"
         content = runner.read_text(encoding="utf-8", errors="replace")
-        assert (
-            "--seed" in content
-        ), "Backtest runner must support --seed for reproducibility"
+        assert "--seed" in content, (
+            "Backtest runner must support --seed for reproducibility"
+        )
 
     def test_characterization_tests_exist(self):
         char_dir = Path(__file__).parents[1] / "tests" / "characterization"
@@ -7282,9 +7282,9 @@ class TestEDCLConvictionInBacktest:
         with open(policy) as f:
             cfg = yaml.safe_load(f)
         edcl = cfg.get("edcl_conviction_overlay", {})
-        assert (
-            edcl.get("allow_in_backtest") is False
-        ), "EDCL must be disabled in backtest to avoid live-signal contamination"
+        assert edcl.get("allow_in_backtest") is False, (
+            "EDCL must be disabled in backtest to avoid live-signal contamination"
+        )
 
     def test_edcl_conviction_threshold_is_high(self):
         import yaml
@@ -7293,9 +7293,9 @@ class TestEDCLConvictionInBacktest:
             cfg = yaml.safe_load(f)
         edcl = cfg.get("edcl_conviction_overlay", {})
         threshold = edcl.get("conviction_threshold", 0.0)
-        assert (
-            threshold >= 0.70
-        ), "EDCL conviction threshold should be high (>= 0.70) for paper"
+        assert threshold >= 0.70, (
+            "EDCL conviction threshold should be high (>= 0.70) for paper"
+        )
 
     def test_composite_score_has_edcl_conviction_function(self):
         p = (
@@ -7611,9 +7611,9 @@ class TestDecisionLogImpl:
             pytest.skip("Decision log is empty")
         entry = json.loads(first_line)
         # conviction may or may not be present depending on EDCL; symbol/side always are
-        assert (
-            "symbol" in entry and "side" in entry
-        ), "Decision log must have symbol and side fields"
+        assert "symbol" in entry and "side" in entry, (
+            "Decision log must have symbol and side fields"
+        )
 
     def test_decision_log_has_top_factors(self):
         p = Path(__file__).parents[1] / "output" / "decisions"
@@ -7832,9 +7832,9 @@ class TestDependencyPinning:
             pattern = re.compile(
                 r"^" + re.escape(pkg) + r"(\[.*?\])?==", re.MULTILINE | re.IGNORECASE
             )
-            assert pattern.search(
-                content
-            ), f"{pkg} must be pinned with == in requirements.txt"
+            assert pattern.search(content), (
+                f"{pkg} must be pinned with == in requirements.txt"
+            )
 
     def test_requirements_lock_file_exists(self):
         p = Path(__file__).parents[1] / "requirements.lock"
@@ -8021,9 +8021,9 @@ class TestStressTestWithLeverage:
         with open(p) as f:
             cfg = yaml.safe_load(f)
         rl = cfg.get("risk_limits", {})
-        assert (
-            "max_gross_exposure" in rl
-        ), "risk_limits.max_gross_exposure must be configured"
+        assert "max_gross_exposure" in rl, (
+            "risk_limits.max_gross_exposure must be configured"
+        )
 
 
 class TestAlertingEmailFailover:
@@ -8043,9 +8043,9 @@ class TestAlertingEmailFailover:
         channels = cfg.get("channels") or cfg.get("alerting", {}).get("channels", {})
         # Email should appear somewhere in the config
         config_str = str(cfg)
-        assert (
-            "email" in config_str.lower()
-        ), "alerting.yaml must configure an email channel"
+        assert "email" in config_str.lower(), (
+            "alerting.yaml must configure an email channel"
+        )
 
     def test_alerting_has_smtp_sender(self):
         p = Path(__file__).parents[1] / "src" / "assembled_core" / "ops" / "alerting.py"
@@ -8114,9 +8114,9 @@ class TestTradingCycleShim:
         )
         lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
         # Shim should be small (< 50 lines)
-        assert (
-            len(lines) < 50
-        ), f"trading_cycle.py should be a small shim but has {len(lines)} lines"
+        assert len(lines) < 50, (
+            f"trading_cycle.py should be a small shim but has {len(lines)} lines"
+        )
 
     def test_trading_cycle_shared_exists(self):
         p = (
@@ -8187,16 +8187,16 @@ class TestConfigDirectoryAlignment:
             pytest.skip("config/ directory does not exist")
         files = list(config_dir.rglob("*.yaml")) + list(config_dir.rglob("*.json"))
         # If config/ exists, it should have < 20 files (legacy content)
-        assert (
-            len(files) < 20
-        ), f"config/ has {len(files)} files — should be small/deprecated"
+        assert len(files) < 20, (
+            f"config/ has {len(files)} files — should be small/deprecated"
+        )
 
     def test_configs_primary_dir_is_large(self):
         configs_dir = Path(__file__).parents[1] / "configs"
         files = list(configs_dir.rglob("*.yaml")) + list(configs_dir.rglob("*.json"))
-        assert (
-            len(files) > 5
-        ), f"configs/ should have substantive content but only has {len(files)} files"
+        assert len(files) > 5, (
+            f"configs/ should have substantive content but only has {len(files)} files"
+        )
 
 
 class TestStressScenarioCoverage:
@@ -8456,9 +8456,9 @@ class TestExceptPatternCount:
             / "trading_cycle_shared.py"
         )
         content = p.read_text(encoding="utf-8", errors="replace")
-        assert (
-            "import numpy" in content
-        ), "numpy must be imported in trading_cycle_shared.py (F821 guard)"
+        assert "import numpy" in content, (
+            "numpy must be imported in trading_cycle_shared.py (F821 guard)"
+        )
 
 
 class TestLoggingRotationImplemented:
@@ -8528,9 +8528,9 @@ class TestAlertingEmailFailoverB:
             for kw in ["telegram", "email", "log_only", "discord", "slack"]
             if kw in content.lower()
         )
-        assert (
-            channel_count >= 2
-        ), f"alerting.py supports only {channel_count} channel(s); need ≥2"
+        assert channel_count >= 2, (
+            f"alerting.py supports only {channel_count} channel(s); need ≥2"
+        )
 
     def test_env_validator_has_smtp_vars(self):
         p = (
@@ -8689,9 +8689,9 @@ class TestEDGARRateLimiting:
         has_rate_limit = any(
             kw in content.lower() for kw in ["sleep", "rate_limit", "10", "throttl"]
         )
-        assert (
-            has_rate_limit
-        ), "edgar_source.py should have rate-limit awareness (SEC: 10 req/sec)"
+        assert has_rate_limit, (
+            "edgar_source.py should have rate-limit awareness (SEC: 10 req/sec)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -8765,9 +8765,9 @@ class TestPilotConfigUniverseFile:
             / "multifactor_long_short.yaml"
         )
         content = p.read_text(encoding="utf-8", errors="replace")
-        assert (
-            "full_us_universe.txt" in content
-        ), "Pilot config must use full_us_universe.txt (195 symbols), not legacy watchlist.txt"
+        assert "full_us_universe.txt" in content, (
+            "Pilot config must use full_us_universe.txt (195 symbols), not legacy watchlist.txt"
+        )
 
     def test_full_us_universe_file_exists(self):
         p = Path(__file__).parents[1] / "configs" / "universes" / "full_us_universe.txt"
@@ -8839,9 +8839,9 @@ class TestPilotV1CrashLogs:
             / "execution"
             / "stale_order_guard.py"
         )
-        assert (
-            p.exists()
-        ), "stale_order_guard.py must exist to prevent intent accumulation (v1 lesson)"
+        assert p.exists(), (
+            "stale_order_guard.py must exist to prevent intent accumulation (v1 lesson)"
+        )
 
     def test_stale_order_guard_has_cancel_logic(self):
         p = (
@@ -9037,9 +9037,9 @@ class TestBorrowRateUpdated:
         )
         content = p.read_text(encoding="utf-8", errors="replace")
         # 0.25% was too low; 1.5% is the corrected conservative default
-        assert (
-            "0.015" in content or "1.5" in content
-        ), "Borrow rate should be ~1.5% (0.015), not the old 0.25% (0.0025)"
+        assert "0.015" in content or "1.5" in content, (
+            "Borrow rate should be ~1.5% (0.015), not the old 0.25% (0.0025)"
+        )
 
     def test_ledger_borrow_rate_not_025_percent(self):
         p = (
@@ -9053,9 +9053,9 @@ class TestBorrowRateUpdated:
         # Ensure the 0.0025 default is gone (updated per item 46)
         # Old: borrow_rate_annual: float = 0.0025  # 0.25% default
         # Check no function signature uses 0.0025 as default
-        assert (
-            "= 0.0025" not in content
-        ), "Old 0.25% borrow rate default must be removed"
+        assert "= 0.0025" not in content, (
+            "Old 0.25% borrow rate default must be removed"
+        )
 
     def test_borrow_cost_model_has_ticker_override(self):
         p = (
@@ -9148,9 +9148,9 @@ class TestExperimentTrackerMLflow:
         lines = content.splitlines()
         # Only flag if 'import mlflow' appears at column 0 (no indentation)
         bare_imports = [ln for ln in lines if ln == "import mlflow"]
-        assert (
-            not bare_imports
-        ), "Top-level unguarded 'import mlflow' would crash if mlflow not installed"
+        assert not bare_imports, (
+            "Top-level unguarded 'import mlflow' would crash if mlflow not installed"
+        )
 
     def test_experiment_tracker_uses_conditional_import(self):
         p = (
@@ -9909,9 +9909,9 @@ class TestConfigFileCountB:
         all_files = list(configs_dir.rglob("*"))
         file_count = len([f for f in all_files if f.is_file()])
         # 73 files currently — should stay manageable (< 200)
-        assert (
-            file_count < 200
-        ), f"configs/ has {file_count} files — check for accumulation"
+        assert file_count < 200, (
+            f"configs/ has {file_count} files — check for accumulation"
+        )
 
     def test_configs_has_subdirs_organized(self):
         configs_dir = Path(__file__).parents[1] / "configs"
@@ -10089,9 +10089,9 @@ class TestF401ReexportUsage:
             f.read_text(encoding="utf-8", errors="replace").count("noqa: F401")
             for f in src.rglob("*.py")
         )
-        assert (
-            total < 120
-        ), f"F401 noqa count {total} exceeds bound 120 — re-export inflation"
+        assert total < 120, (
+            f"F401 noqa count {total} exceeds bound 120 — re-export inflation"
+        )
 
     def test_f401_mainly_in_init_files(self):
         src = Path(__file__).parents[1] / "src"
@@ -10107,9 +10107,9 @@ class TestF401ReexportUsage:
         assert init_f401 > 0, "__init__.py files should have F401 noqa for re-exports"
         # At least 50% of F401 noqa should be in __init__.py files
         if all_f401 > 0:
-            assert (
-                init_f401 / all_f401 >= 0.4
-            ), f"Only {init_f401}/{all_f401} F401 noqa are in __init__.py — check for spurious suppression"
+            assert init_f401 / all_f401 >= 0.4, (
+                f"Only {init_f401}/{all_f401} F401 noqa are in __init__.py — check for spurious suppression"
+            )
 
 
 class TestCIWindowsUbuntuCoverage:
@@ -10226,9 +10226,9 @@ class TestDatetimeTZAwareness:
                         break
             except OSError:
                 pass
-        assert (
-            not violations
-        ), f"Found datetime.utcnow() in code (not comments): {violations}"
+        assert not violations, (
+            f"Found datetime.utcnow() in code (not comments): {violations}"
+        )
 
 
 class TestSQLInjectionGuard:
@@ -10281,9 +10281,9 @@ class TestRandomSeedConsistency:
             for f in src.rglob("*.py")
             if "__pycache__" not in str(f)
         )
-        assert (
-            count > 0
-        ), "No random_state usage found in src/ — ML reproducibility not enforced"
+        assert count > 0, (
+            "No random_state usage found in src/ — ML reproducibility not enforced"
+        )
 
     def test_meta_model_has_fixed_seed(self):
         p = (
@@ -10436,9 +10436,9 @@ class TestDisasterRunbook:
 
     def test_pilot_operations_playbook_exists(self):
         p = Path(__file__).parents[1] / "docs" / "PILOT_OPERATIONS_PLAYBOOK.md"
-        assert (
-            p.exists()
-        ), "PILOT_OPERATIONS_PLAYBOOK.md must exist (contains disaster runbook)"
+        assert p.exists(), (
+            "PILOT_OPERATIONS_PLAYBOOK.md must exist (contains disaster runbook)"
+        )
 
     def test_playbook_has_hard_stop_mode(self):
         p = Path(__file__).parents[1] / "docs" / "PILOT_OPERATIONS_PLAYBOOK.md"
@@ -10489,9 +10489,9 @@ class TestOsPathPathlibMix:
                     pathlib_count = content.count("Path(") + content.count("pathlib")
                     # pathlib should dominate if both are used
                     if os_path_count > 0 and pathlib_count > 0:
-                        assert (
-                            pathlib_count >= os_path_count
-                        ), f"{fname}: pathlib ({pathlib_count}) should dominate os.path ({os_path_count})"
+                        assert pathlib_count >= os_path_count, (
+                            f"{fname}: pathlib ({pathlib_count}) should dominate os.path ({os_path_count})"
+                        )
 
     def test_os_path_mixing_not_excessive(self):
         src = Path(__file__).parents[1] / "src"
@@ -10508,9 +10508,9 @@ class TestOsPathPathlibMix:
             except OSError:
                 pass
         # Some mixing is acceptable (legacy migration takes time)
-        assert (
-            len(mixed_files) < 30
-        ), f"Too many files mix os.path with pathlib ({len(mixed_files)}): {mixed_files[:5]}"
+        assert len(mixed_files) < 30, (
+            f"Too many files mix os.path with pathlib ({len(mixed_files)}): {mixed_files[:5]}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -10599,7 +10599,7 @@ class TestTypeHintCoverage:
                 pass
         if total == 0:
             return
-        assert annotated / total >= 0.70, f"Coverage {annotated/total:.1%} below 70%"
+        assert annotated / total >= 0.70, f"Coverage {annotated / total:.1%} below 70%"
 
     def test_future_annotations_used_widely(self):
         src = Path(__file__).parents[1] / "src"
@@ -10915,9 +10915,9 @@ class TestPaperTradingCIWorkflow:
             for wf in wf_dir.glob("*.yml")
             if any(kw in wf.name for kw in ["paper", "daily", "pilot", "reconcile"])
         ]
-        assert (
-            len(paper_workflows) >= 1
-        ), "At least one paper-trading or daily CI workflow should exist"
+        assert len(paper_workflows) >= 1, (
+            "At least one paper-trading or daily CI workflow should exist"
+        )
 
     def test_workflow_has_schedule(self):
         wf_dir = Path(__file__).parents[1] / ".github" / "workflows"
@@ -11019,9 +11019,9 @@ class TestDocumentationHierarchyB:
             index_files = [
                 f for f in all_docs if f.name.upper() in ("INDEX.MD", "README.MD")
             ]
-            assert (
-                len(index_files) >= 1
-            ), f"With {len(all_docs)} docs, need INDEX.md or README.md"
+            assert len(index_files) >= 1, (
+                f"With {len(all_docs)} docs, need INDEX.md or README.md"
+            )
 
     def test_docs_count_is_known(self):
         docs = Path(__file__).parents[1] / "docs"
@@ -11044,9 +11044,9 @@ class TestDecisionLogs:
         decision_files = list(docs.rglob("*decision*.md")) + list(
             docs.rglob("*decisions*.md")
         )
-        assert (
-            len(decision_dirs) >= 1 or len(decision_files) >= 1
-        ), "A decisions directory or decision doc files should exist"
+        assert len(decision_dirs) >= 1 or len(decision_files) >= 1, (
+            "A decisions directory or decision doc files should exist"
+        )
 
     def test_operating_or_playbook_has_policy_rationale(self):
         root = Path(__file__).parents[1]
@@ -11218,9 +11218,9 @@ class TestBorrowRateRealism:
         m = re.search(r"borrow_rate[^=]*=\s*([0-9]+\.[0-9]+)", content)
         if m:
             rate = float(m.group(1))
-            assert (
-                rate >= 0.01
-            ), f"Borrow rate default {rate} is unrealistically low (< 1%)"
+            assert rate >= 0.01, (
+                f"Borrow rate default {rate} is unrealistically low (< 1%)"
+            )
 
     def test_ledger_has_borrow_rate(self):
         p = (
@@ -11267,9 +11267,9 @@ class TestSafeDivideHelper:
             from assembled_core.utils.dataframe import safe_divide
 
             result = safe_divide(1.0, 0.0, default=0.0)
-            assert (
-                result == 0.0
-            ), f"safe_divide(1,0) should return default=0.0, got {result}"
+            assert result == 0.0, (
+                f"safe_divide(1,0) should return default=0.0, got {result}"
+            )
         except ImportError:
             pass  # Module-level import issue; test existence only
 
@@ -11286,9 +11286,9 @@ class TestNaNPropagationGuardC:
             / "multifactor_v2.py"
         )
         content = p.read_text(encoding="utf-8", errors="replace")
-        assert (
-            "fillna" in content
-        ), "multifactor_v2 should use fillna to handle NaN factors"
+        assert "fillna" in content, (
+            "multifactor_v2 should use fillna to handle NaN factors"
+        )
 
     def test_fillna_before_clip(self):
         p = (
@@ -11323,9 +11323,9 @@ class TestRollingMinPeriodsB:
                 pass
         if count_rolling > 0:
             # At least some rolling calls should use min_periods
-            assert (
-                count_with_minperiods >= 1
-            ), "Some rolling calls should specify min_periods"
+            assert count_with_minperiods >= 1, (
+                "Some rolling calls should specify min_periods"
+            )
 
     def test_strategies_use_min_periods(self):
         src = Path(__file__).parents[1] / "src" / "assembled_core" / "strategies"
@@ -11357,9 +11357,9 @@ class TestExceptPatternAudit:
                 )
             except OSError:
                 pass
-        assert (
-            count <= 250
-        ), f"Too many bare except Exception: ({count}); reduce to specific exceptions"
+        assert count <= 250, (
+            f"Too many bare except Exception: ({count}); reduce to specific exceptions"
+        )
 
     def test_hot_path_exceptions_are_logged(self):
         hot_paths = [
@@ -11375,9 +11375,9 @@ class TestExceptPatternAudit:
                     # If except Exception: exists, logger should be nearby
                     if "except Exception:" in content:
                         has_logging = "logger" in content or "logging" in content
-                        assert (
-                            has_logging
-                        ), f"{f.name}: except Exception: without logging"
+                        assert has_logging, (
+                            f"{f.name}: except Exception: without logging"
+                        )
                 except OSError:
                     pass
 
@@ -11403,9 +11403,9 @@ class TestExtendedHoursPolicy:
         if not policy.exists():
             return
         content = policy.read_text(encoding="utf-8", errors="replace")
-        assert (
-            "extended_hours" in content
-        ), "policy.yaml should define extended_hours_policy"
+        assert "extended_hours" in content, (
+            "policy.yaml should define extended_hours_policy"
+        )
 
     def test_extended_hours_is_skip_or_explicit(self):
         policy = Path(__file__).parents[1] / "configs" / "policy.yaml"
@@ -11413,9 +11413,9 @@ class TestExtendedHoursPolicy:
             return
         content = policy.read_text(encoding="utf-8", errors="replace")
         if "extended_hours" in content:
-            assert any(
-                v in content for v in ["skip", "use", "adaptive", "discard"]
-            ), "extended_hours_policy should have explicit value"
+            assert any(v in content for v in ["skip", "use", "adaptive", "discard"]), (
+                "extended_hours_policy should have explicit value"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -11478,9 +11478,9 @@ class TestSpinoffHandlingB:
         if not ca_files:
             return
         content = ca_files[0].read_text(encoding="utf-8", errors="replace")
-        assert (
-            "dividend" in content.lower()
-        ), "corporate_actions should handle dividends"
+        assert "dividend" in content.lower(), (
+            "corporate_actions should handle dividends"
+        )
 
 
 class TestWashSaleGuardD:
@@ -11568,9 +11568,9 @@ class TestMLDriftDetectionC:
                 "population_stability",
             ]
         )
-        assert (
-            has_stats
-        ), "drift_detection should use statistical drift detection (PSI, KS, etc.)"
+        assert has_stats, (
+            "drift_detection should use statistical drift detection (PSI, KS, etc.)"
+        )
 
 
 class TestRetrainingSchedule:
@@ -11590,9 +11590,9 @@ class TestRetrainingSchedule:
         content = policy.read_text(encoding="utf-8", errors="replace")
         if "retrain_schedule" in content:
             valid_values = ["daily", "weekly", "monthly", "manual"]
-            assert any(
-                v in content for v in valid_values
-            ), "retrain_schedule should have valid value"
+            assert any(v in content for v in valid_values), (
+                "retrain_schedule should have valid value"
+            )
 
     def test_retraining_scheduler_module_exists(self):
         src = Path(__file__).parents[1] / "src"
@@ -11642,9 +11642,9 @@ class TestLoggingHotPathB:
         content = p.read_text(encoding="utf-8", errors="replace")
         debug_count = content.count("logger.debug(")
         # Bounded number of debug calls
-        assert (
-            debug_count <= 40
-        ), f"Too many logger.debug calls in hot path: {debug_count}"
+        assert debug_count <= 40, (
+            f"Too many logger.debug calls in hot path: {debug_count}"
+        )
 
     def test_some_debug_calls_are_guarded(self):
         src = Path(__file__).parents[1] / "src"
@@ -11680,9 +11680,9 @@ class TestStructuredLogging:
                     prefix_files += 1
             except OSError:
                 pass
-        assert (
-            prefix_files >= 10
-        ), f"Too few files use structured log prefixes: {prefix_files}"
+        assert prefix_files >= 10, (
+            f"Too few files use structured log prefixes: {prefix_files}"
+        )
 
     def test_logging_configured_in_some_entrypoint(self):
         scripts = Path(__file__).parents[1] / "scripts"
@@ -11719,9 +11719,9 @@ class TestFileLockingOutput:
                     lock_files.append(f.name)
             except OSError:
                 pass
-        assert (
-            len(lock_files) >= 1
-        ), "At least one file should use filelock for concurrent write safety"
+        assert len(lock_files) >= 1, (
+            "At least one file should use filelock for concurrent write safety"
+        )
 
     def test_experience_log_uses_locking(self):
         src = Path(__file__).parents[1] / "src"
@@ -11759,9 +11759,9 @@ class TestDSTHandling:
                         tz_files.append(f.name)
                 except OSError:
                     pass
-        assert (
-            len(tz_files) >= 1
-        ), "At least one file should use New_York or Eastern timezone"
+        assert len(tz_files) >= 1, (
+            "At least one file should use New_York or Eastern timezone"
+        )
 
     def test_market_calendar_handles_dst(self):
         src = Path(__file__).parents[1] / "src"
@@ -11804,9 +11804,9 @@ class TestPositionStateRecoveryB:
             src.rglob("order_intent*.py")
         )
         intent_files = [f for f in intent_files if "__pycache__" not in str(f)]
-        assert (
-            len(intent_files) >= 1
-        ), "intent_store or order_intent module should exist"
+        assert len(intent_files) >= 1, (
+            "intent_store or order_intent module should exist"
+        )
 
 
 class TestBuyingPowerPreCheckB:
@@ -11834,9 +11834,9 @@ class TestBuyingPowerPreCheckB:
                     "max_notional",
                 ]
             )
-            assert (
-                has_check
-            ), "Pre-trade check should validate position size vs available capital"
+            assert has_check, (
+                "Pre-trade check should validate position size vs available capital"
+            )
         else:
             # Check _tc_sizing.py
             tc = src / "assembled_core" / "pipeline" / "_tc_sizing.py"
@@ -11920,9 +11920,9 @@ class TestStorageRotation:
             scripts.rglob("*rotation*.py")
         )
         cleanup = [f for f in cleanup if "__pycache__" not in str(f)]
-        assert (
-            len(cleanup) >= 1
-        ), "A cleanup_old_outputs.py or similar script should exist"
+        assert len(cleanup) >= 1, (
+            "A cleanup_old_outputs.py or similar script should exist"
+        )
 
     def test_output_dir_exists(self):
         # Output directory should exist (managed, not unbounded)
@@ -12060,9 +12060,9 @@ class TestBacktestReproducibilityB:
         # Should set seed for numpy, random, and optionally torch/sklearn
         has_numpy = "numpy" in content or "np.random" in content
         has_random = "random.seed" in content or "import random" in content
-        assert (
-            has_numpy or has_random
-        ), "seeding.py should seed at least numpy or random"
+        assert has_numpy or has_random, (
+            "seeding.py should seed at least numpy or random"
+        )
 
 
 class TestTrailingStopConfig:
@@ -12108,9 +12108,9 @@ class TestFOMCCalendar:
             + list(src.rglob("*news_macro_calendar*.py"))
         )
         event_files = [f for f in event_files if "__pycache__" not in str(f)]
-        assert (
-            len(event_files) >= 1
-        ), "An event calendar or FOMC/macro calendar module should exist"
+        assert len(event_files) >= 1, (
+            "An event calendar or FOMC/macro calendar module should exist"
+        )
 
 
 class TestBacktestLiveParityB:
@@ -12122,9 +12122,9 @@ class TestBacktestLiveParityB:
             scripts.rglob("*validate_backtest*.py")
         )
         parity = [f for f in parity if "__pycache__" not in str(f)]
-        assert (
-            len(parity) >= 1
-        ), "A backtest-vs-live parity validation script should exist"
+        assert len(parity) >= 1, (
+            "A backtest-vs-live parity validation script should exist"
+        )
 
     def test_parity_script_has_comparison_logic(self):
         scripts = Path(__file__).parents[1] / "scripts"
@@ -12166,9 +12166,9 @@ class TestPandasChainedAssignment:
             for f in src.rglob("*.py")
             if "__pycache__" not in str(f)
         )
-        assert (
-            copy_count >= 10
-        ), f"Too few .copy() calls ({copy_count}) — chained assignment risk"
+        assert copy_count >= 10, (
+            f"Too few .copy() calls ({copy_count}) — chained assignment risk"
+        )
 
 
 class TestMemoryProfilingScript:
@@ -12287,9 +12287,9 @@ class TestAllExports:
                 content = init.read_text(encoding="utf-8", errors="replace")
                 if "__all__" in content:
                     packages_with_all.append(pkg)
-        assert (
-            len(packages_with_all) >= 3
-        ), f"Only {len(packages_with_all)} packages have __all__: {packages_with_all}"
+        assert len(packages_with_all) >= 3, (
+            f"Only {len(packages_with_all)} packages have __all__: {packages_with_all}"
+        )
 
 
 class TestPyTypedMarker:
@@ -12306,9 +12306,9 @@ class TestPyTypedMarker:
             and "mypy" in pyproject.read_text(encoding="utf-8", errors="replace")
         )
         has_typed = py_typed.exists()
-        assert (
-            has_mypy or has_typed
-        ), "Either py.typed marker or mypy config should exist"
+        assert has_mypy or has_typed, (
+            "Either py.typed marker or mypy config should exist"
+        )
 
 
 class TestAuditTrail:
@@ -12391,9 +12391,9 @@ class TestDecisionLog:
             kw in content
             for kw in ["factor", "conviction", "signal", "score", "trigger"]
         )
-        assert (
-            has_factors
-        ), "decision_log should record factors/signals driving decisions"
+        assert has_factors, (
+            "decision_log should record factors/signals driving decisions"
+        )
 
     def test_decision_log_uses_jsonl(self):
         p = (
@@ -12444,9 +12444,9 @@ class TestModuleGlobalConsolidation:
         )
         content = p.read_text(encoding="utf-8", errors="replace")
         # _BoundedCache should be used instead of plain dicts for caches
-        assert (
-            "_BoundedCache" in content
-        ), "Caches should use _BoundedCache, not plain dicts"
+        assert "_BoundedCache" in content, (
+            "Caches should use _BoundedCache, not plain dicts"
+        )
 
     def test_plw0603_noqa_count_bounded(self):
         src = Path(__file__).parents[1] / "src"
@@ -12455,9 +12455,9 @@ class TestModuleGlobalConsolidation:
             for f in src.rglob("*.py")
             if "__pycache__" not in str(f)
         )
-        assert (
-            count <= 5
-        ), f"Too many PLW0603 suppressions: {count} — reduce global state"
+        assert count <= 5, (
+            f"Too many PLW0603 suppressions: {count} — reduce global state"
+        )
 
     def test_dd_damper_state_has_comment_about_global(self):
         p = (
@@ -12514,9 +12514,9 @@ class TestSchedulerRobustness:
             for wf in wf_dir.glob("*.yml")
             if "schedule" in wf.read_text(encoding="utf-8", errors="replace")
         ]
-        assert (
-            len(cron_workflows) >= 1
-        ), "At least one workflow should have cron schedule"
+        assert len(cron_workflows) >= 1, (
+            "At least one workflow should have cron schedule"
+        )
 
 
 class TestPilotV2InitScript:
@@ -12528,9 +12528,9 @@ class TestPilotV2InitScript:
             scripts.glob("*start_pilot*")
         )
         pilot_scripts = [f for f in pilot_scripts if "__pycache__" not in str(f)]
-        assert (
-            len(pilot_scripts) >= 1
-        ), "A start_pilot_v2.ps1 or similar script should exist"
+        assert len(pilot_scripts) >= 1, (
+            "A start_pilot_v2.ps1 or similar script should exist"
+        )
 
     def test_pilot_script_has_preflight_checks(self):
         scripts = Path(__file__).parents[1] / "scripts"
@@ -12609,9 +12609,9 @@ class TestDataSourceFallback:
             if "__pycache__" not in str(f) and "source" in f.name.lower()
         ]
         # Should have more than just yfinance
-        assert (
-            len(source_files) >= 2
-        ), f"Only {len(source_files)} data sources — need fallback"
+        assert len(source_files) >= 2, (
+            f"Only {len(source_files)} data sources — need fallback"
+        )
 
     def test_data_quality_check_exists(self):
         src = Path(__file__).parents[1] / "src"
@@ -12621,9 +12621,9 @@ class TestDataSourceFallback:
             + list(src.rglob("validate_altdata*.py"))
         )
         quality_files = [f for f in quality_files if "__pycache__" not in str(f)]
-        assert (
-            len(quality_files) >= 1
-        ), "A data quality or freshness check module should exist"
+        assert len(quality_files) >= 1, (
+            "A data quality or freshness check module should exist"
+        )
 
     def test_polygon_or_tiingo_source_exists(self):
         src = Path(__file__).parents[1] / "src"
@@ -12635,9 +12635,9 @@ class TestDataSourceFallback:
             + list(src.rglob("*finnhub*.py"))
         )
         alt_sources = [f for f in alt_sources if "__pycache__" not in str(f)]
-        assert (
-            len(alt_sources) >= 1
-        ), "At least one non-yfinance data source should exist"
+        assert len(alt_sources) >= 1, (
+            "At least one non-yfinance data source should exist"
+        )
 
 
 class TestABCompareScriptB:
@@ -12683,9 +12683,9 @@ class TestRequirementsLockStrategy:
         lock_count = len(
             [ln for ln in lock_lines if ln.strip() and not ln.startswith("#")]
         )
-        assert (
-            lock_count >= txt_count
-        ), "requirements.lock should have at least as many packages as requirements.txt"
+        assert lock_count >= txt_count, (
+            "requirements.lock should have at least as many packages as requirements.txt"
+        )
 
     def test_ci_uses_requirements(self):
         wf_dir = Path(__file__).parents[1] / ".github" / "workflows"
@@ -12695,9 +12695,9 @@ class TestRequirementsLockStrategy:
             content = wf.read_text(encoding="utf-8", errors="replace")
             if "requirements" in content:
                 return  # found
-        assert (
-            False
-        ), "At least one workflow should install from requirements.txt or requirements.lock"
+        assert False, (
+            "At least one workflow should install from requirements.txt or requirements.lock"
+        )
 
 
 class TestPreCommitConfig:
@@ -12710,9 +12710,9 @@ class TestPreCommitConfig:
     def test_pre_commit_has_ruff_or_black(self):
         p = Path(__file__).parents[1] / ".pre-commit-config.yaml"
         content = p.read_text(encoding="utf-8", errors="replace")
-        assert (
-            "ruff" in content or "black" in content
-        ), "pre-commit should use ruff or black"
+        assert "ruff" in content or "black" in content, (
+            "pre-commit should use ruff or black"
+        )
 
     def test_pre_commit_has_secret_detection(self):
         p = Path(__file__).parents[1] / ".pre-commit-config.yaml"
@@ -12756,9 +12756,9 @@ class TestCommentLanguage:
                             en_comments += 1
             except OSError:
                 pass
-        assert (
-            en_comments >= 100
-        ), f"Only {en_comments} likely-English comments found in src/"
+        assert en_comments >= 100, (
+            f"Only {en_comments} likely-English comments found in src/"
+        )
 
 
 class TestNoqaDistributionPerFile:
@@ -12777,9 +12777,9 @@ class TestNoqaDistributionPerFile:
             except OSError:
                 pass
         hotspots.sort(reverse=True)
-        assert (
-            len(hotspots) <= 5
-        ), f"Too many tech-debt hotspots (>20 noqa per file): {hotspots[:5]}"
+        assert len(hotspots) <= 5, (
+            f"Too many tech-debt hotspots (>20 noqa per file): {hotspots[:5]}"
+        )
 
     def test_total_noqa_count_bounded(self):
         src = Path(__file__).parents[1] / "src"
@@ -12823,9 +12823,9 @@ class TestVariableNamingConsistency:
                 pass
         if total_defs > 0:
             camel_ratio = camel_count / total_defs
-            assert (
-                camel_ratio < 0.05
-            ), f"Too many camelCase function defs: {camel_count}/{total_defs} = {camel_ratio:.1%}"
+            assert camel_ratio < 0.05, (
+                f"Too many camelCase function defs: {camel_count}/{total_defs} = {camel_ratio:.1%}"
+            )
 
 
 class TestModuleDocstrings:
@@ -12875,9 +12875,9 @@ class TestModuleDocstrings:
                 packages_with_docs += 1
         if total_packages > 0:
             ratio = packages_with_docs / total_packages
-            assert (
-                ratio >= 0.3
-            ), f"Too few packages with docs/all: {packages_with_docs}/{total_packages}"
+            assert ratio >= 0.3, (
+                f"Too few packages with docs/all: {packages_with_docs}/{total_packages}"
+            )
 
 
 class TestUnusedImports:
@@ -12939,9 +12939,9 @@ class TestAsyncNewsFetcher:
             if ("news" in f.name.lower() or "fetch" in f.name.lower())
             and "__pycache__" not in str(f)
         ]
-        assert (
-            len(fetch_scripts) >= 2
-        ), f"News/fetch scripts should exist: {[f.name for f in fetch_scripts]}"
+        assert len(fetch_scripts) >= 2, (
+            f"News/fetch scripts should exist: {[f.name for f in fetch_scripts]}"
+        )
 
     def test_async_def_exists_in_codebase(self):
         # Verify asyncio patterns are present even if not yet in news fetch
@@ -13137,9 +13137,9 @@ class TestMLModelPolicyGating:
             return
         content = policy.read_text(encoding="utf-8", errors="replace")
         if "hmm" in content.lower():
-            assert (
-                "enabled: false" in content.lower() or "enabled: False" in content
-            ), "HMM should be disabled by default"
+            assert "enabled: false" in content.lower() or "enabled: False" in content, (
+                "HMM should be disabled by default"
+            )
 
     def test_ml_auc_documented(self):
         root = Path(__file__).parents[1]
@@ -13190,9 +13190,9 @@ class TestConfigDirConflict:
 
     def test_policy_yaml_in_configs(self):
         root = Path(__file__).parents[1]
-        assert (
-            root / "configs" / "policy.yaml"
-        ).exists(), "configs/policy.yaml should exist"
+        assert (root / "configs" / "policy.yaml").exists(), (
+            "configs/policy.yaml should exist"
+        )
 
     def test_no_policy_yaml_in_config_dir(self):
         root = Path(__file__).parents[1]
@@ -13217,9 +13217,9 @@ class TestTradingCycleStatus:
         for path in tc:
             content = path.read_text(encoding="utf-8", errors="replace")
             if "np." in content:
-                assert (
-                    "import numpy" in content
-                ), f"{path.name} uses np. but missing numpy import"
+                assert "import numpy" in content, (
+                    f"{path.name} uses np. but missing numpy import"
+                )
 
     def test_trading_cycle_has_run_function(self):
         src = Path(__file__).parents[1] / "src" / "assembled_core"
@@ -13314,9 +13314,9 @@ class TestWebCrawlerSecurity:
                     pass
         if requests_count > 0:
             ratio = timeout_count / requests_count
-            assert (
-                ratio >= 0.5
-            ), f"Too few requests calls have timeout: {timeout_count}/{requests_count}"
+            assert ratio >= 0.5, (
+                f"Too few requests calls have timeout: {timeout_count}/{requests_count}"
+            )
 
 
 class TestTestResourceCleanup:
@@ -13338,9 +13338,9 @@ class TestTestResourceCleanup:
                     cleanup_count += 1
             except OSError:
                 pass
-        assert (
-            cleanup_count >= 1
-        ), "At least one test file should use tmp_path or teardown"
+        assert cleanup_count >= 1, (
+            "At least one test file should use tmp_path or teardown"
+        )
 
     def test_no_leftover_test_files(self):
         root = Path(__file__).parents[1]
@@ -13349,9 +13349,9 @@ class TestTestResourceCleanup:
             root.glob("test_*.csv")
         )
         suspicious = [f for f in suspicious if f.is_file()]
-        assert (
-            len(suspicious) == 0
-        ), f"Leftover test output files: {[f.name for f in suspicious]}"
+        assert len(suspicious) == 0, (
+            f"Leftover test output files: {[f.name for f in suspicious]}"
+        )
 
 
 class TestLoggingRotation:
@@ -13493,9 +13493,9 @@ class TestEDGARThrottling:
                 "EDGAR_THROTTLE",
             ]
         )
-        assert (
-            has_throttle
-        ), "edgar_source.py should have rate limiting (10 req/sec max)"
+        assert has_throttle, (
+            "edgar_source.py should have rate limiting (10 req/sec max)"
+        )
 
     def test_edgar_user_agent_set(self):
         src = Path(__file__).parents[1] / "src"
@@ -13541,9 +13541,9 @@ class TestBacklogDocumentation:
             ):
                 found_priority = True
                 break
-        assert (
-            found_priority
-        ), "Backlog should have priority markers like [WICHTIG], [BLOCKER]"
+        assert found_priority, (
+            "Backlog should have priority markers like [WICHTIG], [BLOCKER]"
+        )
 
     def test_backlog_ergaenzung_has_sections(self):
         root = Path(__file__).parents[1]
@@ -13555,9 +13555,9 @@ class TestBacklogDocumentation:
             return
         content = ergaenzung.read_text(encoding="utf-8", errors="replace")
         section_count = content.count("# ABSCHNITT")
-        assert (
-            section_count >= 5
-        ), f"BACKLOG_ERGAENZUNG.md should have sections: {section_count}"
+        assert section_count >= 5, (
+            f"BACKLOG_ERGAENZUNG.md should have sections: {section_count}"
+        )
 
 
 class TestPilotSuccessDefinition:
@@ -13584,9 +13584,9 @@ class TestPilotSuccessDefinition:
                         break
                 except OSError:
                     pass
-        assert (
-            has_success_def
-        ), "Pilot success criteria should be defined in policy or docs"
+        assert has_success_def, (
+            "Pilot success criteria should be defined in policy or docs"
+        )
 
 
 class TestDrawdownPsychologicalPrep:
@@ -13637,9 +13637,9 @@ class TestPhantomModuleImportGuards:
                     optional_import_count += 1
             except OSError:
                 pass
-        assert (
-            optional_import_count >= 10
-        ), f"Too few optional import guards: {optional_import_count} — canary modules need ImportError handling"
+        assert optional_import_count >= 10, (
+            f"Too few optional import guards: {optional_import_count} — canary modules need ImportError handling"
+        )
 
     def test_heavy_dep_modules_have_import_guard(self):
         src = Path(__file__).parents[1] / "src" / "assembled_core"
@@ -13657,9 +13657,9 @@ class TestPhantomModuleImportGuards:
                     has_guard = (
                         "ImportError" in content or "ModuleNotFoundError" in content
                     )
-                    assert (
-                        has_guard
-                    ), f"{f.name} imports heavy dep without ImportError guard"
+                    assert has_guard, (
+                        f"{f.name} imports heavy dep without ImportError guard"
+                    )
             except OSError:
                 pass
 
@@ -13674,9 +13674,9 @@ class TestPilotLearningsDocs:
             return
         content = ki.read_text(encoding="utf-8", errors="replace")
         has_pilot = "pilot" in content.lower() or "paper" in content.lower()
-        assert (
-            has_pilot
-        ), "KNOWN_ISSUES.md should reference pilot/paper trading learnings"
+        assert has_pilot, (
+            "KNOWN_ISSUES.md should reference pilot/paper trading learnings"
+        )
 
     def test_operating_or_runbook_exists(self):
         root = Path(__file__).parents[1]
@@ -13724,9 +13724,9 @@ class TestSingleMachineArchitecture:
                     spawn_count += 1
             except OSError:
                 pass
-        assert (
-            spawn_count == 0
-        ), f"Pipeline core should not spawn subprocesses: {spawn_count}"
+        assert spawn_count == 0, (
+            f"Pipeline core should not spawn subprocesses: {spawn_count}"
+        )
 
 
 class TestDailyReviewInfrastructure:
@@ -13828,9 +13828,9 @@ class TestSupplementalInfraChecks:
         src = Path(__file__).parents[1] / "src"
         regime = list(src.rglob("*regime*.py"))
         regime = [f for f in regime if "__pycache__" not in str(f)]
-        assert (
-            len(regime) >= 2
-        ), f"Regime detection modules should exist: {[f.name for f in regime]}"
+        assert len(regime) >= 2, (
+            f"Regime detection modules should exist: {[f.name for f in regime]}"
+        )
 
     def test_factor_store_has_factor_methods(self):
         p = (

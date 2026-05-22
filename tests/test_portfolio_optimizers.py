@@ -75,9 +75,9 @@ def test_min_variance_minimises_variance():
         w_random = rng.uniform(0, 1, 5)
         w_random = w_random / w_random.sum()
         sigma_random = float(np.sqrt(w_random @ cov.to_numpy() @ w_random))
-        assert (
-            mv_sigma <= sigma_random + 1e-6
-        ), f"min_var σ={mv_sigma:.4f} should be ≤ random σ={sigma_random:.4f}"
+        assert mv_sigma <= sigma_random + 1e-6, (
+            f"min_var σ={mv_sigma:.4f} should be ≤ random σ={sigma_random:.4f}"
+        )
 
 
 def test_min_variance_rejects_asymmetric_covariance():
@@ -118,9 +118,9 @@ def test_max_sharpe_higher_sharpe_than_equal_weight():
     eq_mu = float(eq_w @ mu.to_numpy())
     eq_sharpe = eq_mu / eq_sigma
 
-    assert (
-        result.sharpe_ratio >= eq_sharpe - 1e-6
-    ), f"max_sharpe={result.sharpe_ratio:.3f} should be ≥ equal-weight Sharpe={eq_sharpe:.3f}"
+    assert result.sharpe_ratio >= eq_sharpe - 1e-6, (
+        f"max_sharpe={result.sharpe_ratio:.3f} should be ≥ equal-weight Sharpe={eq_sharpe:.3f}"
+    )
 
 
 def test_max_sharpe_rejects_index_mismatch():
@@ -177,9 +177,9 @@ def test_frontier_volatility_monotonic_around_min_var():
         diffs = np.diff(vols)
         # Allow small backward steps (1% of mean vol)
         tolerance = 0.01 * vols.mean()
-        assert (
-            diffs >= -tolerance
-        ).all(), "Efficient frontier upper branch should be non-decreasing in σ"
+        assert (diffs >= -tolerance).all(), (
+            "Efficient frontier upper branch should be non-decreasing in σ"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -207,9 +207,9 @@ def test_erc_equal_risk_contributions():
     # All contributions should be approximately equal
     mean_contrib = contributions.mean()
     max_dev = float(np.max(np.abs(contributions - mean_contrib))) / abs(mean_contrib)
-    assert (
-        max_dev < 0.05
-    ), f"ERC: max deviation from mean contribution = {max_dev:.4f} (should be <5%)"
+    assert max_dev < 0.05, (
+        f"ERC: max deviation from mean contribution = {max_dev:.4f} (should be <5%)"
+    )
 
 
 def test_erc_differs_from_inverse_vol():
@@ -313,9 +313,9 @@ def test_frontier_returns_exactly_n_points_with_converged_column():
     cov = _toy_covariance(n=3)
     mu = _toy_expected_returns(n=3)
     frontier = mean_variance_efficient_frontier(mu, cov, n_points=12)
-    assert (
-        len(frontier) == 12
-    ), f"Expected exactly 12 rows (one per target_return), got {len(frontier)}"
+    assert len(frontier) == 12, (
+        f"Expected exactly 12 rows (one per target_return), got {len(frontier)}"
+    )
     assert "converged" in frontier.columns
     assert frontier["converged"].dtype == bool
 
@@ -443,9 +443,9 @@ def test_max_sharpe_unconstrained_falls_back_when_all_excess_negative():
     mu = pd.Series([0.01, 0.015, 0.012], index=cov.columns)
     result = max_sharpe_weights(mu, cov, risk_free_rate=0.05, long_only=False)
     # Method should reflect the fallback path (not closed-form)
-    assert (
-        result.method == "max_sharpe_slsqp"
-    ), f"Expected SLSQP fallback for negative-denom case, got {result.method}"
+    assert result.method == "max_sharpe_slsqp", (
+        f"Expected SLSQP fallback for negative-denom case, got {result.method}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -468,9 +468,9 @@ def test_kelly_renormalize_with_shorts_respects_leverage_cap():
         renormalize_to_unity=True,
     )
     gross = float(np.sum(np.abs(result.weights.to_numpy())))
-    assert (
-        gross <= 1.0 + 1e-6
-    ), f"Cap violated under renormalize+shorts: sum(|w|)={gross}"
+    assert gross <= 1.0 + 1e-6, (
+        f"Cap violated under renormalize+shorts: sum(|w|)={gross}"
+    )
 
 
 def test_kelly_nan_max_leverage_raises():

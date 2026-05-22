@@ -210,9 +210,9 @@ def test_signal_contract_sig_values() -> None:
     signals = compute_ema_signals(prices, fast=5, slow=10)
 
     # Should only contain -1, 0, or +1
-    assert (
-        signals["sig"].isin([-1, 0, 1]).all()
-    ), f"Signal values must be -1, 0, or +1 (got {signals['sig'].unique()})"
+    assert signals["sig"].isin([-1, 0, 1]).all(), (
+        f"Signal values must be -1, 0, or +1 (got {signals['sig'].unique()})"
+    )
 
 
 def test_signal_contract_no_nans() -> None:
@@ -298,9 +298,9 @@ def test_orders_contract_side_values() -> None:
 
     if not orders.empty:
         # Should only contain 'BUY' or 'SELL'
-        assert (
-            orders["side"].isin(["BUY", "SELL"]).all()
-        ), f"Side values must be 'BUY' or 'SELL' (got {orders['side'].unique()})"
+        assert orders["side"].isin(["BUY", "SELL"]).all(), (
+            f"Side values must be 'BUY' or 'SELL' (got {orders['side'].unique()})"
+        )
 
 
 def test_orders_contract_qty_positive() -> None:
@@ -318,9 +318,9 @@ def test_orders_contract_qty_positive() -> None:
 
     if not orders.empty:
         # Should always be positive
-        assert (
-            orders["qty"] > 0
-        ).all(), f"Qty must always be positive (got min={orders['qty'].min()})"
+        assert (orders["qty"] > 0).all(), (
+            f"Qty must always be positive (got min={orders['qty'].min()})"
+        )
 
 
 def test_orders_contract_no_nans() -> None:
@@ -420,9 +420,9 @@ def test_equity_curve_contract_positive_equity() -> None:
     )
 
     # Should always be positive
-    assert (
-        equity["equity"] > 0
-    ).all(), f"Equity must always be positive (got min={equity['equity'].min()})"
+    assert (equity["equity"] > 0).all(), (
+        f"Equity must always be positive (got min={equity['equity'].min()})"
+    )
 
 
 def test_equity_curve_contract_no_nans() -> None:

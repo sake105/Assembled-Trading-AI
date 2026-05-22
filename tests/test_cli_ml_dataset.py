@@ -64,14 +64,14 @@ def test_cli_build_ml_dataset_basic(tmp_path: Path):
         "int64",
         "int32",
     ], "Label column should be integer"
-    assert set(df["label"].unique()).issubset(
-        {0, 1}
-    ), "Label should only contain 0 or 1"
+    assert set(df["label"].unique()).issubset({0, 1}), (
+        "Label should only contain 0 or 1"
+    )
 
     # Check for required metadata columns
-    assert (
-        "symbol" in df.columns or "open_time" in df.columns
-    ), "Missing metadata columns"
+    assert "symbol" in df.columns or "open_time" in df.columns, (
+        "Missing metadata columns"
+    )
 
     # Check for at least some feature columns
     feature_cols = [

@@ -184,9 +184,7 @@ except ImportError:
 class AllocationConfig:
     """Configuration for the signal-level StrategyAllocator ensemble."""
 
-    method: str = (
-        "weighted_average"  # "weighted_average" | "majority_vote" | "regime_conditional"
-    )
+    method: str = "weighted_average"  # "weighted_average" | "majority_vote" | "regime_conditional"
     weights: dict[str, float] = field(default_factory=dict)
     regime_weights: dict[str, dict[str, float]] = field(default_factory=dict)
     score_normalization: bool = True

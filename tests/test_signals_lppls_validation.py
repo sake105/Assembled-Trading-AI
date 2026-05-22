@@ -150,9 +150,9 @@ def test_detector_recovers_tc_roughly():
     tc_est = result["tc_estimate"]
     # Allow generous tolerance — the fit is non-trivial. We just want to see
     # that tc_est is NOT wildly off (e.g., not 5x or 0.2x the truth).
-    assert (
-        0.5 * true_tc < tc_est < 2.0 * true_tc
-    ), f"tc_estimate {tc_est:.1f} too far from true tc {true_tc}"
+    assert 0.5 * true_tc < tc_est < 2.0 * true_tc, (
+        f"tc_estimate {tc_est:.1f} too far from true tc {true_tc}"
+    )
 
 
 def test_detector_handles_short_window_gracefully():

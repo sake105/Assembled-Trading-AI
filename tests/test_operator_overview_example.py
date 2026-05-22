@@ -79,9 +79,9 @@ class TestOperatorOverviewExample:
             output = result.stdout + result.stderr
 
             # Must contain section headers
-            assert (
-                "OPERATOR OVERVIEW" in output or "SYSTEM HEALTH CHECK" in output
-            ), "Missing header"
+            assert "OPERATOR OVERVIEW" in output or "SYSTEM HEALTH CHECK" in output, (
+                "Missing header"
+            )
             assert "STEP 1" in output or "Trend Baseline" in output, "Missing Step 1"
             assert "STEP 2" in output or "Event Insider" in output, "Missing Step 2"
             assert "STEP 3" in output or "ML Dataset" in output, "Missing Step 3"
@@ -164,9 +164,9 @@ class TestOperatorOverviewExample:
             ]
 
             # At least some patterns should be present (depending on whether data is available)
-            assert (
-                len(found_patterns) >= 2
-            ), f"Too few required patterns found. Found: {found_patterns}. Output: {output[:500]}"
+            assert len(found_patterns) >= 2, (
+                f"Too few required patterns found. Found: {found_patterns}. Output: {output[:500]}"
+            )
 
         finally:
             monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
@@ -229,9 +229,9 @@ class TestOperatorOverviewExample:
             ], f"Script crashed or exited unexpectedly: {result.returncode}"
 
             # Should produce some output
-            assert (
-                len(result.stdout) > 0 or len(result.stderr) > 0
-            ), "Script produced no output"
+            assert len(result.stdout) > 0 or len(result.stderr) > 0, (
+                "Script produced no output"
+            )
 
         finally:
             monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)

@@ -113,15 +113,15 @@ def test_append_day_equals_recompute_last_day() -> None:
 
         # Verify: same number of rows
         assert factors_loaded is not None, "Factors should be loaded"
-        assert len(factors_loaded) == len(
-            factors_full
-        ), f"Append result should have same rows as full recompute: {len(factors_loaded)} vs {len(factors_full)}"
+        assert len(factors_loaded) == len(factors_full), (
+            f"Append result should have same rows as full recompute: {len(factors_loaded)} vs {len(factors_full)}"
+        )
 
         # Verify: same columns (excluding date column which is added automatically)
         expected_cols = set(factors_full.columns) | {"date"}
-        assert (
-            set(factors_loaded.columns) == expected_cols
-        ), f"Append result should have same columns: {set(factors_loaded.columns)} vs {expected_cols}"
+        assert set(factors_loaded.columns) == expected_cols, (
+            f"Append result should have same columns: {set(factors_loaded.columns)} vs {expected_cols}"
+        )
 
         # Verify: same data (excluding date column)
         factors_loaded_compare = (
@@ -244,29 +244,29 @@ def test_append_overlaps_overwrite_deterministic() -> None:
 
         # Check D4 (overlapping day) has new values
         d4_factors = factors_loaded[factors_loaded["timestamp"] == timestamps[3]]
-        assert len(d4_factors) == len(
-            symbols
-        ), "Should have factors for both symbols on D4"
+        assert len(d4_factors) == len(symbols), (
+            "Should have factors for both symbols on D4"
+        )
 
         # Verify: D4 close values match new data (overwritten)
         for symbol in symbols:
             d4_symbol = d4_factors[d4_factors["symbol"] == symbol]
-            assert (
-                len(d4_symbol) == 1
-            ), f"Should have exactly one row for {symbol} on D4"
+            assert len(d4_symbol) == 1, (
+                f"Should have exactly one row for {symbol} on D4"
+            )
             # Close price should match new data (999.5 for AAPL, 888.5 for MSFT)
             expected_close = 999.5 if symbol == "AAPL" else 888.5
-            assert (
-                abs(d4_symbol["close"].iloc[0] - expected_close) < 1e-6
-            ), f"D4 close for {symbol} should be overwritten: {d4_symbol['close'].iloc[0]} vs {expected_close}"
+            assert abs(d4_symbol["close"].iloc[0] - expected_close) < 1e-6, (
+                f"D4 close for {symbol} should be overwritten: {d4_symbol['close'].iloc[0]} vs {expected_close}"
+            )
 
         # Verify: no duplicates (keep="last" should deduplicate)
         duplicates = factors_loaded.duplicated(
             subset=["timestamp", "symbol"], keep=False
         )
-        assert (
-            not duplicates.any()
-        ), "Should have no duplicates after append (keep='last')"
+        assert not duplicates.any(), (
+            "Should have no duplicates after append (keep='last')"
+        )
 
 
 def test_append_mode_is_deterministic() -> None:
@@ -354,12 +354,12 @@ def test_append_mode_is_deterministic() -> None:
         )
 
         # Verify: same result (deterministic)
-        assert (
-            factors_after_first is not None
-        ), "Factors should be loaded after first append"
-        assert (
-            factors_after_second is not None
-        ), "Factors should be loaded after second append"
+        assert factors_after_first is not None, (
+            "Factors should be loaded after first append"
+        )
+        assert factors_after_second is not None, (
+            "Factors should be loaded after second append"
+        )
 
         # Compare (excluding date column)
         factors_first_compare = (
@@ -407,15 +407,15 @@ def test_incremental_compute_only_last_session() -> None:
     )
 
     # Verify: only last session (2 rows: one per symbol)
-    assert len(factors_last) == len(
-        symbols
-    ), f"Should have {len(symbols)} rows (one per symbol)"
-    assert (
-        factors_last["timestamp"].nunique() == 1
-    ), "Should have only one timestamp (last session)"
-    assert (
-        factors_last["timestamp"] == timestamps[-1]
-    ).all(), "All timestamps should be last session"
+    assert len(factors_last) == len(symbols), (
+        f"Should have {len(symbols)} rows (one per symbol)"
+    )
+    assert factors_last["timestamp"].nunique() == 1, (
+        "Should have only one timestamp (last session)"
+    )
+    assert (factors_last["timestamp"] == timestamps[-1]).all(), (
+        "All timestamps should be last session"
+    )
 
     # Verify: same result as manual filter + compute
     prices_last_manual = prices_full[prices_full["timestamp"] == timestamps[-1]].copy()
@@ -466,9 +466,9 @@ def test_incremental_compute_last_N_sessions() -> None:
     )
 
     # Verify: last 3 sessions (6 rows: 3 days * 2 symbols)
-    assert len(factors_last_3) == 3 * len(
-        symbols
-    ), f"Should have {3 * len(symbols)} rows (3 days * {len(symbols)} symbols)"
+    assert len(factors_last_3) == 3 * len(symbols), (
+        f"Should have {3 * len(symbols)} rows (3 days * {len(symbols)} symbols)"
+    )
     assert factors_last_3["timestamp"].nunique() == 3, "Should have 3 unique timestamps"
     assert set(factors_last_3["timestamp"].dt.date) == {
         timestamps[-3].date(),

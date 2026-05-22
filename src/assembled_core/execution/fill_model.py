@@ -653,7 +653,9 @@ def apply_partial_fills(
         lambda row: (
             "rejected"
             if row["fill_qty"] == 0.0
-            else "filled" if row["fill_qty"] == abs(row["qty"]) else "partial"
+            else "filled"
+            if row["fill_qty"] == abs(row["qty"])
+            else "partial"
         ),
         axis=1,
     )

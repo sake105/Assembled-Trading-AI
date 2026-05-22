@@ -53,14 +53,14 @@ def test_evidence_index_and_pack_manifest_paths_posix(tmp_path: Path) -> None:
     paths_obj = evidence_index.get("paths") or {}
     for key, val in paths_obj.items():
         if val is not None and isinstance(val, str):
-            assert (
-                "\\" not in val
-            ), f"Evidence index paths.{key} must not contain backslash: {val!r}"
+            assert "\\" not in val, (
+                f"Evidence index paths.{key} must not contain backslash: {val!r}"
+            )
             if val and not val.startswith("/"):
                 p = Path(val)
-                assert (
-                    not p.is_absolute()
-                ), f"Evidence index paths.{key} should be relative: {val!r}"
+                assert not p.is_absolute(), (
+                    f"Evidence index paths.{key} should be relative: {val!r}"
+                )
 
     result = build_evidence_pack(
         output_dir=output_dir,
@@ -73,20 +73,18 @@ def test_evidence_index_and_pack_manifest_paths_posix(tmp_path: Path) -> None:
         pack_manifest = json.load(f)
     source_path = pack_manifest.get("source_path")
     if source_path is not None and isinstance(source_path, str):
-        assert (
-            "\\" not in source_path
-        ), f"Pack manifest source_path must not contain backslash: {source_path!r}"
+        assert "\\" not in source_path, (
+            f"Pack manifest source_path must not contain backslash: {source_path!r}"
+        )
         if source_path and not source_path.startswith("/"):
             assert not Path(source_path).is_absolute()
     for entry in pack_manifest.get("files") or []:
         path_val = entry.get("path")
         if path_val is not None and isinstance(path_val, str):
-            assert (
-                "\\" not in path_val
-            ), f"Pack manifest files[].path must not contain backslash: {path_val!r}"
+            assert "\\" not in path_val, (
+                f"Pack manifest files[].path must not contain backslash: {path_val!r}"
+            )
             if path_val and not path_val.startswith("/"):
-                assert not Path(
-                    path_val
-                ).is_absolute(), (
+                assert not Path(path_val).is_absolute(), (
                     f"Pack manifest file path should be relative: {path_val!r}"
                 )

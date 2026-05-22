@@ -427,17 +427,17 @@ def main(argv: list[str] | None = None) -> int:
     json_path.write_text(json.dumps(report_data, indent=2), encoding="utf-8")
 
     # Console output
-    print(f"\n{'='*65}")
+    print(f"\n{'=' * 65}")
     print(f"{'FORWARD TEST — KNOWN OUTCOMES AUDIT':^65}")
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
     print(f"Period: {args.start} to {args.end}  (trained to {args.cutoff})")
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
     print(
         f"Aligned: {score['aligned']}/{score['total_known']}  "
         f"({score['alignment_rate_pct']:.1f}%)  "
         f"Mag-weighted: {score['magnitude_alignment_pct']:.1f}%"
     )
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
     print("\nPer-symbol:")
     for sym, r in sorted(audit.items(), key=lambda x: -abs(x[1]["known_return_pct"])):
         mark = "✓" if r["aligned"] else ("—" if r["dominant"] == "absent" else "✗")
@@ -454,7 +454,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"\nVerdict: {verdict_line}")
     print(f"\nReport: {md_path}")
-    print(f"{'='*65}\n")
+    print(f"{'=' * 65}\n")
 
     return 0
 

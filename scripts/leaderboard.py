@@ -433,11 +433,11 @@ def export_best_run_config_yaml(
             )
     except IOError as exc:
         raise RuntimeError(
-            f"Failed to write YAML file: {output_path}. " f"Error: {exc}"
+            f"Failed to write YAML file: {output_path}. Error: {exc}"
         ) from exc
     except Exception as exc:
         raise RuntimeError(
-            f"Unexpected error while writing YAML file: {output_path}. " f"Error: {exc}"
+            f"Unexpected error while writing YAML file: {output_path}. Error: {exc}"
         ) from exc
 
     print(f"Best run config exported to {output_path}", file=sys.stderr)

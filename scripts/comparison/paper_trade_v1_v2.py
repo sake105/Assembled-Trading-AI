@@ -208,7 +208,7 @@ def _load_prices_from_panel(panel_path: Path, n_days: int) -> pd.DataFrame:
         cutoff = all_dates[-n_days]
         df = df[df["timestamp"] >= cutoff]
 
-    _log(f"Panel prices: {len(df)} rows, " f"{df['symbol'].nunique()} symbols")
+    _log(f"Panel prices: {len(df)} rows, {df['symbol'].nunique()} symbols")
     return df.reset_index(drop=True)
 
 

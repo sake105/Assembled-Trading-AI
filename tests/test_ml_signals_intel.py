@@ -18,7 +18,6 @@ def _scipy_available():
 
 
 class TestSignalConfidence:
-
     def test_import(self):
         from src.assembled_core.signals.signal_confidence import (
             compute_signal_confidence,
@@ -69,7 +68,6 @@ class TestSignalConfidence:
 
 
 class TestMultiChannelPropagation:
-
     def test_import_v2(self):
         import pytest
 
@@ -197,7 +195,6 @@ class TestMultiChannelPropagation:
 
 
 class TestAlphaDecay:
-
     def test_import_v3(self):
         from src.assembled_core.qa.factor_analysis import estimate_alpha_decay_halflife
 
@@ -250,7 +247,6 @@ class TestAlphaDecay:
 
 
 class TestICWeights:
-
     @pytest.mark.skipif(not _scipy_available(), reason="scipy not installed")
     def test_compute_ic_weights(self):
         from src.assembled_core.signals.multifactor_signal import compute_ic_weights

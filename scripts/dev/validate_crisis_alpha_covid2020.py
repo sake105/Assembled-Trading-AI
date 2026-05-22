@@ -501,7 +501,7 @@ def run_simulation() -> None:
     print(
         f"  {'Date':<12} {'State':<10} {'Basket':>8} {'SPY':>8} {'Basket Cum':>12} {'SPY Cum':>10}"
     )
-    print(f"  {'-'*12} {'-'*10} {'-'*8} {'-'*8} {'-'*12} {'-'*10}")
+    print(f"  {'-' * 12} {'-' * 10} {'-' * 8} {'-' * 8} {'-' * 12} {'-' * 10}")
 
     for date_str in all_dates_in_returns:
         rets = DAILY_RETURNS[date_str]

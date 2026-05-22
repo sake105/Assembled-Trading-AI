@@ -100,14 +100,14 @@ def test_merge_default_release_lag_prevents_future_leak(tmp_path):
     )
 
     bar_2024_02_15 = out[out["timestamp"] == pd.Timestamp("2024-02-15", tz="UTC")]
-    assert (
-        bar_2024_02_15["gpr_index"] == 100.0
-    ).all(), "2024-02-15 must see Jan-01 GPR=100 (publishable 2024-02-02)"
+    assert (bar_2024_02_15["gpr_index"] == 100.0).all(), (
+        "2024-02-15 must see Jan-01 GPR=100 (publishable 2024-02-02)"
+    )
 
     bar_2024_03_15 = out[out["timestamp"] == pd.Timestamp("2024-03-15", tz="UTC")]
-    assert (
-        bar_2024_03_15["gpr_index"] == 150.0
-    ).all(), "2024-03-15 must see Feb-01 GPR=150 (publishable 2024-03-04)"
+    assert (bar_2024_03_15["gpr_index"] == 150.0).all(), (
+        "2024-03-15 must see Feb-01 GPR=150 (publishable 2024-03-04)"
+    )
 
 
 def test_merge_nat_in_panel_timestamp_returns_unchanged_with_warning(tmp_path, caplog):

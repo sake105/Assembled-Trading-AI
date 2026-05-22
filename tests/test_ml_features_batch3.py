@@ -12,7 +12,6 @@ import pandas as pd
 
 
 class TestDCCGARCH:
-
     def test_dcc_garch_basic(self):
         import pytest
 
@@ -58,7 +57,6 @@ class TestDCCGARCH:
 
 
 class TestTCPenalizedRebalancing:
-
     def test_dead_zone(self):
         from src.assembled_core.portfolio.position_sizing import (
             apply_tc_penalized_rebalancing,
@@ -95,7 +93,6 @@ class TestTCPenalizedRebalancing:
 
 
 class TestIntelBLViews:
-
     def test_basic_conversion(self):
         from src.assembled_core.portfolio.black_litterman import intel_to_bl_views
 
@@ -126,7 +123,6 @@ class TestIntelBLViews:
 
 
 class TestBorrowCostModel:
-
     def test_gc_rate(self):
         from src.assembled_core.execution.transaction_costs import BorrowCostModel
 
@@ -160,7 +156,6 @@ class TestBorrowCostModel:
 
 
 class TestPreTradeStressTest:
-
     def test_passes_small_portfolio(self):
         from src.assembled_core.execution.pre_trade_checks import (
             run_pre_trade_stress_test,
@@ -195,7 +190,6 @@ class TestPreTradeStressTest:
 
 
 class TestLiquidityConstraint:
-
     def test_reduces_illiquid(self):
         from src.assembled_core.portfolio.position_sizing import (
             apply_liquidity_constraint,
@@ -223,7 +217,6 @@ class TestLiquidityConstraint:
 
 
 class TestRegimeRiskLimits:
-
     def test_pure_bull(self):
         from src.assembled_core.risk.state_machine import compute_regime_risk_limits
 
@@ -252,7 +245,6 @@ class TestRegimeRiskLimits:
 
 
 class TestDividendTracking:
-
     def test_long_receives_dividend(self):
         from src.assembled_core.accounting.ledger import generate_dividend_events
 
@@ -282,7 +274,6 @@ class TestDividendTracking:
 
 
 class TestMarginAccounting:
-
     def test_no_margin_call(self):
         from src.assembled_core.accounting.ledger import check_margin_requirements
 
@@ -326,7 +317,6 @@ class TestMarginAccounting:
 
 
 class TestRegimeSegmentedPerformance:
-
     def test_basic(self):
         from src.assembled_core.qa.metrics import compute_regime_segmented_performance
 
@@ -346,7 +336,6 @@ class TestRegimeSegmentedPerformance:
 
 
 class TestUniverseReconstitution:
-
     def test_monthly_snapshots(self):
         from src.assembled_core.data.universe import build_monthly_snapshots
 
@@ -372,7 +361,6 @@ class TestUniverseReconstitution:
 
 
 class TestMultiSourceValidation:
-
     def test_matching_prices(self):
         from src.assembled_core.data.prices_ingest import validate_prices_cross_source
 
@@ -421,7 +409,6 @@ class TestMultiSourceValidation:
 
 
 class TestPolicyConsistency:
-
     def test_valid_policy(self):
         from src.assembled_core.config.policy_schema import validate_policy_consistency
 
@@ -458,7 +445,6 @@ class TestPolicyConsistency:
 
 
 class TestGracefulDegradation:
-
     def test_tracker(self):
         import pytest
 
@@ -500,7 +486,6 @@ class TestGracefulDegradation:
 
 
 class TestFinBERTIntegration:
-
     def test_score_cluster_no_finbert(self):
         from src.assembled_core.events.news.clustering import score_cluster_sentiment
 

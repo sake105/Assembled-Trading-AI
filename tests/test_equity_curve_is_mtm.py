@@ -85,9 +85,9 @@ def test_equity_curve_is_mtm():
 
     # MTM equity: with upward trend and filled buys, equity max should exceed start capital
     equity_max = equity_df["equity"].max()
-    assert (
-        equity_max > start_capital
-    ), f"With upward trend and fills, equity_max ({equity_max}) should be > start_capital ({start_capital})"
+    assert equity_max > start_capital, (
+        f"With upward trend and fills, equity_max ({equity_max}) should be > start_capital ({start_capital})"
+    )
 
     # Cash column present (for cash_curve CSV)
     assert "cash" in equity_df.columns, "equity DataFrame should include cash column"
@@ -96,6 +96,6 @@ def test_equity_curve_is_mtm():
     same = np.isclose(
         equity_df["equity"].values, equity_df["cash"].values, rtol=1e-9, atol=1e-9
     )
-    assert not np.all(
-        same
-    ), "equity and cash series should differ when there are positions"
+    assert not np.all(same), (
+        "equity and cash series should differ when there are positions"
+    )

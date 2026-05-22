@@ -235,7 +235,7 @@ class TaxLotStore:
                 "ON tax_lots(symbol, status)"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_lots_year " "ON tax_lots(trade_date)"
+                "CREATE INDEX IF NOT EXISTS idx_lots_year ON tax_lots(trade_date)"
             )
 
     def add_lot(self, lot: TaxLot) -> None:

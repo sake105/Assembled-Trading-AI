@@ -26,9 +26,9 @@ def test_ops_golden_path_max_one_py3_block() -> None:
     """OPS_EVIDENCE_GOLDEN_PATH has at most one code block containing 'py -3' (canonical block)."""
     content = OPS_GOLDEN.read_text(encoding="utf-8")
     n = _code_blocks_with_py3(content)
-    assert (
-        n <= 2
-    ), f"OPS_EVIDENCE_GOLDEN_PATH may have at most two py -3 blocks (e.g. cmd + PowerShell), got {n}"
+    assert n <= 2, (
+        f"OPS_EVIDENCE_GOLDEN_PATH may have at most two py -3 blocks (e.g. cmd + PowerShell), got {n}"
+    )
 
 
 def test_evidence_pack_doc_has_manifest_schema_v1_heading() -> None:
@@ -36,9 +36,9 @@ def test_evidence_pack_doc_has_manifest_schema_v1_heading() -> None:
     evidence_pack_doc = DOCS / "EVIDENCE_PACK.md"
     assert evidence_pack_doc.exists(), "EVIDENCE_PACK.md must exist"
     content = evidence_pack_doc.read_text(encoding="utf-8")
-    assert (
-        "Pack manifest schema (v1)" in content
-    ), "EVIDENCE_PACK.md must document Pack manifest schema (v1)"
+    assert "Pack manifest schema (v1)" in content, (
+        "EVIDENCE_PACK.md must document Pack manifest schema (v1)"
+    )
 
 
 def test_evidence_pack_doc_has_source_semantics_heading() -> None:
@@ -46,6 +46,6 @@ def test_evidence_pack_doc_has_source_semantics_heading() -> None:
     evidence_pack_doc = DOCS / "EVIDENCE_PACK.md"
     assert evidence_pack_doc.exists(), "EVIDENCE_PACK.md must exist"
     content = evidence_pack_doc.read_text(encoding="utf-8")
-    assert (
-        "Source semantics" in content
-    ), "EVIDENCE_PACK.md must document Source semantics"
+    assert "Source semantics" in content, (
+        "EVIDENCE_PACK.md must document Source semantics"
+    )

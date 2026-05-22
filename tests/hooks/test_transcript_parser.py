@@ -100,6 +100,6 @@ def test_tool_result_user_wrappers_do_not_terminate_trailing_turn(tmp_path):
         encoding="utf-8",
     )
     paths = edited_paths_in_last_turn(p, repo_root=REPO_ROOT_FAKE)
-    assert (
-        "scripts/foo.py" in paths
-    ), f"Edit was hidden by tool_result wrapper bug. Got: {paths}"
+    assert "scripts/foo.py" in paths, (
+        f"Edit was hidden by tool_result wrapper bug. Got: {paths}"
+    )

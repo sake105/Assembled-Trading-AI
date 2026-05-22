@@ -132,12 +132,12 @@ def test_backtest_snapshot_vs_history_slice_equivalence():
         result_history = run_trading_cycle(ctx_history)
 
         # Verify both runs succeeded
-        assert (
-            result_snapshot.status == "success"
-        ), f"Snapshot mode failed at as_of={as_of}"
-        assert (
-            result_history.status == "success"
-        ), f"History-slice mode failed at as_of={as_of}"
+        assert result_snapshot.status == "success", (
+            f"Snapshot mode failed at as_of={as_of}"
+        )
+        assert result_history.status == "success", (
+            f"History-slice mode failed at as_of={as_of}"
+        )
 
         # Extract orders
         orders_snapshot = (
@@ -157,12 +157,12 @@ def test_backtest_snapshot_vs_history_slice_equivalence():
             continue
 
         # Assert both have orders or both are empty
-        assert (
-            not orders_snapshot.empty
-        ), f"Snapshot mode produced empty orders at as_of={as_of}"
-        assert (
-            not orders_history.empty
-        ), f"History-slice mode produced empty orders at as_of={as_of}"
+        assert not orders_snapshot.empty, (
+            f"Snapshot mode produced empty orders at as_of={as_of}"
+        )
+        assert not orders_history.empty, (
+            f"History-slice mode produced empty orders at as_of={as_of}"
+        )
 
         # Sort orders for comparison (by symbol, then by side)
         orders_snapshot_sorted = orders_snapshot.sort_values(
@@ -187,16 +187,16 @@ def test_backtest_snapshot_vs_history_slice_equivalence():
         ), f"History-slice mode produced NaNs at as_of={as_of}"
 
         # Assert same number of orders
-        assert len(orders_snapshot_sorted) == len(
-            orders_history_sorted
-        ), f"Different number of orders at as_of={as_of}: snapshot={len(orders_snapshot_sorted)}, history={len(orders_history_sorted)}"
+        assert len(orders_snapshot_sorted) == len(orders_history_sorted), (
+            f"Different number of orders at as_of={as_of}: snapshot={len(orders_snapshot_sorted)}, history={len(orders_history_sorted)}"
+        )
 
         # Assert same symbols
         symbols_snapshot = set(orders_snapshot_sorted["symbol"].unique())
         symbols_history = set(orders_history_sorted["symbol"].unique())
-        assert (
-            symbols_snapshot == symbols_history
-        ), f"Different symbols at as_of={as_of}: snapshot={symbols_snapshot}, history={symbols_history}"
+        assert symbols_snapshot == symbols_history, (
+            f"Different symbols at as_of={as_of}: snapshot={symbols_snapshot}, history={symbols_history}"
+        )
 
         # Compare order details (qty, side, symbol, price)
         # Use approximate comparison for price (floating point tolerance)

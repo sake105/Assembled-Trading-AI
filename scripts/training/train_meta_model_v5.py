@@ -178,9 +178,7 @@ def _load_earnings_features(
 
     merged = earn_features.rename(columns={"merge_date": "date"})
     result = days_df.merge(merged, on=["date", "symbol"], how="left")
-    print(
-        f"[v5] Earnings: {len(result)} rows, " f"{result['symbol'].nunique()} symbols"
-    )
+    print(f"[v5] Earnings: {len(result)} rows, {result['symbol'].nunique()} symbols")
     return result
 
 

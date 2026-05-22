@@ -204,7 +204,7 @@ def check_exit_signals(
                         "symbol": sym,
                         "direction": "FLAT",
                         "exit_reason": (
-                            f"stop_loss ({current_price:.2f} <= " f"{stop_price:.2f})"
+                            f"stop_loss ({current_price:.2f} <= {stop_price:.2f})"
                         ),
                         "exit_qty_pct": 1.0,
                     }
@@ -237,7 +237,7 @@ def check_exit_signals(
                         "symbol": sym,
                         "direction": "FLAT",
                         "exit_reason": (
-                            f"take_profit ({current_price:.2f} >= " f"{tp_price:.2f})"
+                            f"take_profit ({current_price:.2f} >= {tp_price:.2f})"
                         ),
                         "exit_qty_pct": 0.5,
                     }

@@ -91,9 +91,9 @@ def main(argv: list[str] | None = None) -> int:
             other_count += 1
 
     enabled_total = len(enabled)
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("NEWS COVERAGE REPORT")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     print(f"Total feeds registered : {total}")
     print(f"Enabled                : {enabled_total}")
     print(f"Disabled               : {total - enabled_total}")
@@ -118,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"[INFO] econ={econ_count}, geo={geo_count}")
 
-    print(f"{'='*50}\n")
+    print(f"{'=' * 50}\n")
     return 0
 
 

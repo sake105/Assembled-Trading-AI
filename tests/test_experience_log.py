@@ -37,7 +37,7 @@ def test_append_multiple(tmp_log):
     for i in range(5):
         append_experience(
             {
-                "cycle_date": f"2026-04-0{i+1}",
+                "cycle_date": f"2026-04-0{i + 1}",
                 "broker_equity": 10000 + i * 100,
                 "exit_code": 0,
             },
@@ -67,7 +67,7 @@ def test_summary_with_data(tmp_log):
     for i, eq in enumerate(equities):
         append_experience(
             {
-                "cycle_date": f"2026-04-0{i+1}",
+                "cycle_date": f"2026-04-0{i + 1}",
                 "broker_equity": eq,
                 "exit_code": 0,
                 "execution_mode": "broker",

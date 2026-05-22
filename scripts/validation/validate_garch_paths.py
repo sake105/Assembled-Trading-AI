@@ -96,8 +96,8 @@ unconditional_vol = float(np.sqrt(omega / max(1 - alpha - beta, 1e-8)))
 
 print(f"    omega={omega:.6e}  alpha={alpha:.4f}  beta={beta:.4f}")
 print(
-    f"    Unconditional daily vol: {unconditional_vol*100:.3f}%  "
-    f"({unconditional_vol*np.sqrt(252)*100:.1f}% annualised)"
+    f"    Unconditional daily vol: {unconditional_vol * 100:.3f}%  "
+    f"({unconditional_vol * np.sqrt(252) * 100:.1f}% annualised)"
 )
 
 # ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ print("\nGARCH(1,1) parameters (fitted on SPX 2020-2024):")
 print(f"  omega  = {omega:.6e}  (long-run variance)")
 print(f"  alpha  = {alpha:.4f}        (ARCH — shock persistence)")
 print(f"  beta   = {beta:.4f}        (GARCH — variance persistence)")
-print(f"  alpha+beta = {alpha+beta:.4f}  (persistence; >0.98 = very sticky)")
+print(f"  alpha+beta = {alpha + beta:.4f}  (persistence; >0.98 = very sticky)")
 
 print(
     f"\nSimulated Sharpe distribution (N={N_PATHS} paths, {LOOKBACK}d momentum strategy):"

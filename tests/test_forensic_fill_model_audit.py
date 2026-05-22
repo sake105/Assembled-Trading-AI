@@ -52,9 +52,9 @@ class TestIndustryBaselines:
         tiers_ordered = ["mega_cap", "large_cap", "mid_cap", "small_cap", "micro_cap"]
         for field in ("commission_bps", "half_spread_bps", "slippage_bps"):
             typicals = [INDUSTRY_BASELINES[t][field][1] for t in tiers_ordered]
-            assert typicals == sorted(
-                typicals
-            ), f"{field} typicals should monotonically increase with illiquidity"
+            assert typicals == sorted(typicals), (
+                f"{field} typicals should monotonically increase with illiquidity"
+            )
 
 
 # ---------------------------------------------------------------------------

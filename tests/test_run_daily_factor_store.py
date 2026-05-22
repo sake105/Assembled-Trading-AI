@@ -90,7 +90,6 @@ def test_run_daily_eod_with_factor_store_flag(tmp_path: Path) -> None:
             return_value=tmp_path / "orders.csv",
         ),
     ):
-
         mock_signals.return_value = pd.DataFrame(
             {
                 "timestamp": dates,
@@ -162,7 +161,6 @@ def test_run_daily_eod_without_factor_store_flag(tmp_path: Path) -> None:
             return_value=tmp_path / "orders.csv",
         ),
     ):
-
         mock_signals.return_value = pd.DataFrame(
             {
                 "timestamp": dates,
@@ -230,7 +228,6 @@ def test_run_daily_eod_timings_metadata_with_factor_store(tmp_path: Path) -> Non
             return_value=tmp_path / "orders.csv",
         ),
     ):
-
         mock_signals.return_value = pd.DataFrame(
             {
                 "timestamp": dates,

@@ -78,9 +78,9 @@ def test_backtest_ledger_integration_smoke(tmp_path: Path) -> None:
     # Verify result has ledger info in meta
     assert result.meta is not None, "Result should have meta dict"
     assert "ledger_pack_path" in result.meta, "Meta should contain ledger_pack_path"
-    assert (
-        "reconcile_report_path" in result.meta
-    ), "Meta should contain reconcile_report_path"
+    assert "reconcile_report_path" in result.meta, (
+        "Meta should contain reconcile_report_path"
+    )
     assert "reconciliation_ok" in result.meta, "Meta should contain reconciliation_ok"
 
     # Verify ledger pack path exists
@@ -91,17 +91,17 @@ def test_backtest_ledger_integration_smoke(tmp_path: Path) -> None:
 
     # Verify ledger events file exists
     ledger_events_file = ledger_dir / "ledger_events.parquet"
-    assert (
-        ledger_events_file.exists()
-    ), f"Ledger events file should exist: {ledger_events_file}"
+    assert ledger_events_file.exists(), (
+        f"Ledger events file should exist: {ledger_events_file}"
+    )
 
     # Verify reconciliation report exists
     reconcile_report_path = result.meta.get("reconcile_report_path")
     if reconcile_report_path:
         report_file = output_dir / reconcile_report_path
-        assert (
-            report_file.exists()
-        ), f"Reconciliation report should exist: {report_file}"
+        assert report_file.exists(), (
+            f"Reconciliation report should exist: {report_file}"
+        )
 
     # Verify reconciliation_ok is True (or at least present)
     reconciliation_ok = result.meta.get("reconciliation_ok")
@@ -217,12 +217,12 @@ def test_backtest_ledger_deterministic_event_ids(tmp_path: Path) -> None:
         events2 = load_ledger_events_parquet(output_dir / "run2", run_id)
 
         # Verify event IDs are identical (deterministic)
-        assert len(events1) == len(
-            events2
-        ), "Both runs should have same number of events"
+        assert len(events1) == len(events2), (
+            "Both runs should have same number of events"
+        )
         if len(events1) > 0:
             event_ids1 = set(events1["event_id"].unique())
             event_ids2 = set(events2["event_id"].unique())
-            assert (
-                event_ids1 == event_ids2
-            ), "Event IDs should be identical for same inputs"
+            assert event_ids1 == event_ids2, (
+                "Event IDs should be identical for same inputs"
+            )

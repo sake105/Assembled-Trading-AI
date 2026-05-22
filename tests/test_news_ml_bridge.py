@@ -154,9 +154,9 @@ def test_ic_weights_normalization(tmp_path):
     if not weights:
         pytest.skip("ICTracker format mismatch — unit test needs live integration")
 
-    assert all(
-        0.5 <= w <= 1.5 for w in weights.values()
-    ), f"Weights out of range: {weights}"
+    assert all(0.5 <= w <= 1.5 for w in weights.values()), (
+        f"Weights out of range: {weights}"
+    )
     # Höchstes IC (EARNINGS=0.2) → höchstes Gewicht
     if "EARNINGS" in weights and "GEOPOLITICAL" in weights:
         assert weights["EARNINGS"] > weights["GEOPOLITICAL"]

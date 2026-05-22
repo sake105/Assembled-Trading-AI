@@ -98,9 +98,9 @@ def test_custom_pvalue_threshold(log_prices):
     result_05 = find_min_d_for_stationarity(log_prices, pvalue_threshold=0.05)
     result_01 = find_min_d_for_stationarity(log_prices, pvalue_threshold=0.01)
     if result_05["is_stationary"] and result_01["is_stationary"]:
-        assert (
-            result_01["d"] >= result_05["d"]
-        ), "Stricter threshold should need same-or-larger d"
+        assert result_01["d"] >= result_05["d"], (
+            "Stricter threshold should need same-or-larger d"
+        )
 
 
 def test_grid_tested_is_returned(log_prices):

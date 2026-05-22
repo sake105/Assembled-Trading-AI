@@ -106,9 +106,9 @@ def test_run_eod_pipeline_smoke(tmp_path: Path, monkeypatch):
             # If report path is present, check that file exists
             if manifest_data.get("qa_report_path"):
                 report_path = tmp_path / manifest_data["qa_report_path"]
-                assert (
-                    report_path.exists()
-                ), f"QA report file should exist: {report_path}"
+                assert report_path.exists(), (
+                    f"QA report file should exist: {report_path}"
+                )
 
                 # Check report content
                 report_content = report_path.read_text(encoding="utf-8")

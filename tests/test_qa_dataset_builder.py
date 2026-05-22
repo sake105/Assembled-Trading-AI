@@ -164,9 +164,9 @@ def test_build_ml_dataset_feature_filtering(
             "price",
         ]
     ]
-    assert all(
-        col.startswith("insider_") for col in feature_cols
-    ), f"Should only have insider features, but found: {feature_cols}"
+    assert all(col.startswith("insider_") for col in feature_cols), (
+        f"Should only have insider features, but found: {feature_cols}"
+    )
 
     # Test with only TA features (using known patterns)
     dataset_ta = build_ml_dataset_from_backtest(
@@ -286,17 +286,17 @@ def test_build_ml_dataset_label_distribution(sample_prices_with_features: pd.Dat
 
     # Check label distribution
     label_counts = dataset["label"].value_counts()
-    assert (
-        1 in label_counts.index
-    ), "Should have at least one successful trade (label=1)"
-    assert (
-        0 in label_counts.index
-    ), "Should have at least one unsuccessful trade (label=0)"
+    assert 1 in label_counts.index, (
+        "Should have at least one successful trade (label=1)"
+    )
+    assert 0 in label_counts.index, (
+        "Should have at least one unsuccessful trade (label=0)"
+    )
 
     # Verify labels match P&L
-    assert (
-        dataset[dataset["pnl_pct"] >= 0.02]["label"].all() == 1
-    ), "Trades with pnl_pct >= 0.02 should be labeled 1"
-    assert (
-        dataset[dataset["pnl_pct"] < 0.02]["label"].all() == 0
-    ), "Trades with pnl_pct < 0.02 should be labeled 0"
+    assert dataset[dataset["pnl_pct"] >= 0.02]["label"].all() == 1, (
+        "Trades with pnl_pct >= 0.02 should be labeled 1"
+    )
+    assert dataset[dataset["pnl_pct"] < 0.02]["label"].all() == 0, (
+        "Trades with pnl_pct < 0.02 should be labeled 0"
+    )

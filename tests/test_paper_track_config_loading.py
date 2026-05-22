@@ -39,9 +39,9 @@ def test_load_trend_baseline_example_config(config_dir: Path) -> None:
     assert config.strategy_params.get("ma_fast") == 20
     assert config.strategy_params.get("ma_slow") == 50
     assert config.strategy_params.get("top_n") == 5
-    assert (
-        config.universe_file.exists()
-    ), f"Universe file should exist: {config.universe_file}"
+    assert config.universe_file.exists(), (
+        f"Universe file should exist: {config.universe_file}"
+    )
 
 
 def test_load_multifactor_long_short_example_config(config_dir: Path) -> None:
@@ -59,9 +59,9 @@ def test_load_multifactor_long_short_example_config(config_dir: Path) -> None:
     assert config.freq == "1d"
     assert config.seed_capital == 100000.0
     assert config.strategy_params.get("bundle_path") is not None
-    assert (
-        config.universe_file.exists()
-    ), f"Universe file should exist: {config.universe_file}"
+    assert config.universe_file.exists(), (
+        f"Universe file should exist: {config.universe_file}"
+    )
 
 
 def test_config_optional_fields(config_dir: Path) -> None:

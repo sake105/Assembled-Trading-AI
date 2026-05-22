@@ -68,21 +68,21 @@ def test_universe_change_day_membership_switches() -> None:
             "AAPL",
             "MSFT",
         }, "AAPL and MSFT should be in universe before removal"
-        assert (
-            "GOOGL" not in members_before
-        ), "GOOGL should not be in universe yet (added on 2024-07-01)"
+        assert "GOOGL" not in members_before, (
+            "GOOGL should not be in universe yet (added on 2024-07-01)"
+        )
 
         # Test: as_of = 2024-06-30 (AAPL removal day, EXCLUSIVE)
         as_of_removal = pd.Timestamp("2024-06-30", tz="UTC")
         members_removal = get_universe_members(
             as_of_removal, universe_name="test", root=root
         )
-        assert set(members_removal) == {
-            "MSFT"
-        }, "Only MSFT should be in universe on removal day (AAPL excluded)"
-        assert (
-            "AAPL" not in members_removal
-        ), "AAPL should not be in universe on removal day (end_date exclusive)"
+        assert set(members_removal) == {"MSFT"}, (
+            "Only MSFT should be in universe on removal day (AAPL excluded)"
+        )
+        assert "AAPL" not in members_removal, (
+            "AAPL should not be in universe on removal day (end_date exclusive)"
+        )
         assert "GOOGL" not in members_removal, "GOOGL should not be in universe yet"
 
         # Test: as_of = 2024-07-01 (GOOGL addition day)
@@ -94,9 +94,9 @@ def test_universe_change_day_membership_switches() -> None:
             "MSFT",
             "GOOGL",
         }, "MSFT and GOOGL should be in universe after addition"
-        assert (
-            "AAPL" not in members_after
-        ), "AAPL should not be in universe after removal"
+        assert "AAPL" not in members_after, (
+            "AAPL should not be in universe after removal"
+        )
 
 
 def test_end_date_exclusive() -> None:
@@ -131,18 +131,18 @@ def test_end_date_exclusive() -> None:
         members_removal = get_universe_members(
             as_of_removal, universe_name="test", root=root
         )
-        assert (
-            "AAPL" not in members_removal
-        ), "AAPL should NOT be in universe on end_date (exclusive)"
+        assert "AAPL" not in members_removal, (
+            "AAPL should NOT be in universe on end_date (exclusive)"
+        )
 
         # Test: as_of = 2024-07-01 (day after removal)
         as_of_after = pd.Timestamp("2024-07-01", tz="UTC")
         members_after = get_universe_members(
             as_of_after, universe_name="test", root=root
         )
-        assert (
-            "AAPL" not in members_after
-        ), "AAPL should not be in universe after end_date"
+        assert "AAPL" not in members_after, (
+            "AAPL should not be in universe after end_date"
+        )
 
 
 def test_active_symbols_end_date_none() -> None:
@@ -177,18 +177,18 @@ def test_active_symbols_end_date_none() -> None:
         members_later = get_universe_members(
             as_of_later, universe_name="test", root=root
         )
-        assert (
-            "MSFT" in members_later
-        ), "MSFT should still be in universe (end_date=None)"
+        assert "MSFT" in members_later, (
+            "MSFT should still be in universe (end_date=None)"
+        )
 
         # Test: as_of = 2025-12-31 (even later date)
         as_of_future = pd.Timestamp("2025-12-31", tz="UTC")
         members_future = get_universe_members(
             as_of_future, universe_name="test", root=root
         )
-        assert (
-            "MSFT" in members_future
-        ), "MSFT should still be in universe (end_date=None, indefinite)"
+        assert "MSFT" in members_future, (
+            "MSFT should still be in universe (end_date=None, indefinite)"
+        )
 
 
 def test_get_universe_members_deterministic() -> None:
@@ -221,9 +221,9 @@ def test_get_universe_members_deterministic() -> None:
         members3 = get_universe_members(as_of, universe_name="test", root=root)
 
         # Verify: Same result each time
-        assert (
-            members1 == members2 == members3
-        ), "Results should be identical (deterministic)"
+        assert members1 == members2 == members3, (
+            "Results should be identical (deterministic)"
+        )
 
         # Verify: Sorted (alphabetically, uppercase)
         assert members1 == sorted(members1), "Members should be sorted"
@@ -260,9 +260,9 @@ def test_get_universe_members_utc_normalized() -> None:
         members_utc = get_universe_members(as_of_utc, universe_name="test", root=root)
 
         # Verify: Same result (naive interpreted as UTC)
-        assert (
-            members_naive == members_utc
-        ), "Naive timestamps should be interpreted as UTC"
+        assert members_naive == members_utc, (
+            "Naive timestamps should be interpreted as UTC"
+        )
 
 
 def test_load_universe_history_formats() -> None:
@@ -350,15 +350,15 @@ def test_store_universe_history_roundtrip() -> None:
 
         # Verify: Data preserved
         assert len(loaded) == len(history), "Should preserve number of records"
-        assert set(loaded["symbol"]) == set(
-            history["symbol"]
-        ), "Should preserve symbols"
+        assert set(loaded["symbol"]) == set(history["symbol"]), (
+            "Should preserve symbols"
+        )
 
         # Verify: Timestamps preserved (within tolerance)
         # Ensure loaded timestamps are datetime
-        assert pd.api.types.is_datetime64_any_dtype(
-            loaded["start_date"]
-        ), "start_date should be datetime"
+        assert pd.api.types.is_datetime64_any_dtype(loaded["start_date"]), (
+            "start_date should be datetime"
+        )
 
         for symbol in history["symbol"]:
             orig = history[history["symbol"] == symbol].iloc[0]

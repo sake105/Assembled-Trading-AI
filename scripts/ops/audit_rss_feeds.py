@@ -164,7 +164,7 @@ def run(timeout: float, workers: int) -> dict:
     if by_verdict["FAIL"]:
         print("\nFAIL details:")
         for r in sorted(by_verdict["FAIL"], key=lambda x: x.get("name", "")):
-            print(f"  - {r['name']:40s}  {r.get('reason','?')}  {r.get('url')}")
+            print(f"  - {r['name']:40s}  {r.get('reason', '?')}  {r.get('url')}")
 
     if by_verdict["EMPTY"]:
         print("\nEMPTY details (HTTP 200 but no feed content):")

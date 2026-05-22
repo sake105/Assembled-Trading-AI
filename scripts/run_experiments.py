@@ -433,8 +433,8 @@ def main():
             )
             results.append(r)
             print(
-                f"Return={r.total_return*100:+.1f}% Sharpe={r.sharpe:.2f} "
-                f"DD={r.max_drawdown*100:.1f}% TO={r.turnover:.1f}x ({r.runtime_s:.1f}s)"
+                f"Return={r.total_return * 100:+.1f}% Sharpe={r.sharpe:.2f} "
+                f"DD={r.max_drawdown * 100:.1f}% TO={r.turnover:.1f}x ({r.runtime_s:.1f}s)"
             )
         except Exception as e:
             print(f"FAILED: {e}")
@@ -458,8 +458,8 @@ def main():
     for r in results:
         ofit = "YES" if r.cpcv_overfit else "no"
         line = (
-            f"{r.name:<22} {r.total_return*100:>+7.1f}% {r.sharpe:>7.2f} {r.sortino:>8.2f} "
-            f"{r.max_drawdown*100:>6.1f}% {r.volatility*100:>6.1f}% {r.alpha*100:>+6.1f}% {r.beta:>5.2f} "
+            f"{r.name:<22} {r.total_return * 100:>+7.1f}% {r.sharpe:>7.2f} {r.sortino:>8.2f} "
+            f"{r.max_drawdown * 100:>6.1f}% {r.volatility * 100:>6.1f}% {r.alpha * 100:>+6.1f}% {r.beta:>5.2f} "
             f"{r.turnover:>5.1f}x {r.cost_bps:>5.0f}bp {r.cpcv_mean_sharpe:>7.2f} {ofit:>5}"
         )
         print(line)
@@ -487,7 +487,7 @@ def main():
         winner = func(results, key=key_fn)
         print(
             f"  {cat_name:<30} -> {winner.name:<22} "
-            f"(Ret={winner.total_return*100:+.1f}%, Sharpe={winner.sharpe:.2f}, DD={winner.max_drawdown*100:.1f}%)"
+            f"(Ret={winner.total_return * 100:+.1f}%, Sharpe={winner.sharpe:.2f}, DD={winner.max_drawdown * 100:.1f}%)"
         )
 
     # === INSIGHTS ===
@@ -538,10 +538,10 @@ def main():
     # Overall best
     overall_best = max(results, key=lambda r: r.sharpe)
     print(f"\n  OVERALL BEST: {overall_best.name}")
-    print(f"    Return: {overall_best.total_return*100:+.1f}%")
+    print(f"    Return: {overall_best.total_return * 100:+.1f}%")
     print(f"    Sharpe: {overall_best.sharpe:.3f}")
-    print(f"    MaxDD:  {overall_best.max_drawdown*100:.1f}%")
-    print(f"    Alpha:  {overall_best.alpha*100:+.1f}%")
+    print(f"    MaxDD:  {overall_best.max_drawdown * 100:.1f}%")
+    print(f"    Alpha:  {overall_best.alpha * 100:+.1f}%")
     print(
         f"    CPCV:   {overall_best.cpcv_mean_sharpe:.2f} (overfit={overall_best.cpcv_overfit})"
     )

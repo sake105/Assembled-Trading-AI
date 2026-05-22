@@ -70,9 +70,9 @@ def test_tsi_higher_for_connected_than_independent():
     tsi_indep = compute_spillover_index(
         independent, lag=2, horizon=5
     ).total_spillover_index_pct
-    assert (
-        tsi_conn > tsi_indep
-    ), f"Connected TSI={tsi_conn:.2f} should exceed independent TSI={tsi_indep:.2f}"
+    assert tsi_conn > tsi_indep, (
+        f"Connected TSI={tsi_conn:.2f} should exceed independent TSI={tsi_indep:.2f}"
+    )
 
 
 def test_fevd_rows_sum_to_100():
@@ -97,9 +97,9 @@ def test_transmitter_has_positive_net_spillover():
     df = _synthetic_connected_returns(n=600, coupling=0.6, seed=3)
     result = compute_spillover_index(df, lag=2, horizon=5)
     # The transmitter (asset_0) should send more than it receives
-    assert (
-        result.net["asset_0"] > 0
-    ), f"Expected asset_0 to be a net transmitter, got net={result.net['asset_0']:.2f}"
+    assert result.net["asset_0"] > 0, (
+        f"Expected asset_0 to be a net transmitter, got net={result.net['asset_0']:.2f}"
+    )
 
 
 def test_rejects_single_variable():

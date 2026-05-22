@@ -148,17 +148,17 @@ class TestBuildEventWindowPrices:
             event_data = result[result["event_id"] == event_id]
             rel_days = event_data["rel_day"].values
 
-            assert (
-                rel_days.min() >= -window_before
-            ), f"rel_day should be >= -{window_before}, got {rel_days.min()}"
-            assert (
-                rel_days.max() <= window_after
-            ), f"rel_day should be <= {window_after}, got {rel_days.max()}"
+            assert rel_days.min() >= -window_before, (
+                f"rel_day should be >= -{window_before}, got {rel_days.min()}"
+            )
+            assert rel_days.max() <= window_after, (
+                f"rel_day should be <= {window_after}, got {rel_days.max()}"
+            )
 
             # Check that rel_day = 0 exists (event day)
-            assert (
-                0 in rel_days
-            ), f"rel_day = 0 (event day) should exist for event {event_id}"
+            assert 0 in rel_days, (
+                f"rel_day = 0 (event day) should exist for event {event_id}"
+            )
 
     def test_event_day_is_zero(self, sample_price_panel, sample_events):
         """Test that rel_day = 0 corresponds to event timestamp."""
@@ -223,9 +223,9 @@ class TestBuildEventWindowPrices:
             result["event_timestamp"] == boundary_events.iloc[0]["timestamp"]
         ]
         if not first_event.empty:
-            assert (
-                first_event["rel_day"].min() >= 0
-            ), "First event should not have negative rel_day (no data before)"
+            assert first_event["rel_day"].min() >= 0, (
+                "First event should not have negative rel_day (no data before)"
+            )
 
         # Last event: should have truncated window_after (can't go after last day)
         last_event = result[
@@ -233,9 +233,9 @@ class TestBuildEventWindowPrices:
         ]
         if not last_event.empty:
             # Last day is day 79 (0-indexed), so window_after might be truncated
-            assert (
-                last_event["rel_day"].max() <= 20
-            ), "Last event should not exceed window_after"
+            assert last_event["rel_day"].max() <= 20, (
+                "Last event should not exceed window_after"
+            )
 
     def test_event_id_generation(self, sample_price_panel, sample_events):
         """Test that event_id is generated if not present."""
@@ -252,9 +252,9 @@ class TestBuildEventWindowPrices:
         )
 
         assert "event_id" in result.columns, "event_id should be generated"
-        assert result["event_id"].nunique() == len(
-            sample_events
-        ), "Should have one event_id per event"
+        assert result["event_id"].nunique() == len(sample_events), (
+            "Should have one event_id per event"
+        )
 
     def test_event_id_preserved(self, sample_price_panel, sample_events_with_ids):
         """Test that explicit event_id is preserved."""
@@ -268,9 +268,9 @@ class TestBuildEventWindowPrices:
         # Check that event_ids match
         expected_ids = set(sample_events_with_ids["event_id"].unique())
         actual_ids = set(result["event_id"].unique())
-        assert (
-            expected_ids == actual_ids
-        ), f"Event IDs should match: expected {expected_ids}, got {actual_ids}"
+        assert expected_ids == actual_ids, (
+            f"Event IDs should match: expected {expected_ids}, got {actual_ids}"
+        )
 
     def test_missing_price_data(self, sample_price_panel):
         """Test that events with missing price data are handled gracefully."""
@@ -293,9 +293,9 @@ class TestBuildEventWindowPrices:
         )
 
         # Should return empty or skip the event
-        assert (
-            result.empty or "NONEXISTENT" not in result["symbol"].values
-        ), "Events with missing price data should be skipped"
+        assert result.empty or "NONEXISTENT" not in result["symbol"].values, (
+            "Events with missing price data should be skipped"
+        )
 
     def test_custom_column_names(self, sample_price_panel, sample_events):
         """Test that custom column names work."""
@@ -383,9 +383,9 @@ class TestComputeEventReturns:
                     and not pd.isna(prices[i - 1])
                 ):
                     expected_return = np.log(prices[i] / prices[i - 1])
-                    assert (
-                        abs(returns[i] - expected_return) < 1e-6
-                    ), f"Log return should be ln(price[t]/price[t-1]), got {returns[i]}, expected {expected_return}"
+                    assert abs(returns[i] - expected_return) < 1e-6, (
+                        f"Log return should be ln(price[t]/price[t-1]), got {returns[i]}, expected {expected_return}"
+                    )
 
     def test_simple_returns_calculation(self, sample_price_panel, sample_events):
         """Test that simple returns are calculated correctly."""
@@ -418,9 +418,9 @@ class TestComputeEventReturns:
                     and not pd.isna(prices[i - 1])
                 ):
                     expected_return = (prices[i] / prices[i - 1]) - 1
-                    assert (
-                        abs(returns[i] - expected_return) < 1e-6
-                    ), f"Simple return should be (price[t]/price[t-1]) - 1, got {returns[i]}, expected {expected_return}"
+                    assert abs(returns[i] - expected_return) < 1e-6, (
+                        f"Simple return should be (price[t]/price[t-1]) - 1, got {returns[i]}, expected {expected_return}"
+                    )
 
     def test_abnormal_returns_with_benchmark(self, sample_price_panel, sample_events):
         """Test that abnormal returns are calculated correctly with benchmark."""
@@ -459,9 +459,9 @@ class TestComputeEventReturns:
                 ):
                     # Benchmark return should be 0 (constant price)
                     # So abnormal_return should equal event_return
-                    assert (
-                        abs(row["abnormal_return"] - row["event_return"]) < 1e-6
-                    ), "With constant benchmark, abnormal_return should equal event_return"
+                    assert abs(row["abnormal_return"] - row["event_return"]) < 1e-6, (
+                        "With constant benchmark, abnormal_return should equal event_return"
+                    )
 
     def test_abnormal_returns_with_varying_benchmark(
         self, sample_price_panel, sample_events
@@ -571,9 +571,9 @@ class TestAggregateEventStudy:
                 expected_avg = day_returns.mean()
                 actual_avg = result[result["rel_day"] == rel_day]["avg_ret"].iloc[0]
 
-                assert (
-                    abs(actual_avg - expected_avg) < 1e-6
-                ), f"avg_ret for rel_day={rel_day} should be mean of returns, got {actual_avg}, expected {expected_avg}"
+                assert abs(actual_avg - expected_avg) < 1e-6, (
+                    f"avg_ret for rel_day={rel_day} should be mean of returns, got {actual_avg}, expected {expected_avg}"
+                )
 
     def test_cumulative_return_calculation(self, sample_price_panel, sample_events):
         """Test that cumulative return is calculated correctly."""
@@ -623,9 +623,9 @@ class TestAggregateEventStudy:
             expected_n = len(day_returns)
             actual_n = result[result["rel_day"] == rel_day]["n_events"].iloc[0]
 
-            assert (
-                actual_n == expected_n
-            ), f"n_events for rel_day={rel_day} should be {expected_n}, got {actual_n}"
+            assert actual_n == expected_n, (
+                f"n_events for rel_day={rel_day} should be {expected_n}, got {actual_n}"
+            )
 
     def test_use_abnormal_flag(self, sample_price_panel, sample_events):
         """Test that use_abnormal flag works correctly."""
@@ -681,7 +681,9 @@ class TestAggregateEventStudy:
             if not pd.isna(row["avg_ret"]) and row["n_events"] > 0:
                 assert row["ci_lower"] <= row["avg_ret"] <= row["ci_upper"] or (
                     pd.isna(row["ci_lower"]) and pd.isna(row["ci_upper"])
-                ), f"ci_lower ({row['ci_lower']}) should be <= avg_ret ({row['avg_ret']}) <= ci_upper ({row['ci_upper']})"
+                ), (
+                    f"ci_lower ({row['ci_lower']}) should be <= avg_ret ({row['avg_ret']}) <= ci_upper ({row['ci_upper']})"
+                )
 
     def test_edge_case_no_events(self):
         """Test that empty events DataFrame is handled gracefully."""

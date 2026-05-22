@@ -321,11 +321,11 @@ def main(argv: list[str] | None = None) -> int:
     json_path.write_text(json.dumps(json_data, indent=2), encoding="utf-8")
 
     # Console summary
-    print(f"\n{'='*65}")
+    print(f"\n{'=' * 65}")
     print(f"{'PERFORMANCE ATTRIBUTION':^65}")
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
     print(f"Total P&L: ${attr['total_pnl']:,.2f}   Trades: {attr['total_trades']}")
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
 
     for dim, title in [
         ("sector", "Sector"),
@@ -363,9 +363,9 @@ def main(argv: list[str] | None = None) -> int:
         src = _safe_get(t, "signal_source", "signal", default="?")
         print(f"    {sym:<6} {side:<5} pnl={pnl:>+10,.2f}  src={src}")
 
-    print(f"\n{'='*65}")
+    print(f"\n{'=' * 65}")
     print(f"Reports: {md_path.name}, {json_path.name}")
-    print(f"{'='*65}\n")
+    print(f"{'=' * 65}\n")
 
     return 0
 

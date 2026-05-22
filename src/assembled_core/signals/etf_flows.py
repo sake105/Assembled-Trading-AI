@@ -117,7 +117,9 @@ def etf_flow_summary(lookback_days: int = 5) -> pd.DataFrame:
                 "direction": (
                     "inflow"
                     if rotation.get(sector, 0) > 0.5
-                    else "outflow" if rotation.get(sector, 0) < -0.5 else "neutral"
+                    else "outflow"
+                    if rotation.get(sector, 0) < -0.5
+                    else "neutral"
                 ),
             }
         )

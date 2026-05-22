@@ -149,6 +149,6 @@ def test_no_costs_sets_costs_to_zero() -> None:
         for col in cost_cols:
             if col in result.trades.columns:
                 # Costs should be 0.0 when include_costs=False
-                assert (
-                    result.trades[col] == 0.0
-                ).all(), f"Cost column {col} should be 0.0 when costs disabled"
+                assert (result.trades[col] == 0.0).all(), (
+                    f"Cost column {col} should be 0.0 when costs disabled"
+                )

@@ -112,15 +112,15 @@ def test_classify_regimes_from_index_basic():
     regimes = classify_regimes_from_index(returns, config)
 
     assert len(regimes) == len(returns), "Regimes should have same length as returns"
-    assert regimes.index.equals(
-        returns.index
-    ), "Regimes should have same index as returns"
+    assert regimes.index.equals(returns.index), (
+        "Regimes should have same index as returns"
+    )
 
     # Check that regimes are valid
     valid_regimes = {"bull", "bear", "sideways", "crisis", "reflation", "neutral"}
-    assert all(
-        r in valid_regimes for r in regimes.unique()
-    ), f"All regimes should be valid. Found: {set(regimes.unique())}"
+    assert all(r in valid_regimes for r in regimes.unique()), (
+        f"All regimes should be valid. Found: {set(regimes.unique())}"
+    )
 
     # In bull phase (first 200 days), should have mostly bull or neutral (due to warm-up)
     # Lower threshold because warm-up period and config thresholds may not perfectly match
@@ -128,9 +128,9 @@ def test_classify_regimes_from_index_basic():
     bull_or_neutral_pct = (
         (bull_phase_regimes == "bull") | (bull_phase_regimes == "neutral")
     ).sum() / len(bull_phase_regimes)
-    assert (
-        bull_or_neutral_pct > 0.3
-    ), f"Bull phase should have >30% bull or neutral regimes, got {bull_or_neutral_pct:.1%}"
+    assert bull_or_neutral_pct > 0.3, (
+        f"Bull phase should have >30% bull or neutral regimes, got {bull_or_neutral_pct:.1%}"
+    )
 
     # In crisis phase (days 400-450), should have crisis or bear
     # Lower threshold because drawdown may take time to accumulate
@@ -138,9 +138,9 @@ def test_classify_regimes_from_index_basic():
     crisis_or_bear_pct = (
         (crisis_phase_regimes == "crisis") | (crisis_phase_regimes == "bear")
     ).sum() / len(crisis_phase_regimes)
-    assert (
-        crisis_or_bear_pct > 0.2
-    ), f"Crisis phase should have >20% crisis or bear regimes, got {crisis_or_bear_pct:.1%}"
+    assert crisis_or_bear_pct > 0.2, (
+        f"Crisis phase should have >20% crisis or bear regimes, got {crisis_or_bear_pct:.1%}"
+    )
 
 
 def test_classify_regimes_from_index_with_phases(synthetic_index_returns_with_phases):
@@ -158,17 +158,17 @@ def test_classify_regimes_from_index_with_phases(synthetic_index_returns_with_ph
 
     # Check that different phases are detected
     unique_regimes = set(regimes.unique())
-    assert (
-        len(unique_regimes) >= 2
-    ), f"Should detect at least 2 different regimes, got: {unique_regimes}"
+    assert len(unique_regimes) >= 2, (
+        f"Should detect at least 2 different regimes, got: {unique_regimes}"
+    )
 
     # Crisis period (days 400-450) should have crisis regimes
     crisis_period = regimes.iloc[400:450]
     crisis_pct = (crisis_period == "crisis").sum() / len(crisis_period)
     # Allow some flexibility due to rolling windows
-    assert (
-        crisis_pct > 0.2
-    ), f"Crisis period should have >20% crisis regimes, got {crisis_pct:.1%}"
+    assert crisis_pct > 0.2, (
+        f"Crisis period should have >20% crisis regimes, got {crisis_pct:.1%}"
+    )
 
 
 def test_classify_regimes_from_index_insufficient_data():
@@ -209,9 +209,9 @@ def test_summarize_metrics_by_regime_basic(simple_equity_curve):
     assert "max_drawdown" in metrics_df.columns
 
     # Should have metrics for both regimes
-    assert (
-        len(metrics_df) >= 2
-    ), f"Should have metrics for at least 2 regimes, got {len(metrics_df)}"
+    assert len(metrics_df) >= 2, (
+        f"Should have metrics for at least 2 regimes, got {len(metrics_df)}"
+    )
 
     # Bull regime should have better Sharpe than bear regime
     bull_metrics = metrics_df[metrics_df["regime_label"] == "bull"]
@@ -222,9 +222,9 @@ def test_summarize_metrics_by_regime_basic(simple_equity_curve):
         bear_sharpe = bear_metrics["sharpe"].iloc[0]
 
         if not pd.isna(bull_sharpe) and not pd.isna(bear_sharpe):
-            assert (
-                bull_sharpe > bear_sharpe
-            ), f"Bull Sharpe ({bull_sharpe:.2f}) should be > Bear Sharpe ({bear_sharpe:.2f})"
+            assert bull_sharpe > bear_sharpe, (
+                f"Bull Sharpe ({bull_sharpe:.2f}) should be > Bear Sharpe ({bear_sharpe:.2f})"
+            )
 
     # Check that n_periods matches (allow small differences due to alignment)
     for _, row in metrics_df.iterrows():
@@ -232,9 +232,9 @@ def test_summarize_metrics_by_regime_basic(simple_equity_curve):
         n_periods = row["n_periods"]
         actual_count = (regimes == regime).sum()
         # Allow difference of 1 due to returns.dropna() alignment
-        assert (
-            abs(n_periods - actual_count) <= 1
-        ), f"n_periods for {regime} should match actual count (within 1): {n_periods} != {actual_count}"
+        assert abs(n_periods - actual_count) <= 1, (
+            f"n_periods for {regime} should match actual count (within 1): {n_periods} != {actual_count}"
+        )
 
 
 def test_summarize_metrics_by_regime_with_trades(simple_equity_curve):
@@ -307,9 +307,9 @@ def test_summarize_factor_ic_by_regime_basic():
     bull_ic = ic_metrics_df[ic_metrics_df["regime_label"] == "bull"]["ic_mean"].iloc[0]
     bear_ic = ic_metrics_df[ic_metrics_df["regime_label"] == "bear"]["ic_mean"].iloc[0]
 
-    assert (
-        bull_ic > bear_ic
-    ), f"Bull IC mean ({bull_ic:.4f}) should be > Bear IC mean ({bear_ic:.4f})"
+    assert bull_ic > bear_ic, (
+        f"Bull IC mean ({bull_ic:.4f}) should be > Bear IC mean ({bear_ic:.4f})"
+    )
 
     # IC count should match number of observations
     bull_count = ic_metrics_df[ic_metrics_df["regime_label"] == "bull"][
@@ -319,12 +319,12 @@ def test_summarize_factor_ic_by_regime_basic():
         "ic_count"
     ].iloc[0]
 
-    assert (
-        bull_count == (regimes == "bull").sum()
-    ), f"Bull IC count should match regime count: {bull_count} != {(regimes == 'bull').sum()}"
-    assert (
-        bear_count == (regimes == "bear").sum()
-    ), f"Bear IC count should match regime count: {bear_count} != {(regimes == 'bear').sum()}"
+    assert bull_count == (regimes == "bull").sum(), (
+        f"Bull IC count should match regime count: {bull_count} != {(regimes == 'bull').sum()}"
+    )
+    assert bear_count == (regimes == "bear").sum(), (
+        f"Bear IC count should match regime count: {bear_count} != {(regimes == 'bear').sum()}"
+    )
 
 
 def test_summarize_factor_ic_by_regime_empty_inputs():

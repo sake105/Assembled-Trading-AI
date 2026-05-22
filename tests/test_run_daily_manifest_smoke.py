@@ -54,9 +54,9 @@ def test_daily_manifest_written_with_relative_posix_paths(tmp_path: Path):
 
     # Verify paths are relative and POSIX (forward slashes)
     safe_path_str = manifest_data["safe_orders_path"]
-    assert (
-        "/" in safe_path_str or safe_path_str == "orders_20250115.csv"
-    ), "Path should use POSIX slashes"
+    assert "/" in safe_path_str or safe_path_str == "orders_20250115.csv", (
+        "Path should use POSIX slashes"
+    )
     assert "\\" not in safe_path_str, "Path should not contain Windows backslashes"
 
     # Verify deterministic JSON (keys should be sorted)
@@ -115,9 +115,9 @@ def test_daily_manifest_deterministic_byte_identical(tmp_path: Path):
         content2 = f.read()
 
     # Files should be byte-identical
-    assert (
-        content1 == content2
-    ), "Manifest should be byte-identical when written twice with same inputs"
+    assert content1 == content2, (
+        "Manifest should be byte-identical when written twice with same inputs"
+    )
 
 
 def test_daily_manifest_all_keys_present(tmp_path: Path):
@@ -166,9 +166,9 @@ def test_daily_manifest_all_keys_present(tmp_path: Path):
     }
 
     actual_keys = set(manifest_data.keys())
-    assert expected_keys.issubset(
-        actual_keys
-    ), f"Missing keys: {expected_keys - actual_keys}"
+    assert expected_keys.issubset(actual_keys), (
+        f"Missing keys: {expected_keys - actual_keys}"
+    )
 
     # Verify paths are relative + POSIX for all path fields
     path_fields = [
@@ -218,22 +218,22 @@ def test_daily_manifest_broker_snapshot_import_fields(tmp_path: Path):
         manifest_data = json.load(f)
 
     # Verify broker snapshot import fields
-    assert (
-        manifest_data["broker_snapshot_file"] is not None
-    ), "broker_snapshot_file should be set"
-    assert (
-        manifest_data["broker_snapshot_import_ok"] is True
-    ), "broker_snapshot_import_ok should be True"
-    assert (
-        manifest_data["broker_snapshot_date"] == "2025-01-15"
-    ), "broker_snapshot_date should be set"
-    assert (
-        manifest_data["broker_snapshot_run_id"] == "snapshot_run"
-    ), "broker_snapshot_run_id should be set"
+    assert manifest_data["broker_snapshot_file"] is not None, (
+        "broker_snapshot_file should be set"
+    )
+    assert manifest_data["broker_snapshot_import_ok"] is True, (
+        "broker_snapshot_import_ok should be True"
+    )
+    assert manifest_data["broker_snapshot_date"] == "2025-01-15", (
+        "broker_snapshot_date should be set"
+    )
+    assert manifest_data["broker_snapshot_run_id"] == "snapshot_run", (
+        "broker_snapshot_run_id should be set"
+    )
 
     # Verify broker_snapshot_file is relative or basename (not absolute path)
     file_str = manifest_data["broker_snapshot_file"]
     assert "\\" not in file_str, "broker_snapshot_file should use POSIX slashes"
-    assert (
-        not Path(file_str).is_absolute() or file_str == snapshot_file.name
-    ), "broker_snapshot_file should be relative or basename"
+    assert not Path(file_str).is_absolute() or file_str == snapshot_file.name, (
+        "broker_snapshot_file should be relative or basename"
+    )

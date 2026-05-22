@@ -92,9 +92,9 @@ def test_tca_report_written_after_backtest() -> None:
             "n_trades",
         ]
         for col in required_cols:
-            assert (
-                col in tca_report.columns
-            ), f"Required column {col} should exist in TCA report"
+            assert col in tca_report.columns, (
+                f"Required column {col} should exist in TCA report"
+            )
 
         # Verify no NaNs in key columns
         key_cols = [
@@ -108,9 +108,9 @@ def test_tca_report_written_after_backtest() -> None:
         ]
         for col in key_cols:
             if not tca_report.empty:
-                assert (
-                    not tca_report[col].isna().any()
-                ), f"Column {col} should not contain NaNs"
+                assert not tca_report[col].isna().any(), (
+                    f"Column {col} should not contain NaNs"
+                )
 
         # Write TCA report to temp file
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -122,12 +122,12 @@ def test_tca_report_written_after_backtest() -> None:
 
             # Verify file can be read back
             loaded = pd.read_csv(tca_report_path)
-            assert len(loaded) == len(
-                tca_report
-            ), "Loaded TCA report should have same number of rows"
-            assert set(loaded.columns) == set(
-                tca_report.columns
-            ), "Loaded TCA report should have same columns"
+            assert len(loaded) == len(tca_report), (
+                "Loaded TCA report should have same number of rows"
+            )
+            assert set(loaded.columns) == set(tca_report.columns), (
+                "Loaded TCA report should have same columns"
+            )
     else:
         # No trades: TCA report should still be buildable (empty)
         tca_report = build_tca_report(
@@ -160,8 +160,8 @@ def test_tca_report_written_after_backtest() -> None:
             "n_trades",
         ]
         for col in required_cols:
-            assert (
-                col in tca_report.columns
-            ), f"Required column {col} should exist in empty TCA report"
+            assert col in tca_report.columns, (
+                f"Required column {col} should exist in empty TCA report"
+            )
 
         assert tca_report.empty, "TCA report should be empty when no trades"

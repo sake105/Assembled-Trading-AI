@@ -346,9 +346,9 @@ def main(argv: list[str] | None = None) -> int:
     json_path.write_text(json.dumps(report_data, indent=2), encoding="utf-8")
 
     # Print summary table
-    print(f"\n{'='*65}")
+    print(f"\n{'=' * 65}")
     print(f"{'BENCHMARK COMPARISON':^65}")
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
     print(f"{'Metric':<18} {'Strategy':>10}", end="")
     for b in benchmarks:
         print(f" {b['label']:>12}", end="")
@@ -364,14 +364,14 @@ def main(argv: list[str] | None = None) -> int:
         for b in benchmarks:
             print(f" {b.get(key, '—'):>12}", end="")
         print()
-    print(f"{'='*65}")
+    print(f"{'=' * 65}")
     print("\nAlpha vs benchmarks:")
     for b in benchmarks:
         alpha = b.get("alpha_ann_pct")
         ir = b.get("ir")
         print(f"  vs {b['label']:<14}: alpha={alpha}% ann, IR={ir}")
     print(f"\nReports: {md_path.name}, {json_path.name}")
-    print(f"{'='*65}\n")
+    print(f"{'=' * 65}\n")
 
     return 0
 

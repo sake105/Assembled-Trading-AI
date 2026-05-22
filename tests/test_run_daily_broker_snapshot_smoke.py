@@ -68,9 +68,9 @@ def test_run_daily_with_broker_snapshot_file(tmp_path: Path):
 
         # Verify snapshot was imported (check output directory)
         snapshot_dir = output_dir / "broker_snapshot_daily_snapshot"
-        assert (
-            snapshot_dir.exists()
-        ), "Broker snapshot directory should exist after import"
+        assert snapshot_dir.exists(), (
+            "Broker snapshot directory should exist after import"
+        )
 
         snapshot_json = snapshot_dir / "snapshot_2025-01-15.json"
         assert snapshot_json.exists(), "Broker snapshot JSON should exist after import"

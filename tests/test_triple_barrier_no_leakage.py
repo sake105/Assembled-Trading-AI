@@ -43,9 +43,9 @@ def test_early_events_skipped_not_leaked():
     # Early events (within 20-bar warm-up) must NOT appear as labeled rows
     labeled_ts = set(result.index)
     for early_ts in events_early:
-        assert (
-            early_ts not in labeled_ts
-        ), f"Event at {early_ts} (bar <20) was labeled — look-ahead leakage detected"
+        assert early_ts not in labeled_ts, (
+            f"Event at {early_ts} (bar <20) was labeled — look-ahead leakage detected"
+        )
 
     # Later events must appear
     assert len(result) > 0, "No labels generated for late events"

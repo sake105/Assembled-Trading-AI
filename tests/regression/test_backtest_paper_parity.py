@@ -39,9 +39,9 @@ def test_make_cycle_fn_exposes_enable_risk_controls() -> None:
     sig = inspect.signature(make_cycle_fn)
     assert "enable_risk_controls" in sig.parameters
     default = sig.parameters["enable_risk_controls"].default
-    assert (
-        default is True
-    ), f"make_cycle_fn.enable_risk_controls default must be True, got {default!r}"
+    assert default is True, (
+        f"make_cycle_fn.enable_risk_controls default must be True, got {default!r}"
+    )
 
 
 def test_trading_context_exposes_kill_switch_persist() -> None:

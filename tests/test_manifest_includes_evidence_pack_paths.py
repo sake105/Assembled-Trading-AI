@@ -73,9 +73,9 @@ def test_manifest_includes_evidence_pack_paths_and_is_deterministic(
         value = loaded[key]
         # Paths should be relative to base and use POSIX slashes
         assert isinstance(value, str)
-        assert (
-            "\\" not in value
-        ), f"Manifest path should not contain backslashes: {value}"
-        assert not Path(
-            value
-        ).is_absolute(), f"Manifest path should be relative: {value}"
+        assert "\\" not in value, (
+            f"Manifest path should not contain backslashes: {value}"
+        )
+        assert not Path(value).is_absolute(), (
+            f"Manifest path should be relative: {value}"
+        )

@@ -189,9 +189,9 @@ def test_import_csv_with_messy_inputs_stable_bytes(tmp_path: Path) -> None:
     path2 = output_dir2 / result2["broker_snapshot_path"]
 
     with path1.open("rb") as f1, path2.open("rb") as f2:
-        assert (
-            f1.read() == f2.read()
-        ), "Stored snapshots should be byte-identical for same input"
+        assert f1.read() == f2.read(), (
+            "Stored snapshots should be byte-identical for same input"
+        )
 
 
 def test_csv_cash_column_string_parsing_first_non_null(tmp_path: Path) -> None:

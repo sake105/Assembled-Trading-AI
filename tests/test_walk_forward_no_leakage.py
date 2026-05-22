@@ -62,7 +62,7 @@ def test_embargo_days_creates_gap_between_splits():
     for i in range(len(splits) - 1):
         embargo_gap = (splits[i + 1].train_end - splits[i].test_end).days
         assert embargo_gap >= 5, (
-            f"Between splits {i} and {i+1}: gap is {embargo_gap} days, "
+            f"Between splits {i} and {i + 1}: gap is {embargo_gap} days, "
             f"must be >= embargo_days=5"
         )
 
@@ -111,9 +111,9 @@ def test_no_purge_embargo_backward_compatible():
     assert len(splits) > 0
     for s in splits:
         # With purge=0, test_start should equal train_end (no gap)
-        assert (
-            s.test_start == s.train_end
-        ), f"Split {s.split_index}: with purge_days=0, test_start must equal train_end"
+        assert s.test_start == s.train_end, (
+            f"Split {s.split_index}: with purge_days=0, test_start must equal train_end"
+        )
 
 
 @pytest.mark.fast
@@ -124,9 +124,9 @@ def test_walkforward_config_has_embargo_and_purge_fields():
     fields = {f.name for f in dataclasses.fields(WalkForwardConfig)}
     assert "purge_days" in fields, "WalkForwardConfig must have purge_days"
     assert "embargo_days" in fields, "WalkForwardConfig must have embargo_days"
-    assert (
-        "max_label_horizon" in fields
-    ), "WalkForwardConfig must have max_label_horizon"
+    assert "max_label_horizon" in fields, (
+        "WalkForwardConfig must have max_label_horizon"
+    )
 
     # Defaults must be 0 (backward compatible)
     cfg = WalkForwardConfig(

@@ -50,6 +50,6 @@ def test_outer_safety_net_present_for_all_four():
     src = _source()
     # Count outer "feature load/merge failed" or equivalent ERROR messages
     error_messages = src.count("feature load/merge failed")
-    assert (
-        error_messages >= 4
-    ), f"Expected ≥4 outer-error handlers (D5+D6+D9+D10), found {error_messages}"
+    assert error_messages >= 4, (
+        f"Expected ≥4 outer-error handlers (D5+D6+D9+D10), found {error_messages}"
+    )

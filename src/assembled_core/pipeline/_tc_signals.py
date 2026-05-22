@@ -319,11 +319,6 @@ def generate_signals(
                 signals = signals.copy()
                 _max_scale = float(bc_cfg.get("max_scale", 1.5))
                 _min_scale = float(bc_cfg.get("min_scale", 0.5))
-                # fmt: off
-                # pre-commit ruff 0.8.6 and black 24.10.0 disagree on the
-                # .fillna() block formatting (one collapses, the other expands)
-                # and cause an unresolvable hook loop. fmt: off is the
-                # minimal-scope workaround until tooling versions align.
                 signals["score"] = signals["score"].astype(float) * signals[
                     "symbol"
                 ].map(
@@ -333,10 +328,7 @@ def generate_signals(
                         )
                         for sym, conf in confidences.items()
                     }
-                ).fillna(
-                    1.0
-                )
-                # fmt: on
+                ).fillna(1.0)
     except Exception as e:
         log.debug("[SIGNAL-DIAG] bayesian_confidence skipped: %s", e)
 

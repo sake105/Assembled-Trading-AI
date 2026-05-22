@@ -125,8 +125,8 @@ docs/                  — Architektur- und Betriebsdokumentation
 ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py
 # Bekannte Baseline: 76 pre-existing findings (Stand Sprint 13), CI zeigt diese ebenfalls
 
-# Format-Check (Black)
-black --check src tests scripts --exclude "scripts/tools|scripts/00_seed_demo_data.py"
+# Format-Check (ruff-format)
+ruff format --check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py
 
 # Tests (CI-äquivalent, ohne externe und advanced Tests)
 pytest -m "not advanced" -q --maxfail=3 --tb=short

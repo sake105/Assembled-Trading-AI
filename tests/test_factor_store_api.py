@@ -82,9 +82,9 @@ def test_factor_store_roundtrip() -> None:
 
         # Compare columns (excluding date column which is added automatically)
         expected_cols = set(factors.columns) | {"date"}
-        assert (
-            set(factors_loaded.columns) == expected_cols
-        ), "Should have same columns (plus date)"
+        assert set(factors_loaded.columns) == expected_cols, (
+            "Should have same columns (plus date)"
+        )
 
         # Compare data (excluding date column)
         factors_compare = factors_loaded.drop(columns=["date"])
@@ -144,12 +144,12 @@ def test_factor_store_partitioning() -> None:
 
         assert len(df_2023) == 5, "2023 partition should have 5 rows"
         assert len(df_2024) == 5, "2024 partition should have 5 rows"
-        assert (
-            df_2023["timestamp"].dt.year.unique()[0] == 2023
-        ), "2023 partition should contain 2023 data"
-        assert (
-            df_2024["timestamp"].dt.year.unique()[0] == 2024
-        ), "2024 partition should contain 2024 data"
+        assert df_2023["timestamp"].dt.year.unique()[0] == 2023, (
+            "2023 partition should contain 2023 data"
+        )
+        assert df_2024["timestamp"].dt.year.unique()[0] == 2024, (
+            "2024 partition should contain 2024 data"
+        )
 
 
 def test_factor_store_contracts() -> None:
@@ -188,17 +188,17 @@ def test_factor_store_contracts() -> None:
 
         # Contract: UTC
         assert factors_loaded is not None, "Factors should be loaded"
-        assert (
-            factors_loaded["timestamp"].dt.tz is not None
-        ), "Timestamps should be UTC-aware"
+        assert factors_loaded["timestamp"].dt.tz is not None, (
+            "Timestamps should be UTC-aware"
+        )
         tz_first = factors_loaded["timestamp"].iloc[0].tz
         assert tz_first is not None, "Timestamps should be UTC-aware"
 
         # Contract: Required columns
         required_cols = {"timestamp", "symbol"}
-        assert (
-            set(factors_loaded.columns) >= required_cols
-        ), f"Should have required columns: {required_cols}"
+        assert set(factors_loaded.columns) >= required_cols, (
+            f"Should have required columns: {required_cols}"
+        )
 
         # Contract: Deterministic sorting (timestamp, symbol)
         sorted_check = factors_loaded.sort_values(["timestamp", "symbol"]).reset_index(
@@ -290,15 +290,15 @@ def test_list_factor_partitions() -> None:
 
         # Verify: partition listed
         assert len(partitions) >= 1, "Should list at least one partition"
-        assert any(
-            p["universe_key"] == universe_key for p in partitions
-        ), "Should list our universe"
+        assert any(p["universe_key"] == universe_key for p in partitions), (
+            "Should list our universe"
+        )
 
         # Verify: partition metadata
         our_partition = next(p for p in partitions if p["universe_key"] == universe_key)
-        assert (
-            our_partition["factor_group"] == "core_ta"
-        ), "Should have correct factor_group"
+        assert our_partition["factor_group"] == "core_ta", (
+            "Should have correct factor_group"
+        )
         assert our_partition["freq"] == "1d", "Should have correct freq"
         assert 2024 in our_partition["years"], "Should list 2024 in years"
 
@@ -363,9 +363,9 @@ def test_factor_store_append_mode() -> None:
         # Verify: deduplication (keep="last")
         assert factors_loaded is not None, "Factors should be loaded"
         # Should have 7 unique timestamps (5 from factors_1, 2 new from factors_2, 3 duplicates removed)
-        assert (
-            len(factors_loaded) == 7
-        ), "Should have 7 unique timestamps (5 + 5 - 3 duplicates)"
+        assert len(factors_loaded) == 7, (
+            "Should have 7 unique timestamps (5 + 5 - 3 duplicates)"
+        )
 
         # Verify: last value wins for duplicates
         duplicate_timestamp = timestamps_2[
@@ -374,6 +374,6 @@ def test_factor_store_append_mode() -> None:
         duplicate_row = factors_loaded[
             factors_loaded["timestamp"] == duplicate_timestamp
         ].iloc[0]
-        assert (
-            duplicate_row["log_return"] == 0.02
-        ), "Last value should win (keep='last')"
+        assert duplicate_row["log_return"] == 0.02, (
+            "Last value should win (keep='last')"
+        )

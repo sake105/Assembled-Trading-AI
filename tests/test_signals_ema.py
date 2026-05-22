@@ -86,9 +86,9 @@ def test_compute_ema_signals_no_nans():
     assert not signals["sig"].isna().any(), "Signal column should not contain NaNs"
 
     # Timestamp should also not be NaT
-    assert (
-        not signals["timestamp"].isna().any()
-    ), "Timestamp column should not contain NaTs"
+    assert not signals["timestamp"].isna().any(), (
+        "Timestamp column should not contain NaTs"
+    )
 
 
 def test_compute_ema_signals_crossovers():

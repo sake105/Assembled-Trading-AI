@@ -90,9 +90,9 @@ def test_total_cost_equals_sum_of_components() -> None:
         rtol=1e-10,
     )
     # Verify that total_cost_cash equals sum of components
-    assert (
-        fills_with_costs["total_cost_cash"] == computed_total
-    ).all(), "total_cost_cash should equal sum of components"
+    assert (fills_with_costs["total_cost_cash"] == computed_total).all(), (
+        "total_cost_cash should equal sum of components"
+    )
 
 
 def test_rejected_fills_have_zero_costs() -> None:
@@ -148,18 +148,18 @@ def test_rejected_fills_have_zero_costs() -> None:
     # Check: rejected fills have zero costs
     rejected_mask = fills_with_costs["status"] == "rejected"
     if rejected_mask.any():
-        assert (
-            fills_with_costs.loc[rejected_mask, "commission_cash"] == 0.0
-        ).all(), "Rejected fills should have zero commission"
-        assert (
-            fills_with_costs.loc[rejected_mask, "spread_cash"] == 0.0
-        ).all(), "Rejected fills should have zero spread"
-        assert (
-            fills_with_costs.loc[rejected_mask, "slippage_cash"] == 0.0
-        ).all(), "Rejected fills should have zero slippage"
-        assert (
-            fills_with_costs.loc[rejected_mask, "total_cost_cash"] == 0.0
-        ).all(), "Rejected fills should have zero total cost"
+        assert (fills_with_costs.loc[rejected_mask, "commission_cash"] == 0.0).all(), (
+            "Rejected fills should have zero commission"
+        )
+        assert (fills_with_costs.loc[rejected_mask, "spread_cash"] == 0.0).all(), (
+            "Rejected fills should have zero spread"
+        )
+        assert (fills_with_costs.loc[rejected_mask, "slippage_cash"] == 0.0).all(), (
+            "Rejected fills should have zero slippage"
+        )
+        assert (fills_with_costs.loc[rejected_mask, "total_cost_cash"] == 0.0).all(), (
+            "Rejected fills should have zero total cost"
+        )
 
 
 def test_partial_fills_costs_scale_with_filled_notional() -> None:
@@ -219,9 +219,9 @@ def test_partial_fills_costs_scale_with_filled_notional() -> None:
     )
 
     # Check: fill_qty < qty (partial fill)
-    assert (
-        fills_with_costs["fill_qty"].iloc[0] < fills_with_costs["qty"].iloc[0]
-    ), "Should be partial fill"
+    assert fills_with_costs["fill_qty"].iloc[0] < fills_with_costs["qty"].iloc[0], (
+        "Should be partial fill"
+    )
 
     # Check: costs are based on fill_qty * fill_price (not original qty * price)
     filled_notional = (
@@ -237,12 +237,12 @@ def test_partial_fills_costs_scale_with_filled_notional() -> None:
     actual_commission = fills_with_costs["commission_cash"].iloc[0]
 
     # Allow small tolerance for rounding
-    assert (
-        abs(actual_commission - expected_commission) < 0.01
-    ), "Commission should scale with filled notional"
+    assert abs(actual_commission - expected_commission) < 0.01, (
+        "Commission should scale with filled notional"
+    )
 
     # Total cost should be less than if based on original notional
     # (since fill_qty < qty)
-    assert actual_commission < (
-        original_notional * 0.0001
-    ), "Costs should be less for partial fills"
+    assert actual_commission < (original_notional * 0.0001), (
+        "Costs should be less for partial fills"
+    )

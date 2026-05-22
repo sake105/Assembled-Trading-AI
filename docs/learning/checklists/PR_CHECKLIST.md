@@ -8,7 +8,7 @@ Diese Checkliste gilt für **jeden** PR (auch kleine).
   - Keine neuen, ungeklärten Testfehler.
 
 - **QC Gates**
-  - Linter/Format (z.B. `ruff`, `black`, `mypy` falls aktiv) ausgeführt.
+  - Linter/Format (`ruff check`, `ruff format --check`, `mypy` falls aktiv) ausgeführt.
   - Warnungen/Fehler adressiert oder begründet.
 
 - **Repro-Steps dokumentiert**

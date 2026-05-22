@@ -69,9 +69,9 @@ def test_gate_blocks_orders_unit_level() -> None:
 
     # Assert: Orders should be empty
     assert result.orders.empty, "Orders should be empty when qa_block_trading=True"
-    assert (
-        result.orders_filtered.empty
-    ), "orders_filtered should be empty when qa_block_trading=True"
+    assert result.orders_filtered.empty, (
+        "orders_filtered should be empty when qa_block_trading=True"
+    )
 
     # Assert: Orders should have correct schema
     assert list(result.orders.columns) == [
@@ -83,12 +83,12 @@ def test_gate_blocks_orders_unit_level() -> None:
     ], "Orders should have correct schema even when empty"
 
     # Assert: Reason should be in meta
-    assert (
-        result.meta.get("qa_block_reason") == "TEST: QA Gate blocking for test"
-    ), "qa_block_reason should be in result.meta"
-    assert (
-        result.meta.get("qa_block_trading") is True
-    ), "qa_block_trading flag should be in result.meta"
+    assert result.meta.get("qa_block_reason") == "TEST: QA Gate blocking for test", (
+        "qa_block_reason should be in result.meta"
+    )
+    assert result.meta.get("qa_block_trading") is True, (
+        "qa_block_trading flag should be in result.meta"
+    )
 
     # Assert: Status should still be success (gate is not an error)
     assert result.status == "success", "Status should be success (gate is not an error)"
@@ -118,9 +118,9 @@ def test_qc_fail_blocks_orders_mini_integration() -> None:
         f"DATA_QC_FAIL: {qc_report.summary.get('fail_count', 0)} FAIL issues"
     )
 
-    assert (
-        qa_block_trading is True
-    ), "qa_block_trading should be True when QC has FAIL issues"
+    assert qa_block_trading is True, (
+        "qa_block_trading should be True when QC has FAIL issues"
+    )
     assert qa_block_reason is not None, "qa_block_reason should be set"
 
     # Define minimal signal and position sizing functions
@@ -158,15 +158,15 @@ def test_qc_fail_blocks_orders_mini_integration() -> None:
     result = run_trading_cycle(ctx)
 
     # Assert: Orders should be empty (blocked by gate)
-    assert (
-        result.orders.empty
-    ), "Orders should be empty when QC FAIL -> qa_block_trading=True"
+    assert result.orders.empty, (
+        "Orders should be empty when QC FAIL -> qa_block_trading=True"
+    )
     assert result.orders_filtered.empty, "orders_filtered should be empty when QC FAIL"
 
     # Assert: Reason should be in meta
-    assert "DATA_QC_FAIL" in result.meta.get(
-        "qa_block_reason", ""
-    ), "qa_block_reason should contain DATA_QC_FAIL"
+    assert "DATA_QC_FAIL" in result.meta.get("qa_block_reason", ""), (
+        "qa_block_reason should contain DATA_QC_FAIL"
+    )
 
 
 def test_qc_warn_does_not_block_orders() -> None:
@@ -194,9 +194,9 @@ def test_qc_warn_does_not_block_orders() -> None:
 
     # If QC is OK (no FAIL), gate should not block
     if qc_report.ok:
-        assert (
-            qa_block_trading is False
-        ), "qa_block_trading should be False when QC is OK (only WARN)"
+        assert qa_block_trading is False, (
+            "qa_block_trading should be False when QC is OK (only WARN)"
+        )
         assert qa_block_reason is None, "qa_block_reason should be None when QC is OK"
 
         # Define minimal signal and position sizing functions
@@ -235,9 +235,9 @@ def test_qc_warn_does_not_block_orders() -> None:
 
         # Assert: Orders should NOT be empty (gate did not block)
         # Note: Orders might be empty for other reasons (no signals, etc.), but not because of gate
-        assert (
-            result.meta.get("qa_block_trading") is not True
-        ), "qa_block_trading should not be True when QC is OK"
+        assert result.meta.get("qa_block_trading") is not True, (
+            "qa_block_trading should not be True when QC is OK"
+        )
 
 
 def test_gate_preserves_order_schema() -> None:
@@ -283,9 +283,9 @@ def test_gate_preserves_order_schema() -> None:
 
     # Assert: Schema should be correct
     expected_cols = ["timestamp", "symbol", "side", "qty", "price"]
-    assert (
-        list(result.orders.columns) == expected_cols
-    ), f"Orders should have schema {expected_cols}, got {list(result.orders.columns)}"
-    assert (
-        list(result.orders_filtered.columns) == expected_cols
-    ), f"orders_filtered should have schema {expected_cols}"
+    assert list(result.orders.columns) == expected_cols, (
+        f"Orders should have schema {expected_cols}, got {list(result.orders.columns)}"
+    )
+    assert list(result.orders_filtered.columns) == expected_cols, (
+        f"orders_filtered should have schema {expected_cols}"
+    )

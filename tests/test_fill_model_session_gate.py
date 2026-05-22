@@ -42,9 +42,9 @@ def test_weekend_rejected() -> None:
         # Should be rejected
         assert fills["status"].iloc[0] == "rejected", "Weekend order should be rejected"
         assert fills["fill_qty"].iloc[0] == 0.0, "Rejected order should have fill_qty=0"
-        assert (
-            fills["remaining_qty"].iloc[0] == 100.0
-        ), "Rejected order should have remaining_qty=qty"
+        assert fills["remaining_qty"].iloc[0] == 100.0, (
+            "Rejected order should have remaining_qty=qty"
+        )
     except ImportError:
         # Skip if exchange_calendars not available
         pass
@@ -71,9 +71,9 @@ def test_holiday_rejected() -> None:
         # Should be rejected
         assert fills["status"].iloc[0] == "rejected", "Holiday order should be rejected"
         assert fills["fill_qty"].iloc[0] == 0.0, "Rejected order should have fill_qty=0"
-        assert (
-            fills["remaining_qty"].iloc[0] == 100.0
-        ), "Rejected order should have remaining_qty=qty"
+        assert fills["remaining_qty"].iloc[0] == 100.0, (
+            "Rejected order should have remaining_qty=qty"
+        )
     except ImportError:
         # Skip if exchange_calendars not available
         pass
@@ -106,9 +106,9 @@ def test_1d_only_close_accepted() -> None:
 
         fills_at_close = apply_session_gate(orders_at_close, freq="1d", strict=True)
 
-        assert (
-            fills_at_close["fill_qty"].iloc[0] == 100.0
-        ), "Order at session close should be accepted"
+        assert fills_at_close["fill_qty"].iloc[0] == 100.0, (
+            "Order at session close should be accepted"
+        )
 
         # Order 2 hours before session close — also accepted for 1d (trading day is sufficient)
         orders_mid_day = pd.DataFrame(
@@ -124,9 +124,9 @@ def test_1d_only_close_accepted() -> None:
         fills_mid_day = apply_session_gate(orders_mid_day, freq="1d", strict=True)
 
         # For 1d, any trading-day order is accepted (session-close proximity not checked)
-        assert (
-            fills_mid_day["fill_qty"].iloc[0] == 100.0
-        ), "Mid-day 1d order on trading day should be accepted"
+        assert fills_mid_day["fill_qty"].iloc[0] == 100.0, (
+            "Mid-day 1d order on trading day should be accepted"
+        )
     except ImportError:
         # Skip if exchange_calendars not available
         pass
@@ -172,9 +172,9 @@ def test_5min_within_session_accepted() -> None:
         fills_within = apply_session_gate(orders_within, freq="5min", strict=True)
 
         # Should be accepted
-        assert (
-            fills_within["fill_qty"].iloc[0] == 100.0
-        ), "Order within session should be accepted"
+        assert fills_within["fill_qty"].iloc[0] == 100.0, (
+            "Order within session should be accepted"
+        )
 
         # Order outside session (before open)
         orders_before_open = pd.DataFrame(
@@ -192,12 +192,12 @@ def test_5min_within_session_accepted() -> None:
         fills_before = apply_session_gate(orders_before_open, freq="5min", strict=True)
 
         # Should be rejected
-        assert (
-            fills_before["status"].iloc[0] == "rejected"
-        ), "Order before session open should be rejected"
-        assert (
-            fills_before["fill_qty"].iloc[0] == 0.0
-        ), "Rejected order should have fill_qty=0"
+        assert fills_before["status"].iloc[0] == "rejected", (
+            "Order before session open should be rejected"
+        )
+        assert fills_before["fill_qty"].iloc[0] == 0.0, (
+            "Rejected order should have fill_qty=0"
+        )
 
         # Order outside session (after close)
         orders_after_close = pd.DataFrame(
@@ -215,12 +215,12 @@ def test_5min_within_session_accepted() -> None:
         fills_after = apply_session_gate(orders_after_close, freq="5min", strict=True)
 
         # Should be rejected
-        assert (
-            fills_after["status"].iloc[0] == "rejected"
-        ), "Order after session close should be rejected"
-        assert (
-            fills_after["fill_qty"].iloc[0] == 0.0
-        ), "Rejected order should have fill_qty=0"
+        assert fills_after["status"].iloc[0] == "rejected", (
+            "Order after session close should be rejected"
+        )
+        assert fills_after["fill_qty"].iloc[0] == 0.0, (
+            "Rejected order should have fill_qty=0"
+        )
     except ImportError:
         # Skip if exchange_calendars not available
         pass

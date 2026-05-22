@@ -73,15 +73,15 @@ def test_daily_writes_factors_to_store() -> None:
         )
 
         assert factors_loaded is not None, "Factors should be stored and loadable"
-        assert len(factors_loaded) >= len(
-            factors
-        ), "Should have at least the stored factors"
+        assert len(factors_loaded) >= len(factors), (
+            "Should have at least the stored factors"
+        )
 
         # Verify: last session data is present
         last_session = factors_loaded[factors_loaded["timestamp"] == timestamps[-1]]
-        assert len(last_session) == len(
-            symbols
-        ), "Should have factors for all symbols on last session"
+        assert len(last_session) == len(symbols), (
+            "Should have factors for all symbols on last session"
+        )
 
 
 def test_backtest_uses_factor_store_when_available(monkeypatch) -> None:
@@ -142,9 +142,9 @@ def test_backtest_uses_factor_store_when_available(monkeypatch) -> None:
         assert not factors_loaded.empty, "Factors should not be empty"
 
         # Verify: add_all_features was NOT called (factors loaded from store)
-        assert (
-            add_all_features_mock.call_count == 0
-        ), "Feature builder should NOT be called when factors are loaded from store"
+        assert add_all_features_mock.call_count == 0, (
+            "Feature builder should NOT be called when factors are loaded from store"
+        )
 
         # Verify: factors match stored factors
         assert len(factors_loaded) == len(factors), "Should have same number of rows"
@@ -186,18 +186,18 @@ def test_backtest_fallback_when_factor_store_missing() -> None:
         )
 
         # Verify: factors not found (fallback scenario)
-        assert (
-            factors_loaded is None
-        ), "Factors should not be found (factor store empty)"
+        assert factors_loaded is None, (
+            "Factors should not be found (factor store empty)"
+        )
 
         # Fallback: compute features directly (local-only, no external fetches)
         factors_computed = add_all_features(prices.copy())
 
         # Verify: features computed successfully
         assert not factors_computed.empty, "Features should be computed"
-        assert len(factors_computed) == len(
-            prices
-        ), "Should have same number of rows as prices"
+        assert len(factors_computed) == len(prices), (
+            "Should have same number of rows as prices"
+        )
 
         # Verify: feature columns present
         expected_feature_cols = [
@@ -207,9 +207,9 @@ def test_backtest_fallback_when_factor_store_missing() -> None:
             "ta_ma_200_v1",
         ]
         for col in expected_feature_cols:
-            assert (
-                col in factors_computed.columns
-            ), f"Feature column {col} should be present"
+            assert col in factors_computed.columns, (
+                f"Feature column {col} should be present"
+            )
 
 
 def test_backtest_hard_gate_no_external_fetches() -> None:
@@ -250,9 +250,9 @@ def test_backtest_hard_gate_no_external_fetches() -> None:
         # Step 2: Fallback to direct computation (local-only)
         if factors_loaded is None:
             factors_computed = add_all_features(prices.copy())
-            assert (
-                not factors_computed.empty
-            ), "Fallback computation should work (local-only)"
+            assert not factors_computed.empty, (
+                "Fallback computation should work (local-only)"
+            )
 
         # Verify: No external fetches occurred (this is implicit - we only use local data)
         # The Hard Gate is enforced at data loading level (D3), not at feature computation level
@@ -316,9 +316,9 @@ def test_daily_incremental_update_stores_last_session() -> None:
         )
 
         assert factors_loaded is not None, "Factors should be loaded"
-        assert len(factors_loaded) == len(
-            factors_full
-        ), "Should have all days after incremental update"
-        assert (
-            factors_loaded["timestamp"].nunique() == 10
-        ), "Should have 10 unique timestamps"
+        assert len(factors_loaded) == len(factors_full), (
+            "Should have all days after incremental update"
+        )
+        assert factors_loaded["timestamp"].nunique() == 10, (
+            "Should have 10 unique timestamps"
+        )

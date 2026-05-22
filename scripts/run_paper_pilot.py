@@ -421,9 +421,9 @@ def cmd_evaluate() -> int:
     )
     report_path.write_text(json.dumps(verdict, indent=2), encoding="utf-8")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"PILOT VERDICT: {decision}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     for k, v in criteria_results.items():
         icon = "[OK]" if v.get("pass") else "[FAIL]"
         print(f"  {icon} {k}: {v.get('value')}")

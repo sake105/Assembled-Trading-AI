@@ -160,15 +160,15 @@ def test_dividend_cashflow_computation() -> None:
     # Verify only AAPL gets dividend (MSFT has no dividend action)
     assert len(cashflows) == 1, "Should have one cashflow event"
     assert cashflows.iloc[0]["symbol"] == "AAPL", "Cashflow should be for AAPL"
-    assert (
-        cashflows.iloc[0]["cashflow_type"] == "DIVIDEND"
-    ), "Cashflow type should be DIVIDEND"
-    assert cashflows.iloc[0]["amount"] == pytest.approx(
-        25.0, rel=1e-6
-    ), "Amount should be 100 * 0.25 = 25.0"
-    assert cashflows.iloc[0]["timestamp"] == pd.Timestamp(
-        "2024-01-15", tz="UTC"
-    ), "Timestamp should match"
+    assert cashflows.iloc[0]["cashflow_type"] == "DIVIDEND", (
+        "Cashflow type should be DIVIDEND"
+    )
+    assert cashflows.iloc[0]["amount"] == pytest.approx(25.0, rel=1e-6), (
+        "Amount should be 100 * 0.25 = 25.0"
+    )
+    assert cashflows.iloc[0]["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC"), (
+        "Timestamp should match"
+    )
 
 
 @pytest.mark.unwired_code
@@ -203,14 +203,14 @@ def test_dividend_cashflow_multiple_dividends() -> None:
 
     # Verify amounts
     amounts = cashflows["amount"].tolist()
-    assert amounts == pytest.approx(
-        [25.0, 30.0], rel=1e-6
-    ), "Amounts should be 100 * 0.25 and 100 * 0.30"
+    assert amounts == pytest.approx([25.0, 30.0], rel=1e-6), (
+        "Amounts should be 100 * 0.25 and 100 * 0.30"
+    )
 
     # Verify sorted by timestamp
-    assert cashflows[
-        "timestamp"
-    ].is_monotonic_increasing, "Cashflows should be sorted by timestamp"
+    assert cashflows["timestamp"].is_monotonic_increasing, (
+        "Cashflows should be sorted by timestamp"
+    )
 
 
 @pytest.mark.unwired_code
@@ -243,9 +243,9 @@ def test_dividend_cashflow_as_of_filter() -> None:
 
     # Verify only first dividend is included
     assert len(cashflows) == 1, "Should have one cashflow event (filtered by as_of)"
-    assert cashflows.iloc[0]["timestamp"] == pd.Timestamp(
-        "2024-01-15", tz="UTC"
-    ), "Should be first dividend"
+    assert cashflows.iloc[0]["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC"), (
+        "Should be first dividend"
+    )
 
 
 @pytest.mark.unwired_code
@@ -266,9 +266,9 @@ def test_split_adjustment_empty_actions() -> None:
     result = apply_splits_for_research_prices(prices, actions)
 
     # Verify close_research = close (no adjustment)
-    assert result["close_research"].equals(
-        result["close"]
-    ), "close_research should equal close when no actions"
+    assert result["close_research"].equals(result["close"]), (
+        "close_research should equal close when no actions"
+    )
 
 
 @pytest.mark.unwired_code

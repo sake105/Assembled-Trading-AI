@@ -62,9 +62,9 @@ def test_feature_zero_before_disclosure() -> None:
     before_disclosure = result[
         result["timestamp"] < pd.Timestamp("2024-01-15", tz="UTC")
     ]
-    assert (
-        before_disclosure["alt_disclosure_count_30d_v1"] == 0
-    ).all(), "Feature should be zero before disclosure_date"
+    assert (before_disclosure["alt_disclosure_count_30d_v1"] == 0).all(), (
+        "Feature should be zero before disclosure_date"
+    )
 
 
 def test_feature_positive_after_disclosure() -> None:
@@ -104,9 +104,9 @@ def test_feature_positive_after_disclosure() -> None:
     after_disclosure = result[
         result["timestamp"] >= pd.Timestamp("2024-01-15", tz="UTC")
     ]
-    assert (
-        after_disclosure["alt_disclosure_count_30d_v1"] > 0
-    ).any(), "Feature should be > 0 after disclosure_date (in window)"
+    assert (after_disclosure["alt_disclosure_count_30d_v1"] > 0).any(), (
+        "Feature should be > 0 after disclosure_date (in window)"
+    )
     # Specifically, price on 2024-01-15 should have feature = 1
     price_on_disclosure = result[
         result["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC")

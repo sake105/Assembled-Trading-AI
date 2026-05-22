@@ -137,6 +137,6 @@ class TestReturnTypeSafety:
             side_effect=RuntimeError("simulated risk module failure"),
         ):
             result = _apply_risk_controls_default(ctx, orders)
-        assert isinstance(
-            result, pd.DataFrame
-        ), "Exception path must return pd.DataFrame, not list"
+        assert isinstance(result, pd.DataFrame), (
+            "Exception path must return pd.DataFrame, not list"
+        )

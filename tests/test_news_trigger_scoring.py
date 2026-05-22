@@ -177,9 +177,9 @@ def test_trigger_fields_complete():
         "generated_utc",
     }
     for t in triggers:
-        assert required_fields.issubset(
-            t.keys()
-        ), f"Missing fields: {required_fields - t.keys()}"
+        assert required_fields.issubset(t.keys()), (
+            f"Missing fields: {required_fields - t.keys()}"
+        )
 
 
 def test_triggers_sorted_by_severity_desc():

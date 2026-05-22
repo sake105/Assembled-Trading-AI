@@ -154,9 +154,9 @@ def test_tier_disabled_preserves_flat_cost(tmp_path) -> None:
     # Both symbols should observe the same half-spread cost
     # (impact is zero because impact_coefficient=0).
     spreads = set(round(x, 6) for x in fills["spread_cost_bps"])
-    assert (
-        len(spreads) == 1
-    ), f"legacy path should produce flat half-spread, got {spreads}"
+    assert len(spreads) == 1, (
+        f"legacy path should produce flat half-spread, got {spreads}"
+    )
 
 
 def test_reject_unknown_adv(tmp_path) -> None:

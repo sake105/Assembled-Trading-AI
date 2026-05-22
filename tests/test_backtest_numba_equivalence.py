@@ -171,9 +171,9 @@ def test_numba_equivalence_mini_backtest():
     equity_no_numba = result_no_numba.equity["equity"].values
     equity_with_numba = result_with_numba.equity["equity"].values
 
-    assert len(equity_no_numba) == len(
-        equity_with_numba
-    ), "Equity curves should have same length"
+    assert len(equity_no_numba) == len(equity_with_numba), (
+        "Equity curves should have same length"
+    )
 
     # Check that equity values are nearly identical (within small tolerance)
     import numpy as np
@@ -190,9 +190,9 @@ def test_numba_equivalence_mini_backtest():
     final_equity_no_numba = equity_no_numba[-1]
     final_equity_with_numba = equity_with_numba[-1]
 
-    assert (
-        abs(final_equity_no_numba - final_equity_with_numba) < 1e-3
-    ), f"Final equity should be nearly identical: {final_equity_no_numba} vs {final_equity_with_numba}"
+    assert abs(final_equity_no_numba - final_equity_with_numba) < 1e-3, (
+        f"Final equity should be nearly identical: {final_equity_no_numba} vs {final_equity_with_numba}"
+    )
 
     # Compare metrics (final_pf, sharpe should be nearly identical)
     metrics_no_numba = result_no_numba.metrics
@@ -203,17 +203,17 @@ def test_numba_equivalence_mini_backtest():
     final_pf_with_numba = metrics_with_numba.get("final_pf", float("nan"))
 
     if not (pd.isna(final_pf_no_numba) or pd.isna(final_pf_with_numba)):
-        assert (
-            abs(final_pf_no_numba - final_pf_with_numba) < 1e-6
-        ), f"Final PF should be nearly identical: {final_pf_no_numba} vs {final_pf_with_numba}"
+        assert abs(final_pf_no_numba - final_pf_with_numba) < 1e-6, (
+            f"Final PF should be nearly identical: {final_pf_no_numba} vs {final_pf_with_numba}"
+        )
 
     # Compare trade counts (should be identical)
     trades_no_numba = metrics_no_numba.get("trades", 0)
     trades_with_numba = metrics_with_numba.get("trades", 0)
 
-    assert (
-        trades_no_numba == trades_with_numba
-    ), f"Trade counts should be identical: {trades_no_numba} vs {trades_with_numba}"
+    assert trades_no_numba == trades_with_numba, (
+        f"Trade counts should be identical: {trades_no_numba} vs {trades_with_numba}"
+    )
 
     # Compare actual trades DataFrames (if available)
     if result_no_numba.trades is not None and result_with_numba.trades is not None:
@@ -224,9 +224,9 @@ def test_numba_equivalence_mini_backtest():
             ["timestamp", "symbol"]
         ).reset_index(drop=True)
 
-        assert len(trades_df_no_numba) == len(
-            trades_df_with_numba
-        ), f"Trade DataFrames should have same length: {len(trades_df_no_numba)} vs {len(trades_df_with_numba)}"
+        assert len(trades_df_no_numba) == len(trades_df_with_numba), (
+            f"Trade DataFrames should have same length: {len(trades_df_no_numba)} vs {len(trades_df_with_numba)}"
+        )
 
         # Compare trade quantities and sides (should be nearly identical)
         if not trades_df_no_numba.empty:
@@ -245,9 +245,9 @@ def test_numba_equivalence_mini_backtest():
             sides_no_numba = trades_df_no_numba["side"].values
             sides_with_numba = trades_df_with_numba["side"].values
 
-            assert np.array_equal(
-                sides_no_numba, sides_with_numba
-            ), "Trade sides should be identical between Numba and non-Numba paths"
+            assert np.array_equal(sides_no_numba, sides_with_numba), (
+                "Trade sides should be identical between Numba and non-Numba paths"
+            )
 
 
 def test_numba_equivalence_deterministic_order_counts():
@@ -298,6 +298,6 @@ def test_numba_equivalence_deterministic_order_counts():
     # All runs should produce same trade count (deterministic)
     assert len(set(results_no_numba)) == 1, "Non-Numba path should be deterministic"
     assert len(set(results_with_numba)) == 1, "Numba path should be deterministic"
-    assert (
-        results_no_numba[0] == results_with_numba[0]
-    ), "Numba and non-Numba paths should produce same trade counts"
+    assert results_no_numba[0] == results_with_numba[0], (
+        "Numba and non-Numba paths should produce same trade counts"
+    )

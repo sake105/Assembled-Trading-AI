@@ -47,9 +47,9 @@ def test_cash_gate_rejects_when_three_buys_exceed_cash():
     out = apply_cash_gate(orders, available_cash)
 
     rejected = out[out["reject_reason"] == REJECT_INSUFFICIENT_CASH]
-    assert (
-        len(rejected) >= 1
-    ), f"At least one order should be rejected with INSUFFICIENT_CASH; reject_reason values: {out['reject_reason'].tolist()}"
+    assert len(rejected) >= 1, (
+        f"At least one order should be rejected with INSUFFICIENT_CASH; reject_reason values: {out['reject_reason'].tolist()}"
+    )
     assert (rejected["fill_qty"] == 0.0).all(), "Rejected orders should have fill_qty=0"
 
 
@@ -126,6 +126,6 @@ def test_cash_curve_min_non_negative_after_backtest():
     )
     assert "cash" in result.equity.columns
     cash_min = result.equity["cash"].min()
-    assert (
-        cash_min >= -1e-6
-    ), f"Cash gate should prevent overspend: cash_curve min={cash_min} must be >= -1e-6"
+    assert cash_min >= -1e-6, (
+        f"Cash gate should prevent overspend: cash_curve min={cash_min} must be >= -1e-6"
+    )

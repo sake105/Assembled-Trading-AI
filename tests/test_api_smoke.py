@@ -413,9 +413,9 @@ def test_get_qa_status_ok(client: TestClient, tmp_path: Path, monkeypatch):
 
     # All checks should be ok
     for check in data["checks"]:
-        assert (
-            check["status"] == "ok"
-        ), f"Check {check['check_name']} should be ok but got {check['status']}"
+        assert check["status"] == "ok", (
+            f"Check {check['check_name']} should be ok but got {check['status']}"
+        )
 
     # Summary should reflect ok status
     assert data["summary"]["ok"] == 3

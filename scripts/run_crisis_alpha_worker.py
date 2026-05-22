@@ -274,7 +274,7 @@ def main() -> int:
 
         if state == "ACTIVE" and target_weights:
             logger.info(
-                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | " "targets: %s",
+                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | targets: %s",
                 elapsed,
                 prev_state,
                 state,
@@ -286,7 +286,7 @@ def main() -> int:
             )
         elif should_flatten:
             logger.warning(
-                "[WARN] crisis_alpha_worker done in %.2fs | %s→%s | " "FLATTEN ALL: %s",
+                "[WARN] crisis_alpha_worker done in %.2fs | %s→%s | FLATTEN ALL: %s",
                 elapsed,
                 prev_state,
                 state,
@@ -295,7 +295,7 @@ def main() -> int:
         else:
             log_fn = logger.warning if state == "PAUSE" else logger.info
             log_fn(
-                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | " "gates_ok=%s",
+                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | gates_ok=%s",
                 elapsed,
                 prev_state,
                 state,

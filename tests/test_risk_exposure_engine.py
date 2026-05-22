@@ -181,12 +181,12 @@ def test_compute_exposures_gross_net_weights_correct() -> None:
     msft_row = exposures[exposures["symbol"] == "MSFT"].iloc[0]
 
     assert abs(aapl_row["notional"] - 15000.0) < 1e-10, "AAPL notional should be 15000"
-    assert (
-        abs(googl_row["notional"] - 20000.0) < 1e-10
-    ), "GOOGL notional should be 20000"
-    assert (
-        abs(msft_row["notional"] - (-10000.0)) < 1e-10
-    ), "MSFT notional should be -10000"
+    assert abs(googl_row["notional"] - 20000.0) < 1e-10, (
+        "GOOGL notional should be 20000"
+    )
+    assert abs(msft_row["notional"] - (-10000.0)) < 1e-10, (
+        "MSFT notional should be -10000"
+    )
 
     # Expected weights: AAPL=1.5, GOOGL=2.0, MSFT=-1.0
     assert abs(aapl_row["weight"] - 1.5) < 1e-10, "AAPL weight should be 1.5"
@@ -196,16 +196,16 @@ def test_compute_exposures_gross_net_weights_correct() -> None:
     # Expected summary:
     # gross_exposure = 15000 + 10000 + 20000 = 45000
     # net_exposure = 15000 - 10000 + 20000 = 25000
-    assert (
-        abs(summary.gross_exposure - 45000.0) < 1e-10
-    ), "Gross exposure should be 45000"
+    assert abs(summary.gross_exposure - 45000.0) < 1e-10, (
+        "Gross exposure should be 45000"
+    )
     assert abs(summary.net_exposure - 25000.0) < 1e-10, "Net exposure should be 25000"
-    assert (
-        abs(summary.gross_exposure_pct - 450.0) < 1e-10
-    ), "Gross exposure % should be 450%"
-    assert (
-        abs(summary.net_exposure_pct - 250.0) < 1e-10
-    ), "Net exposure % should be 250%"
+    assert abs(summary.gross_exposure_pct - 450.0) < 1e-10, (
+        "Gross exposure % should be 450%"
+    )
+    assert abs(summary.net_exposure_pct - 250.0) < 1e-10, (
+        "Net exposure % should be 250%"
+    )
     assert summary.n_positions == 3, "Should have 3 positions"
 
 
@@ -242,12 +242,12 @@ def test_compute_exposures_sell_reduces_exposure() -> None:
     exposures, summary = compute_exposures(target, prices, equity)
 
     # Expected: target_qty=50, notional=7500, weight=0.75
-    assert (
-        abs(exposures["target_qty"].iloc[0] - 50.0) < 1e-10
-    ), "Target qty should be 50"
-    assert (
-        abs(exposures["notional"].iloc[0] - 7500.0) < 1e-10
-    ), "Notional should be 7500"
+    assert abs(exposures["target_qty"].iloc[0] - 50.0) < 1e-10, (
+        "Target qty should be 50"
+    )
+    assert abs(exposures["notional"].iloc[0] - 7500.0) < 1e-10, (
+        "Notional should be 7500"
+    )
     assert abs(exposures["weight"].iloc[0] - 0.75) < 1e-10, "Weight should be 0.75"
     assert abs(summary.gross_exposure - 7500.0) < 1e-10, "Gross exposure should be 7500"
     assert abs(summary.net_exposure - 7500.0) < 1e-10, "Net exposure should be 7500"
@@ -332,9 +332,9 @@ def test_compute_exposures_deterministic_ordering() -> None:
 
     # Should be sorted by symbol (AAPL, GOOGL, MSFT)
     expected_symbols = ["AAPL", "GOOGL", "MSFT"]
-    assert (
-        exposures1["symbol"].tolist() == expected_symbols
-    ), "Should be sorted by symbol"
+    assert exposures1["symbol"].tolist() == expected_symbols, (
+        "Should be sorted by symbol"
+    )
     assert exposures2["symbol"].tolist() == expected_symbols, "Should be deterministic"
 
     # Results should be identical
@@ -431,13 +431,13 @@ def test_compute_exposures_short_positions() -> None:
     exposures, summary = compute_exposures(target, prices, equity)
 
     # Short position: notional should be negative
-    assert (
-        abs(exposures["notional"].iloc[0] - (-15000.0)) < 1e-10
-    ), "Notional should be -15000"
+    assert abs(exposures["notional"].iloc[0] - (-15000.0)) < 1e-10, (
+        "Notional should be -15000"
+    )
     assert abs(exposures["weight"].iloc[0] - (-1.5)) < 1e-10, "Weight should be -1.5"
-    assert (
-        abs(summary.gross_exposure - 15000.0) < 1e-10
-    ), "Gross exposure should be 15000 (abs)"
-    assert (
-        abs(summary.net_exposure - (-15000.0)) < 1e-10
-    ), "Net exposure should be -15000"
+    assert abs(summary.gross_exposure - 15000.0) < 1e-10, (
+        "Gross exposure should be 15000 (abs)"
+    )
+    assert abs(summary.net_exposure - (-15000.0)) < 1e-10, (
+        "Net exposure should be -15000"
+    )

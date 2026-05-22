@@ -219,6 +219,6 @@ class TestCrossImportDeterminism:
 
         importlib.reload(mod)
         h2 = _sha256_of_dataframe(mod.add_log_returns(df.copy()))
-        assert (
-            h1 == h2
-        ), f"hash changed across reimport: {h1} vs {h2} — module-level state leak?"
+        assert h1 == h2, (
+            f"hash changed across reimport: {h1} vs {h2} — module-level state leak?"
+        )

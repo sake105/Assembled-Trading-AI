@@ -101,9 +101,7 @@ def generate_event_signals(
     if "shipping_congestion_score_7d" in df.columns:
         df["shipping_congestion_score_7d"] = pd.to_numeric(
             df["shipping_congestion_score_7d"], errors="coerce"
-        ).fillna(
-            50.0
-        )  # Neutral congestion
+        ).fillna(50.0)  # Neutral congestion
 
     # Compute signal components
     # Insider component: positive for net buy, negative for net sell

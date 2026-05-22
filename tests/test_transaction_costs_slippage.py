@@ -79,17 +79,17 @@ def test_slippage_bps_clamps() -> None:
     slippage_bps = compute_slippage_bps(notional, adv_usd, volatility, model)
 
     # Verify clamps
-    assert np.all(
-        slippage_bps >= model.min_bps
-    ), f"slippage_bps should be >= {model.min_bps}"
-    assert np.all(
-        slippage_bps <= model.max_bps
-    ), f"slippage_bps should be <= {model.max_bps}"
+    assert np.all(slippage_bps >= model.min_bps), (
+        f"slippage_bps should be >= {model.min_bps}"
+    )
+    assert np.all(slippage_bps <= model.max_bps), (
+        f"slippage_bps should be <= {model.max_bps}"
+    )
 
     # First value should be clamped to max_bps (high volatility + high participation)
-    assert (
-        slippage_bps[0] == model.max_bps
-    ), "High slippage should be clamped to max_bps"
+    assert slippage_bps[0] == model.max_bps, (
+        "High slippage should be clamped to max_bps"
+    )
 
     # Second value might be clamped to min_bps or be between min and max
     assert slippage_bps[1] >= model.min_bps, "Low slippage should be >= min_bps"
@@ -204,20 +204,20 @@ def test_add_cost_columns_to_trades_with_slippage() -> None:
     )
 
     # Verify slippage_cash column exists and is not NaN
-    assert (
-        "slippage_cash" in trades_with_costs.columns
-    ), "slippage_cash column should exist"
-    assert (
-        not trades_with_costs["slippage_cash"].isna().any()
-    ), "slippage_cash should not contain NaNs"
-    assert (
-        trades_with_costs["slippage_cash"] >= 0.0
-    ).all(), "slippage_cash should be non-negative"
+    assert "slippage_cash" in trades_with_costs.columns, (
+        "slippage_cash column should exist"
+    )
+    assert not trades_with_costs["slippage_cash"].isna().any(), (
+        "slippage_cash should not contain NaNs"
+    )
+    assert (trades_with_costs["slippage_cash"] >= 0.0).all(), (
+        "slippage_cash should be non-negative"
+    )
 
     # Verify total_cost_cash includes slippage_cash
-    assert (
-        "total_cost_cash" in trades_with_costs.columns
-    ), "total_cost_cash column should exist"
+    assert "total_cost_cash" in trades_with_costs.columns, (
+        "total_cost_cash column should exist"
+    )
     expected_total = (
         trades_with_costs["commission_cash"]
         + trades_with_costs["spread_cash"]
@@ -250,15 +250,15 @@ def test_add_cost_columns_to_trades_no_slippage_model() -> None:
     )
 
     # Verify slippage_cash defaults to 0.0
-    assert (
-        "slippage_cash" in trades_with_costs.columns
-    ), "slippage_cash column should exist"
-    assert (
-        trades_with_costs["slippage_cash"] == 0.0
-    ).all(), "slippage_cash should default to 0.0"
-    assert (
-        not trades_with_costs["slippage_cash"].isna().any()
-    ), "slippage_cash should not contain NaNs"
+    assert "slippage_cash" in trades_with_costs.columns, (
+        "slippage_cash column should exist"
+    )
+    assert (trades_with_costs["slippage_cash"] == 0.0).all(), (
+        "slippage_cash should default to 0.0"
+    )
+    assert not trades_with_costs["slippage_cash"].isna().any(), (
+        "slippage_cash should not contain NaNs"
+    )
 
 
 def test_slippage_model_validation() -> None:
@@ -349,9 +349,9 @@ def test_slippage_volatility_proxy() -> None:
 
     # First 19 rows should have NaN (insufficient history for 20-day window)
     # Rolling window with min_periods=20: first non-NaN is at index 19 (20 data points: 0-19)
-    assert (
-        vol_df["volatility"].iloc[:19].isna().all()
-    ), "First 19 rows should have NaN volatility"
+    assert vol_df["volatility"].iloc[:19].isna().all(), (
+        "First 19 rows should have NaN volatility"
+    )
 
     # Row 19+ might have non-NaN volatility (if log returns are valid)
     # For small linear trends, log returns might be very small, leading to very small volatility

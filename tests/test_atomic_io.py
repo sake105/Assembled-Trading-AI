@@ -134,9 +134,9 @@ class TestAtomicWriteJsonIntegration:
             data={"signal": 1.0},
         )
 
-        assert any(
-            "signals.json" in c for c in calls
-        ), f"atomic_write_json not called for signals.json; calls={calls}"
+        assert any("signals.json" in c for c in calls), (
+            f"atomic_write_json not called for signals.json; calls={calls}"
+        )
 
     def test_factor_store_manifest_uses_atomic_write(self, tmp_path, monkeypatch):
         """factor_store._write_manifest() must use atomic_write_json."""
@@ -168,6 +168,6 @@ class TestAtomicWriteJsonIntegration:
             panel_dir, df, factor_group="test", freq="1d", universe_key="US"
         )
 
-        assert any(
-            "_metadata.json" in c for c in calls
-        ), f"atomic_write_json not called for _metadata.json; calls={calls}"
+        assert any("_metadata.json" in c for c in calls), (
+            f"atomic_write_json not called for _metadata.json; calls={calls}"
+        )

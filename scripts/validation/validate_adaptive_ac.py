@@ -133,7 +133,7 @@ for d, eta_d in enumerate(eta_day_end, 1):
 print("\nConvergence:")
 print(f"  eta_hat (final):   {eta_final:.5f}")
 print(f"  eta_true:          {ETA_TRUE:.5f}")  # noqa
-print(f"  Fractional error:  {convergence*100:.1f}%")
+print(f"  Fractional error:  {convergence * 100:.1f}%")
 print(f"  Within 30%:        {'YES' if convergence <= 0.30 else 'NO'}")
 print(f"  Within 20%:        {'YES' if convergence <= 0.20 else 'NO'}")
 
@@ -164,8 +164,8 @@ print(
 
 if convergence <= 0.30:
     print(
-        f"\nVerdict: CONVERGES. eta_hat tracks eta_true within {convergence*100:.0f}% after {N_DAYS} days."
+        f"\nVerdict: CONVERGES. eta_hat tracks eta_true within {convergence * 100:.0f}% after {N_DAYS} days."
     )
 else:
-    print(f"\nVerdict: SLOW CONVERGENCE. Fractional error = {convergence*100:.0f}%.")
+    print(f"\nVerdict: SLOW CONVERGENCE. Fractional error = {convergence * 100:.0f}%.")
     print("         Consider increasing EWMA alpha or reducing fill noise.")

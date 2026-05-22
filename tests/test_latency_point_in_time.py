@@ -54,12 +54,12 @@ def test_pit_filtering_excludes_future_disclosure() -> None:
     )
 
     # Event should now be visible (disclosure_date <= as_of, inclusive)
-    assert (
-        len(filtered_on) == 1
-    ), "Event should be included on disclosure_date (inclusive boundary)"
-    assert (
-        filtered_on["value"].iloc[0] == 100.0
-    ), "Event value should be accessible after disclosure"
+    assert len(filtered_on) == 1, (
+        "Event should be included on disclosure_date (inclusive boundary)"
+    )
+    assert filtered_on["value"].iloc[0] == 100.0, (
+        "Event value should be accessible after disclosure"
+    )
 
     # Filter for date 2025-01-10 (after disclosure)
     as_of_after = pd.Timestamp("2025-01-10", tz="UTC")
@@ -90,9 +90,9 @@ def test_pit_filtering_boundary_inclusive() -> None:
     )
 
     # Must include event (disclosure_date <= as_of, with <= being inclusive)
-    assert (
-        len(filtered) == 1
-    ), "Boundary condition must be inclusive: disclosure_date == as_of should include event"
+    assert len(filtered) == 1, (
+        "Boundary condition must be inclusive: disclosure_date == as_of should include event"
+    )
     assert filtered["disclosure_date"].iloc[0] == as_of_boundary.normalize()
 
 
@@ -146,9 +146,9 @@ def test_pit_filtering_multi_events_partial_disclosure() -> None:
     )
 
     # Only first event should be visible (disclosed on 2025-01-02 <= 2025-01-05)
-    assert (
-        len(filtered_early) == 1
-    ), "Only events with disclosure_date <= as_of should be visible"
+    assert len(filtered_early) == 1, (
+        "Only events with disclosure_date <= as_of should be visible"
+    )
     assert filtered_early["value"].iloc[0] == 10.0
     assert (
         filtered_early["disclosure_date"].iloc[0]
@@ -162,15 +162,15 @@ def test_pit_filtering_multi_events_partial_disclosure() -> None:
     )
 
     # First two events should be visible
-    assert (
-        len(filtered_mid) == 2
-    ), "Events with disclosure_date <= as_of should be visible"
+    assert len(filtered_mid) == 2, (
+        "Events with disclosure_date <= as_of should be visible"
+    )
     assert set(filtered_mid["value"].tolist()) == {10.0, 20.0}
 
     # Third event must still be excluded (disclosed on 2025-01-10 > 2025-01-07)
-    assert (
-        30.0 not in filtered_mid["value"].tolist()
-    ), "Event with disclosure_date > as_of must be excluded (feature blind)"
+    assert 30.0 not in filtered_mid["value"].tolist(), (
+        "Event with disclosure_date > as_of must be excluded (feature blind)"
+    )
 
     # Filter for date 2025-01-10 (all events disclosed)
     as_of_late = pd.Timestamp("2025-01-10", tz="UTC")
@@ -179,9 +179,9 @@ def test_pit_filtering_multi_events_partial_disclosure() -> None:
     )
 
     # All events should be visible
-    assert (
-        len(filtered_late) == 3
-    ), "All events should be visible after final disclosure"
+    assert len(filtered_late) == 3, (
+        "All events should be visible after final disclosure"
+    )
     assert set(filtered_late["value"].tolist()) == {10.0, 20.0, 30.0}
 
 
@@ -210,19 +210,19 @@ def test_pit_filtering_multi_symbol_independent() -> None:
 
     # AAPL and GOOGL should be visible (disclosed <= 2025-01-05)
     # MSFT should be excluded (disclosed on 2025-01-08 > 2025-01-05)
-    assert (
-        len(filtered) == 2
-    ), "Only symbols with disclosure_date <= as_of should be visible"
+    assert len(filtered) == 2, (
+        "Only symbols with disclosure_date <= as_of should be visible"
+    )
     assert set(filtered["symbol"].tolist()) == {"AAPL", "GOOGL"}
     assert set(filtered["value"].tolist()) == {100.0, 300.0}
 
     # MSFT must be excluded (future disclosure)
-    assert (
-        "MSFT" not in filtered["symbol"].tolist()
-    ), "MSFT event with disclosure_date=2025-01-08 must be excluded when as_of=2025-01-05"
-    assert (
-        200.0 not in filtered["value"].tolist()
-    ), "MSFT value must not leak before disclosure (feature blind)"
+    assert "MSFT" not in filtered["symbol"].tolist(), (
+        "MSFT event with disclosure_date=2025-01-08 must be excluded when as_of=2025-01-05"
+    )
+    assert 200.0 not in filtered["value"].tolist(), (
+        "MSFT value must not leak before disclosure (feature blind)"
+    )
 
 
 def test_pit_filtering_same_day_event_and_disclosure() -> None:
@@ -241,9 +241,9 @@ def test_pit_filtering_same_day_event_and_disclosure() -> None:
     filtered = filter_events_as_of(events, as_of, disclosure_col="disclosure_date")
 
     # Should be included (disclosure_date <= as_of, inclusive)
-    assert (
-        len(filtered) == 1
-    ), "Event with disclosure_date == as_of should be included (inclusive boundary)"
+    assert len(filtered) == 1, (
+        "Event with disclosure_date == as_of should be included (inclusive boundary)"
+    )
 
 
 def test_pit_filtering_excludes_before_same_day() -> None:
@@ -291,18 +291,18 @@ def test_pit_filtering_intraday_look_ahead_blocked() -> None:
     filtered = filter_events_as_of(
         events, as_of_early_time, disclosure_col="disclosure_date"
     )
-    assert (
-        len(filtered) == 0
-    ), "disclosure_date=10:00 must be excluded when as_of=08:00 (intraday PIT)"
+    assert len(filtered) == 0, (
+        "disclosure_date=10:00 must be excluded when as_of=08:00 (intraday PIT)"
+    )
 
     # At or after 10:00 AM the disclosure is available.
     as_of_after = pd.Timestamp("2025-01-08 10:00:00", tz="UTC")
     filtered_after = filter_events_as_of(
         events, as_of_after, disclosure_col="disclosure_date"
     )
-    assert (
-        len(filtered_after) == 1
-    ), "disclosure_date=10:00 must be included when as_of>=10:00"
+    assert len(filtered_after) == 1, (
+        "disclosure_date=10:00 must be included when as_of>=10:00"
+    )
 
 
 def test_pit_filtering_strict_less_equal_semantics() -> None:
@@ -332,9 +332,9 @@ def test_pit_filtering_strict_less_equal_semantics() -> None:
     filtered = filter_events_as_of(events, base_date, disclosure_col="disclosure_date")
 
     # Only first two should be included (disclosure_date <= base_date)
-    assert (
-        len(filtered) == 2
-    ), "Strict <= semantics: only events with disclosure_date <= as_of included"
+    assert len(filtered) == 2, (
+        "Strict <= semantics: only events with disclosure_date <= as_of included"
+    )
     assert set(filtered["symbol"].tolist()) == {"AAPL", "MSFT"}
     assert set(filtered["value"].tolist()) == {10.0, 20.0}
 
@@ -343,9 +343,9 @@ def test_pit_filtering_strict_less_equal_semantics() -> None:
         "Event with disclosure_date > as_of must be strictly excluded "
         "(no future disclosure leakage)"
     )
-    assert (
-        30.0 not in filtered["value"].tolist()
-    ), "GOOGL value must not leak before disclosure (feature blind)"
+    assert 30.0 not in filtered["value"].tolist(), (
+        "GOOGL value must not leak before disclosure (feature blind)"
+    )
 
 
 def test_pit_filtering_empty_result_no_leakage() -> None:
@@ -366,9 +366,9 @@ def test_pit_filtering_empty_result_no_leakage() -> None:
     # Must be completely empty (no metadata, no shape hints)
     assert filtered.empty, "Filtered result must be empty before disclosure"
     assert len(filtered) == 0, "Length must be 0"
-    assert list(filtered.columns) == list(
-        events.columns
-    ), "Empty result should preserve column structure"
+    assert list(filtered.columns) == list(events.columns), (
+        "Empty result should preserve column structure"
+    )
 
     # Verify no accidental value access
     if len(filtered) == 0:
@@ -410,10 +410,10 @@ def test_pit_filtering_mixed_disclosure_dates_strict_order() -> None:
 
     # AAPL and GOOGL must be excluded (future disclosures)
     excluded_symbols = {"AAPL", "GOOGL"}
-    assert excluded_symbols.isdisjoint(
-        set(filtered["symbol"].tolist())
-    ), f"Symbols {excluded_symbols} with future disclosure_dates must be excluded"
+    assert excluded_symbols.isdisjoint(set(filtered["symbol"].tolist())), (
+        f"Symbols {excluded_symbols} with future disclosure_dates must be excluded"
+    )
     excluded_values = {10.0, 30.0}
-    assert excluded_values.isdisjoint(
-        set(filtered["value"].tolist())
-    ), f"Values {excluded_values} from future disclosures must not leak (feature blind)"
+    assert excluded_values.isdisjoint(set(filtered["value"].tolist())), (
+        f"Values {excluded_values} from future disclosures must not leak (feature blind)"
+    )

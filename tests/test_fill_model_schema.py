@@ -60,9 +60,9 @@ def test_fill_schema_required_columns() -> None:
 
     # Verify full fills (default)
     assert (fills["fill_qty"] == fills["qty"]).all(), "Default should be full fills"
-    assert (
-        fills["fill_price"] == fills["price"]
-    ).all(), "Default fill_price should equal price"
+    assert (fills["fill_price"] == fills["price"]).all(), (
+        "Default fill_price should equal price"
+    )
     assert (fills["status"] == "filled").all(), "Default status should be 'filled'"
     assert (fills["remaining_qty"] == 0.0).all(), "Default remaining_qty should be 0"
 
@@ -83,9 +83,9 @@ def test_fill_schema_utc_policy() -> None:
     fills = ensure_fill_schema(trades, default_full_fill=True)
 
     # Verify UTC-aware timestamps
-    assert pd.api.types.is_datetime64_any_dtype(
-        fills["timestamp"]
-    ), "timestamp should be datetime"
+    assert pd.api.types.is_datetime64_any_dtype(fills["timestamp"]), (
+        "timestamp should be datetime"
+    )
     assert all(
         hasattr(ts, "tz")
         and (str(ts.tz) == "UTC" or (hasattr(ts.tz, "zone") and ts.tz.zone == "UTC"))
@@ -117,9 +117,9 @@ def test_fill_schema_deterministic_ordering() -> None:
     # Check secondary sort by symbol (within same timestamp)
     for ts in fills["timestamp"].unique():
         ts_fills = fills[fills["timestamp"] == ts]
-        assert ts_fills[
-            "symbol"
-        ].is_monotonic_increasing, f"Should be sorted by symbol within timestamp {ts}"
+        assert ts_fills["symbol"].is_monotonic_increasing, (
+            f"Should be sorted by symbol within timestamp {ts}"
+        )
 
 
 def test_fill_schema_rejected_rules() -> None:
@@ -137,13 +137,13 @@ def test_fill_schema_rejected_rules() -> None:
 
     # Verify rejected rules
     assert rejected_fill["fill_qty"] == 0.0, "Rejected fill should have fill_qty=0"
-    assert (
-        rejected_fill["remaining_qty"] == order["qty"]
-    ), "Rejected fill should have remaining_qty=qty"
+    assert rejected_fill["remaining_qty"] == order["qty"], (
+        "Rejected fill should have remaining_qty=qty"
+    )
     assert rejected_fill["status"] == "rejected", "Status should be 'rejected'"
-    assert (
-        rejected_fill["fill_price"] == order["price"]
-    ), "fill_price should equal price for rejected"
+    assert rejected_fill["fill_price"] == order["price"], (
+        "fill_price should equal price for rejected"
+    )
 
 
 def test_fill_schema_partial_rules() -> None:
@@ -162,12 +162,12 @@ def test_fill_schema_partial_rules() -> None:
     )
 
     # Verify partial rules
-    assert (
-        0 < partial_fill["fill_qty"] < order["qty"]
-    ), "Partial fill should have 0 < fill_qty < qty"
-    assert (
-        partial_fill["remaining_qty"] == order["qty"] - partial_fill["fill_qty"]
-    ), "remaining_qty should equal qty - fill_qty"
+    assert 0 < partial_fill["fill_qty"] < order["qty"], (
+        "Partial fill should have 0 < fill_qty < qty"
+    )
+    assert partial_fill["remaining_qty"] == order["qty"] - partial_fill["fill_qty"], (
+        "remaining_qty should equal qty - fill_qty"
+    )
     assert partial_fill["status"] == "partial", "Status should be 'partial'"
     assert partial_fill["fill_price"] == 151.0, "fill_price should be set"
 
@@ -225,9 +225,9 @@ def test_fill_schema_full_fill_default() -> None:
 
     # Verify full fill assumption
     assert (fills["fill_qty"] == fills["qty"]).all(), "Should assume full fills"
-    assert (
-        fills["fill_price"] == fills["price"]
-    ).all(), "Should assume fill_price = price"
+    assert (fills["fill_price"] == fills["price"]).all(), (
+        "Should assume fill_price = price"
+    )
     assert (fills["status"] == "filled").all(), "Should assume status = 'filled'"
     assert (fills["remaining_qty"] == 0.0).all(), "Should assume remaining_qty = 0"
 

@@ -73,9 +73,9 @@ def test_binned_te_much_smaller_than_causal():
     x_i, y_i = _independent_pair(n=n, seed=21)
     te_indep = transfer_entropy_binned(x_i, y_i, lag=1, n_bins=n_bins)
     # Signal should be at least 3× the bias floor — much stronger than indep.
-    assert (
-        te_causal > 3 * te_indep
-    ), f"Causal TE {te_causal:.4f} should be >> independent TE {te_indep:.4f}"
+    assert te_causal > 3 * te_indep, (
+        f"Causal TE {te_causal:.4f} should be >> independent TE {te_indep:.4f}"
+    )
 
 
 def test_binned_te_asymmetric_under_one_way_causation():
@@ -83,9 +83,9 @@ def test_binned_te_asymmetric_under_one_way_causation():
     x, y = _causal_pair(n=1500, coupling=0.7, seed=3)
     te_forward = transfer_entropy_binned(x, y, lag=1, n_bins=8)
     te_backward = transfer_entropy_binned(y, x, lag=1, n_bins=8)
-    assert (
-        te_forward > te_backward
-    ), f"Expected TE(X→Y)>{te_forward:.4f} > TE(Y→X)={te_backward:.4f} for one-way causation"
+    assert te_forward > te_backward, (
+        f"Expected TE(X→Y)>{te_forward:.4f} > TE(Y→X)={te_backward:.4f} for one-way causation"
+    )
 
 
 def test_binned_te_rejects_length_mismatch():

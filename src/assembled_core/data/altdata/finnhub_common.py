@@ -39,8 +39,7 @@ def get_finnhub_session(settings: Settings) -> tuple:
         import requests
     except ImportError:
         raise ImportError(
-            "requests is required for Finnhub API. "
-            "Install with: pip install requests"
+            "requests is required for Finnhub API. Install with: pip install requests"
         )
 
     # Multi-key rotation (2026-05-22): prefer rotator pool, fallback to

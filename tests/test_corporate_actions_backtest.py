@@ -22,9 +22,9 @@ def test_backtest_engine_has_corporate_actions_param():
     from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
 
     sig = inspect.signature(run_portfolio_backtest)
-    assert (
-        "enable_corporate_actions" in sig.parameters
-    ), "run_portfolio_backtest must have enable_corporate_actions parameter"
+    assert "enable_corporate_actions" in sig.parameters, (
+        "run_portfolio_backtest must have enable_corporate_actions parameter"
+    )
 
 
 @pytest.mark.fast
@@ -34,9 +34,9 @@ def test_adjust_prices_for_splits_wired_in_source():
     import src.assembled_core.qa.backtest_engine as mod
 
     src_text = inspect.getsource(mod)
-    assert (
-        "adjust_prices_for_splits" in src_text
-    ), "backtest_engine must wire adjust_prices_for_splits for A7 compliance"
+    assert "adjust_prices_for_splits" in src_text, (
+        "backtest_engine must wire adjust_prices_for_splits for A7 compliance"
+    )
 
 
 @pytest.mark.fast

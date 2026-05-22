@@ -54,22 +54,22 @@ def test_split_day_no_fake_crash_in_research_prices() -> None:
     prices_research = apply_splits_for_research_prices(prices, actions)
 
     # Verify: close_research column exists
-    assert (
-        "close_research" in prices_research.columns
-    ), "close_research column should exist"
+    assert "close_research" in prices_research.columns, (
+        "close_research column should exist"
+    )
 
     # Verify: close is unchanged (for trading)
-    assert prices_research["close"].equals(
-        prices["close"]
-    ), "close should be unchanged for trading"
+    assert prices_research["close"].equals(prices["close"]), (
+        "close should be unchanged for trading"
+    )
 
     # Verify: close_research is split-adjusted
     # Day 1-2: adjusted by 0.5 (200.0 -> 100.0, 205.0 -> 102.5)
     # Day 3-5: unchanged (100.0, 102.0, 104.0)
     expected_research = [100.0, 102.5, 100.0, 102.0, 104.0]
-    assert (
-        prices_research["close_research"].tolist() == expected_research
-    ), "close_research should be split-adjusted"
+    assert prices_research["close_research"].tolist() == expected_research, (
+        "close_research should be split-adjusted"
+    )
 
     # Verify: Returns with close_research show NO fake crash
     returns_research = (
@@ -81,21 +81,21 @@ def test_split_day_no_fake_crash_in_research_prices() -> None:
     # Day 4->5: (104.0 - 102.0) / 102.0 = +1.96%
 
     # Critical: No return should be around -50% (fake crash)
-    assert all(
-        returns_research > -0.1
-    ), "Research returns should NOT show fake crash (no -50% return)"
+    assert all(returns_research > -0.1), (
+        "Research returns should NOT show fake crash (no -50% return)"
+    )
 
     # Compare with unadjusted returns (would show -50% crash)
     returns_unadjusted = prices_research["close"].pct_change(fill_method=None).dropna()
     # Day 2->3: (100.0 - 205.0) / 205.0 = -51.2% (fake crash!)
-    assert any(
-        returns_unadjusted < -0.5
-    ), "Unadjusted returns show fake crash (expected)"
+    assert any(returns_unadjusted < -0.5), (
+        "Unadjusted returns show fake crash (expected)"
+    )
 
     # Contract checks: UTC, required columns, deterministic sorting
-    assert (
-        prices_research["timestamp"].dt.tz is not None
-    ), "Timestamps should be UTC-aware"
+    assert prices_research["timestamp"].dt.tz is not None, (
+        "Timestamps should be UTC-aware"
+    )
     # Check UTC (tz.zone might not exist, use str(tz) or compare with UTC)
     tz_first = prices_research["timestamp"].iloc[0].tz
     assert tz_first is not None, "Timestamps should be UTC-aware"
@@ -104,17 +104,17 @@ def test_split_day_no_fake_crash_in_research_prices() -> None:
     ), "Timestamps should be UTC"
     assert "symbol" in prices_research.columns, "Required column 'symbol' should exist"
     assert "close" in prices_research.columns, "Required column 'close' should exist"
-    assert (
-        "close_research" in prices_research.columns
-    ), "Required column 'close_research' should exist"
+    assert "close_research" in prices_research.columns, (
+        "Required column 'close_research' should exist"
+    )
 
     # Verify deterministic sorting (symbol, timestamp)
     sorted_check = prices_research.sort_values(["symbol", "timestamp"]).reset_index(
         drop=True
     )
-    assert prices_research.equals(
-        sorted_check
-    ), "Prices should be sorted by (symbol, timestamp)"
+    assert prices_research.equals(sorted_check), (
+        "Prices should be sorted by (symbol, timestamp)"
+    )
 
 
 def test_dividend_day_cashflow_event_generated() -> None:
@@ -143,13 +143,13 @@ def test_dividend_day_cashflow_event_generated() -> None:
     # Verify: Cashflow event generated
     assert len(cashflows) == 1, "Should generate one cashflow event"
     assert cashflows.iloc[0]["symbol"] == "AAPL", "Cashflow should be for AAPL"
-    assert (
-        cashflows.iloc[0]["cashflow_type"] == "DIVIDEND"
-    ), "Cashflow type should be DIVIDEND"
+    assert cashflows.iloc[0]["cashflow_type"] == "DIVIDEND", (
+        "Cashflow type should be DIVIDEND"
+    )
     assert cashflows.iloc[0]["amount"] == 25.0, "Amount should be 100 * 0.25 = 25.0"
-    assert cashflows.iloc[0]["timestamp"] == pd.Timestamp(
-        "2024-01-15", tz="UTC"
-    ), "Timestamp should match effective_date"
+    assert cashflows.iloc[0]["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC"), (
+        "Timestamp should match effective_date"
+    )
 
     # Verify: MSFT has no cashflow (no dividend action)
     msft_cashflows = cashflows[cashflows["symbol"] == "MSFT"]
@@ -161,15 +161,15 @@ def test_dividend_day_cashflow_event_generated() -> None:
     tz_first = cashflows["timestamp"].iloc[0].tz
     assert tz_first is not None, "Cashflow timestamps should be UTC-aware"
     required_cols = {"timestamp", "symbol", "cashflow_type", "amount"}
-    assert (
-        set(cashflows.columns) == required_cols
-    ), f"Cashflows should have required columns: {required_cols}"
+    assert set(cashflows.columns) == required_cols, (
+        f"Cashflows should have required columns: {required_cols}"
+    )
 
     # Verify deterministic sorting (timestamp, symbol)
     sorted_check = cashflows.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
-    assert cashflows.equals(
-        sorted_check
-    ), "Cashflows should be sorted by (timestamp, symbol)"
+    assert cashflows.equals(sorted_check), (
+        "Cashflows should be sorted by (timestamp, symbol)"
+    )
 
 
 def test_universe_membership_as_of_changes() -> None:
@@ -217,21 +217,21 @@ def test_universe_membership_as_of_changes() -> None:
             "AAPL",
             "MSFT",
         }, "AAPL and MSFT should be in universe before removal"
-        assert (
-            "GOOGL" not in members_before
-        ), "GOOGL should not be in universe yet (added on 2024-07-01)"
+        assert "GOOGL" not in members_before, (
+            "GOOGL should not be in universe yet (added on 2024-07-01)"
+        )
 
         # Test: as_of = 2024-06-30 (AAPL removal day, EXCLUSIVE)
         as_of_removal = pd.Timestamp("2024-06-30", tz="UTC")
         members_removal = get_universe_members(
             as_of_removal, universe_name="test", root=root
         )
-        assert set(members_removal) == {
-            "MSFT"
-        }, "Only MSFT should be in universe on removal day (AAPL excluded)"
-        assert (
-            "AAPL" not in members_removal
-        ), "AAPL should NOT be in universe on removal day (end_date exclusive)"
+        assert set(members_removal) == {"MSFT"}, (
+            "Only MSFT should be in universe on removal day (AAPL excluded)"
+        )
+        assert "AAPL" not in members_removal, (
+            "AAPL should NOT be in universe on removal day (end_date exclusive)"
+        )
         assert "GOOGL" not in members_removal, "GOOGL should not be in universe yet"
 
         # Test: as_of = 2024-07-01 (GOOGL addition day)
@@ -243,20 +243,20 @@ def test_universe_membership_as_of_changes() -> None:
             "MSFT",
             "GOOGL",
         }, "MSFT and GOOGL should be in universe after addition"
-        assert (
-            "AAPL" not in members_after
-        ), "AAPL should not be in universe after removal"
+        assert "AAPL" not in members_after, (
+            "AAPL should not be in universe after removal"
+        )
 
         # Contract checks: Deterministic, sorted, uppercase
-        assert members_before == sorted(
-            members_before
-        ), "Members should be sorted (deterministic)"
-        assert members_removal == sorted(
-            members_removal
-        ), "Members should be sorted (deterministic)"
-        assert members_after == sorted(
-            members_after
-        ), "Members should be sorted (deterministic)"
+        assert members_before == sorted(members_before), (
+            "Members should be sorted (deterministic)"
+        )
+        assert members_removal == sorted(members_removal), (
+            "Members should be sorted (deterministic)"
+        )
+        assert members_after == sorted(members_after), (
+            "Members should be sorted (deterministic)"
+        )
         assert all(s.isupper() for s in members_before), "Members should be uppercase"
         assert all(s.isupper() for s in members_removal), "Members should be uppercase"
         assert all(s.isupper() for s in members_after), "Members should be uppercase"
@@ -290,26 +290,26 @@ def test_contracts_utc_required_columns_deterministic() -> None:
         prices_research = apply_splits_for_research_prices(prices, actions)
 
         # Contract: UTC
-        assert (
-            prices_research["timestamp"].dt.tz is not None
-        ), "Timestamps should be UTC-aware"
+        assert prices_research["timestamp"].dt.tz is not None, (
+            "Timestamps should be UTC-aware"
+        )
         # Check UTC: verify first timestamp is UTC-aware (simplified check)
         tz_first = prices_research["timestamp"].iloc[0].tz
         assert tz_first is not None, "Timestamps should be UTC-aware"
 
         # Contract: Required columns
         required_cols = {"timestamp", "symbol", "close", "close_research"}
-        assert (
-            set(prices_research.columns) >= required_cols
-        ), f"Should have required columns: {required_cols}"
+        assert set(prices_research.columns) >= required_cols, (
+            f"Should have required columns: {required_cols}"
+        )
 
         # Contract: Deterministic sorting
         sorted_check = prices_research.sort_values(["symbol", "timestamp"]).reset_index(
             drop=True
         )
-        assert prices_research.equals(
-            sorted_check
-        ), "Prices should be sorted by (symbol, timestamp)"
+        assert prices_research.equals(sorted_check), (
+            "Prices should be sorted by (symbol, timestamp)"
+        )
 
         # Test 2: Corporate Actions - compute_dividend_cashflows
         positions = pd.DataFrame(
@@ -329,26 +329,26 @@ def test_contracts_utc_required_columns_deterministic() -> None:
         cashflows = compute_dividend_cashflows(positions, dividend_actions)
 
         # Contract: UTC
-        assert (
-            cashflows["timestamp"].dt.tz is not None
-        ), "Cashflow timestamps should be UTC-aware"
+        assert cashflows["timestamp"].dt.tz is not None, (
+            "Cashflow timestamps should be UTC-aware"
+        )
         # Check UTC: verify first timestamp is UTC-aware (simplified check)
         tz_first = cashflows["timestamp"].iloc[0].tz
         assert tz_first is not None, "Cashflow timestamps should be UTC-aware"
 
         # Contract: Required columns
         required_cashflow_cols = {"timestamp", "symbol", "cashflow_type", "amount"}
-        assert (
-            set(cashflows.columns) == required_cashflow_cols
-        ), f"Cashflows should have required columns: {required_cashflow_cols}"
+        assert set(cashflows.columns) == required_cashflow_cols, (
+            f"Cashflows should have required columns: {required_cashflow_cols}"
+        )
 
         # Contract: Deterministic sorting
         sorted_cashflows = cashflows.sort_values(["timestamp", "symbol"]).reset_index(
             drop=True
         )
-        assert cashflows.equals(
-            sorted_cashflows
-        ), "Cashflows should be sorted by (timestamp, symbol)"
+        assert cashflows.equals(sorted_cashflows), (
+            "Cashflows should be sorted by (timestamp, symbol)"
+        )
 
         # Test 3: Universe - get_universe_members
         from src.assembled_core.data.universe import store_universe_history

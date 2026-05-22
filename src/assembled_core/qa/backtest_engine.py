@@ -726,10 +726,7 @@ def _pb_run_cycle_fn_loop(
     profit_lock_state: dict[str, Any] | None = None
     current_positions = pd.DataFrame(columns=["symbol", "qty"])
     # last-known price per symbol (prevents fillna(0) gaps).
-    # fmt: off — pre-commit ruff 0.8.6 and black 24.10.0 disagree on the
-    # type-annotated empty-dict literal here, causing an unresolvable hook loop.
     _px_cache: dict[str, float] = {}
-    # fmt: on
 
     for timestamp in timeline:
         if timestamp not in rebalance_timestamps_set:

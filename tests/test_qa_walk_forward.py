@@ -55,37 +55,37 @@ def test_generate_walk_forward_splits_expanding_basic():
     for i, split in enumerate(splits):
         assert split.test_start < split.test_end, "Test window should be valid"
         assert split.train_start < split.train_end, "Train window should be valid"
-        assert (
-            split.train_end <= split.test_start
-        ), "Train should end before test starts"
+        assert split.train_end <= split.test_start, (
+            "Train should end before test starts"
+        )
         assert split.split_index == i, "Split index should match list index"
 
         # Verify expanding window: train_start should always be start_date
-        assert (
-            split.train_start == config.start_date
-        ), f"Expanding window: train_start should be {config.start_date}"
+        assert split.train_start == config.start_date, (
+            f"Expanding window: train_start should be {config.start_date}"
+        )
 
         # Verify train window grows (for expanding mode)
         if i > 0:
-            assert (
-                split.train_end >= splits[i - 1].train_end
-            ), "Expanding window: train_end should grow or stay same"
+            assert split.train_end >= splits[i - 1].train_end, (
+                "Expanding window: train_end should grow or stay same"
+            )
 
         # Verify test windows don't overlap (when step_size >= test_window)
         if i > 0:
             prev_split = splits[i - 1]
-            assert (
-                split.test_start >= prev_split.test_end
-            ), "Test windows should not overlap"
+            assert split.test_start >= prev_split.test_end, (
+                "Test windows should not overlap"
+            )
 
     # Verify all test windows are within date range
     for split in splits:
-        assert (
-            split.test_start >= config.start_date
-        ), f"Test start {split.test_start} should be >= start_date {config.start_date}"
-        assert split.test_end <= config.end_date + pd.Timedelta(
-            days=1
-        ), f"Test end {split.test_end} should be <= end_date {config.end_date}"
+        assert split.test_start >= config.start_date, (
+            f"Test start {split.test_start} should be >= start_date {config.start_date}"
+        )
+        assert split.test_end <= config.end_date + pd.Timedelta(days=1), (
+            f"Test end {split.test_end} should be <= end_date {config.end_date}"
+        )
 
 
 def test_generate_walk_forward_splits_rolling_basic():
@@ -113,31 +113,31 @@ def test_generate_walk_forward_splits_rolling_basic():
     for i, split in enumerate(splits):
         assert split.test_start < split.test_end, "Test window should be valid"
         assert split.train_start < split.train_end, "Train window should be valid"
-        assert (
-            split.train_end <= split.test_start
-        ), "Train should end before test starts"
+        assert split.train_end <= split.test_start, (
+            "Train should end before test starts"
+        )
 
         # Verify rolling window: train window should be approximately fixed size
         train_days = (split.train_end - split.train_start).days
-        assert (
-            train_days >= config.min_train_periods
-        ), f"Train window should be at least {config.min_train_periods} days"
+        assert train_days >= config.min_train_periods, (
+            f"Train window should be at least {config.min_train_periods} days"
+        )
 
         # Verify test windows don't overlap (when step_size >= test_window)
         if i > 0:
             prev_split = splits[i - 1]
-            assert (
-                split.test_start >= prev_split.test_end
-            ), "Test windows should not overlap"
+            assert split.test_start >= prev_split.test_end, (
+                "Test windows should not overlap"
+            )
 
     # Verify all test windows are within date range
     for split in splits:
-        assert (
-            split.test_start >= config.start_date
-        ), f"Test start {split.test_start} should be >= start_date {config.start_date}"
-        assert split.test_end <= config.end_date + pd.Timedelta(
-            days=1
-        ), f"Test end {split.test_end} should be <= end_date {config.end_date}"
+        assert split.test_start >= config.start_date, (
+            f"Test start {split.test_start} should be >= start_date {config.start_date}"
+        )
+        assert split.test_end <= config.end_date + pd.Timedelta(days=1), (
+            f"Test end {split.test_end} should be <= end_date {config.end_date}"
+        )
 
 
 def test_generate_walk_forward_splits_validation():
@@ -219,9 +219,9 @@ def test_run_walk_forward_backtest_aggregates_metrics():
 
     # Verify result structure
     assert len(result.window_results) > 0, "Should have at least one window result"
-    assert len(result.summary_df) == len(
-        result.window_results
-    ), "Summary DataFrame should have one row per window result"
+    assert len(result.summary_df) == len(result.window_results), (
+        "Summary DataFrame should have one row per window result"
+    )
 
     # Verify aggregated metrics
     assert "n_splits" in result.aggregated_metrics
@@ -240,12 +240,12 @@ def test_run_walk_forward_backtest_aggregates_metrics():
     min_sharpe = result.aggregated_metrics["min_test_sharpe"]
     max_sharpe = result.aggregated_metrics["max_test_sharpe"]
 
-    assert (
-        min_sharpe <= mean_sharpe + 1e-10
-    ), f"Mean ({mean_sharpe}) should be >= min ({min_sharpe})"
-    assert (
-        mean_sharpe <= max_sharpe + 1e-10
-    ), f"Mean ({mean_sharpe}) should be <= max ({max_sharpe})"
+    assert min_sharpe <= mean_sharpe + 1e-10, (
+        f"Mean ({mean_sharpe}) should be >= min ({min_sharpe})"
+    )
+    assert mean_sharpe <= max_sharpe + 1e-10, (
+        f"Mean ({mean_sharpe}) should be <= max ({max_sharpe})"
+    )
 
     # Verify summary DataFrame structure
     assert "split_index" in result.summary_df.columns
@@ -299,12 +299,12 @@ def test_run_walk_forward_backtest_handles_failures():
     )
 
     # Verify some splits succeeded and some failed
-    assert (
-        result.aggregated_metrics["n_failed_splits"] > 0
-    ), "Should have some failed splits"
-    assert (
-        result.aggregated_metrics["n_successful_splits"] > 0
-    ), "Should have some successful splits"
+    assert result.aggregated_metrics["n_failed_splits"] > 0, (
+        "Should have some failed splits"
+    )
+    assert result.aggregated_metrics["n_successful_splits"] > 0, (
+        "Should have some successful splits"
+    )
 
     # Verify failed splits are marked correctly
     failed_splits = result.summary_df[result.summary_df["status"] == "failed"]
@@ -339,9 +339,9 @@ def test_generate_walk_forward_splits_max_splits():
         config=config,
     )
 
-    assert (
-        len(splits) <= config.max_splits
-    ), f"Should generate at most {config.max_splits} splits, got {len(splits)}"
+    assert len(splits) <= config.max_splits, (
+        f"Should generate at most {config.max_splits} splits, got {len(splits)}"
+    )
 
 
 def test_generate_walk_forward_splits_no_splits_error():

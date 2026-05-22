@@ -127,9 +127,9 @@ class TestT41ShadowOnlySkipsWeightApplication:
             .get("crisis_alpha", {})
             .get("shadow_only", True)
         )
-        assert (
-            shadow_only is True
-        ), "shadow_only must default to True — live weight application must be opt-in"
+        assert shadow_only is True, (
+            "shadow_only must default to True — live weight application must be opt-in"
+        )
 
 
 class TestT41LiveModeAppliesCap:
@@ -193,9 +193,9 @@ class TestT41LiveModeAppliesCap:
             target_positions["symbol"] == "AAPL", "target_weight"
         ].iloc[0]
 
-        assert aapl_w == pytest.approx(
-            0.05
-        ), "Weight must never increase via crisis_alpha"
+        assert aapl_w == pytest.approx(0.05), (
+            "Weight must never increase via crisis_alpha"
+        )
         assert n_adjusted == 0, "No adjustment when ca_weight >= current_weight"
 
     def test_all_symbols_can_be_capped(self) -> None:
@@ -296,6 +296,6 @@ class TestT41ExceptionFailsOpen:
         aapl_w = target_positions.loc[
             target_positions["symbol"] == "AAPL", "target_weight"
         ].iloc[0]
-        assert aapl_w == pytest.approx(
-            0.30
-        ), "Exception must not alter weights (fail-open)"
+        assert aapl_w == pytest.approx(0.30), (
+            "Exception must not alter weights (fail-open)"
+        )

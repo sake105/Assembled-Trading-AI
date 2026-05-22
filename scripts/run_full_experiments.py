@@ -543,7 +543,7 @@ def main():
     sig_ta_only_20_200 = generate_trend_signals_from_prices(
         prices_feat, ma_fast=20, ma_slow=200
     )
-    print(f"  TA signals (20/50): {len(sig_ta_only)} rows ({time.time()-t0:.1f}s)")
+    print(f"  TA signals (20/50): {len(sig_ta_only)} rows ({time.time() - t0:.1f}s)")
 
     t0 = time.time()
     sig_hybrid = build_enhanced_signals(
@@ -555,7 +555,7 @@ def main():
         use_sentiment_proxy=True,
         use_mean_reversion=False,
     )
-    print(f"  Hybrid (TA+Mom+Sent): {len(sig_hybrid)} rows ({time.time()-t0:.1f}s)")
+    print(f"  Hybrid (TA+Mom+Sent): {len(sig_hybrid)} rows ({time.time() - t0:.1f}s)")
 
     t0 = time.time()
     sig_hybrid_mr = build_enhanced_signals(
@@ -567,7 +567,7 @@ def main():
         use_sentiment_proxy=True,
         use_mean_reversion=True,
     )
-    print(f"  Hybrid+MeanRev: {len(sig_hybrid_mr)} rows ({time.time()-t0:.1f}s)")
+    print(f"  Hybrid+MeanRev: {len(sig_hybrid_mr)} rows ({time.time() - t0:.1f}s)")
 
     t0 = time.time()
     sig_hybrid_200 = build_enhanced_signals(
@@ -579,7 +579,7 @@ def main():
         use_sentiment_proxy=True,
         use_mean_reversion=False,
     )
-    print(f"  Hybrid MA20/200: {len(sig_hybrid_200)} rows ({time.time()-t0:.1f}s)")
+    print(f"  Hybrid MA20/200: {len(sig_hybrid_200)} rows ({time.time() - t0:.1f}s)")
 
     # === RUN EXPERIMENTS ===
     experiments = []
@@ -675,16 +675,16 @@ def main():
                 else f"L={r.long_count}"
             )
             print(
-                f"Ret={r.total_return*100:+.1f}% Sh={r.sharpe:.2f} DD={r.max_drawdown*100:.1f}% "
+                f"Ret={r.total_return * 100:+.1f}% Sh={r.sharpe:.2f} DD={r.max_drawdown * 100:.1f}% "
                 f"HHI={r.avg_hhi:.3f} {ls_info}"
             )
         except Exception as e:
             print(f"FAILED: {e}")
 
     # === RESULTS TABLE ===
-    print(f"\n\n{'='*130}")
+    print(f"\n\n{'=' * 130}")
     print(f"FULL RESULTS ({len(results)} experiments)")
-    print(f"{'='*130}")
+    print(f"{'=' * 130}")
 
     hdr = (
         f"{'Name':<26} {'Return':>8} {'Sharpe':>7} {'Sortino':>8} "
@@ -703,16 +703,16 @@ def main():
             else f"{r.long_count}/0"
         )
         print(
-            f"{r.name:<26} {r.total_return*100:>+7.1f}% {r.sharpe:>7.2f} {r.sortino:>8.2f} "
-            f"{r.max_drawdown*100:>6.1f}% {r.volatility*100:>5.1f}% {r.alpha*100:>+6.1f}% {r.beta:>5.2f} "
+            f"{r.name:<26} {r.total_return * 100:>+7.1f}% {r.sharpe:>7.2f} {r.sortino:>8.2f} "
+            f"{r.max_drawdown * 100:>6.1f}% {r.volatility * 100:>5.1f}% {r.alpha * 100:>+6.1f}% {r.beta:>5.2f} "
             f"{r.hit_rate:>4.0f}% {r.profit_factor:>5.2f} {r.avg_hhi:>5.3f} {r.turnover:>5.1f}x "
             f"{r.cpcv_sharpe:>5.2f} {ofit:>5} {ls:>8}"
         )
 
     # === SECTION ANALYSIS ===
-    print(f"\n{'='*90}")
+    print(f"\n{'=' * 90}")
     print("SECTION ANALYSIS")
-    print(f"{'='*90}")
+    print(f"{'=' * 90}")
 
     # A: Signal comparison
     a_exps = [r for r in results if r.name.startswith("A")]
@@ -721,7 +721,7 @@ def main():
         print("\nA. SIGNAL TYPE:")
         for r in sorted(a_exps, key=lambda r: -r.sharpe):
             print(
-                f"   {r.name:<30} Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% DD={r.max_drawdown*100:.1f}%"
+                f"   {r.name:<30} Sharpe={r.sharpe:.2f} Return={r.total_return * 100:+.1f}% DD={r.max_drawdown * 100:.1f}%"
             )
         print(f"   -> Winner: {best_a.name}")
 
@@ -733,7 +733,7 @@ def main():
         for r in sorted(b_exps, key=lambda r: -r.sharpe):
             ls = "L/S" if r.short_count > 0 else "Long"
             print(
-                f"   {r.name:<30} [{ls:>4}] Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% Beta={r.beta:.3f}"
+                f"   {r.name:<30} [{ls:>4}] Sharpe={r.sharpe:.2f} Return={r.total_return * 100:+.1f}% Beta={r.beta:.3f}"
             )
         print(f"   -> Winner: {best_b.name}")
 
@@ -754,7 +754,7 @@ def main():
         print("\nD. REBALANCE + POSITION COMBOS:")
         for r in sorted(d_exps, key=lambda r: -r.sharpe):
             print(
-                f"   {r.name:<30} Sharpe={r.sharpe:.2f} TO={r.turnover:.1f}x Return={r.total_return*100:+.1f}%"
+                f"   {r.name:<30} Sharpe={r.sharpe:.2f} TO={r.turnover:.1f}x Return={r.total_return * 100:+.1f}%"
             )
         print(f"   -> Winner: {best_d.name}")
 
@@ -767,25 +767,25 @@ def main():
             ls = "L/S" if r.short_count > 0 else "Long"
             eff_n = 1 / r.avg_hhi if r.avg_hhi > 0 else 0
             print(
-                f"   {r.name:<30} [{ls:>4}] Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% "
-                f"DD={r.max_drawdown*100:.1f}% EffN={eff_n:.1f} Beta={r.beta:.3f}"
+                f"   {r.name:<30} [{ls:>4}] Sharpe={r.sharpe:.2f} Return={r.total_return * 100:+.1f}% "
+                f"DD={r.max_drawdown * 100:.1f}% EffN={eff_n:.1f} Beta={r.beta:.3f}"
             )
 
     # OVERALL
     best = max(results, key=lambda r: r.sharpe)
-    print(f"\n{'='*90}")
+    print(f"\n{'=' * 90}")
     print(f"OVERALL BEST: {best.name}")
-    print(f"  Return:       {best.total_return*100:+.1f}%")
+    print(f"  Return:       {best.total_return * 100:+.1f}%")
     print(f"  Sharpe:       {best.sharpe:.3f}")
     print(f"  Sortino:      {best.sortino:.3f}")
-    print(f"  Max DD:       {best.max_drawdown*100:.1f}%")
-    print(f"  Alpha:        {best.alpha*100:+.1f}%")
+    print(f"  Max DD:       {best.max_drawdown * 100:.1f}%")
+    print(f"  Alpha:        {best.alpha * 100:+.1f}%")
     print(f"  Beta:         {best.beta:.3f}")
     print(f"  Hit Rate:     {best.hit_rate:.0f}%")
     print(f"  Profit Factor:{best.profit_factor:.2f}")
-    print(f"  HHI:          {best.avg_hhi:.3f} (EffN={1/best.avg_hhi:.1f})")
+    print(f"  HHI:          {best.avg_hhi:.3f} (EffN={1 / best.avg_hhi:.1f})")
     print(f"  CPCV Sharpe:  {best.cpcv_sharpe:.2f} (overfit={best.overfit})")
-    print(f"{'='*90}")
+    print(f"{'=' * 90}")
 
     # Save
     os.makedirs("output/experiments", exist_ok=True)

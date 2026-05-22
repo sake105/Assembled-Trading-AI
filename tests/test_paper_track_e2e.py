@@ -160,21 +160,21 @@ def test_paper_track_mini_e2e_5days(
             run_dir = output_root / "runs" / run_date_str
 
             assert run_dir.exists(), f"Run directory should exist: {run_dir}"
-            assert (
-                run_dir / "equity_snapshot.json"
-            ).exists(), "equity_snapshot.json should exist"
+            assert (run_dir / "equity_snapshot.json").exists(), (
+                "equity_snapshot.json should exist"
+            )
             assert (run_dir / "positions.csv").exists(), "positions.csv should exist"
-            assert (
-                run_dir / "daily_summary.json"
-            ).exists(), "daily_summary.json should exist"
-            assert (
-                run_dir / "daily_summary.md"
-            ).exists(), "daily_summary.md should exist"
+            assert (run_dir / "daily_summary.json").exists(), (
+                "daily_summary.json should exist"
+            )
+            assert (run_dir / "daily_summary.md").exists(), (
+                "daily_summary.md should exist"
+            )
 
             # Verify state is updated
-            assert result.state_after.last_run_date == pd.Timestamp(
-                date
-            ), "State should be updated with run date"
+            assert result.state_after.last_run_date == pd.Timestamp(date), (
+                "State should be updated with run date"
+            )
             assert result.status == "success", f"Run should succeed for day {i + 1}"
 
         # Verify state file exists
@@ -188,9 +188,9 @@ def test_paper_track_mini_e2e_5days(
         equity_curve_path = aggregates_dir / "equity_curve.csv"
         assert equity_curve_path.exists(), "equity_curve.csv should exist"
         equity_curve = pd.read_csv(equity_curve_path)
-        assert len(equity_curve) == len(
-            results
-        ), f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
+        assert len(equity_curve) == len(results), (
+            f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
+        )
         assert "date" in equity_curve.columns
         assert "equity" in equity_curve.columns
         assert "cash" in equity_curve.columns
@@ -214,14 +214,14 @@ def test_paper_track_mini_e2e_5days(
         unique_dates = (
             positions_history["date"].nunique() if not positions_history.empty else 0
         )
-        assert unique_dates == len(
-            results
-        ), f"positions_history should have {len(results)} unique dates, got {unique_dates}"
+        assert unique_dates == len(results), (
+            f"positions_history should have {len(results)} unique dates, got {unique_dates}"
+        )
 
         # Verify no duplicate dates in equity_curve
-        assert equity_curve["date"].nunique() == len(
-            equity_curve
-        ), "equity_curve should not have duplicate dates"
+        assert equity_curve["date"].nunique() == len(equity_curve), (
+            "equity_curve should not have duplicate dates"
+        )
 
     finally:
         paper_module.load_eod_prices_for_universe = original_load
@@ -280,9 +280,9 @@ def test_paper_track_aggregated_artifacts_parquet(
         equity_curve_path = aggregates_dir / "equity_curve.parquet"
         assert equity_curve_path.exists(), "equity_curve.parquet should exist"
         equity_curve = pd.read_parquet(equity_curve_path)
-        assert len(equity_curve) == len(
-            results
-        ), f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
+        assert len(equity_curve) == len(results), (
+            f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
+        )
         assert "date" in equity_curve.columns
         assert "equity" in equity_curve.columns
         assert "cash" in equity_curve.columns
@@ -301,9 +301,9 @@ def test_paper_track_aggregated_artifacts_parquet(
         unique_dates = (
             positions_history["date"].nunique() if not positions_history.empty else 0
         )
-        assert unique_dates == len(
-            results
-        ), f"positions_history should have {len(results)} unique dates, got {unique_dates}"
+        assert unique_dates == len(results), (
+            f"positions_history should have {len(results)} unique dates, got {unique_dates}"
+        )
 
     finally:
         paper_module.load_eod_prices_for_universe = original_load
@@ -377,9 +377,9 @@ def test_paper_track_determinism(
             rtol=1e-10,
             err_msg="Daily PnL should be identical",
         )
-        assert (
-            result1.trades_count == result2.trades_count
-        ), "Trades count should be identical"
+        assert result1.trades_count == result2.trades_count, (
+            "Trades count should be identical"
+        )
 
         # Compare orders (should be identical)
         pd.testing.assert_frame_equal(

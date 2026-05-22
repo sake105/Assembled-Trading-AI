@@ -312,9 +312,9 @@ class TestBuildMlDatasetForStrategy:
         # Verify dataset structure
         assert not dataset.empty, "Dataset should not be empty"
         assert "label" in dataset.columns, "Dataset should have label column"
-        assert (
-            "realized_return" in dataset.columns
-        ), "Dataset should have realized_return column"
+        assert "realized_return" in dataset.columns, (
+            "Dataset should have realized_return column"
+        )
         assert "timestamp" in dataset.columns, "Dataset should have timestamp column"
         assert "symbol" in dataset.columns, "Dataset should have symbol column"
 
@@ -328,12 +328,12 @@ class TestBuildMlDatasetForStrategy:
 
         # Verify no obvious NaN holes in key columns
         assert dataset["label"].notna().all(), "Label column should not have NaN values"
-        assert (
-            dataset["symbol"].notna().all()
-        ), "Symbol column should not have NaN values"
-        assert (
-            dataset["timestamp"].notna().all()
-        ), "Timestamp column should not have NaN values"
+        assert dataset["symbol"].notna().all(), (
+            "Symbol column should not have NaN values"
+        )
+        assert dataset["timestamp"].notna().all(), (
+            "Timestamp column should not have NaN values"
+        )
 
         # Verify index/keys are consistent
         assert len(dataset) == len(
@@ -469,9 +469,9 @@ class TestExportMlDataset:
 
         # Verify file is readable and has same number of rows
         loaded = pd.read_parquet(output_path)
-        assert len(loaded) == len(
-            dataset
-        ), "Loaded dataset should have same number of rows"
+        assert len(loaded) == len(dataset), (
+            "Loaded dataset should have same number of rows"
+        )
         assert "label" in loaded.columns, "Loaded dataset should have label column"
 
     def test_export_ml_dataset_csv(self, tmp_path: Path):
@@ -493,9 +493,9 @@ class TestExportMlDataset:
 
         # Verify file is readable
         loaded = pd.read_csv(output_path)
-        assert len(loaded) == len(
-            dataset
-        ), "Loaded dataset should have same number of rows"
+        assert len(loaded) == len(dataset), (
+            "Loaded dataset should have same number of rows"
+        )
         assert "label" in loaded.columns, "Loaded dataset should have label column"
 
     def test_export_ml_dataset_empty_dataframe(self):

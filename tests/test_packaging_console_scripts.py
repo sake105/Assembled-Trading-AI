@@ -160,9 +160,9 @@ class TestConsoleScriptsEntryPoints:
 
         # Check that all expected scripts are defined
         assert "assembled-cli" in scripts, "assembled-cli should be defined"
-        assert (
-            "assembled-run-backtest" in scripts
-        ), "assembled-run-backtest should be defined"
+        assert "assembled-run-backtest" in scripts, (
+            "assembled-run-backtest should be defined"
+        )
         assert "assembled-run-daily" in scripts, "assembled-run-daily should be defined"
 
         # Check that entry points point to correct modules

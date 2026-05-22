@@ -54,13 +54,13 @@ def test_holiday_not_trading_day(nyse_cal):
     - 2024-12-25 (Christmas)
     """
     # New Year's Day
-    assert not is_trading_day(
-        date(2024, 1, 1)
-    ), "New Year's Day should not be a trading day"
+    assert not is_trading_day(date(2024, 1, 1)), (
+        "New Year's Day should not be a trading day"
+    )
     # Christmas
-    assert not is_trading_day(
-        date(2024, 12, 25)
-    ), "Christmas should not be a trading day"
+    assert not is_trading_day(date(2024, 12, 25)), (
+        "Christmas should not be a trading day"
+    )
 
 
 def test_regular_trading_day(nyse_cal):
@@ -81,14 +81,14 @@ def test_session_close_utc_winter(nyse_cal):
     close = session_close_utc(date(2024, 2, 1))
 
     # Verify: 21:00 UTC (16:00 ET in winter)
-    assert (
-        close.hour == 21
-    ), f"Winter session close should be 21:00 UTC, got {close.hour}"
+    assert close.hour == 21, (
+        f"Winter session close should be 21:00 UTC, got {close.hour}"
+    )
     assert close.minute == 0, f"Session close should be on the hour, got {close.minute}"
     assert str(close.tz) == "UTC", f"Session close should be UTC, got {close.tz}"
-    assert close.date() == date(
-        2024, 2, 1
-    ), f"Session close date should match, got {close.date()}"
+    assert close.date() == date(2024, 2, 1), (
+        f"Session close date should match, got {close.date()}"
+    )
 
 
 def test_session_close_utc_summer(nyse_cal):
@@ -103,14 +103,14 @@ def test_session_close_utc_summer(nyse_cal):
     close = session_close_utc(date(2024, 6, 3))
 
     # Verify: 20:00 UTC (16:00 ET in summer)
-    assert (
-        close.hour == 20
-    ), f"Summer session close should be 20:00 UTC, got {close.hour}"
+    assert close.hour == 20, (
+        f"Summer session close should be 20:00 UTC, got {close.hour}"
+    )
     assert close.minute == 0, f"Session close should be on the hour, got {close.minute}"
     assert str(close.tz) == "UTC", f"Session close should be UTC, got {close.tz}"
-    assert close.date() == date(
-        2024, 6, 3
-    ), f"Session close date should match, got {close.date()}"
+    assert close.date() == date(2024, 6, 3), (
+        f"Session close date should match, got {close.date()}"
+    )
 
 
 def test_session_close_utc_holiday_raises(nyse_cal):
@@ -124,16 +124,16 @@ def test_normalize_as_of_to_session_close_date_string(nyse_cal):
     """Test normalize_as_of_to_session_close with date string."""
     # Winter date
     as_of = normalize_as_of_to_session_close("2024-02-01")
-    assert (
-        as_of.hour == 21
-    ), f"Winter session close should be 21:00 UTC, got {as_of.hour}"
+    assert as_of.hour == 21, (
+        f"Winter session close should be 21:00 UTC, got {as_of.hour}"
+    )
     assert str(as_of.tz) == "UTC", f"Should be UTC, got {as_of.tz}"
 
     # Summer date
     as_of = normalize_as_of_to_session_close("2024-06-03")
-    assert (
-        as_of.hour == 20
-    ), f"Summer session close should be 20:00 UTC, got {as_of.hour}"
+    assert as_of.hour == 20, (
+        f"Summer session close should be 20:00 UTC, got {as_of.hour}"
+    )
     assert str(as_of.tz) == "UTC", f"Should be UTC, got {as_of.tz}"
 
 
@@ -161,15 +161,15 @@ def test_normalize_as_of_to_session_close_date_object(nyse_cal):
     """Test normalize_as_of_to_session_close with date object."""
     # Winter
     as_of = normalize_as_of_to_session_close(date(2024, 2, 1))
-    assert (
-        as_of.hour == 21
-    ), f"Winter session close should be 21:00 UTC, got {as_of.hour}"
+    assert as_of.hour == 21, (
+        f"Winter session close should be 21:00 UTC, got {as_of.hour}"
+    )
 
     # Summer
     as_of = normalize_as_of_to_session_close(date(2024, 6, 3))
-    assert (
-        as_of.hour == 20
-    ), f"Summer session close should be 20:00 UTC, got {as_of.hour}"
+    assert as_of.hour == 20, (
+        f"Summer session close should be 20:00 UTC, got {as_of.hour}"
+    )
 
 
 def test_normalize_as_of_to_session_close_holiday_raises(nyse_cal):
@@ -185,9 +185,9 @@ def test_trading_sessions_range(nyse_cal):
     sessions = trading_sessions(date(2024, 1, 1), date(2024, 1, 31))
 
     # Should be a DatetimeIndex
-    assert isinstance(
-        sessions, pd.DatetimeIndex
-    ), f"Should return DatetimeIndex, got {type(sessions)}"
+    assert isinstance(sessions, pd.DatetimeIndex), (
+        f"Should return DatetimeIndex, got {type(sessions)}"
+    )
 
     # Should exclude weekends and holidays
     # January 1, 2024 is New Year's Day (holiday) -> excluded
@@ -196,16 +196,16 @@ def test_trading_sessions_range(nyse_cal):
 
     # Verify all returned dates are trading days
     for session_date in sessions:
-        assert is_trading_day(
-            session_date.date()
-        ), f"{session_date.date()} should be a trading day"
+        assert is_trading_day(session_date.date()), (
+            f"{session_date.date()} should be a trading day"
+        )
 
     # Verify no weekends
     for session_date in sessions:
         weekday = session_date.weekday()  # 0=Monday, 6=Sunday
-        assert (
-            weekday < 5
-        ), f"{session_date.date()} should not be weekend (weekday={weekday})"
+        assert weekday < 5, (
+            f"{session_date.date()} should not be weekend (weekday={weekday})"
+        )
 
 
 def test_dst_transition_winter_to_summer(nyse_cal):

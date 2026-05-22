@@ -213,9 +213,9 @@ class TestVIXCap:
         score_high = self._get_exposure_mult(df_high_vix)
 
         # VIX=45 cap is 0.25, VIX=12 cap is 1.0 → high-VIX composite must be lower
-        assert (
-            score_high <= score_low + 1e-9
-        ), f"Expected high-VIX ({score_high:.4f}) <= low-VIX ({score_low:.4f})"
+        assert score_high <= score_low + 1e-9, (
+            f"Expected high-VIX ({score_high:.4f}) <= low-VIX ({score_low:.4f})"
+        )
 
     def test_vix_cap_extreme_tier_at_40_plus(self) -> None:
         """VIX=42 hits extreme tier (cap=0.25) — signals must complete without error."""
@@ -242,9 +242,9 @@ class TestVIXCap:
             s_no = float(sig_no["score"].iloc[0])
             s_low = float(sig_low["score"].iloc[0])
             # Both should be numerically identical (no cap applied at VIX<18)
-            assert (
-                abs(s_no - s_low) < 0.05
-            ), f"Low-VIX score diverged unexpectedly: no_vix={s_no:.4f}, low_vix={s_low:.4f}"
+            assert abs(s_no - s_low) < 0.05, (
+                f"Low-VIX score diverged unexpectedly: no_vix={s_no:.4f}, low_vix={s_low:.4f}"
+            )
 
     def test_vix_cap_zero_capital_safe(self) -> None:
         """DataFrame with VIX=25 and constant-zero prices must not raise."""
@@ -299,7 +299,7 @@ class TestVIXCap:
         for i in range(1, len(scores)):
             assert scores[i] <= scores[i - 1] + 1e-9, (
                 f"VIX={vix_levels[i]} score ({scores[i]:.4f}) > "
-                f"VIX={vix_levels[i-1]} score ({scores[i-1]:.4f}) — cap not monotone"
+                f"VIX={vix_levels[i - 1]} score ({scores[i - 1]:.4f}) — cap not monotone"
             )
 
 
@@ -376,9 +376,9 @@ class TestYieldCurveInversionCap:
             score_pos = float(sig_pos["score"].abs().median())
             score_none = float(sig_none["score"].abs().median())
             # No cap applied in either case → scores must be numerically close
-            assert (
-                abs(score_pos - score_none) < 0.05
-            ), f"Positive YC score diverged: yc={score_pos:.4f}, no-yc={score_none:.4f}"
+            assert abs(score_pos - score_none) < 0.05, (
+                f"Positive YC score diverged: yc={score_pos:.4f}, no-yc={score_none:.4f}"
+            )
 
     def test_yc_inversion_reduces_exposure(self) -> None:
         """Persistent negative yield_curve_slope → final score must be <= positive-slope version.
@@ -395,9 +395,9 @@ class TestYieldCurveInversionCap:
         if not sig_inv.empty and not sig_pos.empty:
             score_inv = float(sig_inv["score"].abs().median())
             score_pos = float(sig_pos["score"].abs().median())
-            assert (
-                score_inv <= score_pos + 1e-9
-            ), f"Inverted YC score ({score_inv:.4f}) > positive YC ({score_pos:.4f}) — cap not applied"
+            assert score_inv <= score_pos + 1e-9, (
+                f"Inverted YC score ({score_inv:.4f}) > positive YC ({score_pos:.4f}) — cap not applied"
+            )
 
     def test_yc_inversion_boundary_exactly_at_zero(self) -> None:
         """Boundary condition: yield_curve_slope == 0.0 → cap must NOT fire (condition is < 0)."""
@@ -411,9 +411,9 @@ class TestYieldCurveInversionCap:
             score_zero = float(sig_zero["score"].abs().median())
             score_pos = float(sig_pos["score"].abs().median())
             # slope=0 not strictly < 0 → no cap → should be close to positive baseline
-            assert (
-                abs(score_zero - score_pos) < 0.05
-            ), f"Boundary yc=0 score diverged: zero={score_zero:.4f}, pos={score_pos:.4f}"
+            assert abs(score_zero - score_pos) < 0.05, (
+                f"Boundary yc=0 score diverged: zero={score_zero:.4f}, pos={score_pos:.4f}"
+            )
 
     def test_yc_missing_column_no_crash(self) -> None:
         """No yield_curve_slope column at all → compute_signals must not raise."""

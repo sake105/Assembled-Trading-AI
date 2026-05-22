@@ -208,6 +208,6 @@ def test_compute_equity_metrics_perf_smoke() -> None:
         _ = compute_equity_metrics(equity_df, start_capital=100_000.0, freq="1d")
     elapsed = time.perf_counter() - start
     # 3 calls × 5-year daily curve should be << 2 s on any dev machine.
-    assert (
-        elapsed < 2.0
-    ), f"compute_equity_metrics is too slow: {elapsed:.2f}s for 3 calls"
+    assert elapsed < 2.0, (
+        f"compute_equity_metrics is too slow: {elapsed:.2f}s for 3 calls"
+    )

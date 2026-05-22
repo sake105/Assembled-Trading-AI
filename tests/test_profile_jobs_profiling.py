@@ -149,14 +149,14 @@ def test_profile_job_none_profiler(tmp_path: Path, dummy_job_func: callable) -> 
 
         # No .prof files should exist
         prof_files = list(profile_dir.glob("*.prof"))
-        assert (
-            len(prof_files) == 0
-        ), "No .prof files should be created when profiler='none'"
+        assert len(prof_files) == 0, (
+            "No .prof files should be created when profiler='none'"
+        )
 
         html_files = list(profile_dir.glob("*.html"))
-        assert (
-            len(html_files) == 0
-        ), "No .html files should be created when profiler='none'"
+        assert len(html_files) == 0, (
+            "No .html files should be created when profiler='none'"
+        )
 
     finally:
         pj.JOB_MAP.clear()

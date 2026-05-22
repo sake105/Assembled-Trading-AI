@@ -84,9 +84,9 @@ def test_max_weight_reduces_buy_order() -> None:
     assert len(filtered) == 1, "Order should remain (reduced, not blocked)"
     assert filtered["qty"].iloc[0] < 10.0, "Order qty should be reduced"
     assert filtered["qty"].iloc[0] > 0.0, "Order qty should be positive"
-    assert (
-        abs(filtered["qty"].iloc[0] - 1.67) < 0.1
-    ), "Order qty should be reduced to ~1.67"
+    assert abs(filtered["qty"].iloc[0] - 1.67) < 0.1, (
+        "Order qty should be reduced to ~1.67"
+    )
 
     # Verify reduction reason
     assert len(result.reduced_orders) > 0, "Should have reduction reasons"
@@ -174,9 +174,9 @@ def test_turnover_reduces_portfolio_wide() -> None:
 
     # Verify proportional reduction (all scaled by same factor)
     scale_factors = [r["explain"]["scale_factor"] for r in result.reduced_orders]
-    assert all(
-        abs(sf - scale_factors[0]) < 1e-10 for sf in scale_factors
-    ), "All orders should have same scale factor"
+    assert all(abs(sf - scale_factors[0]) < 1e-10 for sf in scale_factors), (
+        "All orders should have same scale factor"
+    )
 
 
 def test_drawdown_derisk_scales_or_blocks() -> None:
@@ -220,12 +220,12 @@ def test_drawdown_derisk_scales_or_blocks() -> None:
 
     # Verify reduction reason
     assert len(result.reduced_orders) == 1, "Should have 1 reduction reason"
-    assert (
-        result.reduced_orders[0]["reason"] == "RISK_DERISK_DRAWDOWN"
-    ), "Should have RISK_DERISK_DRAWDOWN reason"
-    assert (
-        abs(result.reduced_orders[0]["explain"]["drawdown"] - 0.3) < 1e-10
-    ), "Drawdown should be 0.3"
+    assert result.reduced_orders[0]["reason"] == "RISK_DERISK_DRAWDOWN", (
+        "Should have RISK_DERISK_DRAWDOWN reason"
+    )
+    assert abs(result.reduced_orders[0]["explain"]["drawdown"] - 0.3) < 1e-10, (
+        "Drawdown should be 0.3"
+    )
 
     # Test full block: de_risk_scale = 0.0
     config_block = PreTradeConfig(drawdown_threshold=0.2, de_risk_scale=0.0)
@@ -240,15 +240,15 @@ def test_drawdown_derisk_scales_or_blocks() -> None:
     )
 
     # Verify: All orders should be blocked
-    assert (
-        len(filtered_block) == 0
-    ), "All orders should be blocked when de_risk_scale = 0.0"
-    assert (
-        len(result_block.reduced_orders) == 1
-    ), "Should have 1 reduction reason (dropped)"
-    assert (
-        result_block.reduced_orders[0]["new_qty"] == 0.0
-    ), "new_qty should be 0.0 (dropped)"
+    assert len(filtered_block) == 0, (
+        "All orders should be blocked when de_risk_scale = 0.0"
+    )
+    assert len(result_block.reduced_orders) == 1, (
+        "Should have 1 reduction reason (dropped)"
+    )
+    assert result_block.reduced_orders[0]["new_qty"] == 0.0, (
+        "new_qty should be 0.0 (dropped)"
+    )
 
 
 def test_rule_order_drawdown_then_max_weight_then_turnover() -> None:
@@ -315,15 +315,15 @@ def test_rule_order_drawdown_then_max_weight_then_turnover() -> None:
     # So drawdown is applied last, which means it scales the already-reduced order from max_weight
 
     # Order is dropped because drawdown scales the already-small order to 0
-    assert (
-        len(filtered) == 0
-    ), "Order should be dropped (reduced to 0 by drawdown after max_weight)"
+    assert len(filtered) == 0, (
+        "Order should be dropped (reduced to 0 by drawdown after max_weight)"
+    )
 
     # Verify reduction reasons
     reasons = [r["reason"] for r in result.reduced_orders]
-    assert (
-        "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL" in reasons
-    ), "Should have max_weight reduction"
+    assert "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL" in reasons, (
+        "Should have max_weight reduction"
+    )
     # Note: Drawdown is applied after max_weight (Step 6 after Step 4).
     # If max_weight drops the order (qty becomes 0), drawdown won't see it (filtered_orders is empty).
     # This is correct behavior: rules are applied sequentially, and drawdown only applies to remaining orders.
@@ -396,8 +396,8 @@ def test_deterministic_behavior_same_inputs() -> None:
             filtered1.sort_values("symbol")
             .reset_index(drop=True)
             .equals(filtered2.sort_values("symbol").reset_index(drop=True))
-        ), f"Results should be identical (run {i+1})"
+        ), f"Results should be identical (run {i + 1})"
 
-        assert (
-            result1.reduced_orders == result2.reduced_orders
-        ), f"Reduction reasons should be identical (run {i+1})"
+        assert result1.reduced_orders == result2.reduced_orders, (
+            f"Reduction reasons should be identical (run {i + 1})"
+        )

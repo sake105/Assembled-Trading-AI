@@ -72,8 +72,8 @@ def build_report(significance: dict, events_df: pd.DataFrame) -> str:
     for label, stats in sorted(significance.items()):
         sig = "YES" if stats["significant_5pct"] else "no"
         lines.append(
-            f"| {label} | {stats['n']} | {stats['mean_car']*100:+.3f}% "
-            f"| {stats['median_car']*100:+.3f}% "
+            f"| {label} | {stats['n']} | {stats['mean_car'] * 100:+.3f}% "
+            f"| {stats['median_car'] * 100:+.3f}% "
             f"| {stats.get('t_stat', 'n/a')} "
             f"| {stats.get('p_value', 'n/a')} "
             f"| {sig} |"

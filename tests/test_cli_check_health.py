@@ -217,7 +217,9 @@ def test_health_check_warn_when_risk_report_missing(
     assert result.returncode in [
         0,
         1,
-    ], f"Expected exit code 0 or 1, got {result.returncode}\nstderr: {result.stderr}\nstdout: {result.stdout}"
+    ], (
+        f"Expected exit code 0 or 1, got {result.returncode}\nstderr: {result.stderr}\nstdout: {result.stdout}"
+    )
 
     # Check JSON content
     summary_json = output_dir / "health_summary.json"
@@ -232,12 +234,12 @@ def test_health_check_warn_when_risk_report_missing(
                 risk_report_check = check
                 break
 
-        assert (
-            risk_report_check is not None
-        ), "risk_report_exists check should be present"
-        assert (
-            risk_report_check["status"] == "WARN"
-        ), f"Expected WARN for missing risk report, got {risk_report_check['status']}"
+        assert risk_report_check is not None, (
+            "risk_report_exists check should be present"
+        )
+        assert risk_report_check["status"] == "WARN", (
+            f"Expected WARN for missing risk report, got {risk_report_check['status']}"
+        )
 
 
 @pytest.mark.advanced
@@ -406,9 +408,9 @@ def test_check_health_subcommand_in_cli():
     )
 
     assert result_info.returncode == 0, "info should exit with code 0"
-    assert (
-        "check_health" in result_info.stdout
-    ), "info should list check_health subcommand"
+    assert "check_health" in result_info.stdout, (
+        "info should list check_health subcommand"
+    )
 
 
 @pytest.mark.advanced
@@ -442,12 +444,14 @@ def test_check_health_smoke_test_minimal(tmp_path: Path):
         0,
         1,
         2,
-    ], f"check_health should exit with 0/1/2, got {result.returncode}. stderr: {result.stderr}"
+    ], (
+        f"check_health should exit with 0/1/2, got {result.returncode}. stderr: {result.stderr}"
+    )
 
     # Should create output files
-    assert (
-        output_dir / "health_summary.json"
-    ).exists(), "health_summary.json should be created"
-    assert (
-        output_dir / "health_summary.md"
-    ).exists(), "health_summary.md should be created"
+    assert (output_dir / "health_summary.json").exists(), (
+        "health_summary.json should be created"
+    )
+    assert (output_dir / "health_summary.md").exists(), (
+        "health_summary.md should be created"
+    )

@@ -26,7 +26,7 @@ pip install -e .[dev]
 
 This installs:
 - Core dependencies (pandas, numpy, fastapi, yfinance, etc.)
-- Dev dependencies (pytest, ruff, black, mypy)
+- Dev dependencies (pytest, ruff, mypy)
 
 ### Environment Configuration (Optional)
 

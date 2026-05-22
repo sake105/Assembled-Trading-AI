@@ -40,9 +40,9 @@ def test_strategy_benchmark_produces_report_and_scoreboard(tmp_path: Path) -> No
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"Benchmark failed: {result.returncode}\nstdout: {result.stdout[-2500:]}\nstderr: {result.stderr[-2500:]}"
+    assert result.returncode == 0, (
+        f"Benchmark failed: {result.returncode}\nstdout: {result.stdout[-2500:]}\nstderr: {result.stderr[-2500:]}"
+    )
     bench = out_root / "benchmark"
     assert (bench / "BENCHMARK_REPORT.md").exists(), "BENCHMARK_REPORT.md not produced"
     assert (bench / "scoreboard.csv").exists(), "scoreboard.csv not produced"
@@ -54,9 +54,9 @@ def test_strategy_benchmark_produces_report_and_scoreboard(tmp_path: Path) -> No
         bench / "attribution_summary.csv"
     ).exists(), "attribution_summary not produced"
     assert (bench / "anomalies.json").exists(), "anomalies.json not produced"
-    assert (
-        bench / "data_quality_summary.json"
-    ).exists(), "data_quality_summary.json not produced"
+    assert (bench / "data_quality_summary.json").exists(), (
+        "data_quality_summary.json not produced"
+    )
     assert (bench / "indicator_exposure_summary.json").exists() or (
         bench / "indicator_exposure_summary.csv"
     ).exists(), "indicator_exposure_summary not produced"
@@ -68,28 +68,28 @@ def test_strategy_benchmark_produces_report_and_scoreboard(tmp_path: Path) -> No
         assert col in any_row, f"scoreboard missing column {col}"
     all_keys = set().union(*(set(r.keys()) for r in sb))
     for col in ("var_95", "es_95", "pct_days_in_market"):
-        assert (
-            col in all_keys
-        ), f"scoreboard missing extended column {col} (columns: {sorted(all_keys)})"
+        assert col in all_keys, (
+            f"scoreboard missing extended column {col} (columns: {sorted(all_keys)})"
+        )
     for col in ("gross_total_return_est", "net_total_return"):
-        assert (
-            col in all_keys
-        ), f"scoreboard missing profit diagnostic column {col} (columns: {sorted(all_keys)})"
+        assert col in all_keys, (
+            f"scoreboard missing profit diagnostic column {col} (columns: {sorted(all_keys)})"
+        )
     run_inputs_path = bench / "trend_baseline" / "1y" / "run_inputs.json"
     assert run_inputs_path.exists(), "run_inputs.json not produced for at least one run"
     run_inputs = json.loads(run_inputs_path.read_text(encoding="utf-8"))
-    assert (
-        "columns_synthesized" in run_inputs
-    ), "run_inputs.json missing columns_synthesized"
+    assert "columns_synthesized" in run_inputs, (
+        "run_inputs.json missing columns_synthesized"
+    )
     assert "synthetic_ohlcv" in run_inputs, "run_inputs.json missing synthetic_ohlcv"
     with (bench / "anomalies.json").open("r", encoding="utf-8") as f:
         anomalies = json.load(f)
     anomaly_types = {a.get("type") for a in anomalies if isinstance(a, dict)}
     # If OHLCV columns were synthesized, the anomaly must be recorded
     if run_inputs.get("synthetic_ohlcv") is True:
-        assert (
-            "synthetic_ohlcv" in anomaly_types
-        ), "run synthesized OHLCV but anomalies.json missing synthetic_ohlcv"
+        assert "synthetic_ohlcv" in anomaly_types, (
+            "run synthesized OHLCV but anomalies.json missing synthetic_ohlcv"
+        )
     # else: clean run with no anomalies is valid — anomalies.json may be []
 
 
@@ -132,6 +132,6 @@ def test_benchmark_outputs_deterministic_json(tmp_path: Path) -> None:
     if (bench / "indicator_exposure_summary.json").exists():
         raw = (bench / "indicator_exposure_summary.json").read_text(encoding="utf-8")
         reencoded = json.dumps(json.loads(raw), indent=2, sort_keys=True) + "\n"
-        assert (
-            raw == reencoded
-        ), "indicator_exposure_summary.json must be deterministic (sort_keys, newline)"
+        assert raw == reencoded, (
+            "indicator_exposure_summary.json must be deterministic (sort_keys, newline)"
+        )

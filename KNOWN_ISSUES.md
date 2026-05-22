@@ -1461,22 +1461,17 @@ Neue Anti-Pattern-Risk vermieden via test-fixture-respect + operator-disabled-sk
 
 Stage 1+2+3 Review-Chain durch (PASS_WITH_MINOR / PASS / PASS). Verbleibendes Adjacent: F-stage2-4 (INFO) `_FEATURE_ENH_WARN_KEYS` backwards-compat alias — investigation deferred.
 
-### 9.8 Pre-Commit Tooling: ruff ↔ black Disagreement — OFFEN (TOOLING)
+### 9.8 Pre-Commit Tooling: ruff ↔ black Disagreement — BEHOBEN (2026-05-22)
 
 **Schwere:** MEDIUM (CI-Hygiene)  
-**Status:** ⚠️ Workaround via `# fmt: off` an einer Stelle (c6ccd10)  
+**Status:** ✅ black entfernt, ruff 0.14.14 als einziger Formatter, 264 Dateien reformatiert
 
-`.pre-commit-config.yaml` pinnt:
-- ruff `v0.8.6` (astral-sh/ruff-pre-commit)
-- black `24.10.0` (psf/black)
-
-Diese beiden disagreen auf chained `.fillna()` in `_tc_signals.py:328-333`:
-- ruff 0.8.6 will single-line `.fillna(1.0)`
-- black 24.10.0 will multi-line
-
-→ unresolvable hook-loop, weil ruff-format und black abwechselnd reformatieren. Workaround: `# fmt: off / # fmt: on` Markers (siehe `_tc_signals.py:327, 336`).
-
-Echte Lösung: ruff bumpen auf >= 0.14.x (Mass-Reformat-Risk auf 28+ Files → eigener Cleanup-Tag).
+**Lösung:**
+- `.pre-commit-config.yaml`: ruff `v0.8.6` → `v0.14.14`; black-Block vollständig entfernt (ruff-format ist dessen designed Ersatz)
+- `_tc_signals.py` + `backtest_engine.py`: `# fmt: off / # fmt: on` Workaround-Marker entfernt
+- `backend-ci.yml`: "Run black (format check)"-Step ersetzt durch `ruff format --check`
+- `pyproject.toml`: `black==26.3.1` aus dev-Extras entfernt, `[tool.black]`-Sektion entfernt, ruff-Range auf `>=0.14.0` eingeengt
+- `ruff format src tests scripts`: 264 Dateien reformatiert, danach 1521 Dateien stabil (0 Drift)
 
 Plus: `core.autocrlf=true` (global) ↔ `.gitattributes eol=lf` Konflikt — lokal auf `input` gesetzt (`git config --local core.autocrlf input`).
 

@@ -117,9 +117,9 @@ def test_adv_window_effect() -> None:
 
     # Row 19 (index 19) should have non-NaN ADV (20-day window starting from row 0)
     # Actually: rolling window with min_periods=20 means first non-NaN is at index 19
-    assert (
-        not adv_df["adv_usd"].iloc[19:].isna().any()
-    ), "Rows 19+ should have non-NaN ADV"
+    assert not adv_df["adv_usd"].iloc[19:].isna().any(), (
+        "Rows 19+ should have non-NaN ADV"
+    )
 
     # ADV should be approximately close * volume (rolling mean)
     # For constant volume=1e6 and close~150, ADV ~ 150 * 1e6 = 1.5e8
@@ -198,12 +198,12 @@ def test_add_cost_columns_to_trades_with_spread() -> None:
 
     # Verify spread_cash column exists and is not NaN
     assert "spread_cash" in trades_with_costs.columns, "spread_cash column should exist"
-    assert (
-        not trades_with_costs["spread_cash"].isna().any()
-    ), "spread_cash should not contain NaNs"
-    assert (
-        trades_with_costs["spread_cash"] >= 0.0
-    ).all(), "spread_cash should be non-negative"
+    assert not trades_with_costs["spread_cash"].isna().any(), (
+        "spread_cash should not contain NaNs"
+    )
+    assert (trades_with_costs["spread_cash"] >= 0.0).all(), (
+        "spread_cash should be non-negative"
+    )
 
     # Verify spread_cash calculation
     # For ADV ~ 150 * 1e6 = 1.5e8 (exceeds 1e7), spread_bps = 3.0
@@ -214,9 +214,9 @@ def test_add_cost_columns_to_trades_with_spread() -> None:
     # But for this test, we have 30 days, so ADV should be available
 
     # Verify total_cost_cash includes spread_cash
-    assert (
-        "total_cost_cash" in trades_with_costs.columns
-    ), "total_cost_cash column should exist"
+    assert "total_cost_cash" in trades_with_costs.columns, (
+        "total_cost_cash column should exist"
+    )
     expected_total = (
         trades_with_costs["commission_cash"]
         + trades_with_costs["spread_cash"]
@@ -249,12 +249,12 @@ def test_add_cost_columns_to_trades_no_spread_model() -> None:
 
     # Verify spread_cash defaults to 0.0
     assert "spread_cash" in trades_with_costs.columns, "spread_cash column should exist"
-    assert (
-        trades_with_costs["spread_cash"] == 0.0
-    ).all(), "spread_cash should default to 0.0"
-    assert (
-        not trades_with_costs["spread_cash"].isna().any()
-    ), "spread_cash should not contain NaNs"
+    assert (trades_with_costs["spread_cash"] == 0.0).all(), (
+        "spread_cash should default to 0.0"
+    )
+    assert not trades_with_costs["spread_cash"].isna().any(), (
+        "spread_cash should not contain NaNs"
+    )
 
 
 def test_add_cost_columns_to_trades_empty_trades() -> None:
@@ -279,18 +279,18 @@ def test_add_cost_columns_to_trades_empty_trades() -> None:
     cost_cols = ["commission_cash", "spread_cash", "slippage_cash", "total_cost_cash"]
 
     for col in required_cols + cost_cols:
-        assert (
-            col in trades_with_costs.columns
-        ), f"Column {col} should exist in empty trades"
+        assert col in trades_with_costs.columns, (
+            f"Column {col} should exist in empty trades"
+        )
 
     # Verify empty
     assert trades_with_costs.empty, "Result should be empty"
 
     # Verify no NaNs (even in empty DataFrame)
     for col in cost_cols:
-        assert (
-            not trades_with_costs[col].isna().any()
-        ), f"Column {col} should not contain NaNs"
+        assert not trades_with_costs[col].isna().any(), (
+            f"Column {col} should not contain NaNs"
+        )
 
 
 def test_spread_model_validation() -> None:

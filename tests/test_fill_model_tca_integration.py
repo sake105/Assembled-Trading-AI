@@ -111,9 +111,9 @@ def test_tca_report_schema_ok_with_partial_fills() -> None:
 
     # Check: no NaNs in key columns
     assert not tca_report["notional"].isna().any(), "notional should have no NaNs"
-    assert (
-        not tca_report["total_cost_cash"].isna().any()
-    ), "total_cost_cash should have no NaNs"
+    assert not tca_report["total_cost_cash"].isna().any(), (
+        "total_cost_cash should have no NaNs"
+    )
     assert not tca_report["cost_bps"].isna().any(), "cost_bps should have no NaNs"
 
 
@@ -191,9 +191,9 @@ def test_cost_bps_computed_deterministically_for_partial_fills() -> None:
             if row["notional"] > 0.0
             else 0.0
         )
-        assert (
-            abs(row["cost_bps"] - expected_cost_bps) < 0.01
-        ), "cost_bps should be computed correctly"
+        assert abs(row["cost_bps"] - expected_cost_bps) < 0.01, (
+            "cost_bps should be computed correctly"
+        )
 
 
 def test_tca_report_handles_rejected_fills() -> None:
@@ -254,9 +254,9 @@ def test_tca_report_handles_rejected_fills() -> None:
         # If rejected fills are included, they should have zero notional and costs
         # But typically rejected fills might be filtered out or have zero notional
         # For now, just check that the report is valid
-        assert (
-            "notional" in tca_report.columns
-        ), "TCA report should have notional column"
-        assert (
-            "total_cost_cash" in tca_report.columns
-        ), "TCA report should have total_cost_cash column"
+        assert "notional" in tca_report.columns, (
+            "TCA report should have notional column"
+        )
+        assert "total_cost_cash" in tca_report.columns, (
+            "TCA report should have total_cost_cash column"
+        )

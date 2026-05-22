@@ -342,9 +342,9 @@ class TestNaNPropagation:
         )
         if signals.empty:
             return  # acceptable — no signals above threshold
-        assert (
-            signals["score"].isna().sum() == 0
-        ), f"NaN scores found: {signals['score'].isna().sum()} / {len(signals)}"
+        assert signals["score"].isna().sum() == 0, (
+            f"NaN scores found: {signals['score'].isna().sum()} / {len(signals)}"
+        )
 
     def test_all_nan_factors_still_produces_output(self) -> None:
         """Even if alt-data columns are all NaN, compute_signals must not raise."""

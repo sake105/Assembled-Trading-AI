@@ -173,9 +173,9 @@ def test_shadow_strategy_unknown_name_logs_warning_and_skips(tmp_path, caplog):
     warn_messages = [
         rec.message for rec in caplog.records if rec.levelname == "WARNING"
     ]
-    assert any(
-        "does_not_exist" in m and "whitelist" in m for m in warn_messages
-    ), f"expected loud WARN about whitelist, got: {warn_messages}"
+    assert any("does_not_exist" in m and "whitelist" in m for m in warn_messages), (
+        f"expected loud WARN about whitelist, got: {warn_messages}"
+    )
 
 
 def test_shadow_strategy_feature_dependent_name_blocked_by_whitelist(tmp_path, caplog):

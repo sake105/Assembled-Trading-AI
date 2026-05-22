@@ -44,13 +44,13 @@ def test_sharpe_sign_matches_mean_return(returns: list[float]) -> None:
 
     mean_r = float(arr.mean())
     if mean_r > 1e-8:
-        assert (
-            sharpe >= 0
-        ), f"Positive mean return should give non-negative Sharpe; got {sharpe}"
+        assert sharpe >= 0, (
+            f"Positive mean return should give non-negative Sharpe; got {sharpe}"
+        )
     elif mean_r < -1e-8:
-        assert (
-            sharpe <= 0
-        ), f"Negative mean return should give non-positive Sharpe; got {sharpe}"
+        assert sharpe <= 0, (
+            f"Negative mean return should give non-positive Sharpe; got {sharpe}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -147,9 +147,9 @@ def test_vol_scaled_weights_non_negative(vols: list[float], target_vol: float) -
         return  # acceptable if all vols are invalid
 
     for _, row in result.iterrows():
-        assert (
-            row["target_weight"] >= -1e-9
-        ), f"Weight for {row['symbol']} must be >= 0; got {row['target_weight']}"
+        assert row["target_weight"] >= -1e-9, (
+            f"Weight for {row['symbol']} must be >= 0; got {row['target_weight']}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +247,6 @@ def test_long_only_gross_exposure_non_negative(
         target_positions, prices_df, equity=equity, missing_price_handling="zero"
     )
 
-    assert (
-        summary.gross_exposure >= -1e-9
-    ), f"Gross exposure must be >= 0 for long positions; got {summary.gross_exposure}"
+    assert summary.gross_exposure >= -1e-9, (
+        f"Gross exposure must be >= 0 for long positions; got {summary.gross_exposure}"
+    )

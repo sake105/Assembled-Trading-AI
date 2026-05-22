@@ -58,9 +58,9 @@ def test_tca_report_required_cols_exist() -> None:
         "n_trades",
     ]
     for col in required_cols:
-        assert (
-            col in tca_report.columns
-        ), f"Required column {col} should exist in TCA report"
+        assert col in tca_report.columns, (
+            f"Required column {col} should exist in TCA report"
+        )
 
 
 def test_tca_report_no_nans_in_key_cols() -> None:
@@ -211,9 +211,9 @@ def test_tca_report_empty_trades() -> None:
         "n_trades",
     ]
     for col in required_cols:
-        assert (
-            col in tca_report.columns
-        ), f"Column {col} should exist in empty TCA report"
+        assert col in tca_report.columns, (
+            f"Column {col} should exist in empty TCA report"
+        )
 
     # Verify empty
     assert tca_report.empty, "Result should be empty"
@@ -221,9 +221,9 @@ def test_tca_report_empty_trades() -> None:
     # Verify no NaNs (even in empty DataFrame)
     for col in required_cols:
         if col not in ["date", "symbol"]:  # Skip non-numeric columns
-            assert (
-                not tca_report[col].isna().any()
-            ), f"Column {col} should not contain NaNs"
+            assert not tca_report[col].isna().any(), (
+                f"Column {col} should not contain NaNs"
+            )
 
 
 def test_tca_report_aggregation_per_day_symbol() -> None:
@@ -254,9 +254,9 @@ def test_tca_report_aggregation_per_day_symbol() -> None:
     # First day: 2 trades aggregated
     day1 = tca_report[tca_report["date"] == pd.Timestamp("2024-01-01").date()].iloc[0]
     assert day1["n_trades"] == 2, "Day 1 should have 2 trades"
-    assert day1["notional"] == (
-        100.0 * 150.0 + 200.0 * 152.0
-    ), "Day 1 notional should be sum"
+    assert day1["notional"] == (100.0 * 150.0 + 200.0 * 152.0), (
+        "Day 1 notional should be sum"
+    )
     assert day1["total_cost_cash"] == (4.75 + 9.5), "Day 1 total_cost should be sum"
 
     # Second day: 1 trade
@@ -295,12 +295,12 @@ def test_write_tca_report_csv() -> None:
 
         # Verify file can be read back
         loaded = pd.read_csv(written_path)
-        assert len(loaded) == len(
-            tca_report
-        ), "Loaded CSV should have same number of rows"
-        assert set(loaded.columns) == set(
-            tca_report.columns
-        ), "Loaded CSV should have same columns"
+        assert len(loaded) == len(tca_report), (
+            "Loaded CSV should have same number of rows"
+        )
+        assert set(loaded.columns) == set(tca_report.columns), (
+            "Loaded CSV should have same columns"
+        )
 
 
 def test_write_tca_report_md() -> None:

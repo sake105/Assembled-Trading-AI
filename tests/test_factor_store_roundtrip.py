@@ -300,9 +300,9 @@ def test_store_append_mode(temp_factor_store, sample_factors_df):
     # Append mode deduplicates by (timestamp, symbol), keeping last occurrence
     # So we have: original rows - overlapping rows + new rows
     expected_rows = len(sample_factors_df) - len(symbols) + len(additional_df)
-    assert (
-        len(loaded_df) == expected_rows
-    ), f"Expected {expected_rows} rows, got {len(loaded_df)}"
+    assert len(loaded_df) == expected_rows, (
+        f"Expected {expected_rows} rows, got {len(loaded_df)}"
+    )
 
 
 def test_list_available_panels(temp_factor_store, sample_factors_df):

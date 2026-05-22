@@ -172,9 +172,9 @@ def check_kill_switch() -> tuple[bool, str]:
             {"symbol": ["AAPL", "MSFT"], "qty": [10, -5], "price": [180.0, 400.0]}
         )
         guarded = guard_orders_with_kill_switch(dummy_orders)
-        assert (
-            len(guarded) == 0
-        ), f"Kill switch should block all orders, got {len(guarded)}"
+        assert len(guarded) == 0, (
+            f"Kill switch should block all orders, got {len(guarded)}"
+        )
 
         # Deactivate and verify restored
         deactivate_kill_switch()

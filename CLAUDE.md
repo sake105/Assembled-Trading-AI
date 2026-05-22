@@ -477,7 +477,7 @@ Niemals implizit „grün“ formulieren, wenn nur Lint oder Collection lief.
 Wenn relevant, an passende Checks denken:
 
 * `ruff check <paths>`
-* `black --check <paths>`
+* `ruff format --check <paths>`
 * `mypy <paths>` falls für den Bereich sinnvoll
 * gezielte `pytest`-Aufrufe
 

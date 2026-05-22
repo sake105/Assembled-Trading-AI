@@ -424,7 +424,9 @@ def write_summary_report(
         severity_prefix = (
             "[SEVERE]"
             if overall_severity == "SEVERE"
-            else "[MODERATE]" if overall_severity == "MODERATE" else "[OK]"
+            else "[MODERATE]"
+            if overall_severity == "MODERATE"
+            else "[OK]"
         )
         lines.append(f"**Feature Drift:** {severity_prefix} {overall_severity}")
         lines.append("")
@@ -461,7 +463,9 @@ def write_summary_report(
         severity_prefix = (
             "[SEVERE]"
             if drift_severity == "SEVERE"
-            else "[MODERATE]" if drift_severity == "MODERATE" else "[OK]"
+            else "[MODERATE]"
+            if drift_severity == "MODERATE"
+            else "[OK]"
         )
         lines.append(
             f"**Label Drift:** {severity_prefix} {drift_severity} (PSI: {psi:.4f})"

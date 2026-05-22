@@ -42,9 +42,9 @@ def test_invariant_higher_commission_lower_equity():
     bars = make_ohlcv(["AAPL", "MSFT"], "2024-01-01", "2024-06-30", seed=42)
     result_low = _run_minimal_backtest(bars, commission_bps=1.0)
     result_high = _run_minimal_backtest(bars, commission_bps=50.0)
-    assert (
-        result_high.iloc[-1]["equity"] <= result_low.iloc[-1]["equity"]
-    ), "Higher commission should not increase final equity"
+    assert result_high.iloc[-1]["equity"] <= result_low.iloc[-1]["equity"], (
+        "Higher commission should not increase final equity"
+    )
 
 
 @pytest.mark.characterization
@@ -82,6 +82,6 @@ def test_invariant_equity_row_count():
     bars = make_ohlcv(["AAPL", "MSFT"], "2024-01-01", "2024-03-31", seed=42)
     n_dates = bars["Date"].nunique()
     result = _run_minimal_backtest(bars)
-    assert (
-        len(result) == n_dates
-    ), f"Expected {n_dates} rows (one per date), got {len(result)}"
+    assert len(result) == n_dates, (
+        f"Expected {n_dates} rows (one per date), got {len(result)}"
+    )

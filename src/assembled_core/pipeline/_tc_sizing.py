@@ -760,7 +760,9 @@ def _sp_compute_final_multiplier(
                 _composite_regime = (
                     "crisis"
                     if _crisis_mode == "CRISIS"
-                    else "elevated" if _crisis_mode == "ELEVATED" else "normal"
+                    else "elevated"
+                    if _crisis_mode == "ELEVATED"
+                    else "normal"
                 )
                 # IV skew Z-score — optional field, defaults to 0.0 (no IV data)
                 _iv_skew_z = float(getattr(ctx, "options_iv_skew_z", 0.0) or 0.0)
@@ -1815,13 +1817,13 @@ def size_positions(
                         else None
                     )
                     if _wt_col:
-                        target_positions.loc[
-                            _near_earnings, _wt_col
-                        ] *= _pre_earnings_scale
+                        target_positions.loc[_near_earnings, _wt_col] *= (
+                            _pre_earnings_scale
+                        )
                     if _qty_col:
-                        target_positions.loc[
-                            _near_earnings, _qty_col
-                        ] *= _pre_earnings_scale
+                        target_positions.loc[_near_earnings, _qty_col] *= (
+                            _pre_earnings_scale
+                        )
                     log.info(
                         "[size_positions] pre-earnings: reduced %d symbol(s) by %.0f%%: %s",
                         len(_earnings_syms),

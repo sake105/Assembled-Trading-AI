@@ -173,7 +173,9 @@ def apply_exposure_multiplier_to_targets(
             # to ERROR if the caller appears to expect weight-based semantics
             # (i.e. CASH row present in qty-mode is a smell — likely caller
             # confusion between weight-mode and qty-mode).
-            qty_before_sum = float(pd.to_numeric(risky_qty_before, errors="coerce").fillna(0.0).sum())
+            qty_before_sum = float(
+                pd.to_numeric(risky_qty_before, errors="coerce").fillna(0.0).sum()
+            )
             qty_after_sum = qty_before_sum * multiplier
             if has_cash:
                 log.error(

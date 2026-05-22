@@ -57,9 +57,9 @@ def test_buy_limit_reachable() -> None:
     fills = apply_limit_order_fills(trades, prices=prices, partial_fill_model=None)
 
     # Should be filled
-    assert (
-        fills["fill_qty"].iloc[0] == 100.0
-    ), "BUY limit should be filled when low <= limit"
+    assert fills["fill_qty"].iloc[0] == 100.0, (
+        "BUY limit should be filled when low <= limit"
+    )
     assert fills["status"].iloc[0] == "filled", "Status should be 'filled'"
     assert fills["fill_price"].iloc[0] == 150.0, "Fill price should be limit_price"
 
@@ -95,13 +95,13 @@ def test_buy_limit_unreachable() -> None:
     fills = apply_limit_order_fills(trades, prices=prices, partial_fill_model=None)
 
     # Should be rejected
-    assert (
-        fills["fill_qty"].iloc[0] == 0.0
-    ), "BUY limit should be rejected when low > limit"
+    assert fills["fill_qty"].iloc[0] == 0.0, (
+        "BUY limit should be rejected when low > limit"
+    )
     assert fills["status"].iloc[0] == "rejected", "Status should be 'rejected'"
-    assert (
-        fills["remaining_qty"].iloc[0] == 100.0
-    ), "Remaining qty should equal order qty"
+    assert fills["remaining_qty"].iloc[0] == 100.0, (
+        "Remaining qty should equal order qty"
+    )
 
 
 def test_sell_limit_reachable() -> None:
@@ -135,9 +135,9 @@ def test_sell_limit_reachable() -> None:
     fills = apply_limit_order_fills(trades, prices=prices, partial_fill_model=None)
 
     # Should be filled
-    assert (
-        fills["fill_qty"].iloc[0] == 100.0
-    ), "SELL limit should be filled when high >= limit"
+    assert fills["fill_qty"].iloc[0] == 100.0, (
+        "SELL limit should be filled when high >= limit"
+    )
     assert fills["status"].iloc[0] == "filled", "Status should be 'filled'"
     assert fills["fill_price"].iloc[0] == 150.0, "Fill price should be limit_price"
 
@@ -173,13 +173,13 @@ def test_sell_limit_unreachable() -> None:
     fills = apply_limit_order_fills(trades, prices=prices, partial_fill_model=None)
 
     # Should be rejected
-    assert (
-        fills["fill_qty"].iloc[0] == 0.0
-    ), "SELL limit should be rejected when high < limit"
+    assert fills["fill_qty"].iloc[0] == 0.0, (
+        "SELL limit should be rejected when high < limit"
+    )
     assert fills["status"].iloc[0] == "rejected", "Status should be 'rejected'"
-    assert (
-        fills["remaining_qty"].iloc[0] == 100.0
-    ), "Remaining qty should equal order qty"
+    assert fills["remaining_qty"].iloc[0] == 100.0, (
+        "Remaining qty should equal order qty"
+    )
 
 
 def test_ohlc_missing_fallback() -> None:
@@ -211,9 +211,9 @@ def test_ohlc_missing_fallback() -> None:
     fills = apply_limit_order_fills(trades, prices=prices, partial_fill_model=None)
 
     # Should be filled (close used as both high and low)
-    assert (
-        fills["fill_qty"].iloc[0] == 100.0
-    ), "Should fill when close == limit_price (fallback)"
+    assert fills["fill_qty"].iloc[0] == 100.0, (
+        "Should fill when close == limit_price (fallback)"
+    )
     assert fills["status"].iloc[0] == "filled", "Status should be 'filled'"
 
 

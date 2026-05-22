@@ -42,6 +42,7 @@ except ImportError:
         class spaces:  # type: ignore[no-redef]
             class Box:
                 def __init__(self, *a: Any, **kw: Any) -> None: ...
+
             class Env:
                 pass
 

@@ -105,9 +105,9 @@ def test_store_factors_with_year_partitioning(tmp_path: Path) -> None:
     year_2023 = panel_dir / "year=2023.parquet"
     year_2024 = panel_dir / "year=2024.parquet"
 
-    assert (
-        year_2023.exists() or year_2024.exists()
-    ), "At least one year partition should exist"
+    assert year_2023.exists() or year_2024.exists(), (
+        "At least one year partition should exist"
+    )
 
     # Check manifest
     manifest_file = panel_dir / "_metadata.json"
@@ -345,9 +345,9 @@ def test_store_factors_without_manifest(tmp_path: Path) -> None:
     )
 
     manifest_file = panel_dir / "_metadata.json"
-    assert (
-        not manifest_file.exists()
-    ), "Manifest should not be created when write_manifest=False"
+    assert not manifest_file.exists(), (
+        "Manifest should not be created when write_manifest=False"
+    )
 
 
 def test_panel_path_without_year() -> None:
@@ -355,7 +355,7 @@ def test_panel_path_without_year() -> None:
     root = get_factor_store_root()
     path = panel_path("core_ta", "1d", "universe_test", year=None, factors_root=root)
 
-    assert (
-        path.is_dir() or not path.suffix
-    ), "Path without year should be directory path"
+    assert path.is_dir() or not path.suffix, (
+        "Path without year should be directory path"
+    )
     assert path.name == "universe_test" or "universe_test" in str(path)

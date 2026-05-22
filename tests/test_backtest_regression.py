@@ -154,9 +154,9 @@ def test_metrics_regression(golden_mini_backtest_data, position_sizing_fn):
         if not (np.isnan(metrics_new["sharpe"]) or np.isnan(metrics_legacy["sharpe"])):
             assert abs(
                 metrics_new["sharpe"] - metrics_legacy["sharpe"]
-            ) < METRICS_ATOL + (
-                METRICS_RTOL * abs(metrics_legacy["sharpe"])
-            ), f"sharpe mismatch: {metrics_new['sharpe']} vs {metrics_legacy['sharpe']}"
+            ) < METRICS_ATOL + (METRICS_RTOL * abs(metrics_legacy["sharpe"])), (
+                f"sharpe mismatch: {metrics_new['sharpe']} vs {metrics_legacy['sharpe']}"
+            )
 
     # Rows should be identical
     assert metrics_new["rows"] == metrics_legacy["rows"], "rows must match exactly"
@@ -288,6 +288,6 @@ def test_equity_mark_to_market_numba_vs_numpy(golden_mini_backtest_data):
     )
 
     # Results should be identical (within numerical precision)
-    assert (
-        abs(equity_numpy - equity_numba) < EQUITY_ATOL
-    ), f"Equity mismatch: NumPy={equity_numpy}, Numba={equity_numba}"
+    assert abs(equity_numpy - equity_numba) < EQUITY_ATOL, (
+        f"Equity mismatch: NumPy={equity_numpy}, Numba={equity_numba}"
+    )

@@ -342,9 +342,9 @@ def test_simulate_equity_deprecation_warn_env_gated_off(monkeypatch, caplog) -> 
     deprecation_messages = [
         rec for rec in caplog.records if "simulate_equity is DEPRECATED" in rec.message
     ]
-    assert (
-        deprecation_messages == []
-    ), "simulate_equity must NOT log deprecation when env var is unset"
+    assert deprecation_messages == [], (
+        "simulate_equity must NOT log deprecation when env var is unset"
+    )
 
 
 def test_simulate_equity_deprecation_warn_env_gated_on(monkeypatch, caplog) -> None:

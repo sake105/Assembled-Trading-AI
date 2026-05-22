@@ -281,9 +281,9 @@ def test_backtest_vs_two_eod_cycles():
     )
 
     cycle_result_day1 = run_trading_cycle(ctx_day1)
-    assert (
-        cycle_result_day1.status == "success"
-    ), f"Day 1 cycle failed: {cycle_result_day1.error_message}"
+    assert cycle_result_day1.status == "success", (
+        f"Day 1 cycle failed: {cycle_result_day1.error_message}"
+    )
 
     # Apply fills and update positions for day 1
     orders_day1 = (
@@ -306,9 +306,9 @@ def test_backtest_vs_two_eod_cycles():
 
     # Regression: after first EOD cycle, positions should be non-empty when orders were generated
     if not orders_day1.empty:
-        assert (
-            len(positions_eod) > 0
-        ), "EOD day 1: orders were generated but positions_eod is still empty after fills"
+        assert len(positions_eod) > 0, (
+            "EOD day 1: orders were generated but positions_eod is still empty after fills"
+        )
 
     # Day 2: EOD cycle (with updated positions and cash)
     ctx_day2 = replace(
@@ -323,9 +323,9 @@ def test_backtest_vs_two_eod_cycles():
     )
 
     cycle_result_day2 = run_trading_cycle(ctx_day2)
-    assert (
-        cycle_result_day2.status == "success"
-    ), f"Day 2 cycle failed: {cycle_result_day2.error_message}"
+    assert cycle_result_day2.status == "success", (
+        f"Day 2 cycle failed: {cycle_result_day2.error_message}"
+    )
 
     # Apply fills and update positions for day 2
     orders_day2 = (
@@ -347,9 +347,9 @@ def test_backtest_vs_two_eod_cycles():
 
     # Regression: after second EOD cycle, positions persist (non-empty) and keys stable when we had orders
     if not orders_day1.empty or not orders_day2.empty:
-        assert (
-            len(positions_eod) > 0
-        ), "EOD day 2: positions_eod empty after two cycles despite having orders"
+        assert len(positions_eod) > 0, (
+            "EOD day 2: positions_eod empty after two cycles despite having orders"
+        )
 
     # Compute final equity for EOD path
     # Note: simulate_with_costs in backtest only tracks cash deltas, not position values
@@ -365,9 +365,9 @@ def test_backtest_vs_two_eod_cycles():
     positions_eod_sorted = dict(sorted(positions_eod.items()))
 
     # Compare positions (allowing for floating point tolerance)
-    assert set(positions_backtest_sorted.keys()) == set(
-        positions_eod_sorted.keys()
-    ), f"Position symbols differ: backtest={set(positions_backtest_sorted.keys())}, eod={set(positions_eod_sorted.keys())}"
+    assert set(positions_backtest_sorted.keys()) == set(positions_eod_sorted.keys()), (
+        f"Position symbols differ: backtest={set(positions_backtest_sorted.keys())}, eod={set(positions_eod_sorted.keys())}"
+    )
 
     for symbol in positions_backtest_sorted:
         backtest_qty = positions_backtest_sorted[symbol]
@@ -401,9 +401,9 @@ def test_backtest_vs_two_eod_cycles():
 
         # Check required columns
         required_cols = ["timestamp", "symbol", "side", "qty", "price"]
-        assert all(
-            col in result_backtest.trades.columns for col in required_cols
-        ), f"Missing required columns in trades: {set(required_cols) - set(result_backtest.trades.columns)}"
+        assert all(col in result_backtest.trades.columns for col in required_cols), (
+            f"Missing required columns in trades: {set(required_cols) - set(result_backtest.trades.columns)}"
+        )
 
     print(f"✓ Positions match: {positions_backtest_sorted}")
     print(

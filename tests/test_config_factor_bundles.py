@@ -50,9 +50,9 @@ def test_load_factor_bundle_core():
 
     # Check weights sum to 1.0
     total_weight = sum(f.weight for f in bundle.factors)
-    assert (
-        abs(total_weight - 1.0) < 0.01
-    ), f"Weights should sum to 1.0, got {total_weight:.4f}"
+    assert abs(total_weight - 1.0) < 0.01, (
+        f"Weights should sum to 1.0, got {total_weight:.4f}"
+    )
 
     # Check all factors have valid directions
     for factor in bundle.factors:
@@ -75,9 +75,9 @@ def test_load_factor_bundle_ai_tech_core_alt():
 
     # Check weights sum to 1.0
     total_weight = sum(f.weight for f in bundle.factors)
-    assert (
-        abs(total_weight - 1.0) < 0.01
-    ), f"Weights should sum to 1.0, got {total_weight:.4f}"
+    assert abs(total_weight - 1.0) < 0.01, (
+        f"Weights should sum to 1.0, got {total_weight:.4f}"
+    )
 
 
 @pytest.mark.advanced
@@ -92,9 +92,9 @@ def test_load_factor_bundle_ml_alpha_only():
 
     # Check weights sum to 1.0
     total_weight = sum(f.weight for f in bundle.factors)
-    assert (
-        abs(total_weight - 1.0) < 0.01
-    ), f"Weights should sum to 1.0, got {total_weight:.4f}"
+    assert abs(total_weight - 1.0) < 0.01, (
+        f"Weights should sum to 1.0, got {total_weight:.4f}"
+    )
 
     # Check ML alpha factor is present
     ml_alpha_factors = [f for f in bundle.factors if f.name.startswith("ml_alpha_")]
@@ -124,9 +124,9 @@ def test_load_factor_bundle_core_ml_mixed():
 
     # Check weights sum to 1.0
     total_weight = sum(f.weight for f in bundle.factors)
-    assert (
-        abs(total_weight - 1.0) < 0.01
-    ), f"Weights should sum to 1.0, got {total_weight:.4f}"
+    assert abs(total_weight - 1.0) < 0.01, (
+        f"Weights should sum to 1.0, got {total_weight:.4f}"
+    )
 
     # Check expected core factors are present
     factor_names = {f.name for f in bundle.factors}
@@ -185,9 +185,9 @@ def test_all_factor_names_are_strings():
     for bundle_path in bundles_to_test:
         bundle = load_factor_bundle(bundle_path)
         for factor in bundle.factors:
-            assert isinstance(
-                factor.name, str
-            ), f"Factor name should be string, got {type(factor.name)} for {factor.name}"
+            assert isinstance(factor.name, str), (
+                f"Factor name should be string, got {type(factor.name)} for {factor.name}"
+            )
 
 
 @pytest.mark.advanced
@@ -206,4 +206,6 @@ def test_all_directions_are_valid():
             assert factor.direction in (
                 "positive",
                 "negative",
-            ), f"Invalid direction '{factor.direction}' for factor '{factor.name}' in bundle {bundle_path}"
+            ), (
+                f"Invalid direction '{factor.direction}' for factor '{factor.name}' in bundle {bundle_path}"
+            )

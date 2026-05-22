@@ -51,9 +51,9 @@ def test_estimate_market_model_zero_beta_for_uncorrelated():
     asset = rng.normal(0, 0.012, n)  # independent
 
     result = estimate_market_model(asset, market)
-    assert (
-        abs(result.beta) < 0.15
-    ), f"β should be ≈0 for independent series, got {result.beta}"
+    assert abs(result.beta) < 0.15, (
+        f"β should be ≈0 for independent series, got {result.beta}"
+    )
 
 
 def test_estimate_market_model_rejects_length_mismatch():
@@ -120,9 +120,9 @@ def test_market_model_abnormal_returns_event_day_jump_detected():
     event_day_ars = result[result["rel_day"] == 0]["mm_abnormal_return"].dropna()
     assert len(event_day_ars) > 0
     # Mean of event-day ARs should be close to +0.02 (within 30% tolerance)
-    assert (
-        0.015 < event_day_ars.mean() < 0.025
-    ), f"Expected event-day AR ≈ 0.02, got {event_day_ars.mean():.4f}"
+    assert 0.015 < event_day_ars.mean() < 0.025, (
+        f"Expected event-day AR ≈ 0.02, got {event_day_ars.mean():.4f}"
+    )
 
 
 def test_market_model_abnormal_returns_too_short_estimation_skipped():
@@ -150,9 +150,9 @@ def test_bmp_t_detects_event_day_significance():
     ar_df = compute_market_model_abnormal_returns(panel)
     result = bmp_t_statistic(ar_df, event_window=(0, 0))
     assert result["n_events"] == 20
-    assert (
-        result["t_statistic"] > 2.0
-    ), f"Expected significant t, got {result['t_statistic']:.2f}"
+    assert result["t_statistic"] > 2.0, (
+        f"Expected significant t, got {result['t_statistic']:.2f}"
+    )
     assert result["is_significant_at_5pct"] is True
     assert 0.015 < result["car_mean"] < 0.025
 
@@ -177,9 +177,9 @@ def test_bmp_t_non_significant_for_no_event():
     panel = pd.DataFrame(rows)
     ar_df = compute_market_model_abnormal_returns(panel)
     result = bmp_t_statistic(ar_df, event_window=(0, 0))
-    assert (
-        abs(result["t_statistic"]) < 3.0
-    ), f"With no real effect, |t| should be small, got {result['t_statistic']:.2f}"
+    assert abs(result["t_statistic"]) < 3.0, (
+        f"With no real effect, |t| should be small, got {result['t_statistic']:.2f}"
+    )
 
 
 def test_bmp_t_window_summed_across_days():
@@ -295,7 +295,7 @@ def test_bhar_paired_nan_alignment(caplog):
     expected_market = (1.005) * (1.010) * (1.015) * (1.025)
     expected_bhar = expected_asset - expected_market
     actual = float(bhar_df.iloc[0]["bhar"])
-    assert (
-        abs(actual - expected_bhar) < 1e-9
-    ), f"expected {expected_bhar:.6f}, got {actual:.6f}"
+    assert abs(actual - expected_bhar) < 1e-9, (
+        f"expected {expected_bhar:.6f}, got {actual:.6f}"
+    )
     assert int(bhar_df.iloc[0]["n_obs_in_window"]) == 4

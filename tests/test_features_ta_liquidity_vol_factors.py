@@ -121,9 +121,9 @@ class TestAddRealizedVolatility:
             ratio = within_range / len(rv_20)
 
             # Most values should be in reasonable range
-            assert (
-                ratio > 0.8
-            ), f"Too many extreme RV values: {within_range}/{len(rv_20)} in [0, 2.0]"
+            assert ratio > 0.8, (
+                f"Too many extreme RV values: {within_range}/{len(rv_20)} in [0, 2.0]"
+            )
 
     def test_rv_per_symbol(self, sample_price_panel):
         """Test that RV is computed per symbol (no cross-contamination)."""

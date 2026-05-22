@@ -26,7 +26,7 @@ def test_build_paper_summary_from_synthetic_artifacts(tmp_path: Path) -> None:
         # run_kpis.json
         kpis: dict[str, Any] = {
             "schema_version": "run.kpis.v1",
-            "generated_utc": f"2026-02-0{i+1}T12:00:00+00:00",
+            "generated_utc": f"2026-02-0{i + 1}T12:00:00+00:00",
             "multipliers": {
                 "final_exposure_multiplier": 0.9 + i * 0.05,
                 "turnover_scale_factor": 0.85,
@@ -48,7 +48,7 @@ def test_build_paper_summary_from_synthetic_artifacts(tmp_path: Path) -> None:
             "cash": 10000 - i * 50,
             "positions": {},
             "equity_curve": [
-                {"utc": f"2026-02-0{i+1}T12:00:00+00:00", "equity": equity}
+                {"utc": f"2026-02-0{i + 1}T12:00:00+00:00", "equity": equity}
             ],
         }
         (day_dir / "ledger_state.json").write_text(json.dumps(ledger), encoding="utf-8")

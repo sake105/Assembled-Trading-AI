@@ -111,7 +111,7 @@ def test_pipeline_output_rejected_rows_have_non_empty_reason():
     rejected = fills[fills["status"] == "rejected"]
     for _, row in rejected.iterrows():
         rr = row.get("reject_reason", "")
-        assert (
-            rr is not None and str(rr).strip() != ""
-        ), "rejected row must have non-empty reject_reason"
+        assert rr is not None and str(rr).strip() != "", (
+            "rejected row must have non-empty reject_reason"
+        )
         assert str(rr).isascii()

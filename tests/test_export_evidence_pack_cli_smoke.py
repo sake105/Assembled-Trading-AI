@@ -162,13 +162,13 @@ def test_cli_export_print_pack_path_one_line_file_exists(tmp_path: Path) -> None
     )
     assert result.returncode == 0, f"CLI failed: {result.stderr}"
     lines = [ln for ln in result.stdout.strip().split("\n") if ln]
-    assert (
-        len(lines) == 1
-    ), f"Expected exactly one line stdout, got {len(lines)}: {result.stdout!r}"
+    assert len(lines) == 1, (
+        f"Expected exactly one line stdout, got {len(lines)}: {result.stdout!r}"
+    )
     pack_path_resolved = lines[0].strip()
-    assert Path(
-        pack_path_resolved
-    ).exists(), f"Pack path should exist: {pack_path_resolved}"
+    assert Path(pack_path_resolved).exists(), (
+        f"Pack path should exist: {pack_path_resolved}"
+    )
     assert pack_path_resolved.endswith(".zip"), "Resolved path should be the ZIP file"
 
 
@@ -280,9 +280,9 @@ def test_cli_export_json_resolved_paths_with_relative_output_dir(
     assert manifest_resolved
     assert Path(out_resolved).exists(), "output_dir_resolved must point to existing dir"
     assert Path(pack_resolved).exists(), "pack_path_resolved must point to existing ZIP"
-    assert Path(
-        manifest_resolved
-    ).exists(), "pack_manifest_path_resolved must point to existing manifest"
+    assert Path(manifest_resolved).exists(), (
+        "pack_manifest_path_resolved must point to existing manifest"
+    )
 
 
 def _build_output_dir_with_evidence_index(
@@ -337,15 +337,15 @@ def test_cli_export_json_output_is_valid_and_deterministic(tmp_path: Path) -> No
     ]
     result1 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     result2 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
-    assert (
-        result1.returncode == 0 and result2.returncode == 0
-    ), f"stdout={result1.stdout!r} stderr={result1.stderr!r}"
+    assert result1.returncode == 0 and result2.returncode == 0, (
+        f"stdout={result1.stdout!r} stderr={result1.stderr!r}"
+    )
     out1 = result1.stdout
     out2 = result2.stdout
     assert out1 == out2, "Two runs must produce identical JSON bytes"
-    assert out1.strip().startswith("{") and out1.strip().endswith(
-        "}"
-    ), "stdout must be exactly JSON (no prefix/suffix)"
+    assert out1.strip().startswith("{") and out1.strip().endswith("}"), (
+        "stdout must be exactly JSON (no prefix/suffix)"
+    )
     data = json.loads(out1)
     required_keys = [
         "schema_version",
@@ -445,9 +445,9 @@ def test_cli_export_verify_after_build_ok_exits_zero(tmp_path: Path) -> None:
         text=True,
         cwd=str(ROOT),
     )
-    assert (
-        result.returncode == 0
-    ), f"CLI with --verify-after-build failed: {result.stderr}"
+    assert result.returncode == 0, (
+        f"CLI with --verify-after-build failed: {result.stderr}"
+    )
     data = json.loads(result.stdout)
     assert data.get("ok") is True
 
@@ -663,9 +663,9 @@ def test_cli_strict_mode_fails_on_missing_optional(tmp_path: Path) -> None:
     )
 
     # Should fail with --strict when optional files are missing
-    assert (
-        result.returncode != 0
-    ), "Should exit with error in --strict mode when optional files missing"
+    assert result.returncode != 0, (
+        "Should exit with error in --strict mode when optional files missing"
+    )
 
 
 def test_cli_prints_source_and_missing_counts(tmp_path: Path) -> None:
@@ -784,9 +784,9 @@ def test_cli_strict_fails_on_optional_missing_with_exit_1(tmp_path: Path) -> Non
         cwd=str(ROOT),
     )
 
-    assert (
-        result.returncode == 1
-    ), "Strict mode should exit with code 1 when optional files are missing"
+    assert result.returncode == 1, (
+        "Strict mode should exit with code 1 when optional files are missing"
+    )
     # Error output should be ASCII-only
     error_output = result.stdout + result.stderr
     assert error_output.encode("ascii", errors="ignore").decode("ascii") == error_output
@@ -886,9 +886,9 @@ def test_cli_export_json_error_determinism(tmp_path: Path) -> None:
     result1 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     result2 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     assert result1.returncode == 1 and result2.returncode == 1
-    assert (
-        result1.stdout == result2.stdout
-    ), "Same error must yield identical JSON bytes"
+    assert result1.stdout == result2.stdout, (
+        "Same error must yield identical JSON bytes"
+    )
     data = json.loads(result1.stdout)
     assert data.get("error_code") == "NO_SOURCE"
 

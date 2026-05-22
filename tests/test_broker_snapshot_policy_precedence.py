@@ -78,18 +78,18 @@ def test_broker_snapshot_precedence_over_paper_view(tmp_path: Path):
     )
 
     # Verify reconciliation was performed
-    assert (
-        result["reconciliation_result"] is not None
-    ), "Reconciliation should be performed"
+    assert result["reconciliation_result"] is not None, (
+        "Reconciliation should be performed"
+    )
 
     # The reconciliation should use broker snapshot (AAPL=10), not paper view (AAPL=5)
     # Since ledger has AAPL=5 and broker snapshot has AAPL=10, there should be a mismatch
     # (unless the reconciliation logic matches them somehow, but the key is that snapshot was used)
 
     # Verify broker_snapshot_path is set (snapshot was found and used)
-    assert (
-        result["broker_snapshot_path"] is not None
-    ), "broker_snapshot_path should be set when snapshot is used"
+    assert result["broker_snapshot_path"] is not None, (
+        "broker_snapshot_path should be set when snapshot is used"
+    )
 
     # Verify the reconciliation result reflects the broker snapshot usage
     # The exact outcome depends on reconciliation logic, but snapshot should be preferred

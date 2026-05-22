@@ -58,15 +58,15 @@ def test_manifest_contains_data_snapshot_id() -> None:
         with manifest_path.open("r", encoding="utf-8") as f:
             loaded_manifest = json.load(f)
 
-        assert (
-            "data_snapshot_id" in loaded_manifest
-        ), "Manifest should contain data_snapshot_id"
-        assert (
-            loaded_manifest["data_snapshot_id"] == snapshot_id
-        ), "Snapshot ID should match"
-        assert (
-            len(loaded_manifest["data_snapshot_id"]) == 64
-        ), "Snapshot ID should be 64 characters"
+        assert "data_snapshot_id" in loaded_manifest, (
+            "Manifest should contain data_snapshot_id"
+        )
+        assert loaded_manifest["data_snapshot_id"] == snapshot_id, (
+            "Snapshot ID should match"
+        )
+        assert len(loaded_manifest["data_snapshot_id"]) == 64, (
+            "Snapshot ID should be 64 characters"
+        )
 
 
 def test_manifest_data_snapshot_id_empty_prices() -> None:
@@ -89,12 +89,12 @@ def test_manifest_data_snapshot_id_empty_prices() -> None:
         with manifest_path.open("r", encoding="utf-8") as f:
             loaded_manifest = json.load(f)
 
-        assert (
-            "data_snapshot_id" in loaded_manifest
-        ), "Manifest should contain data_snapshot_id even for empty prices"
-        assert (
-            loaded_manifest["data_snapshot_id"] == snapshot_id
-        ), "Empty prices should produce stable snapshot ID"
+        assert "data_snapshot_id" in loaded_manifest, (
+            "Manifest should contain data_snapshot_id even for empty prices"
+        )
+        assert loaded_manifest["data_snapshot_id"] == snapshot_id, (
+            "Empty prices should produce stable snapshot ID"
+        )
 
 
 def test_batch_summary_reads_data_snapshot_id_from_manifest() -> None:
@@ -129,9 +129,9 @@ def test_batch_summary_reads_data_snapshot_id_from_manifest() -> None:
         metrics = collect_backtest_metrics(run_output_dir, freq="1d")
 
         assert "data_snapshot_id" in metrics, "Metrics should contain data_snapshot_id"
-        assert (
-            metrics["data_snapshot_id"] == snapshot_id
-        ), "data_snapshot_id should be read from manifest"
+        assert metrics["data_snapshot_id"] == snapshot_id, (
+            "data_snapshot_id should be read from manifest"
+        )
 
 
 def test_batch_summary_handles_missing_manifest() -> None:
@@ -143,12 +143,12 @@ def test_batch_summary_handles_missing_manifest() -> None:
         # No manifest file
         metrics = collect_backtest_metrics(run_output_dir, freq="1d")
 
-        assert (
-            "data_snapshot_id" in metrics
-        ), "Metrics should contain data_snapshot_id field"
-        assert (
-            metrics["data_snapshot_id"] is None
-        ), "data_snapshot_id should be None if manifest missing"
+        assert "data_snapshot_id" in metrics, (
+            "Metrics should contain data_snapshot_id field"
+        )
+        assert metrics["data_snapshot_id"] is None, (
+            "data_snapshot_id should be None if manifest missing"
+        )
 
 
 def test_batch_summary_handles_missing_data_snapshot_id_in_manifest() -> None:
@@ -169,9 +169,9 @@ def test_batch_summary_handles_missing_data_snapshot_id_in_manifest() -> None:
 
         metrics = collect_backtest_metrics(run_output_dir, freq="1d")
 
-        assert (
-            "data_snapshot_id" in metrics
-        ), "Metrics should contain data_snapshot_id field"
-        assert (
-            metrics["data_snapshot_id"] is None
-        ), "data_snapshot_id should be None if not in manifest"
+        assert "data_snapshot_id" in metrics, (
+            "Metrics should contain data_snapshot_id field"
+        )
+        assert metrics["data_snapshot_id"] is None, (
+            "data_snapshot_id should be None if not in manifest"
+        )

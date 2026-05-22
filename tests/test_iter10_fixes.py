@@ -78,13 +78,13 @@ class TestZombieKillerUsesAsOf:
         if received_timestamps:
             received_dt = received_timestamps[0]
             # Must match ctx.as_of date (2021-06-15), NOT today
-            assert (
-                received_dt.year == 2021
-            ), f"Expected year 2021 from ctx.as_of, got {received_dt}"
+            assert received_dt.year == 2021, (
+                f"Expected year 2021 from ctx.as_of, got {received_dt}"
+            )
             assert received_dt.month == 6
-            assert (
-                received_dt.day == 15
-            ), f"Expected 2021-06-15 from ctx.as_of, got {received_dt}"
+            assert received_dt.day == 15, (
+                f"Expected 2021-06-15 from ctx.as_of, got {received_dt}"
+            )
 
     def test_as_of_none_falls_back_to_now(self):
         """When ctx.as_of is None, zombie killer falls back to wall-clock (safe)."""
@@ -155,9 +155,9 @@ class TestRouteOrdersPriceFallbackSorted:
 
         assert not result.empty, "Expected non-empty orders"
         aapl_price = result.loc[result["symbol"] == "AAPL", "price"].iloc[0]
-        assert aapl_price == pytest.approx(
-            200.0
-        ), f"Expected latest price 200.0, got {aapl_price}"
+        assert aapl_price == pytest.approx(200.0), (
+            f"Expected latest price 200.0, got {aapl_price}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -287,9 +287,9 @@ class TestHMMModelCached:
         import src.assembled_core.strategies.multifactor_v2 as mfv2
 
         assert hasattr(mfv2, "_HMM_MODEL_CACHE"), "_HMM_MODEL_CACHE must exist"
-        assert isinstance(
-            mfv2._HMM_MODEL_CACHE, mfv2._BoundedCache
-        ), "_HMM_MODEL_CACHE must be a _BoundedCache"
+        assert isinstance(mfv2._HMM_MODEL_CACHE, mfv2._BoundedCache), (
+            "_HMM_MODEL_CACHE must be a _BoundedCache"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +370,6 @@ class TestRegimeModelsBuildRegimeState:
         )
         cfg = RegimeStateConfig(vol_window=20)
         result = build_regime_state(prices, vol_df=vol_df, config=cfg)
-        assert (
-            "crisis" in result["regime_label"].values
-        ), "Expected at least one 'crisis' label with rv=0.9"
+        assert "crisis" in result["regime_label"].values, (
+            "Expected at least one 'crisis' label with rv=0.9"
+        )

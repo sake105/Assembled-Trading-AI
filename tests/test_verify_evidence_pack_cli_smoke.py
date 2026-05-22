@@ -310,9 +310,9 @@ def test_cli_verify_json_relative_zip_path_resolved(tmp_path: Path) -> None:
     resolved = data["zip_path_resolved"]
     assert Path(resolved).is_absolute()
     assert Path(resolved).exists()
-    assert (
-        "\\" not in resolved
-    ), "zip_path_resolved must be ASCII/POSIX (no backslashes)"
+    assert "\\" not in resolved, (
+        "zip_path_resolved must be ASCII/POSIX (no backslashes)"
+    )
 
 
 def test_cli_verify_fail_on_warn_exit_one_when_paths_not_in_zip_entries(
@@ -351,9 +351,9 @@ def test_cli_verify_fail_on_warn_exit_one_when_paths_not_in_zip_entries(
         text=True,
         cwd=str(ROOT),
     )
-    assert (
-        proc.returncode == 1
-    ), f"--fail-on-warn with paths_not_in_zip_entries should exit 1: stdout={proc.stdout!r}"
+    assert proc.returncode == 1, (
+        f"--fail-on-warn with paths_not_in_zip_entries should exit 1: stdout={proc.stdout!r}"
+    )
 
 
 def test_cli_verify_fail_on_warn_help() -> None:

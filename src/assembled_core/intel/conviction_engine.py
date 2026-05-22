@@ -288,9 +288,7 @@ def compute_edcl_position_size(
                         X = row_aligned.values.reshape(1, -1)
                         model = bundle.get("model")
                         if model is not None and hasattr(model, "predict"):
-                            _y_pred = float(
-                                model.predict(X)[0]
-                            )  # noqa: F841 — future: use for interval shift
+                            _y_pred = float(model.predict(X)[0])  # noqa: F841 — future: use for interval shift
                             # Use median_interval_width as proxy (no MAPIE re-inference here)
                             conformal_factor = conformal_size_factor(
                                 interval_width=med_width,

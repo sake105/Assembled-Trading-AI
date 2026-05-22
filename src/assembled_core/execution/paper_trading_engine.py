@@ -392,7 +392,7 @@ class PaperTradingEngine:
             slice_price = sl.price if hasattr(sl, "price") else price
             # Use slice index as signal_id so each slice gets a unique but deterministic ID
             _client_id = build_client_order_id(
-                signal_id=f"{algo.lower()}_slice_{i+1}_of_{n_slices}",
+                signal_id=f"{algo.lower()}_slice_{i + 1}_of_{n_slices}",
                 intent_hash=_base_hash,
                 attempt=0,
             )

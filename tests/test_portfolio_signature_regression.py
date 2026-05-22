@@ -46,16 +46,16 @@ def test_simulate_with_costs_signature():
 
     # Verify return type is tuple with 3 elements
     assert isinstance(result, tuple), "simulate_with_costs should return a tuple"
-    assert (
-        len(result) == 3
-    ), f"simulate_with_costs should return 3 values, got {len(result)}"
+    assert len(result) == 3, (
+        f"simulate_with_costs should return 3 values, got {len(result)}"
+    )
 
     equity, metrics, trades_df = result
 
     # Verify equity
-    assert isinstance(
-        equity, pd.DataFrame
-    ), "First return value should be DataFrame (equity)"
+    assert isinstance(equity, pd.DataFrame), (
+        "First return value should be DataFrame (equity)"
+    )
     assert "timestamp" in equity.columns
     assert "equity" in equity.columns
 
@@ -66,9 +66,9 @@ def test_simulate_with_costs_signature():
     assert "trades" in metrics
 
     # Verify trades_df
-    assert isinstance(
-        trades_df, pd.DataFrame
-    ), "Third return value should be DataFrame (trades_df)"
+    assert isinstance(trades_df, pd.DataFrame), (
+        "Third return value should be DataFrame (trades_df)"
+    )
     # trades_df may be empty, but should have expected structure
     if not trades_df.empty:
         assert "timestamp" in trades_df.columns
@@ -98,22 +98,22 @@ def test_run_portfolio_step_signature(tmp_path: Path):
 
         # Verify return type is tuple with 3 elements
         assert isinstance(result, tuple), "run_portfolio_step should return a tuple"
-        assert (
-            len(result) == 3
-        ), f"run_portfolio_step should return 3 values, got {len(result)}"
+        assert len(result) == 3, (
+            f"run_portfolio_step should return 3 values, got {len(result)}"
+        )
 
         eq_path, rep_path, trades_df = result
 
         # Verify paths
         assert isinstance(eq_path, Path), "First return value should be Path (eq_path)"
-        assert isinstance(
-            rep_path, Path
-        ), "Second return value should be Path (rep_path)"
+        assert isinstance(rep_path, Path), (
+            "Second return value should be Path (rep_path)"
+        )
 
         # Verify trades_df
-        assert isinstance(
-            trades_df, pd.DataFrame
-        ), "Third return value should be DataFrame (trades_df)"
+        assert isinstance(trades_df, pd.DataFrame), (
+            "Third return value should be DataFrame (trades_df)"
+        )
 
     except (FileNotFoundError, ValueError) as e:
         # If prices are missing or other setup issues, skip the test
@@ -141,6 +141,6 @@ def test_simulate_with_costs_trades_df_structure():
             # If fill model pipeline was applied, should have fill_qty, fill_price, status
             # (These may not be present if fill model pipeline is not applied)
             # We just verify the DataFrame structure is reasonable
-            assert (
-                len(trades_df) > 0
-            ), "trades_df should have at least one row if orders are provided"
+            assert len(trades_df) > 0, (
+                "trades_df should have at least one row if orders are provided"
+            )

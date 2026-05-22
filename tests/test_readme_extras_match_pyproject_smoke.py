@@ -39,16 +39,16 @@ def test_readme_extras_install_matches_pyproject() -> None:
 
     optional = data.get("project", {}).get("optional-dependencies", {})
     pyproject_extras = set(optional.keys())
-    assert (
-        pyproject_extras
-    ), "pyproject.toml should define at least one optional-dependency extra"
+    assert pyproject_extras, (
+        "pyproject.toml should define at least one optional-dependency extra"
+    )
 
     readme_text = readme_path.read_text(encoding="utf-8")
     readme_extras = _parse_readme_extras_install(readme_text)
 
-    assert (
-        readme_extras
-    ), 'README should contain at least one pip install -e ".[extra1,extra2,...]" line'
+    assert readme_extras, (
+        'README should contain at least one pip install -e ".[extra1,extra2,...]" line'
+    )
     assert readme_extras == pyproject_extras, (
         f"README extras in install line {sorted(readme_extras)} must equal "
         f"pyproject.toml optional-dependencies keys {sorted(pyproject_extras)}"
