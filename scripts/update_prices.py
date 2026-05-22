@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
+from src.assembled_core.data.sources.yfinance_source import YFinanceRateLimitError  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
@@ -112,7 +113,9 @@ def main():
                     len(new_data),
                     new_data["symbol"].nunique(),
                 )
-        except Exception as exc:
+        except YFinanceRateLimitError as exc:
+            logger.warning("yfinance rate-limited (HTTP 429): %s", exc)
+        except Exception as exc:  # noqa: BLE001
             logger.warning("yfinance failed: %s", exc)
 
     if new_data.empty:

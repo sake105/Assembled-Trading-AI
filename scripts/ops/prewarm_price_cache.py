@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from src.assembled_core.data.sources.yfinance_source import YFinanceRateLimitError  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 WATCHLIST_PATH = ROOT / "watchlist.txt"
@@ -91,8 +93,99 @@ def stale_cache_symbols(
     return list(stale.index)
 
 
+def fetch_missing_alpaca(missing: list[str], years: int) -> "pd.DataFrame":
+    """Fetch symbols via Alpaca bars API (fallback when yfinance is rate-limited).
+
+    Requires ALPACA_API_KEY and ALPACA_API_SECRET environment variables.
+    Returns empty DataFrame if SDK unavailable or credentials missing.
+    """
+    import os
+
+    import pandas as pd
+
+    api_key = os.environ.get("ALPACA_API_KEY", "")
+    secret_key = os.environ.get("ALPACA_API_SECRET", "")
+    if not api_key or not secret_key:
+        logger.error(
+            "[prewarm] Alpaca fallback unavailable: ALPACA_API_KEY/ALPACA_API_SECRET not set"
+        )
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        )
+
+    try:
+        from alpaca.data import StockHistoricalDataClient  # type: ignore[import]
+        from alpaca.data.requests import StockBarsRequest  # type: ignore[import]
+        from alpaca.data.timeframe import TimeFrame  # type: ignore[import]
+    except ImportError:
+        logger.error(
+            "[prewarm] alpaca-py SDK not installed; cannot use Alpaca fallback"
+        )
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        )
+
+    # Exclude today: Alpaca may return a partial intraday bar for the current session.
+    # Use yesterday as the exclusive upper bound, matching yfinance's auto_adjust behaviour.
+    end_dt = datetime.now(tz=timezone.utc) - timedelta(days=1)
+    start_dt = end_dt - timedelta(days=int(years * 366))
+    logger.info(
+        "[prewarm] Alpaca fallback: fetching %d symbols (%s to %s)",
+        len(missing),
+        start_dt.date().isoformat(),
+        end_dt.date().isoformat(),
+    )
+
+    try:
+        client = StockHistoricalDataClient(api_key=api_key, secret_key=secret_key)
+        request = StockBarsRequest(
+            symbol_or_symbols=missing,
+            timeframe=TimeFrame.Day,
+            start=start_dt,
+            end=end_dt,
+        )
+        bars = client.get_stock_bars(request)
+        df = bars.df.reset_index()
+    except Exception as exc:
+        logger.error(
+            "[prewarm] Alpaca bars fetch failed (%s): %s", type(exc).__name__, exc
+        )
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        )
+
+    if df.empty or "symbol" not in df.columns:
+        logger.warning("[prewarm] Alpaca returned empty or schema-less DataFrame")
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        )
+
+    # Lowercase column names (defensive against SDK schema drift)
+    df = df.rename(columns=str.lower)
+    # Alpaca timestamps are timezone-aware; normalize to UTC date
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.normalize()
+    keep = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+    df = df[[c for c in keep if c in df.columns]]
+    got = set(df["symbol"].unique())
+    failed = set(missing) - got
+    if failed:
+        logger.warning(
+            "[prewarm] Alpaca: %d/%d symbols had no data: %s",
+            len(failed),
+            len(missing),
+            sorted(failed)[:20],
+        )
+    logger.info(
+        "[prewarm] Alpaca: fetched %d rows for %d/%d symbols",
+        len(df),
+        len(got),
+        len(missing),
+    )
+    return df
+
+
 def fetch_missing(missing: list[str], years: int) -> "pd.DataFrame":
-    """Fetch the missing symbols via yfinance."""
+    """Fetch the missing symbols via yfinance; raises YFinanceRateLimitError on HTTP 429."""
     from src.assembled_core.data.sources.yfinance_source import fetch_prices_yfinance
 
     end = datetime.now(tz=timezone.utc).date()
@@ -103,6 +196,7 @@ def fetch_missing(missing: list[str], years: int) -> "pd.DataFrame":
         start.isoformat(),
         end.isoformat(),
     )
+    # YFinanceRateLimitError propagates to caller for Alpaca fallback
     df = fetch_prices_yfinance(missing, start.isoformat(), end.isoformat())
     if df.empty:
         logger.error("[prewarm] yfinance returned EMPTY DataFrame for all symbols")
@@ -222,7 +316,17 @@ def main(argv: list[str] | None = None) -> int:
         print("[prewarm] DRY RUN — no fetch performed")
         return 0
 
-    df = fetch_missing(targets, years=args.years)
+    try:
+        df = fetch_missing(targets, years=args.years)
+    except YFinanceRateLimitError as exc:
+        print(
+            f"[prewarm] yfinance rate-limited ({exc}) — falling back to Alpaca bars API"
+        )
+        df = fetch_missing_alpaca(targets, years=args.years)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[prewarm] fetch failed: {exc} — aborting merge")
+        return 1
+
     if df.empty:
         print("[prewarm] no data fetched — aborting merge")
         return 1

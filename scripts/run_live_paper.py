@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
+from src.assembled_core.data.sources.yfinance_source import YFinanceRateLimitError  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
@@ -254,6 +255,8 @@ def _load_prices(app_cfg: dict):
                 fresh_latest.date() if hasattr(fresh_latest, "date") else fresh_latest,
             )
             return _drop_per_symbol_stale_rows(prices)
+    except YFinanceRateLimitError as exc:
+        logger.warning("[run_live_paper] yfinance rate-limited (HTTP 429): %s", exc)
     except Exception as exc:
         logger.warning("[run_live_paper] yfinance fetch failed: %s", exc)
 

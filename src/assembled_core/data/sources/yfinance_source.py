@@ -27,6 +27,10 @@ _RETRY_MAX = 3
 _RETRY_BACKOFF_BASE = 2.0  # seconds; doubles each retry
 
 
+class YFinanceRateLimitError(Exception):
+    """Raised when yfinance returns HTTP 429. Caller should try an alternative source."""
+
+
 def _fetch_single_symbol(
     symbol: str,
     start_date: str,
@@ -87,6 +91,11 @@ def _fetch_single_symbol(
             return df
 
         except Exception as exc:  # noqa: BLE001
+            exc_str = str(exc).lower()
+            if "429" in exc_str or "too many requests" in exc_str:
+                raise YFinanceRateLimitError(
+                    f"yfinance rate-limited (HTTP 429) for {symbol}: {exc}"
+                ) from exc
             last_exc = exc
             wait = _RETRY_BACKOFF_BASE**attempt
             logger.warning(
@@ -135,6 +144,7 @@ def fetch_prices_yfinance(
 
     frames: list[pd.DataFrame] = []
     for sym in symbols:
+        # YFinanceRateLimitError propagates: caller should try an alternative source
         df = _fetch_single_symbol(sym, start_date, end_date, interval)
         if df is not None and not df.empty:
             frames.append(df)

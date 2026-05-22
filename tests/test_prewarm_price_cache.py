@@ -102,3 +102,80 @@ def test_stale_cache_symbols_missing_cache_returns_empty(tmp_path):
     mod = _load_module()
     cache_path = tmp_path / "does_not_exist.parquet"
     assert mod.stale_cache_symbols(["AAPL"], 5, cache_path) == []
+
+
+# ---------------------------------------------------------------------------
+# YFinanceRateLimitError — 429 fast-abort (no retry waste)
+# ---------------------------------------------------------------------------
+
+
+def test_yfinance_rate_limit_error_raised_on_429():
+    """_fetch_single_symbol must raise YFinanceRateLimitError on 429, not retry."""
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from src.assembled_core.data.sources.yfinance_source import (
+        YFinanceRateLimitError,
+        _fetch_single_symbol,
+    )
+
+    mock_ticker = MagicMock()
+    mock_ticker.history.side_effect = Exception("HTTP Error 429: Too Many Requests")
+
+    with patch("yfinance.Ticker", return_value=mock_ticker):
+        with pytest.raises(YFinanceRateLimitError):
+            _fetch_single_symbol("AAPL", "2024-01-01", "2024-12-31", "1d")
+
+    # Must NOT have called sleep (no retry on 429)
+    assert mock_ticker.history.call_count == 1
+
+
+def test_yfinance_non_429_still_retries():
+    """Non-429 exceptions use normal retry logic (3 attempts)."""
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from src.assembled_core.data.sources.yfinance_source import _fetch_single_symbol
+
+    mock_ticker = MagicMock()
+    mock_ticker.history.side_effect = Exception("Connection timeout")
+
+    with patch("yfinance.Ticker", return_value=mock_ticker), patch("time.sleep"):
+        result = _fetch_single_symbol("AAPL", "2024-01-01", "2024-12-31", "1d")
+
+    assert result is None
+    assert mock_ticker.history.call_count == 3  # exhausted all retries
+
+
+# ---------------------------------------------------------------------------
+# Alpaca fallback — graceful failure without credentials
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_missing_alpaca_no_credentials_returns_empty(tmp_path, monkeypatch):
+    """fetch_missing_alpaca must return empty DataFrame when credentials absent."""
+    mod = _load_module()
+    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
+    monkeypatch.delenv("ALPACA_API_SECRET", raising=False)
+
+    df = mod.fetch_missing_alpaca(["AAPL", "MSFT"], years=1)
+    assert isinstance(df, __import__("pandas").DataFrame)
+    assert df.empty
+
+
+def test_fetch_missing_alpaca_sdk_unavailable_returns_empty(tmp_path, monkeypatch):
+    """fetch_missing_alpaca must return empty DataFrame when alpaca-py not installed."""
+    import sys
+    from unittest.mock import patch
+
+    mod = _load_module()
+    monkeypatch.setenv("ALPACA_API_KEY", "fake_key")
+    monkeypatch.setenv("ALPACA_API_SECRET", "fake_secret")
+
+    with patch.dict(sys.modules, {"alpaca": None, "alpaca.data": None}):
+        df = mod.fetch_missing_alpaca(["AAPL"], years=1)
+
+    assert isinstance(df, __import__("pandas").DataFrame)
+    assert df.empty
