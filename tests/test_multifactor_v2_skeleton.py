@@ -189,6 +189,12 @@ def test_v2_default_weights_shape_and_sum() -> None:
         f"factor weights should sum to ~1.0 (tol 0.02); got {total:.4f}"
     )
 
-    # All weights should be positive
+    # All weights must be non-negative; zero is allowed for data-quality-zeroed factors
+    # (insider_activity_score: all-unknown data; congress_activity: no data files)
+    _INTENTIONALLY_ZEROED = {"insider_activity_score", "congress_activity"}
     for name, w in weights.items():
-        assert w > 0, f"weight for {name} must be positive, got {w}"
+        assert w >= 0, f"weight for {name} must be non-negative, got {w}"
+        if name not in _INTENTIONALLY_ZEROED:
+            assert w > 0, (
+                f"weight for {name} must be positive (not in zeroed set), got {w}"
+            )

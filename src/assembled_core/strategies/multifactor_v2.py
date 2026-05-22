@@ -239,9 +239,9 @@ def update_drawdown_damper(
 # ---------------------------------------------------------------------------
 
 DEFAULT_V2_WEIGHTS: dict[str, float] = {
-    # --- TA factors (1-17): 60% total (Pfad B: reduced from 73%) ---
-    "trend_ema_spread": 0.08,  # was 0.10
-    "trend_ma200_position": 0.06,  # was 0.07
+    # --- TA factors (1-17): 64% total (Pfad B 60% + 2026-05-22 +4pp from zeroed factors) ---
+    "trend_ema_spread": 0.10,  # was 0.08; +0.02 (trend realignment 2026-05-22)
+    "trend_ma200_position": 0.08,  # was 0.06; +0.02 (trend realignment 2026-05-22)
     "trend_adx_strength": 0.04,  # was 0.05
     "trend_macd_hist": 0.04,  # was 0.05
     "mom_rsi_centered": 0.05,  # was 0.06
@@ -261,8 +261,8 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
     "sector_rotation_bias": 0.04,
     # --- Earnings/Insider (19-20) ---
     "earnings_surprise_z": 0.03,
-    "insider_activity_score": 0.02,
-    # --- News/Macro (21-24): 8% total (was 3%) ---
+    "insider_activity_score": 0.00,  # was 0.02; zeroed 2026-05-22: all 59k rows = 'unknown'
+    # --- News/Macro (21-24): 13% total ---
     "news_sentiment_7d": 0.05,  # was 0.02
     "news_volume_spike": 0.03,  # was 0.01
     "macro_growth_momentum": 0.03,  # was 0.02
@@ -275,15 +275,17 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
     "options_put_call_extreme": 0.02,
     "vix_regime_score": 0.01,  # was 0.02
     # --- Congress (30) ---
-    "congress_activity": 0.02,
+    "congress_activity": 0.00,  # was 0.02; zeroed 2026-05-22: no data files in system
     # --- Geo composite (31): NEW — Pfad B ---
     "geo_risk_composite": 0.05,
     # NOTE: crash_probability_inverse is applied as a multiplicative scaler
     # on the final composite, not as an additive factor.
-    # Sum = 1.00  (TA=0.60, sector=0.04, earn+ins=0.05, news/macro=0.10,
-    #              intermarket=0.08, options=0.03, congress=0.02, geo=0.05)
-    # Pfad B 2026-05-05: news+macro 3%→10%, intermarket 6%→8%, geo +5%,
+    # Sum = 1.00  (TA=0.64, sector=0.04, earn+ins=0.03, news/macro=0.13,
+    #              intermarket=0.08, options=0.03, congress=0.00, geo=0.05)
+    # Pfad B 2026-05-05: news+macro 3%→13%, intermarket 6%→8%, geo +5%,
     #                    TA reduced 73%→60%, vix_regime 2%→1%.
+    # 2026-05-22: insider+congress zeroed (data quality); 4pp reallocated to
+    #             trend_ema_spread+trend_ma200_position (trend alignment).
 }
 
 # ---------------------------------------------------------------------------
