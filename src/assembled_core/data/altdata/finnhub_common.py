@@ -43,7 +43,19 @@ def get_finnhub_session(settings: Settings) -> tuple:
             "Install with: pip install requests"
         )
 
-    api_key = settings.finnhub_api_key
+    # Multi-key rotation (2026-05-22): prefer rotator pool, fallback to
+    # settings.finnhub_api_key for backward compat with the canonical
+    # ASSEMBLED_FINNHUB_API_KEY env var. When the user adds FINNHUB_API_KEY_2
+    # or comma-separated FINNHUB_API_KEYS, those join the pool automatically.
+    api_key: str | None = None
+    try:
+        from src.assembled_core.utils.api_key_rotator import get_rotator
+
+        api_key = get_rotator().get_key("finnhub")
+    except Exception:  # noqa: BLE001 — defensive
+        api_key = None
+    if not api_key or not api_key.strip():
+        api_key = settings.finnhub_api_key
     if not api_key or not api_key.strip():
         raise RuntimeError(
             "FINNHUB_API_KEY not set. "

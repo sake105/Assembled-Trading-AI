@@ -33,9 +33,22 @@ _RESULTS_LIMIT = 50000  # max bars per request for Polygon aggs endpoint
 
 
 def _get_api_key() -> str | None:
-    """Return POLYGON_API_KEY from environment, or None if not set."""
-    key = os.environ.get("POLYGON_API_KEY", "").strip()
-    return key if key else None
+    """Return next available POLYGON key from the rotator pool, or None.
+
+    Reads from the multi-key rotator (env: ``POLYGON_API_KEY``,
+    ``POLYGON_API_KEY_2``, ..., or comma-separated ``POLYGON_API_KEYS``).
+    Backward compat: when only ``POLYGON_API_KEY`` is set, the rotator
+    behaves identically to the prior single-key path.
+    """
+    try:
+        from src.assembled_core.utils.api_key_rotator import get_rotator
+
+        return get_rotator().get_key("polygon")
+    except Exception:  # noqa: BLE001 — defensive
+        # Fall back to direct env read if the rotator import fails
+        # (e.g. circular import in some test contexts).
+        key = os.environ.get("POLYGON_API_KEY", "").strip()
+        return key if key else None
 
 
 def _fetch_single_symbol(

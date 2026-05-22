@@ -50,12 +50,30 @@ class EarningsCalendarSource:
         finnhub_api_key: Optional[str] = None,
         alphavantage_api_key: Optional[str] = None,
     ) -> None:
-        self.finnhub_api_key = finnhub_api_key or os.environ.get("FINNHUB_API_KEY", "")
-        self.alphavantage_api_key = (
-            alphavantage_api_key
-            or os.environ.get("ALPHAVANTAGE_KEY", "")
-            or os.environ.get("ALPHAVANTAGE_API_KEY", "")
-        )
+        # Multi-key rotation (2026-05-22): explicit args win (caller override),
+        # then rotator pool, then direct env fallback for backward compat.
+        try:
+            from src.assembled_core.utils.api_key_rotator import get_rotator
+
+            _rotator = get_rotator()
+        except Exception:  # noqa: BLE001
+            _rotator = None
+
+        if finnhub_api_key:
+            self.finnhub_api_key = finnhub_api_key
+        else:
+            self.finnhub_api_key = (
+                _rotator.get_key("finnhub") if _rotator else None
+            ) or os.environ.get("FINNHUB_API_KEY", "")
+
+        if alphavantage_api_key:
+            self.alphavantage_api_key = alphavantage_api_key
+        else:
+            self.alphavantage_api_key = (
+                (_rotator.get_key("alphavantage") if _rotator else None)
+                or os.environ.get("ALPHAVANTAGE_KEY", "")
+                or os.environ.get("ALPHAVANTAGE_API_KEY", "")
+            )
 
     # ------------------------------------------------------------------
     # Fetching

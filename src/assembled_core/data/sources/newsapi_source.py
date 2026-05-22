@@ -77,6 +77,17 @@ def _increment_counter() -> tuple[int, int]:
 
 
 def _get_api_key() -> str | None:
+    # Multi-key rotation (2026-05-22): try rotator first; backward-compat
+    # fallback to single NEWSAPI_KEY env var if rotator pool is empty or
+    # the import fails (defensive against circular-import in some tests).
+    try:
+        from src.assembled_core.utils.api_key_rotator import get_rotator
+
+        rotated = get_rotator().get_key("newsapi")
+        if rotated:
+            return rotated
+    except Exception:  # noqa: BLE001
+        pass
     key = os.environ.get("NEWSAPI_KEY", "").strip()
     return key if key else None
 
