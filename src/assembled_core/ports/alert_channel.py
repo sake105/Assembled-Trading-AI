@@ -2,7 +2,7 @@
 """AlertChannel port — domain-facing API for firing alerts.
 
 The domain says ``alerts.fire("kill_switch_activated", {"reason": ...})``;
-the adapter routes that to Slack / Telegram / email / log per the
+the adapter routes that to Telegram / email / log per the
 configured channels (configs/alerting.yaml). The domain does not care
 which channel actually received the alert.
 

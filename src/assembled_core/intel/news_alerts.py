@@ -2,7 +2,7 @@
 
 Emits structured alerts when incoming NewsEvents cross configurable thresholds
 (severity, surge velocity, corroboration etc.). Handlers are pluggable so the
-same engine can wire into logging, slack, email or a push webhook without
+same engine can wire into logging, Telegram, email or a push webhook without
 changing the core logic.
 
 Handlers are simple callables: `handler(alert: NewsAlert) -> None`.
@@ -13,7 +13,7 @@ Usage:
     engine.add_handler(lambda a: print(a.kind, a.message))
     alerts = engine.evaluate(events)
 
-Never enable real outbound handlers from defaults — keep push/slack behind
+Never enable real outbound handlers from defaults — keep push/Telegram behind
 explicit opt-in.
 """
 

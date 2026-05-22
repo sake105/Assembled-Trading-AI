@@ -706,7 +706,7 @@ python scripts/run_backtest_strategy.py --freq 1d --price-file data/sample/eod_s
 
 - **Scheduling:** Cron-Job oder Task-Scheduler für automatische EOD-Läufe
 - **Manifest-Historie:** Mehrere Manifeste pro Frequenz (mit Timestamp im Dateinamen)
-- **Notifications:** E-Mail/Slack-Benachrichtigungen bei Fehlern
+- **Notifications:** E-Mail/Telegram-Benachrichtigungen bei Fehlern
 - **Retry-Logik:** Automatische Wiederholung fehlgeschlagener Schritte
 
 ---

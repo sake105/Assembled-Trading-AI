@@ -6,9 +6,6 @@ alerts:
     email:
       enabled: false
       min_severity: CRITICAL
-    slack:
-      enabled: false
-      min_severity: WARNING
 anti_churn:
   deadzone_enabled: true
   deadzone_pct: 0.02

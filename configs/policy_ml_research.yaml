@@ -488,9 +488,6 @@ alerts:
   rate_limit_seconds: 300    # seconds between identical alert messages
   output_dir: "output/alerts"
   sinks:
-    slack:
-      enabled: false         # enable SlackWebhookSink (set ASSEMBLED_SLACK_WEBHOOK_URL env var)
-      min_severity: "WARNING"
     email:
       enabled: false         # enable EmailSink (set ASSEMBLED_SMTP_* env vars)
       min_severity: "CRITICAL"

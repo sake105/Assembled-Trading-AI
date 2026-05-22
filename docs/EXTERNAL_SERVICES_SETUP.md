@@ -6,19 +6,18 @@
 > need an account, a billing entry, an API key). This runbook turns
 > each into a 5-minute "you can copy-paste this" procedure.
 >
-> Order below is roughly priority: dead-man-switch + Slack first
-> because they catch silent outages, B2 + Litestream next for DR,
+> Order below is roughly priority: dead-man-switch first
+> because it catches silent outages, B2 + Litestream next for DR,
 > rest is optional polish.
 
 ---
 
 ## 0. Master checklist
 
-- [ ] **Slack incoming-webhook** → ASSEMBLED_SLACK_WEBHOOK_URL
 - [ ] **Dead-man-switch (Uptime-Robot or healthchecks.io)** → cron heartbeat
 - [ ] **Backblaze B2** bucket with Object Lock → audit-log offsite
 - [ ] **Litestream** sidecar for SQLite continuous replication
-- [ ] **Telegram bot** (optional, fallback for Slack) → TELEGRAM_BOT_TOKEN
+- [ ] **Telegram bot** (optional) → TELEGRAM_BOT_TOKEN
 - [ ] **Email SMTP** (optional, last-resort fallback) → SMTP_HOST/USER/PASS
 - [ ] **Cloudflare DNS** (only if you go multi-region — out of scope here)
 
@@ -28,42 +27,8 @@ simulation) and confirming receipt.
 
 ---
 
-## 1. Slack incoming webhook
 
-**Why:** primary alert channel for `AlertManager` rules with
-`severity: critical|warning`. See `configs/alerting.yaml` and
-`src/assembled_core/ops/alerting.py:_send_slack`.
-
-**Setup (5 min):**
-
-1. Slack admin → "Apps" → search "Incoming Webhooks" → "Add to Slack".
-2. Pick a channel (e.g. `#trading-alerts`). Click "Add Incoming
-   Webhook integration".
-3. Copy the URL (looks like `https://hooks.slack.com/services/T.../B.../...`).
-4. Set in your shell or `.env` (the latter is gitignored):
-   ```
-   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
-   ```
-5. Wire a `slack` channel in `configs/alerting.yaml` per the
-   existing `_send_slack` contract:
-   ```yaml
-   alerts:
-     channels:
-       critical:
-         - type: slack
-           webhook_env: SLACK_WEBHOOK_URL
-   ```
-6. **Verify:**
-   ```bash
-   python -c "from src.assembled_core.ops.alerting import AlertManager; AlertManager().fire('kill_switch_activated', {'reason': 'test'})"
-   ```
-   Slack should pop within 2 s.
-
-**Cost:** free on Slack's free tier (well within hobby limits).
-
----
-
-## 2. Dead-man-switch (heartbeat monitor)
+## 1. Dead-man-switch (heartbeat monitor)
 
 **Why:** detects when the local host has crashed silently — the
 codebase can't alert if the process is dead. An external service
@@ -88,7 +53,7 @@ expects a periodic ping and alerts WHEN IT STOPS arriving.
    schtasks /Create /SC MINUTE /MO 30 /TN ATAI-Heartbeat ^
      /TR "curl.exe -fsS --retry 3 https://hc-ping.com/<uuid>"
    ```
-5. Set up email/Slack notification *on healthchecks.io* so the
+5. Set up email/Telegram notification *on healthchecks.io* so the
    operator hears it within 15 min of the heartbeat stopping.
 
 **Cost:** free.
@@ -100,7 +65,7 @@ naturally, healthchecks.io is the better fit.
 
 ---
 
-## 3. Backblaze B2 with Object Lock
+## 2. Backblaze B2 with Object Lock
 
 **Why:** off-site WORM-compliant storage for audit logs (audit
 C3-074 + GoBD WORM policy). Object Lock in Compliance mode means
@@ -143,7 +108,7 @@ deliverable).
 
 ---
 
-## 4. Litestream — SQLite continuous replication
+## 3. Litestream — SQLite continuous replication
 
 **Why:** the paper-trading ledger lives in `data/paper_ledger.db`
 (SQLite). Litestream replicates SQLite to S3/B2 at second-level
@@ -171,10 +136,9 @@ from §3.
 
 ---
 
-## 5. Telegram bot (optional fallback)
+## 4. Telegram bot
 
-**Why:** Slack is the primary channel; Telegram is a non-Slack
-fallback. Already supported by `AlertManager` channel kind `telegram`.
+**Why:** Primary push-notification channel for AlertManager rules. Already supported by `AlertManager` channel kind `telegram`.
 
 **Setup (5 min):**
 
@@ -198,9 +162,9 @@ fallback. Already supported by `AlertManager` channel kind `telegram`.
 
 ---
 
-## 6. Email SMTP (last-resort fallback)
+## 5. Email SMTP (last-resort fallback)
 
-**Why:** if both Slack and Telegram are down. Used by
+**Why:** last-resort fallback when Telegram is unavailable. Used by
 `AlertManager` channel kind `email`.
 
 **Setup (5 min):**

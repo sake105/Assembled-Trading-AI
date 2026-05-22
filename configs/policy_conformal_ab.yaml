@@ -356,9 +356,6 @@ alerts:
   rate_limit_seconds: 300
   output_dir: output/alerts
   sinks:
-    slack:
-      enabled: false
-      min_severity: WARNING
     email:
       enabled: false
       min_severity: CRITICAL

@@ -327,7 +327,7 @@ python scripts/profile_jobs.py --job-type OPERATIONS_HEALTH_CHECK --iterations 5
 
 **Recommended Setup**:
 - Parse `health_summary.json` for overall status
-- Send alerts (email, Slack, etc.) if status is CRITICAL
+- Send alerts (email, Telegram, etc.) if status is CRITICAL
 - Optionally alert on WARN status (configurable)
 
 **Example Alert Script** (pseudo-code):

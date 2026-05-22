@@ -2,7 +2,7 @@
 
 Closes the coverage gap reported by the test-runner: probabilistic_sharpe_ratio,
 minimum_track_record_length, set_correlation_context + JSONFormatter
-correlation-id propagation, and ops/alerting._send_slack credential handling.
+correlation-id propagation.
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from __future__ import annotations
 import io
 import json
 import logging
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -179,49 +178,6 @@ def test_json_formatter_omits_unset_correlation_ids() -> None:
     # None of the correlation fields should be present
     for k in ("trace_id", "span_id", "run_id", "correlation_id"):
         assert k not in payload
-
-
-# ---------------------------------------------------------------------------
-# ops/alerting.py — Slack channel credential handling
-# ---------------------------------------------------------------------------
-
-
-def test_send_slack_warns_when_webhook_unset(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    from src.assembled_core.ops.alerting import AlertManager
-
-    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
-    mgr = AlertManager()
-    with caplog.at_level(logging.WARNING, logger="src.assembled_core.ops.alerting"):
-        mgr._send_slack({}, "test")  # type: ignore[attr-defined]
-
-    assert any("slack webhook not set" in r.message for r in caplog.records)
-
-
-def test_send_slack_posts_to_webhook_when_configured(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from src.assembled_core.ops.alerting import AlertManager
-
-    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.example/abc")
-
-    mgr = AlertManager()
-    fake_resp = MagicMock()
-    fake_resp.status = 200
-    fake_resp.__enter__ = MagicMock(return_value=fake_resp)
-    fake_resp.__exit__ = MagicMock(return_value=False)
-
-    with patch("urllib.request.urlopen", return_value=fake_resp) as mocked_open:
-        mgr._send_slack({}, "ping")  # type: ignore[attr-defined]
-
-    mocked_open.assert_called_once()
-    req = mocked_open.call_args.args[0]
-    body = req.data.decode("utf-8")
-    assert "ping" in body
-    assert req.headers.get("Content-type", req.headers.get("Content-Type")) == (
-        "application/json"
-    )
 
 
 # ---------------------------------------------------------------------------

@@ -65,7 +65,7 @@ in the journal, then re-check.
 
 ## 3. Alert response (by severity)
 
-Alerts arrive via Slack / Telegram / Email per
+Alerts arrive via Telegram / Email per
 `configs/alerting.yaml`. Severity routing is defined there; the
 response below is keyed by **rule name**.
 

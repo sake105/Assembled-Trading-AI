@@ -8525,7 +8525,7 @@ class TestAlertingEmailFailoverB:
         # Must support more than one channel (multi-channel failover)
         channel_count = sum(
             1
-            for kw in ["telegram", "email", "log_only", "discord", "slack"]
+            for kw in ["telegram", "email", "log_only", "discord"]
             if kw in content.lower()
         )
         assert channel_count >= 2, (

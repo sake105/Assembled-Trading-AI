@@ -918,8 +918,7 @@ verlangt DVC-Pin der yfinance-Daten + git-tag + Multi-Stunden-Backtest.
 **Runbook:** `docs/EXTERNAL_SERVICES_SETUP.md`. Alle als Setup-Schritte
 dokumentiert, keiner aktiv.
 
-- [ ] **Slack Webhook:** `SLACK_WEBHOOK_URL` env setzen → existierende
-  `_send_slack`-Logik (Wave 1) wird aktiv.
+- [x] **Slack Webhook:** Entfernt 2026-05-22 (würde paid Workspace erfordern). Alerting-Channels: Telegram + Email.
 - [ ] **healthchecks.io Dead-Man-Switch:** cron-Job mit
   `scripts/ops/setup_uptime_robot.sh` + Healthcheck-UUID. ~5 min Setup.
 - [ ] **Backblaze B2 Bucket mit Object Lock (10y Compliance):** Account +
