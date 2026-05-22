@@ -79,8 +79,9 @@ class TFTResult:
 class TFTForecaster:
     """Interface-compatible TFT wrapper.
 
-    When pytorch-forecasting is installed, delegates to the real TFT.
-    When not installed, raises NotImplementedError on ``fit``/``predict``.
+    ``fit()`` and ``predict()`` raise ``NotImplementedError`` regardless of
+    whether pytorch-forecasting is installed — the delegation path is the
+    planned activation target (audit C2-039) but has not yet been implemented.
 
     Parameters
     ----------
