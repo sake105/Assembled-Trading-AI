@@ -222,15 +222,18 @@ def compute_news_macro_factors(
     volume_z = _zscore_clip(raw_volume)
     volume_z.name = "news_volume_spike_z"
 
-    # Macro growth
-    raw_growth = _macro_regime_raw(as_of_date, symbols, macro_df, "GDP_GROWTH", country)
+    # Macro growth — yield_curve_spread is a standard growth-regime proxy.
+    # Note: cross-sectional z-score of a market-wide broadcast value is degenerate
+    # (all symbols share the same value → std=0 → all 0.0). Kept for interface
+    # consistency. A time-series normalization approach is a tracked improvement.
+    raw_growth = _macro_regime_raw(
+        as_of_date, symbols, macro_df, "yield_curve_spread", country
+    )
     growth_z = _zscore_clip(raw_growth)
     growth_z.name = "macro_growth_momentum_z"
 
-    # Macro inflation
-    raw_inflation = _macro_regime_raw(
-        as_of_date, symbols, macro_df, "CPI_INFLATION", country
-    )
+    # Macro inflation — cpi_yoy matches FRED macro.parquet column names.
+    raw_inflation = _macro_regime_raw(as_of_date, symbols, macro_df, "cpi_yoy", country)
     inflation_z = _zscore_clip(raw_inflation)
     inflation_z.name = "macro_inflation_surprise_z"
 

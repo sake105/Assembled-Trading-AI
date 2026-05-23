@@ -285,13 +285,17 @@ def test_single_observation_returns_nan() -> None:
 
 
 def test_identical_macro_zscore_is_zero() -> None:
-    """When all symbols have same macro value, z-score = 0.0 (degenerate)."""
+    """When all symbols have same macro value, z-score = 0.0 (degenerate).
+
+    Uses yield_curve_spread which is the actual code compute_news_macro_factors
+    looks up for macro_growth_momentum_z.
+    """
     as_of = pd.Timestamp("2026-05-31")
     macro = pd.DataFrame(
         [
             {
                 "timestamp": pd.Timestamp("2026-05-15"),
-                "macro_code": "GDP_GROWTH",
+                "macro_code": "yield_curve_spread",
                 "value": 2.0,
                 "country": "US",
             }
@@ -368,11 +372,12 @@ def test_tz_aware_as_of_does_not_raise() -> None:
             "sentiment_score": [0.4, -0.2],
         }
     )
-    # macro_df with matching codes so the tz path is also exercised end-to-end
+    # macro_df with matching codes so the tz path is also exercised end-to-end.
+    # yield_curve_spread → macro_growth_momentum_z; cpi_yoy → macro_inflation_surprise_z.
     macro = pd.DataFrame(
         {
             "timestamp": pd.to_datetime(["2026-05-01", "2026-05-08"]),  # tz-naive
-            "macro_code": ["GDP_GROWTH", "CPI_INFLATION"],
+            "macro_code": ["yield_curve_spread", "cpi_yoy"],
             "value": [2.5, 3.1],
             "country": ["US", "US"],
         }
@@ -411,7 +416,7 @@ def test_tz_aware_data_tz_naive_as_of_does_not_raise() -> None:
                 pd.Timestamp("2026-05-01", tz="UTC"),
                 pd.Timestamp("2026-05-08", tz="UTC"),
             ],
-            "macro_code": ["GDP_GROWTH", "CPI_INFLATION"],
+            "macro_code": ["yield_curve_spread", "cpi_yoy"],
             "value": [2.5, 3.1],
             "country": ["US", "US"],
         }
