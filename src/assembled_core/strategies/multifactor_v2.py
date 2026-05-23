@@ -681,6 +681,19 @@ def _compute_news_macro_factors(
         )
 
         news_df = load_news_sentiment(latest_symbols, as_of, lookback_days=30)
+        _as_of_label = as_of.date() if hasattr(as_of, "date") else as_of
+        if news_df.empty:
+            if not _NEWS_EMPTY_WARNED["fired"]:
+                logger.info(
+                    "[MF-V2] news_sentiment data empty for as_of=%s — "
+                    "news_sentiment_7d + news_volume_spike will be 0.0. "
+                    "Coverage starts 2025-12-22 (meaningful from 2026-04). "
+                    "(further hits at DEBUG)",
+                    _as_of_label,
+                )
+                _NEWS_EMPTY_WARNED["fired"] = True
+            else:
+                logger.debug("[MF-V2] news_sentiment: no data for %s", _as_of_label)
         macro_df = load_macro_indicators(as_of, lookback_days=365)
         out = compute_news_macro_factors(as_of, latest_symbols, news_df, macro_df)
         if out is not None and not out.empty:
@@ -692,8 +705,18 @@ def _compute_news_macro_factors(
             ]:
                 if col in out.columns:
                     result[col] = out[col]
+            # Detect when non-empty news_df produced all-NaN sentiment factors
+            # (common in historical backtests: data exists but outside 7-day window).
+            if not news_df.empty:
+                news_cols = ["news_sentiment_7d_z", "news_volume_spike_z"]
+                if all(out[c].isna().all() for c in news_cols if c in out.columns):
+                    logger.debug(
+                        "[MF-V2] news_sentiment: data present for as_of=%s but all "
+                        "records outside 7-day lookback — sentiment factors 0.0",
+                        _as_of_label,
+                    )
     except Exception as exc:
-        logger.debug("[MF-V2] news/macro factors unavailable: %s", exc)
+        logger.warning("[MF-V2] news/macro factors unavailable: %s", exc)
     return result
 
 
@@ -835,6 +858,9 @@ def _compute_congress_factors(
 # Warn-once guard for the geo-risk zero-fill path (Path 2). Module-scope so it
 # resets on process restart but never spams within a single backtest run.
 _GEO_RISK_ZERO_FILL_WARNED: dict[str, bool] = {"fired": False}
+
+# Warn-once guards for news/macro zero-fill (same pattern: INFO on first hit, DEBUG thereafter)
+_NEWS_EMPTY_WARNED: dict[str, bool] = {"fired": False}
 
 
 def _compute_geo_risk_composite(

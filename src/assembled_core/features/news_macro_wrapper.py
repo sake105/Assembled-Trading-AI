@@ -72,10 +72,14 @@ def _news_sentiment_raw(
     if news_df.empty:
         return out
 
+    # Normalize both sides to tz-naive so comparisons never raise TypeError.
+    # altdata_loader strips tz via .dt.tz_localize(None); callers may pass either.
+    as_of_naive = as_of_date.tz_localize(None) if as_of_date.tzinfo else as_of_date
     df = news_df.copy()
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    _ts = pd.to_datetime(df["timestamp"])
+    df["timestamp"] = _ts.dt.tz_localize(None) if _ts.dt.tz is not None else _ts
     # PIT gate
-    df = df[df["timestamp"] <= as_of_date]
+    df = df[df["timestamp"] <= as_of_naive]
     if df.empty:
         return out
 
@@ -83,7 +87,7 @@ def _news_sentiment_raw(
     if df.empty:
         return out
 
-    window_start = as_of_date - pd.Timedelta(days=SENTIMENT_LOOKBACK_DAYS)
+    window_start = as_of_naive - pd.Timedelta(days=SENTIMENT_LOOKBACK_DAYS)
     df = df[df["timestamp"] > window_start]
     if df.empty:
         return out
@@ -103,9 +107,11 @@ def _news_volume_spike_raw(
     if news_df.empty or NEWS_VOLUME_COL not in news_df.columns:
         return out
 
+    as_of_naive = as_of_date.tz_localize(None) if as_of_date.tzinfo else as_of_date
     df = news_df.copy()
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df = df[df["timestamp"] <= as_of_date]
+    _ts = pd.to_datetime(df["timestamp"])
+    df["timestamp"] = _ts.dt.tz_localize(None) if _ts.dt.tz is not None else _ts
+    df = df[df["timestamp"] <= as_of_naive]
     if df.empty:
         return out
 
@@ -113,10 +119,14 @@ def _news_volume_spike_raw(
     if df.empty:
         return out
 
-    baseline_start = as_of_date - pd.Timedelta(days=VOLUME_BASELINE_DAYS)
-    recent_start = as_of_date - pd.Timedelta(days=SENTIMENT_LOOKBACK_DAYS)
+    baseline_start = as_of_naive - pd.Timedelta(days=VOLUME_BASELINE_DAYS)
+    recent_start = as_of_naive - pd.Timedelta(days=SENTIMENT_LOOKBACK_DAYS)
 
-    baseline = df[df["timestamp"] > baseline_start]
+    # Non-overlapping windows: baseline = (30d, 7d] preceding period; recent = last 7d.
+    # Including the recent window in the baseline would dilute the spike ratio.
+    baseline = df[
+        (df["timestamp"] > baseline_start) & (df["timestamp"] <= recent_start)
+    ]
     recent = df[df["timestamp"] > recent_start]
 
     if baseline.empty:
@@ -145,9 +155,11 @@ def _macro_regime_raw(
     if macro_df.empty:
         return out
 
+    as_of_naive = as_of_date.tz_localize(None) if as_of_date.tzinfo else as_of_date
     df = macro_df.copy()
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df = df[df["timestamp"] <= as_of_date]
+    _ts = pd.to_datetime(df["timestamp"])
+    df["timestamp"] = _ts.dt.tz_localize(None) if _ts.dt.tz is not None else _ts
+    df = df[df["timestamp"] <= as_of_naive]
     if df.empty:
         return out
 

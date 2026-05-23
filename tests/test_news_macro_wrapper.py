@@ -343,3 +343,81 @@ def test_empty_news_and_macro_returns_all_nan() -> None:
     )
     assert out.shape == (2, 4)
     assert out.isna().all().all()
+
+
+# ---------------------------------------------------------------------------
+# Timezone regression — tz-aware as_of_date vs tz-naive dataframe timestamps
+# ---------------------------------------------------------------------------
+
+
+def test_tz_aware_as_of_does_not_raise() -> None:
+    """tz-aware as_of_date must not raise TypeError when comparing with tz-naive data.
+
+    Regression: altdata_loader strips tz from parquet timestamps via
+    .dt.tz_localize(None). The helpers used to compare tz-naive df["timestamp"]
+    with tz-aware as_of_date → TypeError. This locks the fix.
+    """
+    as_of_tz = pd.Timestamp("2026-05-15", tz="UTC")  # tz-aware
+    syms = ["AAPL", "MSFT"]
+
+    # news_df with tz-naive timestamps (as loaded by altdata_loader)
+    news = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "timestamp": pd.to_datetime(["2026-05-10", "2026-05-11"]),  # tz-naive
+            "sentiment_score": [0.4, -0.2],
+        }
+    )
+    # macro_df with matching codes so the tz path is also exercised end-to-end
+    macro = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2026-05-01", "2026-05-08"]),  # tz-naive
+            "macro_code": ["GDP_GROWTH", "CPI_INFLATION"],
+            "value": [2.5, 3.1],
+            "country": ["US", "US"],
+        }
+    )
+
+    # Must not raise TypeError
+    out = compute_news_macro_factors(as_of_tz, syms, news, macro)
+    assert out.shape == (2, 4)
+    # AAPL and MSFT should have non-NaN sentiment (data is within lookback)
+    assert not out["news_sentiment_7d_z"].isna().all()
+
+
+def test_tz_aware_data_tz_naive_as_of_does_not_raise() -> None:
+    """Symmetric case: tz-aware df timestamps with tz-naive as_of_date.
+
+    The helpers strip tz from df["timestamp"] via .dt.tz_localize(None),
+    so tz-aware data timestamps must also not raise TypeError.
+    """
+    as_of_naive = pd.Timestamp("2026-05-15")  # tz-naive
+    syms = ["AAPL", "MSFT"]
+
+    # news_df with tz-aware UTC timestamps
+    news = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "timestamp": [
+                pd.Timestamp("2026-05-10", tz="UTC"),
+                pd.Timestamp("2026-05-11", tz="UTC"),
+            ],
+            "sentiment_score": [0.4, -0.2],
+        }
+    )
+    macro = pd.DataFrame(
+        {
+            "timestamp": [
+                pd.Timestamp("2026-05-01", tz="UTC"),
+                pd.Timestamp("2026-05-08", tz="UTC"),
+            ],
+            "macro_code": ["GDP_GROWTH", "CPI_INFLATION"],
+            "value": [2.5, 3.1],
+            "country": ["US", "US"],
+        }
+    )
+
+    # Must not raise TypeError
+    out = compute_news_macro_factors(as_of_naive, syms, news, macro)
+    assert out.shape == (2, 4)
+    assert not out["news_sentiment_7d_z"].isna().all()
