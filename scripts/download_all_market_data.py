@@ -213,6 +213,14 @@ def download_fred_macro() -> pd.DataFrame:
         return pd.DataFrame()
 
     macro = pd.concat(frames, axis=1).sort_index()
+    # Transform raw CPIAUCSL index level → true YoY % rate (pct_change over 12
+    # monthly periods). Must be done BEFORE ffill so pct_change operates on the
+    # sparse monthly observations, not daily-repeated values.
+    if "cpi_yoy" in macro.columns:
+        cpi_notnull_idx = macro["cpi_yoy"].dropna().index
+        macro.loc[cpi_notnull_idx, "cpi_yoy"] = (
+            macro.loc[cpi_notnull_idx, "cpi_yoy"].pct_change(12) * 100
+        )
     macro = macro.reset_index().rename(columns={"date": "timestamp"})
     # Forward-fill daily (macro releases are infrequent)
     macro = macro.set_index("timestamp").ffill().reset_index()

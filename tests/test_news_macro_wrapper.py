@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.features.news_macro_wrapper import (  # noqa: E402
     _macro_regime_raw,
+    _macro_timeseries_zscore,
     _news_sentiment_raw,
     _news_volume_spike_raw,
     compute_news_macro_factors,
@@ -285,28 +286,227 @@ def test_single_observation_returns_nan() -> None:
 
 
 def test_identical_macro_zscore_is_zero() -> None:
-    """When all symbols have same macro value, z-score = 0.0 (degenerate).
+    """When all historical macro values are identical → zero variance → all 0.0.
 
     Uses yield_curve_spread which is the actual code compute_news_macro_factors
-    looks up for macro_growth_momentum_z.
+    looks up for macro_growth_momentum_z. With time-series z-scoring, when all
+    historical readings are the same (std=0), the z-score is 0.0 (genuine neutral).
+    Needs >= MIN_MACRO_OBS=6 history points to pass the stability guard.
     """
     as_of = pd.Timestamp("2026-05-31")
+    # 7 rows: 6 history (all 2.0) + 1 latest (also 2.0) → std=0 → z=0.0
     macro = pd.DataFrame(
         [
             {
-                "timestamp": pd.Timestamp("2026-05-15"),
+                "timestamp": pd.Timestamp("2026-05-15") - pd.Timedelta(days=30 * i),
                 "macro_code": "yield_curve_spread",
                 "value": 2.0,
                 "country": "US",
             }
+            for i in range(7)  # i=0 is latest (2026-05-15), i=1..6 are history
         ]
     )
     out = compute_news_macro_factors(
         as_of, ["AAPL", "MSFT", "NVDA"], _empty_news(), macro
     )
-    # All identical → degenerate z-score → all 0.0
+    # All historical values identical → zero variance → z=0.0 broadcast to all symbols
     for sym in ["AAPL", "MSFT", "NVDA"]:
         assert out.loc[sym, "macro_growth_momentum_z"] == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Time-series z-score (_macro_timeseries_zscore)
+# ---------------------------------------------------------------------------
+
+
+def test_macro_timeseries_zscore_direction() -> None:
+    """Latest value well above historical mean → positive z; below → negative."""
+    as_of_naive = pd.Timestamp("2026-05-31")
+    # 12 varied history values centred ~0.5 (variance > 0), latest=1.5 → positive z
+    _hist_vals = [0.3, 0.4, 0.6, 0.5, 0.7, 0.4, 0.3, 0.6, 0.5, 0.4, 0.6, 0.5]
+    rows = [
+        {
+            "timestamp": pd.Timestamp("2026-05-15") - pd.Timedelta(days=30 * (i + 1)),
+            "macro_code": "yield_curve_spread",
+            "value": v,
+            "country": "US",
+        }
+        for i, v in enumerate(_hist_vals)
+    ]
+    rows.append(
+        {
+            "timestamp": pd.Timestamp("2026-05-15"),
+            "macro_code": "yield_curve_spread",
+            "value": 1.5,
+            "country": "US",
+        }
+    )
+    macro = pd.DataFrame(rows)
+    z_high = _macro_timeseries_zscore(macro, "yield_curve_spread", as_of_naive)
+    assert z_high > 0.0
+
+    # Flip latest to well below mean → negative z
+    rows[-1]["value"] = -0.5
+    macro2 = pd.DataFrame(rows)
+    z_low = _macro_timeseries_zscore(macro2, "yield_curve_spread", as_of_naive)
+    assert z_low < 0.0
+
+
+def test_macro_timeseries_zscore_insufficient_history_returns_nan() -> None:
+    """Fewer than MIN_MACRO_OBS history points → return NaN (noisy z-score suppressed)."""
+    as_of_naive = pd.Timestamp("2026-05-31")
+    # 3 rows total: 2 history + 1 latest — less than MIN_MACRO_OBS=6 history points
+    macro = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2026-05-01"),
+                "macro_code": "yield_curve_spread",
+                "value": 2.0,
+                "country": "US",
+            },
+            {
+                "timestamp": pd.Timestamp("2026-05-08"),
+                "macro_code": "yield_curve_spread",
+                "value": 2.5,
+                "country": "US",
+            },
+            {
+                "timestamp": pd.Timestamp("2026-05-15"),
+                "macro_code": "yield_curve_spread",
+                "value": 3.0,
+                "country": "US",
+            },
+        ]
+    )
+    result = _macro_timeseries_zscore(macro, "yield_curve_spread", as_of_naive)
+    assert pd.isna(result)  # insufficient history → NaN, not a noisy z-score
+
+
+def test_macro_timeseries_zscore_pit_gate() -> None:
+    """Future rows must be excluded from the historical distribution.
+
+    The fixture is designed so that the correct-PIT path yields an unclipped
+    positive z, while a broken-PIT path (future value leaks in as 'latest')
+    yields a NEGATIVE z. This makes the assertion discriminating: z > 0.0
+    passes only when PIT works correctly.
+
+    Needs >= MIN_MACRO_OBS=6 history rows. Uses 8 history rows + 1 latest.
+    """
+    as_of_naive = pd.Timestamp("2026-01-31")
+    # 8 history rows with wide spread (std ≈ 1.73) so latest=3.5 gives
+    # unclipped positive z ≈ 0.87. A broken PIT gate including the future
+    # row (value=-5.0) would flip z to negative.
+    _hist_vals_pit = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 0.0, 1.0]  # mean=2.0, std≈1.73
+    rows = [
+        {
+            "timestamp": pd.Timestamp("2025-01-01") + pd.Timedelta(days=30 * i),
+            "macro_code": "cpi_yoy",
+            "value": v,
+            "country": "US",
+        }
+        for i, v in enumerate(_hist_vals_pit)
+    ]
+    rows.append(
+        # latest valid: 3.5 → z = (3.5 - 2.0) / 1.73 ≈ +0.87, unclipped
+        {
+            "timestamp": pd.Timestamp("2026-01-15"),
+            "macro_code": "cpi_yoy",
+            "value": 3.5,
+            "country": "US",
+        }
+    )
+    rows.append(
+        # future — must be excluded: if leaked, -5.0 becomes latest → z < 0
+        {
+            "timestamp": pd.Timestamp("2026-06-01"),
+            "macro_code": "cpi_yoy",
+            "value": -5.0,
+            "country": "US",
+        }
+    )
+    macro = pd.DataFrame(rows)
+    z = _macro_timeseries_zscore(macro, "cpi_yoy", as_of_naive)
+    # Correct PIT: z ≈ +0.87 (positive, unclipped). Broken PIT: z < 0.
+    assert 0.0 < z < 3.0
+
+
+def test_macro_timeseries_zscore_missing_code_returns_nan() -> None:
+    """Code not in macro_df → NaN."""
+    as_of_naive = pd.Timestamp("2026-05-31")
+    macro = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2026-05-01"),
+                "macro_code": "cpi_yoy",
+                "value": 3.0,
+                "country": "US",
+            }
+        ]
+    )
+    result = _macro_timeseries_zscore(macro, "nonexistent_code", as_of_naive)
+    assert pd.isna(result)
+
+
+def test_macro_timeseries_zscore_clipped() -> None:
+    """Extreme outlier gets clipped to +-3.0."""
+    as_of_naive = pd.Timestamp("2026-05-31")
+    _hist_vals_clip = [0.0, 0.2, 0.1, 0.0, 0.2, 0.1, 0.0, 0.2, 0.1, 0.0, 0.2]
+    rows = [
+        {
+            "timestamp": pd.Timestamp("2026-05-01") - pd.Timedelta(days=i * 30),
+            "macro_code": "cpi_yoy",
+            "value": v,
+            "country": "US",
+        }
+        for i, v in enumerate(_hist_vals_clip, 1)
+    ]
+    rows.append(
+        {
+            "timestamp": pd.Timestamp("2026-05-01"),
+            "macro_code": "cpi_yoy",
+            "value": 100.0,
+            "country": "US",
+        }
+    )
+    macro = pd.DataFrame(rows)
+    z = _macro_timeseries_zscore(macro, "cpi_yoy", as_of_naive)
+    assert z == pytest.approx(3.0, abs=1e-9)
+
+
+def test_macro_timeseries_broadcasts_to_all_symbols() -> None:
+    """compute_news_macro_factors broadcasts the scalar to every symbol.
+
+    Uses 7 history rows + 1 latest to exceed MIN_MACRO_OBS=6 guard.
+    """
+    as_of = pd.Timestamp("2026-05-31")
+    # 7 history rows (varied ~0.5 to ensure std>0) + 1 latest (1.5) → z > 0 broadcast
+    _hist_vals_bc = [0.3, 0.4, 0.6, 0.5, 0.7, 0.4, 0.6]
+    rows = [
+        {
+            "timestamp": pd.Timestamp("2026-05-01") - pd.Timedelta(days=30 * i),
+            "macro_code": "yield_curve_spread",
+            "value": v,
+            "country": "US",
+        }
+        for i, v in enumerate(_hist_vals_bc, 1)
+    ]
+    rows.append(
+        {
+            "timestamp": pd.Timestamp("2026-05-15"),
+            "macro_code": "yield_curve_spread",
+            "value": 1.5,
+            "country": "US",
+        }
+    )
+    macro = pd.DataFrame(rows)
+    out = compute_news_macro_factors(
+        as_of, ["AAPL", "MSFT", "NVDA"], _empty_news(), macro
+    )
+    # All symbols share the same time-series z-score (market-wide broadcast)
+    z_vals = out["macro_growth_momentum_z"].values
+    assert z_vals[0] == pytest.approx(z_vals[1])
+    assert z_vals[1] == pytest.approx(z_vals[2])
+    assert z_vals[0] > 0.0  # latest 1.5 > historical mean 0.5
 
 
 # ---------------------------------------------------------------------------

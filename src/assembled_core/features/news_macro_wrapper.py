@@ -9,11 +9,12 @@ Factors (plan section 4.1, factors 21-24):
 - ``news_sentiment_7d_z``: 7-day rolling mean of daily sentiment, PIT-gated
   on ``timestamp <= as_of_date``, cross-sectionally z-scored and clipped +-3.
 - ``news_volume_spike_z``: news volume relative to 30-day average, z-scored.
-- ``macro_growth_momentum_z``: growth regime indicator from macro series,
-  z-scored across symbols (all symbols share the same macro value on a date,
-  so z-scoring is degenerate — kept for interface consistency, returns 0.0
-  when all identical).
-- ``macro_inflation_surprise_z``: inflation regime indicator, same pattern.
+- ``macro_growth_momentum_z``: growth regime indicator — time-series z-score
+  of the latest ``yield_curve_spread`` reading vs its own historical distribution,
+  broadcast to all symbols (market-wide scalar).
+- ``macro_inflation_surprise_z``: inflation regime indicator — same pattern
+  using ``cpi_yoy``. Returns NaN when fewer than MIN_MACRO_OBS history points
+  exist; 0.0 when historical variance is zero.
 
 PIT-safety: all timestamps are gated with ``timestamp <= as_of_date``.
 No price or forward-looking information is used.
@@ -32,6 +33,9 @@ SENTIMENT_LOOKBACK_DAYS = 7
 VOLUME_BASELINE_DAYS = 30
 CLIP_BOUND = 3.0
 SAFE_DIVIDE_EPS = 1e-6
+MIN_MACRO_OBS = (
+    6  # minimum history points (excl. latest) for a stable time-series z-score
+)
 
 
 def _validate_columns(df: pd.DataFrame, required: tuple[str, ...], name: str) -> None:
@@ -176,6 +180,58 @@ def _macro_regime_raw(
 
 
 # ---------------------------------------------------------------------------
+# Time-series z-score for macro (market-wide broadcast values)
+# ---------------------------------------------------------------------------
+
+
+def _macro_timeseries_zscore(
+    macro_df_normalized: pd.DataFrame,
+    code: str,
+    as_of_naive: pd.Timestamp,
+    country: str = "US",
+) -> float:
+    """Time-series z-score of the latest macro value vs its historical distribution.
+
+    Unlike cross-sectional z-scoring (which is degenerate when all symbols share
+    the same market-wide value), this compares the most recent reading to the
+    historical mean and std of the same indicator series.
+
+    Args:
+        macro_df_normalized: macro_df with tz-naive timestamps already applied.
+        code: macro_code to look up.
+        as_of_naive: PIT cutoff, tz-naive.
+        country: country filter.
+
+    Returns:
+        Scalar z-score clipped to ±CLIP_BOUND. Returns 0.0 when historical
+        std is zero (all identical values, genuine neutral). Returns NaN when
+        the code is not found, no data passes the PIT gate, all values are
+        NaN, or fewer than MIN_MACRO_OBS history points exist.
+    """
+    # Defensive tz guard: callers must pass tz-naive, but guard prevents TypeError
+    if hasattr(as_of_naive, "tzinfo") and as_of_naive.tzinfo is not None:
+        as_of_naive = as_of_naive.tz_localize(None)
+    df = macro_df_normalized[macro_df_normalized["country"] == country]
+    df = df[df["macro_code"] == code]
+    df = df[df["timestamp"] <= as_of_naive]
+    if df.empty:
+        return np.nan
+    vals = df.sort_values("timestamp")["value"].dropna()
+    if vals.empty:
+        return np.nan
+    latest = vals.iloc[-1]
+    history = vals.iloc[:-1]  # exclude latest from reference distribution (F-MTS-1)
+    if len(history) < MIN_MACRO_OBS:
+        return np.nan  # insufficient history — avoid noisy z-scores from tiny samples
+    mean = history.mean()
+    std = history.std(ddof=0)
+    if std < SAFE_DIVIDE_EPS:
+        return 0.0  # all historical values identical → z=0 is genuine neutral
+    z = (latest - mean) / std
+    return float(np.clip(z, -CLIP_BOUND, CLIP_BOUND))
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -211,6 +267,14 @@ def compute_news_macro_factors(
     _validate_columns(macro_df, MACRO_REQUIRED_COLS, "macro_df")
 
     symbols = list(symbols)
+    as_of_naive = as_of_date.tz_localize(None) if as_of_date.tzinfo else as_of_date
+
+    # Pre-normalize macro_df timestamps once (symmetric tz-strip for the whole df).
+    _mts = pd.to_datetime(macro_df["timestamp"])
+    macro_norm = macro_df.copy()
+    macro_norm["timestamp"] = (
+        _mts.dt.tz_localize(None) if _mts.dt.tz is not None else _mts
+    )
 
     # News sentiment
     raw_sentiment = _news_sentiment_raw(as_of_date, symbols, news_df)
@@ -222,19 +286,20 @@ def compute_news_macro_factors(
     volume_z = _zscore_clip(raw_volume)
     volume_z.name = "news_volume_spike_z"
 
-    # Macro growth — yield_curve_spread is a standard growth-regime proxy.
-    # Note: cross-sectional z-score of a market-wide broadcast value is degenerate
-    # (all symbols share the same value → std=0 → all 0.0). Kept for interface
-    # consistency. A time-series normalization approach is a tracked improvement.
-    raw_growth = _macro_regime_raw(
-        as_of_date, symbols, macro_df, "yield_curve_spread", country
+    # Macro growth — yield_curve_spread as growth-regime proxy.
+    # Time-series z-score: compares latest reading to historical distribution,
+    # then broadcasts the scalar to all symbols (market-wide indicator).
+    growth_scalar = _macro_timeseries_zscore(
+        macro_norm, "yield_curve_spread", as_of_naive, country
     )
-    growth_z = _zscore_clip(raw_growth)
+    growth_z = pd.Series(growth_scalar, index=symbols, dtype=float)
     growth_z.name = "macro_growth_momentum_z"
 
     # Macro inflation — cpi_yoy matches FRED macro.parquet column names.
-    raw_inflation = _macro_regime_raw(as_of_date, symbols, macro_df, "cpi_yoy", country)
-    inflation_z = _zscore_clip(raw_inflation)
+    inflation_scalar = _macro_timeseries_zscore(
+        macro_norm, "cpi_yoy", as_of_naive, country
+    )
+    inflation_z = pd.Series(inflation_scalar, index=symbols, dtype=float)
     inflation_z.name = "macro_inflation_surprise_z"
 
     return pd.DataFrame(
@@ -253,4 +318,5 @@ __all__ = [
     "_news_sentiment_raw",
     "_news_volume_spike_raw",
     "_macro_regime_raw",
+    "_macro_timeseries_zscore",
 ]

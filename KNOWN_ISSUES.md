@@ -1589,3 +1589,30 @@ Finnhub-API-Key wurde am 2026-05-19 ~08:00 lokaler Zeit direkt im Chat gepostet 
 | RSS (effective) | live | 78 active feeds (von 96 konfiguriert) |
 | Master universe panel | 2026-05-18 | 195 syms, 262K rows |
 
+### 9.12 macro_inflation_surprise_z — Forward-Fill Bias (F-MTS-3, OPEN)
+
+**Status:** OPEN — documented follow-up
+
+**Problem:** `output/macro.parquet` speichert monatliche FRED-Daten täglich forward-gefillt.
+`_macro_timeseries_zscore` (news_macro_wrapper.py) berechnet std über alle ~312 Zeilen im
+365-Tage-Fenster statt über die ~12 echten monatlichen Beobachtungen.
+
+- Quantifizierter Bias: std(312 forward-fill rows) ≈ 3.449 vs std(12 monthly) ≈ 2.833 → z-Score ~0.82 Einheiten systematisch gedämpft.
+- Richtung: immer nach unten (attenuiert, invertiert nicht).
+- Portfolio-Auswirkung: factor_weight für macro_inflation = 0.02–0.05 → portfolio-score-delta ≈ 0.016 Punkte. Vernachlässigbar für pilot.
+
+**Root cause:** `_macro_timeseries_zscore` unterscheidet nicht zwischen täglich-echten Serien
+(yield_curve_spread = T10Y2Y, täglich) und monatlich-forward-gefüllten Serien (cpi_yoy, UNRATE).
+Ein `resample("ME")` würde täglich-echte Serien auf monatlich degradieren (ungewollt).
+Consecutive-duplicate-detection löst das Problem für forward-fill korrekt, aber kollabiert
+coincidentally-gleiche echte Monatswerte (seltener Rand-Fall, meist akzeptabel).
+
+**Fix-Optionen:**
+1. Explicit MONTHLY_MACRO_CODES list → conditional monthly resample (wartungsintensiv)
+2. Consecutive-duplicate-dedup: `vals = vals[vals != vals.shift()]` — simple, leicht falsch bei zufälligen coincidences zweier Monate
+3. Accept-as-is: Bias ist klein und systematisch (gedämpft, nicht invertiert). Signal-Richtung korrekt.
+
+**Empfehlung:** Option 3 für Pilot. Option 2 als Follow-up wenn macro-Gewichte erhöht werden.
+
+**Entdeckt:** 2026-05-23, Stage 1 (risk-execution-reviewer), Commit-Review für news_macro_wrapper Fixture-Fixes.
+
