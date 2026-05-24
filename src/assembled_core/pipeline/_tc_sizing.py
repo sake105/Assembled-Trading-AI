@@ -1355,7 +1355,9 @@ def _sp_apply_crisis_alpha_cap(
             )
 
             # --- GPR fallback for backtests (no live intel) ---
-            if _geo_score == 0.0:
+            # F-CA-005: only activate when BOTH geo_score and live triggers are absent.
+            # Prevents GPR from overriding a live intel "no crisis" judgment.
+            if _geo_score == 0.0 and not _news_trigger_items:
                 _feat = getattr(ctx, "features", None)
                 if _feat is not None and "gpr_index" in _feat.columns:
                     _gpr_s = pd.to_numeric(_feat["gpr_index"], errors="coerce").dropna()
@@ -1427,7 +1429,8 @@ def _sp_apply_crisis_alpha_cap(
             # Defaults to 0.0 (guard never fires) — safe-side until full wiring.
             _meta = getattr(ctx, "meta", {}) or {}
             _daily_pnl = float(_meta.get("crisis_daily_pnl", 0.0))
-            _ca_cfg = (policy or {}).get("crisis_alpha") or {}
+            # F-CA-001: policy nests crisis_alpha under intel, not at top level.
+            _ca_cfg = (policy or {}).get("intel", {}).get("crisis_alpha") or {}
             _daily_loss_limit = float(
                 (_ca_cfg.get("daily_loss") or {}).get("limit", 0.02)
             )
@@ -1531,11 +1534,13 @@ def _sp_apply_crisis_alpha_cap(
                 target_positions["target_weight"] = (
                     target_positions["target_weight"] * _scale
                 )
-                # Scale target_qty proportionally to keep it in sync with weights
+                # F-CA-002: recompute target_qty from the already-scaled weight
+                # rather than scaling the old value. This handles rows where
+                # target_qty was NaN (fillna(0.0)*scale would silently zero them).
                 if "target_qty" in target_positions.columns:
                     target_positions["target_qty"] = (
-                        target_positions["target_qty"].fillna(0.0) * _scale
-                    )
+                        target_positions["target_weight"] * _capital
+                    ).round(2)
                 log.info(
                     "[T4.1] gross-exposure guard: %.2f > max %.2f — scaled by %.3f",
                     _total_abs,
