@@ -969,3 +969,104 @@ class TestEdclCrisisSuppressionMixin:
         assert result_with_edcl > result_without_edcl, (
             "EDCL enabled in normal regime must produce higher multiplier than disabled"
         )
+
+
+# ---------------------------------------------------------------------------
+# §9.13 visibility: should_flatten_all / positions_to_exit logged, not silent
+# ---------------------------------------------------------------------------
+
+
+class TestCrisisAlphaFlattenVisibility:
+    """§9.13 fix: should_flatten_all and positions_to_exit must be logged as warnings."""
+
+    def _make_ctx(self):
+        import types
+
+        return types.SimpleNamespace(
+            meta={},
+            as_of=pd.Timestamp("2026-03-30 12:00:00+00:00"),
+            news_geo={},
+            features=None,
+            market_stress={"stress_ok": True, "stress_score": 0},
+            intel_health_flags={},
+            capital=100_000.0,
+        )
+
+    def _call_with_flatten_result(
+        self, should_flatten_all: bool, positions_to_exit: list
+    ) -> None:
+        import logging
+        from src.assembled_core.pipeline._tc_sizing import _sp_apply_crisis_alpha_cap
+
+        ca_result = {
+            **_make_ca_result({}),
+            "should_flatten_all": should_flatten_all,
+            "positions_to_exit": positions_to_exit,
+        }
+        target_positions = _make_target_positions({"AAPL": 0.20})
+        ctx = self._make_ctx()
+        policy = {
+            "intel": {"crisis_alpha": {"enabled": True, "shadow_only": False}},
+        }
+        log = logging.getLogger("src.assembled_core.pipeline._tc_sizing")
+        with (
+            patch(
+                "src.assembled_core.events.crisis_alpha.pipeline.run_crisis_alpha_pipeline",
+                return_value=ca_result,
+            ),
+            patch(
+                "src.assembled_core.events.crisis_alpha.context.CrisisAlphaContext.empty",
+                return_value=MagicMock(),
+            ),
+        ):
+            _sp_apply_crisis_alpha_cap(target_positions, ctx, policy, log)
+
+    def test_should_flatten_all_true_emits_warning(self, caplog) -> None:
+        import logging
+
+        with caplog.at_level(
+            logging.WARNING, logger="src.assembled_core.pipeline._tc_sizing"
+        ):
+            self._call_with_flatten_result(
+                should_flatten_all=True, positions_to_exit=[]
+            )
+        assert any("should_flatten_all=True" in r.message for r in caplog.records), (
+            "should_flatten_all=True must produce a warning log entry"
+        )
+
+    def test_positions_to_exit_nonempty_emits_warning(self, caplog) -> None:
+        import logging
+
+        with caplog.at_level(
+            logging.WARNING, logger="src.assembled_core.pipeline._tc_sizing"
+        ):
+            self._call_with_flatten_result(
+                should_flatten_all=False,
+                # Matches the real type: list[tuple[position_dict, reason_str]]
+                positions_to_exit=[
+                    ({"symbol": "AAPL", "qty": 100}, "exit_reason"),
+                    ({"symbol": "MSFT", "qty": 50}, "exit_reason"),
+                ],
+            )
+        assert any("positions_to_exit" in r.message for r in caplog.records), (
+            "non-empty positions_to_exit must produce a warning log entry"
+        )
+        # Verify count-based format (not raw repr of full position dicts).
+        # caplog.text is always the fully-rendered log output — robust against %-style interpolation.
+        assert "2 positions_to_exit" in caplog.text, (
+            "warning must include the count of positions"
+        )
+
+    def test_should_flatten_all_false_no_warning(self, caplog) -> None:
+        import logging
+
+        with caplog.at_level(
+            logging.WARNING, logger="src.assembled_core.pipeline._tc_sizing"
+        ):
+            self._call_with_flatten_result(
+                should_flatten_all=False, positions_to_exit=[]
+            )
+        assert not any(
+            any(kw in r.message for kw in ("should_flatten_all", "positions_to_exit"))
+            for r in caplog.records
+        ), "no flatten warnings expected when both fields are nominal"

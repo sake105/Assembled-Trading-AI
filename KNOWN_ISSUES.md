@@ -1617,22 +1617,14 @@ coincidentally-gleiche echte Monatswerte (seltener Rand-Fall, meist akzeptabel).
 **Entdeckt:** 2026-05-23, Stage 1 (risk-execution-reviewer), Commit-Review für news_macro_wrapper Fixture-Fixes.
 
 
-### 9.13 Crisis-Alpha: should_flatten_all Signal nicht konsumiert in _tc_sizing (OPEN)
+### 9.13 Crisis-Alpha: should_flatten_all Signal nicht konsumiert in _tc_sizing (OPEN — sichtbar gemacht)
 
-**Status:** OPEN — v1-akzeptiert, Follow-up vor nächstem Pilot-Zyklus.
+**Status:** OPEN — Visibility-Warning hinzugefügt (2026-05-25), aber kein Consumer existiert. Vollständige Flatten-Ausführung bleibt OPEN bis §9.13-Completion.
 
 **Entdeckt:** 2026-05-24, Stage 3 (task-completion-auditor), Commit-Review für dd7cfda6.
 
-**Problem:** `run_crisis_alpha_pipeline` gibt `should_flatten_all` und `positions_to_exit` im Result-Dict zurück. `_sp_apply_crisis_alpha_cap` ignoriert beide Felder — sie werden weder geloggt noch ausgeführt. Wenn die Crisis-State-Machine einen Flatten-Befehl emittiert (z.B. bei PAUSE-Zustand durch daily_loss_breach), wird er in diesem Code-Pfad still verworfen.
+**Problem:** `run_crisis_alpha_pipeline` gibt `should_flatten_all` und `positions_to_exit` zurück. Kein Layer konsumiert diese Felder — sie wurden weder geloggt noch ausgeführt.
 
-**Warum heute Low-Risk:** Der bestehende Risk-Controls-Layer (Kill-Switch, de-risk Pfade) deckt Portfolio-Flatten unabhängig ab. `shadow_only=false` ist neu aktiviert und `daily_pnl` noch nicht vollständig verdrahtet (immer 0.0 default) → PAUSE-Zustand kann heute nicht durch daily_loss ausgelöst werden.
+**Partial fix (2026-05-25):** `log.warning` für `should_flatten_all=True`, `positions_to_exit` (truncated auf 20 Symbole), und `errors` in `_sp_apply_crisis_alpha_cap` hinzugefügt. Stilles Verwerfen ist behoben; der Warn-Text sagt explizit "§9.13 deferred; no consumer exists yet".
 
-**Fix-Option:** Nach dem `ca_result`-Call in `_sp_apply_crisis_alpha_cap`:
-```python
-if ca_result.get("should_flatten_all"):
-    log.warning("[T4.1] crisis_alpha: should_flatten_all=True — flatten not yet "
-                "executed by _tc_sizing; risk-controls layer must handle.")
-```
-Vollständige Flatten-Ausführung ist Feature-Scope, nicht Bugfix.
-
-**Priorität:** Vor nächstem Pilot-Zyklus mit echter daily_pnl-Verdrahtung adressieren.
+**Noch offen:** Vollständige Flatten-Ausführung (positions_to_exit → FLAT orders an Downstream-Sizing). Adressieren vor Pilot-Zyklus mit echter daily_pnl-Verdrahtung.
