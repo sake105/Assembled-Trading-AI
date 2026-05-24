@@ -746,3 +746,226 @@ class TestT41Integration:
         assert result.loc[result["symbol"] == "AAPL", "target_weight"].iloc[
             0
         ] == pytest.approx(0.30), "AAPL weight unchanged in shadow mode"
+
+
+# ---------------------------------------------------------------------------
+# ASSEMBLED_NO_CRISIS_OVERLAY env-var override
+# ---------------------------------------------------------------------------
+
+
+class TestNoCrisisOverlayEnvVar:
+    """ASSEMBLED_NO_CRISIS_OVERLAY=1 must force shadow_only regardless of policy."""
+
+    def _make_ctx(self, capital: float = 100_000.0):
+        import types
+
+        return types.SimpleNamespace(
+            meta={},
+            as_of=pd.Timestamp("2026-03-30 12:00:00+00:00"),
+            news_geo={},
+            features=None,
+            market_stress={"stress_ok": True, "stress_score": 0},
+            intel_health_flags={},
+            capital=capital,
+        )
+
+    def test_env_var_forces_shadow_only_even_when_policy_says_live(self) -> None:
+        """When ASSEMBLED_NO_CRISIS_OVERLAY=1, no crisis entries added even if
+        policy has shadow_only=False (used by --no-crisis-overlay CLI flag)."""
+        import logging
+        import os
+        from unittest.mock import patch
+        from src.assembled_core.pipeline._tc_sizing import _sp_apply_crisis_alpha_cap
+
+        ctx = self._make_ctx(capital=100_000.0)
+        # Policy explicitly says live (shadow_only=False)
+        policy = {
+            "intel": {"crisis_alpha": {"enabled": True, "shadow_only": False}},
+            "risk_limits": {"max_gross_exposure": 1.20},
+        }
+        target_positions = _make_target_positions({"AAPL": 0.30, "MSFT": 0.20})
+        ca_result = _make_ca_result({"GLD": 0.10, "TLT": 0.08})
+
+        with (
+            patch(
+                "src.assembled_core.events.crisis_alpha.pipeline.run_crisis_alpha_pipeline",
+                return_value=ca_result,
+            ),
+            patch.dict(os.environ, {"ASSEMBLED_NO_CRISIS_OVERLAY": "1"}),
+        ):
+            result = _sp_apply_crisis_alpha_cap(
+                target_positions, ctx, policy, logging.getLogger("test")
+            )
+
+        assert "GLD" not in result["symbol"].values, (
+            "env-var override must suppress crisis entries"
+        )
+        assert "TLT" not in result["symbol"].values, (
+            "env-var override must suppress crisis entries"
+        )
+        assert set(result["symbol"].tolist()) == {"AAPL", "MSFT"}, (
+            "only original positions remain when env-var override is active"
+        )
+
+    def test_without_env_var_live_policy_adds_entries(self) -> None:
+        """Without the env var, live policy (shadow_only=False) still adds entries."""
+        import logging
+        import os
+        from unittest.mock import patch
+        from src.assembled_core.pipeline._tc_sizing import _sp_apply_crisis_alpha_cap
+
+        ctx = self._make_ctx(capital=100_000.0)
+        policy = {
+            "intel": {"crisis_alpha": {"enabled": True, "shadow_only": False}},
+            "risk_limits": {"max_gross_exposure": 1.20},
+        }
+        target_positions = _make_target_positions({"AAPL": 0.30})
+        ca_result = _make_ca_result({"GLD": 0.10})
+
+        with (
+            patch(
+                "src.assembled_core.events.crisis_alpha.pipeline.run_crisis_alpha_pipeline",
+                return_value=ca_result,
+            ),
+            patch.dict(os.environ, {}, clear=False),
+        ):
+            os.environ.pop("ASSEMBLED_NO_CRISIS_OVERLAY", None)
+            result = _sp_apply_crisis_alpha_cap(
+                target_positions, ctx, policy, logging.getLogger("test")
+            )
+
+        assert "GLD" in result["symbol"].values, (
+            "without env-var override, crisis entries must be added when shadow_only=False"
+        )
+
+
+# ---------------------------------------------------------------------------
+# EDCL suppression when crisis-alpha is ACTIVE
+# ---------------------------------------------------------------------------
+
+
+class TestEdclCrisisSuppressionMixin:
+    """EDCL multiplier must be suppressed to 1.0 when crisis_alpha is ACTIVE."""
+
+    def test_edcl_suppressed_when_crisis_active(self) -> None:
+        """When crisis_state_intel.mode == 'CRISIS', edcl_multiplier must be 1.0."""
+        import logging
+        import types
+        from src.assembled_core.pipeline._tc_sizing import _sp_compute_final_multiplier
+
+        _log = logging.getLogger("test")
+        _meta: dict = {}
+        ctx = types.SimpleNamespace(
+            geo_risk={},
+            crisis_state_intel={"mode": "CRISIS"},
+            as_of=None,
+            mode="backtest",
+            edcl_state={"conviction": 0.90},  # high conviction
+            options_iv_skew_z=3.0,
+            market_stress=None,
+        )
+        policy = {
+            "edcl_conviction_overlay": {
+                "enabled": True,
+                "allow_in_backtest": True,
+                "conviction_threshold": 0.70,
+                "max_multiplier": 2.0,
+            }
+        }
+        result = _sp_compute_final_multiplier(ctx, policy, _meta, _log)
+        # With EDCL disabled entirely, crisis mode should give the same result
+        # (because our suppression already zeroed the EDCL contribution to 1.0).
+        # If suppression works: result == result_edcl_disabled_crisis.
+        policy_no_edcl = {"edcl_conviction_overlay": {"enabled": False}}
+        result_edcl_disabled = _sp_compute_final_multiplier(
+            ctx, policy_no_edcl, {}, _log
+        )
+        assert result == pytest.approx(result_edcl_disabled, rel=1e-6), (
+            "EDCL suppressed in crisis: multiplier must equal EDCL-disabled baseline"
+        )
+
+        # Additionally: non-crisis with EDCL enabled must be strictly higher.
+        ctx_no_crisis = types.SimpleNamespace(
+            geo_risk={},
+            crisis_state_intel={"mode": "NORMAL"},
+            as_of=None,
+            mode="backtest",
+            edcl_state={"conviction": 0.90},
+            options_iv_skew_z=3.0,
+            market_stress=None,
+        )
+        result_no_crisis = _sp_compute_final_multiplier(ctx_no_crisis, policy, {}, _log)
+        assert result_no_crisis > result, (
+            "non-crisis mode with EDCL must produce strictly higher multiplier than crisis"
+        )
+
+    def test_edcl_suppressed_when_crisis_elevated(self) -> None:
+        """ELEVATED regime is pre-crisis — EDCL must also be suppressed (same as CRISIS).
+        composite_score.py treats ELEVATED the same as CRISIS for EDCL multipliers (1.5–2.0),
+        so suppression must cover both."""
+        import logging
+        import types
+        from src.assembled_core.pipeline._tc_sizing import _sp_compute_final_multiplier
+
+        _log = logging.getLogger("test")
+        _meta: dict = {}
+        ctx = types.SimpleNamespace(
+            geo_risk={},
+            crisis_state_intel={"mode": "ELEVATED"},
+            as_of=None,
+            mode="backtest",
+            edcl_state={"conviction": 0.90},
+            options_iv_skew_z=3.0,
+            market_stress=None,
+        )
+        policy = {
+            "edcl_conviction_overlay": {
+                "enabled": True,
+                "allow_in_backtest": True,
+                "conviction_threshold": 0.70,
+                "max_multiplier": 2.0,
+            }
+        }
+        result = _sp_compute_final_multiplier(ctx, policy, _meta, _log)
+        policy_no_edcl = {"edcl_conviction_overlay": {"enabled": False}}
+        result_edcl_disabled = _sp_compute_final_multiplier(
+            ctx, policy_no_edcl, {}, _log
+        )
+        assert result == pytest.approx(result_edcl_disabled, rel=1e-6), (
+            "EDCL must be suppressed in ELEVATED regime (same as CRISIS)"
+        )
+
+    def test_edcl_not_suppressed_when_crisis_inactive(self) -> None:
+        """EDCL must still apply when crisis_state_intel.mode == 'NORMAL'."""
+        import logging
+        import types
+        from src.assembled_core.pipeline._tc_sizing import _sp_compute_final_multiplier
+
+        _log = logging.getLogger("test")
+        ctx = types.SimpleNamespace(
+            geo_risk={},
+            crisis_state_intel={"mode": "NORMAL"},
+            as_of=None,
+            mode="backtest",
+            edcl_state={"conviction": 0.90},
+            options_iv_skew_z=3.0,
+            market_stress=None,
+        )
+        policy = {
+            "edcl_conviction_overlay": {
+                "enabled": True,
+                "allow_in_backtest": True,
+                "conviction_threshold": 0.70,
+                "max_multiplier": 2.0,
+            }
+        }
+        result_with_edcl = _sp_compute_final_multiplier(ctx, policy, {}, _log)
+
+        # With edcl disabled: same ctx but disabled
+        policy_no_edcl = {"edcl_conviction_overlay": {"enabled": False}}
+        result_without_edcl = _sp_compute_final_multiplier(
+            ctx, policy_no_edcl, {}, _log
+        )
+        assert result_with_edcl > result_without_edcl, (
+            "EDCL enabled in normal regime must produce higher multiplier than disabled"
+        )

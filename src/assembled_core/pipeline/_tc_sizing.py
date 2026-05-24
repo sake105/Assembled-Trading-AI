@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 import numpy as np
 import pandas as pd
@@ -578,7 +579,10 @@ def _sp_compute_final_multiplier(
             ms_multiplier = float(_ms_scaling.get("stress_score_1", 0.75))
 
     crisis_alpha_multiplier = 1.0
-    if getattr(ctx, "crisis_state_intel", None):
+    if (
+        getattr(ctx, "crisis_state_intel", None)
+        and os.environ.get("ASSEMBLED_NO_CRISIS_OVERLAY") != "1"
+    ):
         crisis_mode = str(ctx.crisis_state_intel.get("mode", "NORMAL")).upper()
         ca_cfg = (
             policy.get("crisis_alpha")
@@ -747,6 +751,18 @@ def _sp_compute_final_multiplier(
 
     # EDCL conviction overlay — Phase H triple-confirmation (EDCL + regime + IV skew)
     edcl_multiplier = 1.0
+    # Derive composite regime from crisis_state_intel once — reused for both
+    # the EDCL multiplier lookup and the suppression guard below.
+    _crisis_intel_edcl = getattr(ctx, "crisis_state_intel", None) or {}
+    _crisis_mode_edcl = str(_crisis_intel_edcl.get("mode", "NORMAL")).upper()
+    _composite_regime = (
+        "crisis"
+        if _crisis_mode_edcl == "CRISIS"
+        else "elevated"
+        if _crisis_mode_edcl == "ELEVATED"
+        else "normal"
+    )
+
     try:
         edcl_cfg = (policy or {}).get("edcl_conviction_overlay") or {}
         if edcl_cfg.get("enabled", False):
@@ -754,16 +770,6 @@ def _sp_compute_final_multiplier(
             if _mode in ("live", "paper") or edcl_cfg.get("allow_in_backtest", False):
                 _edcl_state = getattr(ctx, "edcl_state", None) or {}
                 _edcl_conviction = float(_edcl_state.get("conviction", 0.0))
-                # Derive composite regime from crisis_state_intel
-                _crisis_intel = getattr(ctx, "crisis_state_intel", None) or {}
-                _crisis_mode = str(_crisis_intel.get("mode", "NORMAL")).upper()
-                _composite_regime = (
-                    "crisis"
-                    if _crisis_mode == "CRISIS"
-                    else "elevated"
-                    if _crisis_mode == "ELEVATED"
-                    else "normal"
-                )
                 # IV skew Z-score — optional field, defaults to 0.0 (no IV data)
                 _iv_skew_z = float(getattr(ctx, "options_iv_skew_z", 0.0) or 0.0)
                 from src.assembled_core.signals.composite_score import (
@@ -791,6 +797,26 @@ def _sp_compute_final_multiplier(
         _edcl_mode_check = getattr(ctx, "mode", "backtest")
         _log_fn = log.warning if _edcl_mode_check in ("live", "paper") else log.debug
         _log_fn("edcl_conviction_overlay raised — multiplier stays 1.0: %s", e)
+
+    # Suppress EDCL conviction boosts when crisis-alpha is CRISIS or ELEVATED.
+    # The crisis overlay adds defensive ETFs via _sp_apply_crisis_alpha_cap;
+    # boosting long-equity sizing into a confirmed/pre-crisis state would
+    # work against the drawdown-protection objective.
+    # Values ≤ 1.0 are intentionally not suppressed — they already reduce exposure.
+    # ELEVATED is treated the same as CRISIS (matching composite_score.py semantics
+    # where both regimes produce 1.5–2.0 EDCL multipliers).
+    if edcl_multiplier > 1.0 and _crisis_mode_edcl in ("CRISIS", "ELEVATED"):
+        _suppress_log = (
+            log.info
+            if getattr(ctx, "mode", "backtest") in ("live", "paper")
+            else log.debug
+        )
+        _suppress_log(
+            "[EDCL-H] suppressed (crisis_alpha %s): mult %.2f → 1.0",
+            _crisis_mode_edcl,
+            edcl_multiplier,
+        )
+        edcl_multiplier = 1.0
 
     final_multiplier = (
         geo_multiplier
@@ -1455,7 +1481,7 @@ def _sp_apply_crisis_alpha_cap(
             .get("intel", {})
             .get("crisis_alpha", {})
             .get("shadow_only", True)
-        )
+        ) or (os.environ.get("ASSEMBLED_NO_CRISIS_OVERLAY") == "1")
         ca_result = run_crisis_alpha_pipeline(
             _ca_ctx, policy=policy, dry_run=shadow_only
         )

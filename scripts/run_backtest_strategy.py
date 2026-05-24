@@ -1036,6 +1036,17 @@ Examples:
     )
 
     parser.add_argument(
+        "--no-crisis-overlay",
+        action="store_true",
+        default=False,
+        dest="no_crisis_overlay",
+        help=(
+            "Disable crisis-alpha overlay for this backtest (forces shadow_only=True). "
+            "Use for falsification runs: compare drawdown with vs. without crisis protection."
+        ),
+    )
+
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -3088,6 +3099,14 @@ def main() -> int:
             _POLICY_CACHE.clear()
         except Exception:
             pass
+    if getattr(args, "no_crisis_overlay", False):
+        import os as _os
+
+        _os.environ["ASSEMBLED_NO_CRISIS_OVERLAY"] = "1"
+        try:
+            return run_backtest_from_args(args)
+        finally:
+            _os.environ.pop("ASSEMBLED_NO_CRISIS_OVERLAY", None)
     return run_backtest_from_args(args)
 
 

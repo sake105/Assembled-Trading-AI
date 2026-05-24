@@ -26,6 +26,7 @@ from .gates import (
     check_source_gate,
     run_all_activation_gates,
 )
+from .labeling import label_crisis_alpha_episodes
 from .pipeline import run_crisis_alpha_pipeline
 from .risk_budget import (
     apply_risk_budget,
@@ -43,6 +44,7 @@ from .state_machine import (
 
 __all__ = [
     "CrisisAlphaContext",
+    "label_crisis_alpha_episodes",
     "CrisisStateRecord",
     "apply_risk_budget",
     "apply_weight_caps",
