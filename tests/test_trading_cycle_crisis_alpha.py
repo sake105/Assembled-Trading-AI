@@ -993,7 +993,10 @@ class TestCrisisAlphaFlattenVisibility:
         )
 
     def _call_with_flatten_result(
-        self, should_flatten_all: bool, positions_to_exit: list
+        self,
+        should_flatten_all: bool,
+        positions_to_exit: list,
+        crisis_open_positions: list | None = None,
     ) -> None:
         import logging
         from src.assembled_core.pipeline._tc_sizing import _sp_apply_crisis_alpha_cap
@@ -1005,6 +1008,9 @@ class TestCrisisAlphaFlattenVisibility:
         }
         target_positions = _make_target_positions({"AAPL": 0.20})
         ctx = self._make_ctx()
+        # Provide open positions via meta so _open_positions is non-empty when needed.
+        if crisis_open_positions is not None:
+            ctx.meta = {"crisis_open_positions": crisis_open_positions}
         policy = {
             "intel": {"crisis_alpha": {"enabled": True, "shadow_only": False}},
         }
@@ -1024,14 +1030,17 @@ class TestCrisisAlphaFlattenVisibility:
     def test_should_flatten_all_true_emits_warning(self, caplog) -> None:
         import logging
 
+        # Requires crisis_open_positions so the guard `_open_positions` is non-empty.
         with caplog.at_level(
             logging.WARNING, logger="src.assembled_core.pipeline._tc_sizing"
         ):
             self._call_with_flatten_result(
-                should_flatten_all=True, positions_to_exit=[]
+                should_flatten_all=True,
+                positions_to_exit=[],
+                crisis_open_positions=[{"symbol": "AAPL", "qty": 100}],
             )
         assert any("should_flatten_all=True" in r.message for r in caplog.records), (
-            "should_flatten_all=True must produce a warning log entry"
+            "should_flatten_all=True with open positions must produce a warning log entry"
         )
 
     def test_positions_to_exit_nonempty_emits_warning(self, caplog) -> None:

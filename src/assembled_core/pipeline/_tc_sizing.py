@@ -1486,26 +1486,29 @@ def _sp_apply_crisis_alpha_cap(
             _ca_ctx, policy=policy, dry_run=shadow_only
         )
         # §9.13 visibility: log flatten/exit commands so silent discard is observable.
+        # Gated on not shadow_only — backtest/paper-shadow noise would mask real alerts.
         # Actual flatten execution is NOT wired anywhere — §9.13 deferred.
-        if ca_result.get("should_flatten_all"):
-            log.warning(
-                "[T4.1] crisis_alpha: should_flatten_all=True — flatten not executed "
-                "anywhere in the pipeline (§9.13 deferred; no consumer exists yet)."
-            )
-        _exits = ca_result.get("positions_to_exit") or []
-        if _exits:
-            _exit_syms = [
-                p[0].get("symbol", "?")
-                if isinstance(p, (list, tuple)) and p
-                else (p.get("symbol", "?") if isinstance(p, dict) else str(p))
-                for p in _exits[:20]
-            ]
-            log.warning(
-                "[T4.1] crisis_alpha: %d positions_to_exit flagged (not consumed) — symbols=%s%s",
-                len(_exits),
-                _exit_syms,
-                " …" if len(_exits) > 20 else "",
-            )
+        if not shadow_only:
+            if ca_result.get("should_flatten_all") and _open_positions:
+                log.warning(
+                    "[T4.1] crisis_alpha: should_flatten_all=True, %d open positions will NOT "
+                    "be flattened (§9.13 deferred; no consumer exists yet).",
+                    len(_open_positions),
+                )
+            _exits = ca_result.get("positions_to_exit") or []
+            if _exits:
+                _exit_syms = [
+                    p[0].get("symbol", "?")
+                    if isinstance(p, (list, tuple)) and p and isinstance(p[0], dict)
+                    else (p.get("symbol", "?") if isinstance(p, dict) else str(p))
+                    for p in _exits[:20]
+                ]
+                log.warning(
+                    "[T4.1] crisis_alpha: %d positions_to_exit flagged (not consumed) — symbols=%s%s",
+                    len(_exits),
+                    _exit_syms,
+                    " …" if len(_exits) > 20 else "",
+                )
         _errs = ca_result.get("errors") or []
         if _errs:
             log.warning(
