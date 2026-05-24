@@ -35,14 +35,13 @@ crisis_alpha:
 
     # If true, total exposure is scaled by geo_score / activate_geo_score
     # (higher geo score → more aggressive sizing, capped at 1.0)
-    scale_by_geo_score: false
+    scale_by_geo_score: true
 
   # ---------------------------------------------------------------------------
   # Risk budget
   # ---------------------------------------------------------------------------
   risk_budget:
     # Maximum total gross exposure of the crisis sub-portfolio (fraction)
-    # e.g. 0.30 = 30% of total portfolio equity
     max_gross_exposure: 0.30
 
   # ---------------------------------------------------------------------------

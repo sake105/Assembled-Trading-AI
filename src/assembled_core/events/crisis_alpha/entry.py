@@ -133,15 +133,20 @@ def generate_crisis_entry(
 
     # Optional: scale total exposure by geo_score
     if scale_by_geo:
-        activate_threshold = float(
+        _activate_threshold = float(
             _get(
                 policy, "crisis_alpha", "hysteresis", "activate_geo_score", default=2.0
             )
         )
-        scale = min(1.0, ctx.geo_score / max(activate_threshold, 0.01))
+        # Mirror state_machine.py dynamic threshold: market stress lowers effective
+        # threshold, so entry scaling should reflect the same adjusted denominator.
+        _stress_score = max(0, min(2, getattr(ctx, "market_stress_score", 0)))
+        effective_threshold = max(1.0, _activate_threshold - _stress_score * 0.5)
+        scale = min(1.0, ctx.geo_score / max(effective_threshold, 0.01))
         raw_weights = {sym: w * scale for sym, w in raw_weights.items()}
         reasons.append(
-            f"geo_score scale applied: {scale:.3f} (geo_score={ctx.geo_score:.2f})"
+            f"geo_score scale applied: {scale:.3f} "
+            f"(geo_score={ctx.geo_score:.2f} / threshold={effective_threshold:.1f})"
         )
 
     # Apply risk budget (caps + gross exposure scaling)

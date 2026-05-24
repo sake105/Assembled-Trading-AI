@@ -14,6 +14,7 @@ import pytest
 pytestmark = pytest.mark.fast
 
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
+from src.assembled_core.events.crisis_alpha.entry import generate_crisis_entry
 from src.assembled_core.events.crisis_alpha.pipeline import run_crisis_alpha_pipeline
 from src.assembled_core.events.crisis_alpha.state_machine import (
     CrisisStateRecord,
@@ -356,3 +357,120 @@ class TestPipelineScenarios:
             ctx1, POLICY, state_path=state_path, reset_pause=True
         )
         assert r1["state"] == "WATCH"
+
+
+# ---------------------------------------------------------------------------
+# F-001 regression: gates_ok=False must suppress entry even when state=ACTIVE
+# ---------------------------------------------------------------------------
+
+
+class TestGatesBlockEntry:
+    def test_active_state_with_no_news_triggers_suppresses_entry(self, tmp_path: Path):
+        """State machine activates on geo_score alone, but evidence gate fails
+        (no news_trigger_items with severity >= 1). F-001 fix: entry_targets must
+        be empty when gates_ok=False even though state=ACTIVE."""
+        ctx = _ctx(
+            geo_score=2.5,
+            geo_sources=3,
+            market_stress_ok=True,
+            health_ok=True,
+            news_trigger_items=[],  # evidence gate fails: 0 qualifying triggers
+        )
+        result = run_crisis_alpha_pipeline(ctx, POLICY, state_path=tmp_path / "s.json")
+        assert result["state"] == "ACTIVE", (
+            "state machine activates on geo_score regardless of news triggers"
+        )
+        assert result["gates_ok"] is False, (
+            "evidence gate should fail without qualifying news_trigger_items"
+        )
+        assert result["target_weights"] == {}, (
+            "F-001: no entry targets when gates_ok=False"
+        )
+        assert any("gates_ok=False" in r for r in result["entry_reasons"]), (
+            "entry_reasons should explain why entry was suppressed"
+        )
+
+    def test_active_state_with_news_triggers_generates_entry(self, tmp_path: Path):
+        """Baseline: when both state=ACTIVE and gates_ok=True, entries are generated."""
+        ctx = _ctx(
+            geo_score=2.5,
+            geo_sources=3,
+            market_stress_ok=True,
+            health_ok=True,
+            news_trigger_items=[{"severity": 2, "topic": "geo"}],
+        )
+        result = run_crisis_alpha_pipeline(ctx, POLICY, state_path=tmp_path / "s.json")
+        assert result["state"] == "ACTIVE"
+        assert result["gates_ok"] is True
+        assert len(result["target_weights"]) > 0, (
+            "entries must be generated when state=ACTIVE and gates_ok=True"
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-004 regression: entry scaling uses dynamic threshold, not static
+# ---------------------------------------------------------------------------
+
+
+class TestEntryScalingDynamicThreshold:
+    """F-004: generate_crisis_entry must use the same dynamic effective_threshold
+    as the state machine (market stress lowers denominator for geo_score scaling)."""
+
+    _POLICY_SCALE = {
+        "crisis_alpha": {
+            "hysteresis": {"activate_geo_score": 2.0},
+            "entry": {"method": "equal_weight", "scale_by_geo_score": True},
+            "risk_budget": {"max_gross_exposure": 0.30},
+        }
+    }
+
+    def test_dynamic_threshold_gives_full_scale_when_geo_meets_effective_threshold(
+        self,
+    ):
+        """geo=1.2, stress=2 → effective_threshold=1.0.
+        Scale = min(1.0, 1.2/1.0) = 1.0 (not the old 1.2/2.0=0.60).
+        Reason string must show the effective threshold 1.0, not the static 2.0."""
+        ctx = CrisisAlphaContext(
+            timestamp_utc=NOW,
+            geo_score=1.2,
+            geo_sources=2,
+            social_only=False,
+            market_stress_ok=True,
+            health_ok=True,
+            market_stress_score=2,
+        )
+        weights, reasons = generate_crisis_entry(ctx, self._POLICY_SCALE)
+        assert len(weights) > 0
+        scaling_reason = next(
+            (r for r in reasons if "geo_score scale applied" in r), None
+        )
+        assert scaling_reason is not None, f"Expected scaling reason, got: {reasons}"
+        assert "1.0" in scaling_reason, (
+            f"Dynamic effective_threshold should be 1.0, got reason: {scaling_reason}"
+        )
+        # scale = min(1.0, 1.2/1.0) = 1.0 — must reflect full not partial scale
+        assert "1.000" in scaling_reason or "scale=1.0" in scaling_reason.lower(), (
+            f"Scale should be 1.000 (full), got: {scaling_reason}"
+        )
+
+    def test_no_stress_uses_static_threshold_in_scale(self):
+        """geo=2.5, stress=0 → effective_threshold=2.0 (no change).
+        scale = min(1.0, 2.5/2.0) = 1.0 (still capped). Reason shows threshold=2.0."""
+        ctx = CrisisAlphaContext(
+            timestamp_utc=NOW,
+            geo_score=2.5,
+            geo_sources=2,
+            social_only=False,
+            market_stress_ok=True,
+            health_ok=True,
+            market_stress_score=0,
+        )
+        weights, reasons = generate_crisis_entry(ctx, self._POLICY_SCALE)
+        assert len(weights) > 0
+        scaling_reason = next(
+            (r for r in reasons if "geo_score scale applied" in r), None
+        )
+        assert scaling_reason is not None
+        assert "2.0" in scaling_reason, (
+            f"Without stress, threshold should remain 2.0, got: {scaling_reason}"
+        )

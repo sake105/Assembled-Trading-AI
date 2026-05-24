@@ -867,6 +867,7 @@ def _compute_geo_risk_composite(
     latest_symbols: list[str],
     latest: pd.DataFrame,
     as_of: pd.Timestamp | None = None,
+    ctx_geo_score: float = 0.0,
 ) -> dict[str, pd.Series]:
     """Factor 31: geo-political risk composite (Pfad B).
 
@@ -925,7 +926,22 @@ def _compute_geo_risk_composite(
         )
         return result
 
-    # Path 2: explicit zero-fill. INFO once per process (would otherwise spam
+    # Path 2: live intel geo_score fallback (ctx_geo_score > 0 means news/GPR
+    # delivered a signal at this bar — convert from 0-3 scale to GPR-equivalent).
+    if ctx_geo_score > 0.0:
+        # Map intel score (0–3) to approximate GPR units: score 3 ≈ GPR 300
+        _intel_gpr_equiv = ctx_geo_score * 100.0
+        geo_z = safe_divide(_intel_gpr_equiv, GPR_BASELINE_NORM, default=0.0)
+        geo_z = float(np.clip(geo_z, FACTOR_CLIP_MIN, FACTOR_CLIP_MAX))
+        result["geo_risk_composite"] = pd.Series(-geo_z, index=sym_idx.values)
+        logger.debug(
+            "[MF-V2] geo composite (intel fallback): ctx_geo_score=%.2f → z=%.2f",
+            ctx_geo_score,
+            geo_z,
+        )
+        return result
+
+    # Path 3: explicit zero-fill. INFO once per process (would otherwise spam
     # per-bar in backtests, ~1260 logs / 5y daily); debug thereafter.
     if not _GEO_RISK_ZERO_FILL_WARNED["fired"]:
         logger.info(
@@ -1373,7 +1389,12 @@ def compute_signals(
     )
 
     # Factor 31: Geo-political risk composite (Pfad B). F-B-1: pass as_of.
-    geo = _compute_geo_risk_composite(latest_symbols, latest, as_of=_bar_as_of)
+    # ctx_geo_score: live intel score (0–3) passed via strategy_cfg for panels
+    # that do not yet carry gpr_index (e.g. older backtests, test fixtures).
+    _ctx_geo_score = float(cfg.get("_ctx_geo_score", 0.0) or 0.0)
+    geo = _compute_geo_risk_composite(
+        latest_symbols, latest, as_of=_bar_as_of, ctx_geo_score=_ctx_geo_score
+    )
     scores["geo_risk_composite"] = (
         scores["symbol"]
         .map(geo.get("geo_risk_composite", pd.Series(dtype=float)))

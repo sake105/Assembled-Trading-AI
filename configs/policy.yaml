@@ -10,7 +10,7 @@ scope:
 shorts:
   enabled: true
   max_short_weight_per_position: 0.10   # max 10% per short position
-  max_total_short_exposure: 0.30        # max 30% total short exposure
+  max_total_short_exposure: 0.50        # raised 2026-05-24: 50% in crisis-active mode
   # Historical shorts-specific cap (long + |short|). Kept for documentation of
   # the intended headroom *if* leverage were enabled. Currently overridden by
   # `risk_limits.max_gross_exposure: 1.0` via `min()` in trading_cycle.py
@@ -28,7 +28,7 @@ shorts:
     bull: 0.0                           # no shorts in bull market
     sideways: 0.10                      # max 10% short
     bear: 0.25                          # max 25% short
-    crisis: 0.30                        # max 30% short — fully active
+    crisis: 0.50                        # raised 2026-05-24: 50% short — crisis-active
     reflation: 0.05                     # minimal
   borrow_cost_assumption_bps: 50        # 50bps p.a. borrow cost assumption
   squeeze_risk_check: true              # enable short-squeeze detection
@@ -114,10 +114,10 @@ intel:
   kill_switch:
     enabled: false           # set true to halt all intel/news/disclosures workers
 
-  # T4.1: Crisis-Alpha v1 integration (default off; shadow-only until T4.1 flip)
+  # T4.1: Crisis-Alpha v1 integration — live mode (shadow_only flipped 2026-05-24)
   crisis_alpha:
     enabled: true            # wire run_crisis_alpha_pipeline() into trading_cycle
-    shadow_only: true        # when enabled=true: log result, do not affect orders
+    shadow_only: false       # false = crisis entries and caps actually affect orders
 
   # Phase 9: Intel alpha signal layer wired into signal pipeline
   signal_layer:

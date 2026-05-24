@@ -50,6 +50,10 @@ class CrisisAlphaContext:
     news_trigger_items: list[dict[str, Any]] = field(default_factory=list)
     open_positions: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Market stress severity (0=calm, 1=moderate, 2=high). When > 0, the state
+    # machine lowers the geo_score activation threshold proportionally so that
+    # an already-stressed market requires less geo confirmation to go ACTIVE.
+    market_stress_score: int = 0
 
     @classmethod
     def empty(cls, timestamp_utc: datetime | None = None) -> "CrisisAlphaContext":

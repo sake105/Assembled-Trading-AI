@@ -257,8 +257,15 @@ def compute_next_crisis_state(
 
     # --- State-specific transitions ---
     if current == "WATCH":
+        # Dynamic threshold: elevated market stress reduces the geo_score needed
+        # to activate (0.5 per stress point, floor 1.0). A highly stressed market
+        # (stress_score=2) cuts the default 2.0 threshold in half so GPR or GDELT
+        # signals alone can trigger — matching the user's intent that we should be
+        # proactive when both geo and market signals align.
+        stress_score = max(0, min(2, getattr(ctx, "market_stress_score", 0)))
+        effective_threshold = max(1.0, activate_threshold - stress_score * 0.5)
         can_activate = (
-            ctx.geo_score >= activate_threshold
+            ctx.geo_score >= effective_threshold
             and ctx.geo_sources >= min_sources
             and not ctx.social_only
             and ctx.market_stress_ok
@@ -266,8 +273,14 @@ def compute_next_crisis_state(
         )
         if can_activate:
             next_state = "ACTIVE"
+            threshold_note = (
+                f"(stress-adj from {activate_threshold:.1f})"
+                if stress_score > 0
+                else ""
+            )
             reason = (
-                f"geo_score={ctx.geo_score:.2f} >= {activate_threshold} | "
+                f"geo_score={ctx.geo_score:.2f} >= {effective_threshold:.1f} "
+                f"{threshold_note}| "
                 f"sources={ctx.geo_sources} >= {min_sources} | "
                 f"market_stress_ok | health_ok"
             )

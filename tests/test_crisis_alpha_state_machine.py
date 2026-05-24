@@ -113,6 +113,70 @@ class TestWatchToActive:
         result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("WATCH"))
         assert result.state == "ACTIVE"
 
+    def test_dynamic_threshold_stress_2_activates_at_lower_geo(self):
+        """Market stress=2 lowers effective threshold from 2.0 → 1.0; geo=1.5 activates."""
+        ctx = CrisisAlphaContext(
+            timestamp_utc=NOW,
+            geo_score=1.5,
+            geo_sources=2,
+            social_only=False,
+            market_stress_ok=True,
+            health_ok=True,
+            market_stress_score=2,
+        )
+        result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("WATCH"))
+        assert result.state == "ACTIVE", (
+            "geo=1.5 + stress=2 should activate: effective_threshold=1.0"
+        )
+
+    def test_dynamic_threshold_no_stress_blocks_low_geo(self):
+        """Without market stress, geo=1.5 stays WATCH (effective_threshold=2.0)."""
+        ctx = CrisisAlphaContext(
+            timestamp_utc=NOW,
+            geo_score=1.5,
+            geo_sources=2,
+            social_only=False,
+            market_stress_ok=True,
+            health_ok=True,
+            market_stress_score=0,
+        )
+        result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("WATCH"))
+        assert result.state == "WATCH", (
+            "geo=1.5 + no stress should stay WATCH: effective_threshold=2.0"
+        )
+
+    def test_dynamic_threshold_floor_at_1_0(self):
+        """Even with extreme stress, effective threshold cannot drop below 1.0."""
+        ctx = CrisisAlphaContext(
+            timestamp_utc=NOW,
+            geo_score=1.0,
+            geo_sources=2,
+            social_only=False,
+            market_stress_ok=True,
+            health_ok=True,
+            market_stress_score=2,
+        )
+        result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("WATCH"))
+        assert result.state == "ACTIVE", (
+            "geo=1.0 + stress=2 should activate (effective_threshold floor=1.0)"
+        )
+
+    def test_dynamic_threshold_stress_1_partial_reduction(self):
+        """stress=1 reduces threshold by 0.5: 2.0 - 0.5 = 1.5; geo=1.5 activates."""
+        ctx = CrisisAlphaContext(
+            timestamp_utc=NOW,
+            geo_score=1.5,
+            geo_sources=2,
+            social_only=False,
+            market_stress_ok=True,
+            health_ok=True,
+            market_stress_score=1,
+        )
+        result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("WATCH"))
+        assert result.state == "ACTIVE", (
+            "geo=1.5 + stress=1 should activate: effective_threshold=1.5"
+        )
+
 
 # ---------------------------------------------------------------------------
 # ACTIVE → COOLDOWN transitions

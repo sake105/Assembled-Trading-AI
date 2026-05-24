@@ -92,6 +92,15 @@ def run_crisis_alpha_pipeline(
         ctx.geo_score,
         ctx.health_ok,
     )
+    # F-006 guard: warn when a non-dry-run starts with an already-ACTIVE persisted state.
+    # This can happen when shadow_only is flipped to False after shadow testing built up
+    # an ACTIVE state — the first real run would immediately produce live entry orders.
+    if not dry_run and previous_state == "ACTIVE":
+        logger.warning(
+            "[CRISIS_PIPELINE] WARN: loaded persisted state=ACTIVE for a non-dry-run — "
+            "if shadow_only was recently disabled, verify this ACTIVE state was not "
+            "built during shadow testing before trusting live entry targets."
+        )
 
     # --- Step 2: Compute next state ---
     new_record = compute_next_crisis_state(
@@ -114,11 +123,18 @@ def run_crisis_alpha_pipeline(
         min_sources=min_sources,
     )
 
-    # --- Step 4: Entry targets (only when ACTIVE) ---
+    # --- Step 4: Entry targets (only when ACTIVE and gates passed) ---
     target_weights: dict[str, float] = {}
     entry_reasons: list[str] = []
-    if current_state == "ACTIVE":
+    if current_state == "ACTIVE" and gates_ok:
         target_weights, entry_reasons = generate_crisis_entry(ctx, policy)
+    elif current_state == "ACTIVE":
+        # gates_ok=False: suppress entry even though state machine is ACTIVE
+        entry_reasons = ["no entry: gates_ok=False"]
+        logger.warning(
+            "[CRISIS_PIPELINE] ACTIVE but gates_ok=False — entry suppressed | %s",
+            gate_reasons,
+        )
     else:
         entry_reasons = [f"no entry: state={current_state}"]
 
