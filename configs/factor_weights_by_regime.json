@@ -1,4 +1,5 @@
 {
+  "_note": "insider_activity_score + congress_activity intentionally 0.0 in all regimes (§9.6(c), 2026-05-22). Sums per regime ≈ 1.0; runtime uses live-factor renorm. Underscore prefix: key skipped by loader.",
   "bull": {
     "trend_ema_spread": 0.4237250387,
     "trend_ma200_position": 0.0,
