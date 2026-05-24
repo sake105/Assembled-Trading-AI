@@ -601,6 +601,7 @@ def generate_signals(
         log.debug("[META-MODEL] meta_model skipped: %s", e)
 
     signals = _ensemble_signals_if_enabled(signals, features, ctx, log)
+    signals = _add_pairs_signals_if_enabled(signals, ctx, log)
 
     return signals
 
@@ -670,6 +671,209 @@ def _ensemble_signals_if_enabled(
             return _result.combined_signals
     except Exception as _e:
         log.debug("[ensemble] ensemble layer skipped: %s", _e)
+
+    return signals
+
+
+def _add_pairs_signals_if_enabled(
+    signals: "pd.DataFrame",
+    ctx: "TradingContext",
+    log: "logging.Logger",
+) -> "pd.DataFrame":
+    """Append pairs-trading signals to the main signals DataFrame (opt-in).
+
+    Activated by policy.pairs_trading.enabled=true (default: off).
+    When disabled this is a pure passthrough — no behaviour change.
+
+    Pairs signals are converted from (symbol_a, symbol_b, direction) to the
+    standard (timestamp, symbol, direction, score) contract and appended as
+    additional rows.  Each LONG_A or SHORT_A entry also adds the hedge leg
+    when policy.pairs_trading.include_hedge_leg=true (default: true).
+
+    PIT safety: ctx.prices is sliced to ctx.as_of before passing to the
+    Kalman / z-score computation, preventing look-ahead bias in backtests.
+
+    SHORT gate: SHORT-direction rows are only emitted when
+    policy.scope.shorts_allowed=true AND the normalised score meets
+    policy.scope.min_short_signal_confidence.
+    """
+    try:
+        # Re-use the policy cache that ingest_data() populated to avoid per-bar
+        # disk reads.  Use explicit None check — an empty dict is a valid cache.
+        _cached = getattr(ctx, "_policy_cache", None)
+        _policy = _cached if _cached is not None else load_policy()
+        _pairs_cfg = _policy.get("pairs_trading") or {}
+        if not _pairs_cfg.get("enabled", False):
+            return signals
+
+        from src.assembled_core.signals.pairs_trading import (
+            generate_pairs_signals_from_panel,
+        )
+
+        # Build wide-format close prices from ctx.prices (long: timestamp, symbol, close).
+        # PIT guard: slice to as_of so the Kalman filter never sees future bars.
+        _prices = getattr(ctx, "prices", None)
+        if _prices is None or _prices.empty:
+            log.debug("[pairs] ctx.prices unavailable — skipping")
+            return signals
+        _required = {"timestamp", "symbol", "close"}
+        if not _required.issubset(set(_prices.columns)):
+            log.debug("[pairs] ctx.prices missing required columns — skipping")
+            return signals
+
+        _as_of = getattr(ctx, "as_of", None)
+        if _as_of is None:
+            # as_of is required for PIT-safe slicing in every operational mode.
+            _mode = getattr(ctx, "mode", "unknown")
+            log.warning(
+                "[pairs] ctx.as_of is None (mode=%s) — skipping to avoid PIT contamination",
+                _mode,
+            )
+            return signals
+        # TZ-safe slice: normalise both sides to UTC to avoid tz-naive/tz-aware mismatch.
+        _ts_utc = pd.to_datetime(_prices["timestamp"], utc=True)
+        _cutoff = pd.Timestamp(_as_of)
+        if _cutoff.tzinfo is None:
+            _cutoff = _cutoff.tz_localize("UTC")
+        _prices = _prices.loc[(_ts_utc <= _cutoff).values]
+
+        close_wide = _prices.pivot_table(
+            index="timestamp", columns="symbol", values="close", aggfunc="last"
+        )
+        _min_hist = int(_pairs_cfg.get("min_history", 120))
+        if len(close_wide) < _min_hist:
+            log.debug(
+                "[pairs] insufficient history (%d rows) — skipping", len(close_wide)
+            )
+            return signals
+
+        _pairs_explicit = _pairs_cfg.get("pairs") or None
+        if _pairs_explicit:
+            _pairs_explicit = [tuple(p) for p in _pairs_explicit]
+
+        pairs_df = generate_pairs_signals_from_panel(
+            close_wide,
+            pairs=_pairs_explicit,
+            coint_pval_threshold=float(_pairs_cfg.get("coint_pval_threshold", 0.05)),
+            max_pairs=int(_pairs_cfg.get("max_pairs", 20)),
+            entry_z=float(_pairs_cfg.get("entry_z", 2.0)),
+            exit_z=float(_pairs_cfg.get("exit_z", 0.5)),
+            stop_z=float(_pairs_cfg.get("stop_z", 4.0)),
+            window=int(_pairs_cfg.get("window", 60)),
+            delta=float(_pairs_cfg.get("delta", 1e-4)),
+            min_history=_min_hist,
+        )
+
+        if pairs_df.empty:
+            log.debug("[pairs] no pairs signals generated")
+            return signals
+
+        # SHORT gate: respect scope.shorts_allowed and min_short_signal_confidence.
+        _scope_cfg = _policy.get("scope") or {}
+        _shorts_allowed = bool(_scope_cfg.get("shorts_allowed", False))
+        _min_short_conf = float(_scope_cfg.get("min_short_signal_confidence", 0.0))
+
+        ts_now = _as_of
+        include_hedge = bool(_pairs_cfg.get("include_hedge_leg", True))
+        _stop_z = float(_pairs_cfg.get("stop_z", 4.0)) or 4.0
+        new_rows: list[dict] = []
+
+        # Pairs do not override existing main-signal decisions.  Symbols already
+        # present in the upstream signals are skipped.  emitted_syms tracks
+        # intra-pairs conflicts (same leg in multiple cointegrated pairs).
+        existing_syms: set[str] = (
+            set(signals["symbol"].values) if not signals.empty else set()
+        )
+        emitted_syms: set[str] = set()
+
+        for _, row in pairs_df.iterrows():
+            direction = str(row["direction"])
+            z = float(row.get("z_score", 0.0))
+            # Normalise |z| to a [0, 1] score capped at stop_z.
+            score = min(1.0, abs(z) / _stop_z)
+            sym_a = str(row["symbol_a"])
+            sym_b = str(row["symbol_b"])
+
+            if direction == "LONG_A":
+                if sym_a not in existing_syms and sym_a not in emitted_syms:
+                    new_rows.append(
+                        {
+                            "timestamp": ts_now,
+                            "symbol": sym_a,
+                            "direction": "LONG",
+                            "score": score,
+                        }
+                    )
+                    emitted_syms.add(sym_a)
+                # Hedge leg: only when shorts are policy-allowed and meet confidence.
+                if include_hedge and _shorts_allowed and score >= _min_short_conf:
+                    if sym_b not in existing_syms and sym_b not in emitted_syms:
+                        new_rows.append(
+                            {
+                                "timestamp": ts_now,
+                                "symbol": sym_b,
+                                "direction": "SHORT",
+                                "score": score,
+                            }
+                        )
+                        emitted_syms.add(sym_b)
+            elif direction == "SHORT_A":
+                # Both legs of the short pair require shorts_allowed — a one-sided
+                # LONG without the short leg is not a pairs position.
+                if _shorts_allowed and score >= _min_short_conf:
+                    if sym_a not in existing_syms and sym_a not in emitted_syms:
+                        new_rows.append(
+                            {
+                                "timestamp": ts_now,
+                                "symbol": sym_a,
+                                "direction": "SHORT",
+                                "score": score,
+                            }
+                        )
+                        emitted_syms.add(sym_a)
+                    if (
+                        include_hedge
+                        and sym_b not in existing_syms
+                        and sym_b not in emitted_syms
+                    ):
+                        new_rows.append(
+                            {
+                                "timestamp": ts_now,
+                                "symbol": sym_b,
+                                "direction": "LONG",
+                                "score": score,
+                            }
+                        )
+                        emitted_syms.add(sym_b)
+            elif direction == "EXIT":
+                # EXIT always emitted for each leg (risk-reducing; no conflict check).
+                for _exit_sym in (sym_a, sym_b):
+                    if _exit_sym not in emitted_syms:
+                        new_rows.append(
+                            {
+                                "timestamp": ts_now,
+                                "symbol": _exit_sym,
+                                "direction": "FLAT",
+                                "score": 0.0,
+                            }
+                        )
+                        emitted_syms.add(_exit_sym)
+            # HOLD: no new signal
+
+        if not new_rows:
+            return signals
+
+        pairs_signals = pd.DataFrame(new_rows)
+        signals = pd.concat([signals, pairs_signals], ignore_index=True)
+        log.info(
+            "[pairs] appended %d pairs signals from %d active pairs",
+            len(new_rows),
+            len(pairs_df),
+        )
+    except Exception as _e:
+        log.warning(
+            "[pairs] pairs signal layer skipped (%s): %s", type(_e).__name__, _e
+        )
 
     return signals
 
