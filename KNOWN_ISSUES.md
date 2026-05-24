@@ -1616,3 +1616,23 @@ coincidentally-gleiche echte Monatswerte (seltener Rand-Fall, meist akzeptabel).
 
 **Entdeckt:** 2026-05-23, Stage 1 (risk-execution-reviewer), Commit-Review für news_macro_wrapper Fixture-Fixes.
 
+
+### 9.13 Crisis-Alpha: should_flatten_all Signal nicht konsumiert in _tc_sizing (OPEN)
+
+**Status:** OPEN — v1-akzeptiert, Follow-up vor nächstem Pilot-Zyklus.
+
+**Entdeckt:** 2026-05-24, Stage 3 (task-completion-auditor), Commit-Review für dd7cfda6.
+
+**Problem:** `run_crisis_alpha_pipeline` gibt `should_flatten_all` und `positions_to_exit` im Result-Dict zurück. `_sp_apply_crisis_alpha_cap` ignoriert beide Felder — sie werden weder geloggt noch ausgeführt. Wenn die Crisis-State-Machine einen Flatten-Befehl emittiert (z.B. bei PAUSE-Zustand durch daily_loss_breach), wird er in diesem Code-Pfad still verworfen.
+
+**Warum heute Low-Risk:** Der bestehende Risk-Controls-Layer (Kill-Switch, de-risk Pfade) deckt Portfolio-Flatten unabhängig ab. `shadow_only=false` ist neu aktiviert und `daily_pnl` noch nicht vollständig verdrahtet (immer 0.0 default) → PAUSE-Zustand kann heute nicht durch daily_loss ausgelöst werden.
+
+**Fix-Option:** Nach dem `ca_result`-Call in `_sp_apply_crisis_alpha_cap`:
+```python
+if ca_result.get("should_flatten_all"):
+    log.warning("[T4.1] crisis_alpha: should_flatten_all=True — flatten not yet "
+                "executed by _tc_sizing; risk-controls layer must handle.")
+```
+Vollständige Flatten-Ausführung ist Feature-Scope, nicht Bugfix.
+
+**Priorität:** Vor nächstem Pilot-Zyklus mit echter daily_pnl-Verdrahtung adressieren.
