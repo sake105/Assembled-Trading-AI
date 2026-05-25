@@ -1079,3 +1079,22 @@ class TestCrisisAlphaFlattenVisibility:
             any(kw in r.message for kw in ("should_flatten_all", "positions_to_exit"))
             for r in caplog.records
         ), "no flatten warnings expected when both fields are nominal"
+
+    def test_should_flatten_all_true_but_no_open_positions_no_warning(
+        self, caplog
+    ) -> None:
+        """should_flatten_all=True must be silent when open_positions is empty."""
+        import logging
+
+        with caplog.at_level(
+            logging.WARNING, logger="src.assembled_core.pipeline._tc_sizing"
+        ):
+            # No crisis_open_positions → _open_positions=[] → guard suppresses warning
+            self._call_with_flatten_result(
+                should_flatten_all=True,
+                positions_to_exit=[],
+                crisis_open_positions=[],
+            )
+        assert not any("should_flatten_all" in r.message for r in caplog.records), (
+            "should_flatten_all=True with empty open positions must not warn (no positions to flatten)"
+        )
