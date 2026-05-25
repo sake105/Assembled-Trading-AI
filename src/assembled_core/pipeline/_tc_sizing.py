@@ -12,6 +12,10 @@ import pandas as pd
 # Item 3: bounded to _MAX_HMM_CACHE_ENTRIES to prevent memory leak during walk-forward runs.
 _HMM_MKT_RET_CACHE: dict[str, pd.Series] = {}
 _MAX_HMM_CACHE_ENTRIES = 4
+
+# GPR parquet cache: keyed by file path; loaded once per process (monthly data, ~1500 rows).
+# Avoids re-reading on every backtest cycle while keeping the direct-read fallback cheap.
+_GPR_PARQUET_CACHE: dict[str, "pd.DataFrame | None"] = {}
 from src.assembled_core.config.policy_loader import load_policy
 from src.assembled_core.pipeline.trading_cycle_shared import (
     TradingContext,
@@ -1384,6 +1388,11 @@ def _sp_apply_crisis_alpha_cap(
             # F-CA-005: only activate when BOTH geo_score and live triggers are absent.
             # Prevents GPR from overriding a live intel "no crisis" judgment.
             if _geo_score == 0.0 and not _news_trigger_items:
+                # Source the GPR time series.  Two paths:
+                # 1. ctx.features (live/paper — TradingContext exposes enriched panel)
+                # 2. Direct parquet read (backtest — TradingContext does NOT store
+                #    prices_with_features as ctx.features; this is the primary path).
+                _gpr_s: pd.Series = pd.Series(dtype=float)
                 _feat = getattr(ctx, "features", None)
                 if _feat is not None and "gpr_index" in _feat.columns:
                     _gpr_s = pd.to_numeric(_feat["gpr_index"], errors="coerce").dropna()
@@ -1407,43 +1416,97 @@ def _sp_apply_crisis_alpha_cap(
                                 _tz_exc,
                             )
                             _gpr_s = pd.Series(dtype=float)
-                    # Use most recent available value (not mean — avoids cross-row averaging)
-                    _gpr_val = float(_gpr_s.iloc[-1] if len(_gpr_s) > 0 else 0.0)
-                    if _gpr_val > 200:
-                        _geo_score = 2.0
-                        # GPR is an institutional-quality single-source index. Setting
-                        # geo_sources=2 lets the min_sources=2 gate pass by design —
-                        # GPR has confirmed cross-crisis reliability unlike social signals.
-                        _geo_sources = 2
-                        # CR-001 fix: provide synthetic trigger so evidence gate passes.
-                        # GPR index IS derived from news-article counts — the trigger is real.
-                        _news_trigger_items = [
-                            {
-                                "severity": 2,
-                                "topic": "gpr_index",
-                                "source": "Caldara-Iacoviello",
-                            }
-                        ]
-                        log.debug(
-                            "[T4.1] GPR fallback: gpr=%.1f -> geo_score=2.0", _gpr_val
-                        )
-                    elif _gpr_val > 150:
-                        _geo_score = 1.0
-                        _geo_sources = 2
-                        _news_trigger_items = [
-                            {
-                                "severity": 1,
-                                "topic": "gpr_index",
-                                "source": "Caldara-Iacoviello",
-                            }
-                        ]
-                        log.debug(
-                            "[T4.1] GPR fallback: gpr=%.1f -> geo_score=1.0", _gpr_val
-                        )
+                else:
+                    # Backtest direct-read: load GPR parquet once (module-level cache),
+                    # then filter to rows at or before as_of (PIT-safe).
+                    try:
+                        _gpr_cfg = (policy or {}).get("features", {}).get(
+                            "macro_gpr"
+                        ) or {}
+                        if _gpr_cfg.get("enabled", True):
+                            _gpr_path = str(
+                                _gpr_cfg.get("path", "output/macro_gpr.parquet")
+                            )
+                            if _gpr_path not in _GPR_PARQUET_CACHE:
+                                try:
+                                    _GPR_PARQUET_CACHE[_gpr_path] = pd.read_parquet(
+                                        _gpr_path, columns=["timestamp", "gpr_index"]
+                                    )
+                                    log.debug(
+                                        "[T4.1] GPR cache loaded: %s (%d rows)",
+                                        _gpr_path,
+                                        len(_GPR_PARQUET_CACHE[_gpr_path]),
+                                    )
+                                except Exception as _load_exc:
+                                    log.warning(
+                                        "[T4.1] GPR parquet load failed path=%s err=%s",
+                                        _gpr_path,
+                                        _load_exc,
+                                    )
+                                    _GPR_PARQUET_CACHE[_gpr_path] = None
+                            _gpr_df = _GPR_PARQUET_CACHE.get(_gpr_path)
+                            if _gpr_df is not None and not _gpr_df.empty:
+                                _gpr_ts = pd.to_datetime(_gpr_df["timestamp"], utc=True)
+                                _cutoff = pd.Timestamp(_as_of_dt)
+                                if _cutoff.tzinfo is None:
+                                    _cutoff = _cutoff.tz_localize("UTC")
+                                else:
+                                    _cutoff = _cutoff.tz_convert("UTC")
+                                # Apply same release lag as merge_gpr_index_into_panel
+                                # (monthly index published ~32 days after period end).
+                                _release_lag = int(_gpr_cfg.get("release_lag_days", 32))
+                                _available_cutoff = _cutoff - pd.Timedelta(
+                                    days=_release_lag
+                                )
+                                _gpr_s = pd.to_numeric(
+                                    _gpr_df.loc[
+                                        _gpr_ts <= _available_cutoff, "gpr_index"
+                                    ],
+                                    errors="coerce",
+                                ).dropna()
+                    except Exception as _gpr_exc:
+                        log.debug("[T4.1] GPR direct read skipped: %s", _gpr_exc)
+
+                # Use most recent available value (not mean — avoids cross-row averaging).
+                _gpr_val = float(_gpr_s.iloc[-1] if len(_gpr_s) > 0 else 0.0)
+                if _gpr_val > 200:
+                    _geo_score = 2.0
+                    # GPR is an institutional-quality single-source index. Setting
+                    # geo_sources=2 lets the min_sources=2 gate pass by design —
+                    # GPR has confirmed cross-crisis reliability unlike social signals.
+                    _geo_sources = 2
+                    # CR-001 fix: provide synthetic trigger so evidence gate passes.
+                    # GPR index IS derived from news-article counts — the trigger is real.
+                    _news_trigger_items = [
+                        {
+                            "severity": 2,
+                            "topic": "gpr_index",
+                            "source": "Caldara-Iacoviello",
+                        }
+                    ]
+                    log.debug(
+                        "[T4.1] GPR fallback: gpr=%.1f -> geo_score=2.0", _gpr_val
+                    )
+                elif _gpr_val > 150:
+                    _geo_score = 1.0
+                    _geo_sources = 2
+                    _news_trigger_items = [
+                        {
+                            "severity": 1,
+                            "topic": "gpr_index",
+                            "source": "Caldara-Iacoviello",
+                        }
+                    ]
+                    log.debug(
+                        "[T4.1] GPR fallback: gpr=%.1f -> geo_score=1.0", _gpr_val
+                    )
 
             # --- market stress ---
+            # Default True (pass-through) when absent — mirrors health_ok convention.
+            # Live/paper will supply a real stress dict; backtest has none, so we must
+            # not veto GPR-driven crisis activation when no stress signal exists.
             _ms = getattr(ctx, "market_stress", None) or {}
-            _market_stress_ok = bool(_ms.get("stress_ok", False))
+            _market_stress_ok = bool(_ms.get("stress_ok", True))
             _market_stress_score = int(_ms.get("stress_score", 0))
 
             # --- health ---

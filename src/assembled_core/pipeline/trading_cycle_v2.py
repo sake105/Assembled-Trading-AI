@@ -291,7 +291,30 @@ def _load_intel(
     # Market stress (INT-5)
     ms_cfg = policy.get("market_stress") or {}
     if ms_cfg.get("enabled", False):
-        ctx.market_stress = compute_market_stress(ctx.prices, policy)
+        # PIT guard: filter prices to ≤ as_of before computing stress so that
+        # backtest replays see the correct historical vol/DD, not the dataset tail.
+        # In live/paper the prices are already current, so this is a no-op.
+        _ms_prices = ctx.prices
+        _ms_as_of = getattr(ctx, "as_of", None)
+        if (
+            _ms_as_of is not None
+            and _ms_prices is not None
+            and not _ms_prices.empty
+            and "timestamp" in _ms_prices.columns
+        ):
+            try:
+                _as_of_ts = pd.to_datetime(_ms_as_of, utc=True)
+                _ms_prices = _ms_prices[
+                    pd.to_datetime(_ms_prices["timestamp"], utc=True) <= _as_of_ts
+                ]
+            except Exception as _pit_exc:
+                log.warning(
+                    "market_stress PIT filter failed (%s) — using full price slice",
+                    _pit_exc,
+                )
+                ctx.intel_health_flags = ctx.intel_health_flags or {}
+                ctx.intel_health_flags["intel_market_stress"] = "DEGRADED"
+        ctx.market_stress = compute_market_stress(_ms_prices, policy)
     else:
         ctx.market_stress = None
 
