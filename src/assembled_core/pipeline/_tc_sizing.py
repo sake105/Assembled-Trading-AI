@@ -1545,8 +1545,31 @@ def _sp_apply_crisis_alpha_cap(
             .get("crisis_alpha", {})
             .get("shadow_only", True)
         ) or (os.environ.get("ASSEMBLED_NO_CRISIS_OVERLAY") == "1")
+        # Pass PIT-filtered prices for regime-aware basket selection.
+        # ctx.prices is the full dataset; as_of filtering mirrors the _load_intel PIT guard.
+        _ca_prices_df: object = None
+        _ca_as_of = getattr(ctx, "as_of", None)
+        _ctx_prices = getattr(ctx, "prices", None)
+        if (
+            _ca_as_of is not None
+            and _ctx_prices is not None
+            and not getattr(_ctx_prices, "empty", True)
+        ):
+            try:
+                import pandas as _pd
+
+                _ca_prices_df = _ctx_prices[
+                    _pd.to_datetime(_ctx_prices["timestamp"], utc=True)
+                    <= _pd.to_datetime(_ca_as_of, utc=True)
+                ]
+            except Exception as _regime_exc:
+                log.warning(
+                    "[T4.1] PIT price filter for regime detection failed (%s) — regime detection disabled",
+                    _regime_exc,
+                )
+                _ca_prices_df = None
         ca_result = run_crisis_alpha_pipeline(
-            _ca_ctx, policy=policy, dry_run=shadow_only
+            _ca_ctx, policy=policy, dry_run=shadow_only, prices_df=_ca_prices_df
         )
         # §9.13 visibility: log flatten/exit commands so silent discard is observable.
         # Gated on not shadow_only — backtest/paper-shadow noise would mask real alerts.

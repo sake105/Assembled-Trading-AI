@@ -24,8 +24,16 @@ from __future__ import annotations
 import logging
 from datetime import timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    pass
+
+from src.assembled_core.events.crisis_alpha.baskets import (
+    RATE_HIKE_BASKETS,
+    _get_regime_cfg,
+    detect_rate_regime,
+)
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
 from src.assembled_core.events.crisis_alpha.entry import generate_crisis_entry
 from src.assembled_core.events.crisis_alpha.exit_rules import (
@@ -49,6 +57,7 @@ def run_crisis_alpha_pipeline(
     *,
     state_path: Path | str | None = None,
     prices: dict[str, float] | None = None,
+    prices_df: "Any | None" = None,
     reset_pause: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
@@ -123,11 +132,54 @@ def run_crisis_alpha_pipeline(
         min_sources=min_sources,
     )
 
+    # --- Step 3b: Regime-aware basket injection ---
+    # Only inject when regime detection is enabled AND prices_df is available.
+    # PIT safety: prices_df must already be filtered to <= as_of by the caller.
+    # Supports both flat policy["crisis_alpha"] (test format) and nested
+    # policy["intel"]["crisis_alpha"] (production policy.yaml format).
+    effective_policy = policy
+    if prices_df is not None:
+        cfg = _get_regime_cfg(policy)
+        if cfg.get("enabled", False):
+            _threshold = float(cfg.get("rate_hike_threshold", -0.05))
+            _lb = int(cfg.get("lookback_days", 90))
+            regime = detect_rate_regime(
+                prices_df, now_utc, lookback_days=_lb, threshold=_threshold
+            )
+            if regime == "rate_hike":
+                import copy
+
+                effective_policy = copy.deepcopy(policy)
+                _p = effective_policy or {}
+                if "crisis_alpha" in _p:
+                    _p["crisis_alpha"]["baskets"] = list(RATE_HIKE_BASKETS)
+                    logger.info(
+                        "[CRISIS_PIPELINE] rate_hike regime at %s — "
+                        "injecting RATE_HIKE_BASKETS: %s",
+                        now_utc,
+                        [b["symbol"] for b in RATE_HIKE_BASKETS],
+                    )
+                elif _p.get("intel", {}).get("crisis_alpha") is not None:
+                    _p["intel"]["crisis_alpha"]["baskets"] = list(RATE_HIKE_BASKETS)
+                    logger.info(
+                        "[CRISIS_PIPELINE] rate_hike regime at %s — "
+                        "injecting RATE_HIKE_BASKETS (intel format): %s",
+                        now_utc,
+                        [b["symbol"] for b in RATE_HIKE_BASKETS],
+                    )
+                else:
+                    logger.warning(
+                        "[CRISIS_PIPELINE] rate_hike regime at %s — "
+                        "no crisis_alpha policy key found, basket injection skipped",
+                        now_utc,
+                    )
+                    effective_policy = policy  # revert — deepcopy was unnecessary
+
     # --- Step 4: Entry targets (only when ACTIVE and gates passed) ---
     target_weights: dict[str, float] = {}
     entry_reasons: list[str] = []
     if current_state == "ACTIVE" and gates_ok:
-        target_weights, entry_reasons = generate_crisis_entry(ctx, policy)
+        target_weights, entry_reasons = generate_crisis_entry(ctx, effective_policy)
     elif current_state == "ACTIVE":
         # gates_ok=False: suppress entry even though state machine is ACTIVE
         entry_reasons = ["no entry: gates_ok=False"]

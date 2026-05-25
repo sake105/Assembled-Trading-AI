@@ -118,6 +118,10 @@ intel:
   crisis_alpha:
     enabled: true            # wire run_crisis_alpha_pipeline() into trading_cycle
     shadow_only: false       # false = crisis entries and caps actually affect orders
+    basket_regime_detection:
+      enabled: true          # switch basket based on rate regime (TLT vs SHY momentum)
+      lookback_days: 90      # rolling window for TLT/SHY relative performance
+      rate_hike_threshold: -0.05  # TLT-SHY gap below this => rate_hike basket (XLE/XLU/GLD/SHY)
 
   # Phase 9: Intel alpha signal layer wired into signal pipeline
   signal_layer:
