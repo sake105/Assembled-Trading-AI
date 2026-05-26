@@ -278,6 +278,17 @@ turnover_budget:
   qc:
     if_missing_prices: "scale_to_zero"
 
+# Dead-Man's Switch — passive heartbeat monitor.
+# If the trading cycle fails to write a heartbeat within timeout_seconds,
+# the DMS daemon auto-flattens all positions via the kill switch.
+# See src/assembled_core/ops/dead_man_switch.py and scripts/dms_daemon.py.
+dead_man_switch:
+  enabled: true
+  timeout_seconds: 900          # 15 min — flatten if no heartbeat for this long
+  check_interval_seconds: 60    # poll every 60s
+  flatten_mode: "market"        # "market" = activate kill switch; "shadow" = log only
+  log_path: "output/ops/dms_audit.jsonl"
+
 profit_lock:
   enabled: true
   lookback_days: 20
