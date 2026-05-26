@@ -152,7 +152,7 @@ intel:
 # Backtest (EOD vs open): python scripts/backtest_news_alpha_intraday.py
 news_alpha:
   enabled: true
-  shadow_only: true          # safe default — flip to false after paper validation
+  shadow_only: false         # T5: paper validation active — flipped 2026-05-26
   base_weight: 0.08          # base weight per signal (scaled by severity)
   leverage_etfs_allowed: false  # disallow UCO/TBT until paper validation passes
   # Sub-portfolio cap consumed by signals_to_weights() inside the pipeline.

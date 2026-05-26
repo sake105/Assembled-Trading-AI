@@ -1630,9 +1630,9 @@ coincidentally-gleiche echte Monatswerte (seltener Rand-Fall, meist akzeptabel).
 **Noch offen:** Vollständige Flatten-Ausführung (positions_to_exit → FLAT orders an Downstream-Sizing). Adressieren vor Pilot-Zyklus mit echter daily_pnl-Verdrahtung.
 
 
-### 9.14 News-Alpha: Intraday-Runner — ADDRESSED (2026-05-26)
+### 9.14 News-Alpha: Intraday-Runner — FULLY ADDRESSED (2026-05-26)
 
-**Status:** ADDRESSED — `scripts/run_news_alpha_intraday.py` gebaut und review-chain-validiert (Stage 1+2+3 PASS).
+**Status:** FULLY ADDRESSED — vollständiger Build-Order (Steps 1–5) abgeschlossen.
 
 **Was gebaut wurde:**
 - Polling-Loop alle 300s während NYSE-Marktzeiten (09:30–16:00 ET)
@@ -1640,7 +1640,9 @@ coincidentally-gleiche echte Monatswerte (seltener Rand-Fall, meist akzeptabel).
 - `_events_to_triggers()`: RSS-Events → Trigger-Dicts mit Severity-Floor für gematchte Events
 - `run_news_alpha_pipeline()` für Events mit severity >= min_severity
 - Alpaca-Market-Orders in `--live`-Modus; Shadow-Mode ist Default
-- State-Persistenz: `output/news_alpha_state.json` (open_signals, seen_event_ids, day_counter)
+- State-Persistenz: `output/news_alpha_state.json` (open_signals, seen_event_ids, day_counter); atomares Write (.tmp → rename)
+- `seen_ids_list` + `seen_ids_set` dual-struktur: O(1)-Lookup + insertions-order-deterministisches Trim (F-002 fix)
+- Policy-Sync: `main()` lädt `configs/policy.yaml`; `--leverage` CLI-Flag kann `leverage_etfs_allowed` überschreiben (F-001 fix)
 - Execution-Guards: Preis-Sanity ($0.50 Floor), notional Cap (25% pro Symbol), Exit-Deactivate vor Submit, entered-symbol Tracking
 
 **Verwendung:**
@@ -1651,16 +1653,21 @@ python scripts/run_news_alpha_intraday.py --min-severity 3   # critical only
 python scripts/run_news_alpha_intraday.py --no-market-hours-check  # dev/testing
 ```
 
-**Wiring in `_tc_sizing.py` — COMPLETED 2026-05-26 (commit 4715fc90):**
+**Wiring in `_tc_sizing.py` — COMPLETED (commit 4715fc90):**
 - `_sp_apply_news_alpha()` nach `_sp_apply_crisis_alpha_cap` eingehängt
-- `policy.yaml`: `news_alpha: enabled: true, shadow_only: true` — Live-Mode erfordert explizites Opt-in
-- 20 Tests in `tests/test_trading_cycle_news_alpha.py` — Stage 1+2 PASS
+- 20 Tests in `tests/test_trading_cycle_news_alpha.py` — Stage 1+2+3 PASS
+
+**Paper-Aktivierung — COMPLETED (Step 5, 2026-05-26):**
+- `policy.yaml`: `news_alpha.shadow_only: false` — EOD-Pfad aktiv
+- Intraday-Runner: `--live`-Flag für Broker-Order-Submission (unabhängig von policy.yaml)
+- Smoke-Tests: `tests/test_news_alpha_runner.py` — 36 Tests PASS (inkl. F-002 Trim-Regression)
+- Stage 1+2 review chain vor Commit: 2 MAJORs behoben (F-001 policy.yaml wiring, F-002 set-trim), 1 docstring-fix in `_tc_sizing.py`
 
 **Verbleibende Follow-ups (nicht blockierend):**
 - Intraday-Backtest mit 1h/1min-Bars zur Validierung der Timing-Annahme
-- `shadow_only: false` in policy.yaml nach Paper-Validierung setzen (Step 5)
-- Dedizierte Tests für den Runner (smoke test via `--no-market-hours-check`)
+- F-003: `warnings.filterwarnings("ignore")` durch gezielten Filter ersetzen
+- F-004: Failed-Exits hinterlassen keine Spur in State (orphaned Alpaca Position)
 
-**Backtest-Implikation bleibt:** `scripts/backtest_news_alpha.py` nutzt EOD-Close — für Öl/Energie-Events systematisch zu spät. Runner löst das operativ; Backtest-Validation noch offen.
+**Backtest-Implikation bleibt:** `scripts/backtest_news_alpha.py` nutzt EOD-Close — für Öl/Energie-Events systematisch zu spät. Runner löst das operativ; 1h-Backtest noch offen.
 
 **Entdeckt/bestätigt:** 2026-05-26.

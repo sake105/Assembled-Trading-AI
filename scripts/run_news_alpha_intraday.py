@@ -320,7 +320,10 @@ def _load_state() -> dict:
 
 def _save_state(state: dict) -> None:
     _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _STATE_FILE.write_text(json.dumps(state, indent=2, default=str), encoding="utf-8")
+    # Atomic write: write to .tmp then rename so a crash mid-write never corrupts state.
+    _tmp = _STATE_FILE.with_suffix(".tmp")
+    _tmp.write_text(json.dumps(state, indent=2, default=str), encoding="utf-8")
+    _tmp.replace(_STATE_FILE)
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +375,7 @@ def _events_to_triggers(
         urgency = getattr(ev, "urgency", 0.0) or 0.0
         if urgency > 0.5:
             sev_float = max(sev_float, 7.0)
-        elif topic_id is not None:
+        else:
             sev_float = max(sev_float, 4.0)  # matched keyword => at least sev=2
 
         int_sev = _severity_float_to_int(sev_float)
@@ -524,7 +527,8 @@ def run_loop(
 
     fetcher = RSSFetcher()
     state = _load_state()
-    seen_event_ids: set[str] = set(state.get("seen_event_ids", []))
+    seen_ids_list: list[str] = list(state.get("seen_event_ids", []))
+    seen_event_ids: set[str] = set(seen_ids_list)
     open_signals: list[NewsAlphaSignal] = [
         _dict_to_signal(d) for d in state.get("open_signals", [])
     ]
@@ -580,9 +584,15 @@ def run_loop(
             triggers, new_ids = _events_to_triggers(
                 events, seen_event_ids, min_severity
             )
-            seen_event_ids.update(new_ids)
-            if len(seen_event_ids) > _MAX_SEEN_IDS:
-                seen_event_ids = set(list(seen_event_ids)[-(_MAX_SEEN_IDS // 2) :])
+            # F-002 fix: maintain insertion-order list for deterministic trim.
+            # The set provides O(1) membership lookup; the list preserves recency.
+            for nid in new_ids:
+                if nid not in seen_event_ids:
+                    seen_ids_list.append(nid)
+                    seen_event_ids.add(nid)
+            if len(seen_ids_list) > _MAX_SEEN_IDS:
+                seen_ids_list = seen_ids_list[-(_MAX_SEEN_IDS // 2) :]
+                seen_event_ids = set(seen_ids_list)
 
             # --- 3. Collect symbols needed for price fetch ---
             price_syms: set[str] = {sig.symbol for sig in open_signals}
@@ -631,7 +641,7 @@ def run_loop(
             _save_state(
                 {
                     "open_signals": [_signal_to_dict(s) for s in open_signals],
-                    "seen_event_ids": list(seen_event_ids)[-(_MAX_SEEN_IDS // 2) :],
+                    "seen_event_ids": seen_ids_list,
                     "day_counter": day_counter,
                     "last_date": last_date,
                     "last_poll_utc": now_utc.isoformat(),
@@ -726,15 +736,24 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
 
-    policy = {
-        "news_alpha": {
-            "enabled": True,
-            "base_weight": 0.06,
-            "leverage_etfs_allowed": args.leverage,
-            "max_gross_exposure": 0.30,
-        }
-    }
+    # F-001 fix: load configs/policy.yaml so base_weight/max_gross_exposure stay
+    # in sync with the EOD pipeline.  Fall back to _DEFAULT_POLICY if unavailable.
+    _policy_path = Path(__file__).parent.parent / "configs" / "policy.yaml"
+    try:
+        import yaml  # noqa: PLC0415
 
+        policy: dict = yaml.safe_load(_policy_path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        logger.warning("[WARN] could not load policy.yaml (%s) — using defaults", exc)
+        policy = _DEFAULT_POLICY.copy()
+
+    # --leverage CLI flag overrides policy.yaml leverage_etfs_allowed so operators
+    # can enable leverage for a single run without editing the config file.
+    if args.leverage:
+        policy.setdefault("news_alpha", {})["leverage_etfs_allowed"] = True
+
+    # --live controls broker order submission; this is independent of policy.yaml
+    # shadow_only (which gates the EOD pipeline path in _tc_sizing.py).
     run_loop(
         shadow_only=not args.live,
         poll_interval=args.poll,

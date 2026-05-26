@@ -1718,8 +1718,9 @@ def _sp_apply_news_alpha(
     exits against live prices. open_signals=[] here is intentional — the EOD sizing
     cycle uses this function to apply any *new* trigger items arriving at EOD (e.g.
     after-hours RSS), NOT to duplicate the intraday runner's position management.
-    ctx.meta["news_alpha_open_signals"] is populated by the live/paper worker when
-    it hands off state to the EOD cycle; in backtest and shadow mode it is empty.
+    open_signals is always empty here. The intraday runner manages position lifecycle
+    exclusively via output/news_alpha_state.json; there is no state hand-off to the
+    EOD cycle. In backtest mode there are no intraday runner positions by definition.
 
     Trigger items: sourced from ctx.news_geo["news_trigger_items"] — same live-intel
     path as crisis_alpha. No GPR fallback: news_alpha requires a concrete news event.
