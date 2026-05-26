@@ -1651,9 +1651,14 @@ python scripts/run_news_alpha_intraday.py --min-severity 3   # critical only
 python scripts/run_news_alpha_intraday.py --no-market-hours-check  # dev/testing
 ```
 
+**Wiring in `_tc_sizing.py` — COMPLETED 2026-05-26 (commit 4715fc90):**
+- `_sp_apply_news_alpha()` nach `_sp_apply_crisis_alpha_cap` eingehängt
+- `policy.yaml`: `news_alpha: enabled: true, shadow_only: true` — Live-Mode erfordert explizites Opt-in
+- 20 Tests in `tests/test_trading_cycle_news_alpha.py` — Stage 1+2 PASS
+
 **Verbleibende Follow-ups (nicht blockierend):**
 - Intraday-Backtest mit 1h/1min-Bars zur Validierung der Timing-Annahme
-- Wiring in `_tc_sizing.py` mit `shadow_only=False` nach Paper-Validierung
+- `shadow_only: false` in policy.yaml nach Paper-Validierung setzen (Step 5)
 - Dedizierte Tests für den Runner (smoke test via `--no-market-hours-check`)
 
 **Backtest-Implikation bleibt:** `scripts/backtest_news_alpha.py` nutzt EOD-Close — für Öl/Energie-Events systematisch zu spät. Runner löst das operativ; Backtest-Validation noch offen.
