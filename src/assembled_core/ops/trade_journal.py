@@ -86,6 +86,10 @@ def append_trade_journal_entry(
         "signal_reason": ctx.get("reason"),
         "run_id": run_id,
     }
+    if fill.get("algo_type"):
+        entry["algo_type"] = str(fill["algo_type"])
+    if fill.get("algo_n_slices"):
+        entry["algo_n_slices"] = int(fill["algo_n_slices"])
 
     # For sells: compute realized P&L from ledger
     if side == "SELL" and ledger_state:

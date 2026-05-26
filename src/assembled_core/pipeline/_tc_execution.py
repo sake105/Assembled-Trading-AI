@@ -452,17 +452,29 @@ def book_fills(
             _of = result.orders_filtered
             _qty_col = "quantity" if "quantity" in _of.columns else "qty"
             _price_col = "price" if "price" in _of.columns else "limit_price"
-            _tj_fills = [
-                {
-                    "symbol": str(r["symbol"]),
-                    "side": str(r["side"]),
-                    "qty": float(r[_qty_col] if pd.notna(r[_qty_col]) else 0),
-                    "price": float(r[_price_col] if pd.notna(r[_price_col]) else 0),
-                }
-                for r in _of[["symbol", "side", _qty_col, _price_col]].itertuples(
-                    index=False
-                )
+            _algo_avail = [
+                c for c in ("algo_type", "algo_n_slices") if c in _of.columns
             ]
+            _tj_fills = []
+            for _row in _of[
+                ["symbol", "side", _qty_col, _price_col] + _algo_avail
+            ].itertuples(index=False):
+                _qty_val = getattr(_row, _qty_col)
+                _px_val = getattr(_row, _price_col)
+                _e: dict = {
+                    "symbol": str(getattr(_row, "symbol")),
+                    "side": str(getattr(_row, "side")),
+                    "qty": float(_qty_val if pd.notna(_qty_val) else 0),
+                    "price": float(_px_val if pd.notna(_px_val) else 0),
+                }
+                if "algo_type" in _algo_avail:
+                    _e["algo_type"] = str(getattr(_row, "algo_type", ""))
+                if "algo_n_slices" in _algo_avail:
+                    _ns = getattr(_row, "algo_n_slices", None)
+                    _e["algo_n_slices"] = (
+                        int(_ns) if (_ns is not None and pd.notna(_ns)) else 0
+                    )
+                _tj_fills.append(_e)
             append_trade_journal_entries(
                 _tj_fills,
                 signal_context={

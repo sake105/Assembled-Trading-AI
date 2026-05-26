@@ -5,10 +5,12 @@ Verifies:
 - no annotation when disabled
 - no annotation when mode is backtest
 - VWAP algo_type annotation when policy specifies algo=VWAP
+- algo_type/algo_n_slices flow through to trade journal entries
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -222,3 +224,63 @@ def test_per_row_slice_count_with_mixed_qtys():
     result = _route_multi(policy, qtys=[100.0, 3.0, float("nan"), -50.0, float("inf")])
 
     assert list(result["algo_n_slices"]) == [10, 3, 1, 10, 1]
+
+
+# ---------------------------------------------------------------------------
+# Trade-journal pass-through tests (E-024 closure)
+# ---------------------------------------------------------------------------
+
+
+def test_trade_journal_entry_includes_algo_metadata(tmp_path: Path) -> None:
+    """append_trade_journal_entry writes algo_type + algo_n_slices when supplied."""
+    from src.assembled_core.ops.trade_journal import append_trade_journal_entry
+
+    fill = {
+        "symbol": "AAPL",
+        "side": "BUY",
+        "qty": 50.0,
+        "price": 150.0,
+        "algo_type": "TWAP",
+        "algo_n_slices": 10,
+    }
+    entry = append_trade_journal_entry(
+        fill, journal_path=tmp_path / "trade_journal.jsonl"
+    )
+
+    assert entry.get("algo_type") == "TWAP", f"algo_type missing from entry: {entry}"
+    assert entry.get("algo_n_slices") == 10, (
+        f"algo_n_slices missing from entry: {entry}"
+    )
+
+
+def test_trade_journal_entry_omits_algo_metadata_when_absent(tmp_path: Path) -> None:
+    """append_trade_journal_entry does not inject algo keys when fill has none."""
+    from src.assembled_core.ops.trade_journal import append_trade_journal_entry
+
+    fill = {"symbol": "AAPL", "side": "BUY", "qty": 50.0, "price": 150.0}
+    entry = append_trade_journal_entry(
+        fill, journal_path=tmp_path / "trade_journal.jsonl"
+    )
+
+    assert "algo_type" not in entry
+    assert "algo_n_slices" not in entry
+
+
+def test_trade_journal_entry_omits_algo_metadata_when_empty_string(
+    tmp_path: Path,
+) -> None:
+    """algo_type='' (disabled annotation) → key not written to journal."""
+    from src.assembled_core.ops.trade_journal import append_trade_journal_entry
+
+    fill = {
+        "symbol": "AAPL",
+        "side": "BUY",
+        "qty": 10.0,
+        "price": 100.0,
+        "algo_type": "",
+    }
+    entry = append_trade_journal_entry(
+        fill, journal_path=tmp_path / "trade_journal.jsonl"
+    )
+
+    assert "algo_type" not in entry
