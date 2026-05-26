@@ -82,7 +82,7 @@ def get_universe_members(
     as_of: pd.Timestamp | str | None = None,
     universe_name: str = "default",
     root: Path | None = None,
-    require_active_status: bool = False,
+    require_active_status: bool = True,
 ) -> list[str]:
     """Return sorted list of symbols active in the universe at *as_of*.
 
@@ -98,9 +98,10 @@ def get_universe_members(
         as_of: Point-in-time timestamp. Naive timestamps treated as UTC.
         universe_name: Universe to query.
         root: Directory containing universe files.
-        require_active_status: If True, symbols with end_date=NaT must have
-            status='active' to be included. Prevents survivorship bias when
-            delisted symbols have no recorded end_date.
+        require_active_status: If True (default), symbols with end_date=NaT must
+            have status='active' to be included. Prevents survivorship bias when
+            delisted symbols have no recorded end_date. Pass False explicitly if
+            you need the unsafe behaviour and accept the survivorship-bias risk.
     """
     if as_of is None:
         # A caller that forgets to pass `as_of` in a historical backtest path
@@ -124,6 +125,13 @@ def get_universe_members(
                 if line.strip() and not line.startswith("#")
             )
         return []
+
+    if not require_active_status:
+        logger.warning(
+            "[SURVIVORSHIP-BIAS-RISK] get_universe_members called with "
+            "require_active_status=False — delisted symbols may be included. "
+            "Pass explicitly to suppress this warning."
+        )
 
     if isinstance(as_of, str):
         as_of = pd.Timestamp(as_of)

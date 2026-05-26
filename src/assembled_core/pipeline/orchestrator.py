@@ -1301,6 +1301,35 @@ def run_eod_pipeline(
         logger.error("ERROR in execute step: %s", e, exc_info=True)
         failure_flag = True
 
+    # Step 2b: Factor Decay Monitoring (non-blocking — monitoring only)
+    # NOTE: `prices` contains only OHLCV columns at this pipeline stage — factor columns
+    # are not present here.  Passing it to run_factor_decay_monitoring would cause
+    # auto-detection to find nothing and return status='skip' on every single run,
+    # producing zero monitoring output.  The correct wiring point is AFTER signal /
+    # factor computation where a full panel_df (with factor columns) is available.
+    # Until that wiring exists, we pass panel_df=None so the skip is explicit and
+    # clearly logged rather than silently producing empty results.
+    # TODO: wire to post-signal-computation step when factor panel is available.
+    try:
+        from src.assembled_core.qa.factor_decay_reporter import (
+            run_factor_decay_monitoring,
+        )
+
+        logger.info("Step 2b: Factor Decay Monitoring")
+        _fd_result = run_factor_decay_monitoring(
+            panel_df=None,  # factor panel not available at this pipeline stage — see comment above
+            log_path=base / "qa" / "factor_decay_log.jsonl",
+        )
+        logger.info(
+            "[FACTOR-DECAY] step 2b status=%s message=%s",
+            _fd_result.get("status"),
+            _fd_result.get("message", ""),
+        )
+    except Exception as _fdr_exc:  # noqa: BLE001
+        logger.warning(
+            "[FACTOR-DECAY] Monitoring step raised (non-blocking): %s", _fdr_exc
+        )
+
     # Step 3: Backtest
     if not skip_backtest:
         try:
