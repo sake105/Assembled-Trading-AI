@@ -1740,7 +1740,8 @@ def _sp_apply_news_alpha(
     not part of the broader intel/crisis overlay hierarchy.
 
     When shadow_only=True: signals generated and logged, NOT applied to positions.
-    Flip to shadow_only=False in policy.yaml after paper-trading validation passes.
+    shadow_only=False is now active (set in policy.yaml 2026-05-26). To disable,
+    flip policy.yaml news_alpha.shadow_only back to true without code changes.
     """
     if not (policy or {}).get("news_alpha", {}).get("enabled", False):
         return target_positions

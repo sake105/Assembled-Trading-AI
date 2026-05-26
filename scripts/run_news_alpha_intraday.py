@@ -83,6 +83,27 @@ _DEFAULT_POLICY: dict = {
 # Maximum seen-event-IDs to keep in state (rolling window)
 _MAX_SEEN_IDS = 10_000
 
+
+def _update_seen_ids(
+    seen_ids_list: list[str],
+    seen_ids_set: set[str],
+    new_ids: list[str],
+) -> tuple[list[str], set[str]]:
+    """Add new_ids to the ordered list+set; trim if over _MAX_SEEN_IDS.
+
+    Returns the updated (list, set). The list preserves insertion order so
+    trim always retains the most recently added IDs.
+    """
+    for nid in new_ids:
+        if nid not in seen_ids_set:
+            seen_ids_list.append(nid)
+            seen_ids_set.add(nid)
+    if len(seen_ids_list) > _MAX_SEEN_IDS:
+        seen_ids_list = seen_ids_list[-(_MAX_SEEN_IDS // 2) :]
+        seen_ids_set = set(seen_ids_list)
+    return seen_ids_list, seen_ids_set
+
+
 # ---------------------------------------------------------------------------
 # Topic classification: headline text → router topic_id
 # Priority order matters — more specific topics come first.
@@ -553,6 +574,16 @@ def run_loop(
         min_severity,
         len(open_signals),
     )
+    # MAJOR-B: warn when policy.yaml shadow_only=false but runner is in shadow mode
+    # (two independent gates — operators reading policy.yaml may expect live orders).
+    if shadow_only and not (effective_policy or {}).get("news_alpha", {}).get(
+        "shadow_only", True
+    ):
+        logger.warning(
+            "[WARN] policy.yaml news_alpha.shadow_only=false but runner is in SHADOW mode"
+            " — the EOD pipeline will apply positions; this runner will NOT submit"
+            " intraday orders. Pass --live to enable intraday order submission."
+        )
 
     while True:
         now_utc = datetime.now(timezone.utc)
@@ -584,15 +615,9 @@ def run_loop(
             triggers, new_ids = _events_to_triggers(
                 events, seen_event_ids, min_severity
             )
-            # F-002 fix: maintain insertion-order list for deterministic trim.
-            # The set provides O(1) membership lookup; the list preserves recency.
-            for nid in new_ids:
-                if nid not in seen_event_ids:
-                    seen_ids_list.append(nid)
-                    seen_event_ids.add(nid)
-            if len(seen_ids_list) > _MAX_SEEN_IDS:
-                seen_ids_list = seen_ids_list[-(_MAX_SEEN_IDS // 2) :]
-                seen_event_ids = set(seen_ids_list)
+            seen_ids_list, seen_event_ids = _update_seen_ids(
+                seen_ids_list, seen_event_ids, new_ids
+            )
 
             # --- 3. Collect symbols needed for price fetch ---
             price_syms: set[str] = {sig.symbol for sig in open_signals}
@@ -679,7 +704,7 @@ def run_loop(
             _save_state(
                 {
                     "open_signals": [_signal_to_dict(s) for s in open_signals],
-                    "seen_event_ids": list(seen_event_ids)[-(_MAX_SEEN_IDS // 2) :],
+                    "seen_event_ids": seen_ids_list[-(_MAX_SEEN_IDS // 2) :],
                     "day_counter": day_counter,
                     "last_date": last_date,
                 }

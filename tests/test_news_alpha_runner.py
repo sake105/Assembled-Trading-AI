@@ -228,32 +228,46 @@ class TestEventsToTriggers:
 
 
 class TestSeenIdsTrim:
-    """Regression guard: trim must retain the MOST RECENTLY added IDs."""
+    """Regression guard: _update_seen_ids() must retain the MOST RECENTLY added IDs."""
 
     def test_trim_retains_recent_ids(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Patch _MAX_SEEN_IDS to a small value so we can trigger the trim cheaply.
+        # Patch _MAX_SEEN_IDS to a small value to trigger trim cheaply.
         monkeypatch.setattr(runner, "_MAX_SEEN_IDS", 4)
 
-        # Simulate: already have 4 IDs in the ordered list and set
-        seen_ids_list: list[str] = ["old1", "old2", "old3", "old4"]
-        seen_ids_set: set[str] = set(seen_ids_list)
+        # Start with 4 IDs already in state (at capacity).
+        ids_list: list[str] = ["old1", "old2", "old3", "old4"]
+        ids_set: set[str] = set(ids_list)
 
-        # One new ID arrives — this pushes len(seen_ids_list) to 5 > 4
-        new_ids = ["new1"]
-        for nid in new_ids:
-            if nid not in seen_ids_set:
-                seen_ids_list.append(nid)
-                seen_ids_set.add(nid)
+        # Add one new ID — pushes len to 5 > _MAX_SEEN_IDS=4.
+        ids_list, ids_set = runner._update_seen_ids(ids_list, ids_set, ["new1"])
 
-        # Trigger trim (mirrors the fixed loop logic)
-        if len(seen_ids_list) > runner._MAX_SEEN_IDS:
-            seen_ids_list = seen_ids_list[-(runner._MAX_SEEN_IDS // 2) :]
-            seen_ids_set = set(seen_ids_list)
+        # The most recently added ID MUST be retained; trim target = 4//2 = 2.
+        assert "new1" in ids_set, "most recent ID dropped after trim"
+        assert len(ids_list) == 2
 
-        # The most recently added ID ("new1") MUST be retained.
-        assert "new1" in seen_ids_set, "most recent ID dropped after trim"
-        # Trim target is _MAX_SEEN_IDS // 2 = 2
-        assert len(seen_ids_list) == 2
+    def test_no_trim_below_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(runner, "_MAX_SEEN_IDS", 10)
+        ids_list = ["a", "b", "c"]
+        ids_set = set(ids_list)
+        ids_list, ids_set = runner._update_seen_ids(ids_list, ids_set, ["d"])
+        assert "d" in ids_set
+        assert len(ids_list) == 4  # no trim
+
+    def test_duplicate_not_added_twice(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(runner, "_MAX_SEEN_IDS", 10)
+        ids_list = ["a", "b"]
+        ids_set = set(ids_list)
+        ids_list, ids_set = runner._update_seen_ids(ids_list, ids_set, ["a"])
+        assert len(ids_list) == 2  # "a" already in set, not appended again
+
+    def test_list_and_set_stay_in_sync_after_trim(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(runner, "_MAX_SEEN_IDS", 4)
+        ids_list = ["x1", "x2", "x3", "x4"]
+        ids_set = set(ids_list)
+        ids_list, ids_set = runner._update_seen_ids(ids_list, ids_set, ["x5"])
+        assert set(ids_list) == ids_set, "list and set diverged after trim"
 
 
 # ---------------------------------------------------------------------------
