@@ -188,6 +188,38 @@ def route_orders(
     except Exception as e:
         log.debug("[RL-EXEC] rl_executor skipped: %s", e)
 
+    # Phase 17.86: TWAP/VWAP execution annotation (live/paper only, never blocks)
+    try:
+        algo_cfg = (policy.get("execution") or {}).get("algo_execution") or {}
+        if (
+            algo_cfg.get("enabled", False)
+            and getattr(ctx, "mode", "") in ("live", "paper")
+            and not orders.empty
+        ):
+            _algo_type = str(algo_cfg.get("algo", "TWAP")).upper()
+            _algo_n_slices = int(algo_cfg.get("n_slices", 10))
+
+            import numpy as _np_exec  # noqa: PLC0415
+
+            # Per-order effective slice count: min(n_slices, int(qty)), NaN/inf-safe
+            orders = orders.copy()
+            orders["algo_type"] = _algo_type
+            orders["algo_n_slices"] = (
+                orders["qty"]
+                .abs()
+                .replace([_np_exec.inf, -_np_exec.inf], _np_exec.nan)
+                .fillna(1.0)
+                .apply(lambda q: max(1, min(_algo_n_slices, int(max(float(q), 1.0)))))
+            )
+
+            log.debug(
+                "[ALGO-EXEC] annotated %d orders with algo=%s",
+                len(orders),
+                _algo_type,
+            )
+    except Exception as e:
+        log.debug("[ALGO-EXEC] algo_execution annotation skipped: %s", e)
+
     return orders
 
 

@@ -1224,6 +1224,125 @@ def _eo_post_steps(base: Path) -> None:
     except Exception as _tca_exc:
         logger.warning("[EOD][TCA] Non-blocking Fehler: %s", _tca_exc)
 
+    try:
+        from src.assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
+
+        # Find equity curve — prefer portfolio_equity over backtest equity
+        _eq_candidates = [
+            base / "portfolio_equity_1d.csv",
+            base / "equity_curve_1d.csv",
+        ]
+        _eq_path = next((p for p in _eq_candidates if p.exists()), None)
+        if _eq_path is not None:
+            _eq_df = pd.read_csv(_eq_path)
+            # Detect equity column (portfolio_value or equity or close)
+            _eq_col = next(
+                (
+                    c
+                    for c in ("portfolio_value", "equity", "close")
+                    if c in _eq_df.columns
+                ),
+                None,
+            )
+            if _eq_col is not None and "date" in _eq_df.columns:
+                _eq_df["date"] = pd.to_datetime(_eq_df["date"], errors="coerce")
+                _eq_df = _eq_df.dropna(subset=["date"]).set_index("date")
+                import numpy as _np_bm  # noqa: PLC0415
+
+                _port_ret = (
+                    _eq_df[_eq_col]
+                    .pct_change()
+                    .replace([_np_bm.inf, -_np_bm.inf], _np_bm.nan)
+                    .dropna()
+                )
+
+                # Load SPY as benchmark if available in prices
+                _prices_path = base / "prices_1d.parquet"
+                _bm_ret: pd.Series | None = None
+                _eq_max_date = _eq_df.index.max()
+                if _prices_path.exists():
+                    try:
+                        _px = pd.read_parquet(_prices_path)
+                        if "symbol" in _px.columns and "close" in _px.columns:
+                            _spy = _px[_px["symbol"] == "SPY"].copy()
+                            if not _spy.empty:
+                                if "timestamp" not in _spy.columns:
+                                    logger.debug(
+                                        "[EOD][BenchmarkAttr] prices_1d.parquet "
+                                        "missing 'timestamp' column — skipping SPY"
+                                    )
+                                    _spy = _spy.iloc[0:0]
+                                else:
+                                    _spy["date"] = pd.to_datetime(
+                                        _spy["timestamp"], errors="coerce"
+                                    )
+                                    _spy = (
+                                        _spy.dropna(subset=["date"])
+                                        .sort_values("date")
+                                        .set_index("date")
+                                    )
+                                    # PIT guard: only use benchmark dates within equity window
+                                    _spy = _spy[_spy.index <= _eq_max_date]
+                                    _bm_ret = (
+                                        _spy["close"]
+                                        .pct_change()
+                                        .replace([_np_bm.inf, -_np_bm.inf], _np_bm.nan)
+                                        .dropna()
+                                    )
+                    except Exception as _spy_exc:
+                        logger.debug(
+                            "[EOD][BenchmarkAttr] SPY load failed: %s", _spy_exc
+                        )
+
+                if _bm_ret is not None:
+                    _bm = compute_benchmark_metrics(_port_ret, _bm_ret)
+                    # Tag by equity-curve end date for replay-safe naming (F-senior-5)
+                    _bm_date_str = (
+                        _eq_max_date.strftime("%Y%m%d")
+                        if pd.notna(_eq_max_date)
+                        else pd.Timestamp.now("UTC").strftime("%Y%m%d")
+                    )
+                    _bm_out = base / "ops" / f"benchmark_attr_{_bm_date_str}.json"
+                    _bm_out.parent.mkdir(parents=True, exist_ok=True)
+
+                    def _bm_safe(v: object) -> object:
+                        if isinstance(v, float) and not _np_bm.isfinite(v):
+                            return None
+                        return v
+
+                    with _bm_out.open("w", encoding="utf-8") as _fh:
+                        json.dump(
+                            {k: _bm_safe(v) for k, v in vars(_bm).items()},
+                            _fh,
+                            indent=2,
+                        )
+                    logger.info(
+                        "[EOD][BenchmarkAttr] alpha=%.4f beta=%.4f IR=%.4f → %s",
+                        _bm.alpha or 0.0,
+                        _bm.beta or 0.0,
+                        _bm.information_ratio or 0.0,
+                        _bm_out,
+                    )
+                    try:
+                        from src.assembled_core.ops.report_retention import (
+                            purge_old_dated_reports,
+                        )
+
+                        purge_old_dated_reports(
+                            _bm_out.parent, "benchmark_attr_", ".json", keep_last_n=60
+                        )
+                    except OSError as _ret_exc:
+                        logger.debug(
+                            "[EOD][BenchmarkAttr] Retention-Purge IO-Fehler: %s",
+                            _ret_exc,
+                        )
+                else:
+                    logger.debug(
+                        "[EOD][BenchmarkAttr] No SPY data — skipping benchmark metrics"
+                    )
+    except Exception as _bm_exc:
+        logger.warning("[EOD][BenchmarkAttr] Non-blocking Fehler: %s", _bm_exc)
+
 
 def run_eod_pipeline(
     freq: str,

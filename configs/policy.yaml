@@ -221,6 +221,11 @@ execution_policy:
 # Almgren-Chriss impact estimates + SOR venue allocation into result.meta.
 # enforce=false means high-impact orders are flagged but NOT dropped (shadow).
 execution:
+  algo_execution:
+    enabled: true
+    algo: "TWAP"
+    n_slices: 10
+    participation_rate: 0.10
   cost_meta:
     enabled: true            # annotate result.meta.execution_cost with per-order estimates
     impact_limit_bps: 50.0   # orders beyond this are tagged high_impact=true
