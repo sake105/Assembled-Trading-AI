@@ -1700,6 +1700,241 @@ def _sp_apply_crisis_alpha_cap(
     return target_positions
 
 
+def _sp_apply_news_alpha(
+    target_positions: pd.DataFrame,
+    ctx: "TradingContext",
+    policy: dict,
+    log: logging.Logger,
+) -> pd.DataFrame:
+    """T4.2: News Alpha — add directional event-driven entries to target positions.
+
+    Mirrors _sp_apply_crisis_alpha_cap in structure but serves a different purpose:
+    - crisis_alpha: slow defensive MDD-reduction basket (weeks, sector hedges)
+    - news_alpha: fast directional alpha (days, event-specific ETFs e.g. XLE on Hormuz)
+
+    Architecture note — state ownership:
+    The intraday runner (scripts/run_news_alpha_intraday.py) owns the open signal
+    lifecycle: it polls every 5-10 min, fires entries at market price, and monitors
+    exits against live prices. open_signals=[] here is intentional — the EOD sizing
+    cycle uses this function to apply any *new* trigger items arriving at EOD (e.g.
+    after-hours RSS), NOT to duplicate the intraday runner's position management.
+    ctx.meta["news_alpha_open_signals"] is populated by the live/paper worker when
+    it hands off state to the EOD cycle; in backtest and shadow mode it is empty.
+
+    Trigger items: sourced from ctx.news_geo["news_trigger_items"] — same live-intel
+    path as crisis_alpha. No GPR fallback: news_alpha requires a concrete news event.
+
+    Cap semantics (DESIGN DECISION — conservative first-pass):
+    Overlapping symbols use min-merge (same as crisis_alpha). If mfv2 holds XLE at
+    0.30 and news_alpha generates XLE at 0.08, the combined weight is 0.08 (capped
+    down, not boosted). Rationale: news_alpha signal may confirm the same thesis as
+    mfv2 but was sized for the news_alpha sub-portfolio (max 0.40 gross). Boosting
+    to max() would silently exceed the intended sub-portfolio exposure. Once paper
+    validation confirms the signal quality, switch to max()-merge for same-direction
+    confirming signals (update this function and the test in
+    test_trading_cycle_news_alpha.py::TestT42CapNeverBoosts).
+
+    Policy path: policy["news_alpha"] (top-level) vs. crisis_alpha's nested
+    policy["intel"]["crisis_alpha"]. Deliberate: news_alpha is a standalone module,
+    not part of the broader intel/crisis overlay hierarchy.
+
+    When shadow_only=True: signals generated and logged, NOT applied to positions.
+    Flip to shadow_only=False in policy.yaml after paper-trading validation passes.
+    """
+    if not (policy or {}).get("news_alpha", {}).get("enabled", False):
+        return target_positions
+    try:
+        from datetime import datetime, timezone
+
+        from src.assembled_core.events.news_alpha.pipeline import (
+            run_news_alpha_pipeline,
+        )
+
+        _as_of_dt = (
+            pd.to_datetime(ctx.as_of, utc=True).to_pydatetime()
+            if getattr(ctx, "as_of", None) is not None
+            else datetime.now(timezone.utc)
+        )
+
+        # --- trigger_items from live intel ---
+        _news_geo = getattr(ctx, "news_geo", None) or {}
+        _trigger_items: list[dict] = list(
+            _news_geo.get("news_trigger_items")
+            or _news_geo.get("triggers")
+            or _news_geo.get("active_triggers")
+            or []
+        )
+
+        # --- price lookup for stop/tp evaluation (PIT-safe: <= as_of) ---
+        # Failure → WARNING so operator can see the degradation; exits fall back
+        # to time-based only (check_exits() handles missing prices gracefully).
+        _prices: dict[str, float] = {}
+        _ctx_prices = getattr(ctx, "prices", None)
+        if _ctx_prices is not None and not getattr(_ctx_prices, "empty", True):
+            try:
+                _cutoff = pd.to_datetime(_as_of_dt, utc=True)
+                _pit = _ctx_prices[
+                    pd.to_datetime(_ctx_prices["timestamp"], utc=True) <= _cutoff
+                ]
+                if "close" in _pit.columns and "symbol" in _pit.columns:
+                    _prices = (
+                        _pit.sort_values("timestamp")
+                        .groupby("symbol")["close"]
+                        .last()
+                        .to_dict()
+                    )
+            except Exception as _price_exc:
+                log.warning(
+                    "[T4.2] price lookup failed — stop/tp exits will use time-based only: %s",
+                    _price_exc,
+                )
+
+        # --- open_signals and day counter from ctx.meta ---
+        # Populated by the intraday runner or EOD worker; empty in backtest/shadow.
+        _meta = getattr(ctx, "meta", {}) or {}
+        _open_signals = list(_meta.get("news_alpha_open_signals", []) or [])
+        _day_counter = int(_meta.get("news_alpha_day_counter", 0))
+
+        shadow_only = bool(
+            (policy or {}).get("news_alpha", {}).get("shadow_only", True)
+        )
+
+        na_result = run_news_alpha_pipeline(
+            trigger_items=_trigger_items,
+            open_signals=_open_signals,
+            current_day=_day_counter,
+            prices=_prices,
+            policy=policy,
+            shadow_only=shadow_only,
+            timestamp_utc=_as_of_dt,
+        )
+
+        _errs = na_result.errors or []
+        if _errs:
+            log.warning(
+                "[T4.2] news_alpha: pipeline returned %d error(s): %s",
+                len(_errs),
+                _errs[:5],
+            )
+
+        # Log exits for visibility (same pattern as crisis_alpha §9.13).
+        # Actual exit order generation for intraday positions is the intraday
+        # runner's responsibility; the EOD cycle logs but does not consume exits.
+        _exits = na_result.positions_to_exit or []
+        if _exits:
+            _exit_syms = [
+                sig.symbol for sig, _ in _exits[:20] if hasattr(sig, "symbol")
+            ]
+            if not shadow_only:
+                log.warning(
+                    "[T4.2] news_alpha: %d position(s) flagged for exit (not consumed by EOD cycle) "
+                    "— intraday runner must process: %s%s",
+                    len(_exits),
+                    _exit_syms,
+                    " …" if len(_exits) > 20 else "",
+                )
+            else:
+                log.debug(
+                    "[T4.2] news_alpha shadow exits (not consumed): %d — %s",
+                    len(_exits),
+                    _exit_syms,
+                )
+
+        if not shadow_only and na_result.target_weights:
+            # Normalize keys to uppercase to match target_positions symbol convention.
+            na_tw = {k.upper(): v for k, v in na_result.target_weights.items()}
+            _capital = float(getattr(ctx, "capital", 0.0))
+            if _capital <= 0.0:
+                log.warning(
+                    "[T4.2] capital=%.2f — target_qty will be 0 for all news_alpha entries; "
+                    "check ctx.capital wiring",
+                    _capital,
+                )
+
+            existing_syms: set[str] = set()
+            n_capped = 0
+            if (
+                not target_positions.empty
+                and "target_weight" in target_positions.columns
+            ):
+                existing_syms = set(target_positions["symbol"].astype(str).str.upper())
+                for idx, row in target_positions.iterrows():
+                    sym = str(row["symbol"]).upper()
+                    if sym in na_tw:
+                        old_w = float(row["target_weight"])
+                        # min-merge: conservative cap (see DESIGN DECISION in docstring)
+                        new_w = min(old_w, float(na_tw[sym]))
+                        if new_w < old_w:
+                            target_positions.at[idx, "target_weight"] = new_w
+                            if "target_qty" in target_positions.columns:
+                                target_positions.at[idx, "target_qty"] = round(
+                                    new_w * _capital, 2
+                                )
+                            n_capped += 1
+
+            new_rows = [
+                {
+                    "symbol": sym,
+                    "target_weight": float(w),
+                    "target_qty": round(float(w) * _capital, 2),
+                }
+                for sym, w in na_tw.items()
+                if sym.upper() not in existing_syms
+            ]
+            if new_rows:
+                new_df = pd.DataFrame(new_rows)
+                base = pd.DataFrame() if target_positions.empty else target_positions
+                target_positions = pd.concat([base, new_df], ignore_index=True)
+                log.info(
+                    "[T4.2] news_alpha ACTIVE: added %d positions %s | capped %d",
+                    len(new_rows),
+                    [r["symbol"] for r in new_rows],
+                    n_capped,
+                )
+            elif n_capped:
+                log.info("[T4.2] news_alpha: capped %d existing positions", n_capped)
+
+            # Gross-exposure guard (combined portfolio cap).
+            # NOTE: signals_to_weights() already enforces policy["news_alpha"]["max_gross_exposure"]
+            # (0.40 default) on the news_alpha sub-portfolio before this point.
+            # This guard enforces the global risk_limits cap on the COMBINED portfolio.
+            # The two caps are complementary: sub-portfolio cap limits news_alpha slice;
+            # global cap limits aggregate exposure including mfv2 + crisis_alpha + news_alpha.
+            _max_gross = float(
+                (policy or {}).get("risk_limits", {}).get("max_gross_exposure", 1.20)
+            )
+            _total_abs = target_positions["target_weight"].abs().sum()
+            if _total_abs > _max_gross and _total_abs > 0:
+                _scale = _max_gross / _total_abs
+                target_positions["target_weight"] = (
+                    target_positions["target_weight"] * _scale
+                )
+                if "target_qty" in target_positions.columns:
+                    target_positions["target_qty"] = (
+                        target_positions["target_weight"] * _capital
+                    ).round(2)
+                log.info(
+                    "[T4.2] gross-exposure guard: %.2f > max %.2f — scaled by %.3f",
+                    _total_abs,
+                    _max_gross,
+                    _scale,
+                )
+        elif shadow_only and na_result.target_weights:
+            log.info(
+                "[T4.2] news_alpha shadow_only=True — %d targets NOT applied: %s",
+                len(na_result.target_weights),
+                {s: f"{w:+.3f}" for s, w in na_result.target_weights.items()},
+            )
+
+    except Exception as exc:
+        log.error(
+            "[T4.2] news_alpha_pipeline failed — returning unmodified targets: %s",
+            exc,
+            exc_info=True,
+        )
+    return target_positions
+
+
 def _sp_check_rebalance(
     target_positions: pd.DataFrame,
     ctx: "TradingContext",
@@ -1885,6 +2120,7 @@ def size_positions(
     )
     target_positions = _sp_apply_crowding_cap(target_positions, ctx, log)
     target_positions = _sp_apply_crisis_alpha_cap(target_positions, ctx, policy, log)
+    target_positions = _sp_apply_news_alpha(target_positions, ctx, policy, log)
 
     do_rebal, rebal_reason = _sp_check_rebalance(
         target_positions, ctx, policy, meta, log

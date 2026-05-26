@@ -141,6 +141,25 @@ intel:
     min_severity: 1          # 1 = WATCH, 2+ = ACTIVE
     allow_short: false
 
+# T4.2: News Alpha — event-driven directional trading (fast, intraday-capable).
+# Separate from crisis_alpha (slow defensive overlay). This is the directional
+# alpha layer: Hormuz → XLE long within hours, Hamas → LMT long, etc.
+#
+# shadow_only: true  = signals generated + logged but NOT applied to target_positions
+# shadow_only: false = signals applied (flip after paper-trading validation)
+#
+# Run intraday runner: python scripts/run_news_alpha_intraday.py
+# Backtest (EOD vs open): python scripts/backtest_news_alpha_intraday.py
+news_alpha:
+  enabled: true
+  shadow_only: true          # safe default — flip to false after paper validation
+  base_weight: 0.08          # base weight per signal (scaled by severity)
+  leverage_etfs_allowed: false  # disallow UCO/TBT until paper validation passes
+  # Sub-portfolio cap consumed by signals_to_weights() inside the pipeline.
+  # Global combined-portfolio cap is at risk_limits.max_gross_exposure (below).
+  # Editing this value changes the news_alpha slice cap, NOT the global cap.
+  max_gross_exposure: 0.40
+
 # Disclosures confirmation boost for NEWS geo_confidence (DISCL-4.2).
 disclosures_confirm:
   enabled: true
