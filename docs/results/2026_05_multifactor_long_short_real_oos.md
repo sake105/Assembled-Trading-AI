@@ -74,7 +74,10 @@ multifactor_long_short (Long-only) schlägt SPY nur in 0.0% der Folds (Ø CAGR -
   Ein vollständiger Long-Short-Backtest würde einen dedizierten Short-Selling-fähigen Engine benötigen.
 - **Bundle:** macro_world_etfs_core_bundle (OHLCV-only). Andere Bundles (ai_tech, alternative_risk_premia)
   könnten andere Ergebnisse liefern, erfordern aber ggf. Altdata.
-- Monatliche Rebalancierung (≠ höhere Frequenz bei aktivem Betrieb).
+- Monatliche Rebalancierung (≠ höhere Frequenz bei aktivem Betrieb). Dieser Report wurde mit
+  per-Symbol-Monatsanker erzeugt (erster verfügbarer Bar des Monats je Symbol). Skript-Fix
+  (2026-05-27): einheitlicher Kalenderanker pro Monat über alle Symbole. Praktischer Effekt gering
+  (Alpaca-Symbole teilen denselben Handelstag), Richtungsaussage bleibt unverändert.
 - Alpaca Free Tier: Survivorship-Bias möglich (delisted Symbole fehlen).
 - SPY-Vergleich: kein Dividenden-Reinvest.
 

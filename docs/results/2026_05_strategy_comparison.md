@@ -15,6 +15,8 @@ Alle drei Strategien wurden mit identischer Methodik getestet:
 
 ## Ergebnisübersicht
 
+> **Hinweis:** multifactor_v2 erreicht nominell SPY-CAGR (+12.9% vs +13.0%), aber mit deutlich schlechterem Sharpe (0.36 vs 0.95) — das risikoadjustierte Profil ist 2,6× schlechter. Beide Werte sind in der Tabelle abzulesen; CAGR allein ist keine ausreichende Vergleichsmetrik.
+
 | Strategie | Ø CAGR | Ø Sharpe | Ø MaxDD | Win-Rate (CAGR>0) | Folds vs SPY | Einschränkung |
 |-----------|--------|----------|---------|-------------------|--------------|---------------|
 | **SPY Buy-and-Hold** | +13.0% | 0.95 | — | — | — | Benchmark |

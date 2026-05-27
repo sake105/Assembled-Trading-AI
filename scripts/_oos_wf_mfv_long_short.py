@@ -196,14 +196,14 @@ def _make_backtest_fn(prices: pd.DataFrame) -> object:
             if test_sigs.empty:
                 return test_sigs
 
-            # Down-sample to monthly: keep only first trading day of each test month
+            # Down-sample to monthly: keep only first trading day of each test month.
+            # Anchor is per-month (not per-symbol) to ensure one calendar date per
+            # rebalancing cycle — matching mfv2's single monthly_dates list.
             test_sigs["_month"] = pd.to_datetime(test_sigs["timestamp"]).dt.to_period(
                 "M"
             )
-            first_per_month = test_sigs.groupby(["_month", "symbol"])[
-                "timestamp"
-            ].transform("min")
-            test_sigs = test_sigs[test_sigs["timestamp"] == first_per_month].copy()
+            monthly_anchor = test_sigs.groupby(["_month"])["timestamp"].transform("min")
+            test_sigs = test_sigs[test_sigs["timestamp"] == monthly_anchor].copy()
             test_sigs = test_sigs.drop(columns=["_month"])
 
             return test_sigs[["timestamp", "symbol", "direction", "score"]]

@@ -194,7 +194,7 @@ def _make_backtest_fn(prices: pd.DataFrame) -> object:
                     long_sigs["timestamp"] = rebal_ts
                     all_sigs.append(long_sigs)
                 except Exception as exc:
-                    log.debug(
+                    log.warning(
                         "[MFV2] compute_signals skip %s: %s",
                         pd.Timestamp(rebal_ts).date(),
                         exc,
