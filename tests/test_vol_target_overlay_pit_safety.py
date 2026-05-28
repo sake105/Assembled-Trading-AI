@@ -286,3 +286,47 @@ def test_trend_filter_halves_spy_weight():
     assert abs(actual_w - expected_w) < 1e-9, (
         f"Trend filter: expected SPY weight {expected_w:.8f}, got {actual_w:.8f} at {ts_below}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 7 — mixed panel: IEF rows in input must not affect SPY/IEF weights
+# ---------------------------------------------------------------------------
+
+
+def test_mixed_panel_ief_rows_do_not_affect_weights():
+    """IEF rows in the price panel must not change computed weights.
+
+    The function derives IEF weight as 1 - w_spy from SPY data only.  A regression
+    where IEF prices leak into the SPY weight computation would fail this test.
+    """
+    prices_spy_only = _make_spy_prices(_N_BARS)
+
+    # Build a mixed panel: SPY prices + IEF prices (with different values)
+    rng = np.random.default_rng(99)
+    dates = pd.date_range("2020-01-02", periods=_N_BARS, freq="B", tz="UTC")
+    ief_close = 100.0 * np.cumprod(1.0 + rng.standard_normal(_N_BARS) * 0.005)
+    ief_rows = pd.DataFrame({"timestamp": dates, "symbol": "IEF", "close": ief_close})
+    prices_mixed = pd.concat([prices_spy_only, ief_rows], ignore_index=True)
+
+    sigs_spy_only = generate_vol_target_signals_from_prices(
+        prices_spy_only, vol_lookback=_VOL_LB, sma_window=_SMA
+    )
+    sigs_mixed = generate_vol_target_signals_from_prices(
+        prices_mixed, vol_lookback=_VOL_LB, sma_window=_SMA
+    )
+
+    assert not sigs_spy_only.empty
+    assert not sigs_mixed.empty
+
+    # Weights must be identical — IEF rows in the panel must not change anything
+    for sym in ["SPY", "IEF"]:
+        a = sigs_spy_only[sigs_spy_only["symbol"] == sym].set_index("timestamp")[
+            "score"
+        ]
+        b = sigs_mixed[sigs_mixed["symbol"] == sym].set_index("timestamp")["score"]
+        common = a.index.intersection(b.index)
+        assert len(common) > 0, f"No common timestamps for {sym}"
+        diff = (a.loc[common] - b.loc[common]).abs().max()
+        assert diff < 1e-10, (
+            f"{sym}: max weight difference {diff:.2e} — IEF rows in panel affected computation"
+        )

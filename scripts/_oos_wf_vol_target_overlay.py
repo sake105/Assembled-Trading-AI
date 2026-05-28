@@ -15,7 +15,7 @@ Design:
     - Walk-forward: 252/252/252 (train / test / step), same as trend_baseline.
     - Warmup buffer: SMA_WINDOW + VOL_LOOKBACK bars prepended so indicators
       are hot at the start of each test period.
-    - Two benchmarks: SPY buy-and-hold + static 60/40 SPY/IEF.
+    - Three benchmarks: SPY buy-and-hold + static 60/40 SPY/IEF + daily-rebalanced 60/40.
     - Extra metrics: MaxDD ratio vs SPY, Calmar ratio.
     - 10 bps commission + 0.25+0.5 spread/impact (matching policy.yaml C3).
     - Startkapital 100,000 USD.
@@ -170,9 +170,10 @@ def _simulate_vol_target(
     if spy_w.empty or ief_w.empty:
         raise ValueError(f"No price data for {test_start.date()}–{test_end.date()}")
 
-    # Compute signals on warmup+test window (strictly causal)
+    # Compute signals on warmup+test window (strictly causal).
+    # Pass both SPY and IEF so the defensive_asset presence check doesn't warn.
     sigs = generate_vol_target_signals_from_prices(
-        spy_w,
+        pd.concat([spy_w, ief_w], ignore_index=True),
         target_vol=TARGET_VOL,
         vol_lookback=VOL_LOOKBACK,
         sma_window=SMA_WINDOW,
@@ -198,6 +199,17 @@ def _simulate_vol_target(
     weight_sum_err = (combined["w_spy"] + combined["w_ief"] - 1.0).abs().max()
     if weight_sum_err > 1e-6:
         raise ValueError(f"Weights do not sum to 1.0 (max error={weight_sum_err:.2e})")
+
+    # F-senior-3: assert test period has ACTUAL signals, not just warmup defaults.
+    # reindex without ffill to distinguish signal-bearing rows from default-filled gaps.
+    spy_sigs_in_test = spy_sigs.reindex(
+        combined.index[(combined.index >= test_start) & (combined.index < test_end)]
+    )
+    if spy_sigs_in_test.isna().all():
+        raise ValueError(
+            f"No signals in test period {test_start.date()}–{test_end.date()} "
+            "— warmup may not have completed before test_start"
+        )
 
     # F-3: compute returns on FULL combined frame so first test bar has prior-bar context
     combined["r_spy"] = combined["spy"].pct_change()
@@ -279,6 +291,12 @@ def _spy_buyhold(
             "bh_max_dd": float("nan"),
         }
     rets = df["close"].pct_change().dropna()
+    if len(rets) < 2:  # F-senior-6: guard against poisoning dd-ratio
+        return {
+            "bh_cagr": float("nan"),
+            "bh_sharpe": float("nan"),
+            "bh_max_dd": float("nan"),
+        }
     n_years = len(df) / 252.0
     total_ret = df["close"].iloc[-1] / df["close"].iloc[0] - 1.0
     cagr = (1.0 + total_ret) ** (1.0 / max(n_years, 0.01)) - 1.0
@@ -292,7 +310,11 @@ def _spy_buyhold(
 def _6040_buyhold(
     spy: pd.DataFrame, ief: pd.DataFrame, ts: pd.Timestamp, te: pd.Timestamp
 ) -> dict:
-    """Static initial-allocation 60/40 SPY/IEF (no rebalancing — true buy-and-hold)."""
+    """Static initial-allocation 60/40 SPY/IEF (no rebalancing — true buy-and-hold).
+
+    Note: drifts away from 60/40 weights over time. Use _6040_rebalanced for
+    a fair comparison against a daily-rebalanced strategy.
+    """
     s = (
         spy[(spy["timestamp"] >= ts) & (spy["timestamp"] < te)]
         .sort_values("timestamp")
@@ -325,6 +347,46 @@ def _6040_buyhold(
     peak = equity.cummax()
     max_dd = float(((equity - peak) / peak).min())
     return {"b6040_cagr": cagr, "b6040_sharpe": sharpe, "b6040_max_dd": max_dd}
+
+
+def _6040_rebalanced(
+    spy: pd.DataFrame, ief: pd.DataFrame, ts: pd.Timestamp, te: pd.Timestamp
+) -> dict:
+    """Daily-rebalanced 60/40 SPY/IEF — maintains fixed 60/40 weights each bar.
+
+    Fair comparison against vol_target_overlay which also rebalances daily.
+    No transaction costs applied (pure benchmark; would require same cost model).
+    """
+    s = (
+        spy[(spy["timestamp"] >= ts) & (spy["timestamp"] < te)]
+        .sort_values("timestamp")
+        .set_index("timestamp")["close"]
+    )
+    i = (
+        ief[(ief["timestamp"] >= ts) & (ief["timestamp"] < te)]
+        .sort_values("timestamp")
+        .set_index("timestamp")["close"]
+    )
+    combined = pd.DataFrame({"spy": s, "ief": i}).dropna()
+    if len(combined) < 5:
+        return {
+            "r6040_cagr": float("nan"),
+            "r6040_sharpe": float("nan"),
+            "r6040_max_dd": float("nan"),
+        }
+    r_spy = combined["spy"].pct_change()
+    r_ief = combined["ief"].pct_change()
+    port_ret = (0.6 * r_spy + 0.4 * r_ief).dropna()
+    equity = INITIAL_CAPITAL * (1.0 + port_ret).cumprod()
+    n_years = len(port_ret) / 252.0
+    total_ret = float(equity.iloc[-1]) / INITIAL_CAPITAL - 1.0
+    cagr = (1.0 + total_ret) ** (1.0 / max(n_years, 0.01)) - 1.0
+    sharpe = (
+        float(port_ret.mean()) / (float(port_ret.std(ddof=1)) + 1e-10) * np.sqrt(252)
+    )
+    peak = equity.cummax()
+    max_dd = float(((equity - peak) / peak).min())
+    return {"r6040_cagr": cagr, "r6040_sharpe": sharpe, "r6040_max_dd": max_dd}
 
 
 # ---------------------------------------------------------------------------
@@ -384,12 +446,25 @@ def main() -> int:
         _write_failure_report(str(exc))
         return 1
 
+    # F-senior-7: guard against silent empty/schema-drifted summary_df
+    summary_ok = (
+        not wf_result.summary_df.empty
+        and "split_index" in wf_result.summary_df.columns
+        and "test_cagr" in wf_result.summary_df.columns
+    )
+    if not summary_ok:
+        log.warning(
+            "[WF] summary_df empty or missing expected columns — "
+            "per-fold metrics will be NaN (check backtest_fn return schema)"
+        )
+
     # 5.3 Collect per-fold results
     fold_rows = []
     for wr in wf_result.window_results:
         w = wr.window
         spy_bh = _spy_buyhold(spy_prices, ief_prices, w.test_start, w.test_end)
         b6040 = _6040_buyhold(spy_prices, ief_prices, w.test_start, w.test_end)
+        r6040 = _6040_rebalanced(spy_prices, ief_prices, w.test_start, w.test_end)
         if wr.status == "failed":
             fold_rows.append(
                 {
@@ -404,6 +479,7 @@ def main() -> int:
                     "calmar": float("nan"),
                     **spy_bh,
                     **b6040,
+                    **r6040,
                     "status": "FAILED",
                     "error": wr.error_message,
                 }
@@ -412,7 +488,7 @@ def main() -> int:
             # Metrics come from backtest_fn return dict (stored in summary_df)
             summary = wf_result.summary_df
             row_data = {}
-            if not summary.empty and "split_index" in summary.columns:
+            if summary_ok:
                 row_data = (
                     summary[summary["split_index"] == w.split_index].iloc[0].to_dict()
                     if len(summary[summary["split_index"] == w.split_index]) > 0
@@ -431,6 +507,7 @@ def main() -> int:
                     "calmar": float(row_data.get("test_calmar", float("nan"))),
                     **spy_bh,
                     **b6040,
+                    **r6040,
                     "status": "OK",
                     "error": None,
                 }
@@ -458,6 +535,9 @@ def main() -> int:
         "mean_6040_cagr": ok["b6040_cagr"].mean(),
         "mean_6040_sharpe": ok["b6040_sharpe"].mean(),
         "mean_6040_max_dd": ok["b6040_max_dd"].mean(),
+        "mean_r6040_cagr": ok["r6040_cagr"].mean(),
+        "mean_r6040_sharpe": ok["r6040_sharpe"].mean(),
+        "mean_r6040_max_dd": ok["r6040_max_dd"].mean(),
     }
 
     _write_report(
@@ -527,8 +607,8 @@ def _write_report(*, fold_df, agg, n_ok, n_total, actual_start, actual_end):
         "",
         "## Ergebnisse pro Fold",
         "",
-        "| Fold | Test-Periode | CAGR | Sharpe | MaxDD | Calmar | SPY CAGR | SPY Sharpe | SPY MaxDD | 60/40 CAGR | 60/40 Sharpe |",
-        "|------|-------------|------|--------|-------|--------|----------|------------|-----------|-----------|------------|",
+        "| Fold | Test-Periode | CAGR | Sharpe | MaxDD | Calmar | SPY CAGR | SPY Sharpe | SPY MaxDD | 60/40 B&H CAGR | 60/40 Reb. CAGR | 60/40 Reb. Sharpe |",
+        "|------|-------------|------|--------|-------|--------|----------|------------|-----------|---------------|----------------|-----------------|",
     ]
 
     for _, row in fold_df.iterrows():
@@ -543,7 +623,8 @@ def _write_report(*, fold_df, agg, n_ok, n_total, actual_start, actual_end):
             f"| {_fmt_f(row['bh_sharpe'])} "
             f"| {_fmt_pct(row['bh_max_dd'])} "
             f"| {_fmt_pct(row['b6040_cagr'])} "
-            f"| {_fmt_f(row['b6040_sharpe'])} |"
+            f"| {_fmt_pct(row['r6040_cagr'])} "
+            f"| {_fmt_f(row['r6040_sharpe'])} |"
         )
         if row["status"] == "FAILED":
             lines.append(f"> Fold {int(row['fold'])} FAILED: {row['error']}")
@@ -556,11 +637,11 @@ def _write_report(*, fold_df, agg, n_ok, n_total, actual_start, actual_end):
         "",
         "## Aggregierte OOS-Metriken",
         "",
-        "| Metrik | vol_target_overlay | SPY B&H | 60/40 B&H |",
-        "|--------|--------------------|---------|-----------|",
-        f"| Ø CAGR | {_fmt_pct(agg['mean_cagr'])} | {_fmt_pct(agg['mean_bh_cagr'])} | {_fmt_pct(agg['mean_6040_cagr'])} |",
-        f"| Ø Sharpe | {_fmt_f(agg['mean_sharpe'])} | {_fmt_f(agg['mean_bh_sharpe'])} | {_fmt_f(agg['mean_6040_sharpe'])} |",
-        f"| Ø MaxDD | {_fmt_pct(agg['mean_max_dd'])} | {_fmt_pct(agg['mean_bh_max_dd'])} | {_fmt_pct(agg['mean_6040_max_dd'])} |",
+        "| Metrik | vol_target_overlay | SPY B&H | 60/40 B&H | 60/40 Rebalanced |",
+        "|---------|--------------------|---------|-----------|-----------------|",
+        f"| Ø CAGR | {_fmt_pct(agg['mean_cagr'])} | {_fmt_pct(agg['mean_bh_cagr'])} | {_fmt_pct(agg['mean_6040_cagr'])} | {_fmt_pct(agg['mean_r6040_cagr'])} |",
+        f"| Ø Sharpe | {_fmt_f(agg['mean_sharpe'])} | {_fmt_f(agg['mean_bh_sharpe'])} | {_fmt_f(agg['mean_6040_sharpe'])} | {_fmt_f(agg['mean_r6040_sharpe'])} |",
+        f"| Ø MaxDD | {_fmt_pct(agg['mean_max_dd'])} | {_fmt_pct(agg['mean_bh_max_dd'])} | {_fmt_pct(agg['mean_6040_max_dd'])} | {_fmt_pct(agg['mean_r6040_max_dd'])} |",
         f"| Ø Calmar | {_fmt_f(agg['mean_calmar'])} | — | — |",
         f"| Win-Rate (CAGR > 0) | {_fmt_pct(agg['win_rate'])} | — | — |",
         f"| Folds, die SPY CAGR schlagen | {_fmt_pct(agg['beats_spy_cagr'])} | — | — |",
@@ -676,6 +757,11 @@ def _write_report(*, fold_df, agg, n_ok, n_total, actual_start, actual_end):
         "- Keine Transaktionssteuer, kein Spread-Impact über 0.75 bps hinaus.",
         "- Walk-Forward deckt nur Alpaca-Verfügbarkeit; Backfill ab IEF-Inception 2002-07 wäre",
         "  idealer (enthält 2002, 2008, 2020) — hier ab 2003 nach Warmup.",
+        "- 60/40 B&H = initiale Aktienquote ohne Rebalancing (driftet weg von 60/40).",
+        "  60/40 Rebalanced = täglich zurückgewichtete 60/40-Allokation (fairer Vergleich gegen",
+        "  das täglich rebalancierende vol_target_overlay); keine Transaktionskosten auf Benchmark.",
+        "- Parameter (target_vol=0.12, vol_lb=20, sma=200) sind Industry-Standard, nicht auf",
+        "  diesem Sample optimiert.",
         "",
         "---",
         "",

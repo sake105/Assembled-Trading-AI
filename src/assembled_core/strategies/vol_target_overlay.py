@@ -47,8 +47,9 @@ def generate_vol_target_signals_from_prices(
     Returns one row per (timestamp, symbol) for both risk_asset and defensive_asset.
     direction is always "LONG"; score carries the fractional weight [0, 1].
 
-    Only rows where both realized_vol and SMA warmup are satisfied are returned
-    (i.e., rows where timestamp >= min(timestamp) + max(vol_lookback, sma_window)).
+    Only rows where both realized_vol and SMA warmup are satisfied are returned.
+    Minimum bars required: max(vol_lookback, sma_window) + 1
+    (the +1 is for pct_change which needs one baseline bar before the rolling window).
 
     Args:
         prices: long-format DataFrame with columns timestamp, symbol, close.
@@ -66,6 +67,15 @@ def generate_vol_target_signals_from_prices(
     """
     _EMPTY = pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
     warmup_needed = max(vol_lookback, sma_window)
+
+    # F-senior-9: warn if defensive_asset is absent — weights are derived from risk_asset
+    # only, but downstream callers typically need both in their price panels.
+    if defensive_asset not in prices["symbol"].values:
+        logger.warning(
+            "[vol_target] defensive_asset '%s' not found in prices panel; "
+            "IEF weight rows will be synthesised from 1 - w_spy",
+            defensive_asset,
+        )
 
     spy = (
         prices[prices["symbol"] == risk_asset]

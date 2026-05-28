@@ -293,3 +293,52 @@
 **Wie vermeiden:** Health-Endpoints dürfen nur lokalen State lesen (Filesystem, In-Process). Jeder Check der einen externen Service berührt (Broker, FRED, IEX, etc.) muss entweder: (a) mit TTL gecacht werden, (b) opt-in via Query-Param sein (default: skip), oder (c) auf einem separaten authentifizierten `/health/deep`-Endpoint liegen. Hier: `?check_broker=true` opt-in, default returns `{ok: null, detail: "skipped"}`.
 **Erkannt in:** Paket 5 Commit `190fc1dd`, Stage-2 F-senior-3 MAJOR → Fix via `check_broker: bool = Query(default=False)` in `src/assembled_core/api/routers/health.py`.
 **Referenzen:** Stage-2 senior-review 2026-05-28, CLAUDE.md §6.1 (sensible Kernbereiche: execution).
+
+---
+
+## E-027 — Walk-Forward: Lagged Weights computed inside Test Slice discard Warmup-End Carry-In
+**Datum:** 2026-05-28
+**Kategorie:** logic-error / backtest-bias
+**Was passierte:** In `_simulate_vol_target()` wurden `w_spy_lag = test_df["w_spy"].shift(1).fillna(0.0)` und `turnover = test_df["w_spy"].diff().abs().fillna(...)` NACH dem Slice `test_df = combined[test_mask]` berechnet. Damit trägt `shift(1)` am ersten Test-Bar NaN → fillna(0.0) → die Strategie startet jeden Fold von 0% SPY, unabhängig vom echten Position-Stand am Ende der Warmup-Phase. Turnover-diff am ersten Test-Bar wurde ebenfalls falsch berechnet (als ob von Cash-Zustand gestartet wird, nicht von Warmup-End-Gewicht).
+**Warum falsch:** Ein OOS Walk-Forward repliziert den realen Betrieb: die Strategie läuft kontinuierlich, der Test-Window ist nur eine Beobachtungs-Periode. Weights und Turnover müssen den Zustand aus dem Warmup korrekt übernehmen. Ohne das erscheint jeder Fold als Cold-Start → Rendite und Kosten systematisch verzerrt (je nach Fold unterschiedlich, daher schwer diagnostizierbar).
+**Wie erkennen:**
+- `shift(1)` oder `.diff()` nach einem Slice-Filter statt auf dem vollen Frame.
+- Fillna(0.0) für Lag-Weights in einem WF-Kontext (außer am echten ersten Bar des Gesamtdatenrahmens).
+- Fold-1-Renditen unterscheiden sich stark je nach wie aggressiv die Warmup-End-Position ist.
+**Wie vermeiden:**
+- Lag-Weights, Turnover und Returns IMMER auf dem **vollen combined Frame** (warmup + test) berechnen, DANN erst auf den Test-Window slicen.
+- `fillna` für Lags nur am allerersten Bar des gesamten Frames, nicht am ersten Bar jedes Folds.
+- Assertion: `assert test_df["w_spy_lag"].iloc[0] != 0.0 or warmup_end_weight == 0.0` — der erste Test-Bar sollte nur dann 0 sein, wenn die Strategie tatsächlich am Ende der Warmup-Phase 0% hielt.
+**Erkannt in:** `scripts/_oos_wf_vol_target_overlay.py` → Stage-2 F-senior-1 BLOCKER → Fix in Commit `90ec835c` (lag/turnover auf full combined frame).
+**Referenzen:** Stage-2 senior-review 2026-05-28.
+
+## E-028 — Silent Default Weights in WF Replay trivially satisfy Weight-Sum Assertion
+**Datum:** 2026-05-28
+**Kategorie:** silent-degradation / test-anti-pattern
+**Was passierte:** In `_simulate_vol_target()` wurden Warmup-Rows im `combined` DataFrame mit `fillna(0.0)` für w_spy und `fillna(1.0)` für w_ief befüllt (Pre-Signal-Default: 100% IEF, 0% SPY). Die nachfolgende Assertion `(combined["w_spy"] + combined["w_ief"] - 1.0).abs().max() < 1e-6` passt trivialerweise: 0+1=1, egal was. Das bedeutet: wenn Signale im Test-Window ausgeblieben wären (z.B. durch Warmup-Fehler oder Strategie-Bug), hätte die Assertion NICHT gefeuert — die Strategie wäre still mit 100% IEF gelaufen ohne Warnung.
+**Warum falsch:** Assertions die durch die Defaults, die sie schützen sollen, trivialerweise erfüllt werden, sind Alibis, keine Garantien. Eine Assertion die "nie feuert" gibt falsches Vertrauen.
+**Wie erkennen:**
+- Post-fillna-Assertion auf eine Summe/Constraint die durch die fillna-Defaults selbst trivialerweise erfüllt wird.
+- `assert (a + b == 1.0)` wenn a=0 und b=1 die fillna-Defaults sind.
+**Wie vermeiden:**
+- Assertion vor fillna oder auf Basis der raw reindex-Werte (ohne Fallback) stellen.
+- Zusätzlich: assertieren dass im Test-Window echte (nicht-default) Signale vorhanden sind. Z.B. `spy_sigs.reindex(test_rows).notna().any()`.
+- Für zweiwertige Complement-Systeme (b = 1-a): nur eine der beiden Größen assertieren; die andere ist rechnerisch gebunden.
+**Erkannt in:** `scripts/_oos_wf_vol_target_overlay.py` → Stage-2 F-senior-3 MAJOR → Fix via `spy_sigs_in_test.isna().all()` Guard in Commit nach `90ec835c`.
+**Referenzen:** Stage-2 senior-review 2026-05-28, E-025 (Loader Fail-Open), CLAUDE.md §20.8.
+
+## E-029 — Variable nur in einem Condition-Branch definiert → NameError in komplementärem Branch
+**Datum:** 2026-05-28
+**Kategorie:** logic-error / runtime-crash
+**Was passierte:** In `_write_report()` war `dd_ratio_val` nur innerhalb `if not (np.isnan(...)) and abs(mean_dd_spy) > 1e-6:` definiert. Der `elif sharpe_criterion:` Branch referenzierte `dd_ratio_val` in einem f-string. Der `elif`-Branch ist exklusiv mit `if dd_criterion:` → d.h. er wird genau dann erreicht, wenn `dd_criterion=False` → genau dann, wenn `dd_ratio_val` NICHT definiert wurde → `NameError`. Der Fehler blieb unsichtbar, weil in den Test-Runs immer `dd_criterion=True` war (MaxDD-Verbesserung > 30%).
+**Warum falsch:** `NameError` im Report-Writer bedeutet: wenn eine Kombination aus Strategie-Performance (Sharpe ok, DD nicht) vorkommt, crasht die Analyse ohne Output. Genau die Kombination, die ein interessantes "teilweise gut"-Signal wäre, produziert einen Fehler statt einen Report.
+**Wie erkennen:**
+- Variable in `if a:` definiert, in `elif not a:` (oder `else:`) referenziert.
+- Linter (pylance, mypy) zeigt "possibly undefined" für die Variable.
+- Test-Suite hat keine Tests die den `elif`-Branch mit den Daten ausüben, die `a=False` ergeben.
+**Wie vermeiden:**
+- Alle Variablen die in Conditional-Branches genutzt werden IMMER vor dem ersten Branch initialisieren (z.B. `dd_ratio_val = float("nan")`).
+- Für Report-Writer: am Ende der Berechnung alle Template-Variablen auflisten und sicherstellen, dass jede in allen Code-Pfaden einen definierten Wert hat.
+- Test: mindestens ein Test pro Branch-Kombination in Report-Writern mit variablen Metriken.
+**Erkannt in:** `scripts/_oos_wf_vol_target_overlay.py` → Stage-2 F-senior-4 MAJOR → Fix: `dd_ratio_val = float("nan")` vor Branch in Commit `90ec835c`.
+**Referenzen:** Stage-2 senior-review 2026-05-28.
