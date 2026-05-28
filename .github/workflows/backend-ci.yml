@@ -53,6 +53,7 @@ jobs:
           # F-risk-1: migrated from (phase4..phase11) to canonical `fast` marker.
           # phase4..phase13 markers were removed from pyproject.toml in commit 9b78eed.
           pytest -m "fast and not slow" -q --maxfail=1 -W error \
+            -W "ignore::pyparsing.warnings.PyparsingDeprecationWarning" \
             --cov=src/assembled_core --cov-report=term-missing --cov-report=xml:coverage.xml \
             --cov-fail-under=0 2>&1 | tee -a backend_ci_log.txt
 
