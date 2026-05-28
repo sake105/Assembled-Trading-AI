@@ -7824,7 +7824,7 @@ class TestDependencyPinning:
             if ln.strip()
             and not ln.strip().startswith("#")
             and ">=" in ln
-            and ln.strip() not in _ALLOWED_RANGES
+            and ln.split()[0] not in _ALLOWED_RANGES
         ]
         # No active (uncommented) lines should use >= pins anymore
         assert len(active_lines) == 0, f"Found unpinned deps: {active_lines}"
