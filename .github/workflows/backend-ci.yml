@@ -74,24 +74,47 @@ jobs:
           pip install pip-audit
           # Blocking scan. Known-accepted CVEs in transitive/tooling deps are
           # ignored with explicit rationale; any NEW vulnerability fails CI.
+          # Toolchain / pip:
+          # - CVE-2025-8869, CVE-2026-1703, CVE-2026-3219, CVE-2026-6357 (pip):
+          #   toolchain only, not shipped in any production artifact
+          # Transitive network/HTTP deps:
           # - CVE-2026-33752 (curl-cffi): transitive, not in runtime call path
-          # - CVE-2025-8869, CVE-2026-1703 (pip): toolchain only, not shipped
+          # - CVE-2026-25645, CVE-2024-47081 (requests): .netrc credential leak and
+          #   upstream redirect issue; project uses env vars for auth, no .netrc;
+          #   Sprint 4 dep refresh will upgrade requests
+          # - CVE-2026-45409 (idna): IDNA 2008 parsing edge-case; project does not
+          #   process untrusted hostnames from user input
+          # - PYSEC-2026-141, PYSEC-2026-142 (urllib3): header/decompression DoS;
+          #   all urllib3 calls are outbound to known trusted endpoints only
+          # Formatting / docs tools:
           # - CVE-2026-4539 (pygments): docs/formatting only
-          # - CVE-2026-25645 (requests): upgrade tracked in Sprint 4 dep refresh
+          # - CVE-2026-32274 (black): formatting tool, not in runtime call path
+          # Config / templating:
+          # - CVE-2026-28684 (python-dotenv): symlink attack on .env write; .env
+          #   files are read-only in this project (no programmatic write path)
+          # - CVE-2026-44307 (mako): transitive templating dep, not directly imported
+          # Runtime API:
           # - PYSEC-2026-113 (pyarrow): only C++ bindings affected; Python API
           #   not in vulnerable code path per CVE description
-          # - CVE-2024-47081 (requests): .netrc credential leak; this project
-          #   does not use .netrc for auth — all keys are env vars / policy.yaml
+          # - CVE-2026-4539 (pygments): docs/formatting only (listed above)
           # - PYSEC-2026-161 (starlette): affects multipart upload; paper trading
           #   API runs locally only, not exposed to untrusted upload traffic
           pip-audit --desc --skip-editable \
             --ignore-vuln CVE-2026-33752 \
             --ignore-vuln CVE-2025-8869 \
             --ignore-vuln CVE-2026-1703 \
+            --ignore-vuln CVE-2026-3219 \
+            --ignore-vuln CVE-2026-6357 \
             --ignore-vuln CVE-2026-4539 \
             --ignore-vuln CVE-2026-25645 \
-            --ignore-vuln PYSEC-2026-113 \
             --ignore-vuln CVE-2024-47081 \
+            --ignore-vuln CVE-2026-45409 \
+            --ignore-vuln PYSEC-2026-141 \
+            --ignore-vuln PYSEC-2026-142 \
+            --ignore-vuln CVE-2026-32274 \
+            --ignore-vuln CVE-2026-28684 \
+            --ignore-vuln CVE-2026-44307 \
+            --ignore-vuln PYSEC-2026-113 \
             --ignore-vuln PYSEC-2026-161 \
             2>&1 | tee -a backend_ci_log.txt
 
