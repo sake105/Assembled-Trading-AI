@@ -1013,3 +1013,130 @@ class FeatureDriftResponse(BaseModel):
     n_drifted: int
     overall_severity: str = Field(..., description="'NONE', 'MODERATE', or 'SEVERE'")
     features: list[FeatureDriftItem] = Field(default_factory=list)
+
+
+# ============================================================================
+# Health / Ledger / Live-Curve Models (Paket 5 — GO_LIVE F2)
+# ============================================================================
+
+
+class HealthCheckItem(BaseModel):
+    """Result of a single health check."""
+
+    name: str = Field(..., description="Check name")
+    ok: bool = Field(..., description="True if check passed")
+    detail: Optional[str] = Field(None, description="Human-readable detail")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "output_dir",
+                "ok": True,
+                "detail": None,
+            }
+        }
+    )
+
+
+class HealthResponse(BaseModel):
+    """Rich machine-readable health response.
+
+    HTTP 200 when all critical checks pass; HTTP 503 when any critical check fails.
+    """
+
+    status: str = Field(..., description="Overall status: 'healthy' or 'unhealthy'")
+    timestamp_utc: str = Field(..., description="ISO-8601 UTC timestamp of evaluation")
+    checks: dict[str, Any] = Field(
+        ..., description="Per-check result: {name: {ok, detail}}"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "healthy",
+                "timestamp_utc": "2026-05-28T19:30:00+00:00",
+                "checks": {
+                    "output_dir": {"ok": True, "detail": None},
+                    "data_freshness": {
+                        "ok": True,
+                        "detail": "latest: prices_2026-05-28.parquet, age: 0.3h",
+                    },
+                    "broker": {"ok": False, "detail": "check skipped: no API key"},
+                    "kill_switch": {"ok": True, "detail": "state=INACTIVE"},
+                },
+            }
+        }
+    )
+
+
+class LedgerPosition(BaseModel):
+    """Single open position in the paper ledger."""
+
+    symbol: str = Field(..., description="Ticker symbol")
+    qty: float = Field(..., description="Position quantity (positive = long)")
+    avg_price: float = Field(..., description="Average entry price")
+    cost_basis: float = Field(
+        ..., description="abs(qty) * avg_price — total cost basis"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "AAPL",
+                "qty": 10.0,
+                "avg_price": 150.0,
+                "cost_basis": 1500.0,
+            }
+        }
+    )
+
+
+class LedgerResponse(BaseModel):
+    """Tagesaktueller Ledgerstand aus dem Paper-Pilot.
+
+    Wenn kein Ledger vorhanden: status='no_ledger', alle numerischen Felder 0.
+    Unrealized PnL ist näherungsweise: equity − cash − sum(cost_basis),
+    basierend auf der letzten MTM-Bewertung; kein Live-Marktpreis verfügbar.
+    """
+
+    status: str = Field(..., description="'ok' or 'no_ledger'")
+    as_of: Optional[str] = Field(
+        None, description="ISO timestamp of last ledger update"
+    )
+    cash: float = Field(..., description="Current cash balance")
+    equity: float = Field(
+        ..., description="Total equity from last MTM (cash + position value)"
+    )
+    n_positions: int = Field(..., description="Number of open positions")
+    positions: list[LedgerPosition] = Field(
+        default_factory=list, description="Open positions sorted by symbol"
+    )
+    unrealized_pnl_approx: Optional[float] = Field(
+        None,
+        description="Approx unrealized PnL = equity − cash − cost_basis (last MTM)",
+    )
+    date_requested: Optional[str] = Field(
+        None, description="Echoes ?date= query param (YYYY-MM-DD) if supplied"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "ok",
+                "as_of": "2026-05-28T21:30:00+00:00",
+                "cash": 8234.12,
+                "equity": 9987.45,
+                "n_positions": 1,
+                "positions": [
+                    {
+                        "symbol": "AAPL",
+                        "qty": 10.0,
+                        "avg_price": 150.0,
+                        "cost_basis": 1500.0,
+                    }
+                ],
+                "unrealized_pnl_approx": 253.33,
+                "date_requested": None,
+            }
+        }
+    )

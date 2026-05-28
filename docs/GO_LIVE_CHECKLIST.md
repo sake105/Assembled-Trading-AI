@@ -263,18 +263,20 @@ dass Alerting auf dem Produktionshost funktioniert.
 
 **Beschreibung:** Für einen Produktionsbetrieb relevante Endpunkte sind vorhanden.
 
-**Status: [OFFEN]**
+**Status: [ERFÜLLT]** — Paket 5, 2026-05-28
 
-Vorhanden:
+Implementiert (Paket 5):
+- `GET /health` — maschinenlesbarer Health-Check `{status, timestamp_utc, checks}` mit 200/503; checks: output_dir (kritisch), data_freshness, broker (opt-in via `?check_broker=true`), kill_switch
+- `GET /api/v1/ledger` — tagesaktueller Ledgerstand: status, cash, equity, n_positions, positions[], unrealized_pnl_approx, date_requested; optionaler `?date=YYYY-MM-DD`-Filter; kein 404/500 bei fehlendem Pilot
+- `GET /api/v1/performance/{freq}/live-curve` — Pilot-Equity-Kurve in identischem Schema wie backtest-curve (EquityCurveResponse); leere valide Struktur wenn kein Pilot läuft
+
+Bereits vorhanden:
 - `GET /performance/{freq}/backtest-curve` — Backtest-Equity-Kurve (historisch)
 - `GET /monitoring/portfolio` — aktueller Portfoliostatus
 - `GET /monitoring/alerts` — aktive Alerts
 - `GET /monitoring/qa_status`, `/risk_status` etc.
 
-**Was konkret fehlt:**
-- Kein `GET /health`-Endpoint (dediziert, maschinenlesbar für Monitoring-Tools)
-- Kein `GET /performance/{freq}/live-curve` — Equity-Kurve aus dem laufenden Paper-Pilot
-- Kein `GET /ledger` — tagesaktueller Ledgerstand (Transaktionen, Cash, PnL)
+Tests: 11/11 PASS (tests/test_api_f2_endpoints.py). Stage 1+2+3 PASS.
 
 ---
 
@@ -282,16 +284,16 @@ Vorhanden:
 
 | Abschnitt | ERFÜLLT | OFFEN | UNKLAR |
 |-----------|---------|-------|--------|
-| A — Tests & CI (3) | A1, A3 | A2 | — |
+| A — Tests & CI (3) | A1, A2, A3 | — | — |
 | B — Strategie-Integrität (3) | B1* | B2 | B3 |
 | C — Order & Execution (3) | C1, C2 | C3 | — |
 | D — Risiko-Kontrollen (2) | D1, D2 | — | — |
 | E — Betrieb & Reconciliation (3) | E1, E2 | — | E3 |
-| F — Frontend-Schnittstelle (2) | F1 | F2 | — |
+| F — Frontend-Schnittstelle (2) | F1, F2 | — | — |
 
-**8 von 16 Kriterien erfüllt.**  
-6 OFFEN, 2 UNKLAR — Produktionsreife nicht gegeben.
+**12 von 16 Kriterien erfüllt.**  
+2 OFFEN (B2, C3), 2 UNKLAR (B3, E3) — Produktionsreife nicht gegeben.
 
 *B1 formal erfüllt (OOS-Nachweis existiert), aber Ergebnis **negativ** — Strategie muss vor Go-Live überarbeitet werden.
 
-**Letzte Aktualisierung:** 2026-05-27 (A3 + B1 von OFFEN → ERFÜLLT)
+**Letzte Aktualisierung:** 2026-05-28 (F2 von OFFEN → ERFÜLLT, Paket 5)

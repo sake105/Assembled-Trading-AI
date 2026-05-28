@@ -14,6 +14,8 @@ from src.assembled_core.api.auth import require_api_key
 from src.assembled_core.api.middleware import add_middleware
 from src.assembled_core.api.routers import (
     diagnostics,
+    health,
+    ledger,
     monitoring,
     oms,
     orders,
@@ -45,10 +47,8 @@ def create_app() -> FastAPI:
     add_middleware(app)
 
     # ── Health / Readiness / Liveness probes ────────────────────────
-    @app.get("/health", tags=["ops"])
-    def health():
-        """Basic health check — returns 200 if the process is alive."""
-        return {"status": "ok", "uptime_s": round(time.time() - _APP_START_TIME, 1)}
+    # /health is provided by routers/health.py (rich checks, 200/503)
+    app.include_router(health.router)
 
     @app.get("/ready", tags=["ops"])
     def ready():
@@ -170,5 +170,6 @@ def create_app() -> FastAPI:
     app.include_router(oms.router, prefix="/api/v1/oms", tags=["oms"])
     app.include_router(trades.router, prefix="/api/v1", tags=["trades"])
     app.include_router(diagnostics.router, prefix="/api/v1", tags=["diagnostics"])
+    app.include_router(ledger.router, prefix="/api/v1", tags=["ledger"])
 
     return app
