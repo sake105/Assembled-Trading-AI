@@ -42,8 +42,10 @@ hypothesis==6.152.4
 joblib==1.5.2
 
 # --- Scipy / ML (required by presets and fast tests) ---
-scipy==1.16.3
-scikit-learn==1.8.0
+# Ranges (not exact pins): scipy 1.16+ and sklearn 1.8+ require Python >=3.11;
+# backend-ci tests both 3.10 and 3.11, so pip must pick the latest compatible build.
+scipy>=1.10.0
+scikit-learn>=1.3.0
 
 # --- System Check Tournament (system_check/) ---
 anthropic==0.96.0

@@ -88,7 +88,7 @@ Install-Liste ohne scipy.
 
 | Datei | Änderung |
 |-------|----------|
-| `requirements.txt` | +5 Zeilen: pytest, pytest-cov, ruff, scipy, scikit-learn |
+| `requirements.txt` | +5 Einträge: pytest==9.0.1, pytest-cov==7.0.0, ruff==0.14.7, scipy>=1.10.0, scikit-learn>=1.3.0 (scipy/sklearn als Range, nicht Exact-Pin — scipy 1.16+ und sklearn 1.8+ benötigen Python >=3.11, backend-ci testet auch 3.10) |
 | `tests/test_causal_ml.py` | +3 Zeilen: pytest.importorskip("sklearn") |
 | `.github/workflows/accounting-ci.yml` | +3 Packages in pip-install-Zeile |
 | `.github/workflows/release-gate-ci.yml` | +3 Packages (windows-job); redundante `pip install scipy`-Zeile (walk-forward-gate Ubuntu-Job) entfernt |
