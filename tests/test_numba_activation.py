@@ -16,8 +16,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-# numba is an optional extra ([ml-numba]); skip entire module when not installed.
-# ci.yml installs [dev] only — numba not present in that environment.
+# numba is part of the [perf]/[all] extras, not [dev]; skip entire module
+# when not installed. ci.yml installs [dev] only — numba not present there.
 pytest.importorskip("numba")
 
 
