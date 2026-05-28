@@ -271,3 +271,25 @@
 - Commit-Message muss ehrlich trennen zwischen "Infrastructure built" und "Consumer wired" — bei Gap explizit dokumentieren.
 **Erkannt in:** Commit `30d9c3d` (rotator built, clients not wired for 429-feedback) → Stage-2 senior-reviewer F-senior-AKR-2 MAJOR + F-senior-AKR-1 (AV not wired) → Fix in Commit `a39077b` (5 Clients × 5+ Call-Sites alle gewired, within-loop rotation für Finnhub/AV/Polygon/NewsAPI).
 **Referenzen:** Stage-2 senior-review + Stage-3 auditor 2026-05-22, CLAUDE.md Rule 60 (one problem per change — Infrastruktur OHNE Wiring ist nicht "one problem complete").
+
+---
+
+## E-025 — Loader Fail-Open Masks Corruption in API Read Path
+**Datum:** 2026-05-28
+**Kategorie:** silent-except / silent-degradation
+**Was passierte:** `GET /api/v1/ledger` rief `load_ledger_state()` auf, ohne zu prüfen ob der Loader stillschweigend auf `_fresh_state(start_capital=10000.0)` gefallen war. `load_ledger_state` fängt alle Parse-Fehler intern ab und gibt bei vollständigem Fallback `{updated_utc: None, cash: 10000.0, positions: {}, equity_curve: []}` zurück — ununterscheidbar vom Zustand eines frisch gestarteten Pilots. API hätte `status='ok'` mit $10k Startguthaben zurückgegeben, obwohl das Ledger korrumpiert war.
+**Warum falsch:** Eine Observability-Schicht die bei korruptem Underlying-State "alles ok" meldet ist schlimmer als keine Schicht. Operators vertrauen dem grünen Signal. Dieselbe Anti-Pattern-Klasse wie CLAUDE.md §20.8 (silent fail-open in Enforcement-Schicht).
+**Wie vermeiden:** Loaders die intentional fail-open sind, müssen einen erkennbaren Fallback-Zustand produzieren (Sentinel-Wert, `loaded_clean: bool`-Flag, oder explizites Exception-Raise bei Corruption). API-Endpoints über fail-open Loaders müssen den Fallback detektieren und korrekt reporten. Hier: `load_ledger_state(jpath, start_capital=-1.0)` + Check `cash < 0 AND updated_utc is None`.
+**Erkannt in:** Paket 5 Commit `190fc1dd`, Stage-2 F-senior-1 MAJOR → Fix via Sentinel-Approach in `src/assembled_core/api/routers/ledger.py`.
+**Referenzen:** Stage-2 senior-review 2026-05-28, CLAUDE.md §20.8 (fail-open anti-pattern).
+
+---
+
+## E-026 — Unauthenticated Health Endpoint Amplifies Upstream API Calls
+**Datum:** 2026-05-28
+**Kategorie:** risk-execution / resource-exhaustion
+**Was passierte:** `GET /health` (unauthenticated, kein Rate-Limit) rief `AlpacaAdapter().health_check()` bei jedem Request auf — macht einen outbound API-Call zu api.alpaca.markets. Standard Kubernetes/Uptime-Monitoring schlägt `/health` alle 10-30s → 2880-8640 Broker-API-Calls/Tag, bevor überhaupt menschlicher Traffic eintrifft. Hätte Alpaca-Quota exhausted und potentiell 429-Locks während Live-Trading-Fenstern verursacht.
+**Warum falsch:** Health-Endpoints sind extern exponiert und amplizieren jeden per-Request-Seiteneffekt. Ein 429-Lock bei Alpaca während eines Trading-Fensters blockiert Live-Orders — das ist ein Risk-Execution-Impact, nicht nur ein Performance-Problem.
+**Wie vermeiden:** Health-Endpoints dürfen nur lokalen State lesen (Filesystem, In-Process). Jeder Check der einen externen Service berührt (Broker, FRED, IEX, etc.) muss entweder: (a) mit TTL gecacht werden, (b) opt-in via Query-Param sein (default: skip), oder (c) auf einem separaten authentifizierten `/health/deep`-Endpoint liegen. Hier: `?check_broker=true` opt-in, default returns `{ok: null, detail: "skipped"}`.
+**Erkannt in:** Paket 5 Commit `190fc1dd`, Stage-2 F-senior-3 MAJOR → Fix via `check_broker: bool = Query(default=False)` in `src/assembled_core/api/routers/health.py`.
+**Referenzen:** Stage-2 senior-review 2026-05-28, CLAUDE.md §6.1 (sensible Kernbereiche: execution).
