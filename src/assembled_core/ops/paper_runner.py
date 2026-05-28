@@ -547,19 +547,19 @@ def _prd_paper_fills_and_ledger(
     prices_for_fills = result.prices_filtered
     if prices_for_fills.empty:
         prices_for_fills = result.prices_with_features
-    cost_cfg = (app_cfg.get("paper_runner") or {}).get("cost_model") or {}
+    _pilot_policy = _load_pilot_policy_fail_fast("cost_model")
+    cost_cfg = _resolve_cost_cfg(app_cfg, _pilot_policy)
     ledger_before = copy.deepcopy(ledger_state)
 
-    # Almgren-Chriss impact + SOR annotation
+    # Almgren-Chriss impact + SOR annotation — reuses _pilot_policy (no second load_policy call)
     try:
-        from src.assembled_core.config.policy_loader import load_policy
         from src.assembled_core.ops.execution_cost_meta import annotate_execution_cost
 
         regime = getattr(result, "regime", None) or "bull"
         orders_for_fills, exec_meta = annotate_execution_cost(
             orders_for_fills,
             prices_for_fills,
-            policy=load_policy(),
+            policy=_pilot_policy,
             regime=regime,
         )
         result.meta["execution_cost"] = exec_meta
@@ -1073,6 +1073,75 @@ def _prd_run_shadow_strategy(
         )
 
 
+def _load_pilot_policy_fail_fast(context: str) -> dict[str, Any]:
+    """Load policy.yaml; re-raise hard parse errors, fall back on soft failures.
+
+    Hard errors (malformed YAML, non-mapping top-level) → log.error + re-raise.
+    Soft failures (file absent, import error, etc.) → log.warning + return {}.
+    """
+    try:
+        from src.assembled_core.config.policy_loader import load_policy as _lp
+
+        return _lp()
+    except Exception as _exc:  # noqa: BLE001
+        _is_hard = isinstance(_exc, ValueError)
+        if not _is_hard:
+            try:
+                import yaml as _yaml
+
+                _is_hard = isinstance(_exc, _yaml.YAMLError)
+            except ImportError:
+                pass
+        if _is_hard:
+            log.error(
+                "[paper_runner] policy.yaml parse error (%s) — aborting: %s",
+                context,
+                _exc,
+            )
+            raise
+        log.warning(
+            "[paper_runner] policy load failed for %s (fallback to app_cfg): %s",
+            context,
+            _exc,
+        )
+        return {}
+
+
+def _resolve_active_strategy(paper_cfg: dict[str, Any], policy: dict[str, Any]) -> str:
+    """Resolve active strategy: policy.paper_pilot.active_strategy > app_cfg strategy."""
+    app_name = (
+        str((paper_cfg.get("strategy") or {}).get("name") or "none").strip().lower()
+    )
+    pol_name = (
+        str((policy.get("paper_pilot") or {}).get("active_strategy") or "")
+        .strip()
+        .lower()
+    )
+    if pol_name and pol_name != "none":
+        if pol_name != app_name:
+            log.info(
+                "[paper_runner] active_strategy overridden by policy: %r → %r",
+                app_name,
+                pol_name,
+            )
+        return pol_name
+    return app_name
+
+
+def _resolve_cost_cfg(
+    app_cfg: dict[str, Any], policy: dict[str, Any]
+) -> dict[str, Any]:
+    """Resolve cost model: policy.paper_pilot.cost_model > app_cfg.paper_runner.cost_model."""
+    app_cost = (app_cfg.get("paper_runner") or {}).get("cost_model") or {}
+    pol_cost = (policy.get("paper_pilot") or {}).get("cost_model") or {}
+    if pol_cost:
+        log.info(
+            "[paper_runner] cost_model loaded from policy (paper_pilot.cost_model)"
+        )
+        return dict(pol_cost)
+    return dict(app_cost)  # defensive copy — prevent caller mutation of app_cfg
+
+
 def run_paper_daily_one(
     as_of_ts: pd.Timestamp,
     output_dir: Path,
@@ -1102,7 +1171,8 @@ def run_paper_daily_one(
     ) = _prd_load_paper_state(mode, app_cfg, prices, as_of_ts, root, start_capital)
 
     strategy_cfg = paper_cfg.get("strategy") or {}
-    strategy_name = (strategy_cfg.get("name") or "none").strip().lower()
+    _pilot_policy = _load_pilot_policy_fail_fast("strategy")
+    strategy_name = _resolve_active_strategy(paper_cfg, _pilot_policy)
     signal_fn, position_sizing_fn = _prd_make_strategy_fns(
         strategy_name, strategy_cfg, ledger_state
     )

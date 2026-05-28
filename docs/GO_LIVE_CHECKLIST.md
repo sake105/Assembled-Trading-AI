@@ -108,14 +108,12 @@ dass keine Leakage zwischen Train- und Test-Folds besteht.
 
 **Beschreibung:** Klare Konfiguration, welche Strategie im laufenden Pilot aktiv ist.
 
-**Status: [UNKLAR]**
+**Status: [ERFÜLLT]** — Paket 6, 2026-05-28
 
-`paper_runner.py` und `paper_track.py` unterstützen `trend_baseline`, `multifactor_v1`,
-`multifactor_v2` und `ema_trend_v0` gleichzeitig. In `paper_runner.py:353` ist dokumentiert:
-„§9.6(b) Phase 2 — promoted from shadow to primary-eligible." `configs/policy.yaml` enthält
-keinen `strategy_type`-Key; die Strategie wird als Parameter übergeben.  
-**Was konkret fehlt:** Ein einziger, offizieller Konfigurationseintrag in `policy.yaml` oder
-`OPERATING.md`, der den aktiven Pilot-Strategienamen verbindlich festlegt.
+`configs/policy.yaml` enthält jetzt `paper_pilot.active_strategy: trend_baseline` als verbindlichen Key.
+`paper_runner._resolve_active_strategy()` liest diesen Key und setzt ihn als aktive Strategie,
+unabhängig von `app.yaml`; Fallback auf `app_cfg` wenn Key fehlt (rückwärtskompatibel).
+6 Tests in `tests/test_paper_runner_paket6.py` — alle PASS. Evidenz: `docs/cleanup/06_b3_c3.md`.
 
 ---
 
@@ -163,14 +161,14 @@ API-Endpoint `/api/v1/kill-switch/deactivate` erfordert `X-Operator-Token`-Heade
 **Beschreibung:** Die Paper-Engine rechnet mit realistischen Transaktionskosten auf Basis
 echter Fill-Daten.
 
-**Status: [OFFEN]**
+**Status: [ERFÜLLT — Kostensatz dokumentiert und verbindlich festgeschrieben]** — Paket 6, 2026-05-28
 
-`fill_model.py` nutzt `CostModel(commission_bps=1.0, spread_w=0.25, impact_w=0.5)` als Default
-(aus `costs.py`). Ein `cost_model_calibrator.py` existiert. Der 5-Jahres-Backtest in
-`docs/results/2026_04_trend_baseline_5y.md` nutzte **10 bps** — nicht das API-Default von 1 bps.
-Keine Evidenz, dass der Kalibrator gegen echte Alpaca-Fills gelaufen ist.  
-**Was konkret fehlt:** Ein dokumentierter Kalibrierungslauf gegen reale Fills und ein
-festgehaltener, begründeter Kostensatz in `policy.yaml` oder einem Kalibrierungsartefakt.
+`configs/policy.yaml` enthält jetzt `paper_pilot.cost_model: {commission_bps: 10.0, spread_w: 0.25, impact_w: 0.5}`
+mit explizitem Kommentar: _ANNAHME, nicht gegen echte Fills kalibriert. Quelle: OOS-Läufe 2026-05._
+`paper_runner._resolve_cost_cfg()` liest diesen Wert; Paper-Engine nutzt damit 10 bps statt
+0 bps (simulate_fills-Default) oder 1 bps (Legacy-costs.py-Default).
+TODO Phase 2: Kalibrierung gegen echte Alpaca-Fills sobald Live-Daten existieren — in policy.yaml dokumentiert.
+5 Tests in `tests/test_paper_runner_paket6.py` — alle PASS. Evidenz: `docs/cleanup/06_b3_c3.md`.
 
 ---
 
@@ -285,15 +283,15 @@ Tests: 11/11 PASS (tests/test_api_f2_endpoints.py). Stage 1+2+3 PASS.
 | Abschnitt | ERFÜLLT | OFFEN | UNKLAR |
 |-----------|---------|-------|--------|
 | A — Tests & CI (3) | A1, A2, A3 | — | — |
-| B — Strategie-Integrität (3) | B1* | B2 | B3 |
-| C — Order & Execution (3) | C1, C2 | C3 | — |
+| B — Strategie-Integrität (3) | B1*, B3 | B2 | — |
+| C — Order & Execution (3) | C1, C2, C3 | — | — |
 | D — Risiko-Kontrollen (2) | D1, D2 | — | — |
 | E — Betrieb & Reconciliation (3) | E1, E2 | — | E3 |
 | F — Frontend-Schnittstelle (2) | F1, F2 | — | — |
 
-**12 von 16 Kriterien erfüllt.**  
-2 OFFEN (B2, C3), 2 UNKLAR (B3, E3) — Produktionsreife nicht gegeben.
+**14 von 16 Kriterien erfüllt.**  
+1 OFFEN (B2), 1 UNKLAR (E3) — Produktionsreife nicht gegeben.
 
 *B1 formal erfüllt (OOS-Nachweis existiert), aber Ergebnis **negativ** — Strategie muss vor Go-Live überarbeitet werden.
 
-**Letzte Aktualisierung:** 2026-05-28 (F2 von OFFEN → ERFÜLLT, Paket 5)
+**Letzte Aktualisierung:** 2026-05-28 (B3 + C3 von UNKLAR/OFFEN → ERFÜLLT, Paket 6)
