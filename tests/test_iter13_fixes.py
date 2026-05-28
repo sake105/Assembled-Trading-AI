@@ -32,11 +32,14 @@ class TestInsiderBuySellRatioNoInf:
         """np.where result must be np.nan not np.inf when sell_count=0 and buy_count>0."""
         buy = np.array([3.0, 0.0, 2.0])
         sell = np.array([0.0, 0.0, 1.0])
-        ratio = np.where(
-            sell > 0,
-            buy / sell,
-            np.where(buy > 0, np.nan, np.nan),
-        )
+        # np.where evaluates all branches before selecting; suppress the
+        # expected divide-by-zero warning for the zero-sell test fixtures.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = np.where(
+                sell > 0,
+                buy / sell,
+                np.where(buy > 0, np.nan, np.nan),
+            )
         assert not np.any(np.isinf(ratio)), f"ratio must not contain inf, got: {ratio}"
         assert np.isnan(ratio[0]), "sells=0, buys=3 → must be NaN not inf"
 
