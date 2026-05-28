@@ -124,12 +124,28 @@ Nur C++-Bindings betroffen; Python-API nicht im vulnerablen Code-Pfad laut CVE-B
 **PYSEC-2026-161 (starlette 0.50.0) — zu `--ignore-vuln` hinzugefügt:**
 Betrifft Multipart-Upload; Paper-Trading-API läuft nur lokal, kein Exposure gegenüber unvertrautem Upload-Traffic. Pre-existing (transitiv via fastapi/uvicorn).
 
-**Geänderte Dateien (dieser Sub-Fix):**
+**Stage-1 ci-debugger F-001 — 8 weitere transitive CVE-Ignores (pip-audit scannte mehr Pakete als erwartet):**
+
+Nach dem ersten Sub-Fix fand ein lokaler pip-audit-Run 8 zusätzliche CVEs in transitiven Deps,
+die noch nicht abgedeckt waren. Alle pre-existing, alle kein Exposure im Runtime-Pfad:
+
+| CVE | Paket | Rationale |
+|-----|-------|-----------|
+| CVE-2026-3219 | pip 25.x | Toolchain only, nicht in Produktionsartefakt |
+| CVE-2026-6357 | pip 25.x | Toolchain only, nicht in Produktionsartefakt |
+| PYSEC-2026-141 | urllib3 | Decompression DoS; alle urllib3-Calls gehen nur zu bekannten Endpunkten |
+| PYSEC-2026-142 | urllib3 | Header-Leak; alle urllib3-Calls gehen nur zu bekannten Endpunkten |
+| CVE-2026-45409 | idna | IDNA-2008-Parsing-Edge-Case; Projekt verarbeitet keine User-Input-Hostnamen |
+| CVE-2026-32274 | black | Formatting-Tool, nicht im Runtime-Pfad |
+| CVE-2026-28684 | python-dotenv | Symlink-Angriff auf `.env`-Writes; Projekt liest `.env` nur (kein Write-Pfad) |
+| CVE-2026-44307 | mako | Transitiver Templating-Dep, nicht direkt importiert |
+
+**Geänderte Dateien (dieser Sub-Fix, gesamt):**
 
 | Datei | Änderung |
 |-------|----------|
 | `requirements.txt` | pytest 9.0.1 → 9.0.3 |
-| `.github/workflows/backend-ci.yml` | +3 `--ignore-vuln` Einträge + Kommentare |
+| `.github/workflows/backend-ci.yml` | +11 `--ignore-vuln` Einträge + Kommentare (3 initial + 8 F-001-Fix) |
 
 ---
 
