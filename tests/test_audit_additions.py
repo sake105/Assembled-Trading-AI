@@ -287,6 +287,7 @@ def test_kill_switch_audit_hash_chain_holds(
     monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_STATE", str(tmp_path / "state.json"))
     monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
     monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_SENTINEL", str(tmp_path / ".sentinel"))
+    monkeypatch.setenv("OPERATOR_KILL_TOKEN", "t-token")
 
     from src.assembled_core.execution.kill_switch import (
         activate_kill_switch,
@@ -295,7 +296,7 @@ def test_kill_switch_audit_hash_chain_holds(
     )
 
     activate_kill_switch(throttle_pct=0.25, reason="prop", actor="t")
-    deactivate_kill_switch(reason="prop-done", actor="t")
+    deactivate_kill_switch(reason="prop-done", actor="t", operator_token="t-token")
     ok, n = verify_audit_chain()
     assert ok is True
     assert n >= 2
@@ -309,6 +310,7 @@ def test_kill_switch_audit_hash_chain_detects_tamper(
     monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_STATE", str(tmp_path / "state.json"))
     monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
     monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_SENTINEL", str(tmp_path / ".sentinel"))
+    monkeypatch.setenv("OPERATOR_KILL_TOKEN", "t-token")
 
     from src.assembled_core.execution.kill_switch import (
         activate_kill_switch,
@@ -317,7 +319,7 @@ def test_kill_switch_audit_hash_chain_detects_tamper(
     )
 
     activate_kill_switch(throttle_pct=0.0, reason="real", actor="t")
-    deactivate_kill_switch(reason="real-done", actor="t")
+    deactivate_kill_switch(reason="real-done", actor="t", operator_token="t-token")
 
     # Tamper: edit first record's reason — hash on that record now mismatches.
     lines = audit_path.read_text(encoding="utf-8").splitlines()
@@ -625,6 +627,7 @@ def test_kill_switch_throttle_rounds_down_below_min_lot(
     monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_AUDIT", str(tmp_path / "audit.jsonl"))
     monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_SENTINEL", str(tmp_path / ".sentinel"))
     monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
+    monkeypatch.setenv("OPERATOR_KILL_TOKEN", "t-token")
 
     from src.assembled_core.execution.kill_switch import (
         activate_kill_switch,
@@ -645,7 +648,7 @@ def test_kill_switch_throttle_rounds_down_below_min_lot(
     big_row = result[result["symbol"] == "BIG"]
     assert len(big_row) == 1
     assert int(big_row["qty"].iloc[0]) == 4
-    deactivate_kill_switch(reason="done", actor="t")
+    deactivate_kill_switch(reason="done", actor="t", operator_token="t-token")
 
 
 def test_circuit_breaker_cooldown_blocks_double_trip() -> None:

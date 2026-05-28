@@ -7,7 +7,7 @@ import logging
 import os
 import time
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 
 logger = logging.getLogger(__name__)
 from src.assembled_core.api.auth import require_api_key
@@ -132,15 +132,21 @@ def create_app() -> FastAPI:
     def deactivate_kill_switch_endpoint(
         reason: str = "",
         actor: str = "api",
+        x_operator_token: str | None = Header(default=None, alias="X-Operator-Token"),
         _auth: None = Depends(require_api_key),
     ):
-        """Deactivate the kill switch."""
+        """Deactivate the kill switch. Requires X-Operator-Token header."""
         from src.assembled_core.execution.kill_switch import (
             deactivate_kill_switch,
             get_kill_switch_state,
         )
 
-        deactivate_kill_switch(reason=reason, actor=actor)
+        try:
+            deactivate_kill_switch(
+                reason=reason, actor=actor, operator_token=x_operator_token
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         return {"action": "deactivated", "state": get_kill_switch_state()}
 
     @app.get("/api/v1/kill-switch/state", tags=["risk-commands"])

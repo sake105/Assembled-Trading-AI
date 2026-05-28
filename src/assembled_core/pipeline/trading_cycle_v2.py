@@ -774,7 +774,15 @@ def run_trading_cycle(
                     deactivate_kill_switch(
                         reason="backtest_bar_restore",
                         actor="trading_cycle_v2_backtest_guard",
+                        operator_token=os.environ.get("OPERATOR_KILL_TOKEN"),
                     )
+            except PermissionError as _e:
+                log.critical(
+                    "[KS-RESTORE] kill-switch restore DENIED — OPERATOR_KILL_TOKEN not set "
+                    "or invalid. Switch stays engaged; all subsequent backtest bars will "
+                    "have blocked orders. %s",
+                    _e,
+                )
             except Exception as _e:
                 log.warning("[KS-RESTORE] kill-switch state restore failed: %s", _e)
 

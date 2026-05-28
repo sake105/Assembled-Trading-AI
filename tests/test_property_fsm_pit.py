@@ -117,6 +117,7 @@ def isolated_kill_switch(monkeypatch: pytest.MonkeyPatch) -> None:
             "ASSEMBLED_KILL_SWITCH_SENTINEL", os.path.join(tmp, ".sentinel")
         )
         monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
+        monkeypatch.setenv("OPERATOR_KILL_TOKEN", "test-token")
         yield
 
 
@@ -138,7 +139,9 @@ def test_kill_switch_activate_then_deactivate(
     # activate clamps throttle to [0,1]; matches our generator anyway
     assert 0.0 <= s1["throttle_pct"] <= 1.0
 
-    deactivate_kill_switch(reason="prop-test", actor="hypothesis")
+    deactivate_kill_switch(
+        reason="prop-test", actor="hypothesis", operator_token="test-token"
+    )
     s2 = get_kill_switch_state()
     assert s2["engaged"] is False
     assert s2["throttle_pct"] == 1.0

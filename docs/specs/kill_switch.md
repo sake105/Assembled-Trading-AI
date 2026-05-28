@@ -10,8 +10,13 @@ Single authority for "should an order be placed at all right now".
 - `activate_kill_switch(throttle_pct, reason, actor)` — engage at a
   specific throttle percentage (0-100). Tier 1 soft = 50, tier 2
   hard = 80, tier 3 full = 100.
-- `deactivate_kill_switch(reason, actor)` — clear state. Requires an
-  actor string; no anonymous resets.
+- `deactivate_kill_switch(reason, actor, operator_token)` — clear state.
+  Requires OPERATOR_KILL_TOKEN env var and a matching `operator_token` argument.
+  Raises `PermissionError` if env var is absent or token mismatches.
+  Both rejection types are written to the audit log as `REJECT_DEACTIVATE`
+  before the exception is raised (non-repudiation preserved).
+  `activate_kill_switch()` is intentionally not gated — emergency stop must
+  always work with no barrier.
 - `get_kill_switch_state() -> dict` — current tier, reason, timestamps.
 - `is_kill_switch_engaged() -> bool` — convenience for callers.
 - `get_throttle_pct() -> float` — current throttle percentage.

@@ -135,7 +135,9 @@ def check_halt_mechanism() -> bool:
         engaged = is_kill_switch_engaged()
         _record("Check3b_KillSwitch_Activate", engaged, f"engaged={engaged}")
         deactivate_kill_switch(
-            reason="preflight_drill_done", actor="run_preflight_checks.py"
+            reason="preflight_drill_done",
+            actor="run_preflight_checks.py",
+            operator_token=os.environ.get("OPERATOR_KILL_TOKEN"),
         )
         disengaged = not is_kill_switch_engaged()
         _record("Check3c_KillSwitch_Deactivate", disengaged, f"disengaged={disengaged}")

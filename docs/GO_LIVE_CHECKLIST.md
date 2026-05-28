@@ -143,14 +143,18 @@ filled, rejected, cancelled) pro Order mit strukturiertem Schema.
 **Beschreibung:** Der Kill-Switch kann nicht ohne Authentifizierung/Autorisierung aktiviert
 oder deaktiviert werden.
 
-**Status: [OFFEN]**
+**Status: [ERFÜLLT — deactivate gated; activate intentionally ungated]**
 
-`kill_switch.py` existiert mit fsync-Durabilität und Hash-Chain für Audit-Integrität.
-Dead-Man-Switch (`ops/dead_man_switch.py`) existiert ebenfalls (Commit 86468b0c).
-Kein Authentifizierungs- oder Autorisierungsmechanismus in `kill_switch.py` gefunden —
-`activate_kill_switch()` und `deactivate_kill_switch()` sind ohne Zugriffskontrolle aufrufbar.  
-**Was konkret fehlt:** Eine explizite Access-Control-Schicht oder Betreiber-Bestätigung
-(z. B. Actor-Whitelist, Token-Check oder OS-Berechtigungsschutz) für Aktivierung/Deaktivierung.
+`deactivate_kill_switch()` erfordert seit Paket 4b (Commit folgt) einen gültigen
+`OPERATOR_KILL_TOKEN` (Umgebungsvariable + `operator_token`-Argument, `hmac.compare_digest`
+auf Bytes-Ebene). Fail-closed: wenn ENV nicht gesetzt → PermissionError.
+Alle Versuche (rejected + accepted) → REJECT_DEACTIVATE / DEACTIVATE im Hash-Chain-Audit-Log.
+API-Endpoint `/api/v1/kill-switch/deactivate` erfordert `X-Operator-Token`-Header → HTTP 403 bei Fehler.
+
+`activate_kill_switch()` ist absichtlich NICHT gated — Notfall-Stop muss ohne Barrier funktionieren.
+
+**Evidenz:** `kill_switch.py:314–342`, `tests/test_kill_switch_auth.py` (9 Tests),
+`tests/test_api_kill_switch_auth.py` (4 API-Tests), `.env.example` Eintrag `OPERATOR_KILL_TOKEN`.
 
 ---
 

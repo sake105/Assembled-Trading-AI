@@ -8,6 +8,7 @@ Verifies that:
 
 from __future__ import annotations
 
+import secrets
 import sys
 from pathlib import Path
 
@@ -27,16 +28,24 @@ from src.assembled_core.execution.kill_switch import (  # noqa: E402
 pytestmark = pytest.mark.fast
 
 
+_CI_TOKEN = secrets.token_hex(16)
+
+
 @pytest.fixture(autouse=True)
-def _clean_kill_switch():
-    """Ensure kill switch is deactivated before and after each test."""
+def _clean_kill_switch(monkeypatch, tmp_path):
+    """Ensure kill switch is deactivated before and after each test (isolated state)."""
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_STATE", str(tmp_path / "state.json"))
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_AUDIT", str(tmp_path / "audit.jsonl"))
+    monkeypatch.setenv("ASSEMBLED_KILL_SWITCH_SENTINEL", str(tmp_path / ".sentinel"))
+    monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
+    monkeypatch.setenv("OPERATOR_KILL_TOKEN", _CI_TOKEN)
     try:
-        deactivate_kill_switch(reason="test_setup")
+        deactivate_kill_switch(reason="test_setup", operator_token=_CI_TOKEN)
     except Exception:
         pass
     yield
     try:
-        deactivate_kill_switch(reason="test_teardown")
+        deactivate_kill_switch(reason="test_teardown", operator_token=_CI_TOKEN)
     except Exception:
         pass
 
@@ -46,7 +55,7 @@ def test_kill_switch_activate_deactivate_cycle() -> None:
     assert not is_kill_switch_engaged()
     activate_kill_switch(reason="chaos_test", throttle_pct=0.0)
     assert is_kill_switch_engaged()
-    deactivate_kill_switch(reason="chaos_recovery")
+    deactivate_kill_switch(reason="chaos_recovery", operator_token=_CI_TOKEN)
     assert not is_kill_switch_engaged()
 
 

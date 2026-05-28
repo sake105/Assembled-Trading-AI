@@ -26,6 +26,7 @@ Usage::
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -295,8 +296,52 @@ def activate_kill_switch(
         )
 
 
-def deactivate_kill_switch(*, reason: str = "", actor: str = "system") -> None:
-    """Deactivate the kill switch and clear persistent state."""
+def deactivate_kill_switch(
+    *,
+    reason: str = "",
+    actor: str = "system",
+    operator_token: str | None = None,
+) -> None:
+    """Deactivate the kill switch and clear persistent state.
+
+    Requires a valid OPERATOR_KILL_TOKEN.  If the env var is absent, or the
+    supplied token does not match, the call is rejected and a
+    REJECT_DEACTIVATE entry is appended to the audit log.
+
+    Raises:
+        PermissionError: when the token is missing or incorrect.
+    """
+    _expected = os.environ.get("OPERATOR_KILL_TOKEN", "")
+    if not _expected:
+        _append_audit(
+            {
+                "action": "REJECT_DEACTIVATE",
+                "reason": "OPERATOR_KILL_TOKEN env var not set",
+                "actor": actor,
+            }
+        )
+        logger.warning(
+            "[KillSwitch] REJECT deactivate — OPERATOR_KILL_TOKEN not set. actor=%s",
+            actor,
+        )
+        raise PermissionError(
+            "Kill switch deactivation requires OPERATOR_KILL_TOKEN to be set in the environment"
+        )
+    if not hmac.compare_digest((operator_token or "").encode(), _expected.encode()):
+        _append_audit(
+            {
+                "action": "REJECT_DEACTIVATE",
+                "reason": "invalid operator token",
+                "actor": actor,
+            }
+        )
+        logger.warning(
+            "[KillSwitch] REJECT deactivate — invalid operator token. actor=%s",
+            actor,
+        )
+        raise PermissionError(
+            "Kill switch deactivation requires a valid operator token"
+        )
     state = {
         "engaged": False,
         "throttle_pct": 1.0,

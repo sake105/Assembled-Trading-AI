@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -158,7 +159,7 @@ def check_kill_switch() -> tuple[bool, str]:
         import pandas as pd
 
         # Pre-condition: ensure not already engaged
-        deactivate_kill_switch()
+        deactivate_kill_switch(operator_token=os.environ.get("OPERATOR_KILL_TOKEN"))
         assert not is_kill_switch_engaged(), "Kill switch should be OFF before test"
 
         # Activate with test reason
@@ -177,11 +178,18 @@ def check_kill_switch() -> tuple[bool, str]:
         )
 
         # Deactivate and verify restored
-        deactivate_kill_switch()
+        deactivate_kill_switch(operator_token=os.environ.get("OPERATOR_KILL_TOKEN"))
         assert not is_kill_switch_engaged(), "Kill switch did not deactivate"
 
         log.info("[SMOKE-4] Kill switch: activate → block orders → deactivate — OK")
         return True, "kill switch fires and blocks orders correctly"
+    except PermissionError as exc:
+        log.critical(
+            "[SMOKE-4] Kill switch deactivation denied — OPERATOR_KILL_TOKEN not set or invalid. "
+            "Configure this env var before running smoke test. %s",
+            exc,
+        )
+        return False, f"kill switch config error (OPERATOR_KILL_TOKEN missing): {exc}"
     except Exception as exc:
         log.error("[SMOKE-4] Kill switch test FAILED: %s", exc)
         return False, f"kill switch error: {exc}"

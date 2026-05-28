@@ -15,6 +15,7 @@ Run via cron: 09:00 ET Monday weekly
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,7 +54,21 @@ def main() -> int:
     )
 
     if initial:
-        deactivate_kill_switch(reason="drill_cleanup", actor="drill_kill_switch")
+        try:
+            deactivate_kill_switch(
+                reason="drill_cleanup",
+                actor="drill_kill_switch",
+                operator_token=os.environ.get("OPERATOR_KILL_TOKEN"),
+            )
+        except PermissionError as _pe:
+            step(
+                "drill_precondition_deactivate",
+                False,
+                f"OPERATOR_KILL_TOKEN not configured: {_pe}",
+            )
+            report["verdict"] = "FAIL"
+            _write(report)
+            return 1
 
     # 2. Activate
     try:
@@ -70,7 +85,11 @@ def main() -> int:
 
     # 3. Deactivate
     try:
-        deactivate_kill_switch(reason="drill_done", actor="drill_kill_switch")
+        deactivate_kill_switch(
+            reason="drill_done",
+            actor="drill_kill_switch",
+            operator_token=os.environ.get("OPERATOR_KILL_TOKEN"),
+        )
         disengaged = not is_kill_switch_engaged()
         step(
             "deactivation_works",
