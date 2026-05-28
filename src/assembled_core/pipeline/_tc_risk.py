@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import pandas as pd
 from src.assembled_core.config.policy_loader import load_policy
@@ -335,6 +336,37 @@ def check_risk(
                 "n_orders_tracked": len(result.orders_filtered),
                 "state": "SUBMITTED",
             }
+            # Lifecycle log hook — one SUBMITTED entry per order (fire-and-forget)
+            try:
+                from src.assembled_core.ops.order_lifecycle_log import (
+                    append_lifecycle_event,
+                )
+
+                _strategy = str(result.meta.get("strategy", ""))
+                _run_id = str(result.meta.get("run_id", ""))
+                _lc_path = (
+                    Path(ctx.output_dir) / "order_lifecycle.jsonl"
+                    if getattr(ctx, "output_dir", None)
+                    else None
+                )
+                for _ord_row in result.orders_filtered.itertuples(index=False):
+                    _sym = str(getattr(_ord_row, "symbol", ""))
+                    _sid = str(getattr(_ord_row, "side", "BUY")).upper()
+                    append_lifecycle_event(
+                        "SUBMITTED",
+                        order_id=str(getattr(_ord_row, "order_id", ""))
+                        or f"{_sym}_{_sid}_{_run_id}",
+                        symbol=_sym,
+                        side=_sid,
+                        qty=float(getattr(_ord_row, "qty", 0) or 0),
+                        price=float(getattr(_ord_row, "price", 0) or 0) or None,
+                        strategy=_strategy,
+                        actor="trading_cycle_v2",
+                        run_id=_run_id,
+                        log_path=_lc_path,
+                    )
+            except Exception as _lce:
+                log.debug("[LIFECYCLE-LOG] SUBMITTED hook skipped: %s", _lce)
     except Exception as e:
         log.debug("order_lifecycle tracking skipped: %s", e)
 

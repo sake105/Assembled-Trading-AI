@@ -2711,6 +2711,10 @@ class UnifiedPaperEngine:
                     )
                 except ValueError:
                     pass
+                else:
+                    self._log_lifecycle_event(
+                        "REJECTED", oid, reason="risk_control_block"
+                    )
 
     def _lifecycle_mark_submitted(self, order_ids: list[str]) -> None:
         """Transition VALIDATED → SUBMITTED for each id just before fill sim."""
@@ -2724,6 +2728,8 @@ class UnifiedPaperEngine:
                 self._lifecycle.transition(oid, OrderState.SUBMITTED)
             except ValueError:
                 pass
+            else:
+                self._log_lifecycle_event("SUBMITTED", oid)
 
     def _lifecycle_mark_fills(
         self,
@@ -2788,6 +2794,8 @@ class UnifiedPaperEngine:
                         self._lifecycle.transition(oid, target, reason=reason)
                     except ValueError:
                         pass
+                    else:
+                        self._log_lifecycle_event("REJECTED", oid, reason=reason)
                 elif status == "partial":
                     try:
                         self._lifecycle.transition(
@@ -2798,6 +2806,10 @@ class UnifiedPaperEngine:
                         )
                     except ValueError:
                         pass
+                    else:
+                        self._log_lifecycle_event(
+                            "PARTIAL_FILL", oid, price=fill_price_f
+                        )
                 else:
                     try:
                         self._lifecycle.transition(
@@ -2808,6 +2820,8 @@ class UnifiedPaperEngine:
                         )
                     except ValueError:
                         pass
+                    else:
+                        self._log_lifecycle_event("FILLED", oid, price=fill_price_f)
 
         # Any submitted-but-not-matched order → CANCELLED at EOD.
         for oid in submitted_ids:
@@ -2822,6 +2836,40 @@ class UnifiedPaperEngine:
                 )
             except ValueError:
                 pass
+            else:
+                self._log_lifecycle_event("CANCELLED", oid, reason="eod_no_fill")
+
+    def _log_lifecycle_event(
+        self,
+        event_type: str,
+        order_id: str,
+        *,
+        price: float | None = None,
+        reason: str | None = None,
+    ) -> None:
+        """Fire-and-forget write of a single lifecycle event to order_lifecycle.jsonl."""
+        try:
+            from src.assembled_core.ops.order_lifecycle_log import (
+                append_lifecycle_event,
+            )
+
+            order = self._lifecycle.get_order(order_id) if self._lifecycle else None
+            if order is None:
+                return
+            append_lifecycle_event(
+                event_type,
+                order_id,
+                symbol=order.symbol,
+                side=order.side,
+                qty=order.quantity,
+                price=price,
+                reason=reason,
+                actor="unified_paper_engine",
+                run_id=self.config.run_id,
+                log_path=self.config.lifecycle_dir / "order_lifecycle.jsonl",
+            )
+        except Exception as exc:
+            logger.debug("[LIFECYCLE-LOG] event write skipped: %s", exc)
 
     def _lifecycle_dump(self, as_of_date: str) -> None:
         """Write lifecycle snapshots for orders that went terminal this run.
@@ -2853,6 +2901,22 @@ class UnifiedPaperEngine:
                 logger.debug("[PAPER] Lifecycle dump %s (%d rows)", path, len(lines))
         except Exception as exc:  # pragma: no cover
             logger.warning("[PAPER] Lifecycle dump failed: %s", exc)
+
+        # Validate order_lifecycle.jsonl for open (non-terminal) orders at EOD.
+        try:
+            from src.assembled_core.ops.order_lifecycle_log import find_open_orders
+
+            _lc_log = self.config.lifecycle_dir / "order_lifecycle.jsonl"
+            _open = find_open_orders(_lc_log)
+            if _open:
+                logger.warning(
+                    "[LIFECYCLE-LOG] %d order(s) without terminal event at EOD %s: %s",
+                    len(_open),
+                    as_of_date,
+                    _open[:10],
+                )
+        except Exception as exc:
+            logger.debug("[LIFECYCLE-LOG] open-order check skipped: %s", exc)
 
     # ------------------------------------------------------------------
 

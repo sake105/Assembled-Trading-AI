@@ -126,15 +126,15 @@ keinen `strategy_type`-Key; die Strategie wird als Parameter übergeben.
 **Beschreibung:** Jedes Order-Event (erstellt → gesendet → gefüllt / abgebrochen) wird
 append-only mit Timestamp persistiert.
 
-**Status: [OFFEN]**
+**Status: [ERFÜLLT — per-event JSONL-Log mit Validator und EOD-Warning]**
 
-`trade_journal.py` schreibt JSONL-Einträge pro Fill (append-only durch JSONL-Natur).
-`execution/order_lifecycle.py` und `execution/order_management.py` existieren, aber kein
-zentrales, append-only Audit-Log, das jede Lifecycle-Phase eines Orders lückenlos festhält.
-Kill-Switch-Audit hat fsync+Hash-Chain (sichergestellt in Commit aus Session 2026-05-12),
-aber das deckt nur Kill-Switch-Events ab.  
-**Was konkret fehlt:** Ein dediziertes, unveränderliches Lifecycle-Log (submitted, routed,
-filled, rejected, cancelled) pro Order mit strukturiertem Schema.
+`src/assembled_core/ops/order_lifecycle_log.py` (Paket 4c):
+- `append_lifecycle_event()` schreibt JSONL-Eintrag pro Zustandsübergang (SUBMITTED/ROUTED/PARTIAL_FILL/FILLED/REJECTED/CANCELLED)
+- Schema: order_id, timestamp_utc, event_type, symbol, side, qty, price, reason, strategy, actor, run_id
+- `find_open_orders()` — Validator für Orders ohne Terminal-Event (wired in `_lifecycle_dump` mit EOD-Warning)
+- Hook-Punkte: `_tc_risk.py` (SUBMITTED), `_tc_execution.py` (FILLED), `unified_paper_engine.py` (alle Transitions)
+- trade_journal.jsonl bleibt vollständig erhalten (rückwärtskompatibel)
+- 9 Tests, alle PASS. Stage 1+2+3 review chain PASS. CI unverified.
 
 ---
 
@@ -284,7 +284,7 @@ Vorhanden:
 |-----------|---------|-------|--------|
 | A — Tests & CI (3) | A1, A3 | A2 | — |
 | B — Strategie-Integrität (3) | B1* | B2 | B3 |
-| C — Order & Execution (3) | — | C1, C2, C3 | — |
+| C — Order & Execution (3) | C1, C2 | C3 | — |
 | D — Risiko-Kontrollen (2) | D1, D2 | — | — |
 | E — Betrieb & Reconciliation (3) | E1, E2 | — | E3 |
 | F — Frontend-Schnittstelle (2) | F1 | F2 | — |

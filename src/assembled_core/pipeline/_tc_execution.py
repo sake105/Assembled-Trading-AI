@@ -455,9 +455,10 @@ def book_fills(
             _algo_avail = [
                 c for c in ("algo_type", "algo_n_slices") if c in _of.columns
             ]
+            _oid_avail = ["order_id"] if "order_id" in _of.columns else []
             _tj_fills = []
             for _row in _of[
-                ["symbol", "side", _qty_col, _price_col] + _algo_avail
+                ["symbol", "side", _qty_col, _price_col] + _algo_avail + _oid_avail
             ].itertuples(index=False):
                 _qty_val = getattr(_row, _qty_col)
                 _px_val = getattr(_row, _price_col)
@@ -467,6 +468,10 @@ def book_fills(
                     "qty": float(_qty_val if pd.notna(_qty_val) else 0),
                     "price": float(_px_val if pd.notna(_px_val) else 0),
                 }
+                if _oid_avail:
+                    _raw_oid = getattr(_row, "order_id", None)
+                    if _raw_oid is not None and pd.notna(_raw_oid):
+                        _e["order_id"] = str(_raw_oid)
                 if "algo_type" in _algo_avail:
                     _e["algo_type"] = str(getattr(_row, "algo_type", ""))
                 if "algo_n_slices" in _algo_avail:
@@ -484,6 +489,33 @@ def book_fills(
                 run_id=str(ctx.as_of.date()),
                 journal_path=ctx.output_dir / "trade_journal.jsonl",
             )
+            # Lifecycle log hook — one FILLED entry per fill (fire-and-forget)
+            try:
+                from src.assembled_core.ops.order_lifecycle_log import (
+                    append_lifecycle_event,
+                )
+
+                _strategy = str(result.meta.get("strategy", ""))
+                _run_id = str(ctx.as_of.date())
+                _lc_path = ctx.output_dir / "order_lifecycle.jsonl"
+                for _fill in _tj_fills:
+                    _fsym = str(_fill.get("symbol", ""))
+                    _fsid = str(_fill.get("side", "BUY")).upper()
+                    append_lifecycle_event(
+                        "FILLED",
+                        order_id=str(_fill.get("order_id", ""))
+                        or f"{_fsym}_{_fsid}_{_run_id}",
+                        symbol=_fsym,
+                        side=_fsid,
+                        qty=float(_fill.get("qty", 0)),
+                        price=float(_fill.get("price", 0)) or None,
+                        strategy=_strategy,
+                        actor="trading_cycle_v2",
+                        run_id=_run_id,
+                        log_path=_lc_path,
+                    )
+            except Exception as _lce:
+                log.debug("[LIFECYCLE-LOG] FILLED hook skipped: %s", _lce)
     except Exception as e:
         log.debug("[TRADE-JOURNAL] trade_journal skipped: %s", e)
 
