@@ -816,7 +816,9 @@ paper_pilot:
   # Verbindliche Pilot-Strategie. paper_runner liest diesen Key und setzt ihn
   # als active_strategy, unabhängig von app.yaml paper_runner.strategy.name.
   # Fallback: app_cfg["paper_runner"]["strategy"]["name"] wenn Key fehlt.
-  active_strategy: trend_baseline  # Pilot seit 2026-05-23; OOS CAGR +43% / Sharpe 1.44
+  # Pilot seit 2026-05-23. 10-Fold OOS (2018-2025): -6.1% CAGR (GO_LIVE B1 negativ).
+  # Single-Period Live-Eval (2025-2026): +43% CAGR / Sharpe 1.44 — beide Messungen im Repo.
+  active_strategy: trend_baseline
 
   # Transaktionskostenmodell.
   # ANNAHME, nicht gegen echte Fills kalibriert.
@@ -824,8 +826,7 @@ paper_pilot:
   # TODO Phase 2: gegen echte Alpaca-Fills kalibrieren, sobald Live-Daten existieren.
   cost_model:
     commission_bps: 10.0   # 10 bps je Trade (~$100/100k Volumen) — konservative Annahme
-    # Hinweis: spread_w und impact_w werden von simulate_fills/reconcile NICHT gelesen
-    # (nur paper_track.py und backtest_engine.py werten sie aus, × 1e-4 = bps-Einheit).
-    # Hier festgehalten für Konsistenz mit OOS-Parametern; Wert = 0.25 bps Halbspread.
-    spread_w: 0.25         # 0.25 bps Halbspread-Äquivalent (Almgren-Chriss, × 1e-4)
-    impact_w: 0.5          # 0.5 bps Market-Impact-Äquivalent (Almgren-Chriss, × 1e-4)
+    # spread_w + impact_w: Von simulate_fills als Slippage-Fallback genutzt (sum = 0.75 bps),
+    # wenn slippage_bps = 0. Auch von paper_track.py und backtest_engine.py (× 1e-4 = bps-Einheit).
+    spread_w: 0.25         # 0.25 bps Halbspread-Äquivalent (Almgren-Chriss)
+    impact_w: 0.5          # 0.5 bps Market-Impact-Äquivalent (Almgren-Chriss)

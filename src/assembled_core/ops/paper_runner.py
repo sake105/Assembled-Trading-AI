@@ -524,6 +524,7 @@ def _prd_paper_fills_and_ledger(
     output_dir: Path,
     start_capital: float,
     strategy_name: str = "none",
+    pilot_policy: dict[str, Any] | None = None,
 ) -> str | None:
     """Simulate/execute fills, update ledger, write journal+TCA+post-trade. Returns reconcile_status."""
     import copy
@@ -547,7 +548,11 @@ def _prd_paper_fills_and_ledger(
     prices_for_fills = result.prices_filtered
     if prices_for_fills.empty:
         prices_for_fills = result.prices_with_features
-    _pilot_policy = _load_pilot_policy_fail_fast("cost_model")
+    _pilot_policy = (
+        pilot_policy
+        if pilot_policy is not None
+        else _load_pilot_policy_fail_fast("cost_model")
+    )
     cost_cfg = _resolve_cost_cfg(app_cfg, _pilot_policy)
     ledger_before = copy.deepcopy(ledger_state)
 
@@ -1296,6 +1301,7 @@ def run_paper_daily_one(
             output_dir=output_dir,
             start_capital=start_capital,
             strategy_name=strategy_name,
+            pilot_policy=_pilot_policy,
         )
 
     _prd_write_artifacts(

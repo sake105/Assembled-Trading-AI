@@ -177,13 +177,23 @@ def simulate_fills(
     prices_latest: pd.DataFrame,
     cost_model_cfg: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Simulate fills: v1 fill at close (or next best), qty as requested; optional commission/slippage bps."""
+    """Simulate fills: fill at close, qty as requested; optional commission/slippage bps.
+
+    If ``slippage_bps`` is absent from *cost_model_cfg*, falls back to ``spread_w + impact_w``
+    (Almgren-Chriss params, both in bps units). Explicit ``slippage_bps=0.0`` is respected as-is.
+    """
     fills: list[dict[str, Any]] = []
     if orders.empty:
         return fills
     cost = cost_model_cfg or {}
     commission_bps = float(cost.get("commission_bps", 0) or 0)
     slippage_bps = float(cost.get("slippage_bps", 0) or 0)
+    if "slippage_bps" not in cost:
+        # Almgren-Chriss params from policy.yaml: use spread_w + impact_w as slippage fallback.
+        # Only applies when caller did NOT set slippage_bps explicitly (even slippage_bps=0 is respected).
+        slippage_bps = float(cost.get("spread_w", 0) or 0) + float(
+            cost.get("impact_w", 0) or 0
+        )
 
     price_col = "close" if "close" in prices_latest.columns else "price"
     if "symbol" not in prices_latest.columns or price_col not in prices_latest.columns:
