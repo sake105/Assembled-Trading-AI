@@ -7812,12 +7812,19 @@ class TestDependencyPinning:
     """Item 19: All dependencies in requirements.txt are pinned to exact versions."""
 
     def test_requirements_has_no_range_pins(self):
+        # scipy>=1.10.0 and scikit-learn>=1.3.0 are intentional range pins:
+        # scipy 1.16+ and sklearn 1.8+ require Python >=3.11; backend-ci tests
+        # both Py 3.10 and 3.11 so pip must pick the latest compatible build.
+        _ALLOWED_RANGES = {"scipy>=1.10.0", "scikit-learn>=1.3.0"}
         p = Path(__file__).parents[1] / "requirements.txt"
         content = p.read_text(encoding="utf-8", errors="replace")
         active_lines = [
             ln
             for ln in content.splitlines()
-            if ln.strip() and not ln.strip().startswith("#") and ">=" in ln
+            if ln.strip()
+            and not ln.strip().startswith("#")
+            and ">=" in ln
+            and ln.strip() not in _ALLOWED_RANGES
         ]
         # No active (uncommented) lines should use >= pins anymore
         assert len(active_lines) == 0, f"Found unpinned deps: {active_lines}"
