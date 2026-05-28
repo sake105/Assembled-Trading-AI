@@ -52,8 +52,13 @@ jobs:
           set -o pipefail
           # F-risk-1: migrated from (phase4..phase11) to canonical `fast` marker.
           # phase4..phase13 markers were removed from pyproject.toml in commit 9b78eed.
-          pytest -m "fast and not slow" -q --maxfail=1 -W error \
-            -W "ignore::pyparsing.warnings.PyparsingDeprecationWarning" \
+          # pyproject.toml filterwarnings already promotes warnings from
+          # src.assembled_core.* to errors (targeted). Removing the blanket
+          # -W error avoids cascading failures from third-party packages
+          # (pandas pct_change FutureWarning, arch/matplotlib/pyparsing
+          # DeprecationWarning) that were accumulated while backend-ci was
+          # broken and hidden by exit-127 (missing pytest in requirements.txt).
+          pytest -m "fast and not slow" -q --maxfail=1 \
             --cov=src/assembled_core --cov-report=term-missing --cov-report=xml:coverage.xml \
             --cov-fail-under=0 2>&1 | tee -a backend_ci_log.txt
 
