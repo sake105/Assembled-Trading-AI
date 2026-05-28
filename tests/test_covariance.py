@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-import pytest
+
 import numpy as np
 import pandas as pd
+import pytest
+
+try:
+    import scipy as _scipy
+
+    _SCIPY_VERSION = tuple(int(x) for x in _scipy.__version__.split(".")[:2])
+except ImportError:
+    _SCIPY_VERSION = (0, 0)
 
 pytest.importorskip("src.assembled_core.portfolio.covariance")
 from src.assembled_core.portfolio.covariance import (
@@ -66,6 +74,12 @@ class TestEstimateCovariance:
         assert cov.shape == (4, 4)
         np.testing.assert_allclose(cov.values, cov.values.T, atol=1e-10)
 
+    @pytest.mark.skipif(
+        _SCIPY_VERSION < (1, 16),
+        reason="arch 8.0.0 DCC-GARCH SLSQP is incompatible with scipy<1.16 "
+        "(Python 3.10 CI installs scipy 1.15.x which triggers an optimizer "
+        "DeprecationWarning promoted to error by -W error)",
+    )
     def test_dcc_garch_method(self):
         ret = _synthetic_returns(n=120)
         cov = estimate_covariance(ret, method="dcc_garch")
