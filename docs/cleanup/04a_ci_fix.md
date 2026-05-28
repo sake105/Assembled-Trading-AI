@@ -106,6 +106,33 @@ die Install-Zeit verlängern würden. Minimaler chirurgischer Fix gewählt.
 
 ---
 
+---
+
+### 7. Backend CI — pip-audit CVE-Blockers (sub-fixes nach initialem Commit)
+
+Nach dem ersten grünen Test-Lauf blockierte der pip-audit-Step mit 4 CVEs.
+
+**CVE-2025-71176 (pytest 9.0.1) — behoben durch Upgrade:**
+`pytest==9.0.1` → `pytest==9.0.3` in `requirements.txt`. Dieser CVE wurde erst durch den Paket-4a-Pin eingeführt; das Upgrade ist der sauberere Fix als Ignorieren.
+
+**PYSEC-2026-113 (pyarrow 21.0.0) — zu `--ignore-vuln` hinzugefügt:**
+Nur C++-Bindings betroffen; Python-API nicht im vulnerablen Code-Pfad laut CVE-Beschreibung. Pre-existing.
+
+**CVE-2024-47081 (requests 2.32.3) — zu `--ignore-vuln` hinzugefügt:**
+`.netrc`-Credential-Leak; dieses Projekt nutzt keine `.netrc`-Datei — alle Keys kommen via Env-Vars / `policy.yaml`. Pre-existing.
+
+**PYSEC-2026-161 (starlette 0.50.0) — zu `--ignore-vuln` hinzugefügt:**
+Betrifft Multipart-Upload; Paper-Trading-API läuft nur lokal, kein Exposure gegenüber unvertrautem Upload-Traffic. Pre-existing (transitiv via fastapi/uvicorn).
+
+**Geänderte Dateien (dieser Sub-Fix):**
+
+| Datei | Änderung |
+|-------|----------|
+| `requirements.txt` | pytest 9.0.1 → 9.0.3 |
+| `.github/workflows/backend-ci.yml` | +3 `--ignore-vuln` Einträge + Kommentare |
+
+---
+
 ## Nicht adressiert (kein Scope-Creep)
 
 - pyproject.toml `[dev]` enthält kein sklearn → bleibt so (sklearn ist optional)
