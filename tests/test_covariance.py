@@ -78,7 +78,7 @@ class TestEstimateCovariance:
         _SCIPY_VERSION < (1, 16),
         reason="arch 8.0.0 DCC-GARCH SLSQP is incompatible with scipy<1.16 "
         "(Python 3.10 CI installs scipy 1.15.x which triggers an optimizer "
-        "DeprecationWarning promoted to error by -W error)",
+        "convergence error / unsupported SLSQP keyword argument)",
     )
     def test_dcc_garch_method(self):
         ret = _synthetic_returns(n=120)

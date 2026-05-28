@@ -93,10 +93,9 @@ jobs:
           # - CVE-2026-28684 (python-dotenv): symlink attack on .env write; .env
           #   files are read-only in this project (no programmatic write path)
           # - CVE-2026-44307 (mako): transitive templating dep, not directly imported
-          # Runtime API:
+          # Runtime deps:
           # - PYSEC-2026-113 (pyarrow): only C++ bindings affected; Python API
           #   not in vulnerable code path per CVE description
-          # - CVE-2026-4539 (pygments): docs/formatting only (listed above)
           # - PYSEC-2026-161 (starlette): affects multipart upload; paper trading
           #   API runs locally only, not exposed to untrusted upload traffic
           pip-audit --desc --skip-editable \

@@ -17,7 +17,7 @@
 → `pytest`-Befehl nicht gefunden → exit 127.
 
 **Fix:**  
-`requirements.txt`: `pytest==9.0.1`, `pytest-cov==7.0.0`, `ruff==0.14.7` hinzugefügt.
+`requirements.txt`: `pytest==9.0.3`, `pytest-cov==7.0.0`, `ruff==0.14.7` hinzugefügt. (9.0.1 war der initiale Pin; 9.0.3 ist der finale Stand nach dem pip-audit Sub-Fix in §7.)
 
 ---
 
