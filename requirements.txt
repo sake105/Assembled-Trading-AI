@@ -35,8 +35,15 @@ feedparser==6.0.12
 newsapi-python==0.2.7
 
 # --- Dev / Test ---
+pytest==9.0.1
+pytest-cov==7.0.0
+ruff==0.14.7
 hypothesis==6.152.4
 joblib==1.5.2
+
+# --- Scipy / ML (required by presets and fast tests) ---
+scipy==1.16.3
+scikit-learn==1.8.0
 
 # --- System Check Tournament (system_check/) ---
 anthropic==0.96.0

@@ -21,6 +21,10 @@ import math
 import numpy as np
 import pytest
 
+# causal_ml requires scikit-learn; skip entire module if not installed.
+# Convention: matches tests/regression/test_deflated_sharpe.py pattern.
+pytest.importorskip("sklearn")
+
 from src.assembled_core.signals.causal_ml import (
     CausalForestResult,
     PLRResult,

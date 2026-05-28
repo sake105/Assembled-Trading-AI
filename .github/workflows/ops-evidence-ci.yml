@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas pyarrow pytest ruff pydantic pydantic-settings
+          pip install pandas pyarrow pytest ruff pydantic pydantic-settings scipy statsmodels scikit-learn
 
       - name: Run ops_evidence preset checks
         id: ops_evidence_checks

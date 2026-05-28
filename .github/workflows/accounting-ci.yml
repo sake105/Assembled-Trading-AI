@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas pyarrow fastparquet pytest ruff pydantic pydantic-settings pyyaml exchange_calendars
+          pip install pandas pyarrow fastparquet pytest ruff pydantic pydantic-settings pyyaml exchange_calendars scipy statsmodels scikit-learn
       
       - name: Run broker_snapshot preset checks
         id: broker_snapshot_checks
