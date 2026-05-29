@@ -342,3 +342,31 @@
 - Test: mindestens ein Test pro Branch-Kombination in Report-Writern mit variablen Metriken.
 **Erkannt in:** `scripts/_oos_wf_vol_target_overlay.py` → Stage-2 F-senior-4 MAJOR → Fix: `dd_ratio_val = float("nan")` vor Branch in Commit `90ec835c`.
 **Referenzen:** Stage-2 senior-review 2026-05-28.
+
+## E-030 — bfill auf Pivot-Panel leakt Future-Prices bei gestaffelter Asset-Inception
+**Datum:** 2026-05-29
+**Kategorie:** pit-violation / look-ahead-bias
+**Was passierte:** In `dual_momentum.py` wurde `pivot = pivot.ffill().bfill()` auf das Wide-Preis-Panel angewendet. Wenn ein Asset einen späteren Inception-Date hat als der Panel-Start (z.B. BIL ab 2007-05-25, Panel ab 2007-01-01), erzeugt das Pivoting leading NaN-Rows fuer dieses Asset. `.bfill()` fuellt diese NaN rueckwaerts auf mit dem ersten verfuegbaren Preis — einem Preis, der zum Zeitpunkt der NaN-Bars noch nicht existiert hat. Das korrumpiert 12M-Return-Berechnungen auf den fruehesten Rebalance-Bars: BIL erscheint als "flat" obwohl es noch gar kein Preissignal gab.
+**Warum falsch:** `.bfill()` auf einem Panel mit gestaffelten Inceptions propagiert Zukunftsinformation in die Vergangenheit — klassischer Look-Ahead-Bias. Das ist besonders tückisch weil es nur die fruehesten Bars betrifft (vor dem spaetesten Inception-Date), die Tests mit gleichem Startdatum fuer alle Assets das Problem unsichtbar machen.
+**Wie erkennen:**
+- Preis-Panel mit unterschiedlichen Inception-Dates der Symbole (z.B. ETFs mit gestaffeltem Launch).
+- `pivot.ffill().bfill()` auf einem solchen Panel.
+- Test-Fixture alle Symbole mit gleichem Startdatum → Bug ist unsichtbar.
+**Wie vermeiden:**
+- Nur `.ffill()`, niemals `.bfill()` auf Multi-Asset-Pivots mit gestaffelten Inceptions.
+- Test-Fixture explizit mit gestaffelten Startdaten bauen (PIT-Test 7 in `test_dual_momentum_pit_safety.py` als Vorlage).
+- Wenn Leading-NaN-Rows ein Problem sind: erst nach dem spaetesten Inception-Date schneiden (explizit, mit Log-Warning), nicht blind bfill-en.
+**Erkannt in:** `src/assembled_core/strategies/dual_momentum.py` → Stage-2 F-senior-1 MAJOR → Fix: `.bfill()` entfernt, Commit `feat(dual_momentum)`.
+**Referenzen:** Stage-2 senior-review 2026-05-29.
+
+## E-031 — EOM-Detection mit month.values strippt Jahresinfo → falsche Identifikation bei Luecken
+**Datum:** 2026-05-29
+**Kategorie:** logic-error / latent-bug
+**Was passierte:** In `dual_momentum.py` wurde EOM (End-of-Month) via `months = dates.month.values; eom_flags[:-1] = months[:-1] != months[1:]` detektiert. Das funktioniert fuer taegliche Business-Day-Daten korrekt (Dezember→Januar immer 12!=1). Aber bei Lueckendaten oder nicht-taeglich abgetasteten Panels wuerde z.B. Jan-2021 → Jan-2022 als "kein Monatswechsel" behandelt (beide month=1), was EOM-Bars ausblendet. Auch Dezember-2021 → Dezember-2022 waere ein falsch-negativer Monatswechsel.
+**Warum falsch:** `month.values` wirft Jahresinformation weg. Gleiches Monat in verschiedenen Jahren ist kein "selber Monat" fuer den Zweck der EOM-Detektion. Bei daily Business-Day-Data ist die Wahrscheinlichkeit des Fehlers klein (Wochen ohne Jahreswechsel ueberbruecken nie > 12 Monate), aber bei gappigen oder monats-gesampleten Daten ist es ein echter Bug.
+**Warum nicht schon im echten Run aufgefallen:** Alpaca-Daily-Daten 2016-2025 haben keine Luecken gross genug, um das Problem zu triggern. Der Fehler ist latent fuer gappige Panels oder seltene Assets.
+**Wie vermeiden:**
+- `keys = dates.year.values * 12 + dates.month.values` statt `months = dates.month.values` fuer EOM-/Periodenvergleiche.
+- Allgemein: bei Zeitreihen-Vergleichen nie Jahresinformation wegwerfen, auch wenn der "normale" Fall taegliche Daten sind.
+**Erkannt in:** `src/assembled_core/strategies/dual_momentum.py` → Stage-2 F-senior-3 MAJOR → Fix: year*12+month, Commit `feat(dual_momentum)`.
+**Referenzen:** Stage-2 senior-review 2026-05-29.
