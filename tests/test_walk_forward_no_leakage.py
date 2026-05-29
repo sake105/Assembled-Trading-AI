@@ -234,3 +234,32 @@ def test_production_config_purge_does_not_increase_fold_count():
     assert len(splits_purge) <= len(splits_no_purge), (
         f"Purge unexpectedly increased fold count: {len(splits_no_purge)} → {len(splits_purge)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Check 2 regression: MA warmup buffer fits inside training window.
+# Mirrors _cpcv_tb_leakage_check.py _check_warmup_in_train().
+# MA_WARMUP_BARS=90 td → MA_WARMUP_CAL_APPROX=135 cal-days (conservative bound).
+# ---------------------------------------------------------------------------
+
+_MA_WARMUP_BARS = 90
+_MA_WARMUP_CAL_APPROX = int(_MA_WARMUP_BARS * 365 / 252) + 5  # = 135
+
+
+@pytest.mark.fast
+def test_production_config_ma_warmup_fits_in_training_window():
+    """All folds: 90-td MA warmup (≈135 cal-days) sourced from training period.
+
+    Mirrors _cpcv_tb_leakage_check.py Check 2.  warmup_start = test_start - 135d
+    must be >= train_start (warmup data inside training window).
+    """
+    for f in _prod_splits():
+        warmup_start = f.test_start - pd.Timedelta(days=_MA_WARMUP_CAL_APPROX)
+        assert warmup_start >= f.train_start, (
+            f"Fold {f.split_index}: warmup_start {warmup_start.date()} "
+            f"< train_start {f.train_start.date()} — warmup exceeds training window"
+        )
+        assert warmup_start < f.test_start, (
+            f"Fold {f.split_index}: warmup_start {warmup_start.date()} "
+            f">= test_start {f.test_start.date()} — warmup overlaps test period"
+        )
