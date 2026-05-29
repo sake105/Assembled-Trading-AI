@@ -705,10 +705,12 @@ Bereits etabliert:
   `%USERPROFILE%\.claude\projects\F--Python-Projekt-Aktienger-st\memory\`
   (konkret: `C:\Users\hanso\.claude\projects\F--Python-Projekt-Aktienger-st\memory\`).
   Zentrale Indexdatei: `MEMORY.md`. Ein Repo-lokales `memory/`-Verzeichnis gibt es **nicht**.
+* Hook-Skripte (aktiv seit 2026-05-14):
+  - `session_start_load_errors.py` (SessionStart) — lädt Top-10 Anti-Patterns in den Kontext
+  - `stop_review_chain.py` (Stop) — erzwingt Review-Kette nach Edits in geschützten Pfaden
 
 Noch offen / optional:
 
-* projektbezogene Hook-Skripte
 * weitergehende Automation (erst nach stabilem Basiskontext)
 
 ### 14.4 Reihenfolge der Einführung
