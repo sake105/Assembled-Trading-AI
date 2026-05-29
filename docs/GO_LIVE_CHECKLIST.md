@@ -298,8 +298,8 @@ Tests: 11/11 PASS (tests/test_api_f2_endpoints.py). Stage 1+2+3 PASS.
 | E — Betrieb & Reconciliation (3) | E1, E2, E3 | — | — |
 | F — Frontend-Schnittstelle (2) | F1, F2 | — | — |
 
-**16 von 16 Kriterien erfüllt.**  
-Alle Kriterien erfüllt — Infrastruktur produktionsreif für Paper-Betrieb.
+**16 von 16 Infrastruktur-Kriterien erfüllt — Strategie-Edge weiterhin offen (B1 negativ).**  
+Infrastruktur produktionsreif für Paper-Betrieb. Kein Go-Live ohne validierten Edge.
 
 *B1 formal erfüllt (OOS-Nachweis existiert), aber Ergebnis **negativ** — kein Go-Live ohne validierten Edge (Abschluss-Entscheidung 2026-05-29).
 
