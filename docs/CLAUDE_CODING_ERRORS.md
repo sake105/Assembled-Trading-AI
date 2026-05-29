@@ -370,3 +370,28 @@
 - Allgemein: bei Zeitreihen-Vergleichen nie Jahresinformation wegwerfen, auch wenn der "normale" Fall taegliche Daten sind.
 **Erkannt in:** `src/assembled_core/strategies/dual_momentum.py` → Stage-2 F-senior-3 MAJOR → Fix: year*12+month, Commit `feat(dual_momentum)`.
 **Referenzen:** Stage-2 senior-review 2026-05-29.
+
+## E-032 — Windows astype(int) auf ms-Epoch overflows int32
+**Datum:** 2026-05-29
+**Kategorie:** pandas-pitfall / platform-divergence
+**Was passierte:** In `scripts/crypto_funding_carry_backtest.py` wurden Binance-Timestamps (ms seit Epoch, ~1.57×10¹² ms fuer 2019-Daten) via `df["fundingTime"].astype(int)` konvertiert. Auf Windows mappt `astype(int)` zu numpy `int32` (max ~2.1×10⁹), was den Wert auf einen kleinen positiven Rest wrapt. `pd.to_datetime(..., unit="ms")` interpretierte die getruncten Werte als ~5 Tage nach Epoch → alle Timestamps landeten in 1970-01-06 statt 2019.
+**Warum falsch:** Python's `int` ist unbegrenzt, aber numpy mappt `int` auf den Platform-Default-Integer-Typ. Auf Windows 64-bit ist `numpy.int_` = `int32`, nicht `int64`. Werte > ~2.1 Mrd. (inklusive alle ms-Epoch-Timestamps nach 1970-01-25) laufen ueber.
+**Wie vermeiden:**
+- Immer explizit `astype("int64")` (String-Notation) verwenden, wenn die Spalte ms- oder ns-Epoch-Werte halten koennte.
+- Niemals `astype(int)` oder `astype(np.int_)` fuer Zeitstempel-Mathe auf Windows.
+- Auf Linux ist `np.int_` = `int64`, daher taucht der Bug nur auf Windows auf → klassische Local-vs-CI-Divergenz bei gemischten Umgebungen.
+**Erkannt in:** `scripts/crypto_funding_carry_backtest.py` → beide `astype(int)` in fetch_funding_rates() + fetch_klines() → Fix: `astype("int64")`.
+**Referenzen:** Stage-2 senior-review 2026-05-29, Diagnostic-Run F-032.
+
+## E-033 — pyarrow datetime64[ns, UTC] Round-Trip-Korruption auf Windows
+**Datum:** 2026-05-29
+**Kategorie:** pandas-pitfall / platform-divergence
+**Was passierte:** In `scripts/crypto_funding_carry_backtest.py` wurden korrekte `datetime64[ns, UTC]`-Spalten via `df.to_parquet()` gespeichert und via `pd.read_parquet()` eingelesen. Auf Windows (bestimmte pyarrow-Versionen) lieferte der Read-Back Timestamps nahe Epoch-0 (1969-12-07 statt 2019-09-10). Die In-Memory-Werte waren korrekt; nur die Parquet-Persistenz war kaputt.
+**Warum falsch:** pyarrow auf Windows behandelt `datetime64[ns, UTC]`-Daten in bestimmten Versionen anders als auf Linux (Endianness, tz-metadata, ns-precision). Stille Datenverfaelschung, kein Exception.
+**Wie vermeiden:**
+- tz-aware datetime-Spalten nicht direkt als solche in Parquet persistieren, wenn plattformuebergreifende Kompatibilitaet wichtig ist.
+- Stattdessen: Timestamp als `int64 ms` (Epoch-Millisekunden) speichern, nach dem Load via `pd.to_datetime(col, unit="ms", utc=True)` rekonstruieren.
+- Workaround-Pattern: `_save_parquet()` + `_load_parquet()` aus `scripts/crypto_funding_carry_backtest.py` als Template.
+- Gegencheck: nach erstem Write sofort Read-Back und `assert df["timestamp"].min().year > 1972` o.ae.
+**Erkannt in:** `scripts/crypto_funding_carry_backtest.py` → `load_or_fetch()` → Fix: `_save_parquet()` speichert `timestamp_ms: int64`, `_load_parquet()` rekonstruiert.
+**Referenzen:** Stage-2 senior-review 2026-05-29, Fix in Commit `7909bd99`.
