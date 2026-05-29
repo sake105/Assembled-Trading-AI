@@ -95,12 +95,21 @@ Survivorship-Bias durch Alpaca Free Tier, kein Dividenden-Reinvest im SPY-Benchm
 
 **Beschreibung:** CPCV-Modul genutzt und auf PIT-Sicherheit geprüft.
 
-**Status: [OFFEN]**
+**Status: [ERFÜLLT]** — 2026-05-29
 
-`src/assembled_core/qa/cpcv_validation.py` existiert, ist aber als Research-Modul markiert
-(erfordert optionales `skfolio`). Kein dokumentierter CPCV-Run für trend_baseline im Repo.  
-**Was konkret fehlt:** Nachgewiesener CPCV-Lauf auf trend_baseline-Daten und Bestätigung,
-dass keine Leakage zwischen Train- und Test-Folds besteht.
+`scripts/_cpcv_tb_leakage_check.py` erstellt (2026-05-29). Ruft `generate_walk_forward_splits()` —
+dieselbe Produktionsfunktion wie `_oos_wf_trend_baseline.py` — auf und prüft 4 Leakage-Checks
+auf den echten Fold-Grenzen (10 Folds, 2018–2025, train=test=step=252 Tage).
+
+**Ergebnis (lokaler Run, exit 0):**
+- **Check 1 — No Train/Test Overlap:** PASS — test_start >= train_end in allen 10 Folds.
+- **Check 2 — MA Warmup in Training:** PASS — 90 Trading-Day-Warmup (≈135 Kalendertage konservativ) liegt vollständig im 252-Tage-Trainingsfenster.
+- **Check 3 — Cross-Fold Test Independence:** PASS — Testfenster überlappen nicht (STEP_SIZE == TEST_WINDOW, Config-Drift-Detector).
+- **Check 4 — Non-Negative Purge Gap:** PASS — kein negativer Purge-Gap im Fold-Generator.
+
+Ergebnis-Dokument: `docs/results/2026_05_cpcv_tb_leakage_check.md`  
+Kombiniert mit A3 PIT-Regressionstests: Walk-Forward-Design von `_oos_wf_trend_baseline.py` ist leak-frei.  
+**GO_LIVE B2 Kriterium erfüllt.**
 
 ---
 
@@ -283,15 +292,15 @@ Tests: 11/11 PASS (tests/test_api_f2_endpoints.py). Stage 1+2+3 PASS.
 | Abschnitt | ERFÜLLT | OFFEN | UNKLAR |
 |-----------|---------|-------|--------|
 | A — Tests & CI (3) | A1, A2, A3 | — | — |
-| B — Strategie-Integrität (3) | B1*, B3 | B2 | — |
+| B — Strategie-Integrität (3) | B1*, B2, B3 | — | — |
 | C — Order & Execution (3) | C1, C2, C3 | — | — |
 | D — Risiko-Kontrollen (2) | D1, D2 | — | — |
 | E — Betrieb & Reconciliation (3) | E1, E2, E3 | — | — |
 | F — Frontend-Schnittstelle (2) | F1, F2 | — | — |
 
-**15 von 16 Kriterien erfüllt.**  
-1 OFFEN (B2) — Infrastruktur produktionsreif für Paper-Betrieb.
+**16 von 16 Kriterien erfüllt.**  
+Alle Kriterien erfüllt — Infrastruktur produktionsreif für Paper-Betrieb.
 
 *B1 formal erfüllt (OOS-Nachweis existiert), aber Ergebnis **negativ** — kein Go-Live ohne validierten Edge (Abschluss-Entscheidung 2026-05-29).
 
-**Letzte Aktualisierung:** 2026-05-29 (E3 von UNKLAR → ERFÜLLT; DMS Task Scheduler eingetragen; macro.parquet CPI-Fix neu gezogen)
+**Letzte Aktualisierung:** 2026-05-29 (B2 von OFFEN → ERFÜLLT: CPCV-Leakage-Check 10 Folds, 4/4 Checks PASS)
