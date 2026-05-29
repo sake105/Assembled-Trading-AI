@@ -813,17 +813,18 @@ quant_gates:
 # Paper Pilot — verbindliche Betriebsparameter (GO_LIVE B3 + C3, 2026-05-28)
 # ---------------------------------------------------------------------------
 paper_pilot:
-  # Verbindliche Pilot-Strategie. paper_runner liest diesen Key und setzt ihn
-  # als active_strategy, unabhängig von app.yaml paper_runner.strategy.name.
-  # Fallback: app_cfg["paper_runner"]["strategy"]["name"] wenn Key fehlt.
-  # Pilot seit 2026-05-23. 10-Fold OOS (2018-2025): -6.1% CAGR (GO_LIVE B1 negativ).
-  # Single-Period Live-Eval (2025-2026): +43% CAGR / Sharpe 1.44 — beide Messungen im Repo.
+  # INFRASTRUKTUR-ERPROBUNG — kein Alpha-Betrieb.
+  # Abschluss-Entscheidung 2026-05-29 (docs/PROJEKT_ABSCHLUSS_2026_05.md §4):
+  #   Strategische Richtung: passiver Kern (SPY/AGG) + vol_target_overlay als Drawdown-Schutz.
+  #   trend_baseline hält den Paper-Runner aktiv; kein Go-Live ohne validierten Edge.
+  #   OOS (2018-2025, 10 Folds): -6.1% CAGR — GO_LIVE B1 negativ.
+  # paper_runner liest diesen Key; Fallback: app_cfg["paper_runner"]["strategy"]["name"].
   active_strategy: trend_baseline
 
   # Transaktionskostenmodell.
   # ANNAHME, nicht gegen echte Fills kalibriert.
   # Quelle: OOS-Läufe 2026-05 (scripts/_oos_walk_forward_trend_baseline.py).
-  # TODO Phase 2: gegen echte Alpaca-Fills kalibrieren, sobald Live-Daten existieren.
+  # Kalibrierung gegen echte Fills erst relevant wenn GO_LIVE-Edge nachgewiesen (kein offener TODO).
   cost_model:
     commission_bps: 10.0   # 10 bps je Trade (~$100/100k Volumen) — konservative Annahme
     # spread_w + impact_w: Von simulate_fills als Slippage-Fallback genutzt (sum = 0.75 bps),

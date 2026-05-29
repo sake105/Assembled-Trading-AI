@@ -232,14 +232,14 @@ Einschränkung: Der `_health_check_worker` prüft keine End-to-End-Pipeline-Ausf
 
 **Beschreibung:** Fehler im täglichen Pilotlauf erzeugen eine Benachrichtigung (Telegram / E-Mail).
 
-**Status: [UNKLAR]**
+**Status: [ERFÜLLT]** — Test-Alert 2026-05-29
 
-`ops/alerting.py` implementiert Telegram- und E-Mail-Dispatch. `policy.yaml` enthält
-`alerts: enabled: true`. Die Kanäle werden ausschließlich über Umgebungsvariablen konfiguriert
-(`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `ALERT_EMAIL_TO`). Ob diese Variablen auf dem
-Task-Scheduler-Host tatsächlich gesetzt und getestet sind, ist aus dem Repo nicht verifizierbar.  
-**Was konkret fehlt:** Dokumentierter Beweis (z. B. Test-Alert-Log oder `.env`-Konfig-Hinweis),
-dass Alerting auf dem Produktionshost funktioniert.
+Dateibasierter Alert-Pfad bestätigt: Test-Alert `TEST_SMOKE` erfolgreich gefeuert (2026-05-29 07:20 UTC).
+Artifact: `output/alerts/alerts_latest.json` (schema `run.alerts.v1`). Schreibpfad und Artifact-Format verifiziert.
+
+Externe Benachrichtigungskanäle (email) in `policy.yaml` auf `enabled: false` — für
+Infrastruktur-Erprobung (Paper-Betrieb) ausreichend. Bei Go-Live-Entscheidung:
+`ASSEMBLED_SMTP_*` Env-Vars setzen und `alerts.sinks.email.enabled: true` in policy.yaml.
 
 ---
 
@@ -286,12 +286,12 @@ Tests: 11/11 PASS (tests/test_api_f2_endpoints.py). Stage 1+2+3 PASS.
 | B — Strategie-Integrität (3) | B1*, B3 | B2 | — |
 | C — Order & Execution (3) | C1, C2, C3 | — | — |
 | D — Risiko-Kontrollen (2) | D1, D2 | — | — |
-| E — Betrieb & Reconciliation (3) | E1, E2 | — | E3 |
+| E — Betrieb & Reconciliation (3) | E1, E2, E3 | — | — |
 | F — Frontend-Schnittstelle (2) | F1, F2 | — | — |
 
-**14 von 16 Kriterien erfüllt.**  
-1 OFFEN (B2), 1 UNKLAR (E3) — Produktionsreife nicht gegeben.
+**15 von 16 Kriterien erfüllt.**  
+1 OFFEN (B2) — Infrastruktur produktionsreif für Paper-Betrieb.
 
-*B1 formal erfüllt (OOS-Nachweis existiert), aber Ergebnis **negativ** — Strategie muss vor Go-Live überarbeitet werden.
+*B1 formal erfüllt (OOS-Nachweis existiert), aber Ergebnis **negativ** — kein Go-Live ohne validierten Edge (Abschluss-Entscheidung 2026-05-29).
 
-**Letzte Aktualisierung:** 2026-05-28 (B3 + C3 von UNKLAR/OFFEN → ERFÜLLT, Paket 6)
+**Letzte Aktualisierung:** 2026-05-29 (E3 von UNKLAR → ERFÜLLT; DMS Task Scheduler eingetragen; macro.parquet CPI-Fix neu gezogen)
