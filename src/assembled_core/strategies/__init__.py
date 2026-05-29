@@ -5,10 +5,20 @@ Exposes:
 - Multi-factor long-short strategy
 - Dual momentum strategy (Antonacci-variant)
 - ETF-Pairs Cointegration Mean-Reversion strategy
+- Low-MAX / Lottery-Avoidance strategy
 """
 
 from __future__ import annotations
 
+from src.assembled_core.strategies.low_max_lottery import (
+    compute_signals as low_max_compute_signals,
+)
+from src.assembled_core.strategies.low_max_lottery import (
+    compute_target_positions as low_max_compute_target_positions,
+)
+from src.assembled_core.strategies.low_max_lottery import (
+    generate_low_max_signals_from_prices,
+)
 from src.assembled_core.strategies.etf_pairs_meanrev import (
     compute_signals as etf_pairs_compute_signals,
 )
@@ -51,4 +61,7 @@ __all__ = [
     "etf_pairs_compute_signals",
     "etf_pairs_compute_target_positions",
     "generate_etf_pairs_signals_from_prices",
+    "low_max_compute_signals",
+    "low_max_compute_target_positions",
+    "generate_low_max_signals_from_prices",
 ]
