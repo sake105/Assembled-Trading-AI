@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -29,7 +28,6 @@ import pandas as pd
 import requests
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("crypto_carry")
@@ -230,7 +228,9 @@ def simulate_carry(df_in: pd.DataFrame) -> pd.DataFrame:
     df = df_in.copy().sort_values("timestamp").reset_index(drop=True)
     df["apr"] = df["funding_rate"] * INTERVALS_PER_YEAR
 
-    # Rolling window: minimum funding_rate over last STABLE_N intervals (≥ STABLE_N bars needed)
+    # Rolling window: minimum funding_rate over last STABLE_N intervals including the
+    # current row (i.e. requires the current interval to be positive too, which is
+    # already implied by APR >= ENTRY_APR; no look-ahead beyond current settlement).
     df["roll_min"] = df["funding_rate"].rolling(STABLE_N, min_periods=STABLE_N).min()
 
     in_pos = False
@@ -242,21 +242,27 @@ def simulate_carry(df_in: pd.DataFrame) -> pd.DataFrame:
         pnl = 0.0
 
         if not in_pos:
-            # Entry: APR above threshold AND last STABLE_N intervals all positive
+            # Entry: APR above threshold AND last STABLE_N intervals all positive.
+            # PnL on the entry interval is the open cost only — funding[i] is already
+            # settled before we can act, so we do NOT count it as PnL here.
+            # The first funding receipt happens in the next (ACTIVE) interval.
             if (
                 row["apr"] >= ENTRY_APR
                 and pd.notna(row["roll_min"])
                 and row["roll_min"] > 0
             ):
                 in_pos = True
-                pnl = row["funding_rate"] - OPEN_COST  # receive funding, pay entry fee
+                pnl = -OPEN_COST  # pay entry fee; funding accrual starts next interval
                 state = "ENTRY"
         else:
-            if row["apr"] < EXIT_APR:
+            # Exit when APR falls below threshold OR funding turns negative (explicit OR
+            # to match the documented contract; with EXIT_APR=0.05 these are equivalent
+            # today, but the explicit check is robust to future threshold changes).
+            if row["apr"] < EXIT_APR or row["funding_rate"] < 0:
                 in_pos = False
                 pnl = (
-                    row["funding_rate"] - CLOSE_COST
-                )  # receive (or pay) funding, pay exit fee
+                    -CLOSE_COST
+                )  # pay exit fee; funding[i] already settled, not counted
                 state = "EXIT"
             else:
                 pnl = row["funding_rate"]
@@ -308,6 +314,9 @@ def compute_risk_metrics(sim: pd.DataFrame, klines: pd.DataFrame) -> dict:
     years_active = n_active / INTERVALS_PER_YEAR if n_active > 0 else 0.0
 
     total_pnl_usd = (sim["interval_pnl"] * INITIAL_NOTIONAL).sum()
+    # Simple-interest annualized return: sum(pnl_fractions) / years.
+    # Labels as "Net APR" in the report, but is additive not geometric.
+    # For 5-7% over 6+ years the geometric/simple difference is <1pp.
     net_apr = (total_pnl_usd / INITIAL_NOTIONAL) / years if years > 0 else 0.0
 
     # Sharpe (on 8 h interval returns, including flat periods as 0)
@@ -355,7 +364,7 @@ def compute_risk_metrics(sim: pd.DataFrame, klines: pd.DataFrame) -> dict:
     worst_adverse_pct = float(
         kl["ret_open_to_high"].max()
     )  # worst intra-bar spike upward
-    worst_adverse_ts = klines.loc[kl["ret_open_to_high"].idxmax(), "timestamp"]
+    worst_adverse_ts = kl.loc[kl["ret_open_to_high"].idxmax(), "timestamp"]
 
     # At MARGIN_LEVERAGE × leverage: effective margin = 1/leverage
     # Liquidation when adverse move ≥ effective_margin
@@ -533,12 +542,11 @@ def write_report(
         ]
         sim_y = sim.copy()
         sim_y["year"] = sim_y["timestamp"].dt.year
-        active_mask = sim_y["state"].isin(["ACTIVE", "ENTRY", "EXIT"])
         for yr, grp in sim_y.groupby("year"):
             n = len(grp)
             fr = grp["funding_rate"].mean()
             pp = (grp["funding_rate"] > 0).mean()
-            n_act = active_mask[grp.index].sum()
+            n_act = grp["state"].isin(["ACTIVE", "ENTRY", "EXIT"]).sum()
             yr_pnl = (grp["interval_pnl"] * INITIAL_NOTIONAL).sum()
             yr_yrs = n / INTERVALS_PER_YEAR
             yr_apr = (grp["interval_pnl"].sum()) / yr_yrs

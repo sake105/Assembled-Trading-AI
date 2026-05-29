@@ -59,14 +59,14 @@ The exit rule closes the position only at the START of the next evaluation.
 | Median 8 h funding rate | +0.0100% |
 | Implied mean APR (full sample) | +11.8% |
 | % time in position | 57.0% |
-| **Net APR after fees** | **+4.9%** |
-| Total PnL (USD, $10,000 notional) | $+3,297 |
-| Sharpe (all periods, flat=0) | +4.93 |
-| Sharpe (active-only) | +6.58 ⚠ see caveat §4 |
-| Max drawdown (USD) | $-1,143 |
-| Worst single-interval PnL | $-17.0 |
-| Return skewness | -0.06 |
-| Excess kurtosis | +3.73 |
+| **Net APR after fees** | **+4.5%** |
+| Total PnL (USD, $10,000 notional) | $+3,031 |
+| Sharpe (all periods, flat=0) | +4.40 |
+| Sharpe (active-only) | +5.86 ⚠ see caveat §4 |
+| Max drawdown (USD) | $-1,389 |
+| Worst single-interval PnL | $-8.0 |
+| Return skewness | -0.19 |
+| Excess kurtosis | +3.36 |
 
 ### ETH (ETHUSDT)
 
@@ -80,40 +80,40 @@ The exit rule closes the position only at the START of the next evaluation.
 | Median 8 h funding rate | +0.0100% |
 | Implied mean APR (full sample) | +14.3% |
 | % time in position | 59.8% |
-| **Net APR after fees** | **+7.1%** |
-| Total PnL (USD, $10,000 notional) | $+4,593 |
-| Sharpe (all periods, flat=0) | +5.96 |
-| Sharpe (active-only) | +7.80 ⚠ see caveat §4 |
-| Max drawdown (USD) | $-1,359 |
-| Worst single-interval PnL | $-43.6 |
-| Return skewness | +0.49 |
-| Excess kurtosis | +9.19 |
+| **Net APR after fees** | **+6.7%** |
+| Total PnL (USD, $10,000 notional) | $+4,378 |
+| Sharpe (all periods, flat=0) | +5.64 |
+| Sharpe (active-only) | +7.37 ⚠ see caveat §4 |
+| Max drawdown (USD) | $-1,611 |
+| Worst single-interval PnL | $-8.0 |
+| Return skewness | +0.69 |
+| Excess kurtosis | +6.11 |
 
 ### BTC — Year-by-Year Net PnL
 
 | Year | Mean FR (8h) | % Time Positive | In-Position | Net PnL (USD) | Net APR |
 |------|-------------|-----------------|-------------|---------------|---------|
-| 2019 | +0.0068% | 81.7% | 64% | $+95 | +3.1% |
-| 2020 | +0.0157% | 85.7% | 73% | $+1,555 | +15.5% |
-| 2021 | +0.0280% | 92.7% | 83% | $+2,768 | +27.7% |
-| 2022 | +0.0038% | 77.9% | 35% | $-693 | -6.9% |
-| 2023 | +0.0072% | 89.9% | 55% | $-45 | -0.4% |
-| 2024 | +0.0109% | 91.6% | 72% | $+584 | +5.8% |
-| 2025 | +0.0047% | 87.1% | 40% | $-768 | -7.7% |
-| 2026 | +0.0007% | 58.2% | 11% | $-199 | -4.9% |
+| 2019 | +0.0068% | 81.7% | 64% | $+97 | +3.1% |
+| 2020 | +0.0157% | 85.7% | 73% | $+1,542 | +15.4% |
+| 2021 | +0.0280% | 92.7% | 83% | $+2,759 | +27.6% |
+| 2022 | +0.0038% | 77.9% | 35% | $-755 | -7.6% |
+| 2023 | +0.0072% | 89.9% | 55% | $-95 | -1.0% |
+| 2024 | +0.0109% | 91.6% | 72% | $+545 | +5.4% |
+| 2025 | +0.0047% | 87.1% | 40% | $-846 | -8.5% |
+| 2026 | +0.0007% | 58.2% | 11% | $-216 | -5.3% |
 
 ### ETH — Year-by-Year Net PnL
 
 | Year | Mean FR (8h) | % Time Positive | In-Position | Net PnL (USD) | Net APR |
 |------|-------------|-----------------|-------------|---------------|---------|
-| 2019 | +0.0081% | 95.2% | 85% | $-21 | -2.3% |
-| 2020 | +0.0250% | 97.4% | 90% | $+2,447 | +24.4% |
-| 2021 | +0.0343% | 95.9% | 87% | $+3,463 | +34.6% |
-| 2022 | +0.0007% | 65.8% | 23% | $-610 | -6.1% |
-| 2023 | +0.0075% | 90.9% | 57% | $-261 | -2.6% |
-| 2024 | +0.0118% | 95.8% | 82% | $+515 | +5.1% |
-| 2025 | +0.0045% | 83.8% | 36% | $-691 | -6.9% |
-| 2026 | +0.0003% | 57.5% | 12% | $-248 | -6.1% |
+| 2019 | +0.0081% | 95.2% | 85% | $-30 | -3.1% |
+| 2020 | +0.0250% | 97.4% | 90% | $+2,465 | +24.6% |
+| 2021 | +0.0343% | 95.9% | 87% | $+3,483 | +34.8% |
+| 2022 | +0.0007% | 65.8% | 23% | $-651 | -6.5% |
+| 2023 | +0.0075% | 90.9% | 57% | $-325 | -3.2% |
+| 2024 | +0.0118% | 95.8% | 82% | $+462 | +4.6% |
+| 2025 | +0.0045% | 83.8% | 36% | $-760 | -7.6% |
+| 2026 | +0.0003% | 57.5% | 12% | $-267 | -6.6% |
 
 ---
 
@@ -152,8 +152,8 @@ The exit rule closes the position only at the START of the next evaluation.
 >
 > **Do NOT use this Sharpe to compare against equity strategies.**
 >
-> Skewness: -0.06 / +0.49 (BTC/ETH)
-> Excess kurtosis: +3.73 / +9.19
+> Skewness: -0.19 / +0.69 (BTC/ETH)
+> Excess kurtosis: +3.36 / +6.11
 > Negative skew and fat tails confirm the steamroller profile.
 
 ### 4.3 Liquidation / Margin Risk (Short Perp Leg)
@@ -200,8 +200,8 @@ is delta-neutral on paper, exchanges liquidate the perp leg independently.
 
 | Asset | VaR 99% (single 8 h interval, $10,000 notional) |
 |-------|------|
-| BTC | $-8.15 |
-| ETH | $-8.13 |
+| BTC | $-8.00 |
+| ETH | $-8.00 |
 
 ---
 
@@ -209,12 +209,12 @@ is delta-neutral on paper, exchanges liquidate the perp leg independently.
 
 ### Does a carry edge remain after fees?
 
-- **BTC** net APR after fees: **+4.9%**  
+- **BTC** net APR after fees: **+4.5%**  
   Gross implied APR from mean rate: +11.8%  
   Fee drag (roundtrip × turnover): approx. +0.16% per trade  
   Edge remaining: **YES (marginal)**
 
-- **ETH** net APR after fees: **+7.1%**  
+- **ETH** net APR after fees: **+6.7%**  
   Gross implied APR from mean rate: +14.3%  
   Fee drag (roundtrip × turnover): approx. +0.16% per trade  
   Edge remaining: **YES (marginal)**
