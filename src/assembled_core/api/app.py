@@ -59,9 +59,18 @@ def create_app() -> FastAPI:
         - ``disk_quota``: usage of the output/audit directory must stay below
           90 %. A full disk silently drops audit/ledger writes — refuse to
           serve traffic before that happens (audit C4-040).
+        - ``auth_posture``: when auth is required (production profile or
+          explicit opt-in) but no API key is configured, the deployment is
+          serving command endpoints insecurely — refuse readiness (audit
+          SEC-1). In dev/test (auth not required) this check always passes.
         """
         import shutil
         from fastapi.responses import JSONResponse
+
+        from src.assembled_core.api.auth import (
+            auth_is_configured,
+            auth_required_when_unset,
+        )
 
         checks: dict[str, bool] = {}
         details: dict[str, object] = {}
@@ -73,6 +82,17 @@ def create_app() -> FastAPI:
             checks["kill_switch"] = True
         except Exception:
             checks["kill_switch"] = False
+
+        try:
+            auth_required = auth_required_when_unset()
+            auth_configured = auth_is_configured()
+            checks["auth_posture"] = auth_configured or not auth_required
+            details["auth_configured"] = auth_configured
+            details["auth_required"] = auth_required
+        except Exception as exc:  # noqa: BLE001
+            # Cannot determine posture → fail safe toward not-ready.
+            checks["auth_posture"] = False
+            details["auth_error"] = str(exc)
 
         try:
             disk_target = os.environ.get("ASSEMBLED_DISK_QUOTA_PATH", "output")
