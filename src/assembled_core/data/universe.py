@@ -222,17 +222,37 @@ def build_universe_history_from_prices(
     prices_df: pd.DataFrame,
     *,
     status: str = "active",
+    coverage_grace_days: int = 0,
 ) -> pd.DataFrame:
     """Derive symbol membership windows from a price panel.
 
     Uses each symbol's first and last timestamp as start_date / end_date.
-    Symbols whose last row equals the panel maximum are treated as still listed
-    (end_date = NaT). All others get end_date = last_ts + 1 business day so
-    the membership interval is half-open: [start_date, end_date).
+    Symbols whose last bar reaches the panel maximum (optionally within a
+    ``coverage_grace_days`` window) are treated as still listed (end_date =
+    NaT). All others get end_date = last_ts + 1 business day so the membership
+    interval is half-open: [start_date, end_date).
+
+    DAT-006 hazard: delisting is **inferred from panel coverage, not corporate
+    actions**. A symbol missing from the panel tail for a *data* reason — a feed
+    gap, ingestion failure or ticker rename — is indistinguishable from a real
+    delisting here and will be mis-classified as delisted (and then dropped from
+    the PIT universe after that date). The strict ``last_ts >= panel_end`` rule
+    is especially aggressive: any symbol simply missing the final bar looks
+    delisted. ``coverage_grace_days`` absorbs short tail gaps; authoritative
+    delisting data (corporate actions / an index-membership feed) should
+    override this inference when available. Inferred delistings are logged at
+    WARNING so the hazard is visible rather than silent.
 
     Args:
         prices_df: Long-format price panel with at least 'timestamp' and 'symbol'.
         status: Value written to the 'status' column (default 'active').
+        coverage_grace_days: Business-day grace window before the panel end.
+            A symbol whose last bar falls within this window of ``panel_end`` is
+            kept active (end_date = NaT) instead of inferred-delisted. Default 0
+            preserves the strict legacy behaviour. The window is calendar
+            business days (holiday-blind), so it absorbs slightly fewer *trading*
+            days around market holidays — which errs toward delisting, the safe
+            direction.
 
     Returns:
         DataFrame with columns: symbol, start_date, end_date, status.
@@ -243,8 +263,13 @@ def build_universe_history_from_prices(
     agg = prices_df.assign(_ts=ts).groupby("symbol")["_ts"].agg(["min", "max"])
     agg.columns = ["start_date", "last_ts"]
 
-    # Symbols still active at panel end → end_date = NaT (still listed)
-    still_active = agg["last_ts"] >= panel_end
+    # A symbol is "still listed" when its last bar reaches the panel end, within
+    # an optional coverage-gap grace window. Grace 0 keeps the strict legacy rule.
+    if coverage_grace_days > 0:
+        active_threshold = panel_end - pd.offsets.BDay(coverage_grace_days)
+    else:
+        active_threshold = panel_end
+    still_active = agg["last_ts"] >= active_threshold
     agg["end_date"] = agg["last_ts"].where(~still_active, other=pd.NaT)
     # For delisted symbols, advance end_date by 1 business day (exclusive boundary)
     delisted_mask = ~still_active
@@ -252,6 +277,19 @@ def build_universe_history_from_prices(
         agg.loc[delisted_mask, "end_date"] = agg.loc[
             delisted_mask, "last_ts"
         ] + pd.offsets.BDay(1)
+        _inferred = agg.index[delisted_mask].tolist()
+        logger.warning(
+            "[PIT] universe history: %d/%d symbol(s) inferred as DELISTED from "
+            "panel coverage (last bar before %s) — this is NOT corporate-action "
+            "truth; a feed gap / rename looks identical (audit DAT-006). "
+            "Sample: %s%s. Raise coverage_grace_days to absorb tail gaps or "
+            "supply authoritative delisting data.",
+            len(_inferred),
+            len(agg),
+            pd.Timestamp(active_threshold).date(),
+            ", ".join(map(str, _inferred[:5])),
+            " …" if len(_inferred) > 5 else "",
+        )
 
     agg["status"] = status
     agg = agg.drop(columns=["last_ts"]).reset_index()

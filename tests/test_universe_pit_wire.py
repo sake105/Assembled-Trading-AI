@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
 
 from src.assembled_core.data.universe import (
@@ -136,3 +138,58 @@ class TestWrapSignalFnWithPitFilter:
         wrapped = wrap_signal_fn_with_pit_filter(empty_signal_fn, history)
         result = wrapped(prices)
         assert result.empty
+
+
+class TestCoverageGraceDays:
+    """DAT-006: tail-gap symbols must not be silently inferred-delisted."""
+
+    def _panel(self) -> pd.DataFrame:
+        # Business days only. Panel end = Fri 2020-01-10.
+        #   STILL reaches the panel end (always listed)
+        #   GAP   last bar Wed 2020-01-08 (2 business days before end)
+        #   OLD   last bar Thu 2020-01-02 (far before the grace window)
+        return _make_prices(
+            {
+                "STILL": ["2020-01-06", "2020-01-08", "2020-01-10"],
+                "GAP": ["2020-01-06", "2020-01-08"],
+                "OLD": ["2020-01-02"],
+            }
+        )
+
+    def test_strict_default_delists_tail_gap(self):
+        # grace=0 (legacy): any symbol missing the final bar => inferred delisted.
+        hist = build_universe_history_from_prices(self._panel())
+        gap = hist[hist["symbol"] == "GAP"].iloc[0]
+        assert not pd.isna(gap["end_date"])
+
+    def test_grace_window_keeps_tail_gap_active(self):
+        # grace=5 BDays => threshold = Fri 2020-01-03; GAP (2020-01-08) is inside it.
+        hist = build_universe_history_from_prices(self._panel(), coverage_grace_days=5)
+        gap = hist[hist["symbol"] == "GAP"].iloc[0]
+        assert pd.isna(gap["end_date"])
+        assert gap["status"] == "active"
+
+    def test_grace_window_still_delists_far_old(self):
+        # OLD (2020-01-02) is beyond the 5-BDay grace window => still delisted.
+        hist = build_universe_history_from_prices(self._panel(), coverage_grace_days=5)
+        old = hist[hist["symbol"] == "OLD"].iloc[0]
+        assert not pd.isna(old["end_date"])
+
+    def test_still_listed_symbol_active_regardless_of_grace(self):
+        for grace in (0, 5):
+            hist = build_universe_history_from_prices(
+                self._panel(), coverage_grace_days=grace
+            )
+            still = hist[hist["symbol"] == "STILL"].iloc[0]
+            assert pd.isna(still["end_date"])
+
+    def test_inferred_delisting_logs_dat006_warning(self, caplog):
+        # No logger= filter: capture via root propagation so the assertion holds
+        # regardless of whether the module imports as src.assembled_core.* or
+        # assembled_core.* (both install paths exist in this repo).
+        with caplog.at_level(logging.WARNING):
+            build_universe_history_from_prices(self._panel())
+        # grace=0 => GAP + OLD delisted, STILL active => "2/3" in the rendered
+        # message. Asserting the rendered count forces %-formatting to execute.
+        assert "DAT-006" in caplog.text
+        assert "2/3" in caplog.text

@@ -2396,8 +2396,11 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                             _cached_min_start.date(),
                             _bt_start.date(),
                         )
+                        # coverage_grace_days=5: a symbol missing only the last
+                        # few bars is a feed/coverage gap, not a delisting
+                        # (audit DAT-006) — don't drop it from the PIT universe.
                         _pit_history = build_universe_history_from_prices(
-                            _prices_for_pit
+                            _prices_for_pit, coverage_grace_days=5
                         )
                         store_universe_history(
                             _pit_history,
@@ -2418,7 +2421,12 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                         len(_pit_history),
                     )
             else:
-                _pit_history = build_universe_history_from_prices(_prices_for_pit)
+                # coverage_grace_days=5: tolerate short tail feed-gaps so a live
+                # symbol missing only the last few bars is not inferred-delisted
+                # and dropped from the PIT universe (audit DAT-006).
+                _pit_history = build_universe_history_from_prices(
+                    _prices_for_pit, coverage_grace_days=5
+                )
                 store_universe_history(
                     _pit_history,
                     universe_name=_universe_name,
