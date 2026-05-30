@@ -26,6 +26,17 @@ SCHEMA_VERSION = "paper.ledger_state.v1"
 _BACKUP_GENERATIONS = 3
 
 
+class LedgerCorruptionError(RuntimeError):
+    """Raised when ledger files exist but no generation can be parsed.
+
+    Distinguishes catastrophic corruption (main + at least one backup existed,
+    so prior persisted state is lost) from a legitimately missing file (cold
+    start) or a single interrupted first write with no backups yet. The first
+    two stay silent / recoverable; only catastrophic corruption fails loud so it
+    cannot be masked by a silent reset to ``start_capital`` (audit R2-5, E-025).
+    """
+
+
 def load_ledger_state(
     path: str | Path,
     start_capital: float = 10000.0,
@@ -38,9 +49,14 @@ def load_ledger_state(
         p.with_suffix(p.suffix + f".{i}") for i in range(1, _BACKUP_GENERATIONS + 1)
     ]
     data = None
-    for candidate in candidates:
+    n_existing = 0
+    backup_existed = False
+    for idx, candidate in enumerate(candidates):
         if not candidate.exists():
             continue
+        n_existing += 1
+        if idx > 0:  # candidates[0] is the main file; the rest are backups
+            backup_existed = True
         try:
             raw = candidate.read_text(encoding="utf-8")
             parsed = json.loads(raw)
@@ -52,11 +68,38 @@ def load_ledger_state(
                         candidate,
                     )
                 break
+            logger.warning(
+                "[paper_ledger] %s parsed but is not a dict (got %s) — skipping",
+                candidate,
+                type(parsed).__name__,
+            )
         except Exception as exc:
             logger.warning("[paper_ledger] failed to load %s: %s", candidate, exc)
             continue
 
     if data is None:
+        if n_existing == 0:
+            # Genuine cold start — no generation ever written. Silent fresh state.
+            return _fresh_state(start_capital)
+        if backup_existed:
+            # Main AND at least one backup existed but none parsed → prior
+            # persisted state is unrecoverable. Fail loud instead of silently
+            # resetting to start_capital, which would mask the loss (R2-5/E-025).
+            raise LedgerCorruptionError(
+                f"[paper_ledger] all {n_existing} existing ledger generation(s) "
+                f"for {p} are unreadable/corrupt — refusing to silently reset to "
+                f"start_capital={start_capital}. Restore a known-good backup or "
+                f"remove the corrupt files to force a deliberate cold start."
+            )
+        # Only the main file existed and was corrupt, with no backups yet — most
+        # likely an interrupted first write. Preserve the chaos-recovery contract
+        # (return fresh state, no crash), but log it loudly (E-025 detectability).
+        logger.warning(
+            "[paper_ledger] main file %s corrupt and no backups exist — "
+            "starting fresh (start_capital=%s)",
+            p,
+            start_capital,
+        )
         return _fresh_state(start_capital)
     # Normalize schema
     cash = data.get("cash")

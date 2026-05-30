@@ -584,7 +584,10 @@ def cmd_once(args):
             from src.assembled_core.execution.position_sync import (
                 sync_positions_from_broker,
             )
-            from src.assembled_core.ops.paper_ledger import load_ledger_state
+            from src.assembled_core.ops.paper_ledger import (
+                LedgerCorruptionError,
+                load_ledger_state,
+            )
 
             paper_cfg = app_cfg.get("paper_runner") or {}
             ledger_path_str = (
@@ -634,6 +637,16 @@ def cmd_once(args):
                     )
                     reconcile_status = "halt"
                     exit_code = max(exit_code, 2)
+        except LedgerCorruptionError as exc:
+            # R2-5: a corrupt ledger during post-exec reconcile must NOT be
+            # downgraded to a warning by the broad handler below — that would
+            # re-mask the corruption (E-025) one frame up. Surface it as a halt.
+            logger.error(
+                "[run_live_paper] post-execution reconcile aborted — corrupt ledger: %s",
+                exc,
+            )
+            reconcile_status = "halt"
+            exit_code = max(exit_code, 2)
         except Exception as exc:
             logger.warning("[run_live_paper] post-execution sync failed: %s", exc)
 
@@ -673,7 +686,10 @@ def cmd_reconcile_only(args):
     from src.assembled_core.execution.position_sync import (
         sync_positions_from_broker,
     )
-    from src.assembled_core.ops.paper_ledger import load_ledger_state
+    from src.assembled_core.ops.paper_ledger import (
+        LedgerCorruptionError,
+        load_ledger_state,
+    )
 
     app_cfg = _load_app_cfg()
     adapter = _create_adapter()
@@ -687,7 +703,13 @@ def cmd_reconcile_only(args):
         if not Path(ledger_path_str).is_absolute()
         else Path(ledger_path_str)
     )
-    ledger_state = load_ledger_state(ledger_path)
+    try:
+        ledger_state = load_ledger_state(ledger_path)
+    except LedgerCorruptionError as exc:
+        # R2-5: reconcile must not run against a silently-reset fresh state.
+        logger.error("[run_live_paper] reconcile aborted — corrupt ledger: %s", exc)
+        print(f"\n[ERROR] Corrupt ledger — reconcile aborted.\n{exc}")
+        sys.exit(2)
     sync_result = sync_positions_from_broker(adapter, ledger_state)
 
     print(f"\n{'=' * 50}")
