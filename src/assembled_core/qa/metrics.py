@@ -213,9 +213,17 @@ def compute_drawdown(equity: pd.Series) -> tuple[pd.Series, float, float, float]
 
     max_drawdown = float(drawdown_series.min())
     peak_equity = float(rolling_max.max())
-    max_drawdown_pct = (
-        float((max_drawdown / peak_equity) * 100) if peak_equity > 0 else 0.0
-    )
+    if peak_equity > 0:
+        # Peak-to-date normalisation: each trough is divided by the running
+        # peak that PRECEDED it, not by the global end-of-curve peak. Using the
+        # global peak understates %DD for any curve that later makes a new high.
+        pct_drawdown = (drawdown_series / rolling_max).replace(
+            [np.inf, -np.inf], np.nan
+        )
+        worst_pct = pct_drawdown.min()
+        max_drawdown_pct = float(worst_pct * 100) if pd.notna(worst_pct) else 0.0
+    else:
+        max_drawdown_pct = 0.0
     current_drawdown = float(drawdown_series.iloc[-1])
 
     return drawdown_series, max_drawdown, max_drawdown_pct, current_drawdown

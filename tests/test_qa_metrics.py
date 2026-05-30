@@ -211,6 +211,45 @@ def test_compute_drawdown():
 
 
 @pytest.mark.unit
+def test_compute_drawdown_pct_peak_to_date_h1():
+    """H-1 regression: %DD must normalise against the peak-to-date at the trough,
+    not the global end-of-curve peak.
+
+    Curve [100, 90, 80, 120, 200]: trough 80 follows a peak-to-date of 100, so the
+    textbook max drawdown is -20%. The old global-peak bug divided by 200 and
+    reported only -10%. The absolute $ drawdown (-20) was always correct.
+    """
+    equity = pd.Series([100.0, 90.0, 80.0, 120.0, 200.0])
+    _, max_dd, max_dd_pct, _ = compute_drawdown(equity)
+
+    assert max_dd == pytest.approx(-20.0)  # absolute $ — unchanged by the fix
+    assert max_dd_pct == pytest.approx(-20.0)  # peak-to-date %, NOT the buggy -10.0
+    assert max_dd_pct != pytest.approx(-10.0)
+
+
+@pytest.mark.unit
+def test_compute_drawdown_pct_monotonic_increasing_is_zero():
+    """A curve that only ever rises has zero drawdown in both $ and %."""
+    equity = pd.Series([100.0, 110.0, 120.0, 130.0])
+    _, max_dd, max_dd_pct, _ = compute_drawdown(equity)
+
+    assert max_dd == pytest.approx(0.0)
+    assert max_dd_pct == pytest.approx(0.0)
+
+
+@pytest.mark.unit
+def test_compute_drawdown_pct_no_new_high_matches_global_denominator():
+    """Regression guard: when the curve never makes a new high after its trough,
+    the peak-to-date denominator equals the global peak, so the fix must leave the
+    normal case unchanged (peak 100, trough 75 -> -25%)."""
+    equity = pd.Series([100.0, 90.0, 75.0])
+    _, max_dd, max_dd_pct, _ = compute_drawdown(equity)
+
+    assert max_dd == pytest.approx(-25.0)
+    assert max_dd_pct == pytest.approx(-25.0)
+
+
+@pytest.mark.unit
 def test_compute_cagr_one_year():
     """Test CAGR computation for exactly 1 year."""
     cagr = compute_cagr(10000.0, 11000.0, 252, freq="1d")
