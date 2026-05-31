@@ -884,6 +884,91 @@ def test_freshness_ok_after_update() -> None:
 
 
 # ---------------------------------------------------------------------------
+# DAT-003 — file-backed freshness reads real cache mtimes
+# ---------------------------------------------------------------------------
+
+
+def test_freshness_path_fresh_file_is_ok(tmp_path) -> None:
+    from src.assembled_core.data.freshness_monitor import FreshnessMonitor
+
+    p = tmp_path / "macro.parquet"
+    p.write_bytes(b"x")  # mtime = now
+    fm = FreshnessMonitor()
+    fm.register_path("macro", p, max_age_hours=24.0)
+    assert fm.degradation_status("macro") == "ok"
+    assert fm.last_known_good_timestamp("macro") is not None
+    assert fm.check_all() == []
+
+
+def test_freshness_path_frozen_file_is_stale(tmp_path) -> None:
+    """A cache last written days ago must surface as stale (the DAT-003 gap)."""
+    import os
+    import time
+
+    from src.assembled_core.data.freshness_monitor import FreshnessMonitor
+
+    p = tmp_path / "macro.parquet"
+    p.write_bytes(b"x")
+    old = time.time() - 5 * 24 * 3600  # 5 days ago
+    os.utime(p, (old, old))
+
+    fm = FreshnessMonitor()
+    fm.register_path("macro", p, max_age_hours=72.0)
+    assert fm.degradation_status("macro") == "stale"
+    alerts = fm.check_all()
+    assert len(alerts) == 1
+    a = alerts[0]
+    assert a["source"] == "macro"
+    assert a["status"] == "stale"
+    assert a["age_hours"] is not None and a["age_hours"] > 72.0
+    assert a["path"] == str(p)
+
+
+def test_freshness_path_missing_file_is_unknown(tmp_path) -> None:
+    """A never-written cache is 'unknown', not a finite-age 'stale'."""
+    from src.assembled_core.data.freshness_monitor import FreshnessMonitor
+
+    fm = FreshnessMonitor()
+    fm.register_path("macro", tmp_path / "absent.parquet", max_age_hours=24.0)
+    assert fm.degradation_status("macro") == "unknown"
+    assert fm.last_known_good_timestamp("macro") is None
+    alerts = fm.check_all()
+    assert len(alerts) == 1
+    assert alerts[0]["status"] == "unknown"
+    assert alerts[0]["age_hours"] is None
+
+
+def test_freshness_in_memory_register_without_update_is_unknown() -> None:
+    """DAT-003: an in-memory source registered but never stamped is 'unknown'
+    (no data ever seen), not a finite-age 'stale' — and still alerts."""
+    from src.assembled_core.data.freshness_monitor import FreshnessMonitor
+
+    fm = FreshnessMonitor()
+    fm.register("yfinance", max_age_hours=0.001)
+    assert fm.degradation_status("yfinance") == "unknown"
+    alerts = fm.check_all()
+    assert len(alerts) == 1
+    assert alerts[0]["status"] == "unknown"
+    assert alerts[0]["age_hours"] is None
+    assert "path" not in alerts[0]  # in-memory source has no backing file
+
+
+def test_build_cache_freshness_monitor_wires_canonical_caches(tmp_path) -> None:
+    from src.assembled_core.data.freshness_monitor import (
+        DEFAULT_CACHE_SPECS,
+        build_cache_freshness_monitor,
+    )
+
+    fm = build_cache_freshness_monitor(tmp_path)
+    # every canonical cache is registered as a file-backed source...
+    assert set(fm.sources) == set(DEFAULT_CACHE_SPECS)
+    assert all(sf.path is not None for sf in fm.sources.values())
+    # ...and with no files on disk yet, all read as unknown (none stamped).
+    statuses = {fm.degradation_status(s) for s in fm.sources}
+    assert statuses == {"unknown"}
+
+
+# ---------------------------------------------------------------------------
 # Wave-7 — clock_drift helper (C4-043)
 # ---------------------------------------------------------------------------
 

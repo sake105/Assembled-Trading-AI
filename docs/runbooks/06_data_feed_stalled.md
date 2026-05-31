@@ -7,7 +7,7 @@
 
 ## Symptoms
 
-- `freshness_monitor.detect_stale_features` returns non-empty stale set.
+- `freshness_monitor.build_cache_freshness_monitor().check_all()` returns a non-empty alert list (entries with `status` `stale` or `unknown`).
 - `trading_cycle` Phase 6 (as_of filter) emits `[WARN] stale_prices` or drops symbols.
 - `run_kpis.json` shows `universe_size` dropping from day to day while the watchlist is unchanged.
 - `prices_ingest` raises `ValueError: missing required columns` or returns empty frames.
@@ -18,8 +18,8 @@
 1. Stop the scheduler to avoid firing the cycle on stale data.
 2. Snapshot the current state:
    - `cp -r data/prices data/prices.snapshot_$(date +%s)` (or the platform equivalent).
-3. Identify the affected symbols:
-   - Run `python -c "from src.assembled_core.data.freshness_monitor import detect_stale_features; print(detect_stale_features(...))"` with the same ``as_of`` the scheduler uses.
+3. Identify the affected caches:
+   - Run `python -c "import json; from src.assembled_core.data.freshness_monitor import build_cache_freshness_monitor; print(json.dumps(build_cache_freshness_monitor().check_all(), indent=2))"` — each alert names the cache, its `status` (`stale` vs `unknown`), `age_hours`, and the on-disk `path`.
 4. Check the source adapter's last successful fetch timestamp:
    - Look for `data/sources/<source>_last_success.json` or equivalent state file.
 5. Verify the upstream provider has not had an outage (Polygon, AlphaVantage, Alpaca data, whoever owns the feed).
@@ -45,7 +45,7 @@
 1. Re-run the ingest job for the stale window:
    - `python scripts/run_eod_pipeline.py --as-of <date> --refresh-prices`
 2. Verify freshness:
-   - `detect_stale_features(...)` returns empty.
+   - `build_cache_freshness_monitor().check_all()` returns an empty list (all caches within budget).
 3. Re-enable the scheduler.
 
 ### B) Upstream outage
