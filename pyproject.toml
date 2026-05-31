@@ -54,6 +54,10 @@ dependencies = [
     "pandas-market-calendars>=4.6.0",
     "arch>=6.0.0",
     "PyYAML>=6.0",
+    # Cross-process file lock used by ops/paper_ledger.py and
+    # execution/kill_switch.py (OPS-04). Previously only transitively present;
+    # the safety lock silently no-ops if it is absent, so declare it explicitly.
+    "filelock>=3.12.0",
 ]
 
 [project.optional-dependencies]

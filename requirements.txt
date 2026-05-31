@@ -33,6 +33,10 @@ httpx==0.28.1
 exchange-calendars==4.12
 feedparser==6.0.12
 newsapi-python==0.2.7
+# Cross-process file lock for ops/paper_ledger.py + execution/kill_switch.py
+# (OPS-04). The safety lock silently no-ops via ImportError fallback if absent,
+# so pin it explicitly rather than rely on transitive availability.
+filelock==3.25.2
 
 # --- Dev / Test ---
 pytest==9.0.3

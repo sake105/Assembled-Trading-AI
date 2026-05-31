@@ -25,6 +25,7 @@ Usage::
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import json
@@ -62,8 +63,76 @@ def _audit_path() -> Path:
     return Path(override) if override else _DEFAULT_AUDIT_LOG
 
 
+def _lock_path() -> Path:
+    """Resolve the cross-process lock file guarding state + audit writes.
+
+    Co-located with the state file by default so that an env-overridden state
+    directory (``ASSEMBLED_KILL_SWITCH_STATE``, e.g. a test ``tmp_path``) gets
+    its own lock and never contends with the real ``output/ops`` lock.
+    """
+    override = os.environ.get("ASSEMBLED_KILL_SWITCH_LOCK", "")
+    if override:
+        return Path(override)
+    return _state_path().parent / ".kill_switch.lock"
+
+
+@contextlib.contextmanager
+def _kill_switch_lock():
+    """Serialize state + audit-chain writes across threads AND processes (OPS-04).
+
+    ``_write_state`` and ``_append_audit`` are read-modify-write on shared
+    files. Without a lock two concurrent writers — and the DMS daemon and the
+    runner drawdown check are *separate processes* (independent Windows Tasks) —
+    can (a) clobber each other's shared ``.tmp`` file and (b) read the same
+    ``prev_hash`` and fork the hash-chained audit log, which
+    ``verify_audit_chain`` then reports as tampered. A cross-process
+    ``filelock.FileLock`` (the same primitive ``ops/paper_ledger.py`` uses)
+    closes both.
+
+    Degradation contract — a kill switch must stay *live*: if ``filelock`` is
+    not installed, or the lock cannot be acquired within the timeout, the
+    safety action is NOT blocked. It proceeds unserialized with an explicit
+    error/warning log; liveness of the activation outweighs a rare, logged
+    race under pathological (>10 s) contention.
+    """
+    lp = _lock_path()
+    try:
+        lp.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    try:
+        from filelock import FileLock, Timeout
+    except ImportError:
+        logger.warning(
+            "[KillSwitch] filelock not installed — state/audit writes are NOT "
+            "serialized across processes (OPS-04 protection inactive)."
+        )
+        yield
+        return
+
+    # Acquire the lock SEPARATELY from the yield so this manager yields exactly
+    # once no matter what the wrapped body does. Folding acquisition into a
+    # ``with FileLock(): yield`` would let a body-thrown ``Timeout`` re-enter the
+    # ``except`` and yield a second time (RuntimeError: generator didn't stop).
+    lock = FileLock(str(lp), timeout=10)
+    try:
+        lock.acquire()
+    except Timeout:
+        logger.error(
+            "[KillSwitch] could not acquire %s within 10s — proceeding WITHOUT "
+            "lock (audit-chain fork possible under this contention).",
+            lp,
+        )
+        lock = None
+    try:
+        yield
+    finally:
+        if lock is not None:
+            lock.release()
+
+
 # ---------------------------------------------------------------------------
-# Persistent state  (JSON file with file-level locking on Windows)
+# Persistent state + hash-chained audit (cross-process file lock — OPS-04)
 # ---------------------------------------------------------------------------
 
 
@@ -95,45 +164,49 @@ def _write_state(state: dict[str, Any]) -> bool:
     p = _state_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
-    try:
-        payload = json.dumps(state, indent=2, sort_keys=True) + "\n"
-        # Write + fsync the data file before rename.
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(payload)
-            f.flush()
-            try:
-                os.fsync(f.fileno())
-            except OSError as exc:
-                # fsync can fail on some filesystems (network mounts, /tmp on
-                # certain CI images). The rename is still safer than nothing —
-                # log and continue rather than fail the whole write.
-                logger.warning("[KillSwitch] fsync of tmp file failed: %s", exc)
-        os.replace(tmp, p)
-        # fsync the directory so the rename is durable across crash.
+    # Hold the cross-process lock for the whole tmp+replace: two concurrent
+    # writers share the same ``.tmp`` path, so without the lock one would
+    # truncate the other's tmp file mid-write (OPS-04).
+    with _kill_switch_lock():
         try:
-            dir_fd = os.open(str(p.parent), os.O_RDONLY)
+            payload = json.dumps(state, indent=2, sort_keys=True) + "\n"
+            # Write + fsync the data file before rename.
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except OSError as exc:
+                    # fsync can fail on some filesystems (network mounts, /tmp on
+                    # certain CI images). The rename is still safer than nothing —
+                    # log and continue rather than fail the whole write.
+                    logger.warning("[KillSwitch] fsync of tmp file failed: %s", exc)
+            os.replace(tmp, p)
+            # fsync the directory so the rename is durable across crash.
             try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
-        except (OSError, AttributeError):
-            # Windows does not support os.fsync on directory handles. Skip
-            # silently — os.replace is already best-effort atomic on Win32.
-            pass
-        return True
-    except Exception as exc:
-        logger.error(
-            "[KillSwitch] CRITICAL — failed to persist state file %s: %s. "
-            "In-memory activation may not survive restart.",
-            p,
-            exc,
-        )
-        if tmp.exists():
-            try:
-                tmp.unlink()
-            except Exception:
-                pass  # cleanup best-effort
-        return False
+                dir_fd = os.open(str(p.parent), os.O_RDONLY)
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
+            except (OSError, AttributeError):
+                # Windows does not support os.fsync on directory handles. Skip
+                # silently — os.replace is already best-effort atomic on Win32.
+                pass
+            return True
+        except Exception as exc:
+            logger.error(
+                "[KillSwitch] CRITICAL — failed to persist state file %s: %s. "
+                "In-memory activation may not survive restart.",
+                p,
+                exc,
+            )
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass  # cleanup best-effort
+            return False
 
 
 _GENESIS_HASH = "0" * 64  # SHA-256 zero anchor for first audit entry
@@ -180,21 +253,25 @@ def _append_audit(event: dict[str, Any]) -> None:
     p = _audit_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     event["ts"] = datetime.now(timezone.utc).isoformat()
-    event["prev_hash"] = _last_audit_hash(p)
-    # Compute hash over the record without the "hash" key itself to make the
-    # chain self-verifiable.
-    digest_payload = json.dumps(event, sort_keys=True).encode("utf-8")
-    event["hash"] = hashlib.sha256(digest_payload).hexdigest()
-    try:
-        with open(p, "a", encoding="utf-8") as f:
-            f.write(json.dumps(event, sort_keys=True) + "\n")
-            f.flush()
-            try:
-                os.fsync(f.fileno())
-            except OSError as exc:
-                logger.warning("[KillSwitch] fsync of audit log failed: %s", exc)
-    except Exception as exc:
-        logger.error("[KillSwitch] Failed to write audit log %s: %s", p, exc)
+    # The prev_hash read + append MUST be atomic across writers, else two
+    # concurrent appends read the same prev_hash and fork the chain (OPS-04
+    # TOCTOU). Hold the cross-process lock around the whole read-modify-write.
+    with _kill_switch_lock():
+        event["prev_hash"] = _last_audit_hash(p)
+        # Compute hash over the record without the "hash" key itself to make the
+        # chain self-verifiable.
+        digest_payload = json.dumps(event, sort_keys=True).encode("utf-8")
+        event["hash"] = hashlib.sha256(digest_payload).hexdigest()
+        try:
+            with open(p, "a", encoding="utf-8") as f:
+                f.write(json.dumps(event, sort_keys=True) + "\n")
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except OSError as exc:
+                    logger.warning("[KillSwitch] fsync of audit log failed: %s", exc)
+        except Exception as exc:
+            logger.error("[KillSwitch] Failed to write audit log %s: %s", p, exc)
 
 
 def verify_audit_chain(path: Path | str | None = None) -> tuple[bool, int]:
