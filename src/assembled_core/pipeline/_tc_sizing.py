@@ -20,6 +20,7 @@ from src.assembled_core.config.policy_loader import load_policy
 from src.assembled_core.pipeline.trading_cycle_shared import (
     TradingContext,
     _estimate_symbol_volatilities,
+    _record_degraded_step,
     should_rebalance,
 )
 from src.assembled_core.risk.correlation_guard import (
@@ -570,7 +571,7 @@ def _sp_compute_final_multiplier(
                 "target_vol": float("nan"),
             }
     except Exception as e:
-        log.debug("vol_targeting skipped: %s", e)
+        _record_degraded_step("vol_targeting", e, meta=meta, log_obj=log)
         meta["vol_targeting"] = {"scale_factor": 1.0}
 
     ms_multiplier = 1.0
@@ -994,7 +995,7 @@ def _sp_apply_trailing_stops(
                                         "target_qty",
                                     ] = 0.0
     except Exception as e:
-        log.debug("trailing_stops skipped: %s", e)
+        _record_degraded_step("trailing_stops", e, meta=meta, log_obj=log)
     return target_positions
 
 
@@ -1071,6 +1072,7 @@ def _sp_apply_correlation_guard(
     prices_for_sizing: pd.DataFrame | None,
     policy: dict,
     ctx: "TradingContext",
+    meta: dict,
 ) -> pd.DataFrame:
     """Correlation guard (M6-T07) + regime shift exposure scaling."""
     try:
@@ -1118,7 +1120,7 @@ def _sp_apply_correlation_guard(
                     if "target_qty" in target_positions.columns:
                         target_positions["target_qty"] *= exp_scale
     except Exception as e:
-        logger.debug("correlation_guard skipped: %s", e)
+        _record_degraded_step("correlation_guard", e, meta=meta, log_obj=logger)
     return target_positions
 
 
@@ -1168,7 +1170,7 @@ def _sp_apply_crash_cap(
                     if "target_qty" in target_positions.columns:
                         target_positions.loc[long_mask, "target_qty"] *= scale
     except Exception as e:
-        logger.debug("crash_prediction equity cap skipped: %s", e)
+        _record_degraded_step("crash_prediction_cap", e, meta=meta, log_obj=logger)
     return target_positions
 
 
@@ -2059,13 +2061,16 @@ def size_positions(
     if log is None:
         log = logger
 
+    meta: dict = {}
     try:
         policy = load_policy()
-    except Exception:
+    except Exception as _policy_exc:
         policy = {}
+        _record_degraded_step(
+            "size_positions_policy_load", _policy_exc, meta=meta, log_obj=log
+        )
 
     prices_for_sizing = prices_filtered if prices_filtered is not None else ctx.prices
-    meta: dict = {}
 
     sizing_cfg = policy.get("position_sizing") or {}
     target_positions = _sp_dispatch_sizing(
@@ -2111,7 +2116,7 @@ def size_positions(
         target_positions, ctx, prices_for_sizing, prices_latest, policy, log
     )
     target_positions = _sp_apply_correlation_guard(
-        target_positions, prices_for_sizing, policy, ctx
+        target_positions, prices_for_sizing, policy, ctx, meta
     )
     target_positions = _sp_apply_crash_cap(
         target_positions, policy, meta, str(ctx.as_of) if ctx.as_of else None
@@ -2328,7 +2333,7 @@ def size_positions(
                     sorted(_halted_in_target),
                 )
     except Exception as _halt_err:
-        log.debug("[size_positions] halt-check skipped: %s", _halt_err)
+        _record_degraded_step("halt_check", _halt_err, meta=meta, log_obj=log)
 
     # --- Item 69: Buying-power pre-check — skip orders that exceed 95% of available capital ---
     # Only activates when ctx.buying_power is explicitly provided (live broker value).
@@ -2372,7 +2377,7 @@ def size_positions(
                         _scale_bp,
                     )
     except Exception as _bp_err:
-        log.debug("[size_positions] buying-power pre-check skipped: %s", _bp_err)
+        _record_degraded_step("buying_power_precheck", _bp_err, meta=meta, log_obj=log)
 
     # --- Item 81: Pre-earnings size reduction (50% for symbols with earnings tomorrow) ---
     # AAPL/NVDA earnings = 5-15% gap at next open. Daily EOD cycle can't hedge intraday.
@@ -2420,7 +2425,7 @@ def size_positions(
                         _earnings_syms[:10],
                     )
     except Exception as _earn_err:
-        log.debug("[size_positions] pre-earnings check skipped: %s", _earn_err)
+        _record_degraded_step("pre_earnings_cut", _earn_err, meta=meta, log_obj=log)
 
     # Item 85: M&A exclusion — drop symbols with active M&A events from target positions.
     # When a Cash-deal M&A is announced the target stock moves to deal price and stays there;
