@@ -12,6 +12,7 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
     _apply_group_exposure_caps,
     _apply_pre_trade_impact,
     _generate_orders_default,
+    _record_degraded_step,
 )
 
 logger = logging.getLogger(__name__)
@@ -515,9 +516,11 @@ def book_fills(
                         log_path=_lc_path,
                     )
             except Exception as _lce:
-                log.debug("[LIFECYCLE-LOG] FILLED hook skipped: %s", _lce)
+                _record_degraded_step(
+                    "order_lifecycle_filled", _lce, meta=result.meta, log_obj=log
+                )
     except Exception as e:
-        log.debug("[TRADE-JOURNAL] trade_journal skipped: %s", e)
+        _record_degraded_step("trade_journal", e, meta=result.meta, log_obj=log)
 
     # Step 7.68: Heartbeat
     try:
