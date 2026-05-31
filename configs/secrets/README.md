@@ -25,7 +25,7 @@ This directory holds secret-key **templates** only. Actual keys are injected via
 | `ASSEMBLED_SMTP_USER` | SMTP user | alerts.sinks.email |
 | `ASSEMBLED_SMTP_PASS` | SMTP password | alerts.sinks.email |
 
-## Security rules (CLAUDE.md §20)
+## Security rules (.claude/rules/20-security-and-secrets.md)
 
 - `.env` is gitignored — never commit it
 - If a key is committed by accident: rotate immediately, do NOT just delete the file

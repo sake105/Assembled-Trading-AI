@@ -7,7 +7,7 @@ tone = "präzise, knapp, technisch"
 languages = ["de", "en"]
 
 [project.constants]
-PY_MIN = "3.13"
+PY_MIN = "3.10"
 FREQ_SUPPORTED = ["5min","1d"]
 SAFE_BRIDGE = true     # niemals echte Orders senden
 DATA_PRIMARY = "local parquet/csv"  # so offline wie möglich
@@ -47,9 +47,6 @@ trap_errors = true
 bootstrap = [
   "scripts/run_all_sprint10.ps1",
   "scripts/live/pull_intraday.ps1",
-  "scripts/sprint9_execute.py",
-  "scripts/sprint9_backtest.py",
-  "scripts/sprint10_portfolio.py",
   "scripts/ps/ps_py_utils.ps1",
   "requirements.txt",
   "watchlist.txt"

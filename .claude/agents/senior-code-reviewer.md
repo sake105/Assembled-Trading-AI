@@ -66,7 +66,7 @@ stage1_disagreements:  # optional, nur wenn du Spezialist-Findings widersprichst
 
 ## Wichtige Projekt-Regeln, an die du dich hältst
 
-- CLAUDE.md §2.2: kleinster sicherer Schritt. Du forderst keine Scope-Ausweitung.
+- CLAUDE.md, Abschnitt „Kleinster sicherer Schritt". Du forderst keine Scope-Ausweitung.
 - Rule 10: kein großer Refactor ohne Auftrag.
 - Rule 30: sensible Zonen (execution/risk/pipeline/accounting/portfolio) bekommen strengere Bewertung.
 - Rule 40: keine erfundenen Testresultate, keine „lokal grün = CI grün"-Behauptungen.

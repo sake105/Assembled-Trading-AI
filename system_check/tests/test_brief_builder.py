@@ -20,18 +20,34 @@ from system_check.runner.brief_builder import (
 def _minimal_claude_md() -> str:
     return (
         "# CLAUDE.md\n\n"
-        "### 1.3 Kernmission\n\n"
+        "## Projekt\n\n"
         "Das Projekt soll ein robustes, nachvollziehbares, modular "
         "erweiterbares Trading-System werden.\n\n"
         "Weitere Details hier irrelevant.\n\n"
-        "### 1.4 Next section\n\n"
-        "## 5. Architekturübersicht\n\n"
-        "### 5.1 Bevorzugte Schichtenlogik\n\n"
-        "* `data`\n* `features`\n* `signals`\n* `portfolio`\n* `execution`\n\n"
-        "## 6. Sensible Zonen\n\n"
-        "### 6.1 Besonders sensible Kernbereiche\n\n"
-        "* `src/assembled_core/execution/*`\n"
-        "* `src/assembled_core/risk/*`\n"
+        "## Plan ≠ Implementierung\n\n"
+        "Irrelevant.\n\n"
+        "## Sensible Zonen (Tabu ohne Auftrag)\n\n"
+        "Diese Pfade sind hart geschützt:\n\n"
+        "- `src/assembled_core/execution/`\n"
+        "- `src/assembled_core/risk/`\n"
+        "- `src/assembled_core/accounting/`\n"
+        "- `src/assembled_core/pipeline/`\n"
+        "- `src/assembled_core/paper/`\n"
+        "- `.github/workflows/`\n\n"
+        "## Datenrealismus\n\n"
+        "Irrelevant.\n"
+    )
+
+
+def _minimal_architecture_md() -> str:
+    return (
+        "# Architecture Backend\n\n"
+        "## Schichtenlogik, Datenfluss & Backtest-Grundsatz\n\n"
+        "### Bevorzugte Schichtenlogik (vormals §5.1)\n\n"
+        "Bevorzugte Systemrichtung:\n\n"
+        "`data` → `features` → `signals` → `portfolio` → `execution` → "
+        "`pipeline`\n\n"
+        "Flankierend: `qa`, `reports`.\n"
     )
 
 
@@ -121,13 +137,51 @@ def test_build_brief_pulls_open_items() -> None:
 def test_build_brief_extracts_architecture_hint() -> None:
     src = BriefSources(
         claude_md=_minimal_claude_md(),
+        architecture_md=_minimal_architecture_md(),
         top_level_dirs=["scripts", "src", "tests", "docs", "system_check"],
     )
     brief = build_brief(src)
     assert "`scripts`" in brief
     assert "`src/assembled_core`" in brief
-    # Pipeline direction should be surfaced when present.
+    # Pipeline direction (migrated to ARCHITECTURE_BACKEND.md) should surface.
+    assert "Preferred pipeline direction" in brief
     assert "data" in brief and "execution" in brief
+
+
+def test_sensitive_zones_lists_all_protected_paths() -> None:
+    """The extracted zone section must surface all six hard-protected paths."""
+    src = BriefSources(claude_md=_minimal_claude_md())
+    brief = build_brief(src)
+    zone_section = brief.split("## Sensitive Zones", 1)[1]
+    for path in (
+        "src/assembled_core/execution/",
+        "src/assembled_core/risk/",
+        "src/assembled_core/accounting/",
+        "src/assembled_core/pipeline/",
+        "src/assembled_core/paper/",
+        ".github/workflows/",
+    ):
+        assert path in zone_section, f"missing protected zone: {path}"
+
+
+def test_sensitive_zones_fallback_complete_when_claude_md_missing() -> None:
+    """E-034 guard: the no-CLAUDE.md fallback must list all six zones.
+
+    The prior fallback returned only 2-of-6 paths, hiding four protected
+    zones from every tournament agent.
+    """
+    src = BriefSources()  # no CLAUDE.md at all
+    brief = build_brief(src)
+    zone_section = brief.split("## Sensitive Zones", 1)[1]
+    for path in (
+        "src/assembled_core/execution/",
+        "src/assembled_core/risk/",
+        "src/assembled_core/accounting/",
+        "src/assembled_core/pipeline/",
+        "src/assembled_core/paper/",
+        ".github/workflows/",
+    ):
+        assert path in zone_section, f"fallback missing protected zone: {path}"
 
 
 def test_build_brief_token_budget_sanity() -> None:

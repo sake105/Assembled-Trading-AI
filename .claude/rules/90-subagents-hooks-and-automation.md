@@ -40,7 +40,7 @@ Nicht auf explizite User-Aufforderung warten, wenn die Aufgabe klar zu einem Spe
 
 ### Automatische Erzwingung via Stop-Hook (seit 2026-05-14)
 
-Nach jedem Step mit Code-Änderungen in geschützten Pfaden (`src/`, `scripts/`, `.github/workflows/`, `.claude/rules/`, `CLAUDE.md`) erzwingt der Stop-Hook `.claude/hooks/stop_review_chain.py` die Review-Kette automatisch — siehe CLAUDE.md §20 und Spec `docs/superpowers/specs/2026-05-14-review-chain-design.md`.
+Nach jedem Step mit Code-Änderungen in geschützten Pfaden (`src/`, `scripts/`, `.github/workflows/`, `.claude/rules/`, `CLAUDE.md`) erzwingt der Stop-Hook `.claude/hooks/stop_review_chain.py` die Review-Kette automatisch — siehe CLAUDE.md, Abschnitt „Review-Chain", und Spec `docs/superpowers/specs/2026-05-14-review-chain-design.md`.
 
 ### Routing-Regeln (für nicht-erzwungene Pfade und ad-hoc Reviews)
 

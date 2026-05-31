@@ -77,4 +77,4 @@ All sources used by this system must provide **public information** only.
 - House PTR: public legislative disclosures, delayed publication
 - News wires: public broadcast content
 
-Trading signals derived from non-public information violate CLAUDE.md §7.3 and SEC Rule 10b-5.
+Trading signals derived from non-public information violate CLAUDE.md, Abschnitt „MNPI", and SEC Rule 10b-5.

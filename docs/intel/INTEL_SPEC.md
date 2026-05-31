@@ -119,7 +119,7 @@ This system operates on **public data only**:
 - GDELT (public news aggregation)
 - Reuters/AP via public APIs
 
-**No MNPI-derived signals.** See CLAUDE.md §7.3.
+**No MNPI-derived signals.** See CLAUDE.md, Abschnitt „MNPI".
 
 ---
 

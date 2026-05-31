@@ -70,7 +70,7 @@ All writes are atomic (tmp + rename).
   Schema `disclosures.fetch_report.v1`: per-source stats (e.g. `source_id`, `ok`, `http_status`, `duration_ms`, `items`, `cached`). Totals and per_source array for operator inspection.
 
 
-## MNPI Policy (CLAUDE.md §7.3)
+## MNPI Policy (CLAUDE.md, Abschnitt „MNPI")
 
 Die Disclosures-Pipeline arbeitet ausschließlich mit **öffentlichen Pflichtmitteilungen**:
 

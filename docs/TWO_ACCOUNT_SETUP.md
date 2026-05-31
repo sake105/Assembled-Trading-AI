@@ -39,7 +39,7 @@ zu stark.
 | Kapital | Hauptkapital (z. B. €10k-100k) |
 | Position-Sizing | Konservativ (half-Kelly oder weniger, vol-target) |
 | Risk-Grenzen | Hart (MaxDD 10-15%, daily-loss-cap 2-3%) |
-| Hebel | **Kein Leverage** (CLAUDE.md §3.5) |
+| Hebel | **Kein Leverage** (PROJEKT_STATUS.md, „Strategische Ausrichtung & Constraints") |
 | Audit-Disziplin | Promotion-Gate (siehe unten); Forensic-Verdicts BLOCKING |
 | Reports | Daily QA Report + Daily Reconcile |
 
@@ -159,7 +159,7 @@ KNOWN_ISSUES §8.x bzw. eigene Aufgabe.
 | C2-050 | Replay-Test CI (Promotion-Gate-Pflicht) |
 | C2-051 | Adversarial Reviewer (Promotion-Gate-recommended) |
 | C3-030 | Equity-Curve-Audit (Promotion-Gate-Pflicht) |
-| CLAUDE.md §3.5 | "kein Leverage" — gilt für beide Accounts |
+| PROJEKT_STATUS.md (Constraints) | "kein Leverage" — gilt für beide Accounts |
 
 ---
 

@@ -89,15 +89,13 @@ python scripts/batch_backtest.py --config-file configs/batch_backtest_example_do
 | `scripts/import_broker_snapshot.py` | Broker-Snapshot importieren |
 | `scripts/export_evidence_pack.py` | Evidence-Pack exportieren |
 
-### Legacy-Scripts (nicht mehr primär verwenden)
+### Legacy-Scripts
 
-Die folgenden Scripts existieren noch im Repo, sind aber in ihren Dateien explizit als `# LEGACY` markiert und **nicht** die operativen Einstiege:
-
-- `scripts/sprint9_execute.py` — deprecated, historisch
-- `scripts/sprint9_backtest.py` — deprecated, historisch
-- `scripts/sprint10_portfolio.py` — deprecated, historisch
-
-Diese Scripts werden noch von `run_all_sprint10.ps1` referenziert, aber für neue Arbeit nicht verwenden.
+Frühere Sprint-Runner (`scripts/sprint9_execute.py`, `scripts/sprint9_backtest.py`,
+`scripts/sprint10_portfolio.py`) existieren **nicht mehr** im Repo (verifiziert 2026-05-30:
+`scripts/sprint*.py` → keine Treffer). `scripts/run_all_sprint10.ps1` existiert noch, referenziert
+diese Scripts aber **nicht** (grep → 0 Treffer). Falls ältere Doku oder Chat-Verläufe diese Pfade
+nennen: veraltet, nicht mehr gültig.
 
 ---
 
@@ -159,17 +157,32 @@ Schnelltest: `curl http://localhost:8000/api/v1/orders/5min`
 
 ## Sensible Bereiche — besonders vorsichtig behandeln
 
-Folgende Bereiche enthalten Kernlogik, die ohne expliziten Auftrag nicht umstrukturiert werden darf:
+### Hart geschützte Tabu-Pfade (technisch blockiert)
+
+Diese 6 Pfade sind die **Single Source of Truth** für den Schutz-Layer und decken sich mit
+`CLAUDE.md` (Abschnitt „Sensible Zonen"), `.claude/settings.json` (`permissions.deny`) und der
+Hook-Liste `PROTECTED_ZONES` in `.claude/hooks/protected_paths_guard.py`. Edit/Write **und**
+destruktive Bash-Schreibzugriffe werden hier **technisch geblockt** — auch unter
+`bypassPermissions`. Änderungen nur mit explizitem Auftrag:
 
 - `src/assembled_core/execution/` — Order-Generierung, Kill-Switch, Pre-Trade-Checks
-- `src/assembled_core/pipeline/` — Trading-Cycle, Orchestrator, Backtest
-- `src/assembled_core/portfolio/` — Position-Sizing, Exposure-Steuerung
+- `src/assembled_core/risk/` — Risk-Controls, Limits, Exposure-/Kill-Switch-Logik
 - `src/assembled_core/accounting/` — Broker-Snapshot, Evidence-Pack, Ledger
-- `src/assembled_core/qa/` — Backtest-Engine, Metriken, QA-Gates
-- `src/assembled_core/data/` — sofern PIT-Sicherheit, Timing oder Backtest-Realismus betroffen
+- `src/assembled_core/pipeline/` — Trading-Cycle, Orchestrator, Backtest
+- `src/assembled_core/paper/` — Paper-/Simulations-Engine, State-Writes
 - `.github/workflows/` — CI-Betriebslogik, keine Experimentierfläche
 
-Regel: In diesen Bereichen erst Scope und Invarianten klären, dann minimal und nachvollziehbar ändern.
+### Weitere advisory-sensible Bereiche (nicht hart geblockt)
+
+Kernlogik, die ohne expliziten Auftrag nicht umstrukturiert werden sollte, aber nicht vom
+Schutz-Layer erzwungen wird:
+
+- `src/assembled_core/portfolio/` — Position-Sizing, Exposure-Steuerung
+- `src/assembled_core/qa/` — Backtest-Engine, Metriken, QA-Gates
+- `src/assembled_core/data/` — sofern PIT-Sicherheit, Timing oder Backtest-Realismus betroffen
+
+Regel: In allen diesen Bereichen erst Scope und Invarianten klären, dann minimal und
+nachvollziehbar ändern.
 
 ---
 

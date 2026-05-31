@@ -11,8 +11,9 @@
 
 ## Why incremental, not big-bang
 
-The repo has ~50 modules with deep cross-references. CLAUDE.md §10
-explicitly forbids big-bang refactors without scope; the audit itself
+The repo has ~50 modules with deep cross-references. CLAUDE.md
+(Abschnitt „Verbotene Muster für Claude") explicitly forbids big-bang
+refactors without scope; the audit itself
 estimates 32-80h spread over 6 months. A weekend "rewrite everything"
 attempt would break ~thousands of tests in ways that take days to
 unwind. We migrate **one bounded context per sprint**, with the legacy

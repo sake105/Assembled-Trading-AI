@@ -101,6 +101,11 @@ autonomous/
 .claude/.review_skip
 .claude/.review_skip_log.jsonl
 
+# protected_paths_guard.py runtime state (diagnostic log + one-shot override token + audit log)
+.claude/.hook_diag.jsonl
+.claude/.destructive_bash_authorized
+.claude/.destructive_bash_auth_log.jsonl
+
 # QA backtest bootstrap artifacts (regenerable, produced by backtest_engine.py)
 qa/bootstrap_backtest_*.json
 

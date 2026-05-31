@@ -96,3 +96,87 @@ pytest -m "not external" --maxfail=3
 - `mypy>=1.5.0`
 
 Alle Dependencies sind in `pyproject.toml` und `requirements.txt` dokumentiert.
+
+---
+
+## Strategische Ausrichtung & Constraints
+
+> **Herkunft:** Migriert aus `CLAUDE.md` §1.3–1.5 / §3 / §13 am **2026-05-30**
+> im Zuge der CLAUDE.md-Verschlankung. `CLAUDE.md` selbst trägt nur noch Kernregeln;
+> die strategische Ziel-/Constraint-Beschreibung lebt jetzt hier als Projektkontext.
+
+### Projektcharakter (vormals §1.3)
+
+Assembled-Trading-AI ist ein **modulares Python-Backend** für: Research, Backtests,
+Paper-/Simulation, Risk-Overlays, QA / Evidence / Reporting, API / OMS-light / Paper-Routing
+sowie schrittweise Intel-, News-, Disclosure- und GeoRisk-Integration.
+
+Es ist **kein kleines Einzel-Skript**, sondern ein wachsendes System mit mehreren
+Teilwelten, historischer Drift, branch-spezifischen Fixes und dokumentationsgetriebener
+Weiterentwicklung.
+
+### Nicht nur Rendite (vormals §1.4)
+
+Dieses Projekt ist **nicht nur auf nominale Rendite** ausgerichtet. Wichtige Ziele zusätzlich:
+Reproduzierbarkeit, Nachvollziehbarkeit, Qualitäts- und Testdisziplin, kontrollierte
+Weiterentwicklung, harte Risk-Grenzen, saubere Zustands- und Kontrolllogik, dokumentierte
+Entscheidungen, Vermeidung architektonischer Drift.
+
+### Strategische Leitidee (vormals §1.5)
+
+- EOD-/Daily-zentrierter Kern
+- modulare Alpha-Generierung
+- später stärkere Intel-/Geo-/Disclosure-Einbindung
+- Risk-first statt Rendite-first
+- kontrollierte State-Machine-Logik
+- kein Leverage im frühen Betriebsmodus
+- keine unkontrollierte Tool- oder Agentenautomatisierung
+
+### Projektziele, Constraints und Risiko-Philosophie (vormals §3)
+
+**Primäre Ziele:** robustes quantitatives Backend; Research, Backtests, Paper-Runs und
+Risk-Steuerung tragen; schrittweise Intel-/GeoRisk-/Disclosure-Funktionalität aufnehmen;
+langfristig produktionsnäher werden, aber nicht durch zu frühe Live-/Prod-Komplexität
+destabilisiert werden.
+
+**Qualitätsziele:** deterministische oder weitgehend reproduzierbare Läufe; dokumentierte
+Artefakte; branch- und CI-sichere Änderungen; testbare Interfaces; keine stillen
+Seiteneffekte; keine unkontrollierte Kopplung; saubere Trennung zwischen Kernlogik und
+Hilfsschichten.
+
+**Risikophilosophie:** harte Risiko-Grenzen sind wichtiger als aggressive Zielrendite;
+Drawdown-, Volatilitäts- und Turnover-Kontrolle sind zentrale Steuergrößen; Risk-State- und
+Overlay-Logik sind zentraler Systembestandteil; lieber kontrolliert konservativ als
+unkontrolliert aggressiv.
+
+**Renditeziele:** grobes Zielband **ca. 20–30 % p.a.** als strategischer
+Orientierungsrahmen — **kein** simpler Stopp-Schalter. Steuerfokus liegt stärker auf MaxDD,
+Ziel-Volatilität, Turnover, Exposure-Steuerung, Risk-State, Soft Profit Lock und
+policy-basierter Regulierung.
+
+**Harte Constraints:**
+- zunächst **kein Leverage / keine Hebelprodukte**
+- keine blinden Merges oder Git-Gewaltaktionen
+- keine Produktionserwartung aus synthetischen Daten ableiten
+- keine stillen Live-/Prod-Annahmen
+- keine unkontrollierte „selbstlernende" Agentenlogik ohne Guardrails
+- kein großer Architekturumbau ohne klaren Scope
+
+**Bewusst verschobene Themen:** Leverage; aggressive Live-Selbstoptimierung; große
+Plattform-/Monorepo-Schritte vor sauberem Backend-Setup; komplexe Persistenz-/Memory-Automation
+ohne klare Guardrails; einige Security-/Secrets-Härtungen wurden zeitweise bewusst als TODO
+verschoben, bleiben aber wichtig.
+
+### Bevorzugte Entwicklungsrichtung (vormals §13)
+
+- **Backend bleibt Kern.** Kurz- bis mittelfristig wichtigster Systemkern. Plattform/Frontend
+  sind Zukunftsthemen, nicht die operative Leitstruktur.
+- **Realismus-Härtung ist echter Schwerpunkt:** Secret-Scanning/Security-Härtung, echtere
+  Datenpfade, realistischere Cost-/Impact-Modellierung, Corporate Actions / Kalender /
+  Universe-Realismus, per-day Intel-Refresh, branch-/CI-saubere Integrationspfade, weitere
+  Reduktion unnötiger Churn-/Rotationseffekte.
+- **Roadmap-Denken ja, Roadmap-Fiktion nein.** Roadmaps/Sprints sind wichtig, aber **kein**
+  Implementierungsbeweis.
+- **Erwartete spätere Ausbaurichtung:** News-/Intel-Pipeline; Disclosures-/Slow-Intel-Pfade;
+  Risk-State-Machine-Härtung; Execution-Worker / Reconciliation / Kill-Switch-Härtung;
+  Robustness-, Walk-Forward- und Stability-Packs; Observability und Governance-Ausbau.

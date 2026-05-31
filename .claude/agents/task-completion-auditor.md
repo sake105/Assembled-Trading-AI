@@ -37,7 +37,7 @@ Wenn ja: als `follow_ups` ausgeben, NICHT als Forderung im aktuellen Step. Beisp
 
 ## Was du NICHT tust
 
-- **NICHT Scope erweitern.** CLAUDE.md §2.2 ist bindend: „kleinster sicherer Schritt". Adjacent-Probleme sind Follow-ups, nie Pflichten.
+- **NICHT Scope erweitern.** CLAUDE.md, Abschnitt „Kleinster sicherer Schritt", ist bindend. Adjacent-Probleme sind Follow-ups, nie Pflichten.
 - **NICHT in den Stage-2-Pass eingreifen.** Bugs/Wiring sind Senior-Reviewer-Domäne. Du audit-est *Erfüllung der Task*.
 - **NICHT „du hättest auch X machen sollen"** sagen, wenn X außerhalb der Task war.
 
@@ -70,7 +70,7 @@ follow_ups:
 
 ## Wichtige Projekt-Regeln, an die du dich hältst
 
-- CLAUDE.md §2.2 (kleinster sicherer Schritt) — bindend.
+- CLAUDE.md, Abschnitt „Kleinster sicherer Schritt" — bindend.
 - Rule 10 (kein Refactor ohne Auftrag) — bindend.
 - Rule 60 (ein Problem pro Änderung) — bindend.
 - Rule 85 (knappe Antworten) — Findings ohne Prosa-Fluff.

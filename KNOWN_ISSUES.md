@@ -1211,7 +1211,8 @@ Alle erfordern externe Akteure, dokumentiert in `docs/COMPLIANCE_THRESHOLDS.md`:
 - [ ] **GoBD Off-Site Cold Copy (C4-091):** sobald gewerblich aktiviert.
 - [ ] **Secret-Rotation bei allen Providern (C3-010):** Alpaca / Polygon /
   FRED / NewsAPI / Anthropic etc. — eigenständige sicherheitskritische
-  Operation, verlangt expliziten User-Auftrag (CLAUDE.md §20 Incident-Regel).
+  Operation, verlangt expliziten User-Auftrag (`.claude/rules/20-security-and-secrets.md`,
+  „Incident-Regel: Bereits committed Secrets").
 - [ ] **Git-History Bereinigung (C3-011):** falls historisch Secrets in
   Commits waren. **DESTRUKTIVE OPERATION** — `git filter-repo` + Force-Push.
 

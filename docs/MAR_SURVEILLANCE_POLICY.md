@@ -26,7 +26,7 @@ constitute market abuse under MAR Art. 12, specifically:
 
 | Control | Implementation | Audit ID |
 |---|---|---|
-| No insider data ingestion | We use ONLY public data — yfinance, Polygon, SEC EDGAR, FRED. CLAUDE.md §3.3 forbids MNPI. | C4-090 |
+| No insider data ingestion | We use ONLY public data — yfinance, Polygon, SEC EDGAR, FRED. CLAUDE.md, Abschnitt „MNPI", forbids MNPI-derived logic. | C4-090 |
 | Order cancellation tracking | `execution/order_lifecycle.py` records every CREATED → CANCELLED transition. | C4-020 |
 | Wash-trade detection (manual today) | Reconciler shows net qty change per symbol per day; a zero net + non-zero gross would surface. | C4-031 |
 | News-source provenance | `events/news/dedupe.py` + `news_signal_bridge` always cite the source feed and timestamp. | — |

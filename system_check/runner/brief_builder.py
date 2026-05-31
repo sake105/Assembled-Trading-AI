@@ -33,6 +33,8 @@ DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Relative to project root
 CLAUDE_MD = Path("CLAUDE.md")
+# Schichtenlogik/Datenfluss migrated out of CLAUDE.md §5 on 2026-05-30.
+ARCHITECTURE_BACKEND_MD = Path("docs/ARCHITECTURE_BACKEND.md")
 ROADMAP_STATE_MD = Path("docs/roadmap/ROADMAP_STATE.md")
 # Memory lives under the user's profile, not the repo — best-effort only.
 MEMORY_INDEX_REL = Path("memory/MEMORY.md")
@@ -47,6 +49,7 @@ class BriefSources:
     """
 
     claude_md: str = ""
+    architecture_md: str = ""
     roadmap_state_md: str = ""
     memory_index_md: str = ""
     recent_git_log: str = ""
@@ -67,6 +70,7 @@ def load_sources(project_root: Path | None = None) -> BriefSources:
     root = project_root or DEFAULT_PROJECT_ROOT
     return BriefSources(
         claude_md=_read_text(root / CLAUDE_MD),
+        architecture_md=_read_text(root / ARCHITECTURE_BACKEND_MD),
         roadmap_state_md=_read_text(root / ROADMAP_STATE_MD),
         memory_index_md=_read_text(root / MEMORY_INDEX_REL),
         recent_git_log=_read_git_log(root, n=10),
@@ -91,7 +95,7 @@ def build_brief(sources: BriefSources) -> str:
 
     sections.append("\n## Architecture Map")
     sections.append(
-        _extract_architecture_map(sources.claude_md, sources.top_level_dirs)
+        _extract_architecture_map(sources.architecture_md, sources.top_level_dirs)
     )
 
     sections.append("\n## Current State — Recent Completions")
@@ -129,13 +133,11 @@ def brief_hash(brief: str) -> str:
 
 
 def _extract_mission(claude_md: str) -> str:
-    """Pull a 2-3 sentence mission statement from CLAUDE.md §1.3."""
+    """Pull a 2-3 sentence mission statement from CLAUDE.md `## Projekt`."""
     if not claude_md:
         return "_Mission statement unavailable — CLAUDE.md missing._"
 
-    m = re.search(
-        r"### 1\.3 Kernmission.*?\n(.*?)(?=\n###|\Z)", claude_md, re.DOTALL
-    )
+    m = re.search(r"## Projekt.*?\n(.*?)(?=\n## |\Z)", claude_md, re.DOTALL)
     if not m:
         return (
             "Modular Python backend for research, backtests, paper/simulation "
@@ -150,13 +152,12 @@ def _extract_mission(claude_md: str) -> str:
     return para
 
 
-def _extract_architecture_map(
-    claude_md: str, top_level_dirs: list[str]
-) -> str:
+def _extract_architecture_map(architecture_md: str, top_level_dirs: list[str]) -> str:
     """Render a compact module map.
 
-    Uses CLAUDE.md §5 (Architekturübersicht) when available, enriched with the
-    detected top-level directories. Falls back to directory listing alone.
+    Pipeline direction is read from docs/ARCHITECTURE_BACKEND.md (migrated out
+    of CLAUDE.md §5.1 on 2026-05-30), enriched with the detected top-level
+    directories. Falls back to the directory listing alone.
     """
     module_roles: dict[str, str] = {
         "src/assembled_core": "Core trading backend (signals, portfolio, execution, risk, accounting)",
@@ -187,24 +188,27 @@ def _extract_architecture_map(
     unannotated = sorted(
         d
         for d in detected
-        if d not in {k.split("/")[0] for k in module_roles}
-        and not d.startswith(".")
+        if d not in {k.split("/")[0] for k in module_roles} and not d.startswith(".")
     )
     if unannotated:
         lines.append(
-            "- Other top-level folders: "
-            + ", ".join(f"`{d}`" for d in unannotated)
+            "- Other top-level folders: " + ", ".join(f"`{d}`" for d in unannotated)
         )
 
-    # Pipeline direction from CLAUDE.md §5.1 if present.
-    m = re.search(r"5\.1 Bevorzugte Schichtenlogik.*?\n(.*?)(?=\n###|\Z)",
-                  claude_md, re.DOTALL)
+    # Pipeline direction from docs/ARCHITECTURE_BACKEND.md (vormals CLAUDE.md §5.1).
+    m = re.search(
+        r"Bevorzugte Schichtenlogik.*?\n(.*?)(?=\n###|\n## |\Z)",
+        architecture_md,
+        re.DOTALL,
+    )
     if m:
-        layers = re.findall(r"[*-]\s+`?(\w+)`?", m.group(1))
+        # The direction is the arrow-joined backtick line, e.g.
+        # `data` → `features` → `signals` → `portfolio` → `execution` → ...
+        arrow_line = next((ln for ln in m.group(1).splitlines() if "→" in ln), "")
+        layers = re.findall(r"`(\w+)`", arrow_line)
         if layers:
             lines.append(
-                "\n**Preferred pipeline direction**: "
-                + " → ".join(layers[:8])
+                "\n**Preferred pipeline direction**: " + " → ".join(layers[:8])
             )
 
     return "\n".join(lines) if lines else "_No architecture map detectable._"
@@ -236,8 +240,15 @@ def _extract_open_items(roadmap_md: str) -> str:
         return "_ROADMAP_STATE.md unavailable._"
 
     keywords = (
-        "pending", "offen", "CRITICAL", "open", "TODO", "not yet",
-        "not implemented", "skip", "defer",
+        "pending",
+        "offen",
+        "CRITICAL",
+        "open",
+        "TODO",
+        "not yet",
+        "not implemented",
+        "skip",
+        "defer",
     )
     collected: list[str] = []
     for line in roadmap_md.splitlines():
@@ -257,26 +268,34 @@ def _format_git_log(git_log: str) -> str:
     return "```\n" + git_log.strip() + "\n```"
 
 
+# The six hard-protected zones (CLAUDE.md "Sensible Zonen", permissions.deny,
+# protected_paths_guard.py). Used as the fallback when the live list cannot be
+# extracted — must stay complete: a 2-of-6 fallback hides four protected paths
+# from every tournament agent (E-034 governance-drift class).
+_PROTECTED_PATHS_FALLBACK = (
+    "- `src/assembled_core/execution/`\n"
+    "- `src/assembled_core/risk/`\n"
+    "- `src/assembled_core/accounting/`\n"
+    "- `src/assembled_core/pipeline/`\n"
+    "- `src/assembled_core/paper/`\n"
+    "- `.github/workflows/`"
+)
+
+
 def _extract_sensitive_zones(claude_md: str) -> str:
     if not claude_md:
-        return (
-            "- `src/assembled_core/execution/*`\n"
-            "- `src/assembled_core/risk/*`\n"
-            "- `src/assembled_core/pipeline/*`\n"
-            "- `src/assembled_core/accounting/*`\n"
-            "- `.github/workflows/*`"
-        )
+        return _PROTECTED_PATHS_FALLBACK
     m = re.search(
-        r"6\.1 Besonders sensible Kernbereiche.*?\n(.*?)(?=\n###|\n##|\Z)",
+        r"## Sensible Zonen.*?\n(.*?)(?=\n## |\Z)",
         claude_md,
         re.DOTALL,
     )
     if not m:
-        return "- `src/assembled_core/execution/*`\n- `src/assembled_core/risk/*`"
+        return _PROTECTED_PATHS_FALLBACK
     body = m.group(1).strip()
     # Keep only list lines, max 12.
     lines = [line for line in body.splitlines() if line.strip().startswith(("*", "-"))]
-    return "\n".join(lines[:12]) or body[:400]
+    return "\n".join(lines[:12]) or _PROTECTED_PATHS_FALLBACK
 
 
 # -------------------------------------------------------------------------

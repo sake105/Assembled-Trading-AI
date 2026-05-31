@@ -173,7 +173,7 @@ Bei Schema-Inkompatibilitäten:
 
 
 
-## 8. MNPI Policy (CLAUDE.md §7.3)
+## 8. MNPI Policy (CLAUDE.md, Abschnitt „MNPI")
 
 Diese Pipeline verarbeitet ausschließlich **öffentliche Informationen**:
 

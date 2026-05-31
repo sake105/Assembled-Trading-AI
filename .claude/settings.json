@@ -1,6 +1,20 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions"
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Edit(/src/assembled_core/execution/**)",
+      "Write(/src/assembled_core/execution/**)",
+      "Edit(/src/assembled_core/risk/**)",
+      "Write(/src/assembled_core/risk/**)",
+      "Edit(/src/assembled_core/accounting/**)",
+      "Write(/src/assembled_core/accounting/**)",
+      "Edit(/src/assembled_core/pipeline/**)",
+      "Write(/src/assembled_core/pipeline/**)",
+      "Edit(/src/assembled_core/paper/**)",
+      "Write(/src/assembled_core/paper/**)",
+      "Edit(/.github/workflows/**)",
+      "Write(/.github/workflows/**)"
+    ]
   },
   "enabledPlugins": {
     "claude-mem@thedotmack": true,
@@ -9,6 +23,17 @@
     "github@claude-plugins-official": true
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/protected_paths_guard.py"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [

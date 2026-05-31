@@ -10,24 +10,18 @@ Sie gelten immer, unabhängig davon, welcher Teil des Systems gerade bearbeitet 
 - Technische Ehrlichkeit hat Vorrang vor Geschwindigkeit.
 - Plane nie aus einer Annahme heraus, wenn der tatsächliche Repo-Zustand nicht geprüft wurde.
 - Verwechsle niemals Gesprächskontext, Spec, Roadmap, Branch-Stand und implementierte Realität.
-- Ein Plan ist keine Implementierung.
-- Ein lokaler Test ist keine CI-Bestätigung.
-- Ein branch-spezifischer Fix ist keine Repo-Wahrheit.
-- Ein TODO ist keine Funktion.
-- Ein Stub ist keine Integration.
-- Ein grüner Teiltest ist keine globale Entwarnung.
+
+Die Plan-≠-Implementierung-Leiter (Plan vs. lokaler Test vs. Branch-Fix vs. TODO vs. Stub vs.
+Teiltest) ist in `CLAUDE.md` (Abschnitt „Plan ≠ Implementierung") autoritativ definiert und gilt
+hier unverändert. Diese Datei wiederholt sie bewusst **nicht**, um Drift zwischen zwei Quellen zu
+vermeiden.
 
 ## Standard-Arbeitsmodus
 
-Bei jeder Aufgabe gilt standardmäßig diese Reihenfolge:
-
-1. Problem genau lokalisieren.
-2. Betroffene Dateien und angrenzende Module bestimmen.
-3. Prüfen, ob der Bereich risk-, execution-, data- oder CI-sensibel ist.
-4. Kleinsten sicheren Änderungspfad wählen.
-5. Nur notwendige Dateien anfassen.
-6. Passende Tests, Lint oder statische Checks gezielt ausführen.
-7. Ehrlich berichten, was wirklich geändert und geprüft wurde.
+Der kanonische Ablauf für jede Änderung (sieben Schritte, „kleinster sicherer Schritt") steht in
+`CLAUDE.md` (Abschnitt „Kleinster sicherer Schritt") und gilt hier unverändert. Repo-spezifische
+Betonung: In Schritt 2/3 immer aktiv klassifizieren, ob der Bereich risk-, execution-, data- oder
+CI-sensibel ist — diese Einstufung steuert Testtiefe (Rule 40) und Subagent-Routing (Rule 90).
 
 ## Verbotenes Verhalten
 

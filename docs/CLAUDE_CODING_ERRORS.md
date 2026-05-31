@@ -395,3 +395,16 @@
 - Gegencheck: nach erstem Write sofort Read-Back und `assert df["timestamp"].min().year > 1972` o.ae.
 **Erkannt in:** `scripts/crypto_funding_carry_backtest.py` → `load_or_fetch()` → Fix: `_save_parquet()` speichert `timestamp_ms: int64`, `_load_parquet()` rekonstruiert.
 **Referenzen:** Stage-2 senior-review 2026-05-29, Fix in Commit `7909bd99`.
+
+## E-034 — Governance-Restrukturierung lässt inbound §-Anker und cross-file Faktenbehauptungen verwaisen
+**Datum:** 2026-05-30
+**Kategorie:** governance-drift / docs-consistency
+**Was passierte:** Bei der CLAUDE.md-Verschlankung (985→215 Zeilen) wurden Sektionsnummern entfernt und Inhalte in PROJEKT_STATUS.md / ARCHITECTURE_BACKEND.md / review_chain_disclosure.md ausgelagert; parallel wurden in `.cursorrules` nicht-existente Legacy-Script-Refs entfernt. Nicht mitgezogen: (a) AGENTS.md behauptete weiter, drei gelöschte Sprint-Scripts „existieren noch im Repo" und würden von `run_all_sprint10.ps1` referenziert (beides per Glob/Grep widerlegt); (b) `docs/review_chain_disclosure.md` verwies forward auf `§2.2`/`§20.6`, die in der verschlankten CLAUDE.md keine gültigen Anker mehr sind; (c) ~11 weitere Docs tragen inbound `CLAUDE.md §X.Y`-Refs (MNPI/§7.3, leverage/§3.5, PIT/§7.2), deren Ziel-Nummern entfielen. Kein Content verloren — nur Anker und Faktenbehauptungen drifteten.
+**Warum falsch:** Governance-Dateien sollen *eine* Source of Truth bilden. Verwaiste Anker und cross-file Widersprüche untergraben genau die Steuerfunktion, für die diese Dateien existieren. Ein späterer Agent liest die falsche Behauptung („Script existiert") als Repo-Wahrheit. Die Review-Chain fing das (Stage 1+2+3, F-DGS-1/2, F-senior-1/2, F-auditor-1/2/5) — ohne Chain wäre es still durchgegangen.
+**Wie vermeiden:**
+- Bei jeder Restrukturierung, die Sektionsnummern oder Pfad-/Script-Listen ändert: `Grep "CLAUDE.md §"` über das gesamte Repo und `Grep` nach jedem entfernten Pfadnamen, *bevor* der Step als fertig gilt.
+- Schwester-Governance-Dateien (AGENTS.md, `.cursorrules`, `.claude/rules/`) im selben Step synchronisieren, nicht später.
+- Jede Faktenbehauptung über Dateiexistenz per `Glob`/`Grep` verifizieren statt aus Altdoku übernehmen.
+- Inbound-Anker auf Überschriftennamen statt §-Nummern umstellen, wenn die Zielnummerierung wegfällt.
+**Erkannt in:** `AGENTS.md` (Legacy-Scripts-Block), `docs/review_chain_disclosure.md` (Z.6/40), `.cursorrules` (Bootstrap-Liste) → Fixes im selben Step; ~11-Docs-Anker-Sweep als getrackter Follow-up (Rule 60). **Schlimmster Fall in EXECUTABLE CODE:** `system_check/runner/brief_builder.py` extrahierte Mission/Architektur/Sensible-Zonen per `### 1.3` / `5.1` / `6.1`-Regex aus CLAUDE.md; nach der Verschlankung lieferte der `6.1`-Fallback nur **2 von 6** Schutzpfaden an jeden Tournament-Agent — stille Sicherheits-Degradation, kein bloßer Doku-Widerspruch. Fix 2026-05-31: Regex auf Überschriften (`## Projekt` / `## Sensible Zonen`) bzw. `docs/ARCHITECTURE_BACKEND.md` umgestellt, beide Fallbacks auf alle 6 Pfade vervollständigt, 2 Regressions-Tests.
+**Referenzen:** Review-Chain 2026-05-30 (Stage 1 docs-governance-sync, Stage 2 senior-code-reviewer, Stage 3 task-completion-auditor, Verdict CONDITIONAL → in-scope Fixes adressiert).
