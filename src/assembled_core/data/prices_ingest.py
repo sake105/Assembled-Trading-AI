@@ -160,11 +160,14 @@ def load_eod_prices(
             invalid_count,
         )
 
-    # Run full validation and log issues
+    # Run full validation and log issues (blocking) + warnings (advisory)
     validation = validate_price_data(df)
     if not validation.get("valid", True):
         issues = validation.get("issues", [])
         logger.warning("[load_eod_prices] Data quality issues: %s", issues)
+    warn_list = validation.get("warnings", [])
+    if warn_list:
+        logger.warning("[load_eod_prices] Data quality warnings: %s", warn_list)
 
     # Sort and return
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
@@ -223,7 +226,7 @@ def load_eod_prices_for_universe(
     )
 
 
-def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:
+def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str | list[str]]:
     """Validate price data quality.
 
     Args:
@@ -231,13 +234,19 @@ def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:
 
     Returns:
         Dictionary with validation results:
-        - valid: bool - Overall validity
+        - valid: bool - Overall validity (False if any blocking ``issues``)
         - row_count: int - Number of rows
         - symbol_count: int - Number of unique symbols
         - date_range: str - Date range (ISO format)
-        - issues: list[str] - List of validation issues
+        - issues: list[str] - Blocking integrity faults (flip ``valid`` to False)
+        - warnings: list[str] - Advisory findings (do NOT flip ``valid``)
+
+    This is the single wired OHLCV gate in the read path. The richer adaptive
+    batch detector lives in ``assembled_core.dataquality`` (pandera-gated,
+    batch-ingestion tier) and is intentionally not invoked on every read.
     """
-    issues = []
+    issues: list[str] = []
+    advisories: list[str] = []  # non-blocking findings (returned under "warnings")
 
     # Check required columns
     required = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
@@ -250,6 +259,7 @@ def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:
             "symbol_count": 0,
             "date_range": "N/A",
             "issues": issues,
+            "warnings": advisories,
         }
 
     # Check for empty DataFrame
@@ -261,6 +271,7 @@ def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:
             "symbol_count": 0,
             "date_range": "N/A",
             "issues": issues,
+            "warnings": advisories,
         }
 
     # Check OHLC relationships
@@ -288,6 +299,37 @@ def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:
     if zero_volume > len(df) * 0.5:  # More than 50% zero volume
         issues.append(f"High percentage of zero volume: {zero_volume}/{len(df)} rows")
 
+    # Duplicate (symbol, timestamp) bars are a real integrity fault (double
+    # ingestion, merge errors) — block. The panel is not yet sorted at the
+    # load_eod_prices call site, so check the frame as-is.
+    dup_mask = df.duplicated(subset=["symbol", "timestamp"], keep=False)
+    if dup_mask.any():
+        issues.append(f"Duplicate (symbol, timestamp) rows: {int(dup_mask.sum())}")
+
+    # Advisory per-symbol close-price spike scan via a robust (median/MAD)
+    # z-score of 1-bar returns. Robust statistics resist single-outlier
+    # masking — a lone spike barely shifts the median/MAD — so this stays
+    # effective on short EOD windows (a non-robust mean/std would inflate its
+    # own denominator and miss the very spike it is looking for). Does NOT
+    # block: a true move and a corporate action look alike here. Zero-MAD
+    # (constant/flat) symbols are masked so they never divide-by-zero; NaN
+    # z-scores compare False.
+    spike_z = 8.0
+    sub = df[["symbol", "timestamp", "close"]].dropna(subset=["close"])
+    if len(sub) > 2:
+        sub = sub.sort_values(["symbol", "timestamp"])
+        sym = sub["symbol"]
+        ret = sub.groupby("symbol", sort=False)["close"].pct_change()
+        med = ret.groupby(sym, sort=False).transform("median")
+        mad = (ret - med).abs().groupby(sym, sort=False).transform("median")
+        robust_z = (ret - med) / (1.4826 * mad).where(mad > 0)
+        n_spikes = int((robust_z.abs() > spike_z).sum())
+        if n_spikes:
+            advisories.append(
+                f"Possible close-price spikes (per-symbol robust |z|>{spike_z}): "
+                f"{n_spikes} rows"
+            )
+
     # Get date range
     date_range = (
         f"{df['timestamp'].min().isoformat()} to {df['timestamp'].max().isoformat()}"
@@ -299,6 +341,7 @@ def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:
         "symbol_count": df["symbol"].nunique(),
         "date_range": date_range,
         "issues": issues,
+        "warnings": advisories,
     }
 
 

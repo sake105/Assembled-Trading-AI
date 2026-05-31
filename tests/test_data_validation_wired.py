@@ -87,3 +87,80 @@ def test_validate_price_data_happy_path():
     )
     result = validate_price_data(df)
     assert result["valid"] is True
+    # clean data emits no advisory warnings and exposes the additive key
+    assert result.get("warnings") == []
+
+
+@pytest.mark.fast
+def test_validate_price_data_flags_duplicate_bars():
+    """DAT-001: duplicate (symbol, timestamp) rows are a blocking integrity fault."""
+    from src.assembled_core.data.prices_ingest import validate_price_data
+
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-01", "2024-01-01"], utc=True),
+            "symbol": ["AAPL", "AAPL"],
+            "open": [150.0, 150.0],
+            "high": [152.0, 152.0],
+            "low": [149.0, 149.0],
+            "close": [151.0, 151.0],
+            "volume": [1000.0, 1000.0],
+        }
+    )
+    result = validate_price_data(df)
+    assert result["valid"] is False
+    assert any("duplicate" in i.lower() for i in result["issues"])
+
+
+@pytest.mark.fast
+def test_validate_price_data_warns_on_close_spike():
+    """DAT-001: a per-symbol close spike is advisory (warning, not blocking).
+
+    Uses a SHORT window (n=25) on purpose: the robust median/MAD z-score must
+    catch a single spike even when a non-robust mean/std would mask it (the
+    lone outlier inflating its own denominator).
+    """
+    from src.assembled_core.data.prices_ingest import validate_price_data
+
+    n = 25
+    ts = pd.date_range("2024-01-01", periods=n + 1, freq="B", tz="UTC")
+    close = [100.0]
+    for i in range(n):
+        close.append(close[-1] * (1 + (0.001 if i % 2 == 0 else -0.001)))
+    close[-1] = close[-2] * 1.40  # single ~40% jump → robust |z| well above 8
+
+    df = pd.DataFrame(
+        {
+            "timestamp": ts,
+            "symbol": "AAPL",
+            "open": close,
+            "high": [c * 1.001 for c in close],
+            "low": [c * 0.999 for c in close],
+            "close": close,
+            "volume": 1_000_000.0,
+        }
+    )
+    result = validate_price_data(df)
+    assert result["valid"] is True  # spike does not block (could be a real move)
+    assert any("spike" in w.lower() for w in result.get("warnings", []))
+
+
+@pytest.mark.fast
+def test_validate_price_data_constant_series_no_spike_warning():
+    """Constant close (zero-std) must not divide-by-zero or false-flag a spike."""
+    from src.assembled_core.data.prices_ingest import validate_price_data
+
+    n = 30
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=n, freq="B", tz="UTC"),
+            "symbol": "AAPL",
+            "open": 100.0,
+            "high": 100.0,
+            "low": 100.0,
+            "close": 100.0,
+            "volume": 1_000_000.0,
+        }
+    )
+    result = validate_price_data(df)
+    assert result.get("warnings") == []

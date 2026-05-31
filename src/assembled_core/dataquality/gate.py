@@ -26,6 +26,12 @@ class DataQualityError(Exception):
 class DataQualityGate:
     """Validate OHLCV data before it enters the feature pipeline.
 
+    Tier note (DAT-001/DAT-002): this is the *batch / research-tier* gate —
+    pandera-backed, richer adaptive anomaly checks, opt-in. It is intentionally
+    NOT wired into the per-read hot path; that role belongs to the single wired
+    gate ``assembled_core.data.prices_ingest.validate_price_data`` (pure pandas,
+    no optional deps). Keep check logic from drifting between the two tiers.
+
     Usage::
 
         gate = DataQualityGate()

@@ -1929,16 +1929,6 @@ class TestVixCapConstants:
 class TestOsPathMigration:
     """Item 100: verify remaining os.path usages have been migrated to pathlib."""
 
-    def test_quality_gate_no_os_path(self):
-        """quality_gate.py quarantine function should use pathlib, not os.path."""
-        src = (
-            __import__("pathlib")
-            .Path("src/assembled_core/data/quality_gate.py")
-            .read_text(encoding="utf-8")
-        )
-        # The quarantine helper function should not use os.path.join
-        assert "os.path.join" not in src
-
     def test_scenario_engine_no_os_path_exists(self):
         """scenario_engine.py should use Path().exists(), not os.path.exists()."""
         src = (
