@@ -609,7 +609,7 @@ def run_trading_cycle(
         _pub("features_end")
 
         _pub("signals_start")
-        signals = generate_signals(features, ctx, log=log)
+        signals = generate_signals(features, ctx, log=log, meta=result.meta)
         result.signals = signals
         _pub("signals_end", n_signals=len(signals) if signals is not None else 0)
 
@@ -623,7 +623,14 @@ def run_trading_cycle(
             log=log,
         )
         result.target_positions = targets
+        # Union 'degraded_steps' across stages instead of clobbering it: the
+        # signals stage (generate_signals above) may already have appended its
+        # own degraded entries into result.meta. A plain .update() would let
+        # sizing_meta's degraded_steps overwrite them, so merge that one key.
+        _sizing_degraded = sizing_meta.pop("degraded_steps", None)
         result.meta.update(sizing_meta)
+        if _sizing_degraded:
+            result.meta.setdefault("degraded_steps", []).extend(_sizing_degraded)
         _pub("sizing_end", n_targets=len(targets) if targets is not None else 0)
 
         _pub("routing_start")

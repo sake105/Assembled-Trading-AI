@@ -9,7 +9,10 @@ from pathlib import Path
 
 import pandas as pd
 from src.assembled_core.config.policy_loader import load_policy
-from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+from src.assembled_core.pipeline.trading_cycle_shared import (
+    TradingContext,
+    _record_degraded_step,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,7 @@ def generate_signals(
     ctx: TradingContext,
     *,
     log: logging.Logger | None = None,
+    meta: dict | None = None,
 ) -> pd.DataFrame:
     """Apply signal_fn + real signal enrichment layers.
 
@@ -600,7 +604,7 @@ def generate_signals(
     except Exception as e:
         log.debug("[META-MODEL] meta_model skipped: %s", e)
 
-    signals = _ensemble_signals_if_enabled(signals, features, ctx, log)
+    signals = _ensemble_signals_if_enabled(signals, features, ctx, log, meta)
     signals = _add_pairs_signals_if_enabled(signals, ctx, log)
 
     return signals
@@ -611,6 +615,7 @@ def _ensemble_signals_if_enabled(
     features: pd.DataFrame,
     ctx: "TradingContext",
     log: "logging.Logger",
+    meta: dict | None = None,
 ) -> pd.DataFrame:
     """Optional multi-strategy ensemble layer (Plan 11/10 §1.1.2).
 
@@ -642,15 +647,37 @@ def _ensemble_signals_if_enabled(
         # Build strategy shims that delegate to ctx.signal_fn so each member
         # uses the same signal source (future: swap per-member signal_fn if wired)
         class _SignalFnShim:
-            """Minimal duck-type for StrategyAllocator: wraps ctx.signal_fn."""
+            """Minimal duck-type for StrategyAllocator: wraps ctx.signal_fn.
 
-            def __init__(self, fn: object) -> None:
+            QUAL-15: a member whose signal_fn raises is fail-open (drops to an
+            empty frame so the blend continues) but the drop is recorded via
+            ``_record_degraded_step`` instead of vanishing silently — otherwise
+            a failing member is indistinguishable from one that legitimately
+            produced no signals.
+            """
+
+            def __init__(
+                self,
+                fn: object,
+                name: str,
+                meta_ref: dict | None,
+                log_obj: "logging.Logger",
+            ) -> None:
                 self._fn = fn
+                self._name = name
+                self._meta = meta_ref
+                self._log = log_obj
 
             def generate_signals(self, prices: "pd.DataFrame") -> "pd.DataFrame":
                 try:
                     return self._fn(prices)  # type: ignore[operator]
-                except Exception:
+                except Exception as _member_exc:
+                    _record_degraded_step(
+                        f"ensemble_member:{self._name}",
+                        _member_exc,
+                        meta=self._meta,
+                        log_obj=self._log,
+                    )
                     return pd.DataFrame()
 
         _signal_fn = ctx.signal_fn if hasattr(ctx, "signal_fn") else None
@@ -658,7 +685,9 @@ def _ensemble_signals_if_enabled(
             log.debug("[ensemble] ctx.signal_fn not available — passthrough")
             return signals
 
-        _strategy_shims = {name: _SignalFnShim(_signal_fn) for name in _members}
+        _strategy_shims = {
+            name: _SignalFnShim(_signal_fn, name, meta, log) for name in _members
+        }
         _allocator = StrategyAllocator(_strategy_shims, config=_config)
         _regime = (ctx.risk_state or {}).get("regime", None)
         _result = _allocator.generate_combined_signals(features, regime=_regime)
@@ -670,7 +699,7 @@ def _ensemble_signals_if_enabled(
             )
             return _result.combined_signals
     except Exception as _e:
-        log.debug("[ensemble] ensemble layer skipped: %s", _e)
+        _record_degraded_step("ensemble_layer", _e, meta=meta, log_obj=log)
 
     return signals
 
