@@ -41,18 +41,23 @@ import argparse
 import json
 import logging
 import os
-import smtplib
 import subprocess
 import sys
 from datetime import datetime, timezone
-from email.mime.text import MIMEText
 from pathlib import Path
-from urllib import error, request
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.assembled_core.ops.alert_sinks import (  # noqa: E402
+    post_discord,
+    post_email_fallback,
+)
 
 logger = logging.getLogger("run_alert_drill")
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 HEARTBEAT_PATH = REPO_ROOT / "output" / "ops" / "scheduler_heartbeat.json"
 BACKUP_PATH = HEARTBEAT_PATH.with_suffix(".drill_backup.json")
 
@@ -85,63 +90,20 @@ def _run_health_check() -> subprocess.CompletedProcess:
     # --ignore-market-hours: the drill must succeed 24/7 regardless of when
     # CI happens to fire. The real detector's market-hours logic is tested
     # elsewhere (check_scheduler_health's own unit tests).
+    # --heartbeat-path: pin the detector to the drill's OWN synthetic heartbeat.
+    # The detector now defaults to the production heartbeat (output/state/...),
+    # so without this the drill would read the live file and never see its
+    # injected stale one — the drill must stay hermetic.
     cmd = [
         sys.executable,
         str(REPO_ROOT / "scripts" / "check_scheduler_health.py"),
+        "--heartbeat-path",
+        str(HEARTBEAT_PATH),
         "--ignore-market-hours",
         "--stale-minutes",
         "10",
     ]
     return subprocess.run(cmd, capture_output=True, text=True)
-
-
-def _post_discord(webhook: str, content: str) -> bool:
-    data = json.dumps({"content": content}).encode("utf-8")
-    req = request.Request(
-        webhook,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with request.urlopen(req, timeout=10) as resp:
-            return 200 <= resp.status < 300
-    except error.URLError as exc:
-        logger.warning("[DRILL] Discord post failed: %s", exc)
-        return False
-
-
-def _post_email_fallback(subject: str, body: str) -> bool:
-    """Send alert via SMTP email — used as Discord failover.
-
-    Reads from ENV: SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_PORT (default 587),
-    ALERT_EMAIL_TO.  Silently skips if any credential is missing.
-    """
-    smtp_host = os.environ.get("SMTP_HOST", "").strip()
-    smtp_user = os.environ.get("SMTP_USER", "").strip()
-    smtp_pass = os.environ.get("SMTP_PASS", "").strip()
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    to_addr = os.environ.get("ALERT_EMAIL_TO", "").strip()
-
-    if not all([smtp_host, smtp_user, smtp_pass, to_addr]):
-        logger.info("[DRILL] email failover skipped — SMTP credentials not configured")
-        return False
-
-    try:
-        msg = MIMEText(body, "plain", "utf-8")
-        msg["Subject"] = subject
-        msg["From"] = smtp_user
-        msg["To"] = to_addr
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, [to_addr], msg.as_string())
-        logger.info("[DRILL] email fallback delivered to %s", to_addr)
-        return True
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[DRILL] email fallback failed: %s", exc)
-        return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -226,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             f"On FAIL, the scheduler-health detector is broken."
         )
         if webhook and not args.no_discord:
-            discord_ok = _post_discord(webhook, notification_msg)
+            discord_ok = post_discord(webhook, notification_msg)
             logger.info("[DRILL] Discord post delivered=%s", discord_ok)
             if not discord_ok:
                 logger.warning("[DRILL] Discord failed — triggering email failover")
@@ -237,11 +199,10 @@ def main(argv: list[str] | None = None) -> int:
                 webhook == "" and discord_ok is None
             )  # Discord not configured
             if should_email:
-                email_ok = _post_email_fallback(
+                email_ok = post_email_fallback(
                     subject=f"[Trading Alert Drill] {outcome}",
                     body=notification_msg,
                 )
-                receipt["email_fallback_delivered"] = email_ok
 
         receipt["discord_delivered"] = discord_ok
         receipt["email_fallback_delivered"] = email_ok

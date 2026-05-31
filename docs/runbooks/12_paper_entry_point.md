@@ -93,8 +93,20 @@ ran today (see `output/ops/last_run_date.txt`) the local daemon's
 Two independent stall detectors run against this entry point:
 
 1. `scripts/check_scheduler_health.py` — heartbeat staleness monitor.
-   Exit 1 when the heartbeat is older than 10 minutes during market
-   hours. Intended to run every 5 minutes from cron / Task Scheduler.
+   Reads the heartbeat the deployed pilot actually writes
+   (`output/state/heartbeat.json`, via `_tc_execution`). Exit 1 when
+   stale, exit 2 when missing/unparseable, exit 0 when fresh. Wired in
+   production (OPS-03) as an **independent** Windows Task
+   (`AssembledTradingAI-HealthCheck`, register via
+   `scripts/ops/register_health_check_task.ps1`) running the wrapper
+   `scripts/check_scheduler_health.bat` Mon–Fri 22:30 local — ~1h after
+   the 21:30 pilot window — with `--ignore-market-hours --stale-minutes
+   1080 --notify`. Because the pilot writes the heartbeat once per day, a
+   healthy day's heartbeat is minutes old at check time while any stall
+   (no run today) leaves yesterday's heartbeat ≥ ~24h old. The task is
+   deliberately separate from the pilot task so that if the pilot stops
+   firing (the 2026-04-10 silent-stall mode) the watchdog still runs and
+   alerts via Discord (`DISCORD_WEBHOOK`) with SMTP email fallback.
 2. `scripts/snapshot_alpaca_balance.py` — runs after each paper cycle
    and writes `output/ops/alpaca_eod_<date>.json`. A cash delta >
    $50 vs. local state triggers a warning log line (not a gate — the
