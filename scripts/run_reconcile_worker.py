@@ -21,11 +21,24 @@ Idempotency:
     idempotency guard because reconcile is inherently read-only and safe to
     run multiple times.
 
+Exit codes:
+    0   reconcile OK, OR a mismatch was found but ``--halt-on-mismatch`` is off
+        (the default — preserves the read-only, diagnostic "always exit 0"
+        behavior so ad-hoc runs never fail a shell).
+    1   internal error / unhandled exception during the run.
+    2   reconcile MISMATCH (``ok=False``) and ``--halt-on-mismatch`` is set —
+        this is the OPS-07 halt: a sim-to-real break makes a CI/ops job RED
+        instead of silently passing green.
+    3   ``--halt-on-mismatch`` is set but the reconcile inputs are insufficient
+        (a ledger and/or broker snapshot was not supplied or not found).
+        Fail-CLOSED: a match cannot be proven against absent data, so missing
+        inputs are themselves a halt condition (consistent with R2-1/R2-2).
+
 Usage:
     python scripts/run_reconcile_worker.py \\
         --ledger-path output/ledger_paper/ledger_events.parquet \\
         --broker-path output/broker/snapshot_20260330.csv \\
-        --broker-cash 100000.0 --ledger-cash 100000.0
+        --broker-cash 100000.0 --ledger-cash 100000.0 --halt-on-mismatch
 """
 
 from __future__ import annotations
@@ -94,7 +107,35 @@ def _parse_args() -> argparse.Namespace:
         default=1e-8,
         help="Quantity tolerance for reconciliation.",
     )
+    p.add_argument(
+        "--halt-on-mismatch",
+        action="store_true",
+        help="Exit non-zero on a reconcile mismatch (ok=False) so a CI/ops job "
+        "HALTS instead of passing green (exit 2). Fail-CLOSED: if this flag is "
+        "set but a ledger and/or broker snapshot is missing, exit 3 — a match "
+        "cannot be proven against absent data. Default off preserves the "
+        "read-only, always-exit-0 diagnostic behavior.",
+    )
     return p.parse_args()
+
+
+def _validate_halt_inputs(args: argparse.Namespace) -> str | None:
+    """Under ``--halt-on-mismatch`` both the ledger and broker snapshots must be
+    supplied and readable. A reconcile "OK" against an absent/implicitly-empty
+    input is a FALSE pass (the documented 2026-04-10 silent-stall failure mode),
+    so missing inputs are themselves a halt condition. Returns a human-readable
+    reason string when inputs are insufficient, else ``None``.
+    """
+    problems: list[str] = []
+    for label, value in (
+        ("--ledger-path", args.ledger_path),
+        ("--broker-path", args.broker_path),
+    ):
+        if value is None:
+            problems.append(f"{label} not supplied")
+        elif not Path(value).exists():
+            problems.append(f"{label} not found: {value}")
+    return "; ".join(problems) if problems else None
 
 
 def _load_ledger_positions(ledger_path: str | None) -> pd.DataFrame:
@@ -154,10 +195,40 @@ def main() -> int:
 
     t0 = time.monotonic()
     logger.info(
-        "[START] reconcile_worker ledger=%s broker=%s",
+        "[START] reconcile_worker ledger=%s broker=%s halt_on_mismatch=%s",
         args.ledger_path,
         args.broker_path,
+        args.halt_on_mismatch,
     )
+
+    # Fail-CLOSED input guard: under --halt-on-mismatch we must not report a
+    # FALSE "OK" against absent/implicitly-empty inputs. Block before reconciling.
+    if args.halt_on_mismatch:
+        halt_input_err = _validate_halt_inputs(args)
+        if halt_input_err is not None:
+            logger.error(
+                "[ERROR] --halt-on-mismatch set but reconcile inputs are "
+                "insufficient (%s) — FAIL-CLOSED (exit 3): a match cannot be "
+                "proven against absent data.",
+                halt_input_err,
+            )
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp_utc": now_utc.isoformat(),
+                        "ok": False,
+                        "halt_on_mismatch": True,
+                        "halt_reason": "insufficient_inputs",
+                        "detail": halt_input_err,
+                        "ledger_path": str(args.ledger_path),
+                        "broker_path": str(args.broker_path),
+                    },
+                    indent=2,
+                    ensure_ascii=True,
+                ),
+                encoding="utf-8",
+            )
+            return 3
 
     exit_code = 0
 
@@ -172,6 +243,12 @@ def main() -> int:
             broker_cash=args.broker_cash,
             cash_tol=args.cash_tol,
             qty_tol=args.qty_tol,
+            # A mismatch is a reportable RESULT (ok=False), not an internal
+            # error. Without fail_fast=False the helper RAISES on any break, so
+            # the whole ok=False branch below (manifest write + WARN logging +
+            # the OPS-07 exit-2 halt) was dead code and a real mismatch crashed
+            # to exit 1. Mirrors position_sync.sync_positions_from_broker.
+            fail_fast=False,
         )
 
         ok: bool = result.get("ok", False)
@@ -252,6 +329,13 @@ def main() -> int:
                 logger.warning(
                     "[WARN] symbols in ledger but not broker: %s", missing_in_broker
                 )
+            if args.halt_on_mismatch:
+                logger.error(
+                    "[ERROR] reconcile MISMATCH with --halt-on-mismatch set — "
+                    "HALT (exit 2). manifest=%s",
+                    manifest_path,
+                )
+                exit_code = 2
 
     except Exception as exc:
         elapsed = time.monotonic() - t0

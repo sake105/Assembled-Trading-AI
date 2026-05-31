@@ -38,7 +38,21 @@ jobs:
           # GitHub Secret is also stored under ALPACA_API_SECRET.
           ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
         run: |
-          python scripts/run_reconcile_worker.py --dry-run || true
+          # OPS-07: the exit code is no longer neutralized. The previous
+          # `--dry-run || true` (a) passed an arg the worker never defined and
+          # (b) swallowed EVERY exit code, so a reconcile break (e.g. the
+          # 2026-04-10 $412.54 silent stall) kept this job green. `|| true` and
+          # the bogus `--dry-run` are removed so a genuine worker failure now
+          # fails this job.
+          #
+          # NOTE (honest scope): this step still runs with EMPTY ledger/broker
+          # inputs — it is a plumbing/import smoke check, NOT yet a real
+          # sim-to-real gap gate. The worker now supports --halt-on-mismatch
+          # (fail-closed, exit 2 on a real mismatch / exit 3 on absent inputs);
+          # wiring this workflow to the real paper ledger + a live Alpaca broker
+          # snapshot so the halt actually bites is a bounded follow-up
+          # (OPS-13-adjacent: resolve the JSON-vs-SQLite ledger source first).
+          python scripts/run_reconcile_worker.py
 
       - name: Generate QA report
         run: |
