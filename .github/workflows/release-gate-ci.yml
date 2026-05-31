@@ -26,9 +26,15 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
+        # CI-002: was an ad-hoc minimal list that omitted PyYAML. The release
+        # gate now runs trading-numeric tests that import src/pipeline ->
+        # config.policy_loader, which does `import yaml` at module top, so the
+        # env must include PyYAML. Use requirements.txt (PyYAML==6.0.3) — the
+        # same install the walk-forward-gate job below already uses; this also
+        # drops the unpinned-ad-hoc-list drift for this job.
         run: |
           python -m pip install --upgrade pip
-          pip install pandas pyarrow pytest ruff pydantic pydantic-settings scipy statsmodels scikit-learn
+          pip install -r requirements.txt
 
       - name: Release gate dry-run (always)
         id: dry_run

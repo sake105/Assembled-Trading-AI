@@ -428,6 +428,32 @@ def main() -> int:
                     "tests/test_docs_sanity_sprint13.py",
                     "tests/test_docs_links_smoke.py",
                     "tests/test_release_notes_header_smoke.py",
+                    # Trading-numeric correctness (CI-002): the block above is
+                    # docs/CLI/inventory smoke only — it could stay green while
+                    # the trading system is numerically broken. These pin the
+                    # money-path math the release actually depends on: transaction
+                    # costs, fill model, ledger cash-invariant, position sizing,
+                    # position-engine invariants, pre-trade gates, kill switch,
+                    # risk controls, reconcile-halt policy, backtest fills. They
+                    # import src/pipeline -> config.policy_loader, which needs
+                    # PyYAML; the release-gate CI env must therefore install
+                    # -r requirements.txt (see release-gate-ci.yml) — the old
+                    # ad-hoc minimal list omitted PyYAML so these could not
+                    # import there. (numba is optional/guarded, not required.)
+                    # Fast + deterministic (111 cases ~3s locally).
+                    "tests/test_transaction_costs_commission.py",
+                    "tests/test_transaction_costs_slippage.py",
+                    "tests/test_transaction_costs_spread.py",
+                    "tests/test_fill_model_partial.py",
+                    "tests/test_fill_model_costs_consistency.py",
+                    "tests/test_ledger_cash_invariant_partial.py",
+                    "tests/test_portfolio_position_sizing.py",
+                    "tests/test_position_engine_invariants.py",
+                    "tests/test_execution_pre_trade_checks.py",
+                    "tests/test_execution_kill_switch.py",
+                    "tests/test_risk_controls_integration.py",
+                    "tests/test_reconcile_halt_policy.py",
+                    "tests/test_pipeline_backtest_fills.py",
                     "-q",
                 ]
             else:
