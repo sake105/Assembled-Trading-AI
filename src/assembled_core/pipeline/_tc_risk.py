@@ -14,6 +14,7 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
     _evaluate_auto_dd_kill_switch,
     _evaluate_circuit_breaker,
     _evaluate_var_gate,
+    _record_degraded_step,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,13 +28,11 @@ def check_risk(
     prices_filtered: pd.DataFrame | None = None,
     log: logging.Logger | None = None,
 ) -> TradingCycleResult:
-    """Apply EVT/copula/barbell + risk controls to orders; return updated result.
+    """Apply copula tail-risk + risk controls to orders; return updated result.
 
     Steps kept (modify orders or orders_filtered):
       - QA gate: block all orders if ctx.qa_block_trading
-      - EVT tail VaR: scale orders qty if EVT VaR > 2× historical VaR
       - Copula tail dep: scale orders qty if avg_lower_tail_dep > 0.5
-      - Barbell: scale orders qty when composite tail risk score > 0.30
       - Step 6: _apply_risk_controls_default (kill switch, position limits)
       - Step 6.35: Parametric VaR exposure gate (clears orders_filtered)
       - Step 6.4: Auto-drawdown kill-switch trigger (activates KS, may clear)
@@ -45,6 +44,11 @@ def check_risk(
     Dropped (meta-only):
       - Step 6.5 scenario engine, Step 6.8 borrow cost, Step 6.85 tx costs,
         Steps 5.5-5.14 (all meta-only), Step 5.14 risk escalation
+
+    Retired: the former EVT-tail-VaR and barbell qty-reduction overlays were
+    moved to archive/observability_graveyard_2026q2/ (observability-only, never
+    influenced trading) — their try-blocks were dead (ModuleNotFoundError every
+    cycle), so they are not present here.
     """
     if log is None:
         log = logger
@@ -114,7 +118,7 @@ def check_risk(
         result.meta["qa_block_reason"] = ctx.qa_block_reason
         return result
 
-    # Shared pivot for EVT + Copula (compute once, reuse)
+    # Shared pivot for Copula tail-risk (compute once, reuse)
     _prices_for_risk = prices_filtered if prices_filtered is not None else ctx.prices
     _shared_rets = None
     if (
@@ -135,36 +139,16 @@ def check_risk(
                 values="close",
             )
             _shared_rets = _pivot_risk.pct_change().dropna(how="all")
-        except Exception:
+        except Exception as e:
+            # Fail-SOFT but OBSERVABLE (QUAL/Zensus-1): a failure here leaves
+            # _shared_rets=None, which silently short-circuits the copula
+            # tail-risk qty reduction below. Surface it so the disabled
+            # protection is visible (the hard VaR/DD/CB gates further down are
+            # independently fail-CLOSED and still run).
             _shared_rets = None
-
-    # EVT tail VaR
-    try:
-        if _shared_rets is not None and len(_shared_rets) >= 60:
-            import numpy as _np_evt
-            from src.assembled_core.risk.evt_tail_var import evt_var
-
-            _port_rets = _shared_rets.mean(axis=1).dropna()
-            _losses = (-_port_rets).values
-            _hist_var_99 = float(_np_evt.quantile(_losses, 0.99))
-            try:
-                _evt_var_99 = evt_var(_losses, alpha=0.99, threshold_pct=0.90)
-            except Exception:
-                _evt_var_99 = None
-            if (
-                _evt_var_99 is not None
-                and _hist_var_99 > 1e-8
-                and _evt_var_99 > 2.0 * _hist_var_99
-            ):
-                orders = orders.copy()
-                orders["qty"] = orders["qty"] * 0.80
-                log.warning(
-                    "[RISK] EVT VaR %.4f > 2× Hist VaR %.4f — reducing qty by 20%%",
-                    _evt_var_99,
-                    _hist_var_99,
-                )
-    except Exception as e:
-        log.debug("evt_tail_var skipped: %s", e)
+            _record_degraded_step(
+                "risk_shared_returns_pivot", e, meta=result.meta, log_obj=log
+            )
 
     # Copula tail dependence
     try:
@@ -183,53 +167,7 @@ def check_risk(
                     "[RISK] Copula avg_lower_tail_dep > 0.5 — reducing qty by 20%%"
                 )
     except Exception as e:
-        log.debug("copula_tail_risk skipped: %s", e)
-
-    # Barbell strategy
-    try:
-        from src.assembled_core.portfolio.barbell_strategy import (
-            build_barbell_allocation,
-            compute_tail_risk_score,
-        )
-
-        _evt_var_meta = result.meta.get("evt_var_99", 0.0) or 0.0
-        _hist_var_meta = result.meta.get("hist_var_99", 0.0) or 0.0
-        _cop_ltd_meta = float(
-            (result.meta.get("copula_tail_risk") or {}).get("avg_lower_tail_dep", 0.0)
-        )
-        _bb_score, _bb_reasons = compute_tail_risk_score(
-            evt_var_99=float(_evt_var_meta),
-            evt_var_99_historical_avg=float(_hist_var_meta),
-            hmm_crisis_prob=0.0,
-            vix_current=0.0,
-            vix_5d_change=0.0,
-            avg_copula_tail_dep=_cop_ltd_meta,
-        )
-        if _bb_score > 0.30 and not orders.empty:
-            _alpha_scores: dict[str, float] = {}
-            if (
-                not result.signals.empty
-                and "symbol" in result.signals.columns
-                and "score" in result.signals.columns
-            ):
-                _alpha_scores = dict(
-                    zip(result.signals["symbol"], result.signals["score"].fillna(0.0))
-                )
-            _bb_alloc = build_barbell_allocation(
-                tail_risk_score=_bb_score,
-                trigger_reasons=_bb_reasons,
-                alpha_scores=_alpha_scores,
-            )
-            if _bb_alloc.active:
-                orders = orders.copy()
-                orders["qty"] = orders["qty"] * _bb_alloc.speculative_weight
-                log.warning(
-                    "[RISK] Barbell ACTIVATED: score=%.3f spec_weight=%.2f",
-                    _bb_score,
-                    _bb_alloc.speculative_weight,
-                )
-    except Exception as e:
-        log.debug("barbell_strategy skipped: %s", e)
+        _record_degraded_step("copula_tail_risk", e, meta=result.meta, log_obj=log)
 
     result.orders = orders
     _n_orders_in = len(orders) if orders is not None else 0
@@ -350,7 +288,11 @@ def check_risk(
                 )
                 result.meta["rebalance_filter"] = _rf_meta
     except Exception as e:
-        log.debug("anti_churn filters skipped: %s", e)
+        # Fail-SOFT but OBSERVABLE: the anti-churn deadzone + min-notional
+        # filters are a turnover/cost protection; a silent skip means uncapped
+        # churn. Not order-blocking (cost control, not a hard risk gate), so
+        # surface + record rather than fail-closed (QUAL-04 / Zensus-1).
+        _record_degraded_step("anti_churn_filters", e, meta=result.meta, log_obj=log)
 
     # Step 6.7: Fat-finger guard
     try:

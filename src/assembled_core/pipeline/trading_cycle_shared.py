@@ -312,6 +312,47 @@ class TradingCycleResult:
     output_paths: dict[str, Path] = field(default_factory=dict)
 
 
+def _record_degraded_step(
+    step: str,
+    exc: BaseException,
+    *,
+    meta: dict[str, Any] | None = None,
+    log_obj: logging.Logger | None = None,
+    detail: str = "",
+) -> None:
+    """QUAL/Zensus-1: make a silently-degraded pipeline step OBSERVABLE.
+
+    The ``_tc_*.py`` stages wrap optional / protective overlays in
+    ``try: <step> ... except Exception: log.debug("... skipped")``. At prod log
+    level (INFO/WARNING) a DEBUG-only swallow is INVISIBLE — a protective step
+    that no-ops (e.g. a tail-risk qty reduction that never applies) looks
+    identical to one that ran. This promotes the swallow to WARN AND appends a
+    structured entry to ``meta['degraded_steps']`` so a per-cycle QA consumer
+    can see which overlays failed.
+
+    Scope note: this does NOT change any trading decision — it only makes the
+    EXISTING fail-soft behaviour visible. Callers keep their graceful (no-raise)
+    except. For genuinely protective steps whose silent disabling reduces
+    protection (halt-check, buying-power cap, crash cap, ...), making the step
+    *fail-closed* is a separate, per-step decision that changes behaviour and is
+    handled outside this observability helper.
+
+    ``meta`` is the per-cycle ``TradingCycleResult.meta`` dict (or any dict).
+    When provided, the structured trail is recorded; when ``None`` the call is
+    log-only (sites that have no result/meta in scope).
+    """
+    lg = log_obj or logger
+    msg = f"{type(exc).__name__}: {exc}"
+    if detail:
+        lg.warning("[DEGRADED] %s skipped — %s (%s)", step, msg, detail)
+    else:
+        lg.warning("[DEGRADED] %s skipped — %s", step, msg)
+    if meta is not None:
+        steps = meta.setdefault("degraded_steps", [])
+        if isinstance(steps, list):
+            steps.append({"step": step, "error": msg})
+
+
 def _estimate_symbol_volatilities(
     prices: pd.DataFrame,
     lookback: int = 60,
