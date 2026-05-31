@@ -60,9 +60,46 @@ def check_risk(
             )
             policy = {}
 
-    # Fast path: if risk controls are disabled, skip all steps and pass orders through.
+    # Fast path: the generic ``enable_risk_controls`` flag gates the numeric /
+    # churn gate stack (set =False for backtest parity). R2-2 DECOUPLING: the
+    # OPERATOR kill switch is an INDEPENDENT safety layer — an operator HALT must
+    # not be silently disarmable by this generic flag in a real trading mode. So
+    # in any non-backtest mode we still route orders through the standalone
+    # operator kill-switch guard before passing them through. Backtest keeps the
+    # pure pass-through on purpose: reading the *current* live HALT state during a
+    # historical replay would be a wrong-context read and break replay
+    # determinism. (Note: trading_cycle_shared.py:1534-1535 couples
+    # enable_kill_switch to the same flag, but that branch is only reachable when
+    # the flag is True — i.e. KS correctly on — so no decoupling is needed there.)
     if not getattr(ctx, "enable_risk_controls", True):
         result.orders = orders
+        if getattr(ctx, "mode", "eod") != "backtest" and not orders.empty:
+            try:
+                from src.assembled_core.execution.kill_switch import (
+                    guard_orders_with_kill_switch,
+                )
+
+                guarded = guard_orders_with_kill_switch(orders)
+            except Exception as e:
+                # Fail-CLOSED (consistent with R2-1): if the operator kill-switch
+                # state cannot be evaluated, we cannot prove trading is permitted
+                # — block this cycle's orders rather than pass them through.
+                log.error(
+                    "[RISK] operator kill-switch check raised under "
+                    "enable_risk_controls=False — FAIL-CLOSED, blocking orders: %s",
+                    e,
+                )
+                result.meta["risk_gate_error"] = True
+                result.meta["operator_kill_switch"] = {
+                    "status": "error",
+                    "error": str(e),
+                }
+                result.orders_filtered = orders.iloc[0:0].copy()
+                return result
+            if len(guarded) < len(orders):
+                result.meta["operator_kill_switch_blocked"] = True
+            result.orders_filtered = guarded.copy()
+            return result
         result.orders_filtered = orders.copy()
         return result
 
