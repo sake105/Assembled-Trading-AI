@@ -293,6 +293,13 @@ class UnifiedPaperConfig:
         default_factory=lambda: Path("output/shadow_compare")
     )
     shadow_broker: Any = None  # optional broker adapter with .submit(...)→dict
+    # R2-6: when True, an EOD reconcile that has NO independent source (no
+    # shadow-broker snapshot — i.e. a self-compare noop that is green by
+    # construction) is escalated to severity "fail" instead of silently passing.
+    # Default False preserves pure-sim paper behaviour; a real-money operator
+    # sets True so a missing broker reconcile is catchable (fail-closed-able,
+    # mirroring OPS-07's insufficient-inputs halt posture).
+    reconcile_require_independent_source: bool = False
     # Phase 7 — TCA output
     enable_tca: bool = True
     tca_dir: Path = field(default_factory=lambda: Path("output/paper_tca"))
@@ -1888,10 +1895,16 @@ class UnifiedPaperEngine:
 
         Compares the engine-internal ledger/state (our "source of truth") against
         a broker snapshot. When no external broker is configured the snapshot is
-        the engine state itself — so a clean internal run produces a noop pass.
+        the engine state itself — a SELF-COMPARE that passes by construction
+        (R2-6/D-02). To stop such a noop masquerading as a verified reconcile the
+        verdict carries ``reconcile['independent_source']`` (bool) and
+        ``reconcile['source']`` ("shadow_broker" | "self_compare_noop"); the noop
+        case is logged at WARNING. When
+        ``config.reconcile_require_independent_source`` is set, a missing
+        independent source is escalated to severity "fail" so it is catchable.
 
-        On SLO violation, a JSON alert is written to
-        ``config.reconcile_alerts_dir / reconcile_alert_{run_id}_{date}.json``.
+        On SLO violation (or the escalated missing-source case), a JSON alert is
+        written to ``config.reconcile_alerts_dir / reconcile_alert_{run_id}_{date}.json``.
 
         Args:
             as_of_date: ISO date string for the trading day.
@@ -1914,9 +1927,14 @@ class UnifiedPaperEngine:
                 ledger_positions_df = pd.DataFrame(columns=["symbol", "qty"])
 
             # Prefer an external broker snapshot if a shadow broker exposes one;
-            # otherwise the engine state is its own snapshot (self-consistent noop).
+            # otherwise the engine state is its own snapshot — a SELF-COMPARE
+            # that passes by construction (R2-6/D-02). Track whether an
+            # INDEPENDENT source was actually reconciled so a noop pass can never
+            # masquerade as a verified reconcile downstream.
             broker_positions_df = ledger_positions_df.copy()
             broker_cash = cash
+            independent_source = False
+            reconcile_source = "self_compare_noop"
             if self.config.shadow_broker is not None:
                 try:
                     snap = self.config.shadow_broker.get_snapshot()  # type: ignore[attr-defined]
@@ -1925,7 +1943,13 @@ class UnifiedPaperEngine:
                         columns=["symbol", "qty"],
                     )
                     broker_cash = float(snap.get("cash", cash))
-                except Exception as exc:  # pragma: no cover
+                    independent_source = True
+                    reconcile_source = "shadow_broker"
+                except Exception as exc:
+                    # Snapshot failed → we fell back to self-state. That is NOT
+                    # an independent reconcile, so the noop labels stay in place
+                    # (a configured-but-erroring broker must not yield a falsely
+                    # "verified" green).
                     logger.warning("[PAPER] shadow broker snapshot failed: %s", exc)
 
             recon = reconcile_ledger_vs_broker(
@@ -1979,15 +2003,50 @@ class UnifiedPaperEngine:
                 "ok": recon.get("ok"),
                 "ledger_exists": ledger_path.exists(),
                 "n_positions": int(len(ledger_positions_df)),
+                "independent_source": independent_source,
+                "source": reconcile_source,
             }
+
+            # R2-6/D-02: a self-compare noop is green by construction and must
+            # not be read as a verified reconcile. Surface it explicitly; when
+            # the operator requires an independent source, escalate to "fail"
+            # (the existing block-production severity) so the missing-broker
+            # case is catchable — mirroring OPS-07's insufficient-inputs halt.
+            if not independent_source:
+                if self.config.reconcile_require_independent_source:
+                    verdict["severity"] = "fail"
+                    verdict["violations"] = list(verdict.get("violations", [])) + [
+                        {
+                            "metric": "independent_source",
+                            "value": False,
+                            "threshold": True,
+                            "severity": "fail",
+                            "reason": "no_independent_reconcile_source",
+                        }
+                    ]
+                    logger.warning(
+                        "[PAPER] Reconciliation %s has NO independent source "
+                        "(self-compare noop) and require_independent_source is "
+                        "set — escalating severity to fail.",
+                        as_of_date,
+                    )
+                else:
+                    logger.warning(
+                        "[PAPER] Reconciliation %s is a self-compare noop "
+                        "(no shadow broker) — result is NOT an independent "
+                        "verification.",
+                        as_of_date,
+                    )
 
             if verdict["severity"] != "ok":
                 self._write_reconcile_alert(as_of_date, verdict)
 
             logger.info(
-                "[PAPER] Reconciliation %s severity=%s cash_diff_bps=%.2f max_qty_diff=%.4f",
+                "[PAPER] Reconciliation %s severity=%s source=%s "
+                "cash_diff_bps=%.2f max_qty_diff=%.4f",
                 as_of_date,
                 verdict["severity"],
+                reconcile_source,
                 verdict["cash_diff_bps"],
                 verdict["max_qty_diff"],
             )
