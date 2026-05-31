@@ -71,16 +71,26 @@ jobs:
           if-no-files-found: ignore
 
   walk-forward-gate:
-    # E3 + E4 — Walk-Forward OOS Sharpe + Deflated Sharpe (Plan v3 Part E).
-    # Grace period RE-OPENED 2026-04-19 through 2026-07-01. Runs on synthetic
-    # random-walk data (5 symbols x 500 business days) produce 7 OOS windows —
-    # too few observations to structurally pass DSR >= 0.5. Real-data gating
-    # requires E5 calibration (30 Paper-Days of Alpaca fills) which is
-    # user-gated on GitHub Secrets. Reported non-blocking during the grace
-    # period; still runs + uploads the report for visibility. Re-closes on
-    # 2026-07-01 or when E5 real-price walk-forward fixture is available.
-    # Decision documented in ROADMAP_STATE.md section "Current objective".
-    name: Walk-Forward Gate (E3 + E4)
+    # CI-001 — HONEST SCOPE. This is a SYNTHETIC smoke run, not a real release
+    # gate. The script runs on synthetic random-walk prices (5 symbols x 500
+    # business days, seed=42); the E3 (OOS Sharpe) and E4 (Deflated Sharpe)
+    # statistical gates are evaluated against that synthetic series and CANNOT
+    # certify the real strategy. Genuine real-data gating needs the E5 fixture
+    # (~30 Paper-Days of Alpaca fills), which is user-gated on GitHub Secrets.
+    #
+    # What this job DOES enforce: execution INTEGRITY. The script now exits 2
+    # (always blocking, independent of --enforce / grace) if the walk-forward
+    # run is structurally broken — no splits generated, some splits crash and
+    # are silently dropped, or the DSR input is degenerate. That catches an
+    # engine/data regression even on synthetic data.
+    #
+    # What stays NON-blocking (grace through 2026-07-01): an E3/E4 statistical
+    # miss on the synthetic series. --enforce is deliberately NOT passed here;
+    # turning it on against synthetic data would either be vacuous-green or
+    # CI-red on a meaningless number. Re-evaluate when the E5 real-price
+    # fixture exists. Job KEY kept as `walk-forward-gate` to preserve any
+    # branch-protection required-check wiring.
+    name: Walk-Forward Smoke (synthetic data; integrity blocks, E3/E4 non-blocking)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -97,7 +107,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run walk-forward gate (grace period through 2026-07-01)
+      - name: Run walk-forward smoke (synthetic; integrity blocks on exit 2)
         run: python scripts/release_gate_walk_forward.py --verbose
 
       - name: Upload walk-forward report

@@ -1,14 +1,33 @@
-"""E3 + E4 — Release-gate script: walk-forward OOS Sharpe + Deflated Sharpe.
+"""E3 + E4 — Walk-forward OOS Sharpe + Deflated Sharpe (synthetic smoke).
 
 Runs a walk-forward analysis on a reference configuration and checks two
-gates (Plan v3 Part E):
+statistical gates (Plan v3 Part E):
 
     E3: mean_oos_sharpe >= OOS_SHARPE_MIN
     E4: deflated_sharpe_probability >= DSR_MIN
 
-During the 2-week grace period (``--enforce=false``, default), gate failures
-produce a non-zero exit code only when ``--enforce`` is passed. The workflow
-wires the flag once the grace period has passed.
+HONEST SCOPE (CI-001): this runs on SYNTHETIC random-walk prices
+(``_synthetic_prices``, seed=42), so E3/E4 measure nothing about the real
+strategy on real data — they are visibility only until the E5 real-price
+fixture (30 paper-days, user-gated on GitHub secrets) is wired. Naming and
+the workflow were corrected so this is no longer presented as a real
+release gate. The E3/E4 STATISTICAL miss therefore stays non-blocking
+(grace period, ``--enforce`` off by default) — turning it on against
+synthetic data would gate releases on a meaningless synthetic-alpha check.
+
+What DOES block (always, independent of --enforce / grace): an EXECUTION
+INTEGRITY failure of the walk-forward run itself — crashed/missing splits
+or a degenerate report. A broken pipeline is a regression, not a
+"statistical gate miss", so it must turn the job red even during the
+grace period. ``run_walk_forward`` already raises when ALL splits fail;
+this script additionally catches the PARTIAL-failure hole where survivors'
+metrics were averaged and grace silently returned 0.
+
+Exit codes:
+    0   report produced + execution intact AND (E3/E4 pass OR grace active)
+    1   E3/E4 statistical gate miss AND ``--enforce`` set
+    2   EXECUTION INTEGRITY failure (crashed/missing splits, degenerate
+        DSR input) — always blocks, regardless of --enforce / grace
 
 Output
 ------
@@ -233,6 +252,47 @@ def build_gate_report(
     }
 
 
+def _check_execution_integrity(report: dict[str, Any]) -> str | None:
+    """Return a reason string when the walk-forward RUN is broken, else None.
+
+    This is the execution-integrity gate (CI-001): it fires on a broken
+    pipeline, NOT on a statistical E3/E4 miss. ``run_walk_forward`` already
+    raises when *all* splits fail; this closes the PARTIAL-failure hole where
+    a few crashed splits are silently dropped, the survivors are averaged, and
+    the grace period returns 0. A non-None result must block the job (exit 2),
+    independent of ``--enforce`` and the grace period.
+    """
+    wf = report.get("walk_forward", {}) or {}
+    n_splits = int(wf.get("n_splits", 0) or 0)
+    n_ok = int(wf.get("n_successful_splits", 0) or 0)
+
+    if n_splits < 1:
+        return (
+            f"no walk-forward splits were generated (n_splits={n_splits}) — "
+            "empty or insufficient input data"
+        )
+    if n_ok < n_splits:
+        return (
+            f"{n_splits - n_ok} of {n_splits} walk-forward splits failed to "
+            f"execute (n_successful={n_ok}) — engine/data regression silently "
+            "dropped by the per-window guard"
+        )
+
+    # Reached only after the n_ok == n_splits check above passed, so every split
+    # claims success. A degenerate DSR input here means the report is internally
+    # inconsistent (e.g. success rows missing total_return) — a pipeline defect,
+    # NOT a legitimate small-sample statistical miss. (A genuinely small but
+    # valid run would have surfaced as a partial failure and returned earlier.)
+    dsr = report.get("deflated_sharpe", {}) or {}
+    n_obs = int(dsr.get("n_observations", 0) or 0)
+    if n_obs < 2:
+        return (
+            f"deflated-sharpe input degenerate (n_observations={n_obs}) despite "
+            f"{n_ok} successful splits — cannot derive OOS returns"
+        )
+    return None
+
+
 def _write_report(report: dict[str, Any], out_dir: Path, run_id: str) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"walk_forward_{run_id}.json"
@@ -292,11 +352,23 @@ def main(argv: list[str] | None = None) -> int:
         f"report={path}"
     )
 
+    integrity_error = _check_execution_integrity(report)
+    if integrity_error is not None:
+        logger.error(
+            "[RELEASE-GATE] EXECUTION INTEGRITY FAILURE: %s — blocking (exit 2)",
+            integrity_error,
+        )
+        print(f"[RELEASE-GATE] EXECUTION-INTEGRITY FAIL — {integrity_error}")
+        return 2
+
     if report["overall_pass"]:
         return 0
     if args.enforce:
         return 1
-    logger.warning("[RELEASE-GATE] grace period — gate miss NOT blocking")
+    logger.warning(
+        "[RELEASE-GATE] E3/E4 statistical gate miss on SYNTHETIC data — NOT "
+        "blocking (grace). Real-data enforcement needs the E5 fixture."
+    )
     return 0
 
 
