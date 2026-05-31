@@ -18,10 +18,19 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from src.assembled_core.data.feed_status import (
+    FEED_EMPTY,
+    FEED_ERROR,
+    FEED_OK,
+    stamp_feed_status,
+)
+
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+_PRICE_COLS = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
 
 _RETRY_MAX = 3
 _RETRY_BACKOFF_BASE = 2.0  # seconds; doubles each retry
@@ -39,7 +48,11 @@ def _fetch_single_symbol(
 ) -> pd.DataFrame | None:
     """Download OHLCV data for a single symbol with retry/backoff.
 
-    Returns None if the symbol fails after all retries.
+    DAT-005 outage-vs-empty distinction: returns an **empty DataFrame** when the
+    symbol legitimately has no bars in the window, and ``None`` only on a genuine
+    **error** (yfinance missing, or all retries exhausted). The caller relies on
+    this to tag a total outage differently from an empty window. A 429 still
+    raises :class:`YFinanceRateLimitError`.
     """
     try:
         import yfinance as yf  # noqa: PLC0415
@@ -67,7 +80,8 @@ def _fetch_single_symbol(
                     start_date,
                     end_date,
                 )
-                return None
+                # DAT-005: legitimate empty window -> empty frame (NOT None/error).
+                return pd.DataFrame(columns=_PRICE_COLS)
 
             raw = raw.reset_index()
             # Column may be "Date" or "Datetime" depending on interval
@@ -138,15 +152,24 @@ def fetch_prices_yfinance(
         low, close, volume.  Empty DataFrame if nothing could be fetched.
     """
     if not symbols:
-        return pd.DataFrame(
-            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        # Caller asked for nothing — an empty window, not an outage.
+        return stamp_feed_status(
+            pd.DataFrame(columns=_PRICE_COLS),
+            "yfinance",
+            FEED_EMPTY,
+            reason="no_symbols_requested",
         )
 
     frames: list[pd.DataFrame] = []
+    any_error = False  # DAT-005: a None from _fetch_single_symbol is an outage
     for sym in symbols:
         # YFinanceRateLimitError propagates: caller should try an alternative source
         df = _fetch_single_symbol(sym, start_date, end_date, interval)
-        if df is not None and not df.empty:
+        # None == this symbol errored (outage); empty df == no bars in window
+        # (legitimate). Track so a total outage is distinguishable from "no data".
+        if df is None:
+            any_error = True
+        elif not df.empty:
             frames.append(df)
 
     if not frames:
@@ -154,8 +177,10 @@ def fetch_prices_yfinance(
             "[WARN] yfinance: no data returned for any of %d requested symbols.",
             len(symbols),
         )
-        return pd.DataFrame(
-            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        status = FEED_ERROR if any_error else FEED_EMPTY
+        reason = "all_symbols_errored" if any_error else "no_rows_in_window"
+        return stamp_feed_status(
+            pd.DataFrame(columns=_PRICE_COLS), "yfinance", status, reason=reason
         )
 
     result = pd.concat(frames, ignore_index=True)
@@ -165,4 +190,11 @@ def fetch_prices_yfinance(
         len(result),
         result["symbol"].nunique(),
     )
-    return result
+    # Some symbols may have errored even though others returned bars (partial
+    # outage) — record it on the OK stamp's reason so it stays observable.
+    return stamp_feed_status(
+        result,
+        "yfinance",
+        FEED_OK,
+        reason="partial_outage" if any_error else None,
+    )

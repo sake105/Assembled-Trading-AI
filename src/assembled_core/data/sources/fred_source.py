@@ -33,6 +33,13 @@ from typing import Any
 
 import pandas as pd
 
+from src.assembled_core.data.feed_status import (
+    FEED_EMPTY,
+    FEED_ERROR,
+    FEED_OK,
+    stamp_feed_status,
+)
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -94,7 +101,12 @@ def _fetch_single_series(
     fred_client: object,
     api_key: str | None = None,
 ) -> tuple[pd.DataFrame | None, bool]:
-    """Fetch one FRED series. Returns (df_or_None, was_rate_limited).
+    """Fetch one FRED series. Returns (df, was_rate_limited).
+
+    DAT-005 outage-vs-empty distinction: ``df`` is an **empty DataFrame** when
+    the series legitimately has no observations in the window, and ``None`` only
+    when the fetch **errored** (exception). The caller relies on this to tag a
+    total outage differently from an empty window.
 
     On rate-limit signals, marks `api_key` cooled-down so subsequent
     fetches in the same run rotate to a different key from the pool.
@@ -115,7 +127,8 @@ def _fetch_single_series(
                 start_date,
                 end_date,
             )
-            return None, False
+            # DAT-005: legitimate empty window -> empty frame (NOT None/error).
+            return pd.DataFrame(columns=["timestamp", "series_id", "value"]), False
 
         df = raw.reset_index()
         df.columns = ["timestamp", "value"]
@@ -155,26 +168,34 @@ def fetch_fred_series(
     _empty = pd.DataFrame(columns=["timestamp", "series_id", "value"])
 
     if not series_ids:
-        return _empty
+        # Caller asked for nothing — an empty window, not an outage.
+        return stamp_feed_status(
+            _empty, "fred", FEED_EMPTY, reason="no_series_requested"
+        )
 
     api_key = _get_api_key()
     if api_key is None:
         logger.warning("[WARN] fred: FRED_API_KEY not set — returning empty DataFrame.")
-        return _empty
+        return stamp_feed_status(_empty, "fred", FEED_ERROR, reason="api_key_missing")
 
     try:
         from fredapi import Fred  # noqa: PLC0415
     except ImportError:
         logger.error("[ERROR] fredapi not installed. Run: pip install fredapi>=0.5.0")
-        return _empty
+        return stamp_feed_status(
+            _empty, "fred", FEED_ERROR, reason="fredapi_not_installed"
+        )
 
     try:
         fred = Fred(api_key=api_key)
     except Exception as exc:  # noqa: BLE001
         logger.error("[ERROR] fred: failed to initialize FRED client — %s", exc)
-        return _empty
+        return stamp_feed_status(
+            _empty, "fred", FEED_ERROR, reason="client_init_failed"
+        )
 
     frames: list[pd.DataFrame] = []
+    any_error = False  # DAT-005: a None return from _fetch_single_series is an outage
     now = time.time()
     for sid in series_ids:
         cache_key = f"{sid}|{start_date}|{end_date}"
@@ -208,7 +229,12 @@ def fetch_fred_series(
             # Otherwise a transient failure blocks the series for 6h.
             if df is not None and not df.empty:
                 _FRED_CACHE[cache_key] = (now, df)
-        if df is not None and not df.empty:
+        # DAT-005: None == this series errored (outage); empty df == no rows
+        # in the window (legitimate). Track so a total outage is distinguishable
+        # from "no data in window" on the aggregate return.
+        if df is None:
+            any_error = True
+        elif not df.empty:
             frames.append(df)
 
     if not frames:
@@ -216,7 +242,9 @@ def fetch_fred_series(
             "[WARN] fred: no data returned for any of %d requested series.",
             len(series_ids),
         )
-        return _empty
+        status = FEED_ERROR if any_error else FEED_EMPTY
+        reason = "all_series_errored" if any_error else "no_rows_in_window"
+        return stamp_feed_status(_empty, "fred", status, reason=reason)
 
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["series_id", "timestamp"]).reset_index(drop=True)
@@ -225,4 +253,11 @@ def fetch_fred_series(
         len(result),
         result["series_id"].nunique(),
     )
-    return result
+    # Some series may have errored even though others returned rows (partial
+    # outage) — record it on the OK stamp's reason so it stays observable.
+    return stamp_feed_status(
+        result,
+        "fred",
+        FEED_OK,
+        reason="partial_outage" if any_error else None,
+    )
