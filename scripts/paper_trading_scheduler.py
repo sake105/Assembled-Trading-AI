@@ -14,17 +14,18 @@ Press Ctrl+C to stop gracefully.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+from src.assembled_core.ops.heartbeat import write_heartbeat  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,7 +34,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scheduler")
 
-HEARTBEAT_PATH = ROOT / "output" / "ops" / "scheduler_heartbeat.json"
+# OPS-02: write the CANONICAL heartbeat the Dead-Man's Switch + scheduler-health
+# monitor read (output/state/heartbeat.json, field ``timestamp``). Before OPS-02
+# this wrote a divergent output/ops/scheduler_heartbeat.json with field
+# ``timestamp_utc`` that the DMS never read — so the scheduler's frequent liveness
+# beat was invisible to the watchdog and the two systems could not be reconciled.
+HEARTBEAT_PATH = ROOT / "output" / "state" / "heartbeat.json"
 LAST_RUN_PATH = ROOT / "output" / "ops" / "last_run_date.txt"
 LOCK_PATH = ROOT / "output" / "ops" / ".paper_trading_lock"
 CHECK_INTERVAL = 300  # 5 minutes
@@ -106,33 +112,28 @@ def _mark_today_done(dt: datetime) -> None:
 
 
 def _write_heartbeat(status: str = "alive") -> None:
-    """Write heartbeat file for monitoring (atomic + timezone-aware).
+    """Write the canonical liveness heartbeat (OPS-02 unified path + schema).
 
-    Uses tmp+replace to avoid producing a truncated JSON file if the process
-    dies mid-write; a truncated file is read back as ``None`` by the health
-    monitor, which would mask a dead scheduler as a merely missing file.
+    Delegates to ``ops.heartbeat.write_heartbeat`` so the scheduler's frequent
+    (every ``CHECK_INTERVAL``) beat lands on the SAME file and schema the
+    Dead-Man's Switch and ``check_scheduler_health`` read — atomic tmp+replace
+    and the ``timestamp`` field are owned by that single writer. The scheduler
+    ``pid`` and source are carried in ``details`` so the prior diagnostic payload
+    is preserved.
+
+    Never raises: ``write_heartbeat`` raises on I/O failure, but a heartbeat
+    write failure must NOT break the monitor loop, so it is caught and logged.
     """
     import os as _os
 
-    HEARTBEAT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(
-        {
-            "status": status,
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            "pid": _os.getpid(),
-        }
-    )
-    tmp = HEARTBEAT_PATH.with_suffix(HEARTBEAT_PATH.suffix + ".tmp")
     try:
-        tmp.write_text(payload, encoding="utf-8")
-        _os.replace(tmp, HEARTBEAT_PATH)
-    except Exception as exc:
+        write_heartbeat(
+            path=HEARTBEAT_PATH,
+            status=status,
+            details={"pid": _os.getpid(), "source": "paper_trading_scheduler"},
+        )
+    except Exception as exc:  # noqa: BLE001
         logger.error("[Scheduler] heartbeat write failed: %s", exc)
-        try:
-            if tmp.exists():
-                tmp.unlink()
-        except Exception:
-            pass
 
 
 def _run_price_update() -> bool:
