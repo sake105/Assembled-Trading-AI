@@ -118,6 +118,12 @@ intel:
   crisis_alpha:
     enabled: true            # wire run_crisis_alpha_pipeline() into trading_cycle
     shadow_only: false       # false = crisis entries and caps actually affect orders
+    # R2-7 (audit B2-01): crisis entries are ADDED after the global exposure
+    # multiplier (geo×vol_target×profit_lock×stress×HMM) is applied to the base
+    # book, so by default a defensive hedge is NOT de-risked away exactly when it
+    # is needed (intentional). false = exempt + recorded in meta['overlay_exposure'];
+    # true = fold the global de-risk into the crisis weights too. Default false.
+    apply_global_derisk: false
     basket_regime_detection:
       enabled: true          # switch basket based on rate regime (TLT vs SHY momentum)
       lookback_days: 90      # rolling window for TLT/SHY relative performance
@@ -159,6 +165,13 @@ news_alpha:
   # Global combined-portfolio cap is at risk_limits.max_gross_exposure (below).
   # Editing this value changes the news_alpha slice cap, NOT the global cap.
   max_gross_exposure: 0.40
+  # R2-7 (audit B2-01): news entries are ADDED after the global exposure multiplier
+  # (geo×vol_target×profit_lock×stress×HMM) is applied to the base book, so by
+  # default the directional event slice is sized independently of the system-wide
+  # de-risk chain. false = exempt + recorded in meta['overlay_exposure']; true =
+  # fold the global de-risk into the news weights too. Default false (behaviour-
+  # preserving); flipping to true is a genuine strategy decision.
+  apply_global_derisk: false
 
 # Disclosures confirmation boost for NEWS geo_confidence (DISCL-4.2).
 disclosures_confirm:

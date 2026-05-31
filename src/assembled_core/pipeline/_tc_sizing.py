@@ -1228,6 +1228,14 @@ def _sp_apply_inverse_etf(
                     and hedge_sym
                     and "target_weight" in target_positions.columns
                 ):
+                    # R2-7 (B2-01) scope note: this hedge entry is ADDED after the
+                    # global exposure multiplier was applied to the base book, so it
+                    # escapes the geo/vol/stress/HMM de-risk chain like crisis_alpha /
+                    # news_alpha did. B2-01 names only those two overlays; this third
+                    # ADD-overlay is a defensive crash hedge (exempt-by-default is the
+                    # correct posture, same as crisis_alpha) and is a documented
+                    # follow-up, NOT a silent escape — wiring _apply_overlay_global_derisk
+                    # here is deferred to keep this commit scoped to B2-01.
                     if hedge_sym not in target_positions["symbol"].values:
                         target_positions = pd.concat(
                             [
@@ -1321,11 +1329,91 @@ def _sp_apply_crowding_cap(
     return target_positions
 
 
+def _apply_overlay_global_derisk(
+    overlay_weights: dict,
+    overlay_name: str,
+    overlay_cfg: dict | None,
+    meta: dict | None,
+    log: logging.Logger,
+) -> dict:
+    """R2-7 (audit B2-01): compose the crisis_alpha / news_alpha overlays with the
+    global exposure multiplier deterministically and observably.
+
+    ``size_positions`` applies the global multiplier
+    (geo × profit_lock × vol_targeting × market_stress × crisis × pm × hmm, clamp
+    [0.05, 3.0]) to the BASE book BEFORE these overlays append their entries, so
+    the overlay entries escape the whole de-risk/leverage chain. That escape is
+    INTENTIONAL for crisis_alpha (a defensive hedge must not be de-risked away
+    exactly when it is needed — the de-risk frees the capital the hedge then uses)
+    and DEBATABLE for news_alpha (a directional event bet). Before R2-7 the escape
+    was silent.
+
+    This helper makes it explicit and opt-in configurable:
+
+    * default (``apply_global_derisk`` absent/false) — behaviour-preserving: the
+      weights are returned UNCHANGED, but the escape is recorded in
+      ``meta['overlay_exposure']`` and logged at INFO so it is auditable, not
+      silent.
+    * opt-in (``overlay_cfg['apply_global_derisk'] = true``) — the overlay weights
+      are scaled by the same global multiplier so the sub-portfolio composes with
+      the system-wide risk appetite. Off by default; deterministic when on.
+
+    ``meta=None`` (ad-hoc / unit-test callers without a cycle meta) → the
+    multiplier defaults to 1.0 → no-op, no recording. Never raises; a non-dict
+    ``meta`` is treated as absent.
+    """
+    if not overlay_weights:
+        return overlay_weights
+    mult = 1.0
+    if isinstance(meta, dict):
+        try:
+            mult = float(meta.get("final_exposure_multiplier", 1.0))
+        except (TypeError, ValueError):
+            mult = 1.0
+    # No global scaling in effect → nothing to compose, stay silent.
+    if abs(mult - 1.0) <= 1e-9:
+        return overlay_weights
+    apply = bool((overlay_cfg or {}).get("apply_global_derisk", False))
+    n = len(overlay_weights)
+    if apply:
+        overlay_weights = {str(k): float(v) * mult for k, v in overlay_weights.items()}
+        log.info(
+            "[R2-7] %s: applied global exposure multiplier %.3f to %d overlay "
+            "entr%s (apply_global_derisk=true)",
+            overlay_name,
+            mult,
+            n,
+            "y" if n == 1 else "ies",
+        )
+    else:
+        log.info(
+            "[R2-7] %s: %d overlay entr%s sized independently of the global "
+            "exposure multiplier %.3f (apply_global_derisk=false) — overlay "
+            "exempt from geo/vol/stress/HMM scaling",
+            overlay_name,
+            n,
+            "y" if n == 1 else "ies",
+            mult,
+        )
+    if isinstance(meta, dict):
+        meta.setdefault("overlay_exposure", []).append(
+            {
+                "overlay": overlay_name,
+                "global_multiplier": mult,
+                "derisk_applied": apply,
+                "n_entries": n,
+            }
+        )
+    return overlay_weights
+
+
 def _sp_apply_crisis_alpha_cap(
     target_positions: pd.DataFrame,
     ctx: "TradingContext",
     policy: dict,
     log: logging.Logger,
+    *,
+    meta: dict | None = None,
 ) -> pd.DataFrame:
     """T4.1: Crisis Alpha — add defensive/inverse entries + cap existing on overlap.
 
@@ -1609,6 +1697,19 @@ def _sp_apply_crisis_alpha_cap(
             # F-NEW-002: capital needed before cap loop to keep target_qty in sync.
             _capital = float(getattr(ctx, "capital", 0.0))
 
+            # R2-7 (B2-01): compose with the global exposure multiplier. Default
+            # is behaviour-preserving (crisis hedges exempt + recorded); opt-in
+            # apply_global_derisk folds the de-risk in. Scaling ca_tw here keeps
+            # both the min-merge cap and the ADD entries (+ their target_qty,
+            # derived from these weights below) consistent.
+            ca_tw = _apply_overlay_global_derisk(
+                ca_tw,
+                "crisis_alpha",
+                (policy or {}).get("intel", {}).get("crisis_alpha", {}),
+                meta,
+                log,
+            )
+
             # Cap overlapping symbols (never increase — original safety contract).
             # F-NEW-001: only when target_positions is non-empty; ADD-entries block
             # runs unconditionally so crisis instruments reach orders on flat days.
@@ -1707,6 +1808,8 @@ def _sp_apply_news_alpha(
     ctx: "TradingContext",
     policy: dict,
     log: logging.Logger,
+    *,
+    meta: dict | None = None,
 ) -> pd.DataFrame:
     """T4.2: News Alpha — add directional event-driven entries to target positions.
 
@@ -1847,6 +1950,20 @@ def _sp_apply_news_alpha(
         if not shadow_only and na_result.target_weights:
             # Normalize keys to uppercase to match target_positions symbol convention.
             na_tw = {k.upper(): v for k, v in na_result.target_weights.items()}
+
+            # R2-7 (B2-01): compose with the global exposure multiplier. Default is
+            # behaviour-preserving (event entries sized independently of the de-risk
+            # chain + recorded in meta); opt-in apply_global_derisk folds it in.
+            # Scaling na_tw here keeps both the cap loop and the ADD entries (+ their
+            # target_qty, derived from these weights below) consistent.
+            na_tw = _apply_overlay_global_derisk(
+                na_tw,
+                "news_alpha",
+                (policy or {}).get("news_alpha", {}),
+                meta,
+                log,
+            )
+
             _capital = float(getattr(ctx, "capital", 0.0))
             if _capital <= 0.0:
                 log.warning(
@@ -2083,6 +2200,10 @@ def size_positions(
     )
 
     final_multiplier = _sp_compute_final_multiplier(ctx, policy, meta, log)
+    # R2-7 (B2-01): publish the global exposure multiplier so the crisis_alpha /
+    # news_alpha overlays (applied AFTER the base book below) can compose with it
+    # deterministically and observably instead of silently escaping the de-risk chain.
+    meta["final_exposure_multiplier"] = float(final_multiplier)
     if abs(final_multiplier - 1.0) > 1e-9 and not target_positions.empty:
         _max_gross = policy.get("risk_limits", {}).get("max_gross_exposure", 1.0)
         target_positions = apply_exposure_multiplier_to_targets(
@@ -2126,8 +2247,12 @@ def size_positions(
         target_positions, prices_with_features, policy, log
     )
     target_positions = _sp_apply_crowding_cap(target_positions, ctx, log)
-    target_positions = _sp_apply_crisis_alpha_cap(target_positions, ctx, policy, log)
-    target_positions = _sp_apply_news_alpha(target_positions, ctx, policy, log)
+    target_positions = _sp_apply_crisis_alpha_cap(
+        target_positions, ctx, policy, log, meta=meta
+    )
+    target_positions = _sp_apply_news_alpha(
+        target_positions, ctx, policy, log, meta=meta
+    )
 
     do_rebal, rebal_reason = _sp_check_rebalance(
         target_positions, ctx, policy, meta, log
