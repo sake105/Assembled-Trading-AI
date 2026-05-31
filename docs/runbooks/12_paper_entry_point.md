@@ -115,6 +115,53 @@ Two independent stall detectors run against this entry point:
 Absence of a recent `alpaca_eod_<date>.json` is itself a stall signal
 independent of the heartbeat.
 
+### Auto-flatten layer — Dead-Man's Switch (OPS-01)
+
+`scripts/dms_daemon.py` is a continuous passive monitor of the same
+`output/state/heartbeat.json`. It is deployed as the **independent**
+`AssembledTradingAI-DMS` Windows Task (at-logon, continuous; register via
+`scripts/ops/register_dms_task.ps1`), launched through the umlaut-safe
+wrapper `scripts/dms_daemon.bat`. Config lives in `configs/policy.yaml`
+under `dead_man_switch`.
+
+It runs in **SHADOW mode** (`flatten_mode: "shadow"`): on a stale heartbeat
+it appends a record to `output/ops/dms_audit.jsonl` describing what it
+*would* flatten, but it does **not** touch the kill switch. This is
+observe-only and carries zero false-fire risk.
+
+Why not `market` (auto-activate the kill switch) yet: the pilot writes the
+heartbeat only **once per weekday**, so a continuous fixed-timeout DMS
+cannot distinguish a healthy weekend (Fri 21:30 → Mon 21:30 ≈ 72h with no
+trading days between) from a real weekday stall. In `market` mode that gap
+would activate the kill switch every weekend and block the next pilot run —
+manufacturing the very silent-stall the safety net is meant to catch (and a
+blocked kill switch then needs an operator + `OPERATOR_KILL_TOKEN` to clear).
+Arming to `market` is therefore **blocked on OPS-02** (unifying the heartbeat
+topology to a continuous writer). Until then, detector #1 above (the
+scheduled Mon–Fri 22:30 watchdog) is the primary missed-run *alert*; the
+shadow DMS only accumulates the `dms_audit.jsonl` evidence needed to judge
+whether an auto-flatten layer is viable. Config is `timeout_seconds: 93600`
+(26h, one missed weekday cycle + margin) and `check_interval_seconds: 3600`
+(hourly poll — sufficient for a daily cadence, bounds the shadow-log volume
+across expected weekend gaps).
+
+Operational caveats:
+
+- **Never delete the `dead_man_switch` block from `configs/policy.yaml`.** If the
+  block is absent the daemon falls back to the module hard-defaults
+  (`flatten_mode: market`, `timeout_seconds: 900` — `dead_man_switch.py:44-50`),
+  which is exactly the harmful intraday-timeout market config this deployment
+  avoids. The block must always be present and explicit.
+- The DMS task runs under an **interactive logon** (`-LogonType Interactive`,
+  `-AtLogOn`), so the monitor is only alive while the operator is logged in —
+  same session model as the pilot task.
+- Nothing monitors the DMS's own liveness (the OPS-03 watchdog covers the pilot
+  heartbeat, not this daemon). A **flapping** `AssembledTradingAI-DMS` task
+  (repeated restarts via `RestartCount`) means a startup-failure loop — check
+  `Get-ScheduledTask -TaskName 'AssembledTradingAI-DMS' | Get-ScheduledTaskInfo`
+  and the `LastTaskResult` / `logs\scheduler\dms_daemon_*.log` if the audit trail
+  goes unexpectedly quiet.
+
 ---
 
 ## 5. Halt acknowledgement

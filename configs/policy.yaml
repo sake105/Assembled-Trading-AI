@@ -285,13 +285,33 @@ turnover_budget:
 
 # Dead-Man's Switch — passive heartbeat monitor.
 # If the trading cycle fails to write a heartbeat within timeout_seconds,
-# the DMS daemon auto-flattens all positions via the kill switch.
-# See src/assembled_core/ops/dead_man_switch.py and scripts/dms_daemon.py.
+# the DMS daemon (scripts/dms_daemon.py) acts on the stale heartbeat.
+# See src/assembled_core/ops/dead_man_switch.py and docs/runbooks/12_paper_entry_point.md §4.
+#
+# DEPLOYMENT (OPS-01, 2026-05-31): the daemon is now launched in production via the
+# AssembledTradingAI-DMS task (scripts/ops/register_dms_task.ps1, at-logon, continuous).
+# It runs in SHADOW mode on purpose — it logs what it WOULD flatten to log_path but does
+# NOT touch the kill switch.
+#
+# Why shadow (not market) on the CURRENT topology: the deployed pilot writes
+# output/state/heartbeat.json only ONCE per weekday (~21:30, via _tc_execution). A
+# continuously-running, fixed-timeout DMS cannot distinguish a HEALTHY weekend
+# (Fri 21:30 -> Mon 21:30 = ~72h gap, no trading days between) from a real weekday stall —
+# so market mode would activate the kill switch every weekend and create a NEW silent-stall
+# (blocked pilot until an operator deactivates with OPERATOR_KILL_TOKEN). Arming to market
+# is therefore BLOCKED on OPS-02 (heartbeat-topology unification to a continuous writer).
+# Until then OPS-03 (scheduled Mon-Fri 22:30 watchdog) is the primary missed-run DETECTOR;
+# this shadow DMS produces the audit trail that proves whether an auto-flatten layer is viable.
 dead_man_switch:
   enabled: true
-  timeout_seconds: 900          # 15 min — flatten if no heartbeat for this long
-  check_interval_seconds: 60    # poll every 60s
-  flatten_mode: "market"        # "market" = activate kill switch; "shadow" = log only
+  timeout_seconds: 93600        # 26h — one missed weekday EOD cycle + margin (NOT 15 min: the
+                                # prod heartbeat is once-per-day, not intraday — see comment above).
+                                # Weekends naturally exceed this (Fri->Mon ~72h) and read "stale"
+                                # in shadow by design — expected, harmless (observe-only).
+  check_interval_seconds: 3600  # poll hourly — daily cadence needs no finer granularity; bounds
+                                # the shadow-mode audit-log volume during expected weekend gaps
+  flatten_mode: "shadow"        # OBSERVE-ONLY: log to log_path, do NOT activate kill switch.
+                                # Do NOT flip to "market" without OPS-02 (see comment above).
   log_path: "output/ops/dms_audit.jsonl"
 
 profit_lock:

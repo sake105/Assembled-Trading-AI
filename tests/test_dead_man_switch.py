@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from src.assembled_core.ops.dead_man_switch import (
     _cfg,
@@ -435,4 +436,40 @@ def test_consecutive_liveness_failures_trigger_critical_flatten(
     assert mock_flatten.call_count == 1, (
         f"Expected exactly one escalation call, got {mock_flatten.call_count} "
         f"— possible kill-switch activation storm."
+    )
+
+
+# ---------------------------------------------------------------------------
+# OPS-01 deployment-config invariant (shipped policy.yaml)
+# ---------------------------------------------------------------------------
+
+
+def test_deployed_policy_dms_is_eod_safe() -> None:
+    """OPS-01: the SHIPPED policy.yaml must keep the DMS observe-only with a
+    day-scale timeout, because the daemon is now deployed (AssembledTradingAI-DMS).
+
+    The deployed pilot writes output/state/heartbeat.json only once per weekday.
+    A continuous fixed-timeout DMS cannot distinguish a healthy weekend gap
+    (Fri 21:30 -> Mon 21:30 ~= 72h, no trading days between) from a real stall, so
+    ``flatten_mode: market`` would activate the kill switch every weekend and block
+    the pilot. Arming to market is blocked on OPS-02 (heartbeat-topology
+    unification). This test fails if a future edit silently re-arms market mode or
+    restores the 15-min intraday timeout against the once-per-day topology.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    policy = yaml.safe_load(
+        (repo_root / "configs" / "policy.yaml").read_text(encoding="utf-8")
+    )
+    # NB: this guards the SHIPPED policy file. The module hard-default
+    # (dead_man_switch.py:44-50) is still market/900s and wins if this block is
+    # ever deleted — so the block must never be removed (see runbook 12 §4).
+    dms = policy["dead_man_switch"]
+    assert dms["flatten_mode"] == "shadow", (
+        "DMS must stay shadow until OPS-02 — market mode false-fires every weekend "
+        "against the once-per-weekday heartbeat (see configs/policy.yaml comment)."
+    )
+    assert 86400 <= dms["timeout_seconds"] <= 7 * 86400, (
+        f"DMS timeout must be day-scale (1-7 days) for the once-per-day EOD "
+        f"heartbeat; got {dms['timeout_seconds']}s. Too low (e.g. the 900s intraday "
+        f"default) fires daily; too high makes the shadow audit trail near-useless."
     )
