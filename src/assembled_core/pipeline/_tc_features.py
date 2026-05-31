@@ -57,6 +57,43 @@ def _warn_once_feature_skip(
         lg.debug("%s skipped (repeat): %s", prefix, exc)
 
 
+def _strip_forward_label_cols(
+    rank_cols: list[str],
+    log_obj: logging.Logger | None = None,
+) -> list[str]:
+    """PIT guard (STR-001): drop forward-looking LABEL columns from a
+    cross-sectional rank list so they can never be materialised as a live
+    ``*_xrank`` feature.
+
+    The forward labels (``returns_1m/3m/6m/12m``, ``momentum_12m_excl_1m``) are
+    built with ``shift(-N)`` and encode the FUTURE return; some read like
+    trailing factors (name collision with the causal ``trailing_*`` twins),
+    which is exactly how a forward label slips into a rank list — whether via
+    the in-code default or a ``policy.yaml`` ``rank_cols`` entry. The drop is
+    LOUD (WARN): silently stripping would hide a real config defect. Returns
+    the filtered list with order preserved.
+
+    Contract: ``rank_cols`` is a non-None list[str] (the sole call site builds
+    one). Not None-guarded on purpose — a None here is a caller bug worth a
+    TypeError, not a silent empty-rank degradation.
+    """
+    from src.assembled_core.features.ta_factors_core import (
+        FORWARD_LOOKING_LABEL_COLS,
+    )
+
+    leaking = [c for c in rank_cols if c in FORWARD_LOOKING_LABEL_COLS]
+    if not leaking:
+        return list(rank_cols)
+    lg = log_obj or logger
+    lg.warning(
+        "[FEATURE-ENH] PIT guard dropped forward-looking label column(s) from "
+        "cross-sectional rank: %s — these encode future returns and must not "
+        "become features (STR-001)",
+        sorted(leaking),
+    )
+    return [c for c in rank_cols if c not in FORWARD_LOOKING_LABEL_COLS]
+
+
 def build_features(
     prices: pd.DataFrame,
     ctx: TradingContext,
@@ -287,11 +324,14 @@ def build_features(
                             "quality_score",
                             "trend_strength_20",
                             "trend_strength_50",
-                            "momentum_12m_excl_1m",
                         ],
                     )
                     if c in pwf.columns
                 ]
+                # PIT guard (STR-001): never cross-sectionally rank a
+                # forward-looking label into a live ``*_xrank`` feature, no
+                # matter whether it came from the default or policy.yaml.
+                rank_cols = _strip_forward_label_cols(rank_cols, log)
                 if rank_cols:
                     pwf = rank_cross_sectional(
                         pwf,

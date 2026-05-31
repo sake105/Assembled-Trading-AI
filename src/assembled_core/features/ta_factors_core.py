@@ -27,6 +27,22 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Forward-looking LABEL columns produced by ``_add_multi_horizon_returns`` via
+# ``shift(-N)`` — they encode the FUTURE return at time t and must NEVER be used
+# as features (cross-sectional rank, model input, composite). Their names read
+# like trailing factors (esp. ``momentum_12m_excl_1m``), so this denylist is the
+# single source of truth that lets consumers strip them defensively (STR-001).
+# The genuinely causal twins live under ``trailing_*`` (``_add_trailing_momentum_factors``).
+FORWARD_LOOKING_LABEL_COLS: frozenset[str] = frozenset(
+    {
+        "returns_1m",
+        "returns_3m",
+        "returns_6m",
+        "returns_12m",
+        "momentum_12m_excl_1m",
+    }
+)
+
 
 def build_core_ta_factors(
     prices: pd.DataFrame,
