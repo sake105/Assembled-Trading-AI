@@ -218,8 +218,16 @@ def check_risk(
             _rej_counts["var_gate"] = len(result.orders_filtered)
             result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
-        log.warning("[RISK] var_gate evaluation raised — gate no-op: %s", e)
+        # Fail-CLOSED (R2-1): a VaR-gate evaluation error means we CANNOT prove
+        # the portfolio is within its VaR limit. The safe action is to block this
+        # cycle's orders, not let them pass. Surfaced loudly + flagged in meta.
+        log.error(
+            "[RISK] var_gate evaluation raised — FAIL-CLOSED, blocking orders: %s", e
+        )
         result.meta["var_gate"] = {"status": "error", "error": str(e)}
+        result.meta["risk_gate_error"] = True
+        _rej_counts["var_gate_error"] = len(result.orders_filtered)
+        result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
 
     # Step 6.4: Auto-DD kill switch
     try:
@@ -239,8 +247,19 @@ def check_risk(
                 _rej_counts["auto_dd_kill_switch"] = len(result.orders_filtered)
                 result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
-        log.warning("[RISK] auto_dd_kill_switch raised — gate no-op: %s", e)
+        # Fail-CLOSED (R2-1): if the drawdown kill-switch evaluation raised we
+        # cannot confirm the account is under its drawdown limit. Block this
+        # cycle's orders. We deliberately do NOT activate the PERSISTENT kill
+        # switch on a transient evaluation error (it requires an operator token
+        # to clear, per OPS-04/4b) — blocking the batch is the proportionate
+        # safe action; a real drawdown breach trips on the next clean evaluation.
+        log.error(
+            "[RISK] auto_dd_kill_switch raised — FAIL-CLOSED, blocking orders: %s", e
+        )
         result.meta["auto_dd_kill_switch"] = {"status": "error", "error": str(e)}
+        result.meta["risk_gate_error"] = True
+        _rej_counts["auto_dd_error"] = len(result.orders_filtered)
+        result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
 
     # Step 6.45: Circuit breaker
     try:
@@ -250,8 +269,12 @@ def check_risk(
             _rej_counts["circuit_breaker"] = len(result.orders_filtered)
             result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
-        log.warning("[RISK] circuit_breaker raised — gate no-op: %s", e)
+        # Fail-CLOSED (R2-1): an unknown circuit-breaker state must block, not pass.
+        log.error("[RISK] circuit_breaker raised — FAIL-CLOSED, blocking orders: %s", e)
         result.meta["circuit_breaker"] = {"status": "error", "error": str(e)}
+        result.meta["risk_gate_error"] = True
+        _rej_counts["circuit_breaker_error"] = len(result.orders_filtered)
+        result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
 
     # Step 6.6: Anti-churn deadzone + min-notional
     try:
@@ -311,7 +334,15 @@ def check_risk(
                 )
                 _rej_counts["fat_finger"] = n_rejected
     except Exception as e:
-        log.warning("[RISK] fat_finger_guard raised — hard cap not applied: %s", e)
+        # Fail-CLOSED (R2-1): if the fat-finger hard cap could not be applied we
+        # cannot guarantee no oversized/erroneous order escapes — block the batch.
+        log.error(
+            "[RISK] fat_finger_guard raised — FAIL-CLOSED, blocking orders: %s", e
+        )
+        result.meta["fat_finger_guard"] = {"status": "error", "error": str(e)}
+        result.meta["risk_gate_error"] = True
+        _rej_counts["fat_finger_error"] = len(result.orders_filtered)
+        result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
 
     # Step 6.9: Order lifecycle tracking
     try:
