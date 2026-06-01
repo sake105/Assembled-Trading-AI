@@ -70,6 +70,12 @@ HONESTY (binding)
   exactly why this test is run at the ETF level.)
 - Frictions are realistic-but-conservative for liquid ETFs: COST_BPS/leg turnover
   + BORROW_BPS_ANNUAL on short notional. No rate term structure.
+- Prices are RAW close (not total-return / dividend-adjusted). Absolute CAGR
+  figures therefore UNDERSTATE total return (sector ETFs + SPY all pay dividends).
+  The relative SPY-beat verdict is ~unaffected: every book AND the SPY benchmark
+  use the same raw close, so the dividend omission is common-mode and does not
+  manufacture or hide a ranking edge. It would matter only for an absolute-return
+  claim, which this falsification deliberately does not make.
 - The production regime weights (configs/factor_weights_by_regime.json) currently
   assign this factor ~0. This harness decides whether that should change. A
   PROSPECT here is NOT a production claim — it would require CI validation and a
@@ -658,7 +664,7 @@ def _write_report(all_results, all_edges, spy_edge, n_bars):
         f"Universe: 8 SPDR sector ETFs {SECTOR_ETFS} + SPY (benchmark/RS factor)  ",
         f"History: {n_bars} bars 2018-01-02 → 2026-05-29 (Alpaca/master-panel era; NOT full SPDR history)  ",
         "Signal: production `compute_sector_scores` (3m·0.50 + 6m·0.30 + 20d-RS·0.20), top-3 long / bottom-2 short — unchanged  ",
-        f"WF: {TRAIN_WINDOW}/{TEST_WINDOW}/{STEP_SIZE} (train/test/step), month-end rebalance, 1-bar exec lag  ",
+        f"WF: {TRAIN_WINDOW}/{TEST_WINDOW}/{STEP_SIZE} (train/test/step), month-end rebalance, 2-bar data→fill gap (1-bar signal-ref + 1-bar exec shift)  ",
         f"Frictions: {COST_BPS:.0f} bps/leg turnover, {BORROW_BPS_ANNUAL:.0f} bps/yr short borrow (liquid ETFs)  ",
         f"DSR multiple-testing deflation: n_trials = {N_TRIALS_DSR} (one fixed signal config, not parameter-searched)  ",
         "",
@@ -676,7 +682,10 @@ def _write_report(all_results, all_edges, spy_edge, n_bars):
         "from the 20d-RS term alone (an RS-tilted partial composite) before the 3m/6m terms exist; "
         "the 130-bar warm-up skips that window so every evaluated bar is dominated by the full "
         "3m+6m terms, and all 8 ETFs + SPY share the 2018-01-02 start (no staggered-inception "
-        "leakage). CI: not run; local one-shot. No production module touched.",
+        "leakage). Prices are RAW close (not dividend/total-return adjusted), so absolute CAGRs "
+        "understate total return; the relative SPY-beat verdict is unaffected because every book "
+        "AND the SPY benchmark use the same raw close (common-mode omission). CI: not run; local "
+        "one-shot. No production module touched.",
         "",
         "## Verdict (auto-generated)",
         "",
