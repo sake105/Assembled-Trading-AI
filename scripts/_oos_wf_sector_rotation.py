@@ -70,12 +70,13 @@ HONESTY (binding)
   exactly why this test is run at the ETF level.)
 - Frictions are realistic-but-conservative for liquid ETFs: COST_BPS/leg turnover
   + BORROW_BPS_ANNUAL on short notional. No rate term structure.
-- Prices are RAW close (not total-return / dividend-adjusted). Absolute CAGR
-  figures therefore UNDERSTATE total return (sector ETFs + SPY all pay dividends).
-  The relative SPY-beat verdict is ~unaffected: every book AND the SPY benchmark
-  use the same raw close, so the dividend omission is common-mode and does not
-  manufacture or hide a ranking edge. It would matter only for an absolute-return
-  claim, which this falsification deliberately does not make.
+- Prices are the live store's `close`, which is total-return (split+dividend)
+  ADJUSTED — confirmed by a feed-divergence check against yfinance Adj Close
+  (~0.00 bps median; docs/results/2026_06_sector_fullhist_feed_divergence.md).
+  Absolute CAGR figures are therefore already total-return (NOT understated). The
+  relative SPY-beat verdict is basis-invariant regardless: every book AND the SPY
+  benchmark use the same adjusted close, so corporate-action handling is
+  common-mode and does not manufacture or hide a ranking edge.
 - The production regime weights (configs/factor_weights_by_regime.json) currently
   assign this factor ~0. This harness decides whether that should change. A
   PROSPECT here is NOT a production claim — it would require CI validation and a
@@ -682,9 +683,11 @@ def _write_report(all_results, all_edges, spy_edge, n_bars):
         "from the 20d-RS term alone (an RS-tilted partial composite) before the 3m/6m terms exist; "
         "the 130-bar warm-up skips that window so every evaluated bar is dominated by the full "
         "3m+6m terms, and all 8 ETFs + SPY share the 2018-01-02 start (no staggered-inception "
-        "leakage). Prices are RAW close (not dividend/total-return adjusted), so absolute CAGRs "
-        "understate total return; the relative SPY-beat verdict is unaffected because every book "
-        "AND the SPY benchmark use the same raw close (common-mode omission). CI: not run; local "
+        "leakage). Prices are the live store's total-return (split+dividend) ADJUSTED close "
+        "(confirmed vs yfinance Adj Close at ~0.00 bps; "
+        "docs/results/2026_06_sector_fullhist_feed_divergence.md), so absolute CAGRs are already "
+        "total-return; the relative SPY-beat verdict is basis-invariant because every book AND the "
+        "SPY benchmark use the same adjusted close (common-mode). CI: not run; local "
         "one-shot. No production module touched.",
         "",
         "## Verdict (auto-generated)",

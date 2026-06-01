@@ -14,19 +14,23 @@ books, but it carried two explicit, auditor-flagged limitations:
 
   (1) History starts 2018 — only the live offline store's depth (the
       Alpaca/master-panel era), NOT the full SPDR history. ~7 OOS folds.
-  (2) Prices are RAW close (dividend-omitted), so absolute CAGRs understate
-      total return.
+  (2) The live verdict's honesty note originally labeled the prices "raw close
+      (dividend-omitted)". A later feed-divergence check
+      (docs/results/2026_06_sector_fullhist_feed_divergence.md) showed the live
+      store's close is in fact total-return (split+dividend) ADJUSTED, so that
+      "understated CAGR" caveat was moot. This study still runs BOTH bases below.
 
 This harness addresses BOTH as a *robustness cross-check*: it sources a DEEPER
 history (the full Select-Sector-SPDR record back to their 1998 inception) from a
 DIFFERENT feed (yfinance) and runs the identical methodology in two price modes:
-  - raw  : raw Close — PIT-clean and methodology-matched to the live verdict.
-  - adj  : Adj Close (total-return) — removes the dividend-omission CAGR
-           understatement (auditor follow-up #2).
+  - adj  : Adj Close (total-return) — the methodology MATCH to the live store
+           (whose close is itself total-return adjusted).
+  - raw  : raw Close — a PIT-clean, even-more-conservative DIFFERENT-basis
+           cross-check (a basis the live factor does NOT use).
 
 It answers ONE question: does the 2018+ REJECTED verdict flip when the factor is
-given ~3.5x more history and total-return prices? If the verdict holds, the
-live-store rejection is not an artifact of the short window or raw close.
+given ~3.5x more history and an alternate price basis? If the verdict holds, the
+live-store rejection is not an artifact of the short window or the price basis.
 
 NOT THE PRODUCTION VERDICT
 --------------------------
@@ -112,10 +116,13 @@ FETCH_START = "1998-01-01"
 FETCH_END = "2026-05-31"  # yfinance end-exclusive; captures through the last trading day before this
 
 WANT = list(SECTOR_ETFS) + ["SPY"]
-PRICE_MODES = ("adj", "raw")  # adj first = total-return primary; raw = PIT-clean match
+PRICE_MODES = (
+    "adj",
+    "raw",
+)  # adj = live-methodology match (total-return); raw = conservative cross-check
 MODE_LABEL = {
-    "adj": "total-return (Adj Close)",
-    "raw": "raw Close (matches live methodology)",
+    "adj": "total-return (Adj Close) — matches live methodology",
+    "raw": "raw Close — conservative different-basis cross-check",
 }
 
 
@@ -407,7 +414,8 @@ def _write_report(by_mode: dict) -> None:
         "factor reads `output/aggregates/daily.parquet` (Alpaca era, 2018+); the binding "
         "falsification is `docs/results/2026_06_sector_rotation_oos.md`. This study sources a "
         "DIFFERENT feed (yfinance) and DEEPER history purely to test whether that REJECTED "
-        "verdict is an artifact of the short 2018+ window or of raw (dividend-omitted) close.  ",
+        "verdict is an artifact of the short 2018+ window or of the price basis (the live store's "
+        "close is total-return adjusted; this study runs both bases).  ",
         "",
         "Data: yfinance — full Select-Sector-SPDR history, raw Close + Adj Close  ",
         f"Universe: {len(present_sectors)} SPDR sector ETFs {present_sectors} + SPY "
@@ -426,9 +434,10 @@ def _write_report(by_mode: dict) -> None:
         "",
         "## Honesty / caveats (binding)",
         "",
-        "- **Two price modes.** `adj` = Adj Close (total-return) — fixes the absolute-CAGR "
-        "understatement the live verdict flagged (auditor follow-up #2). `raw` = raw Close — "
-        "PIT-clean and methodology-matched to the live verdict for apples-to-apples.",
+        "- **Two price modes.** `adj` = Adj Close (total-return) — the methodology MATCH to the "
+        "live store, whose close is itself total-return adjusted "
+        "(docs/results/2026_06_sector_fullhist_feed_divergence.md). `raw` = raw Close — a "
+        "PIT-clean, even-more-conservative DIFFERENT-basis cross-check the live factor does not use.",
         "- **Adjusted-close is PIT-clean for THIS signal.** Score and L/S returns are purely "
         "ratio-based; yfinance's today-anchored normalization constant cancels in every ratio, "
         "and a ratio adj(t)/adj(t−k) depends only on corporate actions with ex-dates inside "
@@ -462,8 +471,8 @@ def _write_report(by_mode: dict) -> None:
 
     parts += [overall, ""]
 
-    # Per-fold tables: primary (total-return) mode for all 3 books; raw mode for
-    # the dollar-neutral sector_ls (purest ranking test) for the apples-to-apples.
+    # Per-fold tables: primary (total-return = live-methodology) mode for all 3
+    # books; raw mode for the dollar-neutral sector_ls as a conservative cross-check.
     parts += ["## Per-fold detail — total-return (Adj Close)", ""]
     for mode in oos.MODES:
         parts += [
@@ -473,7 +482,7 @@ def _write_report(by_mode: dict) -> None:
             "",
         ]
     parts += [
-        "## Per-fold detail — raw Close (sector_ls, methodology-matched)",
+        "## Per-fold detail — raw Close (sector_ls, conservative cross-check)",
         "",
         oos._fold_table(raw["results"]["sector_ls"]),
         "",
