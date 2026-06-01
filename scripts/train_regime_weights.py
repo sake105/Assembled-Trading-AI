@@ -69,6 +69,23 @@ FACTOR_COLUMNS = [
     "congress_activity",
 ]
 
+# Factors that are intentionally pinned to 0.0 in EVERY regime, regardless of
+# what the IC fit produces. These are dead on free feeds and re-fitting them is a
+# reactivation landmine that silently un-zeros configs/factor_weights_by_regime.json
+# (see that file's _note). Keep this list in sync with that _note:
+#   - earnings_surprise_z: EPS estimates cached for only ~44 mega-caps -> degenerate
+#     cross-section (free-feed ceiling, 2026-06-01) + a loader/wrapper schema bug.
+#   - insider_activity_score: insider_trading.parquet is 100% unknown -> always 0.
+#   - congress_activity: no data files exist.
+# The trainer force-zeros these AFTER the fit so the canonical retrain path stays
+# consistent with the hand-maintained policy. Sub-1.0 regime sums are safe (runtime
+# renormalises by the live-factor sum at scoring time).
+INTENTIONALLY_ZEROED_FACTORS = (
+    "earnings_surprise_z",
+    "insider_activity_score",
+    "congress_activity",
+)
+
 
 def _generate_synthetic_data(
     n_per_regime: int = 200,
@@ -151,6 +168,12 @@ def compute_regime_weights(
             weights[regime] = {f: 1.0 / len(factors) for f in factors}
         else:
             weights[regime] = {f: ic / total for f, ic in ics.items()}
+
+        # Durably re-zero the policy-zeroed factors so a retrain cannot reactivate
+        # them (sub-1.0 sums are renorm-safe at scoring time).
+        for f in INTENTIONALLY_ZEROED_FACTORS:
+            if f in weights[regime]:
+                weights[regime][f] = 0.0
 
     return weights
 

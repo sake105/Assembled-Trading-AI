@@ -77,6 +77,18 @@ FACTOR_CATEGORIES = [
 
 KNOWN_REGIMES = ["bull", "bear", "sideways"]
 
+# Factors force-zeroed AFTER the fit so a retrain cannot silently un-zero them
+# (reactivation landmine). Keep in sync with the sibling synthetic trainer
+# scripts/train_regime_weights.py and the configs/factor_weights_by_regime.json
+# _note: earnings_surprise_z (free-feed ceiling — EPS estimates only for ~44
+# mega-caps → degenerate cross-section + a loader/wrapper schema bug),
+# insider_activity_score (insider_trading.parquet 100% unknown → always 0),
+# congress_activity (no data files exist). Sub-1.0 regime sums are renorm-safe
+# at scoring time (multifactor_v2 renormalises by the live-factor sum).
+INTENTIONALLY_ZEROED_FACTORS = frozenset(
+    {"earnings_surprise_z", "insider_activity_score", "congress_activity"}
+)
+
 _EQUAL_WEIGHT = 1.0 / len(FACTOR_CATEGORIES)
 
 MAX_SINGLE_WEIGHT = 0.50
@@ -481,6 +493,17 @@ def train_regime_weights(
             f"[OK] Regime '{regime}': {n_obs} obs | "
             f"top-3 = {sorted(w_data.items(), key=lambda x: -x[1])[:3]}"
         )
+
+    # Reactivation-landmine guard: force-zero the policy-dead factors across ALL
+    # regimes (data-driven AND equal-weight fallbacks) so a retrain cannot
+    # silently un-zero them. Matches both the bare ('earnings_surprise_z') and
+    # ic_-prefixed ('ic_earnings_surprise_z') column conventions; sub-1.0 sums
+    # are renorm-safe at scoring time.
+    for _w in regime_weights.values():
+        for _key in list(_w):
+            _bare = _key[3:] if _key.startswith("ic_") else _key
+            if _bare in INTENTIONALLY_ZEROED_FACTORS:
+                _w[_key] = 0.0
 
     return regime_weights
 

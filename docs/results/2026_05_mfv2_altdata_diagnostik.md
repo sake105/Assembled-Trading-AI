@@ -316,3 +316,90 @@ Von 19 stillen Faktoren (OOS 2018–2025, Alpaca OHLCV-Basis) sind **8 sofort ak
 _Quelldokumente: `docs/results/2026_05_multifactor_v2_real_oos.md`, `src/assembled_core/strategies/multifactor_v2.py`_  
 _Lokale Dateichecks: `output/`, `data/`, `configs/`, `src/assembled_core/data/altdata/`_  
 _Reiner Analyse-Auftrag — kein Code geändert._
+
+---
+
+## 2026-06-01 Forensik-Closure — `sector_rotation_bias` + `earnings_surprise_z`
+
+**Auftrag:** Forensische Einzelfall-Prüfung der beiden Faktoren F18 (`sector_rotation_bias`) und
+F19 (`earnings_surprise_z`) unter der harten Randbedingung **ausschließlich kostenlose Datenfeeds**.
+Für jeden Faktor: behebbarer Bug oder Free-Feed-Decke? Bringt eine Behebung etwas? Wenn ja → fixen.
+Wenn nein → ehrlich vermerken, dass es „auf dem kostenlosen Feed nichts wird", und benennen, ob ein
+akzeptabler Decken-Zustand erreicht ist oder ob Entwicklungspfade verbleiben.
+
+Diese Closure ersetzt die obigen Zeilen für F18/F19 in der Schlussfolgerung **nicht**, sondern
+präzisiert sie nach forensischer Tiefenprüfung. Die ältere Tabellen-Einstufung „F18 SOFORT
+AKTIVIERBAR" war zu optimistisch (siehe Tier A: Code-Aktivierung ≠ Produktions-Beitrag).
+
+Code-/Config-Stand dieser Closure: `multifactor_v2.py`, `configs/factor_weights_by_regime.json`,
+`scripts/train_regime_weights.py`, zugehörige Tests editiert. **Nur lokal geprüft (51 gezielte Tests
++ Smoke), CI unbestätigt. Kein Commit zum Zeitpunkt dieser Doku.**
+
+### Tier A — `sector_rotation_bias`: Bug behoben, aber Produktions-Beitrag bleibt ~0 bis Re-Fit
+
+**Root Causes (beide gefixt):**
+- **RC#1 — fehlende Sektor-ETFs im Panel:** Die 8 SPDR-Sektor-ETFs (XLK/XLF/XLE/XLV/XLI/XLU/XLP/XLY)
+  fehlten im stock-only Universe → `len < 3` → Faktor lieferte konstant `0.0`. Behoben durch
+  PIT-gegateten Free-Store-Fallback (`_sector_prices_from_store(as_of)`): die ETF-Closes werden aus
+  einem lokalen Offline-Store injiziert, **streng `as_of`-gesliced** und mit Live-Staleness-Guard
+  (`SECTOR_STORE_STALE_DAYS = 7`) gegen Look-Ahead/veraltete Daten geschützt.
+- **RC#2 — String-Mapping-Bruch:** `SECTOR_NAMES` („Technology"/„Healthcare") matchte nie die
+  `security_meta.csv`-Sektorlabels („Information Technology"/„Health Care") für 2/8 Sektoren. Behoben
+  durch `_SECTOR_NAME_CANON` + `_canon_sector()`.
+
+**Was das BEDEUTET (ehrlich):**
+- Der Code ist jetzt **feuerfähig** — Smoke-Test zeigt 6/8 Sektoren mit ±1.0-Tilt statt durchgehend 0.
+- **ABER:** Die operativen Produktionsgewichte in `configs/factor_weights_by_regime.json` weisen
+  `sector_rotation_bias` ~0 zu (bull/bear/crisis = 0.0, sideways ≈ 0.0048), **weil der Faktor tot
+  war, als die Gewichte gefittet wurden**. Solange kein **Gewichts-Re-Fit** auf dem korrigierten
+  Panel läuft, bleibt der reale Produktions-Beitrag praktisch 0 — egal dass der Code jetzt feuert.
+- **ZUSÄTZLICH:** Der Offline-Sektor-Store wird nicht täglich aktualisiert. Im **Live-Modus** greift
+  daher der Staleness-Guard und liefert neutral (0.0); nur **Backtests mit in-range `as_of`** üben
+  den Faktor tatsächlich aus.
+- **Free-Feed-Decke? NEIN.** Sektor-ETF-Preise (alle 8 + SPY) sind kostenlos und liegen vor. Der
+  Limiter ist **nicht** der Feed, sondern (1) ein ausstehender Re-Fit und (2) die Live-Frische des
+  Offline-Stores. Beide sind lösbar (siehe Follow-ups) — ohne Bezahl-Daten.
+
+### Tier B — `earnings_surprise_z`: Wiring-Bug + ECHTE Free-Feed-Decke → genullt
+
+**Root Causes:**
+- **Wiring-Bug:** `altdata_loader.load_earnings_history` strippt `eps_actual`/`eps_estimate`, die
+  `earnings_insider_wrapper._validate_columns` zwingend braucht → `ValueError` → still `0.0`
+  (Silent-Degradation, E-025-Muster).
+- **Free-Feed-Coverage-Wall (der eigentliche Show-Stopper):** EPS-Schätzungen sind auf dem freien
+  Feed nur für **~44 Mega-Caps** gecacht → degenerierte Cross-Section. Selbst mit gefixtem Wiring
+  bliebe der Faktor über das investierbare Universum quasi-konstant → kein verwertbares Cross-
+  Sectional-Signal.
+
+**Entscheidung & Wirkung:**
+- `earnings_surprise_z` auf **weight = 0.0** gesetzt — in `DEFAULT_V2_WEIGHTS` (multifactor_v2.py)
+  **und** in allen Regimes von `configs/factor_weights_by_regime.json` (crisis war bereits 0.0).
+- **Runtime-neutral, doppelt inert:** Der Dead-Factor-Filter droppt den All-Zero-Faktor ohnehin am
+  Scoring; zusätzlich trägt `weight = 0.0` exakt 0.0 zum Composite bei und addiert 0.0 zur
+  `total_weight` (Renorm-sicher über BEIDE Konsumpfade). Das Nullen ändert kein Laufzeitverhalten —
+  es entfernt eine **irreführende 21.6%-Bull-Gewichtung** und eine **Reaktivierungs-Landmine**.
+- **Reaktivierungs-Schutz:** `scripts/train_regime_weights.py` force-zeroed `earnings_surprise_z`
+  (+ `insider_activity_score`, `congress_activity`) jetzt **nach** dem IC-Fit
+  (`INTENTIONALLY_ZEROED_FACTORS`), damit ein Retrain den Faktor nicht still wieder reaktiviert.
+- **Free-Feed-Decke? JA, real.** Auf dem kostenlosen Feed „wird das nichts": die ~44-Mega-Cap-
+  Abdeckung ist ein Feed-Ceiling, kein Code-Bug. Entwicklungspfad existiert **nur** mit einem
+  **bezahlten EPS-Estimate-Feed** (siehe Follow-up iii).
+
+### Tier C — Empirischer Anker (kein frisch gemessener Edge)
+
+Aus **Paket 3c.2** (10-Fold OOS, mfv2 mit voll aktivierbarer Altdata): Ø Sharpe **0.36 == TA-only
+0.36**, beide **unter SPY**. Weder F18 noch F19 dreht das SPY-Verdikt. Die in dieser Session
+genannten Fire-/Smoke-Zahlen sind **Capability-Nachweise (Code feuert), kein neu gemessener Edge** —
+ein echter Edge-Nachweis für F18 erfordert erst den Re-Fit + eine frische OOS-Messung mit Delta
+gegen die TA-only-Baseline.
+
+### Offene Entwicklungspfade (als separate Follow-ups ausgelagert)
+
+1. **Regime-Gewichts-Re-Fit für `sector_rotation_bias`** auf dem korrigierten Panel via
+   `scripts/train_regime_weights.py`; OOS-Delta gegen TA-only **messen, bevor** der Faktor scharf
+   gestellt wird. (Limiter Tier A, lösbar ohne Bezahl-Daten.)
+2. **Live-Frische des Offline-Sektor-Stores:** Sektor-ETF- + SPY-Closes in den täglichen EOD-Ingest
+   aufnehmen, damit der Live-Pfad innerhalb `SECTOR_STORE_STALE_DAYS` bleibt. (Limiter Tier A.)
+3. **`earnings_surprise_z`-Coverage über ~44 Mega-Caps hinaus:** nur mit **bezahltem** EPS-Estimate-
+   Feed lösbar. Reaktivierung (Entfernen aus `INTENTIONALLY_ZEROED_FACTORS` + Re-Fit) **nur** falls
+   ein solcher Feed beschafft wird. (Free-Feed-Decke Tier B — akzeptierter Decken-Zustand bis dahin.)

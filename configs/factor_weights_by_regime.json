@@ -1,5 +1,5 @@
 {
-  "_note": "insider_activity_score + congress_activity intentionally 0.0 in all regimes (§9.6(c), 2026-05-22). Sums per regime ≈ 1.0; runtime uses live-factor renorm. Underscore prefix: key skipped by loader.",
+  "_note": "insider_activity_score + congress_activity intentionally 0.0 in all regimes (§9.6(c), 2026-05-22). earnings_surprise_z also zeroed in all regimes (2026-06-01): free-feed ceiling — EPS estimates cached for only ~44 mega-caps → degenerate cross-section; a loader/wrapper schema mismatch also left it dead, so this is runtime-neutral (already dead-factor-filtered) but removes a misleading 21.6% bull-weight + reactivation landmine. Sums per regime now < 1.0; runtime uses live-factor renorm. Underscore prefix: key skipped by loader.",
   "bull": {
     "trend_ema_spread": 0.4237250387,
     "trend_ma200_position": 0.0,
@@ -19,7 +19,7 @@
     "mr_zscore_reversal_3d": 0.0,
     "mr_rsi_extreme_uptrend": 0.0093909391,
     "sector_rotation_bias": 0.0,
-    "earnings_surprise_z": 0.2162342826,
+    "earnings_surprise_z": 0.0,
     "insider_activity_score": 0.0,
     "news_sentiment_7d": 0.043444229,
     "news_volume_spike": 0.0,
@@ -55,7 +55,7 @@
     "mr_zscore_reversal_3d": 0.0073260268,
     "mr_rsi_extreme_uptrend": 0.0,
     "sector_rotation_bias": 0.0047627217,
-    "earnings_surprise_z": 0.0574827118,
+    "earnings_surprise_z": 0.0,
     "insider_activity_score": 0.0,
     "news_sentiment_7d": 0.1945238441,
     "news_volume_spike": 0.0,
@@ -91,7 +91,7 @@
     "mr_zscore_reversal_3d": 0.0041509856,
     "mr_rsi_extreme_uptrend": 0.0,
     "sector_rotation_bias": 0.0,
-    "earnings_surprise_z": 0.0339686164,
+    "earnings_surprise_z": 0.0,
     "insider_activity_score": 0.0,
     "news_sentiment_7d": 0.0013156385,
     "news_volume_spike": 0.0,

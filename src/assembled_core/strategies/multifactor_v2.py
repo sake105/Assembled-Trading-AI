@@ -39,6 +39,7 @@ Selection: strategy.name = "multifactor_v2" in configs/app.yaml.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 from collections import OrderedDict
@@ -262,7 +263,7 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
     # --- Sector (18) ---
     "sector_rotation_bias": 0.04,
     # --- Earnings/Insider/Cluster (19-22) ---
-    "earnings_surprise_z": 0.02,  # was 0.03; -0.01 to fund new fundamental factors
+    "earnings_surprise_z": 0.00,  # zeroed 2026-06-01: free-feed ceiling (EPS estimates only cached for ~44 mega-caps → degenerate cross-section) + loader/wrapper schema bug left it dead. See docs/results + factor_weights_by_regime.json.
     "insider_activity_score": 0.00,  # zeroed 2026-05-22: all 59k rows = 'unknown'
     "insider_cluster_score": 0.02,  # NEW 2026-05-23: EDGAR cluster signal (active)
     "pead_sue_score": 0.03,  # NEW 2026-05-23: post-earnings drift (active)
@@ -286,8 +287,10 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
     "buyback_drift_score": 0.01,  # NEW 2026-05-23: corporate buyback drift (active)
     # NOTE: crash_probability_inverse is applied as a multiplicative scaler
     # on the final composite, not as an additive factor.
-    # Sum = 1.00  (TA=0.61, sector=0.04, earn/ins/cluster=0.07, news/macro=0.12,
-    #              intermarket=0.08, options=0.03, congress=0.00, geo=0.04, buyback=0.01)
+    # Sum = 0.98 (earnings_surprise_z zeroed 2026-06-01); composite renormalises by
+    #            the live-factor sum at scoring time, so sub-1.0 totals are safe.
+    #            (TA=0.61, sector=0.04, earn/ins/cluster=0.05, news/macro=0.12,
+    #             intermarket=0.08, options=0.03, congress=0.00, geo=0.04, buyback=0.01)
     # 2026-05-23: added insider_cluster_score+pead_sue_score+buyback_drift_score
     #             (all actively computed but absent from fallback dict — AF-003 fix).
     #             6pp redistributed from trend/vola/earnings/news/intermarket/geo.
@@ -558,16 +561,164 @@ def _compute_mr_rsi_extreme_uptrend(df: pd.DataFrame) -> pd.Series:
     return pd.Series(dtype=float)
 
 
+# ---------------------------------------------------------------------------
+# Sector-rotation price source (Factor 18)
+# ---------------------------------------------------------------------------
+# The factor needs the 8 SPDR sector ETFs + SPY. When the strategy universe
+# panel is stock-only (the common case) these ETFs are absent from `df`, so the
+# factor used to degrade silently to 0.0 (a dead 4%-weight factor). We now load
+# them from the free offline EOD store and slice to <= as_of (PIT) whenever the
+# panel lacks them.
+#
+# Live-safety: the offline store can be stale in live trading, so a freshness
+# guard returns 0.0 when the newest store bar is more than
+# SECTOR_STORE_STALE_DAYS behind as_of. Backtests (historical as_of inside the
+# store range) are unaffected.
+#
+# IMPORTANT honesty note: making this factor live unlocks *capability* only.
+# The production regime weights (configs/factor_weights_by_regime.json) assign
+# sector_rotation_bias ~0 (bull/bear/crisis = 0.0, sideways = 0.0048) because it
+# was a dead factor when those weights were fit. Real production contribution
+# stays ~0 until the regime weights are re-fit on the corrected factor panel.
+# The 0.04 DEFAULT_V2_WEIGHTS fallback does take effect when the regime file is
+# absent.
+
+SECTOR_STORE_STALE_DAYS = 7
+
+# One-shot guard so a permanently-broken offline sector store is observable in
+# live logs (E-025: silent degradation) without per-bar spam.
+_SECTOR_STORE_WARNED = False
+
+# Canonicalise GICS sector strings so SECTOR_NAMES values ("Technology",
+# "Healthcare") match security_meta.csv strings ("Information Technology",
+# "Health Care"). Without this, those two sectors silently never matched.
+_SECTOR_NAME_CANON: dict[str, str] = {
+    "technology": "technology",
+    "information technology": "technology",
+    "financials": "financials",
+    "financial": "financials",
+    "energy": "energy",
+    "healthcare": "healthcare",
+    "health care": "healthcare",
+    "industrials": "industrials",
+    "industrial": "industrials",
+    "utilities": "utilities",
+    "utility": "utilities",
+    "consumer staples": "consumer staples",
+    "consumer discretionary": "consumer discretionary",
+}
+
+
+def _canon_sector(name: object) -> str:
+    """Canonicalise a GICS sector string for cross-source matching."""
+    s = str(name).strip().lower()
+    return _SECTOR_NAME_CANON.get(s, s)
+
+
+def _to_naive_day(ts: object) -> pd.Timestamp:
+    """Coerce a timestamp to a tz-naive, normalised (midnight UTC) day."""
+    t = pd.Timestamp(ts)
+    if t.tzinfo is not None:
+        t = t.tz_convert("UTC").tz_localize(None)
+    return t.normalize()
+
+
+@functools.lru_cache(maxsize=1)
+def _load_sector_etf_store() -> pd.DataFrame:
+    """Load sector-ETF + SPY daily closes from the free offline EOD store.
+
+    Cached once per process (the offline store is static within a run).
+    Callers MUST slice to <= as_of before use (PIT). Returns a long-format
+    [timestamp, symbol, close] frame, or an empty frame on any failure.
+    """
+    try:
+        from src.assembled_core.data.prices_ingest import load_eod_prices
+        from src.assembled_core.signals.sector_rotation import SECTOR_ETFS
+
+        want = list(SECTOR_ETFS) + ["SPY"]
+        store = load_eod_prices(want)
+        if store is None or store.empty or "symbol" not in store.columns:
+            return pd.DataFrame(columns=["timestamp", "symbol", "close"])
+        keep = [c for c in ("timestamp", "symbol", "close") if c in store.columns]
+        return store[keep].copy()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("[MF-V2] sector ETF store load failed: %s", exc)
+        return pd.DataFrame(columns=["timestamp", "symbol", "close"])
+
+
+def _sector_prices_from_store(
+    as_of: pd.Timestamp | None,
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    """PIT-gated sector-ETF + SPY prices from the free offline EOD store.
+
+    Returns (sector_prices_long, spy_prices_long, available_sector_syms).
+    Rows are sliced to timestamp <= as_of (or the wall-clock day when as_of is
+    None). Returns empties / [] when the store is unavailable, has < 3 sector
+    ETFs, lacks SPY, or is stale relative to the anchor (newest bar >
+    SECTOR_STORE_STALE_DAYS behind — live-staleness guard).
+    """
+    from src.assembled_core.signals.sector_rotation import SECTOR_ETFS
+
+    empty: tuple[pd.DataFrame, pd.DataFrame, list[str]] = (
+        pd.DataFrame(),
+        pd.DataFrame(),
+        [],
+    )
+    store = _load_sector_etf_store()
+    if store.empty:
+        return empty
+
+    ts_day = (
+        pd.to_datetime(store["timestamp"], utc=True).dt.tz_localize(None).dt.normalize()
+    )
+    # PIT anchor: as_of when provided (backtest/walk-forward); otherwise the
+    # wall-clock day (live "now"). Either way the store is sliced to <= the
+    # anchor and the staleness guard applies, so a store that ever holds bars
+    # dated after the decision time cannot leak future prices (E-030 / E-002).
+    # Anchor in UTC to match the store's UTC-normalised days (avoids a
+    # local-vs-UTC day-boundary off-by-one in the slice/staleness guard).
+    as_of_day = (
+        _to_naive_day(as_of)
+        if as_of is not None
+        else _to_naive_day(pd.Timestamp.now(tz="UTC"))
+    )
+    mask = ts_day <= as_of_day
+    store = store[mask]
+    ts_day = ts_day[mask]
+    if store.empty:
+        return empty
+    # Live-staleness guard: refuse a stale offline store (fail to neutral 0.0,
+    # never a spurious tilt).
+    if (as_of_day - ts_day.max()).days > SECTOR_STORE_STALE_DAYS:
+        return empty
+
+    sector_syms = [e for e in SECTOR_ETFS if e in set(store["symbol"])]
+    if len(sector_syms) < 3:
+        return empty
+    sector_prices = store[store["symbol"].isin(sector_syms)].copy()
+    spy_prices = store[store["symbol"] == "SPY"].copy()
+    if spy_prices.empty:
+        return empty
+    return sector_prices, spy_prices, sector_syms
+
+
 def _compute_sector_rotation_bias(
     df: pd.DataFrame,
     latest_symbols: list[str],
     cfg: dict[str, Any],
+    as_of: pd.Timestamp | None = None,
 ) -> pd.Series:
     """Factor 18: Sector rotation bias per symbol.
 
     Maps each symbol to its GICS sector via security_meta.csv, then looks up
     the sector score from the sector_rotation module. Top-3 sectors get a
     boost (1.0), bottom-2 get penalty (-1.0), rest neutral (0.0).
+
+    Sector-ETF + SPY prices are taken from the in-panel price frame when
+    present; otherwise (stock-only universe) they are loaded from the free
+    offline EOD store, sliced to <= as_of (PIT-safe) with a live-staleness
+    guard. Sector/meta name strings are matched via canonicalisation
+    (e.g. "Information Technology" == "Technology").
     """
     try:
         meta_path = cfg.get("security_meta_path", "configs/security_meta.csv")
@@ -583,39 +734,65 @@ def _compute_sector_rotation_bias(
             compute_sector_scores,
         )
 
-        # Extract sector ETF prices from df if available
-        sector_syms = [s for s in SECTOR_ETFS if s in set(df["symbol"])]
-        if len(sector_syms) < 3:
-            return pd.Series(0.0, index=latest_symbols)
+        use_store = bool(cfg.get("sector_rotation_use_price_store", True))
 
-        sector_prices = df[df["symbol"].isin(sector_syms)].copy()
-        spy_prices = df[df["symbol"] == "SPY"].copy()
-        if spy_prices.empty:
+        # Sector-ETF + SPY prices: prefer in-panel, else PIT-gated free store.
+        panel_syms = set(df["symbol"]) if "symbol" in df.columns else set()
+        in_panel = [s for s in SECTOR_ETFS if s in panel_syms]
+        if len(in_panel) >= 3 and "SPY" in panel_syms:
+            sector_syms = in_panel
+            sector_prices = df[df["symbol"].isin(sector_syms)].copy()
+            spy_prices = df[df["symbol"] == "SPY"].copy()
+        elif use_store:
+            sector_prices, spy_prices, sector_syms = _sector_prices_from_store(as_of)
+            if len(sector_syms) < 3 or spy_prices.empty:
+                global _SECTOR_STORE_WARNED
+                if not _SECTOR_STORE_WARNED:
+                    logger.warning(
+                        "[MF-V2] sector_rotation_bias: offline sector-ETF store "
+                        "unavailable/insufficient (<3 ETFs or no SPY) at as_of=%s; "
+                        "factor neutral (0.0). Further warnings suppressed.",
+                        as_of,
+                    )
+                    _SECTOR_STORE_WARNED = True
+                return pd.Series(0.0, index=latest_symbols)
+        else:
             return pd.Series(0.0, index=latest_symbols)
 
         scores_df = compute_sector_scores(sector_prices, spy_prices)
         if scores_df.empty:
             return pd.Series(0.0, index=latest_symbols)
 
-        # Get latest row scores
+        # Latest-row scores (NaN-filtered — insufficient history → skip ETF).
+        # iloc[-1] is the as_of row of the PIT-sliced panel; a trailing all-NaN
+        # row simply drops every ETF below the >=5 threshold → neutral (safe).
         latest_scores = scores_df.iloc[-1]
-        etf_scores = {}
+        etf_scores: dict[str, float] = {}
         for etf in sector_syms:
             col = f"{etf}_score"
             if col in latest_scores.index:
-                etf_scores[etf] = float(latest_scores[col])
+                val = float(latest_scores[col])
+                if not np.isnan(val):
+                    etf_scores[etf] = val
 
-        if not etf_scores:
+        # Need >=5 distinct ETFs for a disjoint top-3 / bottom-2 partition; with
+        # fewer the rank buckets overlap and (top-checked-first) the penalty would
+        # be silently masked into a one-sided positive tilt -> fail neutral.
+        if len(etf_scores) < 5:
             return pd.Series(0.0, index=latest_symbols)
 
-        # Rank sectors: top 3 = +1, bottom 2 = -1, rest = 0
+        # Rank sectors: top 3 = +1, bottom 2 = -1, rest = 0 (canonical match).
+        # Subtract top from bottom so a canonical-name collision can never put a
+        # sector in both buckets.
         sorted_etfs = sorted(etf_scores, key=etf_scores.get, reverse=True)
-        top_sectors = {SECTOR_NAMES.get(e, "") for e in sorted_etfs[:3]}
-        bottom_sectors = {SECTOR_NAMES.get(e, "") for e in sorted_etfs[-2:]}
+        top_sectors = {_canon_sector(SECTOR_NAMES.get(e, "")) for e in sorted_etfs[:3]}
+        bottom_sectors = {
+            _canon_sector(SECTOR_NAMES.get(e, "")) for e in sorted_etfs[-2:]
+        } - top_sectors
 
-        result = {}
+        result: dict[str, float] = {}
         for sym in latest_symbols:
-            sector = sym_to_sector.get(sym, "")
+            sector = _canon_sector(sym_to_sector.get(sym, ""))
             if sector in top_sectors:
                 result[sym] = 1.0
             elif sector in bottom_sectors:
@@ -1290,7 +1467,9 @@ def compute_signals(
     )
 
     # Factor 18: Sector rotation
-    sector_bias = _compute_sector_rotation_bias(df, latest_symbols, cfg)
+    sector_bias = _compute_sector_rotation_bias(
+        df, latest_symbols, cfg, as_of=_bar_as_of
+    )
     scores["sector_rotation_bias"] = (
         scores["symbol"].map(sector_bias).fillna(0.0) if not sector_bias.empty else 0.0
     )
