@@ -332,8 +332,9 @@ präzisiert sie nach forensischer Tiefenprüfung. Die ältere Tabellen-Einstufun
 AKTIVIERBAR" war zu optimistisch (siehe Tier A: Code-Aktivierung ≠ Produktions-Beitrag).
 
 Code-/Config-Stand dieser Closure: `multifactor_v2.py`, `configs/factor_weights_by_regime.json`,
-`scripts/train_regime_weights.py`, zugehörige Tests editiert. **Nur lokal geprüft (51 gezielte Tests
-+ Smoke), CI unbestätigt. Kein Commit zum Zeitpunkt dieser Doku.**
+BEIDE Trainer (`scripts/train_regime_weights.py` Synthetik-Stub + `scripts/training/train_regime_weights.py`
+real-IC-Trainer), zugehörige Tests editiert. **Nur lokal geprüft (35 gezielte Tests + Trainer-Smoke),
+CI unbestätigt. Committet in `2f72a250` (7 Dateien).**
 
 ### Tier A — `sector_rotation_bias`: Bug behoben, aber Produktions-Beitrag bleibt ~0 bis Re-Fit
 
@@ -378,9 +379,11 @@ Code-/Config-Stand dieser Closure: `multifactor_v2.py`, `configs/factor_weights_
   Scoring; zusätzlich trägt `weight = 0.0` exakt 0.0 zum Composite bei und addiert 0.0 zur
   `total_weight` (Renorm-sicher über BEIDE Konsumpfade). Das Nullen ändert kein Laufzeitverhalten —
   es entfernt eine **irreführende 21.6%-Bull-Gewichtung** und eine **Reaktivierungs-Landmine**.
-- **Reaktivierungs-Schutz:** `scripts/train_regime_weights.py` force-zeroed `earnings_surprise_z`
-  (+ `insider_activity_score`, `congress_activity`) jetzt **nach** dem IC-Fit
-  (`INTENTIONALLY_ZEROED_FACTORS`), damit ein Retrain den Faktor nicht still wieder reaktiviert.
+- **Reaktivierungs-Schutz:** BEIDE Trainer — der Synthetik-Stub `scripts/train_regime_weights.py`
+  **und** der real-IC-Trainer `scripts/training/train_regime_weights.py` (der bei einem echten
+  Re-Fit läuft) — force-zeroen `earnings_surprise_z` (+ `insider_activity_score`,
+  `congress_activity`) jetzt **nach** dem IC-Fit (`INTENTIONALLY_ZEROED_FACTORS`, bare- und
+  `ic_`-Prefix-tolerant), damit ein Retrain den Faktor nicht still wieder reaktiviert.
 - **Free-Feed-Decke? JA, real.** Auf dem kostenlosen Feed „wird das nichts": die ~44-Mega-Cap-
   Abdeckung ist ein Feed-Ceiling, kein Code-Bug. Entwicklungspfad existiert **nur** mit einem
   **bezahlten EPS-Estimate-Feed** (siehe Follow-up iii).
@@ -396,8 +399,12 @@ gegen die TA-only-Baseline.
 ### Offene Entwicklungspfade (als separate Follow-ups ausgelagert)
 
 1. **Regime-Gewichts-Re-Fit für `sector_rotation_bias`** auf dem korrigierten Panel via
-   `scripts/train_regime_weights.py`; OOS-Delta gegen TA-only **messen, bevor** der Faktor scharf
-   gestellt wird. (Limiter Tier A, lösbar ohne Bezahl-Daten.)
+   `scripts/training/train_regime_weights.py` (real-IC-Trainer); blockiert: die vorhandenen
+   IC-Timeseries-Parquets (`output/factor_analysis/ic_timeseries/`) stammen von Apr-12, **vor** dem
+   Sektor-Fix → IC-Daten müssen zuerst auf dem korrigierten Panel neu erzeugt werden. Außerdem
+   emittiert der real-Trainer `ic_`-prefixed Keys vs. bare-Key-Konsument + `KNOWN_REGIMES` ohne
+   „crisis" (pre-existing Drift, separat). OOS-Delta gegen TA-only **messen, bevor** der Faktor
+   scharf gestellt wird. (Limiter Tier A, lösbar ohne Bezahl-Daten.)
 2. **Live-Frische des Offline-Sektor-Stores:** Sektor-ETF- + SPY-Closes in den täglichen EOD-Ingest
    aufnehmen, damit der Live-Pfad innerhalb `SECTOR_STORE_STALE_DAYS` bleibt. (Limiter Tier A.)
 3. **`earnings_surprise_z`-Coverage über ~44 Mega-Caps hinaus:** nur mit **bezahltem** EPS-Estimate-
