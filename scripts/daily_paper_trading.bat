@@ -35,6 +35,18 @@ if errorlevel 1 (
     echo [WARN] Price cache prewarm failed — proceeding with existing cache >> "%LOGFILE%" 2>&1
 )
 
+REM Step 1b: Refresh sector-ETF + SPY closes in daily.parquet (yfinance, ~9 syms).
+REM The sector ETFs (XLK/XLF/XLE/XLV/XLI/XLU/XLP/XLY) are NOT in configs/watchlist.txt
+REM and not reliably in the master panel, so Steps 0/1 never refresh them. They go
+REM stale and the live multifactor_v2 sector_rotation_bias factor neutralises to 0.0
+REM via its 7-day staleness guard. This step keeps them fresh so the factor computes.
+REM Today's (partial) bar is excluded for PIT safety. No-op / WARN on yfinance outage.
+echo [%date% %time%] Refreshing sector-ETF + SPY cache... >> "%LOGFILE%" 2>&1
+.venv\Scripts\python.exe scripts\ops\refresh_sector_etf_cache.py >> "%LOGFILE%" 2>&1
+if errorlevel 1 (
+    echo [WARN] sector-ETF cache refresh failed — sector_rotation_bias may neutralise >> "%LOGFILE%" 2>&1
+)
+
 REM Step 2: Run one pilot day via the pilot script (NOT run_live_paper.py directly).
 REM This preserves the pilot manifest day-count + GO/NO-GO tracking.
 echo [%date% %time%] Running paper pilot --run-day... >> "%LOGFILE%" 2>&1
