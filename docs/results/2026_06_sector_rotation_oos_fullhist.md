@@ -3,6 +3,8 @@
 Run date (UTC): 2026-06-01  
 **Status: HISTORICAL-ROBUSTNESS EXTENSION — NOT the production verdict.** The live factor reads `output/aggregates/daily.parquet` (Alpaca era, 2018+); the binding falsification is `docs/results/2026_06_sector_rotation_oos.md`. This study sources a DIFFERENT feed (yfinance) and DEEPER history purely to test whether that REJECTED verdict is an artifact of the short 2018+ window or of raw (dividend-omitted) close.  
 
+> **CORRECTION (2026-06-01) — price-type label.** A later feed-divergence check (`docs/results/2026_06_sector_fullhist_feed_divergence.md`) found that the live `daily.parquet` `close` is **total-return (split+dividend) adjusted**, not raw: the live close matches yfinance **Adj Close** to ~0.00 bps median across all 9 symbols. So the `adj` (total-return) mode below — not `raw` — is the true live-methodology match, and the live store's adjusted prices agree with this study's yfinance Adj Close almost exactly. This changes wording only: **all books stay REJECTED in both modes** (an adjusted/total-return book still fails to beat SPY on a deflated, significant basis). The generating script still labels the `raw` mode "matches live methodology"; that label is superseded here pending a cosmetic follow-up.
+
 Data: yfinance — full Select-Sector-SPDR history, raw Close + Adj Close  
 Universe: 8 SPDR sector ETFs ['XLK', 'XLF', 'XLE', 'XLV', 'XLI', 'XLU', 'XLP', 'XLY'] + SPY (benchmark/RS factor)  
 History: 7145 bars 1998-01-02 → 2026-05-29 (~28y; vs the live store's ~8y 2018+)  

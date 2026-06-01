@@ -345,6 +345,36 @@ def _prospects(edges: dict, spy_edge: dict) -> list[str]:
     ]
 
 
+def _prospects_across_modes(by_mode: dict) -> list[str]:
+    """Flatten per-price-mode PROSPECTs into 'pricemode:book' tags across all modes."""
+    tags: list[str] = []
+    for pm in PRICE_MODES:
+        for m in _prospects(by_mode[pm]["edges"], by_mode[pm]["spy_edge"]):
+            tags.append(f"{pm}:{m}")
+    return tags
+
+
+def _overall_verdict(prospects_any: list[str]) -> str:
+    """Overall verdict paragraph. Pure function of the PROSPECT tag list so the
+    (normally dead) PROSPECT branch is unit-testable without a full WF run."""
+    if prospects_any:
+        return (
+            f"**{len(prospects_any)} book/price-mode combination(s) show a PROSPECT** "
+            f"({', '.join(prospects_any)}). This would WEAKEN the live-store rejection and "
+            f"warrant a deeper look — but it is NOT a production claim: it is on a different "
+            f"feed (yfinance) and still needs CI validation and a live-store re-confirmation "
+            f"before any non-zero `sector_rotation_bias` weight."
+        )
+    return (
+        "**ALL books REJECTED in BOTH price modes** — neither deeper history (back to the "
+        "1998 SPDR inception, ~3.5x the live window) NOR total-return (adjusted) prices "
+        "reveal a multiple-testing-deflated, statistically-significant edge over SPY. The "
+        "live-store 2018+ rejection (docs/results/2026_06_sector_rotation_oos.md) is "
+        "therefore NOT an artifact of the short window or the raw-close dividend omission. "
+        "The production regime weight for `sector_rotation_bias` stays ~0."
+    )
+
+
 def _write_report(by_mode: dict) -> None:
     adj = by_mode["adj"]
     raw = by_mode["raw"]
@@ -366,28 +396,8 @@ def _write_report(by_mode: dict) -> None:
         )
     )
 
-    prospects_any = []
-    for pm in PRICE_MODES:
-        ps = _prospects(by_mode[pm]["edges"], by_mode[pm]["spy_edge"])
-        prospects_any.extend(f"{pm}:{m}" for m in ps)
-
-    if prospects_any:
-        overall = (
-            f"**{len(prospects_any)} book/price-mode combination(s) show a PROSPECT** "
-            f"({', '.join(prospects_any)}). This would WEAKEN the live-store rejection and "
-            f"warrant a deeper look — but it is NOT a production claim: it is on a different "
-            f"feed (yfinance) and still needs CI validation and a live-store re-confirmation "
-            f"before any non-zero `sector_rotation_bias` weight."
-        )
-    else:
-        overall = (
-            "**ALL books REJECTED in BOTH price modes** — neither deeper history (back to the "
-            "1998 SPDR inception, ~3.5x the live window) NOR total-return (adjusted) prices "
-            "reveal a multiple-testing-deflated, statistically-significant edge over SPY. The "
-            "live-store 2018+ rejection (docs/results/2026_06_sector_rotation_oos.md) is "
-            "therefore NOT an artifact of the short window or the raw-close dividend omission. "
-            "The production regime weight for `sector_rotation_bias` stays ~0."
-        )
+    prospects_any = _prospects_across_modes(by_mode)
+    overall = _overall_verdict(prospects_any)
 
     parts: list[str] = [
         "# sector_rotation_bias — Full-History OOS Robustness (1998–2026, total-return + raw)",
