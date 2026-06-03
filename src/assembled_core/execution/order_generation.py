@@ -177,7 +177,10 @@ def generate_orders_from_targets(
 
     Args:
         target_positions: DataFrame with columns: symbol, target_weight, target_qty
-            (from portfolio.position_sizing.compute_target_positions)
+            (from portfolio.position_sizing.compute_target_positions). NOTE: target_qty
+            here is NOTIONAL (= target_weight * capital), NOT a share count — it is the
+            value-identical alias of target_notional. This function converts it to
+            shares via shares = target_notional / price below.
         current_positions: Optional DataFrame with columns: symbol, qty
             If None, assumes all positions are zero (starting from scratch)
         timestamp: Order timestamp (default: current UTC time)
@@ -256,9 +259,10 @@ def generate_orders_from_targets(
                         .reset_index(drop=True)
                     )
                 try:
-                    # Convert target_qty (notional) to shares before fast-path
+                    # Convert target_qty (NOTIONAL) to shares before fast-path.
                     # Fast-path expects qty in shares, but compute_target_positions
-                    # outputs notional (weight * capital).
+                    # outputs notional (weight * capital) — target_qty is the
+                    # value-identical alias of target_notional, NOT a share count.
                     fp_target = target_sorted.copy()
                     if prices_latest is not None and not prices_latest.empty:
                         price_map = dict(

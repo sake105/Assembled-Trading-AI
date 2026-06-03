@@ -9,6 +9,21 @@ Strategies:
 - Kelly Criterion: Optimal sizing based on win rate and payoff ratio
 - Risk Parity: Inverse-volatility weighting for equal risk contribution
 - Volatility-scaled: ATR or realized-vol-based position scaling
+
+Emitted notional columns (``target_notional`` / ``target_qty``):
+- ``target_notional`` is the position-sizing NOTIONAL value at EMIT time
+  (= ``target_weight * total_capital``). It is a cash/notional amount, NOT a
+  share count — no prices are available in this module, so shares cannot be
+  computed here. Downstream order generation converts it via
+  ``shares = target_notional / price``.
+- ``target_qty`` is retained as a VALUE-IDENTICAL ALIAS of ``target_notional``
+  at emit time, for the established pipeline / order-generation notional-column
+  contract. ``target_qty`` is also the column the live pipeline overlays
+  (``_tc_sizing``) mutate in place, so AFTER the pipeline ``target_qty`` is the
+  LIVE notional column consumers read.
+- ``target_notional`` is therefore an emit-time honest-name marker only; it is
+  NOT maintained through the pipeline overlays. Do NOT read ``target_notional``
+  after position_sizing emit — it can hold a stale pre-overlay value downstream.
 """
 
 from __future__ import annotations
@@ -43,16 +58,31 @@ def compute_target_positions(
         equal_weight: If True, use equal weights (1/N). If False, use score-based weights (default: True)
 
     Returns:
-        DataFrame with columns: symbol, target_weight, target_qty
+        DataFrame with columns: symbol, target_weight, target_notional, target_qty
         target_weight: Target weight (0.0 to 1.0)
-        target_qty: Target quantity (in units, if total_capital represents actual capital)
+        target_notional: EMIT-TIME NOTIONAL value (= target_weight * total_capital).
+            This is a cash/notional amount, NOT a share count. No prices are
+            available in this function, so shares cannot be computed here —
+            downstream order generation
+            (execution.order_generation.generate_orders_from_targets) converts this
+            notional to shares via shares = target_notional / price. It is an
+            emit-time honest-name marker only and is NOT maintained through the live
+            pipeline overlays (_tc_sizing) — do NOT read target_notional after emit;
+            use target_qty for the post-pipeline live notional.
+        target_qty: VALUE-IDENTICAL ALIAS of target_notional at emit time, retained
+            for the established pipeline / order-generation notional-column contract.
+            It is the column the live pipeline overlays (_tc_sizing) mutate in place,
+            so target_qty is the LIVE notional column consumers read after the
+            pipeline. It is a notional, NOT shares — despite the name.
         Sorted by symbol
 
     Raises:
         ValueError: If signals DataFrame is empty or missing required columns
     """
     if signals.empty:
-        return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_notional", "target_qty"]
+        )
 
     # Ensure required columns
     required = ["symbol", "direction"]
@@ -66,7 +96,9 @@ def compute_target_positions(
     long_signals = signals[signals["direction"] == "LONG"].copy()
 
     if long_signals.empty:
-        return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_notional", "target_qty"]
+        )
 
     # Select top N by score if specified
     if top_n is not None and top_n > 0:
@@ -81,7 +113,9 @@ def compute_target_positions(
     n_positions = len(long_signals)
 
     if n_positions == 0:
-        return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_notional", "target_qty"]
+        )
 
     if equal_weight:
         # Equal weighting: 1/N for each position
@@ -99,14 +133,21 @@ def compute_target_positions(
             # Fallback to equal weight if no scores
             long_signals["target_weight"] = 1.0 / n_positions
 
-    # Compute target quantities (if total_capital represents actual capital)
-    # For normalized weights (total_capital=1.0), target_qty = target_weight
-    # For actual capital, target_qty would need current prices (not available here)
-    # So we set target_qty = target_weight * total_capital as a placeholder
-    long_signals["target_qty"] = long_signals["target_weight"] * total_capital
+    # Compute EMIT-TIME NOTIONAL (= target_weight * total_capital). This is a cash
+    # amount, NOT a share count: no prices are available here, so shares cannot be
+    # computed. Downstream order generation converts notional -> shares
+    # (shares = notional / price). target_qty is the value-identical alias emitted for
+    # the pipeline's established notional-column contract AND is the column the live
+    # pipeline overlays (_tc_sizing) mutate in place — so target_qty is the live
+    # notional downstream. target_notional is an emit-time marker only and is NOT
+    # maintained through the overlays; it is notional, NOT shares.
+    long_signals["target_notional"] = long_signals["target_weight"] * total_capital
+    long_signals["target_qty"] = long_signals["target_notional"]
 
     # Select and sort output columns
-    result = long_signals[["symbol", "target_weight", "target_qty"]].copy()
+    result = long_signals[
+        ["symbol", "target_weight", "target_notional", "target_qty"]
+    ].copy()
     result = result.sort_values("symbol").reset_index(drop=True)
 
     return result
@@ -132,7 +173,10 @@ def compute_target_positions_from_trend_signals(
         min_score: Minimum score threshold (default: 0.0)
 
     Returns:
-        DataFrame with columns: symbol, target_weight, target_qty
+        DataFrame with columns: symbol, target_weight, target_notional, target_qty
+        (emit-time target_notional = target_weight * total_capital is NOTIONAL, not
+        shares; target_qty is the value-identical emit-time alias and the live
+        post-pipeline notional column — see compute_target_positions).
     """
     # Filter by minimum score
     if "score" in trend_signals.columns:
@@ -174,17 +218,32 @@ def compute_kelly_weights(
         top_n: Maximum number of positions
 
     Returns:
-        DataFrame with columns: symbol, target_weight, target_qty, kelly_raw
+        DataFrame with columns: symbol, target_weight, target_notional, target_qty,
+        kelly_raw (emit-time target_notional = target_weight * total_capital is
+        NOTIONAL, not shares; target_qty is the value-identical emit-time alias and
+        the live post-pipeline notional column — see compute_target_positions).
     """
     if signals.empty:
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "kelly_raw"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "kelly_raw",
+            ]
         )
 
     long_signals = signals[signals["direction"] == "LONG"].copy()
     if long_signals.empty:
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "kelly_raw"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "kelly_raw",
+            ]
         )
 
     # Select top N
@@ -244,8 +303,11 @@ def compute_kelly_weights(
     else:
         result["target_weight"] = result["kelly_frac"]
 
-    result["target_qty"] = result["target_weight"] * total_capital
-    result = result[["symbol", "target_weight", "target_qty", "kelly_raw"]]
+    result["target_notional"] = result["target_weight"] * total_capital
+    result["target_qty"] = result["target_notional"]
+    result = result[
+        ["symbol", "target_weight", "target_notional", "target_qty", "kelly_raw"]
+    ]
     return result.sort_values("symbol").reset_index(drop=True)
 
 
@@ -269,17 +331,32 @@ def compute_risk_parity_weights(
         max_weight: Maximum weight per position (default: 0.30)
 
     Returns:
-        DataFrame with columns: symbol, target_weight, target_qty, volatility
+        DataFrame with columns: symbol, target_weight, target_notional, target_qty,
+        volatility (emit-time target_notional = target_weight * total_capital is
+        NOTIONAL, not shares; target_qty is the value-identical emit-time alias and
+        the live post-pipeline notional column — see compute_target_positions).
     """
     if signals.empty:
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "volatility"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "volatility",
+            ]
         )
 
     long_signals = signals[signals["direction"] == "LONG"].copy()
     if long_signals.empty:
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "volatility"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "volatility",
+            ]
         )
 
     if top_n is not None and "score" in long_signals.columns:
@@ -311,7 +388,13 @@ def compute_risk_parity_weights(
 
     if not valid_mask.any():
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "volatility"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "volatility",
+            ]
         )
 
     result = pd.DataFrame(
@@ -335,8 +418,11 @@ def compute_risk_parity_weights(
         n = len(result)
         result["target_weight"] = 1.0 / n if n > 0 else 0.0
 
-    result["target_qty"] = result["target_weight"] * total_capital
-    result = result[["symbol", "target_weight", "target_qty", "volatility"]]
+    result["target_notional"] = result["target_weight"] * total_capital
+    result["target_qty"] = result["target_notional"]
+    result = result[
+        ["symbol", "target_weight", "target_notional", "target_qty", "volatility"]
+    ]
     return result.sort_values("symbol").reset_index(drop=True)
 
 
@@ -364,17 +450,32 @@ def compute_vol_scaled_weights(
         max_weight: Maximum weight per position (default: 0.30)
 
     Returns:
-        DataFrame with columns: symbol, target_weight, target_qty, volatility
+        DataFrame with columns: symbol, target_weight, target_notional, target_qty,
+        volatility (emit-time target_notional = target_weight * total_capital is
+        NOTIONAL, not shares; target_qty is the value-identical emit-time alias and
+        the live post-pipeline notional column — see compute_target_positions).
     """
     if signals.empty:
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "volatility"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "volatility",
+            ]
         )
 
     long_signals = signals[signals["direction"] == "LONG"].copy()
     if long_signals.empty:
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "volatility"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "volatility",
+            ]
         )
 
     if top_n is not None and "score" in long_signals.columns:
@@ -405,7 +506,13 @@ def compute_vol_scaled_weights(
 
     if not valid_mask.any():
         return pd.DataFrame(
-            columns=["symbol", "target_weight", "target_qty", "volatility"]
+            columns=[
+                "symbol",
+                "target_weight",
+                "target_notional",
+                "target_qty",
+                "volatility",
+            ]
         )
 
     vols_valid = vol_mapped[valid_mask]
@@ -424,8 +531,11 @@ def compute_vol_scaled_weights(
     if total_w > 1.0:
         result["target_weight"] = result["target_weight"] / total_w
 
-    result["target_qty"] = result["target_weight"] * total_capital
-    result = result[["symbol", "target_weight", "target_qty", "volatility"]]
+    result["target_notional"] = result["target_weight"] * total_capital
+    result["target_qty"] = result["target_notional"]
+    result = result[
+        ["symbol", "target_weight", "target_notional", "target_qty", "volatility"]
+    ]
     return result.sort_values("symbol").reset_index(drop=True)
 
 
@@ -711,8 +821,16 @@ def apply_news_sentiment_weight_adjustment(
         total_w = result["target_weight"].sum()
         if total_w > 1e-9:
             result["target_weight"] = result["target_weight"] / total_w
-        # Distribute old total qty proportionally to new weights (weight × qty is dimensionally wrong)
-        if "target_qty" in result.columns:
+        # Distribute old total notional proportionally to new weights
+        # (weight × notional is dimensionally wrong). Keep target_qty alias in sync.
+        if "target_notional" in result.columns:
+            old_notional_sum = result["target_notional"].sum()
+            result["target_notional"] = result["target_weight"] * (
+                old_notional_sum if old_notional_sum > 1e-9 else 1.0
+            )
+            if "target_qty" in result.columns:
+                result["target_qty"] = result["target_notional"]
+        elif "target_qty" in result.columns:
             old_qty_sum = result["target_qty"].sum()
             result["target_qty"] = result["target_weight"] * (
                 old_qty_sum if old_qty_sum > 1e-9 else 1.0
@@ -788,9 +906,12 @@ def compute_target_positions_with_smoothing(
     # Re-apply smoothed weights back to result
     result = result.copy()
     result["target_weight"] = result[sym_col].map(smoothed).fillna(0.0).values
+    # Re-scale notional proportional to new weight, preserving capital scaling.
+    # Base function: target_notional = target_weight * total_capital. target_qty is
+    # the value-identical alias and is kept in sync.
+    if "target_notional" in result.columns:
+        result["target_notional"] = result["target_weight"] * total_capital
     if "target_qty" in result.columns:
-        # Re-scale qty proportional to new weight, preserving capital scaling.
-        # Base function: target_qty = target_weight * total_capital (line 103).
         result["target_qty"] = result["target_weight"] * total_capital
 
     return result

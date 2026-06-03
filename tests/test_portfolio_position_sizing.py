@@ -80,7 +80,15 @@ class TestComputeTargetPositions:
         result = compute_target_positions(empty_signals)
 
         assert result.empty
-        assert list(result.columns) == ["symbol", "target_weight", "target_qty"]
+        # B9b: target_notional is the emit-time notional alias of target_qty (value-
+        # identical at emit; target_qty is the live post-pipeline notional column).
+        # Additive, not a behaviour change.
+        assert list(result.columns) == [
+            "symbol",
+            "target_weight",
+            "target_notional",
+            "target_qty",
+        ]
 
     def test_compute_target_positions_no_long_signals(self):
         """Test that signals with no LONG direction return empty DataFrame."""
