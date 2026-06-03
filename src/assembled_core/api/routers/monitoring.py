@@ -225,7 +225,10 @@ def get_qa_status_summary(
         raise
     except Exception as e:
         logger.error(f"Error computing QA status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error computing QA status: {e}")
+        # A27: generic caller-facing detail; real exception logged above.
+        raise HTTPException(
+            status_code=500, detail="internal error computing QA status"
+        )
 
 
 @router.get("/monitoring/risk_status", response_model=RiskStatusSummary)
@@ -302,7 +305,10 @@ def get_risk_status_summary(
         raise
     except Exception as e:
         logger.error(f"Error computing risk status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error computing risk status: {e}")
+        # A27: generic caller-facing detail; real exception logged above.
+        raise HTTPException(
+            status_code=500, detail="internal error computing risk status"
+        )
 
 
 @router.get("/monitoring/drift_status", response_model=DriftStatusSummary)
@@ -414,8 +420,9 @@ def get_drift_status_summary(
         raise
     except Exception as e:
         logger.error(f"Error computing drift status: {e}", exc_info=True)
+        # A27: generic caller-facing detail; real exception logged above.
         raise HTTPException(
-            status_code=500, detail=f"Error computing drift status: {e}"
+            status_code=500, detail="internal error computing drift status"
         )
 
 
@@ -483,7 +490,10 @@ def get_portfolio_status(
         }
     except Exception as exc:
         logger.error("Error fetching portfolio status: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        # A27: generic caller-facing detail; real exception logged above.
+        raise HTTPException(
+            status_code=500, detail="internal error fetching portfolio status"
+        )
 
 
 @router.get("/monitoring/regime")
@@ -542,9 +552,16 @@ def get_regime_status(
             "message": "no regime_state_*.json files in output_dir",
             "last_run": None,
         }
+    except HTTPException:
+        # The intentional 503 (output_dir missing) must survive the broad
+        # except below — otherwise it is silently reconverted to a generic 500.
+        raise
     except Exception as exc:
         logger.error("Error fetching regime status: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        # A27: generic caller-facing detail; real exception logged above.
+        raise HTTPException(
+            status_code=500, detail="internal error fetching regime status"
+        )
 
 
 @router.get("/monitoring/alerts")
@@ -709,7 +726,10 @@ def get_signal_scores(
         }
     except Exception as exc:
         logger.error("Error fetching signal scores: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        # A27: generic caller-facing detail; real exception logged above.
+        raise HTTPException(
+            status_code=500, detail="internal error fetching signal scores"
+        )
 
 
 @router.get("/monitoring/data-quality")
@@ -753,4 +773,7 @@ def get_data_quality(
         }
     except Exception as exc:
         logger.error("Error fetching data quality: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        # A27: generic caller-facing detail; real exception logged above.
+        raise HTTPException(
+            status_code=500, detail="internal error fetching data quality"
+        )

@@ -13,9 +13,11 @@ from src.assembled_core.api.models import (
     OmsRoute,
     OrderSide,
 )
-from src.assembled_core.api.routers.paper_trading import _engine
+from src.assembled_core.api.routers.paper_trading import _engine, _engine_lock
+from src.assembled_core.logging_utils import get_logger
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 def _convert_paper_order_to_oms_view(order) -> OmsOrderView:
@@ -60,8 +62,12 @@ def get_oms_blotter(
         raise HTTPException(status_code=400, detail="limit must be >= 0")
 
     try:
-        # Get all orders from paper trading engine
-        all_orders = _engine.list_orders(limit=None)  # Get all orders
+        # Get all orders from paper trading engine.
+        # A28: serialize the engine read via the same RLock paper_trading uses
+        # for all _engine access (its F-C-2 fix). Hold the lock ONLY around the
+        # read so a concurrent POST/reset cannot mutate engine state mid-iteration.
+        with _engine_lock:
+            all_orders = _engine.list_orders(limit=None)  # Get all orders
 
         # Convert to OMS view
         blotter_orders = [
@@ -97,7 +103,9 @@ def get_oms_blotter(
         return blotter_orders
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving blotter: {e}")
+        # A27: do not reflect internal exception text to anonymous callers.
+        logger.error("Error retrieving blotter: %s", e)
+        raise HTTPException(status_code=500, detail="internal error retrieving blotter")
 
 
 @router.get("/executions", response_model=list[OmsExecution])
@@ -122,8 +130,10 @@ def get_oms_executions(
         raise HTTPException(status_code=400, detail="limit must be >= 0")
 
     try:
-        # Get all orders from paper trading engine
-        all_orders = _engine.list_orders(limit=None)  # Get all orders
+        # Get all orders from paper trading engine.
+        # A28: serialize the engine read via the shared RLock (see get_oms_blotter).
+        with _engine_lock:
+            all_orders = _engine.list_orders(limit=None)  # Get all orders
 
         # Filter to only FILLED orders
         filled_orders = [order for order in all_orders if order.status == "FILLED"]
@@ -165,7 +175,11 @@ def get_oms_executions(
         return executions
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving executions: {e}")
+        # A27: do not reflect internal exception text to anonymous callers.
+        logger.error("Error retrieving executions: %s", e)
+        raise HTTPException(
+            status_code=500, detail="internal error retrieving executions"
+        )
 
 
 @router.get("/routes", response_model=list[OmsRoute])
