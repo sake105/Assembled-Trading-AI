@@ -28,11 +28,16 @@ from src.assembled_core.accounting.ledger_store import (
     store_ledger_events_parquet,
 )
 from src.assembled_core.accounting.position_engine import build_positions_from_ledger
-from src.assembled_core.accounting.reconciliation import reconcile_ledger_vs_broker
+from src.assembled_core.accounting.reconciliation import (
+    ReconcileSLO,
+    evaluate_reconcile_slo,
+    reconcile_ledger_vs_broker,
+)
 from src.assembled_core.accounting.reconciliation_report import (
     write_reconcile_report_csv,
     write_reconcile_report_json,
 )
+from src.assembled_core.errors import ReconciliationError
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +55,8 @@ def build_ledger_from_trades(
     write_paper_broker_snapshot: bool = False,
     broker_snapshot_run_id: str | None = None,
     write_evidence_pack: bool = False,
+    is_backtest: bool = True,
+    reconcile_slo: ReconcileSLO | None = None,
 ) -> dict[str, Any]:
     """Build ledger from orders and trades, store events, compute positions, and reconcile.
 
@@ -69,6 +76,12 @@ def build_ledger_from_trades(
         write_paper_broker_snapshot: If True, write paper broker view as snapshot after computation
         broker_snapshot_run_id: Optional run_id for broker snapshot (default: run_id)
         write_evidence_pack: If True, create evidence pack (ZIP + manifest) after evidence index write
+        is_backtest: If True (default — SAFE), reconciliation SLO failures are
+            classified, surfaced and ERROR-logged but NEVER escalated (no raise,
+            no state change), per E-035 backtest-safety. Only live/paper callers
+            should pass ``is_backtest=False`` to enable fail-closed escalation.
+            Defaulting to True means an unknown mode never escalates.
+        reconcile_slo: Optional SLO thresholds; defaults to ``ReconcileSLO()``.
 
     Returns:
         Dictionary with:
@@ -78,7 +91,18 @@ def build_ledger_from_trades(
         - reconciliation_result: Reconciliation result dict (if broker snapshot available)
         - reconcile_report_path: Path to reconciliation report (if reconciliation performed)
         - reconciliation_ok: bool (True if reconciliation passed or not performed)
+        - reconciliation_severity: SLO severity in {"ok","warn","fail"} or None
+        - reconciliation_violations: list of SLO violation dicts (may be empty)
+        - reconciliation_blocked: bool — True iff a live/paper SLO "fail" was
+          detected (book must not keep trading); also signalled by raising
+          ReconciliationError after the report is written.
         - broker_snapshot_path: Path to broker snapshot directory (if written or used)
+
+    Raises:
+        ReconciliationError: If a reconciliation SLO "fail" is detected AND
+            ``is_backtest`` is False (live/paper). Raised AFTER the reconciliation
+            report is written so the failure is recorded in the EOD pack. Never
+            raised in backtest mode.
     """
     # Normalize as_of_date
     if as_of_date is None:
@@ -159,7 +183,12 @@ def build_ledger_from_trades(
     reconciliation_result = None
     reconcile_report_path = None
     reconciliation_ok = True
+    reconciliation_severity = None
+    reconciliation_violations: list[dict] = []
+    reconciliation_blocked = False
     broker_snapshot_path = None
+    # Deferred so the report is written BEFORE we escalate (fail-closed).
+    pending_reconcile_error: ReconciliationError | None = None
 
     # Decision logic (outside try/except so ValueError for "require" propagates)
     logger.info(
@@ -297,8 +326,119 @@ def build_ledger_from_trades(
         logger.info(f"Reconciliation report written: {reconcile_report_path}")
 
     except Exception as e:
+        # Broad guard for the report-WRITING path only (reconcile compute + CSV/
+        # JSON report). The SLO classification + fail-closed escalation lives in
+        # its OWN try/except below so a classifier crash can never be swallowed
+        # here into a silent fail-open. If the report path itself fails in
+        # live/paper we still escalate fail-closed (we could not even produce a
+        # clean reconcile), rather than continuing silently.
         logger.warning(f"Reconciliation failed: {e}", exc_info=True)
         reconciliation_ok = False
+        if not is_backtest:
+            reconciliation_blocked = True
+            pending_reconcile_error = ReconciliationError(
+                "Ledger-vs-broker reconciliation report path failed in live/paper "
+                f"mode — failing closed: {e}"
+            )
+
+    # ── B-acct-1: route the result through the SLO classifier (fail-closed) ──
+    # The plain reconcile_ledger_vs_broker(fail_fast=False) only logs a WARNING on
+    # drift; the book would keep trading next cycle. We grade the drift against
+    # ReconcileSLO thresholds and, in LIVE/PAPER mode only, escalate a hard "fail"
+    # so a drifting book cannot keep trading.
+    #
+    # F2 fix: this verdict is computed in its OWN try/except, NOT inside the broad
+    # report-writing try above. A crash in the classifier (alert import error, inf
+    # interaction, frame edge) must itself FAIL CLOSED in live/paper — never be
+    # swallowed into reconciliation_ok=False with no escalation (the exact
+    # fail-open gap this batch closes). Only attempt classification when a reconcile
+    # result actually exists (the report path above may have failed before it was
+    # produced).
+    if reconciliation_result is not None and pending_reconcile_error is None:
+        try:
+            # max_qty_diff: largest per-symbol share-count divergence.
+            # position_diffs_df only lists symbols present on BOTH sides; a symbol
+            # missing entirely from one side is a full-position mismatch the
+            # per-symbol diff cannot see, so we treat any missing symbol as an
+            # effectively unbounded qty diff (inf) to guarantee it cannot slip
+            # under the SLO threshold.
+            pos_diffs = reconciliation_result.get("position_diffs_df")
+            if pos_diffs is not None and not pos_diffs.empty:
+                max_qty_diff = float(pos_diffs["diff_qty"].abs().max())
+            else:
+                max_qty_diff = 0.0
+            if reconciliation_result.get(
+                "missing_in_ledger"
+            ) or reconciliation_result.get("missing_in_broker"):
+                max_qty_diff = float("inf")
+
+            slo = reconcile_slo if reconcile_slo is not None else ReconcileSLO()
+            # E-035: suppress alert + live ops-audit side effects in backtest so a
+            # historical-drift replay never emits real production alerts nor writes
+            # the live reconciliation_audit.jsonl. Live/paper keeps both.
+            slo_verdict = evaluate_reconcile_slo(
+                cash_diff=float(reconciliation_result.get("cash_diff", 0.0)),
+                broker_cash=float(broker_cash),
+                max_qty_diff=max_qty_diff,
+                fill_rate=None,
+                slippage_p99_bps=None,
+                slo=slo,
+                suppress_side_effects=is_backtest,
+            )
+            reconciliation_severity = slo_verdict["severity"]
+            reconciliation_violations = slo_verdict["violations"]
+
+            if reconciliation_severity == "fail":
+                # A real drift: log at ERROR (not warning) and force
+                # reconciliation_ok False so downstream/reports surface the breach.
+                reconciliation_ok = False
+                logger.error(
+                    "[Reconciliation] SLO FAIL (mode=%s): %s | violations=%s",
+                    "backtest" if is_backtest else "live/paper",
+                    reconciliation_result.get("message", ""),
+                    reconciliation_violations,
+                )
+                # E-035 / backtest-safety: escalation (fail-closed raise) fires
+                # ONLY in live/paper. In backtest we classify + surface + ERROR-log
+                # but NEVER raise and NEVER change live state. is_backtest defaults
+                # to True, so an unknown/unspecified mode is treated as backtest and
+                # does NOT escalate.
+                if not is_backtest:
+                    reconciliation_blocked = True
+                    pending_reconcile_error = ReconciliationError(
+                        "Ledger-vs-broker reconciliation SLO FAIL in live/paper "
+                        "mode — book must not keep trading. "
+                        f"violations={reconciliation_violations} | "
+                        f"{reconciliation_result.get('message', '')}"
+                    )
+            elif reconciliation_severity == "warn":
+                logger.warning(
+                    "[Reconciliation] SLO WARN: %s | violations=%s",
+                    reconciliation_result.get("message", ""),
+                    reconciliation_violations,
+                )
+        except Exception as e:
+            # F2: failure-to-classify must itself fail closed in live/paper.
+            reconciliation_ok = False
+            if is_backtest:
+                # E-035: backtest never escalates — ERROR-log and continue.
+                logger.error(
+                    "[Reconciliation] SLO classifier crashed in backtest — "
+                    "continuing without escalation: %s",
+                    e,
+                    exc_info=True,
+                )
+            else:
+                logger.error(
+                    "[Reconciliation] SLO classifier crashed in live/paper — "
+                    "failing closed: %s",
+                    e,
+                    exc_info=True,
+                )
+                reconciliation_blocked = True
+                pending_reconcile_error = ReconciliationError(
+                    f"reconcile SLO classifier failed - failing closed: {e}"
+                )
 
     # Write paper broker snapshot if requested
     if write_paper_broker_snapshot:
@@ -474,6 +614,20 @@ def build_ledger_from_trades(
         except Exception:
             return str(p).replace("\\", "/")
 
+    # ── B-acct-1 fail-closed escalation ──────────────────────────────────────
+    # All reports (reconcile CSV/JSON, accounting CSV/JSON, evidence index/pack)
+    # are now written, so the failure is fully recorded in the EOD pack. Only NOW
+    # do we raise — and only in live/paper mode (pending_reconcile_error is None
+    # in backtest mode by construction). This guarantees the recorded failure is
+    # never lost to a raise, while still giving the live caller a hard signal it
+    # cannot ignore.
+    if pending_reconcile_error is not None:
+        logger.error(
+            "[Reconciliation] Escalating fail-closed (live/paper): %s",
+            pending_reconcile_error,
+        )
+        raise pending_reconcile_error
+
     return {
         "ledger_pack_path": ledger_base.relative_to(output_dir).as_posix(),
         "positions_df": positions_df,
@@ -483,6 +637,9 @@ def build_ledger_from_trades(
             _posix_path(reconcile_report_path) if reconcile_report_path else None
         ),
         "reconciliation_ok": reconciliation_ok,
+        "reconciliation_severity": reconciliation_severity,
+        "reconciliation_violations": reconciliation_violations,
+        "reconciliation_blocked": reconciliation_blocked,
         "accounting_report_path": (
             _posix_path(accounting_report_path) if accounting_report_path else None
         ),

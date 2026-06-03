@@ -81,11 +81,22 @@ def evaluate_reconcile_slo(
     fill_rate: float | None,
     slippage_p99_bps: float | None,
     slo: ReconcileSLO,
+    suppress_side_effects: bool = False,
 ) -> dict:
     """Classify a reconciliation result against SLO thresholds.
 
     Returns a dict with ``severity`` in {"ok", "warn", "fail"} and a list of
     ``violations`` explaining which SLOs were breached.
+
+    Args:
+        suppress_side_effects: When True, skip BOTH the AlertManager().fire(...)
+            dispatch and the reconciliation-audit JSONL append. The pure
+            classification (severity / violations / cash_diff_bps / max_qty_diff)
+            is computed and returned identically. Defaults to False so every
+            existing live/paper caller keeps firing alerts and writing the
+            ops-audit trail. Backtest callers (E-035) pass True so replaying
+            historical drift does NOT emit real production alerts nor pollute
+            the live ops audit log.
     """
     violations: list[dict] = []
 
@@ -178,41 +189,50 @@ def evaluate_reconcile_slo(
     else:
         severity = "ok"
 
-    # Dispatch alert when SLO is breached. AlertManager is cooldown-aware
-    # (configs/alerting.yaml), so a repeat fail does not spam channels —
-    # the manager handles strike-counting / suppression itself.
-    if severity in ("warn", "fail"):
-        try:
-            from src.assembled_core.ops.alerting import AlertManager
+    # E-035 backtest-safety: a backtest replaying historical drift must classify
+    # SILENTLY. When suppress_side_effects is True we skip BOTH the alert dispatch
+    # and the live ops-audit append — the verdict returned below is identical
+    # either way. Live/paper callers leave it False and keep both side effects.
+    if not suppress_side_effects:
+        # Dispatch alert when SLO is breached. AlertManager is cooldown-aware
+        # (configs/alerting.yaml), so a repeat fail does not spam channels —
+        # the manager handles strike-counting / suppression itself.
+        if severity in ("warn", "fail"):
+            try:
+                from src.assembled_core.ops.alerting import AlertManager
 
-            rule_name = (
-                "reconciliation_fail" if severity == "fail" else "reconciliation_warn"
-            )
-            AlertManager().fire(
-                rule_name,
-                {
-                    "cash_diff_bps": cash_bps,
-                    "max_qty_diff": max_qty_diff,
-                    "violation_count": len(violations),
-                    "first_violation": violations[0]["metric"] if violations else "",
-                },
-            )
-        except Exception as _ae:  # alerting must never block reconciliation
-            logger.debug("[Reconciliation] alert dispatch failed: %s", _ae)
+                rule_name = (
+                    "reconciliation_fail"
+                    if severity == "fail"
+                    else "reconciliation_warn"
+                )
+                AlertManager().fire(
+                    rule_name,
+                    {
+                        "cash_diff_bps": cash_bps,
+                        "max_qty_diff": max_qty_diff,
+                        "violation_count": len(violations),
+                        "first_violation": (
+                            violations[0]["metric"] if violations else ""
+                        ),
+                    },
+                )
+            except Exception as _ae:  # alerting must never block reconciliation
+                logger.debug("[Reconciliation] alert dispatch failed: %s", _ae)
 
-    # Append every SLO evaluation to the audit log so a regulator (or a
-    # future post-mortem) can reconstruct what the reconciler saw at each
-    # tick — not just the breaches.
-    _append_recon_audit(
-        {
-            "kind": "slo_eval",
-            "severity": severity,
-            "cash_diff_bps": cash_bps,
-            "max_qty_diff": max_qty_diff,
-            "violation_count": len(violations),
-            "first_violation": violations[0]["metric"] if violations else "",
-        }
-    )
+        # Append every SLO evaluation to the audit log so a regulator (or a
+        # future post-mortem) can reconstruct what the reconciler saw at each
+        # tick — not just the breaches.
+        _append_recon_audit(
+            {
+                "kind": "slo_eval",
+                "severity": severity,
+                "cash_diff_bps": cash_bps,
+                "max_qty_diff": max_qty_diff,
+                "violation_count": len(violations),
+                "first_violation": violations[0]["metric"] if violations else "",
+            }
+        )
 
     return {
         "severity": severity,

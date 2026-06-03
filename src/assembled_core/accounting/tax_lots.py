@@ -346,6 +346,29 @@ class TaxLotStore:
                             partial.status,
                         ),
                     )
+        # Integrity guard (B-acct-2): if the close requested more shares than
+        # there were open lots, match_fifo records ONLY the matched portion and
+        # exposes the shortfall as result.qty_remaining. Silently dropping it
+        # under-reports realized P&L (DE Anlage-KAP) for the unmatched shares.
+        # In a long-only book this is an anomaly (over-close / phantom sell), so
+        # make it LOUD and observable. We do NOT raise: legitimate partial-close
+        # flows have no caller contract for an exception, and the matched portion
+        # is already persisted above.
+        if result.qty_remaining > 1e-8:
+            matched_qty = qty_to_close - result.qty_remaining
+            logger.warning(
+                "[tax_lots] FIFO over-close for %s: qty_to_close=%.6f but only "
+                "%.6f shares matched against open lots (qty_remaining=%.6f). "
+                "Insufficient open lots — realized P&L is UNDER-REPORTED for the "
+                "%.6f unmatched shares; this is an integrity anomaly in a "
+                "long-only book.",
+                symbol,
+                qty_to_close,
+                matched_qty,
+                result.qty_remaining,
+                result.qty_remaining,
+            )
+
         logger.debug(
             "FIFO close %s qty=%.4f pnl_eur=%.2f",
             symbol,
