@@ -14,10 +14,23 @@ import sys
 
 def main() -> int:
     try:
+        import pandas as pd
+
         from src.assembled_core.qa.walk_forward import WalkForwardConfig
 
-        cfg = WalkForwardConfig(n_splits=5, test_size=60, gap=5)  # noqa: F841
-        print("[walk_forward] module imported — skipping full run (no panel in CI)")
+        cfg = WalkForwardConfig(
+            start_date=pd.Timestamp("2020-01-01", tz="UTC"),
+            end_date=pd.Timestamp("2023-12-31", tz="UTC"),
+            train_window_days=252,
+            test_window_days=63,
+            step_size_days=63,
+            max_splits=5,
+        )
+        print(
+            "[walk_forward] module imported, config built "
+            f"(test_window_days={cfg.test_window_days}) — "
+            "skipping full run (no panel in CI)"
+        )
     except (ImportError, ModuleNotFoundError) as exc:
         print(f"[walk_forward] SKIP — optional dependency missing: {exc}")
         return 0

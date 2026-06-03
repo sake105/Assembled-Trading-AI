@@ -139,7 +139,12 @@ def test_a26_happy_path_exit0(modname, import_target, monkeypatch):
 
     class _WalkForwardConfig:
         def __init__(self, *a, **k):
-            pass
+            # Expose any kwarg the smoke check may print (e.g. test_window_days)
+            # without constraining the signature — this stays a permissive stub.
+            self.__dict__.update(k)
+
+        def __getattr__(self, name):
+            return 0
 
     class _Rec:
         decision = "skip"
@@ -154,6 +159,23 @@ def test_a26_happy_path_exit0(modname, import_target, monkeypatch):
     fake.RetrainingScheduler = _RetrainingScheduler
     monkeypatch.setitem(sys.modules, import_target, fake)
     rc = _fresh_main(modname)()
+    assert rc == 0
+
+
+def test_a26_walk_forward_real_config_constructs():
+    """walk_forward_check.main() must construct against the REAL dataclass.
+
+    The permissive stub in test_a26_happy_path_exit0 (``__init__(*a, **k)``)
+    masks the actual WalkForwardConfig signature — it would pass even with the
+    old bogus ``n_splits/test_size/gap`` kwargs. This test runs the corrected
+    construction against the real ``src.assembled_core.qa.walk_forward``
+    dataclass (importable under pytest via conftest), so it FAILS against the
+    old bogus call and PASSES only with valid required fields. Result must be a
+    happy-path exit 0 (not a SKIP, not a FAIL).
+    """
+    pytest.importorskip("src.assembled_core.qa.walk_forward")
+    main = _fresh_main("scripts.ci.walk_forward_check")
+    rc = main()
     assert rc == 0
 
 
