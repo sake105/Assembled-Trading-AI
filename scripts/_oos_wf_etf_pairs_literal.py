@@ -97,8 +97,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# State isolation must precede production imports / any cycle run (see module docstring).
-os.environ.setdefault("ASSEMBLED_NO_CRISIS_OVERLAY", "1")
+# State isolation must precede production imports / any cycle run (see module docstring; E-035).
+# Unconditional assignment, not setdefault: setdefault is a no-op when the var is
+# already set (e.g. to "0"), silently re-enabling the live-state write side effect
+# (E-035). An explicit conflicting override is forced to "1" and warned loudly.
+_prev_no_overlay = os.environ.get("ASSEMBLED_NO_CRISIS_OVERLAY")
+if _prev_no_overlay is not None and _prev_no_overlay != "1":
+    print(
+        f"[WARN][E-035] ASSEMBLED_NO_CRISIS_OVERLAY={_prev_no_overlay!r} overridden to "
+        "'1' — this research harness must NOT persist crisis state to live "
+        "output/ops/ (E-035).",
+        file=sys.stderr,
+    )
+os.environ["ASSEMBLED_NO_CRISIS_OVERLAY"] = "1"
+assert os.environ["ASSEMBLED_NO_CRISIS_OVERLAY"] == "1"
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))

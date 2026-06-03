@@ -654,8 +654,16 @@ def run_single_backtest(
         from src.assembled_core.strategies.multifactor_v2 import reset_dd_damper
 
         reset_dd_damper()
-    except Exception:
-        pass
+    except Exception as exc:
+        # Keep the try (import may legitimately be unavailable in some configs),
+        # but make the failure observable: a swallowed reset means module-global
+        # DD-damper state from a PRIOR batch run could leak into this run's signal
+        # scaling without any signal.
+        logger.warning(
+            "[batch_runner] multifactor_v2 DD-damper reset failed (%r) — "
+            "prior-run damper state may leak into this run's signal scaling.",
+            exc,
+        )
     # Each run gets its own directory: output/batch/<run_id>/
     run_output_dir = batch_output_root / run_cfg.id
     # Create directory atomically to avoid race conditions

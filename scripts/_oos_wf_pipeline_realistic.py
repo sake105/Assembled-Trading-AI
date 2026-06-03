@@ -70,7 +70,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# STATE-ISOLATION (must precede production imports / any cycle run):
+# STATE-ISOLATION (must precede production imports / any cycle run; E-035):
 # Driving the LITERAL run_trading_cycle invokes the crisis-alpha overlay, whose
 # pipeline persists state to the LIVE output/ops/crisis_alpha_state.json by
 # default. A backtest stepping through historical as_of dates would clobber the
@@ -80,7 +80,20 @@ import pandas as pd
 # hatch (no production edit, no monkeypatch). The overlay never produced entry
 # targets in these runs anyway (geo_score=0 → never ACTIVE), so this changes NO
 # result — it only stops the shared-state write side effect.
-os.environ.setdefault("ASSEMBLED_NO_CRISIS_OVERLAY", "1")
+# This MUST be an unconditional assignment, not setdefault: setdefault is a no-op
+# when the var is already set (e.g. to "0"), which would silently re-enable the
+# live-state write side effect (E-035). An explicit conflicting override is
+# forced to "1" and warned loudly rather than honored.
+_prev_no_overlay = os.environ.get("ASSEMBLED_NO_CRISIS_OVERLAY")
+if _prev_no_overlay is not None and _prev_no_overlay != "1":
+    print(
+        f"[WARN][E-035] ASSEMBLED_NO_CRISIS_OVERLAY={_prev_no_overlay!r} overridden to "
+        "'1' — this research harness must NOT persist crisis state to live "
+        "output/ops/ (E-035).",
+        file=sys.stderr,
+    )
+os.environ["ASSEMBLED_NO_CRISIS_OVERLAY"] = "1"
+assert os.environ["ASSEMBLED_NO_CRISIS_OVERLAY"] == "1"
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))

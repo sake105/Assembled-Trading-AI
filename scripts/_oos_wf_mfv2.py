@@ -48,7 +48,19 @@ WARMUP_BARS = 250  # enough for MA-200 to warm up
 COMMISSION_BPS = 10.0
 INITIAL_CAPITAL = 100_000.0
 WATCHLIST = ROOT / "watchlist.txt"
-PRICE_CACHE = ROOT / "output" / "oos_alpaca_prices_cache.parquet"
+# Cache path is keyed per-harness AND per fetch-end-date so that sibling OOS
+# harnesses (_oos_wf_mfv2_full.py, _oos_wf_mfv_long_short.py) cannot silently
+# cross-contaminate via a SHARED file: the old shared name
+# (oos_alpaca_prices_cache.parquet) only validated symbol presence, never the
+# covered date range / fetcher identity. script_id + PERIOD_END.date() makes the
+# file unique and self-describing; a stale file from a different harness/end-date
+# simply misses and triggers a clean re-fetch.
+_CACHE_SCRIPT_ID = "mfv2"
+PRICE_CACHE = (
+    ROOT
+    / "output"
+    / f"oos_alpaca_prices_cache__{_CACHE_SCRIPT_ID}__{PERIOD_END.date()}.parquet"
+)
 OUT_MD = ROOT / "docs" / "results" / "2026_05_multifactor_v2_real_oos.md"
 
 
