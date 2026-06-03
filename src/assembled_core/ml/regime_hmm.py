@@ -65,6 +65,12 @@ class RegimeHMM:
         self._model: GaussianHMM | None = None
         self._label_map: dict[int, str] = {}
         self._is_fitted = False
+        # A17: observability flag for warm-start updates. True after a successful
+        # partial_update, False if the warm-start fit raised (stale model kept).
+        # None means no partial_update has been attempted yet. Callers can read
+        # this to detect a silently-failed warm-start without changing the
+        # `return self` chaining contract.
+        self.last_partial_update_ok: bool | None = None
 
     # ------------------------------------------------------------------
     # Fitting
@@ -208,6 +214,11 @@ class RegimeHMM:
         Returns
         -------
         self
+            The chaining contract is preserved. Inspect
+            ``self.last_partial_update_ok`` (A17) to tell whether the warm-start
+            actually succeeded: ``True`` = applied, ``False`` = fit raised and the
+            old model was kept, ``None`` = no update attempted this call (skipped
+            for too few samples).
         """
         self._check_fitted()
         if len(new_returns.dropna()) < min_samples:
@@ -243,12 +254,17 @@ class RegimeHMM:
             warm_model.fit(arr)
             self._model = warm_model
             self._label_map = self._build_label_map(warm_model)
+            self.last_partial_update_ok = True  # A17: observable success
             logger.info(
                 "[RegimeHMM] partial_update applied (%d new obs, %d EM iters)",
                 len(arr),
                 n_iter,
             )
         except Exception as exc:
+            # A17: warm-start failed — the old model is silently kept. Flag this
+            # so a caller can detect the stale-model condition; still return self
+            # to preserve the documented chaining contract.
+            self.last_partial_update_ok = False
             logger.warning(
                 "[RegimeHMM] partial_update failed, keeping old model: %s", exc
             )
@@ -365,6 +381,11 @@ class MultiFeatureRegimeHMM:
         self._scaler: Any = None
         self._label_map: dict[int, str] = {}
         self._fitted = False
+        # A18: degradation marker for predict_regime. True when the Viterbi
+        # prediction raised and the result was substituted by the
+        # predict_proba()-idxmax (vol-proxy) fallback; False on the normal path.
+        # Lets callers detect the silent substitution.
+        self.last_predict_degraded: bool = False
 
     def _scale(self, X: np.ndarray) -> np.ndarray:
         """Apply fitted scaler; return unscaled if scaler absent or not fitted."""
@@ -480,6 +501,10 @@ class MultiFeatureRegimeHMM:
 
     def predict_regime(self, features_df: pd.DataFrame) -> pd.Series:
         """Predict most likely regime for each row (Viterbi hard assignment)."""
+        # A18 F-auditor-1/F-senior-1: reset on entry so EVERY return path (incl.
+        # the not-fitted / empty-data early-returns below) leaves a defined value
+        # and never reads a stale flag from a prior degraded call.
+        self.last_predict_degraded = False
         if not self._fitted or self._model is None:
             return pd.Series(dtype=str)
 
@@ -490,13 +515,18 @@ class MultiFeatureRegimeHMM:
         try:
             X = self._scale(clean.values.astype(np.float64))
             states = self._model.predict(X)
+            self.last_predict_degraded = False  # A18: normal Viterbi path
             return pd.Series(
                 [self._label_map.get(int(s), f"state_{s}") for s in states],
                 index=clean.index,
                 name="regime",
             )
         except Exception as _exc:
-            logger.debug("[MultiHMM] predict_regime predict failed: %s", _exc)
+            # A18: Viterbi prediction failed — falling back to predict_proba()
+            # idxmax is a silent vol-proxy substitution. Promote to WARNING and
+            # set a degraded marker so callers can observe the substitution.
+            self.last_predict_degraded = True
+            logger.warning("[MultiHMM] predict_regime predict failed: %s", _exc)
             proba = self.predict_proba(features_df)
             if proba.empty:
                 return pd.Series(dtype=str)

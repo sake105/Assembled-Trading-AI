@@ -11,6 +11,8 @@ import datetime
 import hashlib
 import json
 import logging
+import os
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -32,33 +34,50 @@ def _verify_model_file_hash(path: Path, expected: str) -> bool:
     return _hash_file(path) == expected
 
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Write *text* to *path* atomically (A16).
+
+    Writes to a sibling ``<path>.tmp`` and ``os.replace``s it into place so a
+    crash mid-write can never leave a truncated/partial registry file. On POSIX
+    and Windows ``os.replace`` is atomic when src and dst are on the same volume;
+    the tmp file is created in the same directory to guarantee that.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 _registry_cache: dict | None = None
 _registry_mtime: float | None = None
+# A15/A43: guards the read-modify-write of the module-level cache/mtime so two
+# paper-pilot threads cannot read a mid-reset cache or race the mtime stamp.
+_registry_lock = threading.Lock()
 
 
 def _load_registry() -> dict:
     global _registry_cache, _registry_mtime  # noqa: PLW0603
-    if not _REGISTRY_PATH.exists():
-        logger.debug(
-            "[MODEL-REGISTRY] registry.json not found at %s — hash checks disabled",
-            _REGISTRY_PATH,
-        )
-        _registry_cache = {}
-        _registry_mtime = None
+    with _registry_lock:
+        if not _REGISTRY_PATH.exists():
+            logger.debug(
+                "[MODEL-REGISTRY] registry.json not found at %s — hash checks disabled",
+                _REGISTRY_PATH,
+            )
+            _registry_cache = {}
+            _registry_mtime = None
+            return _registry_cache
+        current_mtime = _REGISTRY_PATH.stat().st_mtime
+        if _registry_cache is not None and _registry_mtime == current_mtime:
+            return _registry_cache
+        try:
+            _registry_cache = json.loads(
+                _REGISTRY_PATH.read_text(encoding="utf-8")
+            ).get("models", {})
+            _registry_mtime = current_mtime
+        except Exception as exc:
+            logger.warning("[MODEL-REGISTRY] Failed to load registry.json: %s", exc)
+            _registry_cache = {}
+            _registry_mtime = None
         return _registry_cache
-    current_mtime = _REGISTRY_PATH.stat().st_mtime
-    if _registry_cache is not None and _registry_mtime == current_mtime:
-        return _registry_cache
-    try:
-        _registry_cache = json.loads(_REGISTRY_PATH.read_text(encoding="utf-8")).get(
-            "models", {}
-        )
-        _registry_mtime = current_mtime
-    except Exception as exc:
-        logger.warning("[MODEL-REGISTRY] Failed to load registry.json: %s", exc)
-        _registry_cache = {}
-        _registry_mtime = None
-    return _registry_cache
 
 
 def verify_model_hash(model_path: str | Path, *, strict: bool = False) -> bool:
@@ -76,8 +95,12 @@ def verify_model_hash(model_path: str | Path, *, strict: bool = False) -> bool:
     registry = _load_registry()
 
     if not registry:
+        # A46: cold-start fail-open. Returning True keeps loading working before
+        # the registry is populated, but the integrity check is effectively a
+        # no-op — surface this at WARNING so the inactive posture is observable.
         logger.warning(
-            "[MODEL-REGISTRY] Registry is empty or missing — hash checks disabled for %s",
+            "[MODEL-REGISTRY] Integrity check INACTIVE (fail-open) — registry empty "
+            "or missing, hash verification skipped for %s",
             path.name,
         )
         return True
@@ -161,10 +184,17 @@ def register_model(model_path: str | Path) -> dict:
 
     registry_data.setdefault("models", {})[path.name] = entry
     _REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _REGISTRY_PATH.write_text(json.dumps(registry_data, indent=2), encoding="utf-8")
+    # A16: atomic write — a crash mid-write must never truncate registry.json
+    # (a truncated file would parse-fail and silently load as an empty registry).
+    _atomic_write_text(_REGISTRY_PATH, json.dumps(registry_data, indent=2))
 
-    global _registry_cache  # noqa: PLW0603
-    _registry_cache = None
+    # A15/A43: invalidate the module cache under the lock and reset BOTH the
+    # cache and the mtime stamp — clearing only the cache could let a write that
+    # lands within the filesystem mtime resolution serve the stale cached copy.
+    global _registry_cache, _registry_mtime  # noqa: PLW0603
+    with _registry_lock:
+        _registry_cache = None
+        _registry_mtime = None
 
     logger.info("[MODEL-REGISTRY] Registered %s (sha256=%s...)", path.name, sha256[:16])
     return entry
@@ -257,10 +287,13 @@ class ModelRegistry:
             return []
 
     def _save_meta(self, model_id: str, versions: list[ModelVersion]) -> None:
+        # A16: atomic write (tmp + os.replace) so a crash mid-write cannot
+        # truncate registry.json — a truncated file would parse-fail in
+        # _load_meta and silently return [] (lost versions).
         p = self._meta_path(model_id)
-        p.write_text(
+        _atomic_write_text(
+            p,
             json.dumps({"versions": [v.to_dict() for v in versions]}, indent=2),
-            encoding="utf-8",
         )
 
     def register(
