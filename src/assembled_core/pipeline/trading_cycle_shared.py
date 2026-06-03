@@ -453,11 +453,19 @@ def _filter_prices_for_as_of(
         filtered = filtered[filtered["symbol"].str.upper().isin(universe_upper)].copy()
 
     # Determine if we need history slice or just latest
+    # B-pipe-2: GroupBy.last() returns the last row in DataFrame ORDER, not the
+    # max-timestamp row. Production call-sites sort the panel upstream, but that
+    # is an implicit cross-module contract with no assertion here. Sort by
+    # ["symbol", "timestamp"] immediately before the groupby so "latest bar"
+    # selection is correct even if a caller forgets to pre-sort. For an
+    # already-timestamp-sorted panel this is a no-op on the selected bar, so the
+    # production (sorted-input) behaviour is identical.
     if mode == "backtest":
         # Backtest mode: keep full history slice for MAs/returns
         # Also extract latest prices per symbol for order generation
         prices_latest = (
-            filtered.groupby("symbol", group_keys=False, dropna=False)
+            filtered.sort_values(["symbol", "timestamp"])
+            .groupby("symbol", group_keys=False, dropna=False)
             .last()
             .reset_index()
         )
@@ -467,7 +475,11 @@ def _filter_prices_for_as_of(
         return filtered, prices_latest
     else:
         # EOD/Paper/Live mode: return last row per symbol (backward compatible)
-        filtered = filtered.groupby("symbol", group_keys=False, dropna=False).last()
+        filtered = (
+            filtered.sort_values(["symbol", "timestamp"])
+            .groupby("symbol", group_keys=False, dropna=False)
+            .last()
+        )
         filtered = filtered.reset_index()  # Keep 'symbol' as column
         # Ensure deterministic sorting
         filtered = filtered.sort_values("symbol").reset_index(drop=True)
@@ -1053,7 +1065,18 @@ def _evaluate_circuit_breaker(
             "window_minutes": int(cfg.get("window_minutes", 15)),
         }
     except Exception:
-        return None
+        # B-risk-2 FAIL-CLOSED: an error while evaluating the intraday circuit
+        # breaker means the CB state is UNKNOWN. Returning None here would mean
+        # "no breach" (fail-OPEN) and would silently defeat the outer
+        # fail-closed handler in _tc_risk.py (~:246-252), which only blocks on a
+        # raised exception. Re-raise so the unknown CB-state blocks the cycle's
+        # orders end-to-end. The normal (no-error) CB path is unchanged.
+        logger.error(
+            "[CB] intraday circuit-breaker evaluation raised — FAIL-CLOSED, "
+            "propagating to risk gate to block orders",
+            exc_info=True,
+        )
+        raise
 
 
 def _evaluate_var_gate(
@@ -1401,6 +1424,32 @@ def _apply_risk_controls_default(
         log.warning(
             "[RISK] risk_state=PAUSE — blocking ALL %d orders (geo-risk gate)",
             len(orders),
+        )
+        return pd.DataFrame(columns=list(orders.columns))
+
+    # B-pipe-4 / F1: backtest daily-circuit-breaker in-cycle block.
+    #
+    # In LIVE/PAPER, a daily-CB trip in _load_intel calls activate_kill_switch
+    # (which writes output/ops/kill_switch_state.json); that store is then read
+    # back THIS cycle by filter_orders_with_risk_controls -> is_kill_switch_engaged
+    # (enable_kill_switch=True) and empties orders. In BACKTEST we deliberately do
+    # NOT write that live store (E-035: a backtest steps historical as_of dates and
+    # must not mutate live ops artifacts). To preserve the order-block that the
+    # live store-read provides, _load_intel sets the in-cycle marker
+    # ctx.intel_health_flags["daily_circuit_breaker"]["tripped"] ONLY in backtest;
+    # we consume it here and empty orders with the same shape as the kill-switch
+    # block. _load_intel runs before this gate in run_cycle, so the flag is set
+    # before it is read. In live/paper the flag is intentionally NOT set
+    # (_load_intel sets it only when mode is backtest), so this branch is a no-op
+    # and behaviour is byte-identical to the store-read block.
+    _icb = (getattr(ctx, "intel_health_flags", None) or {}).get("daily_circuit_breaker")
+    if isinstance(_icb, dict) and _icb.get("tripped"):
+        log = ctx.logger if ctx.logger is not None else logger
+        log.critical(
+            "[RISK] daily_circuit_breaker tripped (backtest in-cycle) — "
+            "blocking ALL %d orders (reason=%s)",
+            len(orders),
+            _icb.get("reason", "unknown"),
         )
         return pd.DataFrame(columns=list(orders.columns))
 

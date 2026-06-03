@@ -523,22 +523,27 @@ def book_fills(
         _record_degraded_step("trade_journal", e, meta=result.meta, log_obj=log)
 
     # Step 7.68: Heartbeat
-    try:
-        from src.assembled_core.ops.heartbeat import write_heartbeat
+    # E-035 guard: skip the ops-artifact write in backtest mode. A backtest steps
+    # historical as_of dates and would otherwise clobber the live output/ heartbeat.
+    # Mirrors the mode-guard in _tc_risk.py (getattr(ctx, "mode", ...) != "backtest").
+    # Live/paper behaviour (what is written) is unchanged.
+    if getattr(ctx, "mode", "eod") != "backtest":
+        try:
+            from src.assembled_core.ops.heartbeat import write_heartbeat
 
-        _hb_path = ctx.output_dir / "state" / "heartbeat.json"
-        write_heartbeat(
-            path=_hb_path,
-            status="ok",
-            details={
-                "cycle_date": str(ctx.as_of.date()) if ctx.as_of else "",
-                "n_orders": len(result.orders_filtered),
-                "execution_mode": str(ctx.execution_mode),
-            },
-        )
-        result.meta["heartbeat"] = {"status": "ok", "path": str(_hb_path)}
-    except Exception as e:
-        log.debug("[HEARTBEAT] heartbeat skipped: %s", e)
+            _hb_path = ctx.output_dir / "state" / "heartbeat.json"
+            write_heartbeat(
+                path=_hb_path,
+                status="ok",
+                details={
+                    "cycle_date": str(ctx.as_of.date()) if ctx.as_of else "",
+                    "n_orders": len(result.orders_filtered),
+                    "execution_mode": str(ctx.execution_mode),
+                },
+            )
+            result.meta["heartbeat"] = {"status": "ok", "path": str(_hb_path)}
+        except Exception as e:
+            log.debug("[HEARTBEAT] heartbeat skipped: %s", e)
 
     # Phase 9: Signal diagnostics
     try:

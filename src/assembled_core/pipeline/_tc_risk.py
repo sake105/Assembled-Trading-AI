@@ -346,37 +346,40 @@ def check_risk(
                 "n_orders_tracked": len(result.orders_filtered),
                 "state": "SUBMITTED",
             }
-            # Lifecycle log hook — one SUBMITTED entry per order (fire-and-forget)
-            try:
-                from src.assembled_core.ops.order_lifecycle_log import (
-                    append_lifecycle_event,
-                )
-
-                _strategy = str(result.meta.get("strategy", ""))
-                _run_id = str(result.meta.get("run_id", ""))
-                _lc_path = (
-                    Path(ctx.output_dir) / "order_lifecycle.jsonl"
-                    if getattr(ctx, "output_dir", None)
-                    else None
-                )
-                for _ord_row in result.orders_filtered.itertuples(index=False):
-                    _sym = str(getattr(_ord_row, "symbol", ""))
-                    _sid = str(getattr(_ord_row, "side", "BUY")).upper()
-                    append_lifecycle_event(
-                        "SUBMITTED",
-                        order_id=str(getattr(_ord_row, "order_id", ""))
-                        or f"{_sym}_{_sid}_{_run_id}",
-                        symbol=_sym,
-                        side=_sid,
-                        qty=float(getattr(_ord_row, "qty", 0) or 0),
-                        price=float(getattr(_ord_row, "price", 0) or 0) or None,
-                        strategy=_strategy,
-                        actor="trading_cycle_v2",
-                        run_id=_run_id,
-                        log_path=_lc_path,
+            # Lifecycle log hook — one SUBMITTED entry per order (fire-and-forget).
+            # E-035 guard: skip the ops-artifact write in backtest mode. A backtest
+            # steps historical as_of dates and would otherwise clobber the live
+            # output/ order_lifecycle.jsonl. Mirrors the mode-guard at line ~80
+            # (getattr(ctx, "mode", ...) != "backtest"). Live/paper unchanged.
+            if getattr(ctx, "mode", "eod") != "backtest" and getattr(
+                ctx, "output_dir", None
+            ):
+                try:
+                    from src.assembled_core.ops.order_lifecycle_log import (
+                        append_lifecycle_event,
                     )
-            except Exception as _lce:
-                log.debug("[LIFECYCLE-LOG] SUBMITTED hook skipped: %s", _lce)
+
+                    _strategy = str(result.meta.get("strategy", ""))
+                    _run_id = str(result.meta.get("run_id", ""))
+                    _lc_path = Path(ctx.output_dir) / "order_lifecycle.jsonl"
+                    for _ord_row in result.orders_filtered.itertuples(index=False):
+                        _sym = str(getattr(_ord_row, "symbol", ""))
+                        _sid = str(getattr(_ord_row, "side", "BUY")).upper()
+                        append_lifecycle_event(
+                            "SUBMITTED",
+                            order_id=str(getattr(_ord_row, "order_id", ""))
+                            or f"{_sym}_{_sid}_{_run_id}",
+                            symbol=_sym,
+                            side=_sid,
+                            qty=float(getattr(_ord_row, "qty", 0) or 0),
+                            price=float(getattr(_ord_row, "price", 0) or 0) or None,
+                            strategy=_strategy,
+                            actor="trading_cycle_v2",
+                            run_id=_run_id,
+                            log_path=_lc_path,
+                        )
+                except Exception as _lce:
+                    log.debug("[LIFECYCLE-LOG] SUBMITTED hook skipped: %s", _lce)
     except Exception as e:
         log.debug("order_lifecycle tracking skipped: %s", e)
 

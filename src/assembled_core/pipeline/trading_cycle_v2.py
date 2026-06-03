@@ -322,25 +322,69 @@ def _load_intel(
     try:
         cb_trip = _evaluate_circuit_breaker_daily(ctx.prices, policy, ctx.as_of)
         if cb_trip is not None:
-            from src.assembled_core.execution.kill_switch import activate_kill_switch
+            # B-pipe-4 / F1: the persistent operator kill-switch store
+            # (output/ops/kill_switch_state.json) is a LIVE safety artifact. A
+            # backtest steps historical as_of dates; tripping the daily breaker
+            # on a historical drop must NOT mutate/engage the live store (it
+            # requires an operator token to clear and would leak across the
+            # backtest↔live boundary — E-035-class).
+            #
+            # LIVE/PAPER/EOD (unchanged): call activate_kill_switch to write the
+            # live store; that store is read back THIS cycle by the risk-controls
+            # gate (filter_orders_with_risk_controls -> is_kill_switch_engaged) and
+            # empties orders. We do NOT set the in-cycle "tripped" flag in live —
+            # the live block is the store-read, so the gate's new in-cycle check
+            # stays a no-op and live behaviour is byte-identical to before.
+            #
+            # BACKTEST: do NOT write the live store. Instead set the in-cycle
+            # marker ctx.intel_health_flags["daily_circuit_breaker"]["tripped"]
+            # = True, which _apply_risk_controls_default consumes (it runs AFTER
+            # _load_intel in run_cycle) to empty ALL orders this bar — preserving
+            # the order-block the removed store-read used to provide, without
+            # touching the live store. This is independent of the E0.1
+            # kill_switch_persist parity flag (cross-bar restore vs. whether the
+            # live store is written at all).
+            _cb_is_backtest = getattr(ctx, "mode", "eod") in ("backtest", "bt")
+            if not _cb_is_backtest:
+                from src.assembled_core.execution.kill_switch import (
+                    activate_kill_switch,
+                )
 
-            activate_kill_switch(
-                throttle_pct=0.0,
-                reason=cb_trip["reason"],
-                actor="trading_cycle_circuit_breaker",
-            )
+                activate_kill_switch(
+                    throttle_pct=0.0,
+                    reason=cb_trip["reason"],
+                    actor="trading_cycle_circuit_breaker",
+                )
             log.critical(
-                "CIRCUIT_BREAKER: %s — kill-switch engaged (block all)",
+                "CIRCUIT_BREAKER: %s — %s (block all)",
                 cb_trip["reason"],
+                (
+                    "kill-switch engaged (live store written)"
+                    if not _cb_is_backtest
+                    else "backtest: in-cycle block flag set, live store NOT written"
+                ),
             )
             try:
-                from src.assembled_core.ops.alerting import AlertManager
+                ctx.intel_health_flags = ctx.intel_health_flags or {}
+                # Only backtest sets the in-cycle "tripped" flag consumed by the
+                # risk gate; live blocks via the store-read and must leave the
+                # gate's in-cycle check a no-op (see _apply_risk_controls_default).
+                ctx.intel_health_flags["daily_circuit_breaker"] = {
+                    "tripped": bool(_cb_is_backtest),
+                    "reason": cb_trip["reason"],
+                    "live_kill_switch_written": not _cb_is_backtest,
+                }
+            except Exception:
+                pass
+            if not _cb_is_backtest:
+                try:
+                    from src.assembled_core.ops.alerting import AlertManager
 
-                AlertManager().fire(
-                    "kill_switch_activated", {"reason": cb_trip["reason"]}
-                )
-            except Exception as _ae:
-                log.debug("[alert] circuit_breaker alert failed: %s", _ae)
+                    AlertManager().fire(
+                        "kill_switch_activated", {"reason": cb_trip["reason"]}
+                    )
+                except Exception as _ae:
+                    log.debug("[alert] circuit_breaker alert failed: %s", _ae)
     except Exception as e:
         log.warning(
             "[RISK-SAFETY] circuit_breaker_daily check failed: %s — breaker may not engage",

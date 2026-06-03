@@ -352,7 +352,23 @@ def generate_signals(
                 and not ctx.prices.empty
                 and "VIX" in ctx.prices.columns
             ):
-                macro_data["vix"] = float(ctx.prices["VIX"].iloc[-1])
+                # B-pipe-1 (latent/defensive): the production ctx.prices panel is
+                # long-format (timestamp/symbol rows), so this wide "VIX"-column
+                # branch does not fire in production — it is a latent path. To
+                # avoid a future-VIX look-ahead if a wide panel ever reaches here
+                # in backtest/replay, slice to the as_of window before taking the
+                # tail (same idiom as the CB gate in trading_cycle_shared.py).
+                # For live/eod (tail == as_of) this is byte-identical.
+                _vix_src = ctx.prices
+                _as_of = getattr(ctx, "as_of", None)
+                if _as_of is not None and "timestamp" in _vix_src.columns:
+                    _ts = pd.to_datetime(_vix_src["timestamp"], utc=True)
+                    _as_of_utc = pd.Timestamp(_as_of)
+                    if _as_of_utc.tzinfo is None:
+                        _as_of_utc = _as_of_utc.tz_localize("UTC")
+                    _vix_src = _vix_src.loc[_ts <= _as_of_utc]
+                if not _vix_src.empty:
+                    macro_data["vix"] = float(_vix_src["VIX"].iloc[-1])
 
             crash_engine = CrashPredictionEngine()
             crash_signal = crash_engine.predict(

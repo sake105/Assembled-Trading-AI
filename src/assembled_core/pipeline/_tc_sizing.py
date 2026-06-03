@@ -1193,7 +1193,21 @@ def _sp_apply_inverse_etf(
                 and "VIX" in ctx.prices.columns
             ):
                 try:
-                    vix_val = float(ctx.prices["VIX"].iloc[-1])
+                    # B-pipe-1 (latent/defensive): production ctx.prices is
+                    # long-format, so this wide "VIX"-column branch does not fire
+                    # in production. Slice to the as_of window before the tail
+                    # read so a wide panel reaching here in backtest/replay does
+                    # not leak future VIX. Live/eod (tail == as_of) byte-identical.
+                    _vix_src = ctx.prices
+                    _as_of = getattr(ctx, "as_of", None)
+                    if _as_of is not None and "timestamp" in _vix_src.columns:
+                        _ts = pd.to_datetime(_vix_src["timestamp"], utc=True)
+                        _as_of_utc = pd.Timestamp(_as_of)
+                        if _as_of_utc.tzinfo is None:
+                            _as_of_utc = _as_of_utc.tz_localize("UTC")
+                        _vix_src = _vix_src.loc[_ts <= _as_of_utc]
+                    if not _vix_src.empty:
+                        vix_val = float(_vix_src["VIX"].iloc[-1])
                 except Exception as _exc:
                     logger.debug("[_tc_sizing] VIX value parse failed: %s", _exc)
             if (
