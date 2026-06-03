@@ -64,8 +64,15 @@ class TestResolveCostCfg:
         result = _resolve_cost_cfg(app_cfg, {})
         assert result["commission_bps"] == pytest.approx(5.0)
 
-    def test_returns_empty_dict_when_both_missing(self):
-        assert _resolve_cost_cfg({}, {}) == {}
+    def test_returns_conservative_default_when_both_missing(self):
+        """A13 fail-CLOSED: neither source supplies a cost_model → conservative
+        policy.yaml default (10.0/0.25/0.5), NEVER an empty dict (which would
+        silently bill 0 bps and fill at exact close)."""
+        result = _resolve_cost_cfg({}, {})
+        assert result != {}
+        assert result["commission_bps"] == pytest.approx(10.0)
+        assert result["spread_w"] == pytest.approx(0.25)
+        assert result["impact_w"] == pytest.approx(0.5)
 
     def test_policy_commission_10bps_not_1bps_default(self):
         """Policy returns 10 bps, not the 1-bps legacy default from costs.py."""

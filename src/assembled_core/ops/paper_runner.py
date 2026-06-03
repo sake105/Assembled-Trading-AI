@@ -1136,7 +1136,13 @@ def _resolve_active_strategy(paper_cfg: dict[str, Any], policy: dict[str, Any]) 
 def _resolve_cost_cfg(
     app_cfg: dict[str, Any], policy: dict[str, Any]
 ) -> dict[str, Any]:
-    """Resolve cost model: policy.paper_pilot.cost_model > app_cfg.paper_runner.cost_model."""
+    """Resolve cost model: policy.paper_pilot.cost_model > app_cfg.paper_runner.cost_model.
+
+    Fail-CLOSED: if NEITHER source supplies a non-empty cost_model, an empty dict
+    would make simulate_fills/paper_ledger treat commission_bps and slippage_bps as
+    0 — fills at exact close, silently optimistic paper P&L (A13). Instead, log a
+    loud WARNING and return the conservative policy.yaml-documented default.
+    """
     app_cost = (app_cfg.get("paper_runner") or {}).get("cost_model") or {}
     pol_cost = (policy.get("paper_pilot") or {}).get("cost_model") or {}
     if pol_cost:
@@ -1144,7 +1150,16 @@ def _resolve_cost_cfg(
             "[paper_runner] cost_model loaded from policy (paper_pilot.cost_model)"
         )
         return dict(pol_cost)
-    return dict(app_cost)  # defensive copy — prevent caller mutation of app_cfg
+    if app_cost:
+        return dict(app_cost)  # defensive copy — prevent caller mutation of app_cfg
+    # Neither policy nor app_cfg supplied a cost_model — never silently bill 0 bps.
+    log.warning(
+        "[paper_runner] NO cost_model in policy.paper_pilot OR app_cfg.paper_runner "
+        "— falling back to conservative default "
+        "{commission_bps:10.0, spread_w:0.25, impact_w:0.5}; "
+        "paper fills would otherwise be modelled at exact close (0 bps)"
+    )
+    return {"commission_bps": 10.0, "spread_w": 0.25, "impact_w": 0.5}
 
 
 def run_paper_daily_one(

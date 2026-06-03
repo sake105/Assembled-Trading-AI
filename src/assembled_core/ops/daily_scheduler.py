@@ -560,11 +560,13 @@ def _retrain_scheduler_worker(
 def _factor_curation_worker(
     date_str: str, output_dir: str, dry_run: bool
 ) -> WorkerResult:
-    """Quarterly factor curation: compute DSR for all active factors, flag decayed ones.
+    """Quarterly factor curation: compute a heuristic IC t-stat per factor, flag decayed ones.
 
     Only runs when the date is in the first week of a quarter (Jan/Apr/Jul/Oct).
-    Uses Deflated Sharpe Ratio (DSR) as the quality gate — factors with DSR < 0.5
-    are flagged for removal from active bundles.
+    Quality gate is a raw IC t-stat (IC_mean / IC_std * sqrt(n)) reported as
+    ``ic_tstat`` — NOT a Deflated Sharpe Ratio (no deflation / multiple-testing
+    correction is applied). Factors with ic_tstat < 0.5 are flagged for removal
+    from active bundles (advisory report only). (A35)
     """
     t0 = time.monotonic()
 
@@ -645,7 +647,10 @@ def _factor_curation_worker(
         ]
 
         curation_report = {"date": date_str, "factors": {}, "flagged_for_removal": []}
-        dsr_threshold = 0.5
+        # NOTE: this is a heuristic IC t-stat (IC_mean / IC_std * sqrt(n)), NOT a
+        # Deflated Sharpe Ratio — there is NO deflation / multiple-testing
+        # correction applied here. Field name kept honest as `ic_tstat` (A35).
+        ic_tstat_threshold = 0.5
 
         for factor_col in factor_cols:
             try:
@@ -653,32 +658,37 @@ def _factor_curation_worker(
                     panel_df, factor_col, max_horizon_days=60
                 )
                 half_life = compute_factor_half_life(ic_curve)
-                # Approximate DSR from IC stats (simplified: IC_mean / IC_std * sqrt(n))
+                # Heuristic IC t-stat from IC stats: IC_mean / IC_std * sqrt(n).
+                # NOT a Deflated Sharpe Ratio — no multiple-testing correction.
                 if "ic" in ic_curve.columns:
                     ic_series = ic_curve["ic"].dropna()
                     if len(ic_series) >= 10:
                         ic_mean = ic_series.mean()
                         ic_std = ic_series.std()
                         n = len(ic_series)
-                        dsr = (ic_mean / ic_std * (n**0.5)) if ic_std > 1e-9 else 0.0
+                        ic_tstat = (
+                            (ic_mean / ic_std * (n**0.5)) if ic_std > 1e-9 else 0.0
+                        )
                     else:
-                        dsr = 0.0
+                        ic_tstat = 0.0
                 else:
-                    dsr = 0.0
+                    ic_tstat = 0.0
 
                 curation_report["factors"][factor_col] = {
-                    "dsr": round(float(dsr), 4),
+                    "ic_tstat": round(float(ic_tstat), 4),
                     "half_life_days": round(float(half_life), 1) if half_life else None,
-                    "status": "active" if dsr >= dsr_threshold else "flagged",
+                    "status": (
+                        "active" if ic_tstat >= ic_tstat_threshold else "flagged"
+                    ),
                 }
-                if dsr < dsr_threshold:
+                if ic_tstat < ic_tstat_threshold:
                     curation_report["flagged_for_removal"].append(factor_col)
             except Exception as exc:
                 logger.debug(
                     "factor_curation: error processing %s: %s", factor_col, exc
                 )
                 curation_report["factors"][factor_col] = {
-                    "dsr": None,
+                    "ic_tstat": None,
                     "half_life_days": None,
                     "status": "error",
                     "error": str(exc),
@@ -690,10 +700,10 @@ def _factor_curation_worker(
         )
         n_flagged = len(curation_report["flagged_for_removal"])
         logger.info(
-            "[OK] factor_curation: %d factors analyzed, %d flagged (DSR < %.1f), report at %s",
+            "[OK] factor_curation: %d factors analyzed, %d flagged (IC t-stat < %.1f), report at %s",
             len(factor_cols),
             n_flagged,
-            dsr_threshold,
+            ic_tstat_threshold,
             report_path,
         )
         return WorkerResult(
@@ -768,6 +778,58 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
                 )
         except Exception as _re:
             logger.debug("[ALERT] reconciliation error check skipped: %s", _re)
+
+        # CRITICAL/WARNING: Reconciliation status escalation (A12).
+        # The *.error glob above never matches — nothing in src/ writes *.error.
+        # The authoritative reconcile status lives in reconcile_latest.json
+        # (ops/reconcile.py sets status="FAIL"/"OK"), with a per-date fallback.
+        # Escalate FAIL/WARN through the real delivering AlertManager so a failed
+        # cash/equity/positions invariant is actually surfaced, not just recorded.
+        try:
+            import json
+
+            from src.assembled_core.ops.alerting import AlertManager as _DeliverMgr
+
+            rec_report = None
+            for _name in (
+                "reconcile_latest.json",
+                f"reconcile_{date_str}.json",
+            ):
+                _p = out_path / _name
+                if _p.exists():
+                    try:
+                        rec_report = json.loads(_p.read_text(encoding="utf-8"))
+                        break
+                    except Exception as _rpe:
+                        logger.warning(
+                            "[ALERT] reconcile report %s unreadable: %s", _name, _rpe
+                        )
+
+            rec_status = str((rec_report or {}).get("status", "")).upper()
+            if rec_status in ("FAIL", "WARN"):
+                rule = (
+                    "reconciliation_fail"
+                    if rec_status == "FAIL"
+                    else "reconciliation_warn"
+                )
+                cash = (rec_report or {}).get("cash") or {}
+                notes = (rec_report or {}).get("notes") or []
+                ctx = {
+                    "cash_diff_bps": cash.get("delta"),
+                    "max_qty_diff": None,
+                    "violation_count": len(notes),
+                    "first_violation": notes[0] if notes else None,
+                    "date": date_str,
+                }
+                _DeliverMgr().fire(rule, ctx)
+                logger.warning(
+                    "[ALERT] reconcile status=%s — fired %s (notes=%d)",
+                    rec_status,
+                    rule,
+                    len(notes),
+                )
+        except Exception as _rse2:
+            logger.warning("[ALERT] reconcile status escalation failed: %s", _rse2)
 
         # WARNING: Signal health / IC degradation
         try:
