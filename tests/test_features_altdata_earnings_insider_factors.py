@@ -150,78 +150,114 @@ class TestBuildEarningsSurpriseFactors:
         assert result["symbol"].equals(sample_price_panel["symbol"])
 
     def test_positive_eps_surprise(self, sample_price_panel, sample_earnings_events):
-        """Test that positive EPS surprise is calculated correctly."""
-        # AAPL on 2020-01-15: eps_actual=2.1, eps_estimate=2.0
-        # Surprise = (2.1 - 2.0) / |2.0| * 100 = 5.0%
+        """Test that positive EPS surprise is calculated correctly.
+
+        Batch-12 PIT fix: the surprise becomes visible only AFTER the event's
+        disclosure_date (event_date + 1d conservative lag, exact-match disabled),
+        not on the event bar itself. Read on a post-disclosure bar (2020-01-20)
+        before the next AAPL event (2020-03-15). The event bar (2020-01-15) is
+        now correctly NaN — it pre-dates the disclosure availability.
+        """
+        # AAPL event 2020-01-15: eps_actual=2.1, eps_estimate=2.0 → surprise 5.0%
         result = build_earnings_surprise_factors(
             sample_earnings_events,
             sample_price_panel,
             window_days=20,
         )
 
-        # Find the row for AAPL on 2020-01-15
+        # PIT: event bar must NOT carry the surprise (no same-bar look-ahead).
         aapl_jan15 = result[
             (result["symbol"] == "AAPL")
             & (result["timestamp"] == pd.Timestamp("2020-01-15", tz="UTC"))
         ]
-
         if not aapl_jan15.empty:
-            eps_surprise = aapl_jan15["earnings_eps_surprise_last"].iloc[0]
+            assert pd.isna(aapl_jan15["earnings_eps_surprise_last"].iloc[0])
+
+        # Post-disclosure bar carries the surprise.
+        aapl_jan20 = result[
+            (result["symbol"] == "AAPL")
+            & (result["timestamp"] == pd.Timestamp("2020-01-20", tz="UTC"))
+        ]
+        if not aapl_jan20.empty:
+            eps_surprise = aapl_jan20["earnings_eps_surprise_last"].iloc[0]
             assert not pd.isna(eps_surprise)
             assert abs(eps_surprise - 5.0) < 0.1  # Should be ~5%
 
             # Check flags
-            assert aapl_jan15["earnings_positive_surprise_flag"].iloc[0] == 1.0
-            assert aapl_jan15["earnings_negative_surprise_flag"].iloc[0] == 0.0
+            assert aapl_jan20["earnings_positive_surprise_flag"].iloc[0] == 1.0
+            assert aapl_jan20["earnings_negative_surprise_flag"].iloc[0] == 0.0
 
     def test_negative_eps_surprise(self, sample_price_panel, sample_earnings_events):
-        """Test that negative EPS surprise is calculated correctly."""
-        # AAPL on 2020-03-15: eps_actual=1.8, eps_estimate=2.0
-        # Surprise = (1.8 - 2.0) / |2.0| * 100 = -10.0%
+        """Test that negative EPS surprise is calculated correctly.
+
+        Batch-12 PIT fix: read on a post-disclosure bar (2020-03-20), not the
+        event bar (2020-03-15) which is now correctly NaN.
+        """
+        # AAPL event 2020-03-15: eps_actual=1.8, eps_estimate=2.0 → surprise -10%
         result = build_earnings_surprise_factors(
             sample_earnings_events,
             sample_price_panel,
             window_days=20,
         )
 
-        # Find the row for AAPL on 2020-03-15
+        # PIT: event bar must NOT carry the surprise.
         aapl_mar15 = result[
             (result["symbol"] == "AAPL")
             & (result["timestamp"] == pd.Timestamp("2020-03-15", tz="UTC"))
         ]
-
         if not aapl_mar15.empty:
-            eps_surprise = aapl_mar15["earnings_eps_surprise_last"].iloc[0]
+            # On the event bar the most recent *disclosed* surprise is still the
+            # prior (positive) event, never the same-day negative one.
+            assert aapl_mar15["earnings_negative_surprise_flag"].iloc[0] == 0.0
+
+        # Post-disclosure bar carries the negative surprise.
+        aapl_mar20 = result[
+            (result["symbol"] == "AAPL")
+            & (result["timestamp"] == pd.Timestamp("2020-03-20", tz="UTC"))
+        ]
+        if not aapl_mar20.empty:
+            eps_surprise = aapl_mar20["earnings_eps_surprise_last"].iloc[0]
             assert not pd.isna(eps_surprise)
             assert abs(eps_surprise - (-10.0)) < 0.1  # Should be ~-10%
 
             # Check flags
-            assert aapl_mar15["earnings_positive_surprise_flag"].iloc[0] == 0.0
-            assert aapl_mar15["earnings_negative_surprise_flag"].iloc[0] == 1.0
+            assert aapl_mar20["earnings_positive_surprise_flag"].iloc[0] == 0.0
+            assert aapl_mar20["earnings_negative_surprise_flag"].iloc[0] == 1.0
 
     def test_zero_surprise(self, sample_price_panel, sample_earnings_events):
-        """Test that zero surprise (actual == estimate) is handled correctly."""
-        # MSFT on 2020-02-10: eps_actual=3.0, eps_estimate=3.0
+        """Test that zero surprise (actual == estimate) is handled correctly.
+
+        Batch-12 PIT fix: read on a post-disclosure bar (2020-02-15), not the
+        event bar (2020-02-10) which is now correctly NaN.
+        """
+        # MSFT event 2020-02-10: eps_actual=3.0, eps_estimate=3.0 → surprise 0%
         result = build_earnings_surprise_factors(
             sample_earnings_events,
             sample_price_panel,
             window_days=20,
         )
 
-        # Find the row for MSFT on 2020-02-10
+        # PIT: event bar must NOT carry the surprise.
         msft_feb10 = result[
             (result["symbol"] == "MSFT")
             & (result["timestamp"] == pd.Timestamp("2020-02-10", tz="UTC"))
         ]
-
         if not msft_feb10.empty:
-            eps_surprise = msft_feb10["earnings_eps_surprise_last"].iloc[0]
+            assert pd.isna(msft_feb10["earnings_eps_surprise_last"].iloc[0])
+
+        # Post-disclosure bar carries the zero surprise.
+        msft_feb15 = result[
+            (result["symbol"] == "MSFT")
+            & (result["timestamp"] == pd.Timestamp("2020-02-15", tz="UTC"))
+        ]
+        if not msft_feb15.empty:
+            eps_surprise = msft_feb15["earnings_eps_surprise_last"].iloc[0]
             # Should be 0.0 or very close to 0
             assert abs(eps_surprise) < 0.01
 
             # Flags should both be 0
-            assert msft_feb10["earnings_positive_surprise_flag"].iloc[0] == 0.0
-            assert msft_feb10["earnings_negative_surprise_flag"].iloc[0] == 0.0
+            assert msft_feb15["earnings_positive_surprise_flag"].iloc[0] == 0.0
+            assert msft_feb15["earnings_negative_surprise_flag"].iloc[0] == 0.0
 
     def test_surprise_propagation(self, sample_price_panel, sample_earnings_events):
         """Test that surprise values propagate forward (last event up to next event)."""

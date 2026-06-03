@@ -94,6 +94,18 @@ def load_earnings_history(
     df[date_col] = pd.to_datetime(
         df[date_col], utc=True, errors="coerce"
     ).dt.tz_localize(None)
+
+    # Batch-12 PIT fix (Diagnostik §data MINOR-(b), altdata_loader.py:60):
+    # an event_date-only feed (no real disclosure_date) bypasses disclosure-PIT —
+    # the raw event_date would be used directly as the availability date in the
+    # as_of cutoff below. Production parquet carries disclosure_date, so this is
+    # contingent; when it fires, apply a conservative 1-calendar-day disclosure
+    # lag (earnings land after-close/pre-market → next-bar availability) so the
+    # event only becomes visible at event_date + 1. When a real disclosure_date
+    # column is present, behaviour is unchanged (no shift).
+    if date_col == "event_date":
+        df[date_col] = df[date_col] + pd.Timedelta(days=1)
+
     as_of_naive = as_of.tz_localize(None) if as_of.tzinfo else as_of
     cutoff = as_of_naive - pd.Timedelta(days=lookback_days)
 
@@ -220,11 +232,30 @@ def load_macro_indicators(
     lookback_days: int = 365,
     *,
     root: Path | str | None = None,
+    release_lag_days: int = 32,
 ) -> pd.DataFrame:
     """Load macro indicators in long format, PIT-safe.
 
     The output/macro.parquet is wide-format; this function melts it to long:
     columns: [timestamp, macro_code, value, country].
+
+    Batch-12 PIT fix (Diagnostik §data "Macro-Loader ohne Release-Lag", §294):
+    macro indicators are stamped at their observation date, but the public
+    release happens later (month-T values during month T+1). Previously the raw
+    observation date was used directly as the availability date in the ``as_of``
+    cutoff, leaking future macro data into a backtest bar. ``release_lag_days``
+    (default 32, mirroring ``merge_gpr_index_into_panel``) is applied as a
+    SPLIT-BOUND availability delay: it shifts only the *upper* (``as_of``) bound
+    so a value is visible only once it would realistically have been published,
+    while the *lower* (lookback) bound keeps comparing the RAW observation date.
+    This is a PIT correction to a LIVE non-zero-weighted macro factor
+    (multifactor_v2 macro_growth_momentum / macro_inflation_surprise): it removes
+    look-ahead and therefore DOES change the macro z-score input — it is NOT
+    production-invariant. The returned ``timestamp`` stays the RAW observation
+    date so downstream alignment (which applies its own availability lag) is
+    unchanged. Pass ``release_lag_days=0`` only for parity tests / research that
+    knowingly use raw observation dates; with ``release_lag_days=0`` the filter
+    reproduces the legacy raw-observation behaviour byte-for-byte.
     """
     empty = pd.DataFrame(columns=["timestamp", "macro_code", "value", "country"])
     fpath = _resolve(root, "macro.parquet")
@@ -245,10 +276,24 @@ def load_macro_indicators(
     df["timestamp"] = pd.to_datetime(
         df["timestamp"], utc=True, errors="coerce"
     ).dt.tz_localize(None)
+
     as_of_naive = as_of.tz_localize(None) if as_of.tzinfo else as_of
     cutoff = as_of_naive - pd.Timedelta(days=lookback_days)
 
-    df = df[(df["timestamp"] <= as_of_naive) & (df["timestamp"] >= cutoff)].copy()
+    # Batch-12 PIT fix (SPLIT-BOUND): the publication lag is an availability
+    # delay that applies ONLY to the upper (as_of) bound. The lower (lookback)
+    # bound compares the RAW observation date, so the lookback window selects the
+    # same raw observations as before the lag — the lag can only hide recent
+    # unreleased obs, never pull older history into the window. We compute a
+    # local availability series and never mutate df["timestamp"], so the returned
+    # schema keeps the RAW observation date (downstream applies its own
+    # availability lag during merge). With release_lag_days=0 the availability
+    # series equals the raw timestamp and the filter is byte-identical to legacy.
+    raw_ts = df["timestamp"]
+    available = (
+        raw_ts + pd.Timedelta(days=release_lag_days) if release_lag_days else raw_ts
+    )
+    df = df[(available <= as_of_naive) & (raw_ts >= cutoff)].copy()
 
     # Melt wide → long
     value_cols = [c for c in df.columns if c != "timestamp"]

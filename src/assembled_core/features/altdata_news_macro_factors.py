@@ -126,13 +126,28 @@ def build_news_sentiment_factors(
             )
 
         # Point-in-time handling: ensure event_date / disclosure_date exist.
-        # For daily sentiment panels we treat the daily timestamp as both.
         if "event_date" not in news_sentiment_daily.columns:
             news_sentiment_daily["event_date"] = news_sentiment_daily[
                 timestamp_col
             ].dt.normalize()
         if "disclosure_date" not in news_sentiment_daily.columns:
-            news_sentiment_daily["disclosure_date"] = news_sentiment_daily["event_date"]
+            # Batch-12 PIT fix (Diagnostik §features MAJOR-latent): daily news
+            # sentiment for day T is not fully observable until end-of-day T;
+            # treating disclosure_date == event_date (T+0) leaks same-day news
+            # into bar T. Derive disclosure_date = event_date + conservative
+            # latency via the shared PIT helper. No "news" key exists in
+            # source_latencies; GDELT/ACLED news-style feeds use 1 day, so a
+            # local conservative default of 1 calendar day is used. Caller-
+            # supplied disclosure_date columns are preserved (no override).
+            from src.assembled_core.data.latency import apply_source_latency
+
+            _NEWS_DISCLOSURE_LAG_DAYS = 1
+            news_sentiment_daily = apply_source_latency(
+                news_sentiment_daily,
+                days=_NEWS_DISCLOSURE_LAG_DAYS,
+                event_date_col="event_date",
+                mode="derive",
+            )
 
         # If as_of is provided, restrict to sentiment that was disclosed by as_of.
         if as_of is not None:
@@ -299,31 +314,49 @@ def build_news_sentiment_factors(
                 symbol_sentiment = _sf.copy()
 
         if symbol_sentiment is not None and not symbol_sentiment.empty:
-            symbol_sentiment = symbol_sentiment.sort_values(timestamp_col).reset_index(
-                drop=True
-            )
+            # Batch-12 PIT fix: align sentiment to bars by *disclosure_date*
+            # (PIT availability), not the raw daily timestamp.
+            if "disclosure_date" not in symbol_sentiment.columns:
+                symbol_sentiment = symbol_sentiment.copy()
+                symbol_sentiment["disclosure_date"] = pd.to_datetime(
+                    symbol_sentiment[timestamp_col], utc=True
+                ).dt.normalize()
+            symbol_sentiment = symbol_sentiment.sort_values(
+                "disclosure_date"
+            ).reset_index(drop=True)
 
-            # Merge per-symbol sentiment
+            # Merge per-symbol sentiment on the PIT key with exact-match disabled
+            # so same-disclosure-day sentiment cannot leak into that bar.
             symbol_result = pd.merge_asof(
                 symbol_result,
                 symbol_sentiment[
                     [
-                        timestamp_col,
+                        "disclosure_date",
                         f"sentiment_mean_{lookback_days}d",
                         f"sentiment_trend_{lookback_days}d",
                         "sentiment_shock_flag",
                         f"sentiment_volume_{lookback_days}d",
                     ]
                 ],
-                on=timestamp_col,
+                left_on=timestamp_col,
+                right_on="disclosure_date",
                 direction="backward",
-                allow_exact_matches=True,
+                allow_exact_matches=False,
             )
+            if "disclosure_date" in symbol_result.columns:
+                symbol_result = symbol_result.drop(columns=["disclosure_date"])
 
         # Then, merge market-wide sentiment (fills gaps or provides default)
         if not sentiment_market.empty:
+            # Batch-12 PIT fix: market-wide sentiment is also aligned by
+            # *disclosure_date* with exact-match disabled.
+            if "disclosure_date" not in sentiment_market.columns:
+                sentiment_market = sentiment_market.copy()
+                sentiment_market["disclosure_date"] = pd.to_datetime(
+                    sentiment_market[timestamp_col], utc=True
+                ).dt.normalize()
             sentiment_market_sorted = sentiment_market.sort_values(
-                timestamp_col
+                "disclosure_date"
             ).reset_index(drop=True)
 
             # Merge market-wide sentiment (only fill NaN values from per-symbol)
@@ -336,21 +369,22 @@ def build_news_sentiment_factors(
                 if col not in symbol_result.columns:
                     symbol_result[col] = np.nan
 
-            # Fill NaN values with market-wide sentiment
+            # Fill NaN values with market-wide sentiment (PIT key = disclosure_date)
             market_merged = pd.merge_asof(
                 symbol_result[[timestamp_col]],
                 sentiment_market_sorted[
                     [
-                        timestamp_col,
+                        "disclosure_date",
                         f"sentiment_mean_{lookback_days}d",
                         f"sentiment_trend_{lookback_days}d",
                         "sentiment_shock_flag",
                         f"sentiment_volume_{lookback_days}d",
                     ]
                 ],
-                on=timestamp_col,
+                left_on=timestamp_col,
+                right_on="disclosure_date",
                 direction="backward",
-                allow_exact_matches=True,
+                allow_exact_matches=False,
             )
 
             # Fill NaN values in symbol_result with market values
@@ -423,6 +457,7 @@ def build_macro_regime_factors(
     group_col: str = "symbol",
     timestamp_col: str = "timestamp",
     price_col: str = "close",
+    release_lag_days: int = 32,
 ) -> pd.DataFrame:
     """Build macro regime factors from macro-economic indicators and price data.
 
@@ -656,22 +691,39 @@ def build_macro_regime_factors(
         result["macro_risk_aversion_proxy"] = np.nan
         return result
 
-    # Join regime factors to all symbols (market-wide factors — single merge_asof, no per-symbol loop)
+    # Join regime factors to all symbols (market-wide factors — single merge_asof,
+    # no per-symbol loop).
+    # Batch-12 PIT fix (Diagnostik §features/§data, GPR reference): macro
+    # indicators for observation date T are published with a release delay
+    # (month-T values land during month T+1). Align the regime to bars by a
+    # *release-lagged* availability date, mirroring merge_gpr_index_into_panel's
+    # release_lag_days=32. allow_exact_matches=False additionally prevents a
+    # regime whose availability lands exactly on a bar from feeding that bar.
     regime_df_sorted = regime_df.sort_values(timestamp_col).reset_index(drop=True)
+    regime_df_sorted = regime_df_sorted.copy()
+    regime_df_sorted["macro_available_date"] = regime_df_sorted[
+        timestamp_col
+    ] + pd.Timedelta(days=release_lag_days)
+    regime_df_sorted = regime_df_sorted.sort_values("macro_available_date").reset_index(
+        drop=True
+    )
     result = pd.merge_asof(
         result.sort_values(timestamp_col),
         regime_df_sorted[
             [
-                timestamp_col,
+                "macro_available_date",
                 "macro_growth_regime",
                 "macro_inflation_regime",
                 "macro_risk_aversion_proxy",
             ]
         ],
-        on=timestamp_col,
+        left_on=timestamp_col,
+        right_on="macro_available_date",
         direction="backward",
-        allow_exact_matches=True,
+        allow_exact_matches=False,
     )
+    if "macro_available_date" in result.columns:
+        result = result.drop(columns=["macro_available_date"])
 
     # Ensure all factor columns exist
     factor_cols = [

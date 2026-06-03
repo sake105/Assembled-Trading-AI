@@ -124,14 +124,31 @@ def build_earnings_surprise_factors(
             )
 
         # Point-in-time handling: ensure event_date / disclosure_date exist.
-        # For now we treat the event timestamp as both event_date and disclosure_date.
         if "event_date" not in events_earnings.columns:
             events_earnings["event_date"] = events_earnings[
                 timestamp_col
             ].dt.normalize()
         if "disclosure_date" not in events_earnings.columns:
-            # Earnings: disclosure_date = event_date (T+0; caller may override via column)
-            events_earnings["disclosure_date"] = events_earnings["event_date"]
+            # Batch-12 PIT fix (Diagnostik §features MAJOR-latent, E-002):
+            # earnings releases land after-close / pre-market; once the intraday
+            # press-release time is normalised to midnight, treating
+            # disclosure_date == event_date (T+0) lets an event leak into its own
+            # bar. Derive disclosure_date = event_date + conservative latency via
+            # the shared PIT helper instead. We use a local conservative default
+            # of 1 calendar day rather than latency_for("earnings") (== 0): the
+            # registry constant assumes an intraday timestamp is preserved, but
+            # these builders normalise to midnight, so a 1-day lag is the safe
+            # availability date. Only DERIVE when the caller did not already
+            # supply a real disclosure_date column (vendor override preserved).
+            from src.assembled_core.data.latency import apply_source_latency
+
+            _EARNINGS_DISCLOSURE_LAG_DAYS = 1
+            events_earnings = apply_source_latency(
+                events_earnings,
+                days=_EARNINGS_DISCLOSURE_LAG_DAYS,
+                event_date_col="event_date",
+                mode="derive",
+            )
 
         # If as_of is provided, drop events that were not yet disclosed.
         if as_of is not None:
@@ -232,22 +249,34 @@ def build_earnings_surprise_factors(
     # Use merge_asof to align events with prices (forward-fill last event)
     result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
 
-    # Create a temporary DataFrame with events for merge_asof
-    events_for_merge = events_with_surprise[
-        [
-            group_col,
-            timestamp_col,
-            "eps_surprise_pct",
-            "revenue_surprise_pct",
-        ]
-    ].copy()
+    # Create a temporary DataFrame with events for merge_asof.
+    # Batch-12 PIT fix: align events to bars by *disclosure_date* (PIT availability
+    # date), not the raw event timestamp. disclosure_date was derived/validated
+    # above; if a caller supplied earnings without it surviving the empty-branch
+    # (defensive), fall back to a midnight-normalised event timestamp.
+    _earn_merge_cols = [
+        group_col,
+        "eps_surprise_pct",
+        "revenue_surprise_pct",
+    ]
+    if "disclosure_date" in events_with_surprise.columns:
+        _earn_merge_cols.append("disclosure_date")
+    events_for_merge = events_with_surprise[_earn_merge_cols].copy()
+    if "disclosure_date" not in events_for_merge.columns:
+        events_for_merge["disclosure_date"] = pd.to_datetime(
+            events_with_surprise[timestamp_col], utc=True
+        ).dt.normalize()
+    events_for_merge["disclosure_date"] = pd.to_datetime(
+        events_for_merge["disclosure_date"], utc=True
+    )
 
-    # Use merge_asof to forward-fill the last earnings event to each price date
-    # This gives us the "last earnings surprise" up to each date
-    # merge_asof requires both DataFrames to be sorted by the join key (timestamp_col)
-    # When using by=group_col, we need to ensure proper sorting within each group
+    # Use merge_asof to forward-fill the last earnings event to each price date.
+    # Batch-12 PIT fix: the asof-merge key is the event *disclosure_date* (PIT
+    # availability), not the raw event timestamp. Both sides are sorted by that
+    # key. The bar key is the price ``timestamp_col``; an event contributes to a
+    # bar only once its disclosure_date is <= that bar.
     events_sorted = events_for_merge.sort_values(
-        [group_col, timestamp_col]
+        [group_col, "disclosure_date"]
     ).reset_index(drop=True)
 
     # Ensure result is sorted by [group_col, timestamp_col] (required for merge_asof with by=)
@@ -269,25 +298,34 @@ def build_earnings_surprise_factors(
             symbol_prices["eps_surprise_pct"] = np.nan
             symbol_prices["revenue_surprise_pct"] = np.nan
         else:
-            # Both DataFrames are sorted by timestamp for this symbol
-            # Ensure group_col is preserved (merge_asof might drop it)
+            # Sort the price side by the bar timestamp and the event side by the
+            # disclosure_date so merge_asof aligns each bar with the most recent
+            # *disclosed* earnings event.
             symbol_prices = symbol_prices.sort_values(timestamp_col).reset_index(
                 drop=True
             )
-            symbol_events = symbol_events.sort_values(timestamp_col).reset_index(
+            symbol_events = symbol_events.sort_values("disclosure_date").reset_index(
                 drop=True
             )
 
-            # merge_asof only merges on timestamp, group_col must be preserved
+            # merge_asof on the PIT key: bar timestamp (left) vs event
+            # disclosure_date (right). allow_exact_matches=False so an event whose
+            # disclosure lands exactly on a bar timestamp does NOT contribute to
+            # that same bar (defuses the residual T+0 same-bar leak).
             symbol_prices = pd.merge_asof(
                 symbol_prices,
                 symbol_events[
-                    [timestamp_col, "eps_surprise_pct", "revenue_surprise_pct"]
+                    ["disclosure_date", "eps_surprise_pct", "revenue_surprise_pct"]
                 ],
-                on=timestamp_col,
+                left_on=timestamp_col,
+                right_on="disclosure_date",
                 direction="backward",
-                allow_exact_matches=True,
+                allow_exact_matches=False,
             )
+            # Drop the carried right-key so the output schema is unchanged
+            # (disclosure_date was an internal merge key, not an output factor).
+            if "disclosure_date" in symbol_prices.columns:
+                symbol_prices = symbol_prices.drop(columns=["disclosure_date"])
 
         merged_parts.append(symbol_prices)
 

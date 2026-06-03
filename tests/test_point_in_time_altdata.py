@@ -455,16 +455,20 @@ def test_news_sentiment_factors_respect_disclosure_date(
             "AAPL sentiment should still be NaN/low (Event A disclosure_date=2024-01-15)"
         )
 
-    # MSFT should have Event B factors (disclosed on 2024-01-12)
+    # MSFT should have Event B factors (disclosed on 2024-01-12).
+    # Batch-12 PIT fix: the merge now uses allow_exact_matches=False, so an event
+    # disclosed exactly on a bar does NOT feed that same bar — it is visible from
+    # the NEXT bar onward. 2024-01-12 is a Friday; the next weekday bar in the
+    # fixture is 2024-01-15. Read strictly after disclosure.
     msft_on_b = factors_on_b_disclosure[factors_on_b_disclosure["symbol"] == "MSFT"]
-    msft_jan_12_onwards = msft_on_b[
-        msft_on_b["timestamp"] >= pd.Timestamp("2024-01-12", tz="UTC")
+    msft_after_b = msft_on_b[
+        msft_on_b["timestamp"] > pd.Timestamp("2024-01-12", tz="UTC")
     ]
-    if len(msft_jan_12_onwards) > 0:
-        sentiment_mean = msft_jan_12_onwards["news_sentiment_mean_20d"].iloc[0]
+    if len(msft_after_b) > 0:
+        sentiment_mean = msft_after_b["news_sentiment_mean_20d"].iloc[0]
         # Event B has score=0.1 (neutral), so rolling mean should reflect this
         assert not pd.isna(sentiment_mean), (
-            "MSFT sentiment should be available after Event B disclosure"
+            "MSFT sentiment should be available the bar after Event B disclosure"
         )
 
     # Test 3: as_of on Event A disclosure date (2024-01-15)
@@ -475,15 +479,17 @@ def test_news_sentiment_factors_respect_disclosure_date(
         as_of=pd.Timestamp("2024-01-15", tz="UTC"),
     )
 
-    # AAPL should now have Event A factors (strong positive sentiment)
+    # AAPL should now have Event A factors (strong positive sentiment).
+    # Batch-12 PIT fix: allow_exact_matches=False => visible from the bar AFTER
+    # the 2024-01-15 disclosure (next weekday bar 2024-01-16), not on it.
     aapl_on_a = factors_on_a_disclosure[
         (factors_on_a_disclosure["symbol"] == "AAPL")
-        & (factors_on_a_disclosure["timestamp"] >= pd.Timestamp("2024-01-15", tz="UTC"))
+        & (factors_on_a_disclosure["timestamp"] > pd.Timestamp("2024-01-15", tz="UTC"))
     ]
     if len(aapl_on_a) > 0:
         sentiment_mean = aapl_on_a["news_sentiment_mean_20d"].iloc[0]
         assert not pd.isna(sentiment_mean), (
-            "AAPL sentiment should be available after disclosure"
+            "AAPL sentiment should be available the bar after disclosure"
         )
         # Event A has score=0.8, so rolling mean should reflect this
         assert sentiment_mean > 0.5, (
