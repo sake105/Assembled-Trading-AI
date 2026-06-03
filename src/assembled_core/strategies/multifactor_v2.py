@@ -1387,6 +1387,8 @@ def _compute_crash_prob_inverse(df: pd.DataFrame, cfg: dict[str, Any]) -> float:
 def compute_signals(
     prices_with_features: pd.DataFrame,
     strategy_cfg: dict[str, Any] | None = None,
+    *,
+    as_of: "pd.Timestamp | None" = None,
 ) -> pd.DataFrame:
     """Generate 30-factor signals with regime-conditional weights.
 
@@ -1395,6 +1397,23 @@ def compute_signals(
     excluded from the weighted composite to prevent dilution.
 
     Drop-in replacement for v1. Same input/output schema.
+
+    Args:
+        prices_with_features: Panel DataFrame (timestamp, symbol, close, …).
+        strategy_cfg: Strategy configuration dict (weights, gates, …).
+        as_of: Optional PIT anchor (keyword-only). When provided, it is used as
+            the point-in-time anchor for all altdata factors (sector rotation,
+            earnings/insider, news/macro, geo-risk, insider-cluster, PEAD,
+            buyback) AND the price panel is sliced to ``timestamp <= as_of``
+            before any factor computation. This closes the look-ahead leak in
+            backtest/replay mode where a full price panel would otherwise anchor
+            altdata at the panel tail (future data relative to the cycle date).
+            When ``None`` (default), behaviour is **byte-identical** to the
+            pre-``as_of`` contract: the anchor is the panel's max timestamp and
+            the panel is used as-is. In the live/EOD path the panel tail already
+            equals the cycle date, so passing ``as_of`` there is a no-op
+            (defense-in-depth + explicit contract). Mirrors the as_of-param
+            pattern already shipped on the per-factor helpers.
     """
     cfg = strategy_cfg or {}
     min_score = float(cfg.get("min_signal_score", 0.0))
@@ -1408,6 +1427,24 @@ def compute_signals(
     if "timestamp" not in df.columns:
         return _empty_signals()
 
+    # PIT anchor (E-002 class): when an explicit as_of is supplied (backtest /
+    # replay), slice the panel to bars at or before as_of BEFORE deriving the
+    # latest bar, so neither the price-derived factors nor the altdata anchor can
+    # read future bars. When as_of is None the panel is used as-is and the anchor
+    # falls back to the panel max — byte-identical to the pre-as_of contract.
+    # In the live/EOD path the panel tail already equals as_of, so this slice is
+    # a no-op there (defense-in-depth).
+    if as_of is not None:
+        _asof_ts = pd.Timestamp(as_of)
+        _ts_col = pd.to_datetime(df["timestamp"])
+        if _asof_ts.tzinfo is not None and _ts_col.dt.tz is None:
+            _ts_col = _ts_col.dt.tz_localize("UTC")
+        elif _asof_ts.tzinfo is None and _ts_col.dt.tz is not None:
+            _asof_ts = _asof_ts.tz_localize(_ts_col.dt.tz)
+        df = df.loc[_ts_col <= _asof_ts].copy()
+        if df.empty:
+            return _empty_signals()
+
     # Latest bar per symbol
     latest = (
         df.sort_values("timestamp").groupby("symbol", group_keys=False).tail(1).copy()
@@ -1416,9 +1453,14 @@ def compute_signals(
         return _empty_signals()
 
     latest_symbols = latest["symbol"].tolist()
-    # Bar date: use latest timestamp in the panel as PIT anchor for altdata lookups.
-    # This prevents Timestamp.now() look-ahead in backtest mode (factors 19-24, 33).
-    _bar_as_of = pd.Timestamp(latest["timestamp"].max())
+    # Bar date: PIT anchor for altdata lookups (factors 18-24, 31-34).
+    # When as_of is given, anchor explicitly at as_of; otherwise fall back to the
+    # panel's max timestamp. This prevents Timestamp.now() look-ahead in backtest
+    # mode and closes the full-panel altdata leak when as_of is threaded.
+    if as_of is not None:
+        _bar_as_of = pd.Timestamp(as_of)
+    else:
+        _bar_as_of = pd.Timestamp(latest["timestamp"].max())
 
     # --- Detect regime ---
     regime_label = _detect_regime(df, cfg)

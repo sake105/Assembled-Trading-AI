@@ -41,6 +41,8 @@ def compute_signals_by_mode(
     prices: pd.DataFrame,
     policy: dict,
     freq: str = "1d",
+    *,
+    as_of: "pd.Timestamp | None" = None,
 ) -> pd.DataFrame:
     """Compute signals from prices using the mode configured in policy.
 
@@ -55,6 +57,13 @@ def compute_signals_by_mode(
         prices: Price DataFrame (columns: timestamp, symbol, close, …).
         policy: Parsed policy.yaml dict (may be empty).
         freq: Trading frequency for EMA config lookup (default: "1d").
+        as_of: Optional PIT anchor (keyword-only) forwarded to
+            ``multifactor_v2.compute_signals`` so altdata factors are anchored at
+            the cycle date, not the panel tail. ``None`` (default) preserves the
+            exact pre-as_of behaviour (panel-max anchor). In the live/EOD path
+            the panel tail equals the cycle date, so passing it is a no-op
+            (defense-in-depth + explicit contract); only backtest/replay callers
+            that pass a historical as_of gain the leak-closing anchor.
 
     Returns:
         Signals DataFrame.
@@ -70,7 +79,7 @@ def compute_signals_by_mode(
                 compute_signals as mf_compute_signals,
             )
 
-            signals = mf_compute_signals(prices)
+            signals = mf_compute_signals(prices, as_of=as_of)
             logger.info("[EOD] Signal mode: multifactor_v2 (%d signals)", len(signals))
         except Exception as exc:
             logger.error(
@@ -89,7 +98,7 @@ def compute_signals_by_mode(
                 compute_signals as mf_compute_signals,
             )
 
-            signals = mf_compute_signals(prices)
+            signals = mf_compute_signals(prices, as_of=as_of)
         except Exception as exc:
             logger.error(
                 "[EOD] ml_enhanced → multifactor fallback failed: %s",

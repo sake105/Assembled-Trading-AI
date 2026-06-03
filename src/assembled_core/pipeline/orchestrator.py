@@ -507,7 +507,24 @@ def run_execute_step(
     # Compute signals via shared canonical dispatch (B5: single source of truth).
     from src.assembled_core.pipeline._shared_eod import compute_signals_by_mode
 
-    signals = compute_signals_by_mode(prices, _policy, freq=freq)
+    # PIT anchor (E-002 class): this stateless EOD/live path loads the *current*
+    # panel, so the panel tail IS the cycle date. Thread it as an explicit as_of
+    # so multifactor_v2 anchors altdata at the cycle date by contract. In live
+    # this equals the panel max → byte-identical to the no-as_of default (the
+    # slice and anchor are no-ops); it only matters if this entry is ever driven
+    # with a historical/full panel, where it closes the altdata look-ahead leak.
+    _eod_as_of = None
+    try:
+        if (
+            isinstance(prices, pd.DataFrame)
+            and not prices.empty
+            and "timestamp" in prices.columns
+        ):
+            _eod_as_of = pd.Timestamp(pd.to_datetime(prices["timestamp"]).max())
+    except Exception as _exc:  # noqa: BLE001
+        logger.debug("[ORCHESTRATOR] as_of anchor derivation skipped: %s", _exc)
+
+    signals = compute_signals_by_mode(prices, _policy, freq=freq, as_of=_eod_as_of)
 
     # Post-signal enrichment (earnings guard, Bayesian confidence, diagnostics).
     try:
