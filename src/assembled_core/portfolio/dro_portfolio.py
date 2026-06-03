@@ -49,9 +49,40 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-from scipy.optimize import linprog, minimize
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Optional dependency: scipy.optimize (linprog / minimize)
+# ---------------------------------------------------------------------------
+# scipy is imported lazily (inside the solver functions) so that *importing*
+# this module never fails when scipy is absent. The helpful ImportError is
+# raised only when a DRO solver is actually called without scipy installed.
+_SCIPY_AVAILABLE: bool
+try:  # pragma: no cover — trivial availability probe
+    import scipy.optimize as _scipy_optimize  # type: ignore  # noqa: F401
+
+    _SCIPY_AVAILABLE = True
+except ImportError:  # pragma: no cover — exercised only when scipy is absent
+    _SCIPY_AVAILABLE = False
+
+
+def _require_scipy_optimize() -> "object":
+    """Return ``scipy.optimize`` or raise a clear, informative ImportError.
+
+    Called by the DRO solvers right before they need ``linprog`` / ``minimize``.
+    Keeps module import scipy-free while giving a precise error at call time.
+    """
+    try:
+        import scipy.optimize as scipy_optimize
+    except ImportError as exc:  # pragma: no cover — only without scipy
+        raise ImportError(
+            "DRO portfolio solvers require scipy.optimize "
+            "(linprog / minimize), which is not installed. "
+            "Install scipy to use wasserstein_dro_portfolio / kl_dro_portfolio."
+        ) from exc
+    return scipy_optimize
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -191,6 +222,7 @@ def wasserstein_dro_portfolio(
         + [(0.0, None)] * T  # u_t ≥ 0 (excess loss above ζ)
     )
 
+    linprog = _require_scipy_optimize().linprog
     result_lp = linprog(
         c,
         A_ub=A_ub,
@@ -327,6 +359,7 @@ def kl_dro_portfolio(
     constraints = {"type": "eq", "fun": lambda x: x[:n].sum() - 1.0}
     bounds_slsqp = [(0.0, 1.0)] * n + [(_KL_ETA_MIN, None)]
 
+    minimize = _require_scipy_optimize().minimize
     res = minimize(
         objective,
         x0,

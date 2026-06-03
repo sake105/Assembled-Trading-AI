@@ -1,5 +1,18 @@
 """E4 — Deflated Sharpe Ratio (Bailey & López de Prado, 2014).
 
+Canonical DSR variant
+---------------------
+
+This module is the **canonical probability-DSR** used for go-live / OOS
+gating. :func:`deflated_sharpe` returns a *probability* ``Phi((SR - SR_0) /
+sigma)`` in ``[0, 1]`` with the Euler-Mascheroni ``SR_0`` threshold, so a
+``DSR > 0.95`` gate is meaningful here.
+
+Do NOT confuse this with :func:`src.assembled_core.qa.metrics.deflated_sharpe_ratio`,
+which returns a DISTINCT **z-score** statistic ``(SR - E[max_SR]) / std(SR)``
+— unbounded, not a probability, and not comparable to a 0.95 probability
+threshold. That z-score function is deprecated for gating; use this module.
+
 Context
 -------
 

@@ -58,9 +58,41 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Optional dependency: scipy.optimize.minimize
+# ---------------------------------------------------------------------------
+# scipy is imported lazily (inside the constrained-solver functions) so that
+# *importing* this module never fails when scipy is absent. The closed-form
+# unconstrained paths (e.g. analytic min-variance / max-Sharpe) work without
+# scipy; the helpful ImportError is raised only when a constrained solver that
+# truly needs scipy.optimize.minimize is actually called.
+_SCIPY_AVAILABLE: bool
+try:  # pragma: no cover — trivial availability probe
+    import scipy.optimize as _scipy_optimize  # type: ignore  # noqa: F401
+
+    _SCIPY_AVAILABLE = True
+except ImportError:  # pragma: no cover — exercised only when scipy is absent
+    _SCIPY_AVAILABLE = False
+
+
+def _require_minimize():
+    """Return ``scipy.optimize.minimize`` or raise a clear ImportError.
+
+    Called by the constrained optimisers right before they invoke ``minimize``.
+    Keeps module import scipy-free while giving a precise error at call time.
+    """
+    try:
+        from scipy.optimize import minimize
+    except ImportError as exc:  # pragma: no cover — only without scipy
+        raise ImportError(
+            "This constrained optimizer requires scipy.optimize.minimize, "
+            "which is not installed. Install scipy, or use an unconstrained "
+            "closed-form path where available."
+        ) from exc
+    return minimize
 
 
 @dataclass
@@ -213,6 +245,7 @@ def _solve_min_var_constrained(
     constraints = [{"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0)}]
     x0 = np.full(n, 1.0 / n)
 
+    minimize = _require_minimize()
     result = minimize(
         lambda w: float(w @ cov @ w),
         x0,
@@ -343,6 +376,7 @@ def _solve_max_sharpe_constrained(
         sigma_p = float(np.sqrt(max(w @ cov @ w, 1e-12)))
         return -float(w @ excess) / sigma_p
 
+    minimize = _require_minimize()
     result = minimize(
         neg_sharpe,
         x0,
@@ -412,6 +446,7 @@ def mean_variance_efficient_frontier(
 
     rows = []
     n_failed = 0
+    minimize = _require_minimize()
     for target in target_returns:
         constraints = [
             {"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0)},
@@ -511,6 +546,7 @@ def equal_risk_contribution_weights(
     x0 = 1.0 / np.maximum(vols, 1e-12)
     x0 = x0 / x0.sum()
 
+    minimize = _require_minimize()
     result = minimize(
         objective,
         x0,

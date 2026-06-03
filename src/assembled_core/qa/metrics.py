@@ -13,6 +13,7 @@ Key features:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -20,6 +21,11 @@ import pandas as pd
 
 # Constants for annualization
 PERIODS_PER_YEAR_1D = 252  # Trading days per year
+
+# One-time-warning guards (avoid log/warning spam on hot paths). Each flag is
+# flipped True after the corresponding labelling/deprecation warning fires once.
+_DSR_ZSCORE_DEPRECATION_WARNED = False
+_PBO_HEURISTIC_WARNED = False
 PERIODS_PER_YEAR_5MIN = 252 * 78  # 78 five-minute periods per trading day
 
 
@@ -637,17 +643,39 @@ def deflated_sharpe_ratio(
     skew: float = 0.0,
     kurtosis: float = 3.0,
 ) -> float:
-    """Compute the deflated Sharpe ratio (DSR) as in Bailey & López de Prado (2014).
+    """Deflated-Sharpe **z-score** statistic (Bailey & López de Prado 2014 style).
 
-    The Deflated Sharpe Ratio adjusts the observed Sharpe Ratio for:
+    .. warning::
+
+        **This returns a Z-SCORE, NOT a probability.** It is a DISTINCT
+        statistic from the canonical probability-DSR used for go-live gating.
+        The value of this function is on the standard-normal *z* scale
+        (roughly: > ~1.65 ≈ significant at 5%), and **must NOT be compared
+        against a 0.95 probability threshold**. A ``DSR > 0.95`` gate refers
+        to the *probability* variant, not this z-score.
+
+        For deployment / OOS gating use the canonical probability-DSR in
+        :mod:`src.assembled_core.qa.deflated_sharpe`
+        (:func:`deflated_sharpe`), which returns
+        ``Phi((SR - SR_0) / sigma)`` in [0, 1] with the Euler-Mascheroni
+        ``SR_0`` threshold. That is the variant the OOS gating relies on; this
+        z-score function is retained only for backwards compatibility and is
+        **deprecated for gating use** (a one-time ``DeprecationWarning`` is
+        emitted on call).
+
+    The z-score adjusts the observed Sharpe Ratio for:
     - Multiple testing (False Discovery Rate)
     - Non-normal return distributions (skewness, kurtosis)
 
-    Formula (Bailey & López de Prado 2014):
-        DSR = (SR - E[max_SR]) / std(SR)
+    Formula (z-score form):
+        DSR_z = (SR - E[max_SR]) / std(SR)
         where:
         - E[max_SR] = expected maximum Sharpe under null (multiple testing adjustment)
         - std(SR) = standard deviation of Sharpe (distribution adjustment)
+
+    Note: the canonical probability-DSR applies ``Phi(...)`` to this same
+    standardised quantity; this function stops at the z-score and does NOT
+    apply the normal CDF, hence its output is unbounded and not a probability.
 
     Args:
         sharpe_annual: Annualized Sharpe ratio estimate of the strategy
@@ -678,6 +706,18 @@ def deflated_sharpe_ratio(
         Harvey, C. R., Liu, Y., & Zhu, H. (2016). ... and the cross-section
         of expected returns. Review of Financial Studies, 29(1), 5-68.
     """
+    global _DSR_ZSCORE_DEPRECATION_WARNED
+    if not _DSR_ZSCORE_DEPRECATION_WARNED:
+        _DSR_ZSCORE_DEPRECATION_WARNED = True
+        warnings.warn(
+            "deflated_sharpe_ratio() returns a z-score, NOT a probability, and "
+            "is deprecated for go-live/OOS gating. Use the canonical "
+            "probability-DSR in src.assembled_core.qa.deflated_sharpe."
+            "deflated_sharpe (returns Phi(...) in [0,1]) for gating decisions.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
     # Edge case: insufficient observations
     if n_obs < 2:
         return float(np.nan)
@@ -1522,16 +1562,47 @@ def probability_backtest_overfitting(
     is_returns_matrix: "np.ndarray",
     oos_returns_matrix: "np.ndarray",
 ) -> float:
-    """Probability of Backtest Overfitting (Bailey / López de Prado 2014).
+    """Single-partition OOS rank-fraction heuristic — NOT BLP CSCV-PBO.
+
+    .. warning::
+
+        **This is NOT the Bailey / López de Prado (2014) combinatorially
+        symmetric cross-validation PBO (CSCV-PBO).** The body computes the
+        OOS rank-fraction of the single in-sample winner on ONE fixed IS/OOS
+        split: no combinatorial CSCV partitions, no logit transform, no
+        fraction-of-negative-logits. It therefore UNDER-states overfitting
+        relative to true CSCV-PBO and its value is **NOT comparable** to the
+        BLP PBO ``< 0.5`` / ``< 0.3`` thresholds.
+
+        **It must NOT be cited as "BLP-PBO" in a deployment / go-live
+        decision.** A one-time ``DeprecationWarning`` is emitted on call.
+
+        No combinatorial CSCV-PBO currently exists in this codebase; a proper
+        CSCV-PBO is an out-of-scope follow-up (research task), not implemented
+        here. Until then, treat this output as a coarse single-split sanity
+        heuristic only.
 
     Args:
         is_returns_matrix: (n_strategies, n_periods_is) array of IS returns.
         oos_returns_matrix: (n_strategies, n_periods_oos) array of OOS returns.
 
     Returns:
-        PBO in [0, 1]. Lower is better.
-        Target: < 0.5 for paper reports, < 0.3 for live deployment.
+        OOS rank-fraction of the IS winner in [0, 1]. Lower is better, but
+        this is a single-split heuristic — see the warning above; it is NOT a
+        BLP-PBO and the BLP ``< 0.5`` / ``< 0.3`` thresholds do not apply.
     """
+    global _PBO_HEURISTIC_WARNED
+    if not _PBO_HEURISTIC_WARNED:
+        _PBO_HEURISTIC_WARNED = True
+        warnings.warn(
+            "probability_backtest_overfitting() is a single-partition OOS "
+            "rank-fraction heuristic, NOT the Bailey/Lopez de Prado CSCV-PBO. "
+            "Its value is not comparable to BLP PBO <0.5/<0.3 thresholds and "
+            "must not be cited as BLP-PBO in a go-live decision.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
     is_matrix = np.asarray(is_returns_matrix)
     oos_matrix = np.asarray(oos_returns_matrix)
 
