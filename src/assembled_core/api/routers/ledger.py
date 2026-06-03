@@ -15,6 +15,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 
 from src.assembled_core.api.models import LedgerPosition, LedgerResponse
+from src.assembled_core.api.routers.health import _is_safe_output_dir
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.logging_utils import get_logger
 
@@ -53,6 +54,20 @@ def get_ledger(
     if not jpath.is_absolute():
         # Resolve relative to repo root (same convention as paper_runner)
         jpath = OUTPUT_DIR.parent / ledger_path
+
+    # Reject unauthenticated path-traversal to files outside the output dir (Diagnostik A6).
+    if not _is_safe_output_dir(jpath.resolve()):
+        logger.warning("[Ledger] rejected out-of-bounds ledger_path: %s", ledger_path)
+        return LedgerResponse(
+            status="no_ledger",
+            as_of=None,
+            cash=0.0,
+            equity=0.0,
+            n_positions=0,
+            positions=[],
+            unrealized_pnl_approx=None,
+            date_requested=date,
+        )
 
     if not jpath.exists():
         return LedgerResponse(

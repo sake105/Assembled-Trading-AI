@@ -8,10 +8,13 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 from src.assembled_core.api.models import EquityCurveResponse, EquityPoint, Frequency
+from src.assembled_core.api.routers.health import _is_safe_output_dir
 from src.assembled_core.config import OUTPUT_DIR
+from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.pipeline.backtest import compute_metrics
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 @router.get("/performance/{freq}/backtest-curve", response_model=EquityCurveResponse)
@@ -196,17 +199,35 @@ def get_live_curve(
         frequency=freq.value, points=[], count=0, start_equity=0.0, end_equity=0.0
     )
 
+    # Reject unauthenticated path-traversal to files outside the output dir (Diagnostik A6).
+    if not _is_safe_output_dir(jpath.resolve()):
+        logger.warning(
+            "[live-curve] rejected out-of-bounds ledger_path: %s", ledger_path
+        )
+        return _empty
+
     if not jpath.exists():
         return _empty
 
     try:
         from src.assembled_core.ops.paper_ledger import load_ledger_state
 
-        state = load_ledger_state(jpath)
+        # Sentinel start_capital so a silent loader fallback is detectable (mirror /ledger, A7).
+        state = load_ledger_state(jpath, start_capital=-1.0)
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to load pilot ledger: {exc}"
-        ) from exc
+        # Fail closed to an empty curve (documented contract: never 404/500) instead of
+        # leaking the exception text via HTTP 500 (Diagnostik A7/A27/E-025).
+        logger.warning(
+            "[live-curve] failed to load pilot ledger from %s: %s", jpath, exc
+        )
+        return _empty
+
+    # Detect the silent loader fallback (corrupt/unreadable) → empty curve, not a fake one.
+    if state.get("updated_utc") is None and (state.get("cash") or 0) < 0:
+        logger.warning(
+            "[live-curve] possible corrupt ledger at %s — returning empty curve", jpath
+        )
+        return _empty
 
     equity_curve: list[dict] = state.get("equity_curve") or []
     if not equity_curve:
