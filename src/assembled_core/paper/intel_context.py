@@ -476,13 +476,36 @@ def persist_historical_scores(
 
     kept.append({"ts": now.isoformat(), "mean": mean, "n": n})
 
+    # Atomic rewrite: write to a UNIQUE per-writer tmp then os.replace, so a
+    # crash mid-write leaves the prior cache intact (never a half-written
+    # truncated file). Unique suffix (pid + uuid4) also prevents two concurrent
+    # writers from sharing a tmp.
+    import os
+    import uuid
+
+    tmp_path = (
+        cache_path.parent / f"{cache_path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    )
     try:
-        with cache_path.open("w", encoding="utf-8") as fh:
+        with tmp_path.open("w", encoding="utf-8") as fh:
             for rec in kept:
                 fh.write(json.dumps(rec) + "\n")
+        os.replace(str(tmp_path), str(cache_path))
     except OSError as exc:
         log.warning("[INTEL-CTX] historical_scores write failed: %s", exc)
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
         return
+    finally:
+        # Defensive: never leave this writer's own tmp behind.
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
 
     log.debug(
         "[INTEL-CTX] historical_scores appended (window=%d, total=%d)",

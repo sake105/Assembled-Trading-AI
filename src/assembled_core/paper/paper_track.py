@@ -1765,6 +1765,85 @@ def _write_run_manifest(
     logger.debug(f"Wrote run manifest to {manifest_path}")
 
 
+def _write_df_unique_tmp(
+    df: pd.DataFrame,
+    dest: Path,
+    output_format: Literal["csv", "parquet"],
+) -> None:
+    """Atomic write of *df* to *dest* via a UNIQUE per-writer tmp + os.replace.
+
+    The unique suffix (pid + uuid4) guarantees two concurrent writers never
+    share a tmp file, so ``os.replace`` always moves a fully-written file into
+    place — a half-written tmp can never be replaced-in (defense in depth even
+    outside the lock). The ``finally`` only removes THIS writer's own tmp,
+    never the destination and never another writer's tmp.
+
+    This prevents *corruption*. It does NOT by itself prevent *lost updates*
+    across two concurrent writers (last-replace wins). Serialization against
+    lost-update is provided by :func:`_locked_rmw_write` (FileLock).
+    """
+    import uuid
+
+    tmp_path = dest.parent / f"{dest.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    try:
+        if output_format == "parquet":
+            df.to_parquet(tmp_path, index=False)
+        else:
+            df.to_csv(tmp_path, index=False)
+        os.replace(str(tmp_path), str(dest))
+    finally:
+        # Only ever remove THIS writer's own unique tmp.
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+
+def _locked_rmw_write(
+    dest: Path,
+    build_df,
+    output_format: Literal["csv", "parquet"],
+    logger: "logging.Logger",
+    lock_timeout_s: float = 30.0,
+):
+    """Serialize a read-modify-write on *dest* via FileLock, then atomic-write.
+
+    ``build_df`` is a zero-arg callable that performs the read-existing ->
+    concat/merge/dedup -> sort and returns the final DataFrame to persist. It
+    is invoked INSIDE the lock so the read and the write are one critical
+    section — closing the lost-update window where a later writer's
+    ``os.replace`` overwrites a row an earlier writer just added.
+
+    Lock is the repo-internal ``utils.file_lock.FileLock`` (O_EXCL sentinel,
+    raises builtin ``TimeoutError``). On timeout we log a surfaced WARNING and
+    fall back to a single corruption-safe unique-tmp write (still cannot
+    corrupt; only forgoes the lost-update guarantee for this one write).
+
+    Single-process behaviour is unchanged: the lock is uncontended, so this is
+    one acquire/release around the identical RMW that ran before.
+
+    Returns the persisted DataFrame (so callers can reuse it downstream).
+    """
+    from src.assembled_core.utils.file_lock import FileLock
+
+    try:
+        with FileLock(dest, timeout=lock_timeout_s):
+            df = build_df()
+            _write_df_unique_tmp(df, dest, output_format)
+        return df
+    except TimeoutError as _to:
+        logger.warning(
+            "[paper_track] lock timeout on %s (%s) — unlocked corruption-safe "
+            "write (lost-update possible for this write)",
+            dest,
+            _to,
+        )
+        df = build_df()
+        _write_df_unique_tmp(df, dest, output_format)
+        return df
+
+
 def _write_aggregated_artifacts(
     result: PaperTrackDayResult,
     output_dir: Path,
@@ -1822,27 +1901,27 @@ def _write_aggregated_artifacts(
         ]
     )
 
-    if equity_curve_path.exists():
-        # Load existing file based on format
-        if output_format == "parquet":
-            existing = pd.read_parquet(equity_curve_path)
+    def _build_equity_curve() -> pd.DataFrame:
+        if equity_curve_path.exists():
+            # Load existing file based on format
+            if output_format == "parquet":
+                existing = pd.read_parquet(equity_curve_path)
+            else:
+                existing = pd.read_csv(equity_curve_path, dtype={"date": "string"})
+            # Remove duplicate for this date (if rerun)
+            existing = existing[existing["date"] != date_str]
+            # Append new row
+            curve = pd.concat([existing, new_equity_row], ignore_index=True)
         else:
-            existing = pd.read_csv(equity_curve_path, dtype={"date": "string"})
-        # Remove duplicate for this date (if rerun)
-        existing = existing[existing["date"] != date_str]
-        # Append new row
-        equity_curve = pd.concat([existing, new_equity_row], ignore_index=True)
-    else:
-        equity_curve = new_equity_row
+            curve = new_equity_row
+        # Sort by date
+        return curve.sort_values("date").reset_index(drop=True)
 
-    # Sort by date and write (atomic)
-    equity_curve = equity_curve.sort_values("date").reset_index(drop=True)
-    temp_path = equity_curve_path.with_suffix(f".tmp.{output_format}")
-    if output_format == "parquet":
-        equity_curve.to_parquet(temp_path, index=False)
-    else:
-        equity_curve.to_csv(temp_path, index=False)
-    temp_path.replace(equity_curve_path)
+    # Serialize the read->concat->replace against concurrent EOD/backtest
+    # writers (lost-update + corrupt-replace guard); atomic unique-tmp write.
+    equity_curve = _locked_rmw_write(
+        equity_curve_path, _build_equity_curve, output_format, logger
+    )
 
     # 2. Trades all (append trades from today, dedup by date)
     trades_all_path = aggregates_dir / f"trades_all.{output_format}"
@@ -1856,40 +1935,39 @@ def _write_aggregated_artifacts(
     else:
         trades_today = pd.DataFrame(columns=["date"])
 
-    if trades_all_path.exists():
-        # Load existing file based on format
-        if output_format == "parquet":
-            existing = pd.read_parquet(trades_all_path)
+    def _build_trades_all() -> pd.DataFrame:
+        if trades_all_path.exists():
+            # Load existing file based on format
+            if output_format == "parquet":
+                existing = pd.read_parquet(trades_all_path)
+            else:
+                existing = pd.read_csv(
+                    trades_all_path,
+                    dtype={"symbol": "string", "side": "string", "date": "string"},
+                )
+            # Remove duplicates for this date (if rerun)
+            if "date" in existing.columns:
+                existing = existing[existing["date"] != date_str]
+            # Append new trades
+            if not trades_today.empty:
+                merged = pd.concat([existing, trades_today], ignore_index=True)
+            else:
+                merged = existing
         else:
-            existing = pd.read_csv(
-                trades_all_path,
-                dtype={"symbol": "string", "side": "string", "date": "string"},
-            )
-        # Remove duplicates for this date (if rerun)
-        if "date" in existing.columns:
-            existing = existing[existing["date"] != date_str]
-        # Append new trades
-        if not trades_today.empty:
-            trades_all = pd.concat([existing, trades_today], ignore_index=True)
-        else:
-            trades_all = existing
-    else:
-        trades_all = trades_today
+            merged = trades_today
+        # Sort by date, timestamp
+        if not merged.empty:
+            if "timestamp" in merged.columns:
+                merged = merged.sort_values(["date", "timestamp"]).reset_index(
+                    drop=True
+                )
+            else:
+                merged = merged.sort_values("date").reset_index(drop=True)
+        return merged
 
-    # Sort by date, timestamp and write (atomic)
-    if not trades_all.empty:
-        if "timestamp" in trades_all.columns:
-            trades_all = trades_all.sort_values(["date", "timestamp"]).reset_index(
-                drop=True
-            )
-        else:
-            trades_all = trades_all.sort_values("date").reset_index(drop=True)
-    temp_path = trades_all_path.with_suffix(f".tmp.{output_format}")
-    if output_format == "parquet":
-        trades_all.to_parquet(temp_path, index=False)
-    else:
-        trades_all.to_csv(temp_path, index=False)
-    temp_path.replace(trades_all_path)
+    trades_all = _locked_rmw_write(
+        trades_all_path, _build_trades_all, output_format, logger
+    )
 
     # 3. Positions history (append positions snapshot, dedup by date)
     # Always write at least one row per day (even if no positions)
@@ -1905,38 +1983,33 @@ def _write_aggregated_artifacts(
         # Write empty row with date to track that day was processed
         positions_today = pd.DataFrame([{"date": date_str, "symbol": None, "qty": 0.0}])
 
-    if positions_history_path.exists():
-        # Load existing file based on format
-        if output_format == "parquet":
-            existing = pd.read_parquet(positions_history_path)
+    def _build_positions_history() -> pd.DataFrame:
+        if positions_history_path.exists():
+            # Load existing file based on format
+            if output_format == "parquet":
+                existing = pd.read_parquet(positions_history_path)
+            else:
+                existing = pd.read_csv(
+                    positions_history_path, dtype={"date": str, "symbol": str}
+                )
+            # Remove duplicates for this date (if rerun)
+            if "date" in existing.columns:
+                existing = existing[existing["date"] != date_str]
+            # Append new positions
+            if not positions_today.empty:
+                merged = pd.concat([existing, positions_today], ignore_index=True)
+            else:
+                merged = existing
         else:
-            existing = pd.read_csv(
-                positions_history_path, dtype={"date": str, "symbol": str}
-            )
-        # Remove duplicates for this date (if rerun)
-        if "date" in existing.columns:
-            existing = existing[existing["date"] != date_str]
-        # Append new positions
-        if not positions_today.empty:
-            positions_history = pd.concat(
-                [existing, positions_today], ignore_index=True
-            )
-        else:
-            positions_history = existing
-    else:
-        positions_history = positions_today
+            merged = positions_today
+        # Sort by date, symbol
+        if not merged.empty:
+            merged = merged.sort_values(["date", "symbol"]).reset_index(drop=True)
+        return merged
 
-    # Sort by date, symbol and write (atomic)
-    if not positions_history.empty:
-        positions_history = positions_history.sort_values(
-            ["date", "symbol"]
-        ).reset_index(drop=True)
-    temp_path = positions_history_path.with_suffix(f".tmp.{output_format}")
-    if output_format == "parquet":
-        positions_history.to_parquet(temp_path, index=False)
-    else:
-        positions_history.to_csv(temp_path, index=False)
-    temp_path.replace(positions_history_path)
+    _locked_rmw_write(
+        positions_history_path, _build_positions_history, output_format, logger
+    )
 
     # 4. Performance metrics panel (rolling metrics over equity_curve/trades_all)
     try:
@@ -1949,27 +2022,25 @@ def _write_aggregated_artifacts(
         if not performance_panel.empty:
             perf_path = aggregates_dir / f"performance_metrics.{output_format}"
 
-            if perf_path.exists():
-                if output_format == "parquet":
-                    existing_perf = pd.read_parquet(perf_path)
-                else:
-                    existing_perf = pd.read_csv(
-                        perf_path, dtype={"timestamp": str, "window": str}
-                    )
-                # Deduplicate by (timestamp, window)
-                key_cols = ["timestamp", "window"]
-                merged = pd.concat(
-                    [existing_perf, performance_panel], ignore_index=True
-                )
-                merged = merged.drop_duplicates(subset=key_cols, keep="last")
-                performance_panel = merged.sort_values(key_cols).reset_index(drop=True)
+            def _build_performance_panel() -> pd.DataFrame:
+                panel = performance_panel
+                if perf_path.exists():
+                    if output_format == "parquet":
+                        existing_perf = pd.read_parquet(perf_path)
+                    else:
+                        existing_perf = pd.read_csv(
+                            perf_path, dtype={"timestamp": str, "window": str}
+                        )
+                    # Deduplicate by (timestamp, window)
+                    key_cols = ["timestamp", "window"]
+                    merged = pd.concat([existing_perf, panel], ignore_index=True)
+                    merged = merged.drop_duplicates(subset=key_cols, keep="last")
+                    panel = merged.sort_values(key_cols).reset_index(drop=True)
+                return panel
 
-            temp_perf_path = perf_path.with_suffix(f".tmp.{output_format}")
-            if output_format == "parquet":
-                performance_panel.to_parquet(temp_perf_path, index=False)
-            else:
-                performance_panel.to_csv(temp_perf_path, index=False)
-            temp_perf_path.replace(perf_path)
+            _locked_rmw_write(
+                perf_path, _build_performance_panel, output_format, logger
+            )
     except Exception as e:  # pragma: no cover - defensive logging only
         logger.warning(
             f"Failed to update performance_metrics aggregated artifact: {e}",
