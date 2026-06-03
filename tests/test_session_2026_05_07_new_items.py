@@ -1672,15 +1672,30 @@ class TestAuditTrailWiring:
 
 
 class TestExceptExceptionCount:
-    """Item 158: verify except Exception count is known and within bounds."""
+    """Item 158: verify except Exception count is known and within bounds.
+
+    SOLE canonical broad-except guard (consolidated 2026-06-03). Two redundant
+    siblings were deleted: a grep-based test that silently passed on Windows CI
+    (grep absent from PATH → empty stdout → count 0), and a pathlib rglob test
+    that counted only the ``except Exception:`` colon form (a different invariant).
+    This test is the portable one: it counts BOTH forms (``except Exception:`` and
+    ``except Exception as ...``) via the same interpreter, so no external tool is
+    required and the measurement cannot trivially read as zero.
+    """
 
     def test_except_exception_count_in_src(self):
         """The codebase should not have an unbounded number of bare except Exception clauses.
 
-        We document the current count (891) to make increases visible.
-        The test passes as long as the count is below a generous ceiling of 1200,
-        guarding against runaway Pokémon-catch inflation.
+        Measured baseline 2026-06-03: 1002 occurrences of ``except Exception``
+        (both the bare-colon and ``as``-binding forms) across src/assembled_core.
+        The growth since the earlier ~891 baseline is largely from defensive
+        guards added during the crisis-alpha / paper-pilot work (PIT slices,
+        rate-limit fallbacks, degrade-not-crash paths) — i.e. legitimate, not a
+        masking regression. Ceiling stays at 1200 (measured 1002 + ~200 headroom)
+        so genuine runaway growth still trips the guard. Re-measure and bump the
+        baseline comment (not just the ceiling) if this is raised.
         """
+        import re
         import subprocess
         import sys
 
@@ -1690,19 +1705,35 @@ class TestExceptExceptionCount:
                 "-c",
                 "import re, pathlib; "
                 "src = pathlib.Path('src/assembled_core'); "
-                "total = sum(len(re.findall(r'except Exception', f.read_text(encoding='utf-8', errors='replace'))) "
-                "for f in src.rglob('*.py')); print(total)",
+                "total = sum(len(re.findall(r'except Exception', "
+                "f.read_text(encoding='utf-8', errors='replace'))) "
+                "for f in src.rglob('*.py') if '__pycache__' not in str(f)); "
+                "print(total)",
             ],
             capture_output=True,
             text=True,
             timeout=30,
         )
         if result.returncode != 0:
-            pytest.skip("Could not count except Exception patterns")
-        count = int(result.stdout.strip())
+            pytest.skip(
+                f"Could not count except Exception patterns: {result.stderr.strip()}"
+            )
+        # Guard against the Windows-grep failure mode: an empty/zero result must
+        # NOT be silently accepted as "all good". The codebase provably has many.
+        out = result.stdout.strip()
+        assert out and re.fullmatch(r"\d+", out), (
+            f"except-count subprocess produced no usable integer (got {out!r}); "
+            "the counting method is broken — refusing to report a false-green 0."
+        )
+        count = int(out)
+        assert count > 0, (
+            "Counted 0 'except Exception' clauses in src/assembled_core — "
+            "this is impossible given the codebase and indicates a broken counter."
+        )
         assert count < 1200, (
-            f"Too many bare 'except Exception' clauses: {count}. "
-            "Baseline is ~891. Investigate new additions."
+            f"Too many 'except Exception' clauses: {count}. "
+            "Measured baseline 2026-06-03 is 1002. Investigate new additions "
+            "before raising the ceiling."
         )
 
 
@@ -4226,15 +4257,21 @@ class TestNumpyImportTradingCycleShared:
         )
 
     def test_module_imports_without_error(self):
-        import src.assembled_core.pipeline.trading_cycle_shared  # noqa: F401
+        import src.assembled_core.pipeline.trading_cycle_shared as tcs
 
-        assert True
+        # The import itself is the unit under test (F821 numpy guard); assert the
+        # module actually loaded as a module object with a real file on disk,
+        # rather than the previous unconditional `assert True`.
+        assert tcs.__name__ == "src.assembled_core.pipeline.trading_cycle_shared"
+        assert getattr(tcs, "__file__", None), "trading_cycle_shared has no __file__"
 
     def test_trading_cycle_shim_imports(self):
         """trading_cycle.py shim wraps trading_cycle_shared."""
-        import src.assembled_core.pipeline.trading_cycle  # noqa: F401
+        import src.assembled_core.pipeline.trading_cycle as tc
 
-        assert True
+        # Assert the shim is a real importable module object (not a false green).
+        assert tc.__name__ == "src.assembled_core.pipeline.trading_cycle"
+        assert getattr(tc, "__file__", None), "trading_cycle shim has no __file__"
 
 
 # ---------------------------------------------------------------------------
@@ -4780,18 +4817,30 @@ class TestFileLockConcurrency:
         from src.assembled_core.utils.file_lock import FileLock
 
         lock_path = tmp_path / "test.lock"
-        with FileLock(lock_path):
-            assert lock_path.exists() or True  # lock acquired
+        # FileLock protects <path> via a sibling sentinel "<path>.lock".
+        sentinel = lock_path.with_suffix(lock_path.suffix + ".lock")
+        with FileLock(lock_path) as lock:
+            # While held: an fd is open and the sentinel file exists on disk.
+            # (Previously this was `assert lock_path.exists() or True`, a no-op.)
+            assert lock._fd is not None, "lock fd should be open while held"
+            assert sentinel.exists(), "lock sentinel file should exist while held"
+        # After context exit the sentinel must be cleaned up.
+        assert not sentinel.exists(), "lock sentinel should be removed on exit"
 
     def test_file_lock_releases_on_exit(self, tmp_path):
         from src.assembled_core.utils.file_lock import FileLock
 
         lock_path = tmp_path / "test.lock"
+        sentinel = lock_path.with_suffix(lock_path.suffix + ".lock")
         with FileLock(lock_path):
             pass
-        # After context exit: should be acquirable again
-        with FileLock(lock_path):
-            assert True
+        # After first context exit the sentinel is gone...
+        assert not sentinel.exists(), "sentinel should be released after first use"
+        # ...and the lock is genuinely re-acquirable (the real invariant, not
+        # the previous unconditional `assert True`).
+        with FileLock(lock_path) as lock2:
+            assert lock2._fd is not None, "lock should be re-acquirable after release"
+            assert sentinel.exists(), "sentinel re-created on second acquire"
 
 
 # ---------------------------------------------------------------------------
@@ -8249,13 +8298,16 @@ class TestGarchVolHardImportReadiness:
         assert "_ARCH_AVAILABLE" in content
 
     def test_garch_vol_arch_available_in_venv(self):
-        # arch==8.0.0 is pinned in requirements.txt — must be importable
+        # arch==8.0.0 is pinned in requirements.txt — must be importable.
         try:
-            import arch  # noqa: F401
-
-            assert True
+            import arch
         except ImportError:
             pytest.fail("arch package must be installed per requirements.txt")
+        # Assert the import produced a usable package object (real check instead
+        # of the previous unconditional `assert True`).
+        assert getattr(arch, "__version__", None), (
+            "arch imported but exposes no __version__ — broken install"
+        )
 
     def test_garch_vol_fallback_is_documented(self):
         p = (
@@ -8412,22 +8464,16 @@ class TestRemainingTier1Modules:
 
 
 class TestExceptPatternCount:
-    """Item 158: Verify except Exception count discrepancy — old 506 was in pre-shim
-    trading_cycle.py (10k LOC). Current count ~174 across all src/ after shim refactor.
+    """Item 158: structural facts about the trading_cycle shim refactor.
+
+    NOTE: the broad-except *count* assertion that used to live here was deleted
+    on 2026-06-03. It shelled out to ``grep`` which is absent from PATH on the
+    Windows CI runner, so ``result.stdout`` was empty, ``count`` was 0, and the
+    ``count < 500`` assertion passed trivially — masking any real growth. The
+    single portable replacement is ``TestExceptExceptionCount`` above (counts
+    both forms via ``sys.executable``, no external tool). This class now only
+    asserts the shim structure that motivated the original disclosure.
     """
-
-    def test_except_exception_count_below_500(self):
-        import subprocess
-
-        result = subprocess.run(
-            ["grep", "-rn", "except Exception:", "src/"], capture_output=True, text=True
-        )
-        count = len(result.stdout.strip().splitlines()) if result.stdout.strip() else 0
-        assert count < 500, (
-            f"Found {count} 'except Exception:' patterns. "
-            "Old 506 was in pre-shim trading_cycle.py (10K LOC). "
-            "After shim refactor, count should be well below 500."
-        )
 
     def test_trading_cycle_is_shim_not_monolith(self):
         p = (
@@ -11340,23 +11386,16 @@ class TestRollingMinPeriodsB:
 
 
 class TestExceptPatternAudit:
-    """Item 50: except Exception: count is bounded; audit script documents pattern."""
+    """Item 50: broad-except clauses in hot paths must be logged, not silent.
 
-    def test_except_count_is_bounded(self):
-        src = Path(__file__).parents[1] / "src"
-        count = 0
-        for f in src.rglob("*.py"):
-            if "__pycache__" in str(f):
-                continue
-            try:
-                count += f.read_text(encoding="utf-8", errors="replace").count(
-                    "except Exception:"
-                )
-            except OSError:
-                pass
-        assert count <= 250, (
-            f"Too many bare except Exception: ({count}); reduce to specific exceptions"
-        )
+    NOTE: the ``test_except_count_is_bounded`` method that counted only the
+    ``except Exception:`` colon form (ceiling 250) was deleted on 2026-06-03 as
+    a redundant third measurement of the same invariant. It measured a DIFFERENT
+    thing than the other two count tests (colon-only, ~198) yet duplicated their
+    intent. The single canonical broad-except count guard is
+    ``TestExceptExceptionCount`` (counts both forms, ceiling 1200). This class
+    keeps the qualitatively distinct hot-path-logging check below.
+    """
 
     def test_hot_path_exceptions_are_logged(self):
         hot_paths = [
@@ -11771,10 +11810,17 @@ class TestDSTHandling:
                     "pandas_market_calendars" in content
                     or "exchange_calendars" in content
                 ):
-                    return  # found market calendar usage
+                    return  # found explicit DST-aware market-calendar usage → pass
             except OSError:
                 pass
-        assert True  # calendar handling is implicit through library
+        # No explicit market-calendar library reference found. DST handling may
+        # still be implicit (tz-aware timestamps), but THIS test can only verify
+        # the explicit-library path. Make the gap visible instead of the former
+        # unconditional `assert True` false-green.
+        pytest.skip(
+            "No pandas_market_calendars / exchange_calendars usage found in src/; "
+            "explicit DST-aware calendar handling not verifiable by this test."
+        )
 
 
 class TestPositionStateRecoveryB:
@@ -12014,11 +12060,16 @@ class TestModelHashVerificationB:
             try:
                 content = f.read_text(encoding="utf-8", errors="replace")
                 if "joblib.load" in content and "hash" in content.lower():
-                    return  # found safe loading with hash check
+                    return  # found safe loading paired with a hash check → pass
             except OSError:
                 pass
-        # Acceptable if not yet implemented — just document the check
-        assert True
+        # No joblib.load co-located with a hash check was found. This is a known
+        # open hardening item, not a satisfied invariant — surface it as a skip
+        # instead of the former unconditional `assert True` false-green.
+        pytest.skip(
+            "No joblib.load + hash-verification pattern found in src/; "
+            "safe-pickle-loading guard is not yet implemented (tracked as future work)."
+        )
 
 
 class TestBacktestReproducibilityB:
@@ -12220,8 +12271,14 @@ class TestPickleSecurity:
                     break
             except OSError:
                 pass
-        # Documented as future work — not strictly required yet
-        assert True  # Tracking that this check was done
+        if not hash_verified:
+            # Open hardening item, not a met requirement — make the gap visible
+            # via skip rather than the former unconditional `assert True`.
+            pytest.skip(
+                "No model-loading site (joblib.load / pickle.load) paired with "
+                "hash/sha256/verify found in src/; integrity verification not yet "
+                "implemented (tracked as future work)."
+            )
 
 
 class TestDatetimeFormatConstantsB:

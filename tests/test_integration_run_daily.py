@@ -112,40 +112,55 @@ def test_run_daily_complete_pipeline(
         str(output_dir),
     ]
 
+    # NOTE: previously this block wrapped main() in `except Exception: pass`
+    # followed by `assert True` — the only integration test of the EOD
+    # entrypoint passed even if the pipeline crashed. We now (a) let any crash
+    # surface (no bare swallow) and (b) assert real postconditions: a valid
+    # non-fatal exit code AND concrete output artifacts on disk.
+    #
+    # main() returns an int exit code and does NOT call sys.exit() itself (only
+    # the __main__ guard does), so SystemExit should not normally be raised. We
+    # still tolerate SystemExit defensively but assert on its code.
+    rc: int
     with patch.object(sys, "argv", test_args):
         try:
-            main()
-            # main() should return 0 on success, but might raise exceptions
-            # We'll check for file generation instead
+            rc = main()
         except SystemExit as e:
-            e.code if isinstance(e.code, int) else 0
-        except Exception:
-            # If main() raises, we'll check if files were created anyway
-            pass
+            rc = e.code if isinstance(e.code, int) else 0
 
-    # Check that output directory exists
+    # main() exit-code contract (run_eod_pipeline.main):
+    #   0 = success, 2 = QA error, 3 = QA warning, 1 = FATAL/unhandled crash.
+    # With synthetic perfectly-linear prices the QA health checks legitimately
+    # flag (Sharpe=None etc.), so exit code 2 is expected here. Exit code 1
+    # means an unhandled exception inside main() — i.e. the pipeline crashed —
+    # and MUST fail this integration test.
+    assert rc != 1, (
+        f"run_eod_pipeline.main() returned 1 (FATAL/unhandled crash); "
+        f"the EOD pipeline did not complete. Output dir contents: "
+        f"{[p.name for p in output_dir.iterdir()] if output_dir.exists() else 'MISSING'}"
+    )
+    assert rc in (0, 2, 3), (
+        f"run_eod_pipeline.main() returned unexpected exit code {rc!r}; "
+        "expected 0 (ok), 2 (qa error) or 3 (qa warning)."
+    )
+
+    # The pipeline must have actually written its run manifest to output_dir.
     assert output_dir.exists(), "Output directory should be created"
+    manifest_files = list(output_dir.glob("run_manifest_*.json"))
+    assert manifest_files, (
+        "EOD pipeline produced no run_manifest_*.json — the pipeline did not "
+        f"reach the manifest-writing step. output_dir contents: "
+        f"{[p.name for p in output_dir.iterdir()]}"
+    )
 
-    # Look for order files (SAFE-CSV format)
-    # The exact filename pattern depends on the implementation
-    # Common patterns: orders_1d.csv, safe_orders_YYYY-MM-DD.csv, etc.
-    order_files = list(output_dir.glob("*order*.csv"))
-
-    # If no order files found, check for other output files
-    if not order_files:
-        # Check for any CSV files
-        csv_files = list(output_dir.glob("*.csv"))
-        if csv_files:
-            # Use the first CSV file found
-            order_files = csv_files[:1]
-
-    # At minimum, we should have some output (even if empty orders)
-    # But let's be lenient: if the pipeline runs without errors, that's a success
-    # The actual order generation depends on signal logic
-
-    # Verify that the pipeline completed (no exceptions)
-    # If we get here, the test passed
-    assert True, "Pipeline execution completed"
+    # And it must have produced concrete output artifacts beyond the manifest
+    # (ledger / accounting / reconcile / qa report directories or files).
+    produced = [p for p in output_dir.iterdir() if p.name not in {".gitkeep"}]
+    assert len(produced) >= 2, (
+        "EOD pipeline produced fewer artifacts than expected (only "
+        f"{[p.name for p in produced]}); expected manifest plus ledger/"
+        "accounting/qa output."
+    )
 
 
 def test_run_daily_creates_order_file_structure(
