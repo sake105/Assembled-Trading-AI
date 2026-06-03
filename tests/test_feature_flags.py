@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 
 from src.assembled_core.config.feature_flags import (
     FeatureFlags,
@@ -63,9 +64,16 @@ class TestFeatureFlags:
         flags = FeatureFlags(trend_baseline="on")
         assert flags.is_shadow("trend_baseline") is False
 
-    def test_unknown_flag_defaults_off(self):
+    def test_unknown_flag_raises(self):
+        # A53: an unknown/typo flag name must fail loud, not silently default to off.
         flags = FeatureFlags()
-        assert flags.is_active("nonexistent_flag") is False
+        with pytest.raises(ValueError, match="Unknown feature flag: nonexistent_flag"):
+            flags.is_active("nonexistent_flag")
+
+    def test_unknown_flag_raises_is_shadow(self):
+        flags = FeatureFlags()
+        with pytest.raises(ValueError, match="Unknown feature flag: nope"):
+            flags.is_shadow("nope")
 
 
 class TestLoadFlags:

@@ -60,13 +60,26 @@ def load_policy(
                 validate_policy,
                 validate_policy_consistency,
             )  # noqa: PLC0415
+        except (ImportError, ModuleNotFoundError):
+            # A broken/missing policy_schema module means schema validation cannot
+            # run at all. Silently skipping it (the old DEBUG behaviour) would let
+            # an unvalidated policy through unnoticed — re-raise so the failure is
+            # visible instead of degrading safety checks invisibly.
+            logger.error(
+                "policy schema module could not be imported — schema validation "
+                "cannot run; refusing to load policy with validation silently disabled"
+            )
+            raise
 
+        try:
             data, _ = validate_policy(data)
             violations = validate_policy_consistency(data)
             for v in violations:
                 logger.warning("[POLICY] Consistency violation: %s", v)
         except Exception as e:
-            logger.debug("policy schema validation skipped: %s", e)
+            # Validation-content failures (bad data, validator bug) are surfaced at
+            # WARNING — previously hidden at DEBUG — but do not block the load.
+            logger.warning("policy schema validation failed (continuing): %s", e)
 
     # Conflict guard: warn if a no-leverage policy file exists alongside an active
     # policy that has leverage_allowed=true — prevents silent mode mismatch.
@@ -87,8 +100,15 @@ def load_policy(
                     _no_lev_path.name,
                     _nolev_lev,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            # A malformed policy_no_leverage.yaml must not silently disable the
+            # leverage-conflict guard — warn so the failed cross-check is visible.
+            logger.warning(
+                "[POLICY] leverage-conflict guard skipped: could not compare "
+                "against %s: %s",
+                _no_lev_path.name,
+                e,
+            )
 
     try:
         _POLICY_CACHE[cache_key] = (data, p.stat().st_mtime)

@@ -10,8 +10,9 @@ Golden rule: new features in prod always start as 'shadow', then 'canary', then 
 
 from __future__ import annotations
 
+import hashlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Literal
 
 logger = logging.getLogger(__name__)
@@ -35,23 +36,51 @@ class FeatureFlags:
     news_topic_clustering: FlagState = "canary"
     trend_baseline: FlagState = "on"
 
+    def _flag_state(self, flag_name: str) -> str:
+        """Return the state for a known flag, or fail loud on an unknown name.
+
+        Silently defaulting an unknown/typo flag to 'off' (inactive) used to hide
+        wiring bugs: a misspelled flag name would simply never activate, with no
+        signal. Resolving against the dataclass fields makes typos fail fast.
+
+        Raises:
+            ValueError: If ``flag_name`` is not a declared feature flag field.
+        """
+        valid = {f.name for f in fields(self)}
+        if flag_name not in valid:
+            raise ValueError(f"Unknown feature flag: {flag_name}")
+        return getattr(self, flag_name)
+
     def is_active(self, flag_name: str, ticker: str = "") -> bool:
         """Return True if the flag should produce a result for this ticker.
 
         'on' always returns True.
         'canary' returns True for ~10% of tickers (stable hash-based selection).
         'shadow' and 'off' return False (caller handles shadow logging separately).
+
+        Raises:
+            ValueError: If ``flag_name`` is not a declared feature flag field.
         """
-        state: str = getattr(self, flag_name, "off")
+        state = self._flag_state(flag_name)
         if state == "on":
             return True
         if state == "canary":
-            return bool(ticker) and hash(ticker) % 10 == 0
+            # Deterministic across process restarts: the built-in hash() is salted
+            # per-process (unless PYTHONHASHSEED is pinned), which would make the
+            # "stable 10% canary subset" silently change on every restart.
+            return (
+                bool(ticker)
+                and int(hashlib.md5(ticker.encode()).hexdigest(), 16) % 10 == 0
+            )
         return False
 
     def is_shadow(self, flag_name: str) -> bool:
-        """Return True if this flag is in shadow mode (run but ignore result)."""
-        return getattr(self, flag_name, "off") == "shadow"
+        """Return True if this flag is in shadow mode (run but ignore result).
+
+        Raises:
+            ValueError: If ``flag_name`` is not a declared feature flag field.
+        """
+        return self._flag_state(flag_name) == "shadow"
 
 
 def load_flags() -> FeatureFlags:
