@@ -2,6 +2,13 @@
 
 All active logic lives in trading_cycle_v2.py and trading_cycle_shared.py.
 This file exists only for backward-compatible imports.
+
+NOTE (repo-hygiene, Diagnostik A69): this frozen 2026q2 graveyard snapshot
+re-imports LIVE protected pipeline internals from
+``src.assembled_core.pipeline.trading_cycle_shared``. It is therefore NOT
+self-contained — renaming/moving those internals will break this import. It is
+excluded from pytest (``testpaths=["tests"]``) and is on no live path; kept only
+as a historical reference. Do not treat it as runnable legacy.
 """
 
 from __future__ import annotations
@@ -59,4 +66,5 @@ def run_trading_cycle(*args, **kwargs):
     from src.assembled_core.pipeline.trading_cycle_v2 import (
         run_trading_cycle as _v2,
     )
+
     return _v2(*args, **kwargs)

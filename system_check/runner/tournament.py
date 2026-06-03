@@ -15,7 +15,6 @@ happens so a partial run is still useful if something aborts mid-way.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from dataclasses import asdict, dataclass, field
@@ -57,7 +56,7 @@ class Turn:
     round: int
     agent_id: str
     agent_name: str
-    role: str              # "critic" | "defender" | "judge" | "router"
+    role: str  # "critic" | "defender" | "judge" | "router"
     model: str
     prompt_tokens: int
     completion_tokens: int
@@ -149,12 +148,11 @@ def _critic_prompt_round1(brief: str, critic: Persona) -> str:
     )
 
 
-def _defender_prompt_round2(
-    brief: str, defender: Persona, attacks: list[Turn]
-) -> str:
+def _defender_prompt_round2(brief: str, defender: Persona, attacks: list[Turn]) -> str:
     bullet_list = "\n".join(
         f"- [{t.agent_id} / {t.agent_name}]\n{t.content.strip()}\n"
-        for t in attacks if t.content
+        for t in attacks
+        if t.content
     )
     cluster_note = (
         f"Your cluster affinity: {', '.join(defender.cluster_affinity)}. "
@@ -205,7 +203,9 @@ def _critic_counter_prompt_round3(
 
 
 def _router_prompt_round3(
-    brief_sample: str, defender_turns: list[Turn], critic_turns: list[Turn],
+    brief_sample: str,
+    defender_turns: list[Turn],
+    critic_turns: list[Turn],
 ) -> str:
     """Pick the critics whose attacks were not convincingly resolved."""
     attacks_block = "\n\n".join(
@@ -220,17 +220,21 @@ def _router_prompt_round3(
         f"Defender replies:\n{defender_block}\n\n"
         "Select up to 10 critic ids whose attack was NOT convincingly resolved "
         "by the defenders. Return ONLY a JSON array of critic ids, "
-        "e.g. [\"C1\", \"C6\", \"C13\"]. No prose."
+        'e.g. ["C1", "C6", "C13"]. No prose.'
     )
 
 
 def _judge_prompt_round4(
-    brief: str, all_turns: list[Turn], min_findings: int, min_recs: int,
+    brief: str,
+    all_turns: list[Turn],
+    min_findings: int,
+    min_recs: int,
 ) -> str:
     transcript = "\n\n".join(
         f"--- round={t.round} role={t.role} id={t.agent_id} name={t.agent_name} ---\n"
         f"{t.content.strip()}"
-        for t in all_turns if t.content
+        for t in all_turns
+        if t.content
     )
     return (
         f"{brief}\n\n"
@@ -300,22 +304,28 @@ async def run_tournament(
     (run_dir / "brief.md").write_text(brief_md, encoding="utf-8")
 
     defenders, critics = load_personas(
-        defenders_path, critics_path,
-        max_defenders=max_defenders, max_critics=max_critics,
+        defenders_path,
+        critics_path,
+        max_defenders=max_defenders,
+        max_critics=max_critics,
     )
     if not defenders or not critics:
         raise RuntimeError("No defenders or critics loaded — check persona YAMLs.")
 
     if client is None:
-        client = ClaudeClient(ClaudeClientConfig(
-            retry=RetryConfig(
-                max_attempts=config["retry"]["max_attempts"],
-                initial_backoff_seconds=config["retry"]["initial_backoff_seconds"],
-                backoff_multiplier=config["retry"]["backoff_multiplier"],
-                retry_on_status=tuple(config["retry"]["retry_on_status"]),
-                per_call_timeout_seconds=config["rounds"]["per_call_timeout_seconds"],
-            ),
-        ))
+        client = ClaudeClient(
+            ClaudeClientConfig(
+                retry=RetryConfig(
+                    max_attempts=config["retry"]["max_attempts"],
+                    initial_backoff_seconds=config["retry"]["initial_backoff_seconds"],
+                    backoff_multiplier=config["retry"]["backoff_multiplier"],
+                    retry_on_status=tuple(config["retry"]["retry_on_status"]),
+                    per_call_timeout_seconds=config["rounds"][
+                        "per_call_timeout_seconds"
+                    ],
+                ),
+            )
+        )
 
     models = config["models"]
     tok = config["tokens"]
@@ -345,7 +355,10 @@ async def run_tournament(
     ]
     r1_results = await client.call_many(r1_jobs, max_parallel=max_par)
     r1_turns = _results_to_turns(
-        round_=1, role="critic", personas=critics, results=r1_results,
+        round_=1,
+        role="critic",
+        personas=critics,
+        results=r1_results,
     )
     for t in r1_turns:
         _append_turn(t)
@@ -364,7 +377,10 @@ async def run_tournament(
     ]
     r2_results = await client.call_many(r2_jobs, max_parallel=max_par)
     r2_turns = _results_to_turns(
-        round_=2, role="defender", personas=defenders, results=r2_results,
+        round_=2,
+        role="defender",
+        personas=defenders,
+        results=r2_results,
     )
     for t in r2_turns:
         _append_turn(t)
@@ -380,34 +396,49 @@ async def run_tournament(
     )
     # Router turn recorded for audit.
     if selected_ids is not None:
-        _append_turn(Turn(
-            round=3, agent_id="ROUTER", agent_name="counter-rebuttal router",
-            role="router", model=models["router"],
-            prompt_tokens=0, completion_tokens=0,
-            content="selected=" + ",".join(selected_ids),
-        ))
+        _append_turn(
+            Turn(
+                round=3,
+                agent_id="ROUTER",
+                agent_name="counter-rebuttal router",
+                role="router",
+                model=models["router"],
+                prompt_tokens=0,
+                completion_tokens=0,
+                content="selected=" + ",".join(selected_ids),
+            )
+        )
 
     critics_by_id = {c.id: c for c in critics}
     turns_by_critic = {t.agent_id: t for t in r1_turns}
     defender_reply_lookup = "\n\n".join(t.content for t in r2_turns)
 
-    r3_personas = [critics_by_id[cid] for cid in (selected_ids or []) if cid in critics_by_id]
+    r3_personas = [
+        critics_by_id[cid] for cid in (selected_ids or []) if cid in critics_by_id
+    ]
     r3_jobs = [
         dict(
             model=models[c.model_key],
             system_prompt=c.system_prompt,
             user_prompt=_critic_counter_prompt_round3(
-                brief_md, c, turns_by_critic[c.id], defender_reply_lookup,
+                brief_md,
+                c,
+                turns_by_critic[c.id],
+                defender_reply_lookup,
             ),
             max_tokens=tok["critic_counter_max_tokens"],
             temperature=0.7,
         )
-        for c in r3_personas if c.id in turns_by_critic
+        for c in r3_personas
+        if c.id in turns_by_critic
     ]
     if r3_jobs:
         r3_results = await client.call_many(r3_jobs, max_parallel=max_par)
         r3_turns = _results_to_turns(
-            round_=3, role="critic", personas=r3_personas, results=r3_results,
+            round_=3,
+            role="critic",
+            personas=r3_personas,
+            results=r3_results,
         )
         for t in r3_turns:
             _append_turn(t)
@@ -437,8 +468,11 @@ async def run_tournament(
     )
     judge_result = await client.call(**judge_job)
     judge_turn = Turn(
-        round=4, agent_id="JUDGE", agent_name="Synthesis Judge",
-        role="judge", model=judge_result.model,
+        round=4,
+        agent_id="JUDGE",
+        agent_name="Synthesis Judge",
+        role="judge",
+        model=judge_result.model,
         prompt_tokens=judge_result.prompt_tokens,
         completion_tokens=judge_result.completion_tokens,
         content=judge_result.content,
@@ -479,16 +513,28 @@ async def run_tournament(
 
 
 def _results_to_turns(
-    *, round_: int, role: str, personas: list[Persona], results: list[CallResult],
+    *,
+    round_: int,
+    role: str,
+    personas: list[Persona],
+    results: list[CallResult],
 ) -> list[Turn]:
     turns: list[Turn] = []
     for p, r in zip(personas, results, strict=True):
-        turns.append(Turn(
-            round=round_, agent_id=p.id, agent_name=p.name, role=role,
-            model=r.model, prompt_tokens=r.prompt_tokens,
-            completion_tokens=r.completion_tokens, content=r.content,
-            attempts=r.attempts, error=r.error,
-        ))
+        turns.append(
+            Turn(
+                round=round_,
+                agent_id=p.id,
+                agent_name=p.name,
+                role=role,
+                model=r.model,
+                prompt_tokens=r.prompt_tokens,
+                completion_tokens=r.completion_tokens,
+                content=r.content,
+                attempts=r.attempts,
+                error=r.error,
+            )
+        )
     return turns
 
 
@@ -527,13 +573,19 @@ async def _select_counter_critics(
         end = payload.rfind("]")
         if start == -1 or end == -1:
             return _heuristic_counter_selection(r1_turns, cap)
-        ids = json.loads(payload[start:end + 1])
+        ids = json.loads(payload[start : end + 1])
         if not isinstance(ids, list):
             return _heuristic_counter_selection(r1_turns, cap)
         valid_ids = {t.agent_id for t in r1_turns}
         selected = [str(x) for x in ids if str(x) in valid_ids][:cap]
         return selected
-    except Exception:
+    except Exception as exc:
+        logger.debug(
+            "[tournament] counter-selection payload parse failed (%s); "
+            "falling back to heuristic first-%d selection",
+            exc,
+            cap,
+        )
         return _heuristic_counter_selection(r1_turns, cap)
 
 

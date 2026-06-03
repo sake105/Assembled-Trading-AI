@@ -108,5 +108,8 @@ autonomous/
 # QA backtest bootstrap artifacts (regenerable, produced by backtest_engine.py)
 qa/bootstrap_*.json
 
+# Experiment run artifacts (regenerable, timestamped run dirs from experiment_tracker)
+experiments/*/run.json
+
 # System map design/screenshot scratchpad (local UI research, not tracked)
 docs/architecture/system_map/screenshots/
