@@ -420,3 +420,21 @@
 - Docstring-/Report-Claims über State-Berührung empirisch verifizieren (Run-Log auf `[CRISIS_STATE] saved` grepen), nicht behaupten.
 **Erkannt in:** `scripts/_oos_wf_pipeline_realistic.py` (Stage-1 `risk-execution-reviewer` BLOCKER B1). Fix im selben Step: Env-Isolation gesetzt + korrupte `crisis_alpha_state.json` gelöscht (re-init WATCH) + Docstring/Report-Footer korrigiert + Re-Run-Verifikation (0 State-Writes, identische Zahlen).
 **Referenzen:** Review-Chain 2026-05-31 (Stage 1 risk-execution-reviewer + test-runner, Stage 2 senior-code-reviewer E-NEW-1, Stage 3 task-completion-auditor).
+
+## E-036 — `os.environ.setdefault` als State-Isolations-Guard ist ein stiller No-op, wenn die Variable bereits gesetzt ist
+**Datum:** 2026-06-03
+**Kategorie:** logic-error / state-isolation
+**Was passierte:** Research/OOS-Harnesses nutzten `os.environ.setdefault("ASSEMBLED_NO_CRISIS_OVERLAY", "1")`, um Live-State-Writes zu blocken (der E-035-Schutz). `setdefault` ist aber ein No-op, sobald die Variable schon existiert (z. B. ein Shell-/CI-`export` von `"0"`) — der Guard reaktiviert dann genau den Side-Effect still wieder, den er verhindern soll.
+**Warum falsch:** Ein defensiver Isolations-Guard, den die ambient Environment still aushebeln kann, ist schlimmer als gar kein Guard — er suggeriert eine Sicherheit, die nicht existiert. Der E-035-Schutz war damit unter realistischen CI-/Shell-Bedingungen wirkungslos.
+**Wie vermeiden:** Für MANDATORY-Isolation unbedingte Zuweisung + Warn-on-Conflict verwenden, nicht `setdefault`: `if prev not in (None, "1"): warn(...); os.environ[k] = "1"`. `setdefault` ist nur korrekt, wenn Caller-Overrides *honoriert* werden sollen — das ist hier die gegenteilige Intention.
+**Erkannt in:** `scripts/_oos_wf_pipeline_realistic.py`, `scripts/_oos_wf_etf_pairs_literal.py`, `scripts/_oos_wf_dual_momentum_literal.py`. Fix in Commit `4f23f532`.
+**Referenzen:** E-035; senior-code-reviewer Batch 10 (Commit `4f23f532`).
+
+## E-037 — Geteilter On-Disk-Cache mit reiner Symbol-Validitätsprüfung → Cross-Producer-Kontamination
+**Datum:** 2026-06-03
+**Kategorie:** logic-error / cache-correctness
+**Was passierte:** Drei OOS-Harnesses mit unterschiedlichen Symbol-Sets / Datumsfenstern schrieben und lasen denselben Parquet-Preis-Cache (`oos_alpaca_prices_cache.parquet`), validiert nur über Symbol-Präsenz — so konnte Harness A still die Preise laden, die Harness B gefetcht hatte. Das Ergebnis einer Studie hing damit unsichtbar vom vorherigen Lauf einer anderen ab.
+**Warum falsch:** Symbol-Präsenz ist keine hinreichende Cache-Validität; Datumsbereich und Producer-Identität sind entscheidend. Stille Wiederverwendung eines Caches mit falscher Coverage vergiftet OOS-Inputs unsichtbar — ein Falsifikationsergebnis kann so durch fremde Daten verfälscht werden.
+**Wie vermeiden:** Geteilte On-Disk-Caches per Producer-Identität + Parametern keyen (z. B. `script_id` + End-Datum im Dateinamen) oder den abgedeckten Datumsbereich (min/max) gegen das benötigte Fenster validieren — nicht nur Symbol-Präsenz.
+**Erkannt in:** `scripts/_oos_wf_mfv2.py`, `scripts/_oos_wf_mfv2_full.py`, `scripts/_oos_wf_mfv_long_short.py`. Fix in Commit `4f23f532`.
+**Referenzen:** senior-code-reviewer Batch 10 (Commit `4f23f532`).
