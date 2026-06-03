@@ -74,6 +74,17 @@ jobs:
           pip install pip-audit
           # Blocking scan. Known-accepted CVEs in transitive/tooling deps are
           # ignored with explicit rationale; any NEW vulnerability fails CI.
+          #
+          # ── IGNORE-LIST REVIEW DATE: review by 2026-09-01 ──
+          # Every --ignore-vuln entry below is a temporary accepted-risk waiver,
+          # NOT a permanent exception. Re-audit each entry on the review date:
+          # confirm the rationale still holds or remove the waiver so the CVE
+          # re-blocks CI. Prefer dependency upgrades over indefinite ignores.
+          # ACTION ITEM (CVE-2024-47081, requests): upgrade `requests` in the
+          # Sprint 4 dep refresh rather than carrying this waiver indefinitely —
+          # remove the corresponding --ignore-vuln line once the pinned version
+          # is no longer affected.
+          #
           # Toolchain / pip:
           # - CVE-2025-8869, CVE-2026-1703, CVE-2026-3219, CVE-2026-6357 (pip):
           #   toolchain only, not shipped in any production artifact
@@ -138,8 +149,8 @@ jobs:
       - name: Run mypy (type checking)
         run: |
           set -o pipefail
-          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio 2>&1 | tee -a backend_ci_log.txt || true
-        continue-on-error: true  # mypy is optional for now
+          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio 2>&1 | tee -a backend_ci_log.txt
+        continue-on-error: true  # mypy is optional for now — non-blocking; failures show as a red step but do NOT fail the job
       
       - name: Upload coverage report
         if: always()

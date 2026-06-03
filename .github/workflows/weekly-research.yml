@@ -16,11 +16,11 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Walk-forward validation
-        run: python scripts/ci/walk_forward_check.py || echo "walk-forward step failed"
+        run: python scripts/ci/walk_forward_check.py
       - name: GARCH vol forecast
         run: python scripts/ci/garch_check.py || echo "GARCH step failed"
       - name: Retraining scheduler check
-        run: python scripts/ci/retraining_check.py || echo "retraining check failed"
+        run: python scripts/ci/retraining_check.py
       - name: Upload research artifacts
         if: always()
         uses: actions/upload-artifact@v4

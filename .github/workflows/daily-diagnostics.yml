@@ -16,7 +16,7 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Feature drift check
-        run: python scripts/ci/drift_check.py || echo "drift check skipped"
+        run: python scripts/ci/drift_check.py
       - name: Leakage analyzer
         run: python scripts/validate_altdata.py --check-leakage || echo "leakage check skipped"
       - name: Upload diagnostics
