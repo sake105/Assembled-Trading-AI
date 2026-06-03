@@ -84,7 +84,6 @@ datensammlungen/**/*.parquet
 /config/
 *profile_out*.txt
 *.prof
-F:*
 
 # Coverage artifacts
 .coverage
@@ -107,7 +106,7 @@ autonomous/
 .claude/.destructive_bash_auth_log.jsonl
 
 # QA backtest bootstrap artifacts (regenerable, produced by backtest_engine.py)
-qa/bootstrap_backtest_*.json
+qa/bootstrap_*.json
 
 # System map design/screenshot scratchpad (local UI research, not tracked)
 docs/architecture/system_map/screenshots/
