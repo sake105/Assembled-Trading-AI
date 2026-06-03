@@ -1164,6 +1164,12 @@ def _pb_build_ledger(
             write_paper_broker_snapshot=write_broker_snapshot,
             broker_snapshot_run_id=snapshot_run_id,
             write_evidence_pack=write_evidence_pack,
+            # E-035: this is the BACKTEST ledger path. Pass is_backtest=True
+            # explicitly (also the safe default) to GUARANTEE a historical
+            # reconcile drift NEVER raises, fires an alert, or writes the live
+            # ops reconcile audit — it stays side-effect-free, only surfacing
+            # severity in the returned result.
+            is_backtest=True,
         )
         logger.info(
             "Ledger integration completed: ledger_pack_path=%s, reconciliation_ok=%s",

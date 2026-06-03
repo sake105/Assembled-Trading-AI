@@ -758,6 +758,7 @@ def _eo_step_ledger(
         from src.assembled_core.accounting.ledger_integration import (
             build_ledger_from_trades,
         )
+        from src.assembled_core.errors import ReconciliationError
 
         orders_df = load_orders(freq, output_dir=base, strict=False)
 
@@ -820,6 +821,13 @@ def _eo_step_ledger(
             write_paper_broker_snapshot=write_paper_broker_snapshot,
             broker_snapshot_run_id=snapshot_run_id,
             write_evidence_pack=write_evidence_pack,
+            # This orchestrator is the LIVE/PAPER EOD batch runner (see module
+            # docstring; the backtest path is qa/backtest_engine.py). Arming
+            # is_backtest=False makes a real reconcile SLO "fail" escalate
+            # fail-closed (ReconciliationError) inside the accounting layer,
+            # AFTER the reconciliation report is written. The error is handled
+            # below as a HARD step failure — never downgraded to a soft flag.
+            is_backtest=False,
         )
         logger.info(
             "Ledger built: pack_path=%s, reconciliation_ok=%s",
@@ -829,6 +837,30 @@ def _eo_step_ledger(
         return {"ledger_result": ledger_result, "completed": True, "failed": False}
     except ValueError:
         raise
+    except ReconciliationError as e:
+        # Do NOT swallow a live reconcile drift into a soft {failed:True} flag.
+        # The accounting layer already wrote the reconciliation report AND fired
+        # the live alert/audit before raising. Surface this as a HARD, RECORDED,
+        # ALERTED block: the run must NOT be marked completed, and the manifest
+        # must carry reconciliation_blocked=True so the failure is durable.
+        #
+        # Scope note: this blocks the EOD ledger step and marks the run failed.
+        # It does NOT by itself halt the NEXT trading cycle's order generation —
+        # engaging the kill-switch or a reconcile-blocked pre-trade gate is a
+        # deliberate operational decision and is out of scope here (operator
+        # follow-up). We do NOT auto-engage the kill-switch from the orchestrator.
+        logger.error(
+            "Ledger/Accounting step BLOCKED — live reconciliation fail-closed: %s",
+            e,
+            exc_info=True,
+        )
+        return {
+            "ledger_result": None,
+            "completed": False,
+            "failed": True,
+            "reconciliation_blocked": True,
+            "reconciliation_error": str(e),
+        }
     except Exception as e:
         logger.error("Ledger/Accounting step failed: %s", e, exc_info=True)
         return {"ledger_result": None, "completed": False, "failed": True}
@@ -1032,6 +1064,7 @@ def _eo_build_manifest(
     finished_at: datetime,
     failure_flag: bool,
     base: Path,
+    reconciliation_blocked: bool = False,
 ) -> dict[str, Any]:
     """Build the run manifest dict from pipeline step outputs."""
     qa_result = qa.get("qa_result")
@@ -1108,6 +1141,10 @@ def _eo_build_manifest(
         "reconciliation_ok": (
             ledger_result["reconciliation_ok"] if ledger_result else None
         ),
+        # A live reconcile SLO fail escalates fail-closed and blocks the EOD run.
+        # Recorded here even though ledger_result is None on that path (the
+        # accounting layer wrote its own reconcile report before raising).
+        "reconciliation_blocked": reconciliation_blocked,
         "timestamps": {
             "started": started_at.isoformat(),
             "finished": finished_at.isoformat(),
@@ -1487,6 +1524,7 @@ def run_eod_pipeline(
 
     # Step 4b: Ledger/Accounting
     ledger_result = None
+    reconciliation_blocked = False
     if (
         not skip_portfolio
         and portfolio_trades_df is not None
@@ -1511,6 +1549,14 @@ def run_eod_pipeline(
             completed_steps.append("ledger")
         if _ledger["failed"]:
             failure_flag = True
+        # A live reconcile drift is a HARD, recorded block — surface it
+        # prominently in the manifest (not just the generic failure flag).
+        if _ledger.get("reconciliation_blocked"):
+            reconciliation_blocked = True
+            logger.error(
+                "EOD run BLOCKED by reconciliation drift (step not completed): %s",
+                _ledger.get("reconciliation_error"),
+            )
     else:
         logger.info("Step 4b: Ledger/Accounting (SKIPPED - no trades available)")
 
@@ -1540,6 +1586,7 @@ def run_eod_pipeline(
         started_at=started_at,
         finished_at=finished_at,
         failure_flag=failure_flag,
+        reconciliation_blocked=reconciliation_blocked,
         base=base,
     )
 
