@@ -10,6 +10,17 @@ Sizing logic:
     scaled_weight = base_weight * size_multiplier * (severity / 2.0)
     capped at policy.news_alpha.max_single_weight  (default 0.20)
     total gross capped at policy.news_alpha.max_gross_exposure  (default 0.40)
+
+Routing contract / known dormancy:
+    Each item's ``item['topic']`` must equal a routing topic_id in
+    asset_router.ROUTING_TABLE (after central_bank is split into
+    central_bank_hike / central_bank_cut). An item whose topic matches no
+    routing topic_id is dropped (logged at DEBUG per item). If an entire EOD
+    batch uses topic strings that do not match any routing topic_id, EVERY
+    item is dropped and the generator silently yields zero signals — i.e.
+    news_alpha is effectively dormant. This wholesale-mismatch case now emits
+    a one-shot WARNING (see _DORMANCY_WARNED) so the dormancy is observable;
+    it does NOT change routing or remap topic keys.
 """
 
 from __future__ import annotations
@@ -26,6 +37,11 @@ from src.assembled_core.events.news_alpha.asset_router import (
 from src.assembled_core.events.news_alpha.models import NewsAlphaSignal
 
 logger = logging.getLogger(__name__)
+
+# One-shot guard so the wholesale topic-key mismatch (EOD dormancy) is visible
+# once at WARNING in default-level logs instead of staying silent at DEBUG per
+# item. Observability-only: it does not change routing or output.
+_DORMANCY_WARNED = False
 
 _DEFAULTS = {
     "base_weight": 0.08,
@@ -74,6 +90,9 @@ def generate_signals(
     tp_pct = float(cfg["take_profit_pct"])
 
     signals: list[NewsAlphaSignal] = []
+    # Track items dropped specifically because their topic matched no route, so
+    # a wholesale EOD topic-key mismatch (silent zero output) is observable.
+    unmatched_topics: list[str] = []
 
     for item in trigger_items:
         severity = int(item.get("severity", 0))
@@ -94,6 +113,7 @@ def generate_signals(
         route = get_route(topic_id)
         if route is None:
             logger.debug("news_alpha: no route for topic=%s — skipped", topic_id)
+            unmatched_topics.append(str(topic_id))
             continue
 
         if severity < route.get("min_severity", 2):
@@ -211,6 +231,28 @@ def generate_signals(
                     severity,
                     rationale,
                 )
+
+    # Dormancy observability: a non-empty batch produced ZERO signals AND at
+    # least one item was dropped because its topic matched no routing topic_id.
+    # This is the silent-zero-output EOD failure mode (topic-key mismatch). Warn
+    # once (one-shot) so it surfaces in default-level logs; routing is unchanged.
+    global _DORMANCY_WARNED
+    if trigger_items and not signals and unmatched_topics and not _DORMANCY_WARNED:
+        _DORMANCY_WARNED = True
+        distinct = sorted(set(unmatched_topics))
+        capped = distinct[:10]
+        more = "" if len(distinct) <= 10 else f" (+{len(distinct) - 10} more)"
+        logger.warning(
+            "news_alpha: all %d news item(s) dropped — their topic matched no "
+            "routing topic_id (asset_router.ROUTING_TABLE), so ZERO signals were "
+            "produced. Likely an EOD topic-key mismatch → news_alpha EOD is "
+            "effectively dormant. Unmatched topics: %s%s. Activation (aligning "
+            "EOD topic strings to routing topic_ids) is a separate decision, not "
+            "done here. Further occurrences suppressed.",
+            len(trigger_items),
+            capped,
+            more,
+        )
 
     return signals
 

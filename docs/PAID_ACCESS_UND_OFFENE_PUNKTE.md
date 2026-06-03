@@ -156,11 +156,18 @@
 - **Nötig:** Entscheid, Py3.10 aus der `backend-ci.yml`-Matrix zu entfernen; dann exakt pinnen.
 - **Erwarteter Nutzen:** Beseitigt die letzte ungepinnte Drift-Fläche in der autoritativen Pin-Datei.
 
+### E7 — news_alpha EOD-Aktivierung
+- **Was:** Der EOD-Pfad von news_alpha ist **dormant**: die EOD-Feed-Topic-Strings matchen keinen Routing-`topic_id` (`asset_router.ROUTING_TABLE`), daher droppt `generate_signals()` jedes Item → ZERO Output. Batch 9 hat das **nur sichtbar gemacht** (One-Shot-WARNING in `src/assembled_core/events/news_alpha/signal_generator.py`), nicht behoben.
+- **Warum nicht auto-ausführbar:** Das Angleichen der EOD-Feed-Topic-Strings an die Routing-`topic_id`s würde den Pfad **scharfschalten** und **echte direktionale ETF-Trades (live paper, shadow_only=false)** auslösen. Das Aktivieren einer bislang stillen Entry-Logik ist eine **Nutzerentscheidung**, kein Auto-Fix.
+- **Wo:** `src/assembled_core/events/news_alpha/signal_generator.py` (Topic→Route-Matching), `asset_router.ROUTING_TABLE` (Soll-`topic_id`s).
+- **Nötig:** Entscheidung, ob EOD aktiviert werden soll; falls ja, Mapping der EOD-Feed-Topics auf die Routing-`topic_id`s definieren + separat reviewen (Entry-Pfad, Risk).
+- **Erwarteter Nutzen:** Macht den EOD-News-Alpha-Pfad funktionsfähig — bewusst und kontrolliert, nicht als stiller Nebeneffekt.
+
 ---
 
 ## Zusammenfassung
 
 - **Bucket D (Daten/Broker/ML-Setup nötig):** 15 Punkte — kein Fake-Implementieren. Mehrere haben einen *optionalen Code-Teilfix* (ehrliche Kennzeichnung / Guard / Wiring-Angleichung), der separat als A/B laufen kann; der *Wert* bleibt an externe Voraussetzungen gebunden.
-- **Bucket E (Entscheidung/Deployment):** 6 Punkte — **E1 (.env-Key-Rotation) ist sicherheitskritisch und dringend** und sollte vor allem anderen entschieden werden.
+- **Bucket E (Entscheidung/Deployment):** 7 Punkte — **E1 (.env-Key-Rotation) ist sicherheitskritisch und dringend** und sollte vor allem anderen entschieden werden.
 
 *Read-only erstellt; keine Code-Änderungen. Secrets gemäß Rule 20 ohne Wertausgabe behandelt.*

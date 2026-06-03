@@ -17,6 +17,15 @@ import pandas as pd
 
 _log = logging.getLogger(__name__)
 
+# One-shot guard (PIT honesty): when a caller passes a score row with no
+# resolvable date (dict input, or a Series whose .name is None) we deliberately
+# do NOT fabricate pd.Timestamp.now() — that would mislabel a backtest/research
+# signal with the wall-clock time (look-ahead). We emit a single WARNING and
+# stamp the signal with pd.NaT instead. Suppressed to one shot to avoid per-row
+# spam. The live caller (pipeline/_tc_signals.py) ignores SectorSignals.date and
+# stamps its own ctx.as_of, so this is unchanged for live.
+_SECTOR_DATE_UNKNOWN_WARNED = False
+
 SECTOR_ETFS = ["XLK", "XLF", "XLE", "XLV", "XLI", "XLU", "XLP", "XLY"]
 
 SECTOR_NAMES = {
@@ -146,6 +155,7 @@ def generate_sector_rotation_signals(
     scores_row: pd.Series | dict,
     available_etfs: list[str] | None = None,
     config: SectorRotationConfig | None = None,
+    as_of: pd.Timestamp | None = None,
 ) -> SectorSignals:
     """Generate LONG/SHORT/FLAT signals from a single date's score row.
 
@@ -153,17 +163,35 @@ def generate_sector_rotation_signals(
         scores_row: Series/dict with {etf}_score columns for one date.
         available_etfs: Which ETFs to consider.
         config: Rotation config.
+        as_of: Explicit point-in-time stamp for the resulting SectorSignals.
+            Optional and appended last so existing positional callers are
+            unaffected. Date precedence: ``as_of`` → ``scores_row.name`` (Series
+            with a non-None name) → ``pd.NaT`` (with a one-shot WARNING). We
+            never fall back to ``pd.Timestamp.now()`` to avoid mislabelling a
+            backtest/research signal with wall-clock time (look-ahead).
 
     Returns:
         SectorSignals with longs, shorts, and risk-off flag.
     """
+    global _SECTOR_DATE_UNKNOWN_WARNED
     config = config or SectorRotationConfig()
     etfs = available_etfs or SECTOR_ETFS
 
-    if isinstance(scores_row, pd.Series):
-        date = scores_row.name if hasattr(scores_row, "name") else pd.Timestamp.now()
+    if as_of is not None:
+        date = as_of
+    elif isinstance(scores_row, pd.Series) and scores_row.name is not None:
+        date = scores_row.name
     else:
-        date = pd.Timestamp.now()
+        if not _SECTOR_DATE_UNKNOWN_WARNED:
+            _SECTOR_DATE_UNKNOWN_WARNED = True
+            _log.warning(
+                "generate_sector_rotation_signals: could not determine the "
+                "as_of date (no as_of arg; scores_row is a dict or a Series "
+                "with name=None) — stamping SectorSignals.date as NaT. "
+                "pd.Timestamp.now() is deliberately NOT used to avoid "
+                "look-ahead in backtest/research. Pass as_of= to silence."
+            )
+        date = pd.NaT
 
     etf_scores: dict[str, float] = {}
     for etf in etfs:
