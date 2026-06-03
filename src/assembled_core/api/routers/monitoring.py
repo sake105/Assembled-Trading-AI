@@ -8,8 +8,10 @@ information for dashboards and operational monitoring.
 from __future__ import annotations
 
 import json
+import tempfile
 import time
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
@@ -19,7 +21,7 @@ from src.assembled_core.api.models import (
     QAStatusSummary,
     RiskStatusSummary,
 )
-from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
+from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS, get_base_dir
 from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.pipeline.io import load_orders
 from src.assembled_core.qa.metrics import compute_all_metrics
@@ -27,6 +29,38 @@ from src.assembled_core.qa.qa_gates import evaluate_all_gates
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Path-traversal safe-roots for caller-supplied filesystem paths
+# ---------------------------------------------------------------------------
+# Several monitoring endpoints accept a caller-supplied db_path / output_dir and
+# open/glob/read it. These are unauthenticated GETs, so an unconstrained path is
+# an arbitrary-file-read vector. We confine reads to a small set of legitimate
+# roots that cover every documented default:
+#   - OUTPUT_DIR            -> repo/output         (config canonical output)
+#   - get_base_dir()/src/output -> legacy "src/output" default of these handlers
+#   - get_base_dir()/data       -> default "data/paper_ledger.db" location
+#   - tempfile.gettempdir()     -> test/CI scratch dirs
+# A path is accepted iff it equals a root or lives under one (post-resolve()).
+_MON_SAFE_ROOTS: tuple[Path, ...] = (
+    OUTPUT_DIR.resolve(),
+    (get_base_dir() / "src" / "output").resolve(),
+    (get_base_dir() / "data").resolve(),
+    Path(tempfile.gettempdir()).resolve(),
+)
+
+
+def _is_safe_monitoring_path(resolved: Path) -> bool:
+    """Return True iff *resolved* is one of the monitoring safe roots or below it.
+
+    Args:
+        resolved: an already-``.resolve()``-d path.
+
+    Returns:
+        True if the path is inside an allowed root, else False.
+    """
+    return any(resolved == root or root in resolved.parents for root in _MON_SAFE_ROOTS)
 
 
 @router.get("/monitoring/qa_status", response_model=QAStatusSummary)
@@ -406,14 +440,22 @@ def get_portfolio_status(
 
         from src.assembled_core.data.ledger_store import LedgerStore  # type: ignore
 
+        no_ledger = {
+            "status": "no_ledger",
+            "cash": 0.0,
+            "positions": [],
+            "equity": 0.0,
+            "n_positions": 0,
+        }
+
+        if not _is_safe_monitoring_path(_Path(db_path).resolve()):
+            logger.warning(
+                "[monitoring/portfolio] rejected out-of-bounds db_path: %s", db_path
+            )
+            return no_ledger
+
         if not _Path(db_path).exists():
-            return {
-                "status": "no_ledger",
-                "cash": 0.0,
-                "positions": [],
-                "equity": 0.0,
-                "n_positions": 0,
-            }
+            return no_ledger
 
         ledger = LedgerStore(db_path=db_path)
         positions = ledger.get_positions()
@@ -461,6 +503,17 @@ def get_regime_status(
 
         # Look for most recent regime state file
         out_path = _Path(output_dir)
+        if not _is_safe_monitoring_path(out_path.resolve()):
+            logger.warning(
+                "[monitoring/regime] rejected out-of-bounds output_dir: %s",
+                output_dir,
+            )
+            return {
+                "status": "stale",
+                "regime": "unknown",
+                "message": "no regime_state_*.json files in output_dir",
+                "last_run": None,
+            }
         if not out_path.exists():
             # The output dir missing is not the same failure as "no regime
             # data yet" — collapsing both to status=unavailable makes
@@ -505,6 +558,24 @@ def get_active_alerts(
 
     Aggregates alerts from multiple risk subsystems.
     """
+    empty_alerts = {"status": "ok", "n_alerts": 0, "alerts": []}
+
+    # Guard both caller-supplied paths before any filesystem access. Reject to
+    # the benign empty-alerts response (identical to a cold-start), so an
+    # out-of-bounds path cannot be used to probe arbitrary files or leak
+    # existence. db_path is guarded too although the current zombie/corr globs
+    # only use output_dir — defence in depth against future db reads here.
+    if not _is_safe_monitoring_path(Path(db_path).resolve()):
+        logger.warning(
+            "[monitoring/alerts] rejected out-of-bounds db_path: %s", db_path
+        )
+        return empty_alerts
+    if not _is_safe_monitoring_path(Path(output_dir).resolve()):
+        logger.warning(
+            "[monitoring/alerts] rejected out-of-bounds output_dir: %s", output_dir
+        )
+        return empty_alerts
+
     alerts = []
 
     # Zombie positions
@@ -596,6 +667,12 @@ def get_signal_scores(
         from pathlib import Path as _Path
 
         out_path = _Path(output_dir)
+        if not _is_safe_monitoring_path(out_path.resolve()):
+            logger.warning(
+                "[monitoring/signals] rejected out-of-bounds output_dir: %s",
+                output_dir,
+            )
+            return {"status": "unavailable", "message": "No signal score files found"}
         score_files = sorted(out_path.glob("signal_scores_*.json"), reverse=True)
         if not score_files:
             # Try parquet
@@ -648,6 +725,12 @@ def get_data_quality(
         from pathlib import Path as _Path
 
         out_path = _Path(output_dir)
+        if not _is_safe_monitoring_path(out_path.resolve()):
+            logger.warning(
+                "[monitoring/data-quality] rejected out-of-bounds output_dir: %s",
+                output_dir,
+            )
+            return {"status": "unavailable", "message": "No price files found"}
         price_files = sorted(out_path.glob("prices_*.parquet"), reverse=True)
         if not price_files:
             return {"status": "unavailable", "message": "No price files found"}
