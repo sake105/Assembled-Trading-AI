@@ -18,6 +18,35 @@ logger = logging.getLogger(__name__)
 
 _OUTPUT_ROOT = Path("output")
 
+# Observability for silently-missing alt-data caches (theme: "silent degradation
+# logged at DEBUG"). A permanently-missing / never-written cache file yields an
+# empty frame and therefore zeroed downstream factors. At DEBUG that is invisible
+# — a broken/never-built cache is indistinguishable from legitimately-absent
+# data. The one-shot guard below surfaces the FIRST missing-cache per cache type
+# at WARNING; subsequent misses stay at DEBUG to avoid per-call spam. Behaviour
+# is unchanged: the schema-correct empty frame is still returned by the caller.
+_MISSING_CACHE_WARNED: set[str] = set()
+
+
+def _warn_missing_cache(cache_type: str, fpath: Path) -> None:
+    """Surface the first missing alt-data cache of ``cache_type`` at WARNING.
+
+    Observability-only: callers must still return their schema-correct empty
+    frame. This does not change loader behaviour, only makes a permanently
+    absent cache visible once in default-level logs instead of silent at DEBUG.
+    """
+    if cache_type not in _MISSING_CACHE_WARNED:
+        _MISSING_CACHE_WARNED.add(cache_type)
+        logger.warning(
+            "[altdata] %s cache missing: %s — factor(s) degrade to empty/0.0. "
+            "Further misses of this cache suppressed to DEBUG.",
+            cache_type,
+            fpath,
+        )
+    else:
+        logger.debug("[altdata] %s cache still missing: %s", cache_type, fpath)
+
+
 # Column aliases: what the output parquets contain → what wrappers expect
 _EARNINGS_COL_MAP = {
     "disclosure_date": "filing_date",
@@ -47,7 +76,7 @@ def load_earnings_history(
     empty = pd.DataFrame(columns=["symbol", "filing_date", "surprise_pct"])
     fpath = _resolve(root, "events_earnings.parquet")
     if not fpath.exists():
-        logger.debug("[altdata] earnings file not found: %s", fpath)
+        _warn_missing_cache("earnings", fpath)
         return empty
 
     try:
@@ -105,7 +134,7 @@ def load_insider_filings(
     empty = pd.DataFrame(columns=["symbol", "filing_date", "shares_delta"])
     fpath = _resolve(root, "insider_trading.parquet")
     if not fpath.exists():
-        logger.debug("[altdata] insider file not found: %s", fpath)
+        _warn_missing_cache("insider", fpath)
         return empty
 
     try:
@@ -154,7 +183,7 @@ def load_news_sentiment(
     empty = pd.DataFrame(columns=["symbol", "timestamp", "sentiment_score"])
     fpath = _resolve(root, "news_sentiment_daily.parquet")
     if not fpath.exists():
-        logger.debug("[altdata] news_sentiment file not found: %s", fpath)
+        _warn_missing_cache("news_sentiment", fpath)
         return empty
 
     try:
@@ -200,7 +229,7 @@ def load_macro_indicators(
     empty = pd.DataFrame(columns=["timestamp", "macro_code", "value", "country"])
     fpath = _resolve(root, "macro.parquet")
     if not fpath.exists():
-        logger.debug("[altdata] macro file not found: %s", fpath)
+        _warn_missing_cache("macro", fpath)
         return empty
 
     try:

@@ -252,6 +252,16 @@ def chart_pattern_score(close: pd.Series) -> float:
     """Placeholder: returns 0 until ML model is trained.
 
     Phase 3: replace with stumpy Matrix-Profile similarity to winning patterns.
+
+    DEAD-WEIGHT WARNING (Dim 5): this is a hardcoded ``0.0`` placeholder, NOT a
+    real signal. It is wired into ``generate_composite_score_signals`` with the
+    ``chart_pattern`` weight in COMPOSITE_WEIGHTS_BY_REGIME, which is a FIXED
+    0.10 in EVERY regime (calm/normal/elevated/crisis). So roughly 10% of the
+    composite weight is permanently pinned to 0.0 — a constant dilution toward
+    neutral — until the Phase-3 ML model replaces this stub. This is documented
+    here (rather than silently shipped) on purpose; renormalising the weights to
+    remove the dilution would change the composite signal values and is out of
+    scope for this observability change.
     """
     return 0.0
 
@@ -634,6 +644,12 @@ def generate_composite_score_signals(
         dim4 = volume_profile_score(close, volume) if len(close) >= 10 else 0.0
 
         # Dim 5: Chart pattern (placeholder)
+        # DEAD WEIGHT: chart_pattern_score() is a hardcoded 0.0 stub (no ML model
+        # yet). The "chart_pattern" weight is a FIXED 0.10 in every regime, so
+        # ~10% of the composite weight is permanently pinned to 0.0 (constant
+        # dilution toward neutral) until the Phase-3 ML model lands. Documented,
+        # not silent; weights deliberately NOT renormalised (would change signal
+        # values). See chart_pattern_score() docstring.
         dim5 = chart_pattern_score(close)
 
         # Dim 6: Vol surface — no IV data in panel; use realized vol ratio as proxy

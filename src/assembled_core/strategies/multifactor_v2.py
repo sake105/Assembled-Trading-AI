@@ -517,7 +517,7 @@ def _compute_breadth_ad_slope(df: pd.DataFrame) -> float:
         ratio = float(advances) / float(total)
         return (ratio - 0.5) * 2.0
     except Exception as _exc:
-        logger.debug("[MF-V2] _compute_breadth_ad_slope failed: %s", _exc)
+        _warn_factor_degraded("breadth_ad_slope", _exc)
         return 0.0
 
 
@@ -537,7 +537,7 @@ def _compute_mr_zscore_reversal_3d(df: pd.DataFrame) -> pd.Series:
             )
             return latest.set_index("symbol")["mr_zscore_reversal_3d"]
     except Exception as exc:
-        logger.debug("[MF-V2] mr_zscore_reversal_3d unavailable: %s", exc)
+        _warn_factor_degraded("mr_zscore_reversal_3d", exc)
     return pd.Series(dtype=float)
 
 
@@ -557,7 +557,7 @@ def _compute_mr_rsi_extreme_uptrend(df: pd.DataFrame) -> pd.Series:
             )
             return latest.set_index("symbol")["mr_rsi_extreme_uptrend"]
     except Exception as exc:
-        logger.debug("[MF-V2] mr_rsi_extreme_uptrend unavailable: %s", exc)
+        _warn_factor_degraded("mr_rsi_extreme_uptrend", exc)
     return pd.Series(dtype=float)
 
 
@@ -588,6 +588,37 @@ SECTOR_STORE_STALE_DAYS = 7
 # One-shot guard so a permanently-broken offline sector store is observable in
 # live logs (E-025: silent degradation) without per-bar spam.
 _SECTOR_STORE_WARNED = False
+
+# Observability for silent factor degradation (theme: "silent degradation logged
+# at DEBUG"). The except-blocks below intentionally graceful-degrade a broken
+# factor to 0.0/empty. At the default log level that is invisible — a genuinely
+# broken data path is indistinguishable from legitimately-absent data. The
+# one-shot guard below logs the FIRST degradation of a given factor at WARNING
+# (so it surfaces in live logs) and stays quiet (debug) on subsequent calls (so
+# it does not spam per-bar). It changes NOTHING about the returned value.
+_FACTOR_DEGRADED_WARNED: set[str] = set()
+
+
+def _warn_factor_degraded(name: str, exc: BaseException) -> None:
+    """Surface the first degradation of factor ``name`` at WARNING, then debug.
+
+    Observability-only: callers must still return their existing graceful
+    fallback (0.0 / empty Series). This does not alter factor values, it only
+    makes a permanently-broken factor path visible once in default-level logs
+    instead of staying silent at DEBUG.
+    """
+    if name not in _FACTOR_DEGRADED_WARNED:
+        _FACTOR_DEGRADED_WARNED.add(name)
+        logger.warning(
+            "[MF-V2] factor degraded to neutral fallback: %s (%s: %s). "
+            "Further degradations of this factor suppressed to DEBUG.",
+            name,
+            type(exc).__name__,
+            exc,
+        )
+    else:
+        logger.debug("[MF-V2] factor %s degraded again: %s", name, exc)
+
 
 # Canonicalise GICS sector strings so SECTOR_NAMES values ("Technology",
 # "Healthcare") match security_meta.csv strings ("Information Technology",
@@ -802,7 +833,7 @@ def _compute_sector_rotation_bias(
 
         return pd.Series(result)
     except Exception as exc:
-        logger.debug("[MF-V2] sector_rotation_bias unavailable: %s", exc)
+        _warn_factor_degraded("sector_rotation_bias", exc)
         return pd.Series(0.0, index=latest_symbols)
 
 
@@ -834,7 +865,7 @@ def _compute_earnings_insider_factors(
             insider = result.get("insider_activity_score", pd.Series(dtype=float))
             return earn_z, insider
     except Exception as exc:
-        logger.debug("[MF-V2] earnings/insider factors unavailable: %s", exc)
+        _warn_factor_degraded("earnings_insider", exc)
     empty = pd.Series(dtype=float)
     return empty, empty
 
@@ -948,7 +979,7 @@ def _compute_intermarket_factors(
                 "[MF-V2] intermarket factors: fetched %d directly", len(result)
             )
     except Exception as exc:
-        logger.debug("[MF-V2] intermarket factors unavailable: %s", exc)
+        _warn_factor_degraded("intermarket", exc)
     return result
 
 
@@ -990,7 +1021,7 @@ def _compute_options_factors(
                     vix_z,
                 )
     except Exception as exc:
-        logger.debug("[MF-V2] options factors unavailable: %s", exc)
+        _warn_factor_degraded("options", exc)
     return result
 
 
@@ -1190,7 +1221,7 @@ def _compute_insider_cluster_factor(
         result["insider_cluster_score"] = pd.Series(scores)
         logger.debug("[MF-V2] insider cluster factor: %d symbols", len(scores))
     except Exception as exc:
-        logger.debug("[MF-V2] insider cluster factor unavailable: %s", exc)
+        _warn_factor_degraded("insider_cluster_score", exc)
     return result
 
 
@@ -1240,7 +1271,7 @@ def _compute_pead_sue_factor(
                     (sue_series != 0).sum(),
                 )
     except Exception as exc:
-        logger.debug("[MF-V2] PEAD/SUE factor unavailable: %s", exc)
+        _warn_factor_degraded("pead_sue_score", exc)
     return result
 
 
@@ -1294,7 +1325,7 @@ def _compute_buyback_drift_factor(
         result["buyback_drift_score"] = pd.Series(scores)
         logger.debug("[MF-V2] buyback drift factor: %d symbols", len(scores))
     except Exception as exc:
-        logger.debug("[MF-V2] buyback drift factor unavailable: %s", exc)
+        _warn_factor_degraded("buyback_drift_score", exc)
     return result
 
 
@@ -1333,7 +1364,7 @@ def _compute_options_iv_factor(
         scores = [float(iv_skew(sym, None) or 0.0) for sym in latest_symbols]
         result["options_iv_skew_score"] = pd.Series(scores, index=sym_idx)
     except Exception as exc:
-        logger.debug("[MF-V2] options_iv factor unavailable: %s", exc)
+        _warn_factor_degraded("options_iv_skew_score", exc)
 
     if "options_iv_skew_score" not in result:
         result["options_iv_skew_score"] = pd.Series(0.0, index=sym_idx)
