@@ -341,6 +341,47 @@ class AlpacaAdapter(BrokerAdapter):
     def is_paper(self) -> bool:
         return "paper" in self._base_url.lower()
 
+    def _fetch_order_by_client_id(
+        self, client_order_id: str, *, original_error: Exception
+    ) -> Any:
+        """Recover an existing broker order by its ``client_order_id`` (idempotency).
+
+        Used by the duplicate-order recovery path. The ``client_order_id`` is
+        deterministic (``idempotency.build_client_order_id``), so a crashed/retried
+        submit that hits the broker's duplicate rejection means the order already
+        exists — we adopt it instead of placing a second one (idempotency.py §contract).
+
+        Supports both SDKs: alpaca-py (``get_order_by_client_id``) and legacy
+        alpaca-trade-api (``get_order_by_client_order_id``). Returns the raw broker
+        order object (caller normalizes via ``_normalize_order``).
+
+        Fail-safe: if no lookup method is available or the lookup itself fails, the
+        ORIGINAL submit error is re-raised — we never fabricate/return a placeholder
+        order or silently swallow a genuine submit failure.
+        """
+        api = self._get_api()
+        getter = getattr(api, "get_order_by_client_id", None) or getattr(
+            api, "get_order_by_client_order_id", None
+        )
+        if getter is None:
+            logger.error(
+                "[AlpacaAdapter] duplicate recovery impossible — broker API exposes "
+                "neither get_order_by_client_id nor get_order_by_client_order_id "
+                "(coid=%s); propagating original submit error",
+                client_order_id,
+            )
+            raise original_error
+        try:
+            return getter(client_order_id)
+        except Exception as _recover_err:
+            logger.error(
+                "[AlpacaAdapter] duplicate detected but recovery fetch failed "
+                "(coid=%s): %s — propagating original submit error",
+                client_order_id,
+                _recover_err,
+            )
+            raise original_error from _recover_err
+
     def _get_api(self) -> Any:
         """Lazily initialize the alpaca API client."""
         if self._api is not None:
@@ -622,6 +663,7 @@ class AlpacaAdapter(BrokerAdapter):
         )
 
         api = self._get_api()
+        recovered = False  # True if we adopt a pre-existing order via dup recovery
         try:
             from alpaca.trading.enums import (  # type: ignore[import]
                 OrderSide,
@@ -646,14 +688,20 @@ class AlpacaAdapter(BrokerAdapter):
             except Exception as _broker_err:
                 from src.assembled_core.execution.idempotency import is_duplicate_error
 
-                if is_duplicate_error(str(_broker_err)):
-                    logger.warning(
-                        "[AlpacaAdapter] duplicate client_order_id detected — skipping retry: %s (coid=%s)",
-                        _broker_err,
-                        coid,
-                    )
+                if not is_duplicate_error(str(_broker_err)):
                     raise
-                raise
+                # Idempotency recovery (idempotency.py contract): a duplicate means the
+                # broker already accepted this exact deterministic client_order_id on a
+                # prior attempt — adopt the existing order instead of placing a second
+                # one. A failed recovery fetch re-raises the original submit error.
+                logger.warning(
+                    "[AlpacaAdapter] duplicate client_order_id — adopting existing "
+                    "order (coid=%s): %s",
+                    coid,
+                    _broker_err,
+                )
+                order = self._fetch_order_by_client_id(coid, original_error=_broker_err)
+                recovered = True
         except ImportError:
             order = api.submit_order(
                 symbol=symbol,
@@ -665,12 +713,17 @@ class AlpacaAdapter(BrokerAdapter):
             )
 
         normalized = self._normalize_order(order)
-        self._cycle_order_count += 1
-        if estimated_price > 0:
-            self._cycle_notional_total += qty * estimated_price
+        # An adopted (recovered) order was placed on a prior attempt, so it does NOT
+        # consume a fresh slot of this cycle's order/notional budget; the log is
+        # tagged 'adopted existing' rather than 'submitted'.
+        if not recovered:
+            self._cycle_order_count += 1
+            if estimated_price > 0:
+                self._cycle_notional_total += qty * estimated_price
         logger.info(
-            "[AlpacaAdapter] submitted %s %s qty=%.2f order_id=%s "
+            "[AlpacaAdapter] %s %s %s qty=%.2f order_id=%s "
             "(cycle %d/%d, notional $%.0f/$%.0f)",
+            "adopted existing" if recovered else "submitted",
             side_lower.upper(),
             symbol,
             qty,
@@ -710,6 +763,7 @@ class AlpacaAdapter(BrokerAdapter):
         )
 
         api = self._get_api()
+        recovered = False  # True if we adopt a pre-existing order via dup recovery
         try:
             from alpaca.trading.enums import (  # type: ignore[import]
                 OrderSide,
@@ -740,13 +794,19 @@ class AlpacaAdapter(BrokerAdapter):
             except Exception as _broker_err:
                 from src.assembled_core.execution.idempotency import is_duplicate_error
 
-                if is_duplicate_error(str(_broker_err)):
-                    logger.warning(
-                        "[AlpacaAdapter] duplicate client_order_id (LIMIT) — skipping retry: %s (coid=%s)",
-                        _broker_err,
-                        coid,
-                    )
-                raise
+                if not is_duplicate_error(str(_broker_err)):
+                    raise
+                # Idempotency recovery (idempotency.py contract): adopt the existing
+                # order for a duplicate client_order_id instead of placing a second
+                # one; a failed recovery fetch re-raises the original submit error.
+                logger.warning(
+                    "[AlpacaAdapter] duplicate client_order_id (LIMIT) — adopting "
+                    "existing order (coid=%s): %s",
+                    coid,
+                    _broker_err,
+                )
+                order = self._fetch_order_by_client_id(coid, original_error=_broker_err)
+                recovered = True
         except ImportError:
             order = api.submit_order(
                 symbol=symbol,
@@ -759,10 +819,14 @@ class AlpacaAdapter(BrokerAdapter):
             )
 
         normalized = self._normalize_order(order)
-        self._cycle_order_count += 1
-        self._cycle_notional_total += qty * limit_price
+        # Adopted (recovered) orders were placed on a prior attempt and do NOT
+        # consume this cycle's fresh-order/notional budget; log tagged accordingly.
+        if not recovered:
+            self._cycle_order_count += 1
+            self._cycle_notional_total += qty * limit_price
         logger.info(
-            "[AlpacaAdapter] submitted LIMIT %s %s qty=%.2f limit=$%.2f order_id=%s",
+            "[AlpacaAdapter] %s LIMIT %s %s qty=%.2f limit=$%.2f order_id=%s",
+            "adopted existing" if recovered else "submitted",
             side_lower.upper(),
             symbol,
             qty,
