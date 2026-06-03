@@ -530,16 +530,21 @@ def get_active_alerts(
         logger.warning("[Monitoring] failed to load zombie alerts: %s", exc)
 
     # Kill-switch state
+    # NOTE: the kill switch is a function-based API in execution.kill_switch
+    # (get_kill_switch_state), NOT a risk.kill_switch.KillSwitch class. The previous
+    # import raised ImportError on every call and was swallowed below, so an engaged
+    # kill switch never surfaced an alert on this dashboard (Diagnostik A8, BLOCKER).
     try:
-        from src.assembled_core.risk.kill_switch import KillSwitch  # type: ignore
+        from src.assembled_core.execution.kill_switch import get_kill_switch_state
 
-        ks = KillSwitch()
-        if ks.is_triggered():
+        ks_state = get_kill_switch_state()
+        if ks_state.get("engaged"):
+            reason = ks_state.get("persistent", {}).get("reason") or "unknown"
             alerts.append(
                 {
                     "type": "kill_switch",
                     "severity": "CRITICAL",
-                    "message": "Kill switch is ACTIVE — trading halted",
+                    "message": f"Kill switch is ACTIVE — trading halted (reason: {reason})",
                 }
             )
     except Exception as exc:

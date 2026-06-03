@@ -62,3 +62,22 @@ alerts:
       severity: warning
       message: "Trading cycle error: {error}"
       cooldown_minutes: 15
+
+    # Reconciliation SLO breaches (fired by accounting/reconciliation.py:evaluate_reconcile_slo).
+    # Context keys must match the fire() call: cash_diff_bps, max_qty_diff, violation_count, first_violation.
+    - name: "reconciliation_fail"
+      severity: critical
+      message: "RECONCILE FAIL: cash diff {cash_diff_bps} bps, max qty diff {max_qty_diff}, {violation_count} violation(s) (first: {first_violation})"
+      cooldown_minutes: 60
+
+    - name: "reconciliation_warn"
+      severity: warning
+      message: "RECONCILE WARN: cash diff {cash_diff_bps} bps, max qty diff {max_qty_diff}, {violation_count} violation(s) (first: {first_violation})"
+      cooldown_minutes: 120
+
+    # Volatility circuit-breaker trip (fired by risk/circuit_breaker.py:VolCircuitBreaker).
+    # Context keys: ratio, threshold, trip_count.
+    - name: "circuit_breaker_tripped"
+      severity: critical
+      message: "CIRCUIT BREAKER TRIPPED: vol ratio {ratio} > threshold {threshold} (trip #{trip_count})"
+      cooldown_minutes: 5

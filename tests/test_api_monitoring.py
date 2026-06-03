@@ -200,6 +200,35 @@ class TestMonitoringDriftStatus:
         assert "drift analysis" in r.json()["detail"].lower()
 
 
+class TestMonitoringAlerts:
+    """Tests for GET /api/v1/monitoring/alerts kill-switch detection (Diagnostik A8)."""
+
+    def test_alerts_endpoint_ok_and_schema(self, client: TestClient):
+        """The alerts endpoint returns 200 with the expected envelope."""
+        response = client.get("/api/v1/monitoring/alerts")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "n_alerts" in data
+        assert isinstance(data["alerts"], list)
+
+    def test_alerts_surface_engaged_kill_switch(self, client: TestClient, monkeypatch):
+        """An engaged kill switch must surface a CRITICAL kill_switch alert.
+
+        Regression for A8: the endpoint previously imported a nonexistent
+        ``risk.kill_switch.KillSwitch``; the import failed on every call and was
+        swallowed, so an engaged kill switch never produced an alert. The fix
+        uses the real ``execution.kill_switch.get_kill_switch_state`` API.
+        """
+        monkeypatch.setenv("ASSEMBLED_KILL_SWITCH", "1")
+        response = client.get("/api/v1/monitoring/alerts")
+        assert response.status_code == 200
+        data = response.json()
+        ks_alerts = [a for a in data["alerts"] if a.get("type") == "kill_switch"]
+        assert len(ks_alerts) == 1, data
+        assert ks_alerts[0]["severity"] == "CRITICAL"
+
+
 class TestMonitoringIntegration:
     """Integration tests for monitoring endpoints."""
 
