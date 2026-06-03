@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 class CompositeWeights(BaseModel):
+    # RESEARCH-ONLY weights. These defaults are NOT the live source of truth.
+    # The canonical live weights live in configs/factor_weights_by_regime.json
+    # (consumed via strategies/ + config/models.py). Do not treat the values
+    # below as authoritative for the live/paper execution path.
     mtf: float = Field(default=0.15, ge=0, le=1)
     classical_ta: float = Field(default=0.20, ge=0, le=1)
     microstructure: float = Field(default=0.10, ge=0, le=1)

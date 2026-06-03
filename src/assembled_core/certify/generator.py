@@ -88,8 +88,13 @@ def get_environment_fingerprint(
 
         for dist in im.distributions():
             pkg_versions[dist.metadata["Name"]] = dist.metadata["Version"]
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "[Certificate] package-version enumeration failed (%s) — "
+            "EnvironmentFingerprint.package_hashes is incomplete; "
+            "reproducibility fingerprint must not be treated as exhaustive.",
+            exc,
+        )
 
     seeds = {
         "python_random": random.randint(0, 2**31),
@@ -98,8 +103,13 @@ def get_environment_fingerprint(
         import numpy as np
 
         seeds["numpy_global"] = int(np.random.get_state()[1][0])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "[Certificate] numpy global-seed capture failed (%s) — "
+            "EnvironmentFingerprint.random_seeds['numpy_global'] is missing; "
+            "reproducibility fingerprint is incomplete for numpy state.",
+            exc,
+        )
     if extra_seeds:
         seeds.update(extra_seeds)
 
@@ -150,8 +160,14 @@ def build_output_fingerprint(output_dir: Path | str) -> OutputFingerprint:
         try:
             with open(summary_file, encoding="utf-8") as f:
                 summary = json.load(f)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "[Certificate] failed to load output summary %s (%s) — "
+                "OutputFingerprint.summary_metrics will be empty; "
+                "certificate output section is incomplete.",
+                summary_file,
+                exc,
+            )
 
     return OutputFingerprint(
         equity_curve_hash=file_sha256(d / "equity_curve.parquet"),

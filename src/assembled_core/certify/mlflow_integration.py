@@ -77,8 +77,12 @@ def log_certificate_to_mlflow(
             for k, v in env_dict.items():
                 try:
                     mlflow.log_param(f"env.{k}", str(v)[:250])
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning(
+                        "[MLflow] log_param failed for env.%s — skipped (%s)",
+                        k,
+                        exc,
+                    )
 
         # --- Params: certificate metadata ---
         for attr in ("certificate_id", "created_at", "strategy_version"):
@@ -156,8 +160,12 @@ def _log_output_metrics(output: Any) -> None:
         if isinstance(v, (int, float)) and not isinstance(v, bool):
             try:
                 mlflow.log_metric(k, float(v))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(
+                    "[MLflow] log_metric failed for %s — skipped (%s)",
+                    k,
+                    exc,
+                )
 
 
 def _certificate_to_json(certificate: Any) -> str | None:

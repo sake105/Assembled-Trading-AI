@@ -1,9 +1,10 @@
-"""Annual tax-report generator stubs.
+"""Annual tax-report aggregation helpers.
 
 From 50_COMPLIANCE_RECHT.md §50.1.
 
-The full DB-backed implementation (with async PostgreSQL and FIFO lot matching)
-lives in accounting/tax_lots.py.  This module provides:
+This is a fully-implemented pure-Python aggregation layer (no NotImplementedError
+placeholders). The full DB-backed implementation (with async PostgreSQL and FIFO
+lot matching) lives in accounting/tax_lots.py.  This module provides:
 
 - A pure-Python ``TaxReportSummary`` dataclass for aggregation.
 - ``summarize_closed_lots()`` to produce a summary from a list of lot dicts.

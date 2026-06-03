@@ -41,10 +41,14 @@ class AttributionStore:
         try:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")  # WAL-recommended
-        except sqlite3.Error:
+        except sqlite3.Error as exc:
             # If WAL setup fails (e.g. read-only filesystem), continue with
             # default journal — connection still usable.
-            pass
+            _logger.debug(
+                "[AttributionStore] WAL/synchronous PRAGMA setup failed (%s) — "
+                "continuing with default journal mode.",
+                exc,
+            )
         return conn
 
     def _init_schema(self) -> None:
