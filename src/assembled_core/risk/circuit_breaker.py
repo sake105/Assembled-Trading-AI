@@ -96,14 +96,40 @@ class CircuitBreaker:
 
         return False
 
-    @property
-    def is_tripped(self) -> bool:
-        """Check if the circuit breaker is currently tripped (in cooldown)."""
+    def is_tripped_at(self, as_of: datetime | None = None) -> bool:
+        """Check if the breaker is in cooldown as of *as_of* (PIT-correct).
+
+        Args:
+            as_of: Observation/replay time to compare the cooldown window
+                against. When ``None`` (default), falls back to wall-clock
+                ``datetime.now(UTC)`` — identical to the legacy
+                :attr:`is_tripped` behaviour. A backtest or replay MUST pass
+                the historical observation time here, otherwise the cooldown
+                compares a 2026 wall-clock against a replayed historical
+                ``_tripped_at`` and returns a wrong decision.
+        """
         if self._tripped_at is None:
             return False
-        now = datetime.now(timezone.utc)
+        if as_of is None:
+            now = datetime.now(timezone.utc)
+        else:
+            now = (
+                as_of
+                if as_of.tzinfo is not None
+                else as_of.replace(tzinfo=timezone.utc)
+            )
         cooldown_end = self._tripped_at + timedelta(minutes=self.cooldown_minutes)
         return now < cooldown_end
+
+    @property
+    def is_tripped(self) -> bool:
+        """Check if the circuit breaker is currently tripped (wall-clock cooldown).
+
+        Live convenience property — uses ``datetime.now(UTC)``. For backtest /
+        replay PIT-correctness pass the historical time to
+        :meth:`is_tripped_at`.
+        """
+        return self.is_tripped_at(None)
 
     @property
     def trip_count(self) -> int:
@@ -230,13 +256,35 @@ class VolCircuitBreaker:
 
         return False
 
-    @property
-    def is_tripped(self) -> bool:
+    def is_tripped_at(self, as_of: datetime | None = None) -> bool:
+        """Check if the breaker is in cooldown as of *as_of* (PIT-correct).
+
+        Args:
+            as_of: Observation/replay time to compare the cooldown window
+                against. When ``None`` (default), falls back to wall-clock
+                ``datetime.now(UTC)`` — identical to the legacy
+                :attr:`is_tripped` behaviour. A backtest or replay MUST pass
+                the historical observation time here for a PIT-correct
+                cooldown decision.
+        """
         if self._tripped_at is None:
             return False
-        now = datetime.now(timezone.utc)
+        if as_of is None:
+            now = datetime.now(timezone.utc)
+        else:
+            now = (
+                as_of
+                if as_of.tzinfo is not None
+                else as_of.replace(tzinfo=timezone.utc)
+            )
         cooldown_end = self._tripped_at + timedelta(minutes=self.cooldown_minutes)
         return now < cooldown_end
+
+    @property
+    def is_tripped(self) -> bool:
+        """Wall-clock cooldown check. For replay PIT-correctness use
+        :meth:`is_tripped_at`."""
+        return self.is_tripped_at(None)
 
     @property
     def trip_count(self) -> int:

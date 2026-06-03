@@ -109,19 +109,75 @@ def load_risk_state(path: str | Path) -> RiskStateRecord:
     )
 
 
+def _write_state_json_unique_tmp(p: Path, data: Dict[str, Any]) -> None:
+    """Atomic write via a UNIQUE per-writer tmp (pid + uuid4) then os.replace.
+
+    The unique suffix guarantees two concurrent writers never share a tmp file,
+    so ``os.replace`` always moves a fully-written file into place (no
+    half-written tmp can be replaced-in). The ``finally`` only removes THIS
+    writer's own tmp — never the destination, never another writer's tmp.
+
+    Note: this prevents *corruption*. It does not by itself prevent *lost
+    updates* across two concurrent writers (both may complete, last-replace
+    wins). Serialization against lost-update is provided by the lock path in
+    :func:`save_risk_state` (default-on for risk-state saves).
+    """
+    import uuid
+
+    tmp_path = p.parent / f"{p.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    try:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass  # network/tmpfs may not support fsync
+        os.replace(str(tmp_path), str(p))
+    finally:
+        # Only ever remove THIS writer's own unique tmp (never the destination,
+        # never a shared/other-writer tmp).
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
+
+
 def save_risk_state(
     record: RiskStateRecord,
     path: str | Path,
     policy: Dict[str, Any] | None = None,
 ) -> None:
-    """Write risk state to JSON file atomically (tmp + replace). Optional lock+retry from policy."""
+    """Write risk state to JSON file atomically. Serialized via file lock by default.
+
+    Concurrency: the EOD trading cycle and the paper engine are genuinely
+    concurrent processes that both persist risk state to the same fixed path.
+    To prevent both corruption (half-written tmp) and lost-update (last-writer
+    wins), the save serializes on a cross-process file lock by default. The
+    lock is the repo-internal ``utils.file_lock.FileLock`` (O_EXCL sentinel,
+    raises the builtin ``TimeoutError`` — hence the ``except TimeoutError``
+    below). Note this is a DIFFERENT implementation from the third-party
+    ``filelock`` package (``filelock.Timeout``) used by ``kill_switch`` /
+    ``paper_ledger``. The write itself uses a UNIQUE per-writer tmp so even if
+    the lock is disabled via policy, two writers can never share a tmp and
+    corrupt the destination.
+
+    Policy override ``risk_state_machine.persistence.lock``:
+      * ``enabled`` (default True): serialize writers on a ``FileLock``.
+      * ``retries`` / ``backoff_ms``: forwarded to the locked atomic write.
+    """
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     data = record.to_dict()
     rsm = (policy or {}).get("risk_state_machine") or {}
     persistence = rsm.get("persistence") or {}
     lock_cfg = persistence.get("lock") or {}
-    use_lock = lock_cfg.get("enabled", False)
+    # Default to True: risk-state has genuinely concurrent process writers
+    # (EOD cycle + paper engine). Serializing prevents corruption AND
+    # lost-update. Explicit `enabled: false` in policy preserves the old
+    # lock-free path (still corruption-safe via the unique-tmp write).
+    use_lock = lock_cfg.get("enabled", True)
     retries = int(lock_cfg.get("retries", 5) or 5)
     backoff_ms = int(lock_cfg.get("backoff_ms", 50) or 50)
 
@@ -135,21 +191,35 @@ def save_risk_state(
         except Exception as bak_err:
             logger.warning("[RiskState] could not write backup state file: %s", bak_err)
 
-    if use_lock and retries > 0:
-        atomic_write_json_with_retry(p, data, retries=retries, backoff_ms=backoff_ms)
-        return
-    # No lock: single write (original behavior)
-    tmp_path = p.parent / (p.name + ".tmp")
-    try:
-        with tmp_path.open("w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        os.replace(str(tmp_path), str(p))
-    finally:
-        if tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except Exception:
-                pass
+    if use_lock:
+        # Serialize concurrent process writers via the repo-internal
+        # utils.file_lock.FileLock (builtin TimeoutError) — a DIFFERENT
+        # implementation from the third-party `filelock` package used by
+        # kill_switch / paper_ledger. Inside the lock we still use the
+        # unique-tmp atomic write so a lock-acquire failure can never corrupt.
+        try:
+            from src.assembled_core.utils.file_lock import FileLock
+
+            with FileLock(p, timeout=float(persistence.get("lock_timeout_s", 30.0))):
+                _write_state_json_unique_tmp(p, data)
+            return
+        except TimeoutError as _to:
+            # Could not serialize in time — fall through to a single unique-tmp
+            # write. This still cannot corrupt (unique tmp), it only forgoes
+            # the lost-update guarantee for this one write. Surfaced, not silent.
+            logger.warning(
+                "[RiskState] lock timeout on %s (%s) — unlocked corruption-safe "
+                "write (lost-update possible for this write)",
+                p,
+                _to,
+            )
+        # Retry note: the locked path historically used
+        # atomic_write_json_with_retry(retries, backoff_ms). Those knobs are
+        # retained in the API for compatibility; the FileLock already
+        # serializes, and the unique-tmp os.replace is the atomic primitive.
+        _ = (retries, backoff_ms)
+    # No lock (policy override) or post-timeout fallback: corruption-safe write.
+    _write_state_json_unique_tmp(p, data)
 
 
 if TYPE_CHECKING:

@@ -409,6 +409,129 @@ def test_per_run_mode_writes_to_unique_path(monkeypatch: Any) -> None:
         assert expected_path.exists()
 
 
+# --- B-risk-1: concurrent-write corruption regression ---
+
+
+def _rec(state: str = "ACTIVE", reason: str = "activate_score") -> RiskStateRecord:
+    return RiskStateRecord(
+        state=state,  # type: ignore[arg-type]
+        since_utc="2025-01-15T12:00:00Z",
+        last_transition_utc="2025-01-15T12:00:00Z",
+        reason=reason,
+        geo_score=2,
+        geo_confidence=0.8,
+    )
+
+
+def test_save_uses_unique_tmp_not_shared(monkeypatch: Any) -> None:
+    """Each save uses a UNIQUE tmp (pid + uuid) — never the legacy shared <name>.tmp.
+
+    Guards the corruption fix: two concurrent writers can never share a tmp,
+    so os.replace always moves a fully-written file into place.
+    """
+    seen_tmps: list[str] = []
+    original_replace = os.replace
+
+    def recording_replace(src: str, dst: str) -> None:
+        seen_tmps.append(Path(src).name)
+        original_replace(src, dst)
+
+    monkeypatch.setattr(
+        "src.assembled_core.risk.state_machine.os.replace", recording_replace
+    )
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "risk_state.json"
+        # lock disabled to exercise the unlocked corruption-safe path explicitly
+        policy = {"risk_state_machine": {"persistence": {"lock": {"enabled": False}}}}
+        save_risk_state(_rec(), path, policy)
+        save_risk_state(_rec(), path, policy)
+
+    assert len(seen_tmps) == 2
+    # Never the legacy shared name
+    assert all(name != "risk_state.json.tmp" for name in seen_tmps)
+    # Two distinct unique tmps (no shared-tmp collision)
+    assert seen_tmps[0] != seen_tmps[1]
+    # Each carries the pid prefix and a .tmp suffix
+    pid = str(os.getpid())
+    assert all(name.startswith(f"risk_state.json.{pid}.") for name in seen_tmps)
+    assert all(name.endswith(".tmp") for name in seen_tmps)
+
+
+def test_finally_only_removes_own_tmp_not_destination() -> None:
+    """After a successful save the destination survives and no tmp leaks remain."""
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "risk_state.json"
+        policy = {"risk_state_machine": {"persistence": {"lock": {"enabled": False}}}}
+        save_risk_state(_rec(), path, policy)
+        assert path.exists()
+        # No leftover tmp files in the directory
+        leftover = [p.name for p in Path(d).iterdir() if p.name.endswith(".tmp")]
+        assert leftover == []
+        # Destination is intact and loadable
+        assert load_risk_state(path).state == "ACTIVE"
+
+
+def test_concurrent_writers_never_corrupt_committed_state() -> None:
+    """Interleaved two-writer simulation: the committed file is always valid JSON.
+
+    Each writer uses its own unique tmp; os.replace is atomic on a fully-written
+    file, so a reader/loader at any point sees a complete state — never a
+    half-written tmp replaced-in, never a silent reset to WATCH on a real file.
+    """
+    from src.assembled_core.risk.state_machine import _write_state_json_unique_tmp
+
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "risk_state.json"
+        # Seed a committed real state
+        _write_state_json_unique_tmp(path, _rec(state="ACTIVE").to_dict())
+
+        # Simulate many interleaved writes from two logical writers; after each
+        # the destination must remain a fully-valid, non-default record.
+        for i in range(50):
+            data = _rec(state=("ACTIVE" if i % 2 == 0 else "COOLDOWN")).to_dict()
+            _write_state_json_unique_tmp(path, data)
+            loaded = load_risk_state(path)
+            # Never silently reset to the WATCH/default fallback
+            assert loaded.state in ("ACTIVE", "COOLDOWN")
+            assert loaded.reason != "default"
+        # No tmp leaks
+        leftover = [p.name for p in Path(d).iterdir() if p.name.endswith(".tmp")]
+        assert leftover == []
+
+
+def test_lock_timeout_falls_back_to_corruption_safe_write(monkeypatch: Any) -> None:
+    """Lock defaults ON: when a writer cannot acquire the lock in time it falls
+    back to a corruption-safe (unique-tmp) write — the COOLDOWN update survives.
+
+    Scope note: this is SINGLE-PROCESS. The outer ``with FileLock(...)`` holds
+    the same per-process lock, so the inner ``save_risk_state`` acquire times
+    out in-thread and exercises the lock-TIMEOUT FALLBACK branch. True
+    cross-process serialization (no-lost-update under genuinely concurrent
+    processes) is only asserted INDIRECTLY here via that timeout branch — a
+    single-process test cannot spawn a competing process to verify it directly.
+    """
+    from src.assembled_core.utils.file_lock import FileLock
+
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "risk_state.json"
+        # No persistence.lock config at all -> default-on path must be taken.
+        # Pre-acquire the lock to drive save() into its timeout fallback (would
+        # TimeoutError quickly if it tried to take the same lock with our short
+        # timeout).
+        policy = {"risk_state_machine": {"persistence": {"lock_timeout_s": 0.2}}}
+
+        # First, a normal locked save succeeds and writes a real state.
+        save_risk_state(_rec(state="ACTIVE"), path, policy)
+        assert load_risk_state(path).state == "ACTIVE"
+
+        # Now hold the lock externally; the save must time out, warn, and STILL
+        # write a corruption-safe (unique-tmp) file rather than corrupt/skip.
+        with FileLock(path, timeout=5.0):
+            save_risk_state(_rec(state="COOLDOWN"), path, policy)
+        # The post-timeout fallback wrote a valid, complete COOLDOWN record.
+        assert load_risk_state(path).state == "COOLDOWN"
+
+
 def test_atomic_write_retry_handles_permissionerror(monkeypatch: Any) -> None:
     """atomic_write_json_with_retry retries on PermissionError and then succeeds."""
     with tempfile.TemporaryDirectory() as d:
