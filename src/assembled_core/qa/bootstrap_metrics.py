@@ -9,7 +9,10 @@ import pandas as pd
 def _sharpe(arr: np.ndarray) -> float:
     std = arr.std(ddof=1)
     if std == 0:
-        return 0.0
+        # Degenerate (zero-vol) sample: a flat curve has no Sharpe. Returning 0.0
+        # blended a neutral score into the percentile CIs and masked the degenerate
+        # case; return NaN and let callers filter non-finite (Diagnostik, qa MINOR).
+        return float("nan")
     return float(arr.mean() / std * np.sqrt(252))
 
 
@@ -42,13 +45,22 @@ def compute_sharpe_with_ci(
         _sharpe(rng.choice(arr, size=len(arr), replace=True))
         for _ in range(n_bootstrap)
     ]
+    # Filter degenerate (zero-vol -> NaN) resamples before percentiles / p-value,
+    # mirroring compute_sortino_with_ci; otherwise a single NaN poisons the CI.
+    finite = [s for s in samples if np.isfinite(s)]
     lo = (1 - ci) / 2 * 100
     hi = 100 - lo
     return {
         "sharpe": _sharpe(arr),
-        "sharpe_ci_lower": float(np.percentile(samples, lo)),
-        "sharpe_ci_upper": float(np.percentile(samples, hi)),
-        "sharpe_p_value": float((np.array(samples) <= 0).mean()),
+        "sharpe_ci_lower": (
+            float(np.percentile(finite, lo)) if finite else float("nan")
+        ),
+        "sharpe_ci_upper": (
+            float(np.percentile(finite, hi)) if finite else float("nan")
+        ),
+        "sharpe_p_value": (
+            float((np.array(finite) <= 0).mean()) if finite else float("nan")
+        ),
         "n_obs": len(arr),
         "n_bootstrap": n_bootstrap,
     }

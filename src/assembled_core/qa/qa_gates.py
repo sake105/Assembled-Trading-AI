@@ -152,6 +152,20 @@ def check_max_drawdown(
     # max_drawdown_pct is negative, so we compare with negative limits
     max_dd = metrics.max_drawdown_pct
 
+    if max_dd is None:
+        # Mirror the sharpe gate: an incomputable drawdown must DEGRADE, not crash
+        # evaluate_all_gates with `None < float` TypeError (Diagnostik A3).
+        return QAGateResult(
+            gate_name=gate_name,
+            result=QAResult.WARNING,
+            reason="Maximum drawdown cannot be computed (insufficient data)",
+            details={
+                "max_drawdown_pct": None,
+                "max_dd_limit": max_dd_pct_limit,
+                "warning_dd": warning_dd_pct,
+            },
+        )
+
     if max_dd < max_dd_pct_limit:
         return QAGateResult(
             gate_name=gate_name,

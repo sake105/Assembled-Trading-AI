@@ -92,9 +92,13 @@ def compute_portfolio_risk_metrics(
             "es_95": None,
         }
 
-    # Sanitize equity values
+    # Sanitize equity values. Forward-fill legitimate intra-series gaps with the
+    # last-known value (PIT-safe), then DROP leading pre-inception NaNs. The previous
+    # `.bfill()` back-filled those leading NaNs with the first *later* equity value —
+    # a look-ahead that fabricated a flat early segment, diluting volatility and
+    # inflating Sharpe (Diagnostik A4 / E-030).
     equity_series = equity_series.replace([np.inf, -np.inf], np.nan)
-    equity_series = equity_series.ffill().bfill()
+    equity_series = equity_series.ffill().dropna()
 
     if len(equity_series.dropna()) < 2:
         return {
