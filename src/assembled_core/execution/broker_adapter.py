@@ -870,6 +870,7 @@ class AlpacaAdapter(BrokerAdapter):
         )
 
         api = self._get_api()
+        recovered = False  # True if we adopt a pre-existing order via dup recovery
 
         try:
             from alpaca.trading.enums import (  # type: ignore[import]
@@ -913,13 +914,19 @@ class AlpacaAdapter(BrokerAdapter):
             except Exception as _broker_err:
                 from src.assembled_core.execution.idempotency import is_duplicate_error
 
-                if is_duplicate_error(str(_broker_err)):
-                    logger.warning(
-                        "[AlpacaAdapter] duplicate client_order_id (STOP) — skipping retry: %s (coid=%s)",
-                        _broker_err,
-                        coid,
-                    )
-                raise
+                if not is_duplicate_error(str(_broker_err)):
+                    raise
+                # Idempotency recovery (idempotency.py contract): adopt the existing
+                # order for a duplicate client_order_id instead of placing a second
+                # one; a failed recovery fetch re-raises the original submit error.
+                logger.warning(
+                    "[AlpacaAdapter] duplicate client_order_id (STOP) — adopting "
+                    "existing order (coid=%s): %s",
+                    coid,
+                    _broker_err,
+                )
+                order = self._fetch_order_by_client_id(coid, original_error=_broker_err)
+                recovered = True
         except ImportError:
             kwargs: dict[str, Any] = {
                 "symbol": symbol,
@@ -935,11 +942,15 @@ class AlpacaAdapter(BrokerAdapter):
             order = api.submit_order(**kwargs)
 
         normalized = self._normalize_order(order)
-        self._cycle_order_count += 1
-        self._cycle_notional_total += qty * stop_price
+        # Adopted (recovered) orders were placed on a prior attempt and do NOT
+        # consume this cycle's fresh-order/notional budget; log tagged accordingly.
+        if not recovered:
+            self._cycle_order_count += 1
+            self._cycle_notional_total += qty * stop_price
         order_desc = "STOP_LIMIT" if is_stop_limit else "STOP"
         logger.info(
-            "[AlpacaAdapter] submitted %s %s %s qty=%.2f stop=$%.2f%s order_id=%s",
+            "[AlpacaAdapter] %s %s %s %s qty=%.2f stop=$%.2f%s order_id=%s",
+            "adopted existing" if recovered else "submitted",
             order_desc,
             side_lower.upper(),
             symbol,

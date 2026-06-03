@@ -522,6 +522,50 @@ def test_is_duplicate_error():
     assert is_duplicate_error("Insufficient buying power") is False
 
 
+# B-exec-2: real Alpaca-style duplicate rejections often do NOT contain BOTH
+# "duplicate" and "client_order_id" — the classifier must catch the genuine
+# signatures without sweeping in clearly-generic/transient failures.
+_DUP_TRUE_CASES = [
+    # (1) original both-tokens form
+    "400 Bad Request: duplicate client_order_id ata-abc already exists",
+    "Duplicate client_order_id detected",
+    # (2) bare "duplicate" + order reference (no literal client_order_id token)
+    "422 Unprocessable Entity: duplicate order",
+    "403 Forbidden: duplicate order submission rejected",
+    # (3) "already exists" guarded by an order/id reference
+    "order already exists",
+    "client_order_id ata-xyz already exists",
+    "422 Unprocessable Entity: order with this client_order_id already exists",
+    # (4) Alpaca wash-trade 422 returned for a same-coid re-submit
+    "422 Unprocessable Entity: potential wash trade detected",
+    "potential wash trade",
+]
+
+_DUP_FALSE_CASES = [
+    "Insufficient buying power",
+    "request timed out after 30s",
+    "503 Service Unavailable: broker temporarily down",
+    "ConnectionResetError: connection reset by peer",
+    "429 Too Many Requests: rate limit exceeded",
+    "500 Internal Server Error",
+    "order rejected: market is closed",  # 'order' present but no dup signal
+]
+
+
+@pytest.mark.parametrize("msg", _DUP_TRUE_CASES)
+def test_is_duplicate_error_real_dup_signatures_true(msg):
+    from src.assembled_core.execution.idempotency import is_duplicate_error
+
+    assert is_duplicate_error(msg) is True, msg
+
+
+@pytest.mark.parametrize("msg", _DUP_FALSE_CASES)
+def test_is_duplicate_error_generic_transient_false(msg):
+    from src.assembled_core.execution.idempotency import is_duplicate_error
+
+    assert is_duplicate_error(msg) is False, msg
+
+
 # ==========================================================================
 # events/schema.py + store.py + replayer.py  (42_EVENT_REPLAY)
 # ==========================================================================

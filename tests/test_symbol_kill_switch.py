@@ -10,10 +10,16 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import logging  # noqa: E402
+
+import pytest  # noqa: E402
+
+import src.assembled_core.execution.kill_switch as kill_switch_mod  # noqa: E402
 from src.assembled_core.execution.symbol_kill_switch import (  # noqa: E402
     block_symbol,
     filter_orders_by_symbol_blocks,
     filter_orders_from_policy,
+    filter_orders_with_kill_switches,
     is_symbol_blocked,
     list_blocked_symbols,
     unblock_symbol,
@@ -118,3 +124,56 @@ def test_from_policy_enabled_applies_blocks(tmp_path: Path) -> None:
     )
     assert list(filtered["symbol"]) == ["BBB", "CCC"]
     assert len(reasons) == 1
+
+
+# ----------------------------------------------------------------------------
+# B-exec-3: filter_orders_with_kill_switches must FAIL-CLOSED.
+# ----------------------------------------------------------------------------
+
+
+def test_unified_filter_disengaged_passes_orders(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Normal path (switch disengaged, no per-symbol blocks): orders unchanged."""
+    state = tmp_path / "sks.json"
+    monkeypatch.setattr(kill_switch_mod, "is_kill_switch_engaged", lambda: False)
+    orders = _orders()
+    out = filter_orders_with_kill_switches(orders, state_path=state)
+    assert list(out["symbol"]) == ["AAA", "BBB", "CCC"]
+
+
+def test_unified_filter_engaged_blocks_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Genuine engaged kill switch: returns an empty frame (all blocked)."""
+    state = tmp_path / "sks.json"
+    monkeypatch.setattr(kill_switch_mod, "is_kill_switch_engaged", lambda: True)
+    out = filter_orders_with_kill_switches(_orders(), state_path=state)
+    assert out.empty
+    # same column shape as input (iloc[0:0] preserves schema)
+    assert list(out.columns) == ["symbol", "qty", "price"]
+
+
+def test_unified_filter_state_error_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """B-exec-3: if the kill-switch state cannot be read (raises), block ALL
+    orders (fail-closed) and log at ERROR — never fail-open."""
+    state = tmp_path / "sks.json"
+
+    def _boom() -> bool:
+        raise OSError("state file unreadable")
+
+    monkeypatch.setattr(kill_switch_mod, "is_kill_switch_engaged", _boom)
+
+    with caplog.at_level(logging.ERROR):
+        out = filter_orders_with_kill_switches(_orders(), state_path=state)
+
+    # All orders blocked (empty frame), same shape as a genuine engaged switch.
+    assert out.empty
+    assert list(out.columns) == ["symbol", "qty", "price"]
+    # ERROR (not debug) names the could-not-determine / fail-closed condition.
+    assert any(
+        r.levelno == logging.ERROR and "fail-closed" in r.getMessage()
+        for r in caplog.records
+    )

@@ -205,6 +205,12 @@ def filter_orders_with_kill_switches(
     try:
         from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
 
+        # NOTE: is_kill_switch_engaged() itself fails CLOSED on a corrupt/
+        # unreadable-but-PRESENT persistent state file — it returns True
+        # (ENGAGED) for that case, so a corrupt state file is blocked HERE via
+        # the engaged branch (not via the except below). The except below
+        # covers the *residual* uncertainty paths: import failure or an
+        # unexpected exception escaping is_kill_switch_engaged().
         if is_kill_switch_engaged():
             import logging as _log
 
@@ -216,9 +222,22 @@ def filter_orders_with_kill_switches(
     except Exception as _exc:
         import logging as _logging
 
-        _logging.getLogger(__name__).debug(
-            "[kill_switch] global kill_switch check failed: %s", _exc
+        # FAIL-CLOSED: if we cannot determine the global kill-switch state
+        # (import error, or any unexpected exception escaping
+        # is_kill_switch_engaged), we must NOT let orders through — a fail-OPEN
+        # here would pass ALL orders during exactly the incident the kill switch
+        # exists to stop. (Corrupt/unreadable persistent state is already failed
+        # closed one layer down inside is_kill_switch_engaged.) Block
+        # conservatively by returning the same empty-frame shape used when the
+        # switch is genuinely engaged (above), and log at ERROR so the
+        # blocked-on-uncertainty condition is visible.
+        _logging.getLogger(__name__).error(
+            "[kill_switch] global kill_switch state could not be determined "
+            "(%s) — blocking all %d orders conservatively (fail-closed)",
+            _exc,
+            len(orders),
         )
+        return orders.iloc[0:0].copy()
 
     # 2. Per-symbol blocks
     filtered, _ = filter_orders_by_symbol_blocks(orders, state_path=state_path)

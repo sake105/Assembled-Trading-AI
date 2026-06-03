@@ -1638,7 +1638,10 @@ class UnifiedPaperEngine:
                 else:
                     # current_qty <= 0: opening or adding to short
                     new_qty = current_qty - qty
-                    if current_qty == 0:
+                    # Tolerance compare (matches sibling SELL branch ~:1630): a
+                    # residual short like -1e-12 must take the "no prior short
+                    # avg" branch, not be treated as an existing short position.
+                    if abs(current_qty) <= 1e-8:
                         new_short_avg = fill_price
                     else:
                         # Weighted short avg

@@ -137,7 +137,16 @@ def _kill_switch_lock():
 
 
 def _read_state() -> dict[str, Any]:
-    """Read kill switch state from JSON file. Returns empty dict on error."""
+    """Read kill switch state from JSON file. Returns empty dict on error.
+
+    Back-compat contract: a MISSING file and a CORRUPT/unreadable file both
+    return ``{}`` here so existing internal callers (``get_kill_switch_state``)
+    keep working. The *safety* distinction between "no file" (legitimately
+    disengaged) and "file present but unreadable" (unknown state -> must
+    fail-closed) is made separately by ``_persistent_state_corrupt`` and acted
+    on in ``is_kill_switch_engaged``. Do NOT collapse a corrupt-present file
+    into a silent disengaged decision on the engaged-decision path.
+    """
     p = _state_path()
     if not p.exists():
         return {}
@@ -147,6 +156,35 @@ def _read_state() -> dict[str, Any]:
     except Exception as exc:
         logger.error("[KillSwitch] Failed to read state file %s: %s", p, exc)
         return {}
+
+
+def _persistent_state_corrupt() -> bool:
+    """Return True iff a persistent state file is PRESENT but unreadable/invalid.
+
+    Distinguishes the two cases ``_read_state`` flattens to ``{}``:
+
+    - File MISSING            -> ``False`` (never-engaged default; disengaged).
+    - File PRESENT but cannot
+      be read / JSON-parsed /
+      shaped as a dict        -> ``True`` (unknown switch state -> fail-closed).
+
+    Used only by ``is_kill_switch_engaged`` to fail CLOSED on an unreadable but
+    present state file: blocking on unknown state is the safe default for a
+    safety kill switch. Uses ``Path.exists()`` to reliably tell "no file" from
+    "file present but parse/read failed". A transient ``OSError`` on a present
+    path counts as corrupt (block on unknown state), not as missing.
+    """
+    p = _state_path()
+    if not p.exists():
+        return False
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        # Present-but-unparseable (bad JSON) or unreadable (I/O error) on a path
+        # that exists() reported as present -> treat as corrupt -> fail-closed.
+        return True
+    # Parsed but not a JSON object -> not a valid state document -> corrupt.
+    return not isinstance(data, dict)
 
 
 def _write_state(state: dict[str, Any]) -> bool:
@@ -484,6 +522,22 @@ def is_kill_switch_engaged() -> bool:
     # Sentinel file
     if _sentinel_path().exists():
         logger.warning("[KillSwitch] Sentinel file detected at %s", _sentinel_path())
+        return True
+
+    # Fail-CLOSED on a corrupt/unreadable-but-PRESENT persistent state file.
+    # A present state file we cannot read/parse means the switch state is
+    # UNKNOWN — a never-engaged switch leaves NO file, so a present-yet-broken
+    # file is an anomaly that must conservatively BLOCK trading rather than
+    # silently fall through to ``{}.get("engaged") -> False`` (fail-OPEN). A
+    # legitimately MISSING file is handled below by ``_read_state() -> {}``
+    # and stays disengaged.
+    if _persistent_state_corrupt():
+        logger.error(
+            "[KillSwitch] Persistent state file %s is PRESENT but unreadable/"
+            "corrupt — kill-switch state is UNKNOWN, blocking trading "
+            "conservatively (fail-closed / treated as ENGAGED).",
+            _state_path(),
+        )
         return True
 
     # Persistent state

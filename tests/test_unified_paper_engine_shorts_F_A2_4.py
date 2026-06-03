@@ -144,3 +144,25 @@ def test_buy_cover_short_and_flip_to_long_F_A2_4() -> None:
     assert eng._state["positions"]["A"] == 5.0
     # Cost-basis is REPLACED at fill price (not blended with short avg)
     assert eng._state["cost_basis"]["A"] == 90.0
+
+
+def test_sell_residual_short_takes_open_short_branch_B_exec_4() -> None:
+    """B-exec-4: a residual short like -1e-12 must be treated as effectively flat.
+
+    The SELL/short-open branch used ``if current_qty == 0`` (exact float ==).
+    A residual short (e.g. -1e-12 left after a near-exact cover) would slip past
+    the == 0 check into the weighted-short-avg branch, blending the new fill
+    against a stale/garbage prior short cost. With the tolerance compare
+    (abs(current_qty) <= 1e-8, matching the sibling SELL branch) the new short
+    cost_basis is set cleanly to the fill price, not contaminated by the stale
+    cost. Here the stale cost is deliberately garbage (99999) to make a wrong
+    weighted-blend visible.
+    """
+    eng = _engine_with_state(10000.0, {"A": -1e-12}, {"A": 99999.0})
+    eng._update_positions(_fill("A", "SELL", 10.0, 100.0))
+    # Cash credited for the full 10 shares.
+    assert eng._state["cash"] == 11000.0
+    # Position is the new short (residual is negligible).
+    assert abs(eng._state["positions"]["A"] - (-10.0)) < 1e-6
+    # Cost-basis is the clean fill price — NOT blended with the stale 99999 cost.
+    assert eng._state["cost_basis"]["A"] == 100.0

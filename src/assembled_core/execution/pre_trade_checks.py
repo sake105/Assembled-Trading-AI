@@ -1123,8 +1123,29 @@ def pre_trade_gate(
     if enforce_kill_switch:
         try:
             from src.assembled_core.execution.kill_switch import (
+                _persistent_state_corrupt,
                 get_kill_switch_state,
             )
+
+            # Fail CLOSED on a corrupt/unreadable-but-PRESENT persistent state
+            # file, BEFORE the healthy throttle read below. ``get_kill_switch_state``
+            # flattens a corrupt file to ``engaged=False, throttle_pct=1.0`` (via
+            # ``_read_state() -> {}``), so reading ``state["engaged"]`` here would
+            # see False and let corrupt-present state fail OPEN. A present-yet-broken
+            # file means the switch state is UNKNOWN — block conservatively, matching
+            # ``is_kill_switch_engaged()``'s fail-closed contract. A legitimately
+            # MISSING file is NOT corrupt and stays disengaged (handled below).
+            if _persistent_state_corrupt():
+                logger.error(
+                    "[PreTradeGate] Persistent kill-switch state file is PRESENT "
+                    "but unreadable/corrupt — switch state is UNKNOWN, blocking "
+                    "orders conservatively (fail-closed / treated as ENGAGED)."
+                )
+                raise PreTradeGateBlocked(
+                    "kill-switch state corrupt (present-but-unreadable)",
+                    reasons=["kill_switch_engaged"],
+                    check="kill_switch",
+                )
 
             state = get_kill_switch_state()
             if state["engaged"] and state["throttle_pct"] <= 0.0:

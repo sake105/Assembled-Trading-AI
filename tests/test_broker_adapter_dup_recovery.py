@@ -97,6 +97,65 @@ def test_limit_dup_adopts_existing_order(adapter, getter):
 
 
 # --------------------------------------------------------------------------- #
+# Stop-order symmetry (Diagnostik §execution): submit_stop_order had NO
+# dup-recovery (asymmetric vs market/limit). It uses a deterministic
+# client_order_id and CAN hit the broker dup rejection, so it must apply the
+# SAME adopt-existing / fail-safe-reraise pattern.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "getter", ["get_order_by_client_id", "get_order_by_client_order_id"]
+)
+def test_stop_dup_adopts_existing_order(adapter, getter):
+    api, existing = _api_with_dup(getter)
+    adapter._get_api = lambda: api
+
+    result = adapter.submit_stop_order("AAPL", 10.0, "sell", stop_price=95.0)
+
+    # Adopted the EXISTING order, not a second live order, not an exception.
+    assert result.order_id == "existing-order-id"
+    assert api.submit_order.call_count == 1
+    # Recovery fetched by the deterministic coid.
+    called_coid = getattr(api, getter).call_args[0][0]
+    assert called_coid.startswith("ata-")
+
+
+def test_stop_dup_recovery_fetch_fails_reraises_original(adapter):
+    """Stop fail-safe: recovery lookup raises -> ORIGINAL submit error
+    propagates (chained), never the lookup error, never a fabricated order."""
+    api = MagicMock(spec=["submit_order", "get_order_by_client_id"])
+    api.submit_order.side_effect = RuntimeError(_DUP_MSG)
+    api.get_order_by_client_id.side_effect = ConnectionError("lookup boom")
+    adapter._get_api = lambda: api
+
+    with pytest.raises(RuntimeError, match="duplicate client_order_id") as exc_info:
+        adapter.submit_stop_order("AAPL", 10.0, "sell", stop_price=95.0)
+    assert isinstance(exc_info.value.__cause__, ConnectionError)
+
+
+def test_stop_non_duplicate_error_propagates_without_recovery(adapter):
+    api = MagicMock(spec=["submit_order", "get_order_by_client_id"])
+    api.submit_order.side_effect = RuntimeError(_NON_DUP_MSG)
+    adapter._get_api = lambda: api
+
+    with pytest.raises(RuntimeError, match="Service Unavailable"):
+        adapter.submit_stop_order("AAPL", 10.0, "sell", stop_price=95.0)
+    api.get_order_by_client_id.assert_not_called()
+
+
+def test_stop_adopted_order_does_not_increment_cycle_counters(adapter):
+    """An adopted (recovered) stop order must not consume this cycle's budget."""
+    api, _existing = _api_with_dup("get_order_by_client_id")
+    adapter._get_api = lambda: api
+
+    before = adapter._cycle_order_count
+    adapter.submit_stop_order("AAPL", 10.0, "sell", stop_price=95.0)
+    assert adapter._cycle_order_count == before
+    assert adapter._cycle_notional_total == 0.0
+
+
+# --------------------------------------------------------------------------- #
 # Fail-safe: recovery impossible / failing -> original error propagates
 # --------------------------------------------------------------------------- #
 
