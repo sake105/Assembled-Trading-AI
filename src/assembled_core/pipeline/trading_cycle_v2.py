@@ -82,6 +82,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Warn-once guard for the crisis_state backtest PIT degrade (avoid log spam
+# across thousands of historical bars in a single backtest run).
+_CRISIS_STATE_PIT_WARNED = False
+
 
 # ---------------------------------------------------------------------------
 # ingest_data — Stage 1
@@ -262,18 +266,23 @@ def _load_intel(
     #      IMPRECISE and is corrected here.
     #
     #      _load_intel is DELIBERATELY ordered AFTER compute_next_state. This is a
-    #      PIT FIREWALL, not an accident: the geo/disclosures sources _load_intel
-    #      reads are NOT as_of-indexed. news_geo (data/intel/crisis_state.json,
-    #      producer below) is a single live "latest" snapshot with no as_of slice;
-    #      disclosures_triggers (output/intel/disclosures/triggers_latest.json via
-    #      load_disclosures_triggers(path), producer below) takes only a path, does
-    #      NO PIT filtering, and is a single snapshot keyed by one generated_utc.
-    #      Only ctx.market_stress is genuinely PIT-guarded (as_of price slice).
-    #      Reordering _load_intel ahead of compute_next_state would inject TODAY's
-    #      live snapshot into every historical bar's risk-state transitions
-    #      (WATCH->ACTIVE/PAUSE) = a backtest look-ahead ON THE RISK-STATE PATH
-    #      (anti-pattern E-002), in the most sensitive component. So the current
-    #      ordering is intentional and must be preserved.
+    #      PIT FIREWALL for the RISK-STATE path: the state machine runs FIRST, so it
+    #      reads the template/None intel default and can never see TODAY's live
+    #      snapshot, regardless of how the feeds below are gated. Reordering
+    #      _load_intel ahead of compute_next_state would inject the live snapshot
+    #      into every historical bar's risk-state transitions (WATCH->ACTIVE/PAUSE)
+    #      = a backtest look-ahead ON THE RISK-STATE PATH (anti-pattern E-002), in
+    #      the most sensitive component. Keep the ordering.
+    #
+    #      The DOWNSTREAM (sizing/signals) consumers ARE now PIT-gated (Batch 1+2):
+    #      load_disclosures_triggers is called below WITH as_of and drops any snapshot
+    #      whose generated_utc > as_of (fail-safe empty if undatable); crisis_state
+    #      (data/intel/crisis_state.json) has NO availability timestamp (CrisisState
+    #      only carries entered_at = when the state was entered, NOT when the snapshot
+    #      became available), so it is NOT injected in backtest (as_of set) — DEGRADED
+    #      + warn-once — rather than a fabricated filter. ctx.market_stress remains
+    #      PIT-guarded via the as_of price slice. Net: in backtest no historical bar
+    #      sees a future-dated intel snapshot on EITHER the risk-state or sizing path.
     #
     #      Net effect of this clear on consumer (2): it removes the whole-run
     #      DEGRADED latch, so the state machine no longer sees a permanently-stuck
@@ -315,7 +324,16 @@ def _load_intel(
                 if not Path(path_raw).is_absolute()
                 else Path(path_raw)
             )
-            snap = load_disclosures_triggers(path_resolved)
+            # PIT gate: pass the bar instant (as_of) so backtest replays DROP a
+            # snapshot generated AFTER as_of (generated_utc > as_of -> empty),
+            # rather than injecting today's live snapshot into a historical bar.
+            # Live/EOD: as_of is None (or == latest bar) -> loader takes the
+            # current-behaviour path and loads as today => byte-identical.
+            # Fail-safe: if as_of is set but generated_utc is unparseable, the
+            # loader returns an empty snapshot (cannot prove PIT) -> DEGRADED below.
+            snap = load_disclosures_triggers(
+                path_resolved, as_of=getattr(ctx, "as_of", None)
+            )
             ctx.disclosures_triggers = snap if snap.generated_utc else None
             if not snap.generated_utc:
                 ctx.intel_health_flags["intel_disclosures_triggers"] = "DEGRADED"
@@ -337,7 +355,31 @@ def _load_intel(
                 if not Path(cs_path_raw).is_absolute()
                 else Path(cs_path_raw)
             )
-            if cs_path.exists():
+            # PIT gate: crisis_state.json (CrisisState model) carries NO field
+            # proving WHEN the snapshot became available. Its only datetime is
+            # `entered_at` (when the CURRENT state was entered) — a state can be
+            # entered long ago yet the snapshot reflecting it is produced today,
+            # so `entered_at <= as_of` does NOT prove the snapshot was available
+            # at as_of. There is no generated_utc / as_of / timestamp field. So
+            # in backtest (as_of set) we CANNOT prove PIT and must NOT inject the
+            # live "latest" snapshot into a historical bar (would be look-ahead).
+            # We set DEGRADED + warn-once (observable degrade), mirroring the
+            # market_stress PIT guard. Live/EOD (as_of None) injects as today
+            # (byte-identical). We do NOT fabricate a filter on an unprovable
+            # field.
+            _cs_as_of = getattr(ctx, "as_of", None)
+            if cs_path.exists() and _cs_as_of is not None:
+                ctx.intel_health_flags["intel_crisis_alpha"] = "DEGRADED"
+                global _CRISIS_STATE_PIT_WARNED
+                if not _CRISIS_STATE_PIT_WARNED:
+                    log.warning(
+                        "crisis_state.json has no PIT timestamp field "
+                        "(only entered_at, which is not snapshot-availability) "
+                        "— not injecting in backtest (as_of=%s); flag DEGRADED",
+                        _cs_as_of,
+                    )
+                    _CRISIS_STATE_PIT_WARNED = True
+            elif cs_path.exists():
                 cs_data = _json.loads(cs_path.read_text(encoding="utf-8"))
                 ctx.crisis_state_intel = cs_data
                 geo_score = int(cs_data.get("geo_score") or 0)

@@ -107,12 +107,19 @@ def _disc_policy(path: str) -> dict:
 def _write_healthy_triggers(p: Path, *, max_severity: int = 2) -> None:
     """Write a valid disclosures.triggers.v1 artifact with generated_utc set and a
     sev>=1 item, so the loader returns a healthy snapshot (no DEGRADED) AND
-    max_severity is high enough to confirm (disclosures_min_severity default 1)."""
+    max_severity is high enough to confirm (disclosures_min_severity default 1).
+
+    generated_utc is kept <= the _ctx() as_of (2025-01-02) so the snapshot passes
+    the now-wired _load_intel PIT gate (as_of=ctx.as_of) and actually loads — these
+    tests exercise the sibling-flag CLEAR mechanism on a HEALTHY load, not the PIT
+    drop path. A future-dated generated_utc would (correctly) be PIT-dropped and
+    leave the flag DEGRADED, which is a different code path covered separately in
+    test_trading_cycle_load_intel_pit_feeds.py."""
     p.write_text(
         json.dumps(
             {
                 "schema_version": "disclosures.triggers.v1",
-                "generated_utc": "2025-02-01T00:00:00Z",
+                "generated_utc": "2025-01-01T00:00:00Z",
                 "items": [
                     {"symbol": "SPY", "severity": int(max_severity), "kind": "test"}
                 ],
