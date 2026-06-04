@@ -447,3 +447,52 @@
 **Wie vermeiden:** Grenzen trennen: `available = roh + lag` nur für den `(<= as_of)`-Test; das Roh-Datum für den `(>= cutoff)`-Test. Nie die Quell-Timestamp-Spalte für einen Filter mutieren — eine lokale Availability-Serie berechnen. Eine **untere**-Grenze-Regression ergänzen (Obs mit Roh-Datum vor cutoff, dessen geshifteter Wert ins Fenster fällt → muss ausgeschlossen bleiben) plus einen `lag=0`-Legacy-Äquivalenz-Test.
 **Erkannt in:** `src/assembled_core/data/altdata_loader.py` (`load_macro_indicators`). Caught von der Review-Chain (Stage-2 senior + risk-execution-reviewer) als MAJOR, Fix in Commit `fd8a192c`.
 **Referenzen:** E-030 (Look-Ahead-Klasse); E-GPR-1 (release_lag_days); Review-Chain Batch 12 (Workflows `wpt79crgz` + `wz8dz6v1a`).
+
+## E-039 — Report-Sink rekonstruiert eine bereits gegradete Status-Größe aus dem Rohergebnis und überschreibt sie still
+**Datum:** 2026-06-04
+**Kategorie:** silent-degradation / status-integrity
+**Was passierte:** `build_ledger_from_trades` (ledger_integration) gradet auf dem paper_view-Pfad (kein unabhängiger Broker-Snapshot) bewusst `reconciliation_ok=None` + `reconciliation_severity="unverified"` — eine Selbst-vs-Selbst-Reconcile liefert kein echtes Drift-Signal. Diese gegradete Größe wurde die Call-Chain hinabgereicht. Aber die SUMMARY-Zeile von `write_accounting_report_csv/json` rekonstruierte `reconciliation_ok` lokal neu aus `reconciliation_result.get("ok")` — dem Roh-Selbstvergleich, der trivial `True` ist. Das EOD-Artefakt zeigte dadurch einen „healthy pass" auf einem paper_view-Run, obwohl der authoritative Grade `None/unverified` war. Der Report-Sink überschrieb still die Wahrheit, die weiter oben in der Pipeline bereits korrekt bestimmt worden war.
+**Warum falsch:** Wenn eine Status-Größe einmal autoritativ gegradet wurde (hier: in ledger_integration), darf ein nachgelagerter Sink sie nicht aus dem Rohergebnis neu ableiten. „Roh-Ergebnis vorhanden" und „gegradeter Status" sind zwei verschiedene Dinge; die Neuableitung am Sink ignoriert genau die Degradations-Logik, für die das Grading existiert. Besonders perfide: das Rohergebnis ist hier ein Selbstvergleich (Ledger gegen sich selbst) → `ok=True` ist tautologisch → das Override produziert ein falsches grünes Signal, dem Operators vertrauen.
+**Wie erkennen:**
+- Eine Größe wird oben in der Call-Chain explizit gegradet (None/unverified/severity), aber ein Report-/Artefakt-Writer berechnet `x = raw_result.get("ok")` erneut, statt den durchgereichten Grade zu verwenden.
+- CSV- und JSON-Writer (oder zwei Sinks) leiten dieselbe Größe unabhängig ab → Divergenz-Risiko zwischen Artefakten.
+- Ein „pass"-Artefakt auf einem Pfad, dessen Underlying-Vergleich strukturell ein Selbstvergleich ist (paper-vs-paper, A-vs-A) — der niemals `False` werden kann.
+**Wie vermeiden:**
+- Den gegradeten Wert explizit durch die Call-Chain bis zum Sink **threaden** und dort verwenden, nicht neu ableiten. Hier: `reconciliation_ok`-Parameter an `write_accounting_report_csv/json` durchgereicht.
+- „Nicht übergeben" von „gegradet None" mit einem **Sentinel** (`_RECON_OK_UNSET = object()`) unterscheiden, damit ein bewusstes `None` nicht als „kein Wert → fallback auf Rohergebnis" missverstanden wird. Ein nackter `None`-Default kollabiert beide Fälle.
+- Sinks, die dieselbe Größe schreiben (CSV/JSON), durch **einen gemeinsamen Resolver** speisen (Parität), nie zwei unabhängige Ableitungen.
+- Den Block/die Zelle auch bei „graded-only call" (gegradeter Wert vorhanden, aber kein Rohergebnis-Dict) emittieren — sonst fällt der Status auf einem Sink still weg.
+**Erkannt in:** `src/assembled_core/accounting/accounting_report.py` (`write_accounting_report_csv/json` SUMMARY-Zeile), gegradet in `ledger_integration.build_ledger_from_trades` → Stage-2 senior + risk-execution-reviewer (incomplete-fix: erster Pass ließ den Report-Sink noch auf `True`), Fix in Commit `58e6ca91` (Sentinel `_RECON_OK_UNSET` + `_resolve_summary_reconciliation_ok` + Thread durch die Call-Chain).
+**Referenzen:** E-025 (Loader Fail-Open maskiert Korruption), E-028 (Default erfüllt Assertion trivial); CLAUDE.md §20.8 (silent fail-open); Rule 30 (accounting-Schutzzone).
+
+## E-040 — `monkeypatch.delenv(..., raising=False)` auf einer abwesenden Variable registriert kein Undo → Forward-Leak in spätere Tests
+**Datum:** 2026-06-04
+**Kategorie:** test-anti-pattern / test-isolation
+**Was passierte:** `test_set_deterministic_sets_env_and_seeds_numpy` löschte vor dem Aufruf drei Env-Keys via `monkeypatch.delenv(k, raising=False)`, um saubere Preconditions herzustellen. Der Code-under-Test (`set_deterministic`) mutiert `os.environ` aber DIREKT (nicht via monkeypatch) für FÜNF Keys. Problem: pytest-`monkeypatch.delenv(name, raising=False)` auf einem **bereits abwesenden** Key registriert **keinen Undo-Eintrag** (es gibt nichts wiederherzustellen). Der anschließend vom Production-Code geschriebene Wert (`os.environ[k]=v`) wird daher von monkeypatch beim Teardown NICHT zurückgerollt → er leakt in spätere Tests (verifiziert: `OMP_NUM_THREADS`/`MKL_CBWR`/`CUBLAS_WORKSPACE_CONFIG` blieben gesetzt) → order-abhängige Flakiness.
+**Warum falsch:** `monkeypatch` rollt nur Mutationen zurück, die es selbst vorgenommen hat. Eine Direkt-Mutation von `os.environ` durch den getesteten Code ist für monkeypatch unsichtbar; ein vorausgehendes `delenv(raising=False)` auf einen abwesenden Key erzeugt KEINEN Snapshot, der diese spätere Direkt-Mutation neutralisieren würde. Der Test sieht hermetisch aus, ist es aber nicht — globaler Prozess-State (`os.environ`) leakt zwischen Tests, was Test-Reihenfolge-Abhängigkeit und Heisenbug-Flakiness erzeugt.
+**Wie erkennen:**
+- Test löscht Env-Keys via `monkeypatch.delenv(..., raising=False)`, aber der Code-under-Test schreibt `os.environ[...]` direkt (statt über monkeypatch).
+- Ein Test, der isoliert grün ist, aber in bestimmter Reihenfolge (oder unter `-p no:randomly` vs. zufälliger Reihenfolge) einen anderen Test umkippt.
+- Anzahl der vom Production-Code mutierten Keys > Anzahl der im Test `delenv`'ten Keys (hier 5 vs. 3).
+**Wie vermeiden:**
+- Bei Code, der globalen Prozess-State direkt mutiert, NICHT auf `monkeypatch.delenv` zur Restoration vertrauen. Stattdessen: alle betroffenen Keys explizit **snapshotten** (`{k: os.environ.get(k) for k in keys}`) und per `request.addfinalizer` zurücksetzen (`pop` wenn vorher abwesend, reassign wenn vorher gesetzt) — unabhängig davon, wie der Wert hineinkam.
+- Die Key-Liste im Test muss die VOLLE Menge der vom Production-Code berührten Keys spiegeln (hier `reproducibility.desired_env`), nicht nur eine Teilmenge.
+- Den Test gegen ein vorab verschmutztes ambient Env beweisen (before==after), nicht nur in einer sauberen Umgebung.
+**Erkannt in:** `tests/test_audit_additions.py::test_set_deterministic_sets_env_and_seeds_numpy` (Code-under-Test: `src/assembled_core/reproducibility.set_deterministic`) → Fix in Commit `a31f0c5d` (5-Key-Snapshot + `request.addfinalizer`-Restore statt `monkeypatch.delenv`).
+**Referenzen:** E-021 (Self-verifying Logging-Test), E-012 (`date.today()` Lokalzeit-Leak in Modul-State); Rule 40 (Test-Honesty).
+
+## E-041 — Fehlende Ordering-/Timestamp-Spalte → `else`-Branch liest still den Dataset-TAIL ohne as_of-Filter (latenter Look-Ahead)
+**Datum:** 2026-06-04
+**Kategorie:** pit-violation / silent-degradation / look-ahead
+**Was passierte:** `_populate_sector_rotation_scores` (paper/intel_context) wendete den as_of-PIT-Filter nur an, wenn die Scores-Frame eine Timestamp-Spalte (`_pit_ts`) trug. Fehlte diese Spalte (z. B. weil `compute_sector_scores` eine anders/nicht benannte ts-Spalte emittiert, obwohl die Input-Preise eine trugen), griff der `else`-Branch zu `scores_df.iloc[-1]` — also dem **Dataset-TAIL** ohne jeden as_of-Bezug. In einem Replay/Backtest ist dieser Tail das Dataset-ENDE, nicht der as_of-Bar → latenter Look-Ahead. Live/EOD war zufällig korrekt, weil dort Tail == as_of.
+**Warum falsch:** Wenn die Spalte fehlt, auf der die PIT-Filterung beruht, ist der korrekte Zustand „kann nicht PIT-filtern", nicht „nimm das letzte verfügbare". Der stille Fallback auf `iloc[-1]` degradiert von „as_of-korrekt" zu „dataset-end" ohne jedes Signal — exakt in der Konstellation (Replay), in der die Differenz Look-Ahead bedeutet. Der Fehler ist latent: in Live/EOD (Tail == as_of) ist er unsichtbar; nur im Backtest/Replay mit echtem as_of < Dataset-Ende wird er aktiv. Das ist dieselbe „silent tail read"-Klasse wie `.iloc[-1]` generell, aber getriggert durch eine **fehlende Strukturspalte**, nicht durch leere Daten (E-004).
+**Wie erkennen:**
+- `if <ts-Spalte vorhanden>: <PIT-filter> else: df.iloc[-1]` — der `else`-Branch lässt den as_of-Filter still fallen.
+- Eine PIT-Filterung, deren Vorbedingung (Spaltenpräsenz) von einer Upstream-Funktion abhängt, die das Schema nicht garantiert.
+- Code, der in Live korrekt ist, weil Tail == as_of, aber im Replay den Dataset-Tail liest.
+**Wie vermeiden:**
+- Wenn die Ordering-Spalte fehlt UND `as_of` gesetzt ist (Replay/Backtest): **konservativ skippen** (kein Attribut setzen) + **einmalige WARNING** (`_..._WARNED`-Global), statt still den Tail zu lesen. Der nicht-PIT-Read wird damit beobachtbar statt unsichtbar.
+- Den Live/EOD-Pfad (`as_of is None` oder `as_of == latest`) explizit byte-identisch erhalten (dort ist `iloc[-1]` korrekt), damit der Guard kein Verhalten in Produktion ändert.
+- Idealerweise das Schema-Versprechen der Upstream-Funktion (ts-Spaltenname) verifizieren oder normalisieren, statt sich auf ein optionales `else` zu verlassen.
+**Erkannt in:** `src/assembled_core/paper/intel_context.py` (`_populate_sector_rotation_scores`, no-timestamp `else`-Branch) → Stage-2 senior + risk-execution-reviewer, Fix in Commit `62358cbc` (as_of-gesetzt → one-time WARNING + skip; as_of None → `iloc[-1]` unverändert).
+**Referenzen:** E-002 (PIT Midnight-Normalization), E-030 (bfill leakt Future-Prices), E-038 (Forward-Shift admittiert Stale-History), E-004 (`.iloc[-1]` Empty-Crash — invertierte Failure-Mode: Crash vs. stiller Fehlwert).
