@@ -31,6 +31,7 @@ import hmac
 import json
 import logging
 import os
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -77,7 +78,7 @@ def _lock_path() -> Path:
 
 
 @contextlib.contextmanager
-def _kill_switch_lock():
+def _kill_switch_lock() -> Iterator[None]:
     """Serialize state + audit-chain writes across threads AND processes (OPS-04).
 
     ``_write_state`` and ``_append_audit`` are read-modify-write on shared
@@ -114,9 +115,11 @@ def _kill_switch_lock():
     # once no matter what the wrapped body does. Folding acquisition into a
     # ``with FileLock(): yield`` would let a body-thrown ``Timeout`` re-enter the
     # ``except`` and yield a second time (RuntimeError: generator didn't stop).
-    lock = FileLock(str(lp), timeout=10)
+    _acquired = FileLock(str(lp), timeout=10)
+    lock: FileLock | None
     try:
-        lock.acquire()
+        _acquired.acquire()
+        lock = _acquired
     except Timeout:
         logger.error(
             "[KillSwitch] could not acquire %s within 10s — proceeding WITHOUT "

@@ -355,11 +355,14 @@ class PaperTradingEngine:
         Returns:
             List of filled PaperOrder objects (one per slice).
         """
+        from datetime import timedelta
+
         from src.assembled_core.execution.algo_execution import (
             TWAPScheduler,
             VWAPScheduler,
         )
 
+        scheduler: TWAPScheduler | VWAPScheduler
         if algo.upper() == "VWAP":
             scheduler = VWAPScheduler(
                 n_slices=n_slices, participation_rate=participation_rate
@@ -367,8 +370,18 @@ class PaperTradingEngine:
         else:
             scheduler = TWAPScheduler(n_slices=n_slices)
 
+        # Paper mode fills all slices immediately at the given reference price; the
+        # scheduler only decomposes total_quantity into slice quantities. The
+        # window is informational (scheduled_time) and uses a deterministic 1-hour
+        # span so the call is reproducible.
+        _start = datetime.now(timezone.utc)
+        _end = _start + timedelta(hours=1)
         slices = scheduler.schedule(
-            total_quantity=total_quantity, reference_price=price or 0.0
+            symbol=symbol,
+            total_qty=abs(total_quantity),
+            side=side.upper(),
+            start_time=_start,
+            end_time=_end,
         )
         slice_orders: list[PaperOrder] = []
 
@@ -386,10 +399,9 @@ class PaperTradingEngine:
             limit_price=price,
         )
         for i, sl in enumerate(slices):
-            qty = (
-                sl.quantity if hasattr(sl, "quantity") else (total_quantity / n_slices)
-            )
-            slice_price = sl.price if hasattr(sl, "price") else price
+            qty = sl.quantity
+            # SlicedOrder carries no price; paper fills at the reference price.
+            slice_price = price
             # Use slice index as signal_id so each slice gets a unique but deterministic ID
             _client_id = build_client_order_id(
                 signal_id=f"{algo.lower()}_slice_{i + 1}_of_{n_slices}",

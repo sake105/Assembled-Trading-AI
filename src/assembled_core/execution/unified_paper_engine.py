@@ -102,15 +102,17 @@ except Exception:  # pragma: no cover
     _HAS_FILL_MODEL = False
     logger.warning("[PAPER] fill_model unavailable — using simple fill simulation")
 
-try:
-    from src.assembled_core.accounting.ledger import (
-        store_ledger_events_parquet,
-    )
-
-    _HAS_LEDGER = True
-except Exception:  # pragma: no cover
-    _HAS_LEDGER = False
-    logger.warning("[PAPER] ledger unavailable — ledger events disabled")
+# Ledger-events parquet store is NOT wired into the paper engine. The original
+# import targeted the wrong module (``accounting.ledger`` has no
+# ``store_ledger_events_parquet``; the real symbol lives in
+# ``accounting.ledger_store`` and additionally requires a ``run_id`` arg + a
+# different output-path layout), so this flag was permanently False and the
+# ledger-events write path (``_write_ledger_events``) has never executed in the
+# live paper cycle. Pinned False here to preserve that byte-identical behaviour
+# while removing the broken import. Re-activation (fix import + call signature +
+# reconcile output layout) is a deliberate output-layout behaviour change,
+# deferred as a design decision (see R2-17 / D-05 in docs/audit).
+_HAS_LEDGER = False
 
 try:
     from src.assembled_core.accounting.reconciliation import (
@@ -137,13 +139,6 @@ try:
     _HAS_SOR = True
 except Exception:  # pragma: no cover
     _HAS_SOR = False
-
-try:
-    from src.assembled_core.ops.experience_log import log_experience_entry
-
-    _HAS_EXPERIENCE_LOG = True
-except Exception:  # pragma: no cover
-    _HAS_EXPERIENCE_LOG = False
 
 try:
     from src.assembled_core.execution.order_lifecycle import (
@@ -678,11 +673,6 @@ class UnifiedPaperEngine:
             (equity_after / equity_before - 1.0) if equity_before > 0 else 0.0
         )
         self._append_equity_point(as_of_date, equity_after)
-
-        if not dry_run and _HAS_EXPERIENCE_LOG:
-            self._write_experience_entry(
-                as_of_date, equity_before, equity_after, n_fills
-            )
 
         # Step 11b — Lifecycle dump (per-day JSONL snapshot)
         if not dry_run:
@@ -1729,13 +1719,12 @@ class UnifiedPaperEngine:
 
             if events:
                 df_events = pd.DataFrame(events)
-                if _HAS_LEDGER:
-                    try:
-                        store_ledger_events_parquet(df_events, ledger_path)
-                    except Exception:
-                        df_events.to_parquet(ledger_path, index=False)
-                else:
-                    df_events.to_parquet(ledger_path, index=False)
+                # Raw per-day parquet write. NOTE: this whole method is currently
+                # gated off by ``_HAS_LEDGER is False`` at its call site (Step 8),
+                # so it does not run in the live paper cycle today. The atomic /
+                # dedup store (accounting.ledger_store.store_ledger_events_parquet)
+                # was never wired here — see the ``_HAS_LEDGER`` note at module top.
+                df_events.to_parquet(ledger_path, index=False)
                 logger.info(
                     "[PAPER] Ledger events written: %s (%s rows)",
                     ledger_path,
@@ -2979,28 +2968,6 @@ class UnifiedPaperEngine:
             logger.debug("[LIFECYCLE-LOG] open-order check skipped: %s", exc)
 
     # ------------------------------------------------------------------
-
-    def _write_experience_entry(
-        self, as_of_date: str, equity_before: float, equity_after: float, n_fills: int
-    ) -> None:
-        """Write a post-trade entry to the experience log."""
-        try:
-            log_experience_entry(
-                {
-                    "date": as_of_date,
-                    "equity_before": equity_before,
-                    "equity_after": equity_after,
-                    "daily_return": (
-                        (equity_after / equity_before - 1.0)
-                        if equity_before > 0
-                        else 0.0
-                    ),
-                    "n_fills": n_fills,
-                    "run_id": self.config.run_id,
-                }
-            )
-        except Exception as exc:
-            logger.debug("[PAPER] Experience log write failed (non-fatal): %s", exc)
 
     def reset(self, confirm: bool = False) -> None:
         """Reset all state to initial seed capital.
