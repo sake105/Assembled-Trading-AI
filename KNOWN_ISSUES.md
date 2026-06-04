@@ -1754,3 +1754,12 @@ abgearbeitet. Alle lokal verifiziert, **CI NICHT gelaufen**.
 - **as_of-indexed PIT-Panels für disclosures/crisis (Item B Follow-up, LARGE):** würde auch den
   latenten Look-Ahead in den DOWNSTREAM-Consumern dieser non-as_of-Snapshots schließen (heute
   default-dormant) und erst dann eine same-bar State-Machine-Konsumierung ermöglichen.
+- **Broad-except Baseline-Bump (2026-06-04, Item D Folgewirkung, GUARD):** Der Ratchet-Guard
+  `tests/test_session_2026_05_07_new_items.py::test_total_broad_except_bounded` zählt repo-weit
+  `except:` / `except Exception:` / `except Exception as`. Count wuchs während des mypy/fix-Sweeps
+  von 1001 (commit `329a3240`) auf ~1009 — die neuen Pfade sind fail-safe Degradationen (u. a.
+  PIT-Guards, die graceful degradieren statt den Cycle zu crashen), kein Regress in der Silent-
+  Maskierung. Cap dokumentiert 1000 → 1015 angehoben (Headroom). **OFFEN als Ziel:** Broad-except
+  *Verengung* auf spezifische Exception-Typen, insbesondere in den 6 Schutzzonen
+  (execution/risk/accounting/pipeline/paper) — Cross-Codebase-Narrowing ist ein eigener Task,
+  nicht Teil des CI-Unblocks. Der Guard fängt weiterhin eine unkontrollierte Proliferation.

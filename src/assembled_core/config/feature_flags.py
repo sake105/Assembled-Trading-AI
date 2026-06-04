@@ -70,7 +70,14 @@ class FeatureFlags:
             # "stable 10% canary subset" silently change on every restart.
             return (
                 bool(ticker)
-                and int(hashlib.md5(ticker.encode()).hexdigest(), 16) % 10 == 0
+                and int(
+                    hashlib.md5(  # noqa: S324 - non-security canary bucketing
+                        ticker.encode(), usedforsecurity=False
+                    ).hexdigest(),
+                    16,
+                )
+                % 10
+                == 0
             )
         return False
 
