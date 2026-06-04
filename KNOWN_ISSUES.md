@@ -1703,3 +1703,54 @@ Alle lokal verifiziert, **CI NICHT gelaufen**.
 - **Ops-Gate-Follow-ups (default-OFF, Template-Parität):** daily_pilot_review zählt `*_blocked`-Sentinels als non-OK; armed Block → exit_code 0; Stale-Guard nutzt Wall-Clock statt as_of in etwaigen Replays.
 - **requirements.lock Voll-Regen** (pip-freeze) bewusst NICHT gemacht (würde numpy/pandas/pyarrow-Drift einschleusen); urllib3-Zeile chirurgisch gebumpt.
 - **CI-Run (36+ unpushed Commits):** User-Entscheidung = HOLD (nicht gepusht).
+
+---
+
+## 11. Open-Items Sweep (2026-06-04) — "fix all those too"
+
+Die 4 in §10 als OFFEN gelisteten Items wurden gescopt (read-only Fan-out) und
+abgearbeitet. Alle lokal verifiziert, **CI NICHT gelaufen**.
+
+### Erledigt (committed)
+- **Item A — ml.conformal Broken-Import:** beide conformal-Module waren archiviert
+  (`archive/observability_graveyard_2026q2/`), der Import lieferte immer degenerierte
+  Intervalle. Fix `5266b1eb`: inline q-Residual-Intervall + lokaler `_ConformalResult`-
+  Container, KEIN archiviertes Modul resurrected; echte Intervalle wiederhergestellt;
+  kein Live-Caller (silently-dead Feature). Anti-Pattern **E-043**.
+- **Item B — Same-Bar-State-Machine-Reorder:** **DOCUMENT-AS-INTENDED / WONT-FIX-by-design.**
+  Reorder würde einen non-as_of Live-Snapshot (`crisis_state.json`, `triggers_latest.json`)
+  in die Risk-State-Maschine speisen = E-002 Look-Ahead. Die aktuelle Reihenfolge ist eine
+  PIT-Firewall. Kommentar korrigiert + AST-Guard-Test. Fix `a9845369`.
+- **Item C1 — turnover_budget Unit-Mix:** ECHTER Faktor-von-Price-Bug (cq Shares mit tq
+  Notional geblendet) — Live-Order-Size-Change an cap-firing-Tagen. Fix `b3bde616`:
+  `cq*price` Notional-Blend + Äquivalenztest (price=137, capital=100k, Diskriminierung
+  bewiesen). Non-cap-firing byte-identisch.
+- **Item D — mypy 134 → 0 + Gate-FLIP:** 5 Batches: free-mech `24fc4baa`, free-judge+2-real-bugs
+  `9344e7cf` (LimeExplanation immer-fehlgeschlagen + news_validation beta-guard), data/ `64b7063e`
+  (PIT-safe), exec type-only `e394a396`, exec real-bugs `9b642ce5`. Gate-FLIP `2ca6bea4`:
+  `continue-on-error` entfernt → mypy ist jetzt BLOCKING (ubuntu py3.10/3.11). **CI-Verifikation
+  PENDING** (Dep-Drift numpy 2.3.3 local vs 2.2.6 pinned könnte CI-Residual-Errors zeigen;
+  one-line-revertibel).
+
+### Nicht gemacht (bewusst, mit Begründung)
+- **Item C2 — exposure_engine `target_qty`→`target_shares` Rename:** byte-identisch-kosmetisch
+  in zwei sensiblen Zonen (risk/+execution/). CLAUDE.md verbietet „kosmetische Nebenänderungen
+  in sensiblen Bereichen". Die substanzielle Disambiguierung ist via C1-Korrektur + CONTRACTS
+  §3.1/3.2 + Parity-Oracle bereits erreicht. → DEFERRED als optionales Kosmetik-Item.
+
+### Neue OFFENE Follow-ups / Decisions
+- **Ledger-Events-Parquet-Write Re-Aktivierung (Item D BUG 4 — DECISION):** `unified_paper_engine`
+  hat den per-Day-Ledger-Parquet-Write durch einen falschen Import (`accounting.ledger` statt
+  `ledger_store`) seit jeher deaktiviert (`_HAS_LEDGER` immer False), obwohl `enable_ledger=True`
+  default ist (matcht Audit R2-17 / D-05). mypy byte-identisch gelöst (`_HAS_LEDGER=False` gepinnt).
+  ECHTE Re-Aktivierung = Output-Layout-Behaviour-Change (Pfad/Naming/append-vs-replace, run_id-Arg,
+  mid-cycle-no-raise-Proof) → **User-Decision**, nicht auto-enabled.
+- **turnover_budget block-branch Unit-Mix (Item C1 Follow-up):** gleicher Shares-als-Notional-Bug
+  im block-Branch (~:161-163), aber latent/masked (feuert nur bei `price_series.empty`, dann skippt
+  order-gen). Korrekter Fix unter leeren Preisen non-obvious → separater Task.
+- **PEAD tz-merge MergeError (vorbestehend, ECHT):** `features/altdata_earnings_insider_factors.py:315`
+  `merge_asof` mit tz-naive vs tz-aware Keys → 2 Tests (`test_iter13_fixes` PEAD) failen. Von der
+  mypy-free-mech-Batch via git-stash als pre-existing bestätigt, NICHT von dort verursacht.
+- **as_of-indexed PIT-Panels für disclosures/crisis (Item B Follow-up, LARGE):** würde auch den
+  latenten Look-Ahead in den DOWNSTREAM-Consumern dieser non-as_of-Snapshots schließen (heute
+  default-dormant) und erst dann eine same-bar State-Machine-Konsumierung ermöglichen.
