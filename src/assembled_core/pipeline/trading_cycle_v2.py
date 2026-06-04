@@ -385,6 +385,35 @@ def _load_intel(
                     )
                 except Exception as _ae:
                     log.debug("[alert] circuit_breaker alert failed: %s", _ae)
+        else:
+            # FU2 / defensive: NON-trip bar — explicitly clear the in-cycle
+            # "tripped" marker so the flag reflects THIS bar regardless of how
+            # the caller manages ctx lifecycle. The canonical backtest driver
+            # (qa.backtest_engine) builds a FRESH TradingContext per as_of, so a
+            # stale True could never carry over there. But a non-standard caller
+            # that REUSES one ctx across bars without clearing intel_health_flags
+            # would otherwise carry a stale tripped=True from an earlier trip
+            # bar into a non-trip bar — wrongly blocking ALL orders in the risk
+            # gate (_apply_risk_controls_default consumes this flag). Setting
+            # tripped=False here is correct in BOTH modes on a non-trip bar:
+            # live never sets tripped=True (it blocks via the kill-switch store
+            # read), backtest set it only on the trip bar above. Live/EOD
+            # behaviour is byte-identical — the gate's in-cycle check stays a
+            # no-op when tripped is False.
+            try:
+                ctx.intel_health_flags = ctx.intel_health_flags or {}
+                _prev_icb = ctx.intel_health_flags.get("daily_circuit_breaker")
+                ctx.intel_health_flags["daily_circuit_breaker"] = {
+                    "tripped": False,
+                    "reason": None,
+                    "live_kill_switch_written": (
+                        bool(_prev_icb.get("live_kill_switch_written"))
+                        if isinstance(_prev_icb, dict)
+                        else False
+                    ),
+                }
+            except Exception:
+                pass
     except Exception as e:
         log.warning(
             "[RISK-SAFETY] circuit_breaker_daily check failed: %s — breaker may not engage",

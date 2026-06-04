@@ -871,12 +871,32 @@ def _eo_step_ledger(
             e,
             exc_info=True,
         )
+        # FU2 / observability-only: build_ledger_from_trades wrote the reconcile
+        # report to disk BEFORE raising (B-acct-1: all reports written, then the
+        # raise) but the function RAISES instead of returning its result dict, so
+        # the written reconcile_report_path never reaches the manifest builder.
+        # Reconstruct the on-disk artifact dir deterministically — the accounting
+        # layer writes it to ``<base>/reconcile_report_<run_id>`` (see
+        # reconciliation_report.write_reconcile_report_csv) using the SAME run_id
+        # we passed into build_ledger_from_trades above. Thread it + a specific
+        # failure_reason into the blocked-step result so the manifest points at
+        # the durable on-disk evidence and the top-level failure message is
+        # specific (not "unknown"). NO control-flow change.
+        _recon_report_dir = base / f"reconcile_report_{run_id}"
+        _recon_report_rel: str | None = None
+        try:
+            if _recon_report_dir.exists():
+                _recon_report_rel = _recon_report_dir.relative_to(base).as_posix()
+        except Exception:
+            _recon_report_rel = None
         return {
             "ledger_result": None,
             "completed": False,
             "failed": True,
             "reconciliation_blocked": True,
             "reconciliation_error": str(e),
+            "reconcile_report_path": _recon_report_rel,
+            "failure_reason": f"reconciliation_blocked: {e}",
         }
     except Exception as e:
         logger.error("Ledger/Accounting step failed: %s", e, exc_info=True)
@@ -1082,8 +1102,20 @@ def _eo_build_manifest(
     failure_flag: bool,
     base: Path,
     reconciliation_blocked: bool = False,
+    reconcile_report_path_blocked: str | None = None,
+    failure_reason: str | None = None,
 ) -> dict[str, Any]:
-    """Build the run manifest dict from pipeline step outputs."""
+    """Build the run manifest dict from pipeline step outputs.
+
+    ``reconcile_report_path_blocked`` / ``failure_reason`` (FU2): on the
+    reconcile-blocked path ``ledger_result`` is None (the accounting layer
+    raised), so the per-``ledger_result`` report fields below resolve to None
+    even though the reconcile report WAS written to disk before the raise. When
+    provided, ``reconcile_report_path_blocked`` is used as the manifest's
+    ``reconcile_report_path`` fallback so it points at the on-disk artifact, and
+    ``failure_reason`` is surfaced so the run_eod_pipeline CLI failure message is
+    specific instead of "unknown". Observability-only; no control-flow effect.
+    """
     qa_result = qa.get("qa_result")
     qa_metrics = qa.get("qa_metrics")
     qa_gate_result = qa.get("qa_gate_result")
@@ -1124,7 +1156,13 @@ def _eo_build_manifest(
                 ledger_result.get("reconcile_report_path"), base_dir=base
             )
             if ledger_result
-            else None
+            # FU2: reconcile-blocked path — ledger_result is None but the report
+            # was written to disk before the raise; point at that on-disk dir.
+            else (
+                _manifest_path_str(reconcile_report_path_blocked, base_dir=base)
+                if reconcile_report_path_blocked
+                else None
+            )
         ),
         "accounting_report_path": (
             _manifest_path_str(
@@ -1162,6 +1200,10 @@ def _eo_build_manifest(
         # Recorded here even though ledger_result is None on that path (the
         # accounting layer wrote its own reconcile report before raising).
         "reconciliation_blocked": reconciliation_blocked,
+        # FU2: specific failure reason so the run_eod_pipeline CLI resolves a
+        # concrete message instead of "unknown" (it reads failed_steps OR
+        # failure_reason). None on a healthy run (key present, value None).
+        "failure_reason": failure_reason,
         "timestamps": {
             "started": started_at.isoformat(),
             "finished": finished_at.isoformat(),
@@ -1542,6 +1584,8 @@ def run_eod_pipeline(
     # Step 4b: Ledger/Accounting
     ledger_result = None
     reconciliation_blocked = False
+    reconcile_report_path_blocked: str | None = None
+    failure_reason: str | None = None
     if (
         not skip_portfolio
         and portfolio_trades_df is not None
@@ -1570,6 +1614,11 @@ def run_eod_pipeline(
         # prominently in the manifest (not just the generic failure flag).
         if _ledger.get("reconciliation_blocked"):
             reconciliation_blocked = True
+            # FU2: thread the on-disk reconcile-report path + a specific failure
+            # reason into the manifest so it points at the durable artifact and
+            # the CLI failure message is concrete (not "unknown").
+            reconcile_report_path_blocked = _ledger.get("reconcile_report_path")
+            failure_reason = _ledger.get("failure_reason")
             logger.error(
                 "EOD run BLOCKED by reconciliation drift (step not completed): %s",
                 _ledger.get("reconciliation_error"),
@@ -1604,6 +1653,8 @@ def run_eod_pipeline(
         finished_at=finished_at,
         failure_flag=failure_flag,
         reconciliation_blocked=reconciliation_blocked,
+        reconcile_report_path_blocked=reconcile_report_path_blocked,
+        failure_reason=failure_reason,
         base=base,
     )
 

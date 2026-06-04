@@ -1029,7 +1029,20 @@ def _evaluate_circuit_breaker(
     try:
         from src.assembled_core.risk.circuit_breaker import CircuitBreaker
     except Exception:
-        return None
+        # FAIL-CLOSED (R2-1 / IMPORT path): CB is ENABLED (we passed the
+        # cfg.enabled gate above) but the risk circuit-breaker module is
+        # unimportable, so the CB state is UNKNOWN. Returning None here would
+        # mean "no breach" (fail-OPEN) and silently disable a REQUIRED breaker —
+        # the consumer (_tc_risk.py ~:240-252) only blocks on a raised exception,
+        # never on None. Mirror the evaluation-error fail-closed below: re-raise
+        # so the unknown CB-state blocks this cycle's orders end-to-end. If CB is
+        # DISABLED this branch is unreachable (we returned None at the gate).
+        logger.error(
+            "[CB] circuit-breaker module unimportable while CB ENABLED — "
+            "FAIL-CLOSED, propagating to risk gate to block orders",
+            exc_info=True,
+        )
+        raise
 
     observations = None
     if result is not None and isinstance(result.meta, dict):

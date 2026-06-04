@@ -361,3 +361,81 @@ def test_orchestrator_caller_passes_is_backtest_false_literal() -> None:
     assert "is_backtest=False" in src, (
         "_eo_step_ledger must pass is_backtest=False explicitly (arms fail-closed)"
     )
+
+
+# ---------------------------------------------------------------------------
+# FU2 / FIX 4 — blocked step result threads the on-disk reconcile report path
+# + a specific failure_reason (so the manifest points at the artifact and the
+# CLI failure message is concrete, not "unknown"). Observability-only.
+# ---------------------------------------------------------------------------
+
+
+def test_fu2_blocked_step_threads_report_path_and_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A REAL reconcile-blocked _eo_step_ledger run (diverging broker snapshot)
+    returns reconcile_report_path pointing at the on-disk report dir + a
+    specific failure_reason. The report dir is written by the accounting layer
+    BEFORE it raises, under run_id=run_<started_at>; the step reconstructs it."""
+    snapshot_run_id = "snap_fu2_blocked"
+    as_of = pd.Timestamp("2025-01-15", tz="UTC")
+    _seed_diverging_snapshot(tmp_path, snapshot_run_id, as_of)
+
+    result = _call_eo_step_ledger(tmp_path, snapshot_run_id=snapshot_run_id)
+
+    # Hard block (unchanged contract).
+    assert result["completed"] is False
+    assert result["failed"] is True
+    assert result["reconciliation_blocked"] is True
+    assert result["ledger_result"] is None
+
+    # FU2: the on-disk reconcile report dir was reconstructed + threaded.
+    # run_id = run_<started_at> = run_20250115_213000 (started_at in helper).
+    expected_dir = tmp_path / "reconcile_report_run_20250115_213000"
+    assert expected_dir.exists(), "accounting layer should have written the report dir"
+    assert result["reconcile_report_path"] == "reconcile_report_run_20250115_213000"
+
+    # FU2: failure_reason is specific (not None / not generic).
+    assert result["failure_reason"] is not None
+    assert result["failure_reason"].startswith("reconciliation_blocked:")
+
+
+def test_fu2_blocked_manifest_points_at_report_and_reason(
+    tmp_path: Path,
+) -> None:
+    """End-to-end through _eo_build_manifest: the reconcile-blocked report path
+    + failure_reason from the step result land in the manifest, so it points at
+    the on-disk artifact and resolves a concrete CLI failure message."""
+    snapshot_run_id = "snap_fu2_manifest"
+    as_of = pd.Timestamp("2025-01-15", tz="UTC")
+    _seed_diverging_snapshot(tmp_path, snapshot_run_id, as_of)
+
+    step = _call_eo_step_ledger(tmp_path, snapshot_run_id=snapshot_run_id)
+    assert step["reconciliation_blocked"] is True
+
+    now = datetime(2025, 1, 15, 21, 30, 0, tzinfo=timezone.utc)
+    manifest = _eo_build_manifest(
+        freq="1d",
+        start_capital=10000.0,
+        data_snapshot_id="snap",
+        completed_steps=["prices", "signals", "portfolio"],
+        qa={},
+        ledger_result=None,
+        started_at=now,
+        finished_at=now,
+        failure_flag=True,
+        reconciliation_blocked=True,
+        reconcile_report_path_blocked=step["reconcile_report_path"],
+        failure_reason=step["failure_reason"],
+        base=tmp_path,
+    )
+
+    assert manifest["reconciliation_blocked"] is True
+    assert manifest["reconcile_report_path"] is not None
+    assert "reconcile_report_run_20250115_213000" in manifest["reconcile_report_path"]
+    # Mirror the CLI resolution: must NOT fall through to "unknown".
+    resolved = (
+        manifest.get("failed_steps") or manifest.get("failure_reason") or "unknown"
+    )
+    assert resolved != "unknown"
+    assert resolved.startswith("reconciliation_blocked:")

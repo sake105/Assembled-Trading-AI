@@ -184,13 +184,24 @@ class VolCircuitBreaker:
     _trip_count: int = field(default=0, repr=False)
     _last_ratio: float = field(default=0.0, repr=False)
 
-    def check_returns(self, returns: list[float] | "object") -> bool:
+    def check_returns(
+        self,
+        returns: list[float] | "object",
+        timestamp: datetime | None = None,
+    ) -> bool:
         """Evaluate a sequence of recent returns and trip if vol ratio exceeds threshold.
 
         Args:
             returns: Sequence of daily returns in chronological order.
                 Must contain at least ``long_window`` observations, otherwise
                 the breaker stays inactive.
+            timestamp: Observation time used to stamp ``_tripped_at`` on a trip.
+                When ``None`` (default), falls back to wall-clock
+                ``datetime.now(UTC)`` — byte-identical to the legacy live
+                behaviour. A backtest or replay MUST pass the historical
+                observation time so the cooldown window read back by
+                :meth:`is_tripped_at` (PIT-correct) compares against the TRIP
+                INSTANT as it actually occurred, not a 2026 wall-clock.
 
         Returns:
             True if the breaker just tripped on this call.
@@ -225,7 +236,15 @@ class VolCircuitBreaker:
         self._last_ratio = ratio
 
         if ratio >= self.ratio_threshold:
-            self._tripped_at = datetime.now(timezone.utc)
+            if timestamp is None:
+                trip_at = datetime.now(timezone.utc)
+            else:
+                trip_at = (
+                    timestamp
+                    if timestamp.tzinfo is not None
+                    else timestamp.replace(tzinfo=timezone.utc)
+                )
+            self._tripped_at = trip_at
             self._trip_count += 1
             logger.critical(
                 "[VolCircuitBreaker] TRIPPED: short/long vol ratio=%.3f "
