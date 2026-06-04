@@ -1,6 +1,8 @@
 # requirements.lock — full transitive freeze snapshot
 # Last regenerated: 2026-04-08 via pip freeze (Python 3.11, Windows)
 # Updated: 2026-04-28 — added hypothesis==6.152.4 (D3 property tests)
+# Updated: 2026-06-04 — urllib3 2.5.0 -> 2.6.3 (security: clears CVE-2025-66418,
+#   CVE-2025-66471, CVE-2026-21441; surgical single-line bump, no other pins touched)
 # WARNING: Key packages (numpy, pandas) diverge from requirements.txt pins.
 # IMPORTANT: requirements.txt is the authoritative CI file. This lock is a
 # secondary reference. Regenerate after any requirements.txt update:
@@ -82,7 +84,7 @@ toolz==1.1.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.2
-urllib3==2.5.0
+urllib3==2.6.3
 uvicorn==0.38.0
 watchfiles==1.1.1
 websockets==15.0.1

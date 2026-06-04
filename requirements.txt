@@ -14,6 +14,11 @@ pyarrow==21.0.0
 fastparquet==2024.11.0
 python-dateutil==2.9.0.post0
 requests==2.32.4
+# urllib3 is a transitive dep of requests/yfinance/alpaca-py/polygon-api-client.
+# Pinned explicitly (security floor) so the CI install + pip-audit deterministically
+# get the fixed build: 2.6.3 clears CVE-2025-66418, CVE-2025-66471, CVE-2026-21441.
+# requests==2.32.4 allows urllib3<3,>=1.21.1; polygon-api-client requires >=1.26.9 — both satisfied.
+urllib3==2.6.3
 yfinance==0.2.54
 alpaca-py==0.38.0
 polygon-api-client==1.14.4
@@ -44,6 +49,14 @@ pytest-cov==7.0.0
 ruff==0.14.7
 hypothesis==6.152.4
 joblib==1.5.2
+# mypy pinned (was unpinned, riding the dev-extra range) so the CI type-check is
+# deterministic and will not break on upstream mypy releases. 1.19.0 = locally measured.
+# Stub packages clear the import-untyped noise (requests/yaml/pytz) so the real
+# typing surface is honest. mypy stays NON-BLOCKING in backend-ci.yml (continue-on-error).
+mypy==1.19.0
+types-requests==2.33.0.20260518
+types-PyYAML==6.0.12.20260518
+types-pytz==2026.2.0.20260518
 
 # --- Scipy / ML (required by presets and fast tests) ---
 # Ranges (not exact pins): scipy 1.16+ and sklearn 1.8+ require Python >=3.11;

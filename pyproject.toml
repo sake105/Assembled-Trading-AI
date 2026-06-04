@@ -31,6 +31,10 @@ dependencies = [
     "fastparquet>=2023.1.0",
     "python-dateutil>=2.9.0",
     "requests>=2.32.0",
+    # Security floor: 2.6.3 clears CVE-2025-66418, CVE-2025-66471, CVE-2026-21441.
+    # Transitive via requests/yfinance/alpaca-py/polygon-api-client; declared
+    # explicitly so the minimum is enforced at the source-of-truth level.
+    "urllib3>=2.6.3",
     "yfinance>=0.2.40",
     "alpaca-py>=0.30.0",
     "polygon-api-client>=1.12.0",
@@ -190,8 +194,52 @@ exclude = [
 ]
 
 # Subpath overrides — be lenient on third-party noise that lacks stubs.
+# Declared runtime/test deps the local mypy 1.19.0 run could not resolve stubs
+# for; they surface only as [import-untyped] noise (pyarrow/statsmodels/fredapi/
+# polygon/exchange_calendars were unmasked once the [import-not-found] errors
+# above them were silenced). All third-party — never a first-party module.
 [[tool.mypy.overrides]]
-module = ["pandas.*", "numpy.*", "scipy.*", "sklearn.*", "joblib.*", "yfinance.*", "fastapi.*", "syrupy.*", "hypothesis.*"]
+module = [
+    "pandas.*", "numpy.*", "scipy.*", "sklearn.*", "joblib.*", "yfinance.*",
+    "fastapi.*", "syrupy.*", "hypothesis.*",
+    "pyarrow.*", "statsmodels.*", "fredapi.*", "polygon.*", "exchange_calendars.*",
+]
+ignore_missing_imports = true
+
+# Optional research / 3rd-party libraries that are not installed in the CI
+# type-check environment (or ship without py.typed / stubs). They surface as
+# [import-not-found] / [import-untyped] noise that drowns the real typing
+# surface. Derived from the actual mypy run over
+# data/features/signals/execution/portfolio (mypy 1.19.0) — NOT a hardcoded
+# guess. NEVER wildcard, and NEVER a first-party assembled_core.* module:
+# the missing first-party import `src.assembled_core.ml.conformal`
+# (signals/meta_model.py) is a GENUINE issue and is intentionally left
+# unsilenced here.
+[[tool.mypy.overrides]]
+module = [
+    "backports.zoneinfo",
+    "cvxpy.*",
+    "dimod.*",
+    "doubleml.*",
+    "dtaidistance.*",
+    "duckdb.*",
+    "econml.*",
+    "edgar.*",
+    "filterpy.*",
+    "lppls.*",
+    "mapie.*",
+    "mlfinpy.*",
+    "mwviews.*",
+    "openmeteo_requests.*",
+    "pandas_datareader.*",
+    "py_vollib.*",
+    "py_vollib_vectorized.*",
+    "pykalman.*",
+    "riskfolio.*",
+    "ruptures.*",
+    "stumpy.*",
+    "tsfresh.*",
+]
 ignore_missing_imports = true
 
 # Strict overrides on the safety-critical subpaths added through the
