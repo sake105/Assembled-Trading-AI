@@ -283,27 +283,36 @@ def test_default_mode_is_backtest_safe_no_raise(tmp_path: Path) -> None:
     assert result["reconciliation_blocked"] is False
 
 
-def test_passing_reconciliation_does_not_escalate_either_mode(tmp_path: Path) -> None:
-    """A clean reconciliation (paper==paper via policy='ignore') → severity 'ok',
-    no raise and no block, in BOTH live and backtest mode."""
+def test_paper_view_reconcile_is_unverified_not_pass(tmp_path: Path) -> None:
+    """B-acct-3: a paper-vs-paper reconcile (policy='ignore' → no independent
+    broker snapshot) is UNVERIFIED, NOT a healthy pass — in BOTH modes:
+    severity 'unverified', reconciliation_ok None, no raise, no block.
+
+    Comparing the ledger to a copy of itself cannot detect a real drift, so it
+    must never be reported as a clean 'ok'/True pass (that would mask a real
+    broker drift we simply never looked at)."""
     for is_bt in (True, False):
         output_dir = tmp_path / f"out_{is_bt}"
         output_dir.mkdir(parents=True, exist_ok=True)
         result = build_ledger_from_trades(
             orders_df=_minimal_trades(),
             trades_df=_minimal_trades(),
-            run_id=f"run_ok_{is_bt}",
+            run_id=f"run_paper_{is_bt}",
             output_dir=output_dir,
             as_of_date=pd.Timestamp("2025-01-15", tz="UTC"),
             start_cash=10000.0,
-            broker_snapshot_policy="ignore",  # paper == paper → ok
+            broker_snapshot_policy="ignore",  # paper == paper → unverified
             is_backtest=is_bt,
         )
-        assert result["reconciliation_severity"] == "ok", (
-            f"clean recon should be ok (is_backtest={is_bt})"
+        assert result["reconciliation_severity"] == "unverified", (
+            f"paper-view recon must be unverified (is_backtest={is_bt})"
+        )
+        assert result["reconciliation_ok"] is None, (
+            "paper-view recon must NOT report a healthy True pass"
         )
         assert result["reconciliation_blocked"] is False
-        assert result["reconciliation_ok"] is True
+        assert result["broker_meta"]["broker_view_source"] == "paper_view"
+        assert result["reconciliation_violations"] == []
 
 
 # ---------------------------------------------------------------------------

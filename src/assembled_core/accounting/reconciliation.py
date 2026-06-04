@@ -484,11 +484,16 @@ def reconcile_daily_pnl(
     skipped_symbols: list[str] = []
     explained = 0.0
 
+    # B-acct-4: a literal ``== 0`` on a float start price is fragile (a 1e-15
+    # residual price would slip through and divide). Guard with an explicit
+    # tolerance and treat a (near-)zero start price as a skip, NOT a divide.
+    price_eps = 1e-12
+
     for sym, weight in positions.items():
         p_start = position_prices_start.get(sym)
         p_end = position_prices_end.get(sym)
 
-        if p_start is None or p_end is None or p_start == 0:
+        if p_start is None or p_end is None or abs(float(p_start)) <= price_eps:
             contributions[sym] = 0.0
             if abs(float(weight)) > 0:
                 skipped_symbols.append(sym)
@@ -501,17 +506,26 @@ def reconcile_daily_pnl(
 
     unexplained = portfolio_return - explained
     break_pct = abs(unexplained)
-    ok = break_pct <= tolerance_pct
+    # B-acct-4: a price-feed gap on a HELD symbol (skipped above) is a degraded
+    # reconciliation — its return is silently absent from ``explained``, so a
+    # numerically-small break is not trustworthy. Surface a distinct ``degraded``
+    # flag AND downgrade ``ok`` so a feed gap can never be read as a clean pass.
+    degraded = len(skipped_symbols) > 0
+    ok = (break_pct <= tolerance_pct) and not degraded
 
     # Break reason analysis
     break_reason = ""
-    if not ok:
-        if abs(unexplained) > 0.01:
-            break_reason = (
-                "LARGE_BREAK: possible missing position, corporate action, or fee"
-            )
-        elif abs(unexplained) > tolerance_pct:
-            break_reason = "MINOR_BREAK: rounding, timing, or cash drag"
+    if abs(unexplained) > 0.01:
+        break_reason = (
+            "LARGE_BREAK: possible missing position, corporate action, or fee"
+        )
+    elif abs(unexplained) > tolerance_pct:
+        break_reason = "MINOR_BREAK: rounding, timing, or cash drag"
+    elif degraded:
+        # ok was forced False purely by a price-feed gap, not a numeric break.
+        break_reason = (
+            "DEGRADED: price-feed gap on held symbol(s); attribution incomplete"
+        )
 
     result = {
         "ok": ok,
@@ -523,6 +537,7 @@ def reconcile_daily_pnl(
         "break_reason": break_reason,
         "position_contributions": contributions,
         "skipped_symbols": skipped_symbols,
+        "degraded": degraded,
     }
 
     if not ok:

@@ -103,11 +103,15 @@ def test_backtest_ledger_integration_smoke(tmp_path: Path) -> None:
             f"Reconciliation report should exist: {report_file}"
         )
 
-    # Verify reconciliation_ok is True (or at least present)
+    # Verify reconciliation_ok is the UNVERIFIED sentinel (B-acct-3).
+    # In paper mode there is no independent broker snapshot, so the reconcile is
+    # paper-vs-paper and CANNOT be a healthy pass — reconciliation_ok is None
+    # (unverified), NOT True. The key must still be present in meta.
+    assert "reconciliation_ok" in result.meta, "reconciliation_ok should be present"
     reconciliation_ok = result.meta.get("reconciliation_ok")
-    assert reconciliation_ok is not None, "reconciliation_ok should be present"
-    # In paper mode, reconciliation should pass (ledger and broker are same source)
-    assert reconciliation_ok is True, "reconciliation_ok should be True in paper mode"
+    assert reconciliation_ok is None, (
+        "paper-view reconcile must be unverified (None), not a True pass (B-acct-3)"
+    )
 
 
 def test_backtest_ledger_disabled(tmp_path: Path) -> None:

@@ -223,15 +223,18 @@ def test_generic_exception_still_soft_flag_unchanged(
 
 
 def test_healthy_live_reconcile_completes(tmp_path: Path) -> None:
-    """A live/paper EOD ledger step with a healthy reconcile (policy='ignore' →
-    paper==paper) completes normally: no raise, no block, completed=True."""
+    """A live/paper EOD ledger step with a paper-view reconcile (policy='ignore' →
+    paper==paper) completes normally: no raise, no block, completed=True. Per
+    B-acct-3 the reconcile is UNVERIFIED (no independent broker snapshot), so
+    reconciliation_ok is None — NOT a healthy True pass — but it does NOT block
+    trading (there is no real drift signal to act on)."""
     result = _call_eo_step_ledger(tmp_path, snapshot_run_id=None)
 
     assert result["completed"] is True
     assert result["failed"] is False
     assert result.get("reconciliation_blocked") is not True
     assert result["ledger_result"] is not None
-    assert result["ledger_result"]["reconciliation_ok"] is True
+    assert result["ledger_result"]["reconciliation_ok"] is None
 
 
 # ---------------------------------------------------------------------------

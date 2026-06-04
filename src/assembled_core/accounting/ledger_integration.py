@@ -90,8 +90,13 @@ def build_ledger_from_trades(
         - cash_balance: Final cash balance
         - reconciliation_result: Reconciliation result dict (if broker snapshot available)
         - reconcile_report_path: Path to reconciliation report (if reconciliation performed)
-        - reconciliation_ok: bool (True if reconciliation passed or not performed)
-        - reconciliation_severity: SLO severity in {"ok","warn","fail"} or None
+        - reconciliation_ok: bool | None. True iff reconciled against a real
+          independent broker snapshot AND it passed; False on a genuine drift.
+          ``None`` means UNVERIFIED — no independent broker snapshot existed
+          (paper-vs-paper), so reconciliation was NOT actually performed; this is
+          deliberately NOT reported as a healthy pass (B-acct-3).
+        - reconciliation_severity: SLO severity in {"ok","warn","fail"},
+          ``"unverified"`` for the paper-view (not-reconciled) case, or None
         - reconciliation_violations: list of SLO violation dicts (may be empty)
         - reconciliation_blocked: bool — True iff a live/paper SLO "fail" was
           detected (book must not keep trading); also signalled by raising
@@ -341,6 +346,42 @@ def build_ledger_from_trades(
                 f"mode — failing closed: {e}"
             )
 
+    # ── B-acct-3: paper-vs-paper reconcile is UNVERIFIED, never a healthy pass ──
+    # When no independent broker snapshot exists (policy "ignore", or "prefer"
+    # falling back to the paper view), broker_positions_df/broker_cash are literally
+    # a copy of the ledger's own positions/cash. reconcile_ledger_vs_broker then
+    # compares a frame to itself → ok=True trivially, and evaluate_reconcile_slo
+    # would grade it as severity "ok" — masking the fact that NO real reconciliation
+    # happened. Running the B-acct-1 fail-closed SLO escalation on this is meaningless
+    # (there is no genuine drift signal to act on) and reporting a healthy pass would
+    # hide a real broker drift that we simply never looked at.
+    #
+    # So: surface an explicit "unverified" state (reconciliation_ok=None,
+    # severity="unverified"), emit a loud WARNING, and SKIP the SLO classification +
+    # escalation entirely. We do NOT raise — there is no drift signal — but the
+    # not-reconciled state is made visible in the return dict + reports, not a silent
+    # green. The real-snapshot path (broker_view_source == "stored_snapshot") is left
+    # untouched below and keeps the B-acct-1 classify + fail-closed-raise behaviour.
+    is_paper_view = broker_meta.get("broker_view_source") == "paper_view"
+    if (
+        is_paper_view
+        and reconciliation_result is not None
+        and pending_reconcile_error is None
+    ):
+        reconciliation_ok = None
+        reconciliation_severity = "unverified"
+        reconciliation_violations = []
+        logger.warning(
+            "[Reconciliation] UNVERIFIED: no independent broker snapshot for "
+            "run_id=%s as_of=%s (broker_view_source=paper_view). Book was NOT "
+            "reconciled against a real broker view — comparing the ledger to itself "
+            "cannot detect a genuine position/cash drift. Reporting reconciliation "
+            "as unverified (not a pass); SLO fail-closed escalation is skipped "
+            "because there is no real drift signal to act on.",
+            run_id,
+            as_of_date.date() if isinstance(as_of_date, pd.Timestamp) else as_of_date,
+        )
+
     # ── B-acct-1: route the result through the SLO classifier (fail-closed) ──
     # The plain reconcile_ledger_vs_broker(fail_fast=False) only logs a WARNING on
     # drift; the book would keep trading next cycle. We grade the drift against
@@ -353,8 +394,12 @@ def build_ledger_from_trades(
     # swallowed into reconciliation_ok=False with no escalation (the exact
     # fail-open gap this batch closes). Only attempt classification when a reconcile
     # result actually exists (the report path above may have failed before it was
-    # produced).
-    if reconciliation_result is not None and pending_reconcile_error is None:
+    # produced). B-acct-3: skip entirely for paper_view (handled above as unverified).
+    if (
+        not is_paper_view
+        and reconciliation_result is not None
+        and pending_reconcile_error is None
+    ):
         try:
             # max_qty_diff: largest per-symbol share-count divergence.
             # position_diffs_df only lists symbols present on BOTH sides; a symbol
@@ -521,6 +566,11 @@ def build_ledger_from_trades(
             as_of=as_of_date,
             start_cash=start_cash,
             reconciliation_result=reconciliation_result,
+            # B-acct-3: feed the GRADED reconciliation_ok (None/"unverified" on a
+            # paper_view run, True/False on a real stored_snapshot reconcile) so
+            # the report never records the trivial paper-vs-paper self-comparison
+            # True. Mirrors the value passed to write_evidence_index_json below.
+            reconciliation_ok=reconciliation_ok,
             ledger_pack_path=ledger_base.relative_to(output_dir).as_posix(),
             reconcile_report_path=(
                 reconcile_report_path.as_posix() if reconcile_report_path else None
@@ -535,6 +585,7 @@ def build_ledger_from_trades(
             as_of=as_of_date,
             start_cash=start_cash,
             reconciliation_result=reconciliation_result,
+            reconciliation_ok=reconciliation_ok,
             ledger_pack_path=ledger_base.relative_to(output_dir).as_posix(),
             reconcile_report_path=(
                 reconcile_report_path.as_posix() if reconcile_report_path else None

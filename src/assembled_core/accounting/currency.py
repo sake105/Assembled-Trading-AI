@@ -23,12 +23,36 @@ DEFAULT_FX_RATES: dict[str, float] = {
     "CNY": 0.14,
 }
 
+# B-acct-4: the hard-coded DEFAULT_FX_RATES carry NO as_of / freshness check —
+# a stale rate silently mis-states cross-currency exposure. Emit a one-time
+# WARNING the first time an FXConverter falls back to these defaults (i.e. it was
+# constructed without operator-supplied rates), so a silent stale-FX conversion is
+# at least observable. Module-level so it fires once per process, not per call.
+_DEFAULT_FX_WARNED = False
+
+
+def _warn_default_fx_once() -> None:
+    global _DEFAULT_FX_WARNED
+    if not _DEFAULT_FX_WARNED:
+        _DEFAULT_FX_WARNED = True
+        logger.warning(
+            "[FX] Using hard-coded DEFAULT_FX_RATES fallback (no operator-supplied "
+            "rates, no as_of/freshness check). Cross-currency USD conversion may be "
+            "STALE — supply fresh rates to FXConverter(rates=...) for live use."
+        )
+
 
 @dataclass
 class FXConverter:
     """Convert positions to USD using FX rates."""
 
     rates: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_FX_RATES))
+
+    def __post_init__(self) -> None:
+        # True iff no operator-supplied rates were passed → we are running on the
+        # stale hard-coded defaults. The one-time WARNING fires on first actual use
+        # (to_usd), not at construction, so merely importing/constructing is silent.
+        self._using_default_rates: bool = self.rates == DEFAULT_FX_RATES
 
     def to_usd(self, amount: float, currency: str) -> float:
         """Convert amount to USD.
@@ -40,6 +64,9 @@ class FXConverter:
         Returns:
             Amount in USD.
         """
+        # B-acct-4: observable stale-FX fallback (one-time WARNING per process).
+        if getattr(self, "_using_default_rates", False):
+            _warn_default_fx_once()
         rate = self.rates.get(currency.upper(), None)
         if rate is None:
             # Silently assuming 1:1 on a typo (e.g. "GBp" pence vs "GBP", "EU"
