@@ -136,6 +136,20 @@ def test_update_positions_partial_sell_respects_fill_qty(tmp_path: Path) -> None
 # --- _write_ledger_events ---------------------------------------------------
 
 
+def _canonical_ledger_path(eng: UnifiedPaperEngine) -> Path:
+    """Canonical ledger artifact path written by the re-activated store.
+
+    Re-activation (2026-06-04, Option A) moved the write from the dead per-day
+    ``ledger_<date>.parquet`` to the canonical
+    ``ledger_<run_id>/ledger_events.parquet`` layout that the accounting chain
+    reads. These tests assert the FILL/REJECT/event_id mapping, which is
+    unchanged; only the output location moved.
+    """
+    return (
+        eng.config.ledger_dir / f"ledger_{eng.config.run_id}" / "ledger_events.parquet"
+    )
+
+
 def _read_ledger(path: Path) -> pd.DataFrame:
     assert path.exists(), f"ledger file missing: {path}"
     return pd.read_parquet(path)
@@ -157,7 +171,7 @@ def test_ledger_records_fill_qty_for_partial(tmp_path: Path) -> None:
     )
     eng._write_ledger_events(fills, "2025-01-15")
 
-    df = _read_ledger(eng.config.ledger_dir / "ledger_2025-01-15.parquet")
+    df = _read_ledger(_canonical_ledger_path(eng))
     assert len(df) == 1
     assert df.loc[0, "event_type"] == "FILL"
     assert df.loc[0, "qty"] == pytest.approx(3.0)
@@ -181,7 +195,7 @@ def test_ledger_records_rejected_as_reject_event(tmp_path: Path) -> None:
     )
     eng._write_ledger_events(fills, "2025-01-15")
 
-    df = _read_ledger(eng.config.ledger_dir / "ledger_2025-01-15.parquet")
+    df = _read_ledger(_canonical_ledger_path(eng))
     assert len(df) == 1
     assert df.loc[0, "event_type"] == "REJECT"
     assert df.loc[0, "qty"] == 0.0
@@ -202,7 +216,7 @@ def test_ledger_event_id_distinguishes_buy_and_sell_same_symbol(
     )
     eng._write_ledger_events(fills, "2025-01-15")
 
-    df = _read_ledger(eng.config.ledger_dir / "ledger_2025-01-15.parquet")
+    df = _read_ledger(_canonical_ledger_path(eng))
     assert len(df) == 2
     assert df["event_id"].nunique() == 2
 
@@ -217,7 +231,7 @@ def test_ledger_legacy_full_fill_unchanged(tmp_path: Path) -> None:
     )
     eng._write_ledger_events(fills, "2025-01-15")
 
-    df = _read_ledger(eng.config.ledger_dir / "ledger_2025-01-15.parquet")
+    df = _read_ledger(_canonical_ledger_path(eng))
     assert df.loc[0, "event_type"] == "FILL"
     assert df.loc[0, "qty"] == pytest.approx(10.0)
     assert df.loc[0, "cash_delta"] == pytest.approx(-1000.0)

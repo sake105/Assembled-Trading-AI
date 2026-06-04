@@ -102,17 +102,30 @@ except Exception:  # pragma: no cover
     _HAS_FILL_MODEL = False
     logger.warning("[PAPER] fill_model unavailable — using simple fill simulation")
 
-# Ledger-events parquet store is NOT wired into the paper engine. The original
-# import targeted the wrong module (``accounting.ledger`` has no
-# ``store_ledger_events_parquet``; the real symbol lives in
-# ``accounting.ledger_store`` and additionally requires a ``run_id`` arg + a
-# different output-path layout), so this flag was permanently False and the
-# ledger-events write path (``_write_ledger_events``) has never executed in the
-# live paper cycle. Pinned False here to preserve that byte-identical behaviour
-# while removing the broken import. Re-activation (fix import + call signature +
-# reconcile output layout) is a deliberate output-layout behaviour change,
-# deferred as a design decision (see R2-17 / D-05 in docs/audit).
-_HAS_LEDGER = False
+# Ledger-events parquet store (re-activated 2026-06-04, user-approved Option A).
+# The original import (BUG 4) targeted the wrong module (``accounting.ledger``
+# has no ``store_ledger_events_parquet``), so ``_HAS_LEDGER`` was pinned False
+# and the ledger-events write path (``_write_ledger_events``) never executed.
+# The real symbol lives in ``accounting.ledger_store`` with signature
+# ``(events_df, output_dir, run_id, *, mode="append") -> Path`` and writes the
+# CANONICAL ``<output_dir>/ledger_<run_id>/ledger_events.parquet`` layout (atomic
+# tmp->rename, dedup-by-event_id) that the accounting chain
+# (``build_ledger_from_trades`` / ``ledger_integration``) reads. The import is
+# wrapped in a try/except: on import failure ``_HAS_LEDGER`` falls back to False
+# and the write is skipped (fail-safe — never crash the cycle). This is an
+# ADDITIVE persistence path; no order/fill/position/cash logic is affected.
+try:
+    from src.assembled_core.accounting.ledger_store import (
+        ledger_base_path,
+        store_ledger_events_parquet,
+    )
+
+    _HAS_LEDGER = True
+except Exception:  # pragma: no cover
+    _HAS_LEDGER = False
+    ledger_base_path = None  # type: ignore[assignment]
+    store_ledger_events_parquet = None  # type: ignore[assignment]
+    logger.warning("[PAPER] ledger_store unavailable — ledger-events write disabled")
 
 try:
     from src.assembled_core.accounting.reconciliation import (
@@ -400,6 +413,13 @@ class UnifiedPaperEngine:
         self._last_orders_n: int = 0
         self._last_slippage_obs: list[float] = []
         self._last_rejection_counts: dict[str, int] = {}
+
+        # Canonical ledger-events path written by the most recent
+        # ``_write_ledger_events`` call (``ledger_<run_id>/ledger_events.parquet``
+        # under ``config.ledger_dir``). Used by ``_run_reconciliation`` to set the
+        # ``ledger_exists`` observability flag against the REAL artifact rather
+        # than the dead per-day path. ``None`` until the first ledger write.
+        self._last_ledger_path: Path | None = None
 
         # B2 — batched state-save bookkeeping. Counters are days *elapsed since
         # last flush*, not absolute day indices, so they stay correct even if
@@ -1667,8 +1687,6 @@ class UnifiedPaperEngine:
             as_of_date: ISO date string for the trading day.
         """
         try:
-            ledger_path = self.config.ledger_dir / f"ledger_{as_of_date}.parquet"
-
             events = []
             ts = f"{as_of_date}T16:00:00+00:00"
             for _, fill in fills.iterrows():
@@ -1719,18 +1737,33 @@ class UnifiedPaperEngine:
 
             if events:
                 df_events = pd.DataFrame(events)
-                # Raw per-day parquet write. NOTE: this whole method is currently
-                # gated off by ``_HAS_LEDGER is False`` at its call site (Step 8),
-                # so it does not run in the live paper cycle today. The atomic /
-                # dedup store (accounting.ledger_store.store_ledger_events_parquet)
-                # was never wired here — see the ``_HAS_LEDGER`` note at module top.
-                df_events.to_parquet(ledger_path, index=False)
+                # Canonical store (accounting.ledger_store): atomic tmp->rename,
+                # dedup-by-event_id, deterministic sort. Output base is the
+                # engine's configured ``ledger_dir``; the store appends the
+                # ``ledger_<run_id>/ledger_events.parquet`` layout that
+                # ``build_ledger_from_trades`` / ``ledger_integration`` read.
+                # ``mode="append"`` accumulates events across the run's EOD days
+                # (dedup keeps the last occurrence per event_id, so a same-day
+                # re-run is idempotent). The returned path is cached so the
+                # reconcile ``ledger_exists`` flag reflects the real artifact.
+                stored_path = store_ledger_events_parquet(
+                    df_events,
+                    self.config.ledger_dir,
+                    self.config.run_id,
+                    mode="append",
+                )
+                self._last_ledger_path = stored_path
                 logger.info(
-                    "[PAPER] Ledger events written: %s (%s rows)",
-                    ledger_path,
+                    "[PAPER] Ledger events written: %s (%s rows this day)",
+                    stored_path,
                     len(events),
                 )
         except Exception as exc:
+            # Fail-safe: a ledger-write failure must NOT abort the cycle or
+            # corrupt accounting/positions/cash. This runs at the persistence
+            # step (after positions are updated), so swallowing the error leaves
+            # all trade state intact; only the parquet observability artifact is
+            # missing for the day.
             logger.error("[PAPER] Ledger write failed: %s", exc)
 
     # ------------------------------------------------------------------
@@ -1907,7 +1940,19 @@ class UnifiedPaperEngine:
             skipped (e.g. missing ledger or hard error — errors are logged).
         """
         try:
-            ledger_path = self.config.ledger_dir / f"ledger_{as_of_date}.parquet"
+            # Canonical ledger-events artifact written by ``_write_ledger_events``
+            # (``ledger_<run_id>/ledger_events.parquet`` under ``ledger_dir``).
+            # The ``ledger_exists`` flag below is OBSERVABILITY only — it does not
+            # gate or change any reconcile PASS/FAIL verdict (the verdict comes
+            # from ``evaluate_reconcile_slo`` on cash/qty/fill-rate/slippage).
+            # Guarded against a ledger_store import failure (``ledger_base_path``
+            # None) so a missing ledger module can never disable reconciliation.
+            ledger_path: Path | None = None
+            if ledger_base_path is not None:
+                ledger_path = (
+                    ledger_base_path(self.config.ledger_dir, self.config.run_id)
+                    / "ledger_events.parquet"
+                )
 
             positions = dict(self._state.get("positions", {}))
             cash = float(self._state.get("cash", self.config.seed_capital))
@@ -1993,7 +2038,9 @@ class UnifiedPaperEngine:
             verdict["reconcile"] = {
                 "cash_match": recon.get("cash_match"),
                 "ok": recon.get("ok"),
-                "ledger_exists": ledger_path.exists(),
+                "ledger_exists": (
+                    ledger_path.exists() if ledger_path is not None else False
+                ),
                 "n_positions": int(len(ledger_positions_df)),
                 "independent_source": independent_source,
                 "source": reconcile_source,
