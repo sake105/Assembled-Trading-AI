@@ -29,7 +29,7 @@ import logging
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from src.assembled_core.risk.state_machine import atomic_write_json_with_retry
@@ -94,7 +94,7 @@ def block_symbol(
         }
         _write_state(path, state)
     logger.info("[symbol_kill_switch] BLOCK %s: %s", symbol, reason)
-    return state["blocked"][symbol]
+    return cast("dict[str, Any]", state["blocked"][symbol])
 
 
 def unblock_symbol(

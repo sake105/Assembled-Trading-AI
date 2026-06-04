@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, cast
 
 import numpy as np
 
@@ -191,7 +191,7 @@ class ExecutionCostModel:
 
         total_bps = spread_bps / 2 + slippage_bps + fees_bps
         direction = 1 if side == "buy" else -1
-        return bar.close * (1 + direction * total_bps / 10_000)
+        return cast(float, bar.close * (1 + direction * total_bps / 10_000))
 
     @staticmethod
     def _get_spread(symbol: str, bar: BarSnapshot) -> float:

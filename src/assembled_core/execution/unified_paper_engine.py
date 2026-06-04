@@ -1940,7 +1940,7 @@ class UnifiedPaperEngine:
             reconcile_source = "self_compare_noop"
             if self.config.shadow_broker is not None:
                 try:
-                    snap = self.config.shadow_broker.get_snapshot()  # type: ignore[attr-defined]
+                    snap = self.config.shadow_broker.get_snapshot()
                     broker_positions_df = pd.DataFrame(
                         snap.get("positions", []),
                         columns=["symbol", "qty"],
@@ -2504,9 +2504,7 @@ class UnifiedPaperEngine:
                 else "rejected"
             )
             try:
-                live = self.config.shadow_broker.submit(  # type: ignore[attr-defined]
-                    symbol=sym, side=side, qty=qty
-                )
+                live = self.config.shadow_broker.submit(symbol=sym, side=side, qty=qty)
                 live_price = float(live.get("fill_price", float("nan")))
                 live_status = str(live.get("status", "unknown"))
             except Exception as exc:  # pragma: no cover

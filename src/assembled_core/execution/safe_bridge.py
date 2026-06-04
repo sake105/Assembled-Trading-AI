@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 from src.assembled_core.config import OUTPUT_DIR
@@ -168,7 +169,7 @@ def write_safe_orders_csv(
         validation_result = validate_safe_orders_df(safe_df)
 
         if not validation_result["valid"]:
-            issues_str = "; ".join(validation_result["issues"])
+            issues_str = "; ".join(cast("list[str]", validation_result["issues"]))
             raise ValueError(
                 f"SAFE orders validation failed - no file will be written. Issues: {issues_str}"
             )
@@ -181,7 +182,7 @@ def write_safe_orders_csv(
             from src.assembled_core.logging_utils import get_logger
 
             logger = get_logger()
-            for issue in validation_result["issues"]:
+            for issue in cast("list[str]", validation_result["issues"]):
                 logger.warning(f"SAFE orders validation warning: {issue}")
 
     # Determine output path

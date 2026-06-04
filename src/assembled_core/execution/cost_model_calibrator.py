@@ -32,7 +32,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, cast
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def _iter_tca_files(tca_dir: Path) -> Iterable[Path]:
 
 def _load_tca(path: Path) -> dict | None:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict, json.loads(path.read_text(encoding="utf-8")))
     except Exception:
         logger.warning("[CALIBRATOR] unreadable TCA file: %s", path)
         return None
@@ -252,7 +252,7 @@ def write_calibration_report(
     }
 
     try:
-        import yaml  # type: ignore[import-not-found]
+        import yaml
 
         out_path.write_text(yaml.safe_dump(body, sort_keys=False), encoding="utf-8")
     except Exception:

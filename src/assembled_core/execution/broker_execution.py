@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from src.assembled_core.execution.broker_adapter import BrokerAdapter, BrokerOrder
@@ -467,7 +467,7 @@ def execute_via_broker(
     if submitted:
         final_orders = poll_order_fills(
             adapter,
-            submitted,
+            cast("list[BrokerOrder | None]", submitted),
             timeout_s=timeout_s,
             poll_interval_s=poll_interval_s,
         )

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -712,7 +712,7 @@ def compute_slippage_cash(
     # Ensure non-negative (costs are always positive)
     slippage_cash = np.maximum(slippage_cash, 0.0)
 
-    return slippage_cash
+    return cast(np.ndarray, slippage_cash)
 
 
 def compute_spread_cash(
@@ -750,7 +750,7 @@ def compute_spread_cash(
     # Ensure non-negative (costs are always positive)
     spread_cash = np.maximum(spread_cash, 0.0)
 
-    return spread_cash
+    return cast(np.ndarray, spread_cash)
 
 
 # ---------------------------------------------------------------------------
@@ -953,7 +953,7 @@ def apply_regime_cost_adjustment(
             original_spread_bps=float(base_spread_bps),
             original_slippage_bps=float(base_slippage_bps),
         )
-    return adj_spread, adj_slippage
+    return cast("tuple[np.ndarray, np.ndarray]", (adj_spread, adj_slippage))
 
 
 def compute_regime_adjusted_slippage_bps(

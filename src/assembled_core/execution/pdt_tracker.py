@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import List
+from typing import List, cast
 
 import pandas as pd
 
@@ -78,7 +78,7 @@ class PDTTracker:
             cur -= pd.Timedelta(days=1)
             if is_trading_day(cur):
                 counted += 1
-        return cur.date()
+        return cast(date, cur.date())
 
     def days_until_pdt_reset(self, reference_date: date | None = None) -> int:
         from src.assembled_core.utils.market_calendar import trading_days_between

@@ -17,20 +17,20 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
 try:
-    import gymnasium as gym  # type: ignore[import]
+    import gymnasium as gym  # type: ignore[import-not-found]
     from gymnasium import spaces
 
     _GYM_AVAILABLE = True
-    _GYM_BACKEND = "gymnasium"
+    _GYM_BACKEND: str | None = "gymnasium"
 except ImportError:
     try:
-        import gym  # type: ignore[import]  # noqa: F401
-        from gym import spaces  # type: ignore[import]
+        import gym  # type: ignore[import-not-found]  # noqa: F401
+        from gym import spaces
 
         _GYM_AVAILABLE = True
         _GYM_BACKEND = "gym"
@@ -126,7 +126,7 @@ class OrderExecutionEnv:
     ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         cfg = self.config
         if hasattr(action, "__len__"):
-            frac = float(np.clip(float(action[0]), 0.0, 1.0))
+            frac = float(np.clip(float(cast(np.ndarray, action)[0]), 0.0, 1.0))
         else:
             frac = float(np.clip(float(action), 0.0, 1.0))
 

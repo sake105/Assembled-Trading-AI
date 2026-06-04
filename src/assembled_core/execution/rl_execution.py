@@ -30,8 +30,10 @@ logger = logging.getLogger(__name__)
 
 _SB3_AVAILABLE = False
 try:
-    from stable_baselines3 import PPO  # type: ignore[import]
-    from stable_baselines3.common.env_checker import check_env  # type: ignore[import]  # noqa: F401
+    from stable_baselines3 import PPO  # type: ignore[import-not-found]
+    from stable_baselines3.common.env_checker import (  # type: ignore[import-not-found]  # noqa: F401
+        check_env,
+    )
 
     _SB3_AVAILABLE = True
 except ImportError:

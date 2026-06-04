@@ -102,7 +102,7 @@ def load_rate_table_from_yaml(
     import os  # noqa: F401  (typing support)
     from pathlib import Path
 
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 
     text = Path(path).read_text(encoding="utf-8")
     try:

@@ -395,7 +395,7 @@ class AlpacaAdapter(BrokerAdapter):
 
         # Try alpaca-py (newer) first, then alpaca-trade-api
         try:
-            from alpaca.trading.client import TradingClient  # type: ignore[import]
+            from alpaca.trading.client import TradingClient
 
             self._api = TradingClient(
                 self._api_key, self._api_secret, paper=self.is_paper
@@ -403,7 +403,7 @@ class AlpacaAdapter(BrokerAdapter):
             logger.info("[AlpacaAdapter] using alpaca-py TradingClient")
         except ImportError:
             try:
-                import alpaca_trade_api as tradeapi  # type: ignore[import]
+                import alpaca_trade_api as tradeapi  # type: ignore[import-not-found]
 
                 self._api = tradeapi.REST(
                     self._api_key, self._api_secret, self._base_url
@@ -460,8 +460,8 @@ class AlpacaAdapter(BrokerAdapter):
         """Return open orders."""
         api = self._get_api()
         try:
-            from alpaca.trading.enums import QueryOrderStatus  # type: ignore[import]
-            from alpaca.trading.requests import GetOrdersRequest  # type: ignore[import]
+            from alpaca.trading.enums import QueryOrderStatus
+            from alpaca.trading.requests import GetOrdersRequest
 
             orders = api.get_orders(
                 filter=GetOrdersRequest(status=QueryOrderStatus.OPEN)
@@ -496,7 +496,7 @@ class AlpacaAdapter(BrokerAdapter):
             try:
                 from zoneinfo import ZoneInfo
 
-                et_tz = ZoneInfo("America/New_York")
+                et_tz: datetime.tzinfo = ZoneInfo("America/New_York")
             except ImportError:
                 # Python < 3.9 fallback or missing tzdata
                 et_tz = datetime.timezone(datetime.timedelta(hours=-5))
@@ -559,9 +559,9 @@ class AlpacaAdapter(BrokerAdapter):
 
         # Try alpaca-py style
         try:
-            from alpaca.data import StockHistoricalDataClient  # type: ignore[import]
+            from alpaca.data import StockHistoricalDataClient
             from alpaca.data.requests import (
-                StockLatestTradeRequest,  # type: ignore[import]
+                StockLatestTradeRequest,
             )
 
             data_client = StockHistoricalDataClient(
@@ -665,12 +665,12 @@ class AlpacaAdapter(BrokerAdapter):
         api = self._get_api()
         recovered = False  # True if we adopt a pre-existing order via dup recovery
         try:
-            from alpaca.trading.enums import (  # type: ignore[import]
+            from alpaca.trading.enums import (
                 OrderSide,
                 TimeInForce,
             )
             from alpaca.trading.requests import (
-                MarketOrderRequest,  # type: ignore[import]
+                MarketOrderRequest,
             )
 
             order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
@@ -765,12 +765,12 @@ class AlpacaAdapter(BrokerAdapter):
         api = self._get_api()
         recovered = False  # True if we adopt a pre-existing order via dup recovery
         try:
-            from alpaca.trading.enums import (  # type: ignore[import]
+            from alpaca.trading.enums import (
                 OrderSide,
                 TimeInForce,
             )
             from alpaca.trading.requests import (
-                LimitOrderRequest,  # type: ignore[import]
+                LimitOrderRequest,
             )
 
             order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
@@ -873,11 +873,11 @@ class AlpacaAdapter(BrokerAdapter):
         recovered = False  # True if we adopt a pre-existing order via dup recovery
 
         try:
-            from alpaca.trading.enums import (  # type: ignore[import]
+            from alpaca.trading.enums import (
                 OrderSide,
                 TimeInForce,
             )
-            from alpaca.trading.requests import (  # type: ignore[import]
+            from alpaca.trading.requests import (
                 StopLimitOrderRequest,
                 StopOrderRequest,
             )
@@ -890,6 +890,7 @@ class AlpacaAdapter(BrokerAdapter):
             }
             tif = tif_map.get(time_in_force.lower(), TimeInForce.DAY)
 
+            request: StopLimitOrderRequest | StopOrderRequest
             if is_stop_limit:
                 request = StopLimitOrderRequest(
                     symbol=symbol,
