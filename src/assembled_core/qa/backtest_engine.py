@@ -357,6 +357,16 @@ def make_cycle_fn(
             # for speed-focused research runs but must be documented at the
             # call site.
             enable_risk_controls=_enable_risk_controls,
+            # B-pipe-4 residual: force the cross-bar daily-CB / kill-switch
+            # restore to fire in backtest. The TradingContext default is True
+            # (live/paper persist kill-switch state across bars); a backtest
+            # must NOT persist a single-bar kill-switch trip into the next bar
+            # nor into the live store. With kill_switch_persist=False the
+            # backtest bar-restore in trading_cycle_v2 (_ks_restore_active =
+            # is_backtest and not kill_switch_persist) deactivates a kill-switch
+            # that was engaged during this bar, isolating each bar. Live/paper
+            # callers that build their own TradingContext keep the True default.
+            kill_switch_persist=False,
             security_meta_df=ctx_template.security_meta_df,  # Pass through security metadata
             backtest_use_snapshot=getattr(ctx_template, "backtest_use_snapshot", False),
             equity_curve=equity_curve,

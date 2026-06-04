@@ -34,6 +34,10 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
+# One-time guard so the non-PIT sector-rotation tail-read warning (FIX 4) is
+# emitted at most once per process instead of on every replay bar.
+_SECTOR_ROTATION_PIT_WARNED = False
+
 
 # news trigger topic_id → list of ShockType keys used by SHOCK_BENEFICIARY_MAP
 # in intel_signal_adapter. Curated, high-confidence only.
@@ -217,6 +221,25 @@ def _populate_sector_rotation_scores(ctx: Any) -> None:
             return
         last_row = scores_df.iloc[-1].drop("_pit_ts", errors="ignore")
     else:
+        # No timestamp column on the SCORES frame (compute_sector_scores may
+        # emit a differently-named / no ts column even though the input prices
+        # carried one). Without a ts column we cannot apply the as_of filter, so
+        # iloc[-1] reads the dataset TAIL. In a replay/backtest that tail is the
+        # dataset END, not the as_of bar — a latent look-ahead. Make the non-PIT
+        # read observable and fall back conservatively (skip) rather than
+        # silently using the tail. Live/EOD (as_of is None or == latest) is
+        # unaffected: tail == as_of there, and we keep iloc[-1].
+        if as_of is not None:
+            global _SECTOR_ROTATION_PIT_WARNED
+            if not _SECTOR_ROTATION_PIT_WARNED:
+                log.warning(
+                    "[INTEL-CTX] sector_rotation_scores: scores frame has no "
+                    "timestamp column; cannot PIT-filter to as_of=%s — skipping "
+                    "(refusing a non-PIT tail read). This warning is logged once.",
+                    as_of,
+                )
+                _SECTOR_ROTATION_PIT_WARNED = True
+            return
         last_row = scores_df.iloc[-1]
 
     ctx.sector_rotation_scores = last_row

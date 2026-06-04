@@ -21,10 +21,24 @@ import json
 import logging
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _unique_tmp_path(path: Path) -> Path:
+    """Return a per-writer-unique tmp sibling of *path*.
+
+    The suffix combines ``os.getpid()`` and ``uuid4().hex`` so two concurrent
+    writers (same or different processes) never share a tmp file. A half-written
+    tmp from one writer can therefore never be ``os.replace``-d into place by
+    another, and a writer's cleanup only ever removes ITS OWN tmp — never the
+    destination, never another writer's tmp. Mirrors the
+    ``risk.state_machine._write_state_json_unique_tmp`` idiom.
+    """
+    return path.parent / f"{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
 
 
 def atomic_write_json(
@@ -44,9 +58,14 @@ def atomic_write_json(
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.parent / (path.name + ".tmp")
+    # UNIQUE per-writer tmp (pid + uuid4) so concurrent callers never share a
+    # tmp file — a half-written tmp can never be replaced into the destination,
+    # and cleanup only ever removes THIS writer's own tmp. A fresh tmp name is
+    # taken per retry attempt to avoid reusing a name a prior attempt may have
+    # left behind on a non-IO failure path.
     last_err: BaseException | None = None
     for attempt in range(retries):
+        tmp_path = _unique_tmp_path(path)
         try:
             with tmp_path.open("w", encoding="utf-8") as fh:
                 json.dump(data, fh, indent=indent, sort_keys=sort_keys, default=default)
@@ -59,14 +78,14 @@ def atomic_write_json(
             return
         except (PermissionError, OSError) as exc:
             last_err = exc
+            # Remove this attempt's own tmp before retrying — never the dest.
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except OSError:
+                pass
             if attempt < retries - 1:
                 time.sleep(backoff_ms * (2**attempt) / 1000.0)
-    # All retries exhausted — clean up orphaned temp file before raising
-    try:
-        if tmp_path.exists():
-            tmp_path.unlink()
-    except OSError:
-        pass
     if last_err is not None:
         raise last_err
 

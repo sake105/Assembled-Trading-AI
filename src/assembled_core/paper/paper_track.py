@@ -21,6 +21,7 @@ import math
 import os
 import shutil
 import subprocess
+import uuid
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -939,20 +940,38 @@ def save_paper_state(state: PaperTrackState, state_path: Path) -> None:
         "last_positions_value": state.last_positions_value,  # v2.0+ field
     }
 
-    # Atomic write: write to temp file, then rename
-    temp_path = state_path.with_suffix(state_path.suffix + ".tmp")
+    # Atomic write via a UNIQUE per-writer tmp + os.replace (same idiom as
+    # _write_df_unique_tmp). The unique suffix (pid + uuid4) means a crash
+    # mid-write leaves only a stray unique tmp — never a half-written
+    # `state.json.tmp` that a reader/concurrent writer could pick up, and never
+    # the destination. The prior state file (and the .backup copied from it
+    # above) stay intact until os.replace atomically swaps in the fully-written
+    # tmp. Single-writer behaviour is unchanged (os.replace is atomic on the
+    # local FS); this is a corruption guard, not a lost-update lock.
+    temp_path = state_path.parent / (
+        f"{state_path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    )
     try:
         with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=True)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass  # network/tmpfs may not support fsync
 
         # Rename (atomic on most filesystems)
-        temp_path.replace(state_path)
+        os.replace(str(temp_path), str(state_path))
         logger.info(f"Saved paper state to {state_path}")
 
     except (OSError, PermissionError, IOError) as e:
-        # Clean up temp file on error
-        if temp_path.exists():
-            temp_path.unlink()
+        # Clean up ONLY this writer's own unique temp file on error — never the
+        # destination, never another writer's tmp.
+        try:
+            if temp_path.exists():
+                temp_path.unlink()
+        except OSError:
+            pass
         raise IOError(f"Failed to save state to {state_path}: {e}") from e
 
 
