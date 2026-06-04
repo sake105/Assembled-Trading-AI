@@ -32,12 +32,12 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 try:
-    from scipy.optimize import minimize  # type: ignore
+    from scipy.optimize import minimize
 
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
-    minimize = None  # type: ignore
+    minimize = None
 
 
 class BlackLittermanOptimizer:

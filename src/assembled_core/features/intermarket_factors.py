@@ -57,7 +57,7 @@ def _fetch_etf_prices(
 ) -> pd.DataFrame:
     """Fetch daily close prices for ETF symbols via yfinance."""
     try:
-        import yfinance as yf  # type: ignore
+        import yfinance as yf
     except ImportError:
         logger.warning("[Intermarket] yfinance not installed — ETF fetch skipped")
         return pd.DataFrame()
@@ -99,7 +99,7 @@ def _fetch_etf_prices(
 def _fetch_yield_curve(start_date: str, end_date: str) -> pd.DataFrame:
     """Fetch 10Y and 2Y US Treasury yields via yfinance (^TNX, 2YY=F)."""
     try:
-        import yfinance as yf  # type: ignore
+        import yfinance as yf
     except ImportError:
         logger.warning("[Intermarket] yfinance not installed — yield curve skipped")
         return pd.DataFrame()

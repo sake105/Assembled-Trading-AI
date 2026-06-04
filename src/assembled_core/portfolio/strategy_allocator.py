@@ -173,7 +173,7 @@ def allocate_from_returns_dict(
 # =============================================================================
 
 try:
-    import pandas as pd  # type: ignore[import]
+    import pandas as pd
 
     _PANDAS_AVAILABLE = True
 except ImportError:

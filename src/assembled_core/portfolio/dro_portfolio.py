@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 # raised only when a DRO solver is actually called without scipy installed.
 _SCIPY_AVAILABLE: bool
 try:  # pragma: no cover — trivial availability probe
-    import scipy.optimize as _scipy_optimize  # type: ignore  # noqa: F401
+    import scipy.optimize as _scipy_optimize  # noqa: F401
 
     _SCIPY_AVAILABLE = True
 except ImportError:  # pragma: no cover — exercised only when scipy is absent

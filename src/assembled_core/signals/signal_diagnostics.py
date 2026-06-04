@@ -104,7 +104,7 @@ def generate_signal_health_alerts(
     Returns:
         List of alert dicts with factor, alert_type, details.
     """
-    alerts = []
+    alerts: list[dict[str, str]] = []
 
     if health_df.empty:
         return alerts

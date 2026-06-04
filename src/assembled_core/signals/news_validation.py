@@ -464,7 +464,7 @@ def run_finbert_tone(texts: list[str]) -> list[str]:
     Falls back to ['neutral'] * len(texts) if transformers not available.
     """
     try:
-        from transformers import pipeline as hf_pipeline  # type: ignore[import]
+        from transformers import pipeline as hf_pipeline  # type: ignore[import-not-found]
     except ImportError:
         import logging
 

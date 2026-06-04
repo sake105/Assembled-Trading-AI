@@ -35,7 +35,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 try:
-    import dimod  # type: ignore[import-untyped]
+    import dimod
 
     HAS_DIMOD = True
 except ImportError:
