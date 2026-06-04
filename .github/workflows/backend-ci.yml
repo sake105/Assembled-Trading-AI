@@ -80,19 +80,21 @@ jobs:
           # NOT a permanent exception. Re-audit each entry on the review date:
           # confirm the rationale still holds or remove the waiver so the CVE
           # re-blocks CI. Prefer dependency upgrades over indefinite ignores.
-          # ACTION ITEM (CVE-2024-47081, requests): upgrade `requests` in the
-          # Sprint 4 dep refresh rather than carrying this waiver indefinitely —
-          # remove the corresponding --ignore-vuln line once the pinned version
-          # is no longer affected.
+          # RESOLVED (CVE-2024-47081, requests): `requests` upgraded to 2.32.4
+          # (fixes the .netrc credential leak); the corresponding --ignore-vuln
+          # line has been removed. The separate CVE-2026-25645 (requests) is not
+          # fixed in 2.32.4 (needs >=2.33.0) and remains waived below.
           #
           # Toolchain / pip:
           # - CVE-2025-8869, CVE-2026-1703, CVE-2026-3219, CVE-2026-6357 (pip):
           #   toolchain only, not shipped in any production artifact
           # Transitive network/HTTP deps:
           # - CVE-2026-33752 (curl-cffi): transitive, not in runtime call path
-          # - CVE-2026-25645, CVE-2024-47081 (requests): .netrc credential leak and
-          #   upstream redirect issue; project uses env vars for auth, no .netrc;
-          #   Sprint 4 dep refresh will upgrade requests
+          # - CVE-2026-25645 (requests): extract_zipped_paths() predictable temp
+          #   filename; only affects code calling that helper directly (this
+          #   project does not). Fixed in requests >=2.33.0; waived until upgrade.
+          #   CVE-2024-47081 (requests .netrc leak) is now resolved by the
+          #   upgrade to requests 2.32.4 — its waiver has been removed.
           # - CVE-2026-45409 (idna): IDNA 2008 parsing edge-case; project does not
           #   process untrusted hostnames from user input
           # - PYSEC-2026-141, PYSEC-2026-142 (urllib3): header/decompression DoS;
@@ -117,7 +119,6 @@ jobs:
             --ignore-vuln CVE-2026-6357 \
             --ignore-vuln CVE-2026-4539 \
             --ignore-vuln CVE-2026-25645 \
-            --ignore-vuln CVE-2024-47081 \
             --ignore-vuln CVE-2026-45409 \
             --ignore-vuln PYSEC-2026-141 \
             --ignore-vuln PYSEC-2026-142 \

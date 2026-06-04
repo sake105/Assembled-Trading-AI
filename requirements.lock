@@ -67,7 +67,7 @@ python-dotenv==1.2.1
 pytokens==0.3.0
 pytz==2025.2
 PyYAML==6.0.3
-requests==2.32.3
+requests==2.32.4
 ruff==0.14.7
 scikit-learn==1.8.0
 scipy==1.16.3

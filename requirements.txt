@@ -13,7 +13,7 @@ numpy==2.2.6
 pyarrow==21.0.0
 fastparquet==2024.11.0
 python-dateutil==2.9.0.post0
-requests==2.32.3
+requests==2.32.4
 yfinance==0.2.54
 alpaca-py==0.38.0
 polygon-api-client==1.14.4
