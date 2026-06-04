@@ -104,11 +104,30 @@ def test_compute_target_positions_no_prices_latest() -> None:
     assert (targets["target_weight"] > 0).all()
 
 
-def test_paper_run_ema_produces_trades(tmp_path: Path) -> None:
+def test_paper_run_ema_produces_trades(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Paper range with ema_trend_v0 and enough history produces non-zero orders (smoke)."""
     from src.assembled_core.config import get_base_dir
+    from src.assembled_core.ops import paper_runner
     from src.assembled_core.ops.paper_runner import run_paper_daily_one
     import json
+
+    # The runner resolves the active strategy via
+    # _resolve_active_strategy(paper_cfg, policy), giving
+    # policy.paper_pilot.active_strategy PRIORITY over app_cfg. The live pilot
+    # policy.yaml pins active_strategy: trend_baseline, which would silently
+    # override the app_cfg ema_trend_v0 below (the original CI failure: 0 orders,
+    # log "active_strategy overridden by policy: ema_trend_v0 -> trend_baseline").
+    # Patch the pilot-policy loader so paper_pilot.active_strategy == ema_trend_v0;
+    # then _resolve_active_strategy honors the app_cfg EMA strategy and the runner
+    # ACTUALLY runs EMA. (paper_runner.py is intentionally policy-over-app_cfg and
+    # is NOT modified — the test injects a matching pilot policy instead.)
+    monkeypatch.setattr(
+        paper_runner,
+        "_load_pilot_policy_fail_fast",
+        lambda context: {"paper_pilot": {"active_strategy": "ema_trend_v0"}},
+    )
 
     # 80 days synthetic data; run 10 days starting after 60 bars so EMA60 has history
     prices = _make_prices_uptrend(n_days=80, symbols=["AAPL", "MSFT"])
