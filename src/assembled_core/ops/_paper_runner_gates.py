@@ -58,6 +58,30 @@ class TiltDecision:
     raw_state: Any
 
 
+@dataclass(frozen=True)
+class ReconcileDecision:
+    """Outcome of the reconcile-block gate.
+
+    ``blocked=True`` means the caller must NOT call ``run_trading_cycle``
+    and should bail with a zero-orders result. ``reason`` is a short
+    machine-readable tag (``""`` when not blocked):
+
+    - ``"reconcile_fail"``       — last reconcile status == "FAIL".
+    - ``"reconcile_unverified"`` — armed gate could not prove the last
+      reconcile passed (artifact missing / unreadable / malformed /
+      no status field). Fail-closed.
+    - ``"reconcile_stale"``      — status "OK" but the artifact is older
+      than ``block_if_stale_hours`` (freshness guard).
+    - ``"reconcile_other"``      — status is some unverified/other value
+      and ``"unverified"`` is in ``block_on``.
+    """
+
+    blocked: bool
+    reason: str
+    status: str | None  # raw status read from the artifact ("" if absent)
+    raw_state: Any
+
+
 def _build_halt_supplier(symbols_file: Path):
     def _supplier() -> list[str]:
         if not symbols_file.exists():
@@ -222,8 +246,151 @@ def apply_tilt_gate(
     return TiltDecision(True, state.triggered_rules, block, state)
 
 
+def _parse_generated_utc(value: Any) -> datetime | None:
+    """Parse the reconcile artifact's ``generated_utc`` ISO string -> aware UTC.
+
+    Returns None on any failure (the freshness guard then treats the
+    timestamp as unknown — see caller).
+    """
+    if value is None:
+        return None
+    try:
+        ts = pd.to_datetime(value, utc=True).to_pydatetime()
+    except (ValueError, TypeError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def apply_reconcile_block_gate(
+    ctx: Any,
+    *,
+    paper_cfg: dict[str, Any],
+    root: Path,
+    now: datetime | None = None,
+) -> ReconcileDecision:
+    """Block the next paper/live cycle when the last reconcile did not pass.
+
+    Reads the durable reconcile artifact (schema ``run.reconcile.v1``,
+    written atomically by :mod:`ops.reconcile`) and decides whether the
+    upcoming trading cycle may proceed. **Default-off**: with
+    ``paper_cfg["reconcile_block"].enabled`` absent or False this is a
+    pure pass-through (returns a not-blocked decision, no ctx mutation,
+    no file I/O) so live behaviour is byte-identical until opted in.
+
+    When ARMED (``enabled=True``) the gate is **fail-closed**: any state
+    in which it cannot positively prove the last reconcile passed
+    (artifact missing / unreadable / malformed JSON / no ``status``)
+    blocks the cycle. A safety gate that cannot verify must not trade.
+
+    Returns a :class:`ReconcileDecision`. ``blocked=True`` indicates the
+    caller should skip ``run_trading_cycle`` and bail with zero orders.
+    Never raises on a normal blocked decision; genuinely unexpected
+    errors are also handled fail-closed-when-armed (block, never
+    fail-open).
+    """
+    rb_cfg = paper_cfg.get("reconcile_block") or {}
+    if not rb_cfg.get("enabled", False):
+        # Pure pass-through — do NOT touch ctx, do NOT read the artifact.
+        return ReconcileDecision(False, "", None, None)
+
+    # ---- ARMED from here on: every non-OK path fails closed. ----------
+    block_on = [str(b).strip().lower() for b in (rb_cfg.get("block_on") or ["fail"])]
+    artifact_rel = rb_cfg.get("artifact") or "output/reconcile_latest.json"
+    artifact_path = (
+        root / artifact_rel
+        if not Path(artifact_rel).is_absolute()
+        else Path(artifact_rel)
+    )
+    stale_hours = rb_cfg.get("block_if_stale_hours", None)
+
+    def _decide(blocked: bool, reason: str, status: str | None, raw: Any):
+        ctx.reconcile_gate_state = {
+            "armed": True,
+            "blocked": blocked,
+            "reason": reason,
+            "status": status,
+            "artifact": str(artifact_path),
+        }
+        if blocked:
+            logger.warning(
+                "[RECONCILE-GATE] BLOCK reason=%s status=%s artifact=%s",
+                reason,
+                status,
+                artifact_path,
+            )
+        else:
+            logger.info(
+                "[RECONCILE-GATE] pass status=%s artifact=%s",
+                status,
+                artifact_path,
+            )
+        return ReconcileDecision(blocked, reason, status, raw)
+
+    # --- Load + parse the artifact; any failure => fail-closed block. --
+    try:
+        if not artifact_path.exists():
+            return _decide(True, "reconcile_unverified", None, None)
+        raw_text = artifact_path.read_text(encoding="utf-8")
+        report = json.loads(raw_text)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning(
+            "[RECONCILE-GATE] artifact unreadable/malformed (%s) — fail-closed: %s",
+            artifact_path,
+            exc,
+        )
+        return _decide(True, "reconcile_unverified", None, None)
+    except Exception as exc:  # noqa: BLE001 — armed gate must fail closed
+        logger.warning(
+            "[RECONCILE-GATE] unexpected error reading %s — fail-closed: %s",
+            artifact_path,
+            exc,
+        )
+        return _decide(True, "reconcile_unverified", None, None)
+
+    # Fail-closed when armed if we cannot read a non-empty status. This folds
+    # in three corrupt / partial-write / schema-drift cases that the bare
+    # ``"status" not in report`` guard misses: a structurally-valid artifact
+    # whose ``status`` is present-but-empty (""), null (JSON null), or
+    # whitespace-only ("   ") normalizes to "" below and would otherwise fall
+    # through to the "other" branch as not-blocked. An armed safety gate must
+    # not trade on an artifact it cannot prove passed.
+    if not isinstance(report, dict) or not str(report.get("status") or "").strip():
+        # status arg is None (contract: str | None) to match the sibling
+        # unverified paths; raw_state keeps the artifact for diagnostics.
+        return _decide(True, "reconcile_unverified", None, report)
+
+    status = str(report.get("status") or "").strip().upper()
+
+    if status == "FAIL":
+        # ALWAYS block when armed, regardless of block_on contents.
+        return _decide(True, "reconcile_fail", status, report)
+
+    if status == "OK":
+        if stale_hours is not None:
+            gen = _parse_generated_utc(report.get("generated_utc"))
+            ref = now or datetime.now(timezone.utc)
+            if ref.tzinfo is None:
+                ref = ref.replace(tzinfo=timezone.utc)
+            if gen is None:
+                # OK but no parseable timestamp => cannot prove freshness.
+                return _decide(True, "reconcile_stale", status, report)
+            age_h = (ref - gen).total_seconds() / 3600.0
+            if age_h > float(stale_hours):
+                return _decide(True, "reconcile_stale", status, report)
+        return _decide(False, "", status, report)
+
+    # Some other/unverified status value (e.g. "WARN", "UNKNOWN").
+    if "unverified" in block_on:
+        return _decide(True, "reconcile_other", status, report)
+    return _decide(False, "", status, report)
+
+
 __all__ = [
+    "ReconcileDecision",
     "TiltDecision",
     "apply_halt_cache_gate",
+    "apply_reconcile_block_gate",
     "apply_tilt_gate",
 ]

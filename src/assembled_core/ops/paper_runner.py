@@ -1271,6 +1271,48 @@ def run_paper_daily_one(
     except Exception as _gate_exc:  # noqa: BLE001 — gates are best-effort
         log.warning("[paper-runner-gates] gate failure (continuing): %s", _gate_exc)
 
+    # ------------------------------------------------------------------
+    # Reconcile-block gate (SAFETY, default-off): if the last reconcile
+    # did not provably pass, refuse to trade this cycle. This is the
+    # next-cycle blocking seam scoped out at orchestrator.py:864-868 /
+    # FU-1. Lives ONLY in this live/paper driver — backtest uses
+    # qa/backtest_engine.py and never reaches here, so a historical
+    # replay never reads the live reconcile_latest.json. ARMED behaviour
+    # is fail-closed (FAIL / unverified / unreadable -> block). With
+    # paper_runner.reconcile_block.enabled=false (default) this is a pure
+    # pass-through and behaviour is byte-identical.
+    # NOTE: this gate's short-circuit is intentionally OUTSIDE the
+    # best-effort try-block above so a real BLOCK is never swallowed.
+    # ------------------------------------------------------------------
+    try:
+        from src.assembled_core.ops._paper_runner_gates import (
+            apply_reconcile_block_gate,
+        )
+
+        reconcile_decision = apply_reconcile_block_gate(
+            ctx, paper_cfg=paper_cfg, root=root
+        )
+    except Exception as _rec_gate_exc:  # noqa: BLE001 — import/setup only
+        # An armed gate that cannot even run must not silently fail open.
+        if (paper_cfg.get("reconcile_block") or {}).get("enabled", False):
+            log.warning(
+                "[RECONCILE-GATE] gate setup failed while ARMED — fail-closed, "
+                "skipping cycle: %s",
+                _rec_gate_exc,
+            )
+            return 0, "reconcile_blocked"
+        log.warning(
+            "[RECONCILE-GATE] gate setup failed (disabled, continuing): %s",
+            _rec_gate_exc,
+        )
+        reconcile_decision = None
+
+    if reconcile_decision is not None and reconcile_decision.blocked:
+        log.warning(
+            "[RECONCILE-GATE] next cycle blocked: %s", reconcile_decision.reason
+        )
+        return 0, "reconcile_blocked"
+
     result = run_trading_cycle(ctx)
     if result.status != "success":
         log.error("Trading cycle failed: %s", result.error_message)

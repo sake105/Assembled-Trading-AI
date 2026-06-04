@@ -39,6 +39,20 @@ paper_runner:
     min_adv_top_n: null         # null/0 = no filter; e.g. 50 = top-50 by ADV
     adv_lookback_days: 20       # trailing window for dollar-volume mean
 
+  # Reconcile-block gate (SAFETY, default-off): refuse to trade the next
+  # paper/live cycle when the last reconcile did not provably pass. Read by
+  # ops/_paper_runner_gates.apply_reconcile_block_gate, wired into
+  # ops/paper_runner.run_paper_daily_one BEFORE run_trading_cycle. ARMED
+  # behaviour is fail-closed: FAIL / unverified / missing / unreadable
+  # artifact all BLOCK. Only the live/paper driver reads this — backtest
+  # (qa/backtest_engine.py) never reaches this gate. With enabled=false the
+  # call is a pure pass-through (byte-identical behaviour).
+  reconcile_block:
+    enabled: false                              # default-off; true = ARM (fail-closed)
+    block_on: ["fail"]                          # add "unverified" to also block WARN/UNKNOWN
+    artifact: "output/reconcile_latest.json"    # resolved relative to repo root
+    block_if_stale_hours: null                  # null = disabled; e.g. 36 = block stale-OK
+
   # §9.6 (b) Phase 2 shadow-mode (2026-05-21): mfv2 cannot run as shadow
   # under the price-only whitelist (it needs feature-pipeline-enriched
   # input). Disabled until F-S1-M2 feature-pipeline-aligned shadow path is
