@@ -542,12 +542,42 @@ def test_correlation_promotion_gate_admits_uncorrelated_strong_candidate() -> No
 
 
 def test_set_deterministic_sets_env_and_seeds_numpy(
-    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
 ) -> None:
     import os as _os
 
-    for k in ("OMP_NUM_THREADS", "MKL_CBWR", "CUBLAS_WORKSPACE_CONFIG"):
-        monkeypatch.delenv(k, raising=False)
+    # Hermetic isolation. set_deterministic() mutates os.environ DIRECTLY (not via
+    # monkeypatch) for all 5 keys below — so two independent isolation concerns:
+    #   (1) BACKWARD: clear the keys before the call so the assertions genuinely
+    #       prove set_deterministic SET them (not that a leftover already matched).
+    #   (2) FORWARD: restore the exact pre-test snapshot on teardown. We CANNOT
+    #       rely on monkeypatch.delenv alone: in pytest, delenv(name, raising=False)
+    #       on an ABSENT key registers no undo, so a value written afterwards by
+    #       set_deterministic (os.environ[k]=v) would leak into later tests
+    #       (verified: OMP_NUM_THREADS/MKL_CBWR/CUBLAS_WORKSPACE_CONFIG leaked).
+    #   So we snapshot+restore explicitly via an addfinalizer, independent of how
+    #   the value got there. Keys mirror reproducibility.desired_env.
+    _det_env_keys = (
+        "PYTHONHASHSEED",
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "MKL_CBWR",
+        "CUBLAS_WORKSPACE_CONFIG",
+    )
+    _snapshot = {k: _os.environ.get(k) for k in _det_env_keys}
+
+    def _restore_det_env() -> None:
+        for k, v in _snapshot.items():
+            if v is None:
+                _os.environ.pop(k, None)
+            else:
+                _os.environ[k] = v
+
+    request.addfinalizer(_restore_det_env)
+
+    # (1) clean precondition for the assertions
+    for k in _det_env_keys:
+        _os.environ.pop(k, None)
 
     from src.assembled_core.reproducibility import set_deterministic
 

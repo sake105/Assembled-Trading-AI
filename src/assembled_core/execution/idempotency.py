@@ -11,6 +11,13 @@ existing order instead of placing a second one.
 from __future__ import annotations
 
 import hashlib
+import re
+
+# Standalone word "order" (not a substring of "border"/"reorder"/"recorder"/
+# "ordering"/"disorder"/"order book"), OR the exact field token "client_order_id".
+# Word-boundary match keeps the order/id guard from false-firing on look-alikes
+# while still recognising every real broker duplicate signature.
+_ORDER_REF_RE = re.compile(r"\border\b|client_order_id")
 
 
 def compute_intent_hash(
@@ -104,7 +111,10 @@ def is_duplicate_error(error_message: str) -> bool:
 
     # An order/id reference shared by several patterns below. Requiring this guard
     # keeps "already exists" / bare "duplicate" from matching unrelated surfaces.
-    has_order_ref = "client_order_id" in msg or "order" in msg
+    # Word-boundary match on the standalone word "order" (or the exact token
+    # "client_order_id") so look-alike substrings — "border", "reorder",
+    # "recorder", "ordering", "disorder" — do NOT count as an order reference.
+    has_order_ref = bool(_ORDER_REF_RE.search(msg))
 
     # (1)+(2): explicit duplicate of a client_order_id, or a "duplicate ... order".
     if "duplicate" in msg and has_order_ref:
