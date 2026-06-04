@@ -177,6 +177,107 @@ class TestPeadTargetGated:
 
 
 # ---------------------------------------------------------------------------
+# Fix 3b — merge_asof tz reconciliation: tz-naive price bars must not raise
+# MergeError against the UTC-aware disclosure_date key, and the as-of join
+# must remain PIT-correct (no look-ahead).
+# ---------------------------------------------------------------------------
+
+
+class TestEarningsMergeAsofTzReconciliation:
+    """tz-naive price timestamps + UTC-aware event disclosure_date must merge."""
+
+    def _make_events(self):
+        # Earnings event timestamped 2024-01-05 (tz-naive on the way in).
+        return pd.DataFrame(
+            {
+                "symbol": ["AAPL"],
+                "timestamp": [pd.Timestamp("2024-01-05")],
+                "event_type": ["earnings"],
+                "event_id": ["aapl_20240105"],
+                "eps_estimate": [1.0],
+                "eps_actual": [1.2],  # +20% surprise
+            }
+        )
+
+    def test_tz_naive_prices_do_not_raise_merge_error(self):
+        """tz-naive datetime64[ns] price bars must not raise MergeError."""
+        from src.assembled_core.features.altdata_earnings_insider_factors import (
+            build_earnings_surprise_factors,
+        )
+
+        prices = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 10,
+                # tz-NAIVE datetime64[ns] (regression trigger for the MergeError)
+                "timestamp": pd.date_range("2024-01-01", periods=10),
+                "close": [150.0 + i for i in range(10)],
+            }
+        )
+        assert prices["timestamp"].dt.tz is None  # precondition: naive input
+
+        # Must not raise pandas.errors.MergeError.
+        result = build_earnings_surprise_factors(self._make_events(), prices)
+
+        # Output timestamps are normalised to UTC-aware (dominant convention).
+        assert str(result["timestamp"].dt.tz) == "UTC"
+        assert "earnings_eps_surprise_last" in result.columns
+
+    def test_asof_join_is_pit_correct_no_lookahead(self):
+        """The joined surprise must appear only AFTER disclosure (no look-ahead).
+
+        Event ts = 2024-01-05, disclosure_date = event_date + 1d = 2024-01-06,
+        allow_exact_matches=False + direction="backward" => the surprise must be
+        NaN on every bar <= 2024-01-06 and present (+20%) from 2024-01-07 on.
+        """
+        from src.assembled_core.features.altdata_earnings_insider_factors import (
+            build_earnings_surprise_factors,
+        )
+
+        prices = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 10,
+                "timestamp": pd.date_range("2024-01-01", periods=10),
+                "close": [150.0 + i for i in range(10)],
+            }
+        )
+        result = build_earnings_surprise_factors(self._make_events(), prices)
+        result = result.sort_values("timestamp").reset_index(drop=True)
+
+        col = "earnings_eps_surprise_last"
+        # Bars up to and including the disclosure_date (2024-01-06) must be NaN.
+        before = result["timestamp"] <= pd.Timestamp("2024-01-06", tz="UTC")
+        assert result.loc[before, col].isna().all(), (
+            "look-ahead: surprise leaked onto a bar at/ before disclosure_date"
+        )
+        # Bars strictly after disclosure must carry the +20% surprise.
+        after = result["timestamp"] >= pd.Timestamp("2024-01-07", tz="UTC")
+        vals_after = result.loc[after, col]
+        assert vals_after.notna().all()
+        assert np.allclose(vals_after.to_numpy(), 20.0)
+
+    def test_tz_aware_prices_still_work(self):
+        """tz-aware (UTC) price bars must continue to merge correctly."""
+        from src.assembled_core.features.altdata_earnings_insider_factors import (
+            build_earnings_surprise_factors,
+        )
+
+        prices = pd.DataFrame(
+            {
+                "symbol": ["AAPL"] * 10,
+                "timestamp": pd.date_range("2024-01-01", periods=10, tz="UTC"),
+                "close": [150.0 + i for i in range(10)],
+            }
+        )
+        result = build_earnings_surprise_factors(self._make_events(), prices)
+        assert str(result["timestamp"].dt.tz) == "UTC"
+        # Same PIT expectation as the tz-naive case.
+        after = result["timestamp"] >= pd.Timestamp("2024-01-07", tz="UTC")
+        assert np.allclose(
+            result.loc[after, "earnings_eps_surprise_last"].to_numpy(), 20.0
+        )
+
+
+# ---------------------------------------------------------------------------
 # Fix 4 — position_engine.py: net_exposure signed
 # ---------------------------------------------------------------------------
 

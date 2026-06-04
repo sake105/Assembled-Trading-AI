@@ -112,16 +112,45 @@ def build_earnings_surprise_factors(
     # Prepare prices DataFrame
     result = prices.copy()
 
-    # Ensure timestamps are UTC-aware datetime
+    # Ensure the price bar timestamps are UTC-aware datetime.
+    # PIT-safe tz reconciliation for the merge_asof below: the event side
+    # (``disclosure_date``) is built as UTC-aware (tz-naive vs tz-aware merge
+    # keys raise MergeError). For an already-datetime column we must align the
+    # tz WITHOUT moving the wall-clock instant:
+    #   - tz-naive  -> tz_localize("UTC")  (these bar dates are UTC-naive; this
+    #                  only attaches +00:00, it does NOT shift the instant)
+    #   - tz-aware  -> tz_convert("UTC")   (re-expresses the same instant in UTC)
+    # No timestamp is shifted, so the backward as-of join semantics (direction,
+    # tolerance, allow_exact_matches) are unchanged — only the key dtype.
     if not pd.api.types.is_datetime64_any_dtype(result[timestamp_col]):
         result[timestamp_col] = pd.to_datetime(result[timestamp_col], utc=True)
+    elif result[timestamp_col].dt.tz is None:
+        result[timestamp_col] = result[timestamp_col].dt.tz_localize("UTC")
+    else:
+        result[timestamp_col] = result[timestamp_col].dt.tz_convert("UTC")
 
     if not events_earnings.empty:
+        # Normalise the event timestamps to the SAME UTC-aware convention as the
+        # price bars (above). The compute_pead_target path joins event dates
+        # against ``result`` on ``timestamp_col`` via pd.merge, which — like
+        # merge_asof — rejects mixed tz-naive/tz-aware keys. PIT-safe: a naive
+        # event date is UTC-naive here, so tz_localize("UTC") only attaches
+        # +00:00 (no instant shift); an already-aware column is tz_convert-ed.
         if not pd.api.types.is_datetime64_any_dtype(events_earnings[timestamp_col]):
             events_earnings = events_earnings.copy()
             events_earnings[timestamp_col] = pd.to_datetime(
                 events_earnings[timestamp_col], utc=True
             )
+        elif events_earnings[timestamp_col].dt.tz is None:
+            events_earnings = events_earnings.copy()
+            events_earnings[timestamp_col] = events_earnings[
+                timestamp_col
+            ].dt.tz_localize("UTC")
+        elif str(events_earnings[timestamp_col].dt.tz) != "UTC":
+            events_earnings = events_earnings.copy()
+            events_earnings[timestamp_col] = events_earnings[
+                timestamp_col
+            ].dt.tz_convert("UTC")
 
         # Point-in-time handling: ensure event_date / disclosure_date exist.
         if "event_date" not in events_earnings.columns:
