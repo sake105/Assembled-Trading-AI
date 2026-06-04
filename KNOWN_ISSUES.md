@@ -1672,3 +1672,34 @@ python scripts/run_news_alpha_intraday.py --no-market-hours-check  # dev/testing
 **Backtest-Implikation bleibt:** `scripts/backtest_news_alpha.py` nutzt EOD-Close — für Öl/Energie-Events systematisch zu spät. Runner löst das operativ; 1h-Backtest noch offen.
 
 **Entdeckt/bestätigt:** 2026-05-26.
+
+---
+
+## 10. Deferred-Decisions Sweep (2026-06-04)
+
+Nach dem Diagnostik-Follow-up-Sweep (FU-1..FU-4b) wurden die acht aufgeschobenen
+Entscheidungen gescopt (read-only Fan-out) und die tractablen deterministisch gefixt.
+Alle lokal verifiziert, **CI NICHT gelaufen**.
+
+### Erledigt (committed)
+- **Item 2 — urllib3 CVE:** `urllib3 2.5.0→2.6.3` (CVE-2025-66418/66471/2026-21441), Pin in requirements.txt/.lock + pyproject-Floor. `d5e15f87`.
+- **Item 4 (Prereqs) — mypy:** `mypy==1.19.0` gepinnt + types-requests/PyYAML/pytz + `ignore_missing_imports`-Overrides für optionale Research-Libs → 190→134 ehrliche Fehler. `d5e15f87`.
+- **Item 7 (Guardrail) — target_qty/notional:** Emit-Parität + Overlay-only-Drift-Tests + CONTRACTS §3.1/3.2 (Dual-Notional/Shares-Semantik). `4b1ae755`.
+- **Item 3 — Reconcile-Block-Gate (B-acct-3):** default-OFF `apply_reconcile_block_gate` in `ops/` (fail-closed-when-armed, nie im Backtest). Review fand+fixte MAJOR fail-open (leerer/null status) + MINOR Contract-Leak vor Commit. `54cc9026`.
+- **Item 5 — Sibling-Intel-Health-Flags:** per-Bar-Clear in `_load_intel` beseitigt Whole-Run-Latch. Review fand+korrigierte überzogene Same-Cycle-Behauptung (State-Machine liest Vorgänger-Bar by design) + umgekehrte-Reihenfolge-Test. `498c9216`. Anti-Pattern **E-042** ergänzt.
+
+### Geschlossen als No-op / Entscheidung
+- **Item 6 — VolCircuitBreaker.check_returns(timestamp=…) Replay-Caller:** KEIN Caller existiert irgendwo (nur Tests); `VolCircuitBreaker` ist dead/unwired (live läuft der Preis-Level-`CircuitBreaker`). Der `timestamp`-Param ist ein korrekter latenter Hook. Einen Caller zu erzwingen wäre entweder Aktivierung eines un-vetted Vol-Breakers in protected `pipeline/` ODER ein toter Second-Truth-Caller (Rule-50-Verstoß). **GESCHLOSSEN** — erst relevant, wenn `VolCircuitBreaker` als eigene Roadmap-Aufgabe verdrahtet wird.
+- **Item 8 — strategy/ Duplicate-Truth + CompositeWeights:** CompositeWeights bereits in Batch-11 test-gelockt (research-only, `configs/factor_weights_by_regime.json` ist die Live-Autorität; `composite_score.COMPOSITE_WEIGHTS_BY_REGIME` ist ein separates Modell, kein Duplikat). Das singulare `strategy/`-Paket ist ein declawter struktureller Second-Truth OHNE Live-Importer → **Entscheidung: keep + label** (Voll-Löschung = separates medium Item, deferred).
+
+### Superseded
+- **Item 1 — GO_LIVE Macro-Re-Baseline:** `GO_LIVE_CHECKLIST.md` hat KEINE Macro-Abhängigkeit (nur trend_baseline). Die stale Macro-Zahlen leben nur in `docs/results/2026_05_mfv2_{full_stack_real_oos,factor_activation_log}.md` (jetzt mit SUPERSEDED-Banner, wg. Look-Ahead vor `fd8a192c`/E-038). Re-Run nicht byte-reproduzierbar (Alpaca-Preis-Cache weg) + mfv2-Prod-Gewicht ~0 → **deferred** bis erneute mfv2-Produktionsbetrachtung.
+
+### Offen — Entscheidungen / Follow-ups (NICHT erledigt)
+- **Item 4 — mypy Blocking-Gate-FLIP (DECISION):** Prereqs erledigt, aber kein Top-Level-Dir ist clean (134 echte Fehler, teils in protected `execution/portfolio`). Gate bleibt `continue-on-error: true` (advisory). Flip braucht Modul-Cleanup (multi-session, protected) + Gate-Scope-Policy (Clean-Subset-Ratchet vs. Full-Clean). **Entscheidung steht aus.**
+- **Item 7 (echter Fix) — `target_shares`-Spalte** an der `order_generation`-Grenze, damit `target_qty` durchgehend Notional bleibt (LARGE, protected `execution/risk`, Faktor-von-`price`-Regressionsrisiko; Guardrail-Oracle steht jetzt — `4b1ae755`).
+- **Item 5 Follow-up — Same-Bar-State-Machine-Reorder:** `compute_next_state` liest Vorgänger-Bar-Disclosures-Health (Ein-Bar-Availability) by design; Same-Bar erfordert Cycle-Reorder auf dem Risk-State-Pfad (PIT-Review).
+- **ml.conformal Broken-Import:** `signals/meta_model.py:188` `from src.assembled_core.ml.conformal import ConformalResult` — Modul existiert nicht (nur `ml/conformal_prediction.py`; stale `.pyc`). Von den mypy-Prereqs aufgedeckt, bewusst NICHT silenced.
+- **Ops-Gate-Follow-ups (default-OFF, Template-Parität):** daily_pilot_review zählt `*_blocked`-Sentinels als non-OK; armed Block → exit_code 0; Stale-Guard nutzt Wall-Clock statt as_of in etwaigen Replays.
+- **requirements.lock Voll-Regen** (pip-freeze) bewusst NICHT gemacht (würde numpy/pandas/pyarrow-Drift einschleusen); urllib3-Zeile chirurgisch gebumpt.
+- **CI-Run (36+ unpushed Commits):** User-Entscheidung = HOLD (nicht gepusht).

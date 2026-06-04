@@ -1,5 +1,16 @@
 # multifactor_v2 Full-Stack — Echter OOS Walk-Forward (Alpaca, 2026-05)
 
+> ⚠️ **SUPERSEDED (2026-06-04):** Diese Zahlen wurden VOR dem Look-Ahead-Fix
+> `fd8a192c` (Anti-Pattern E-038) berechnet. Die mfv2-Macro-Faktoren
+> (`macro_growth_momentum` w=0.03, `macro_inflation_surprise` w=0.02) liefen über
+> einen Macro-Loader mit Forward-Shift-Look-Ahead, der zu alte Beobachtungen ins
+> Lookback-Fenster zog; jedes Fold-Signal hängt daran, also sind Per-Fold- und
+> Aggregat-Zeilen unzuverlässig. **GO_LIVE_CHECKLIST ist NICHT betroffen** (keine
+> Macro-Abhängigkeit). Re-Run (`scripts/_oos_wf_mfv2_full.py`) ist aufgesetzt, aber
+> bewusst NICHT ausgeführt: der ursprüngliche Alpaca-Preis-Cache existiert nicht mehr
+> (kein byte-reproduzierbares Before/After) und die mfv2-Produktionsgewichtung ist
+> derzeit ~0. Re-Run erst bei erneuter mfv2-Produktionsbetrachtung. Siehe KNOWN_ISSUES.md.
+
 **Erstellt:** 2026-05-28  
 **Branch:** main  
 **Zweck:** GO_LIVE_CHECKLIST Paket 3c.2 — mfv2 mit vollem verfügbarem Faktor-Stack.

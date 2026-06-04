@@ -1,5 +1,14 @@
 # multifactor_v2 — Faktor-Aktivierungs-Log (Paket 3c.2)
 
+> ⚠️ **SUPERSEDED (2026-06-04):** Die hier protokollierten Macro-z-Scores
+> (`macro_growth_momentum_z`, `macro_inflation_surprise_z` am Audit-Datum 2023-06-30)
+> wurden VOR dem Look-Ahead-Fix `fd8a192c` (Anti-Pattern E-038) berechnet — der
+> Macro-Loader zog per Forward-Shift zu alte Beobachtungen ins Fenster. Die ACTIVE-
+> Einstufung dieser zwei Faktoren und alle daraus abgeleiteten Aggregate sind
+> unzuverlässig. **GO_LIVE_CHECKLIST nicht betroffen.** Re-Run aufgesetzt, nicht
+> ausgeführt (Preis-Cache weg → nicht byte-reproduzierbar; mfv2-Prod-Gewicht ~0).
+> Siehe KNOWN_ISSUES.md.
+
 **Erstellt:** 2026-05-28  
 **Audit-Datum:** 2023-06-30  
 **Branch:** main  
