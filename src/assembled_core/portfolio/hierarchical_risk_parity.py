@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -140,7 +141,7 @@ def compute_hrp_weights(
     sort_ix = _quasi_diagonalize(link, n)
 
     # Step 4: Recursive bisection
-    weights = np.ones(n)
+    weights: npt.NDArray[np.float64] = np.ones(n)
 
     def _recursive_bisect(items: list[int]) -> None:
         if len(items) <= 1:

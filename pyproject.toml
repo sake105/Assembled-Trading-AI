@@ -232,6 +232,8 @@ module = [
     "mwviews.*",
     "openmeteo_requests.*",
     "pandas_datareader.*",
+    "polars",
+    "polars.*",
     "py_vollib.*",
     "py_vollib_vectorized.*",
     "pykalman.*",

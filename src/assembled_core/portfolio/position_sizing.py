@@ -32,6 +32,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -681,7 +682,7 @@ def compute_max_diversification_weights(
     if vols is None:
         vols = np.sqrt(np.diag(cov_matrix))
 
-    w = np.ones(n) / n  # start equal weight
+    w: npt.NDArray[np.float64] = np.ones(n) / n  # start equal weight
 
     for _ in range(max_iter):
         port_vol = float(np.sqrt(w @ cov_matrix @ w))

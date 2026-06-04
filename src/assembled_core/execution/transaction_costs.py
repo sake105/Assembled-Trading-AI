@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ def compute_commission_cash(
         return np.array([], dtype=np.float64)
 
     # Initialize with zeros
-    commission_cash = np.zeros(n_trades, dtype=np.float64)
+    commission_cash: npt.NDArray[np.float64] = np.zeros(n_trades, dtype=np.float64)
 
     # Compute bps component
     if model.mode in ("bps", "bps_plus_fixed"):
@@ -644,7 +645,7 @@ def compute_slippage_bps(
 
     # Compute participation rate: notional / adv_usd
     # Clip to participation_rate_cap and handle division by zero
-    participation = np.zeros(n, dtype=np.float64)
+    participation: npt.NDArray[np.float64] = np.zeros(n, dtype=np.float64)
     valid_adv_mask = (adv_usd > 0.0) & ~np.isnan(adv_usd)
     participation[valid_adv_mask] = notional[valid_adv_mask] / adv_usd[valid_adv_mask]
     participation = np.clip(participation, 0.0, model.participation_rate_cap)
