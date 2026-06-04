@@ -227,6 +227,49 @@ def _load_intel(
 
     intel_cfg = policy.get("intel") or {}
 
+    # FU-2 sibling fix: clear the three sibling intel-health flags at the TOP of
+    # _load_intel so each bar re-derives them from THIS bar's load outcome only.
+    # Each of these flags is set to "DEGRADED" on its producer's failure path and
+    # is NEVER reset to healthy on its success path. intel_health_flags is a
+    # field(default_factory=dict) on TradingContext, and the canonical backtest
+    # driver (qa.backtest_engine.make_cycle_fn) builds each bar's ctx via
+    # dataclasses.replace WITHOUT passing intel_health_flags — replace shallow-
+    # copies, so the SAME dict reference is SHARED BY REFERENCE across every bar
+    # of a run. Pre-fix, a "DEGRADED" set on any bar would LATCH for the rest of
+    # the run (whole-run persistence). The clear ELIMINATES that whole-run latch:
+    # each bar re-derives the flags from its own load outcome.
+    #
+    # What this fixes, precisely (two consumers of intel_disclosures_triggers):
+    #   1) apply_disclosures_confirm (risk/disclosures_confirm.py:39 early-returns
+    #      when the flag is "DEGRADED") runs LATER inside THIS _load_intel call
+    #      (~L461, after this clear + the disclosures producer). So that consumer
+    #      is de-latched SAME-CYCLE — it sees this bar's freshly-derived flag.
+    #   2) compute_next_state (risk/state_machine.py:302 forces
+    #      disclosures_confirmed=False while the flag is "DEGRADED") is the
+    #      STATE-MACHINE consumer. It runs in ingest_data (~L170/L188) BEFORE this
+    #      _load_intel call (~L195). By the EXISTING cycle design, it therefore
+    #      reads the most-recent COMPLETED bar's disclosures health (intel is
+    #      one bar old by availability design), NOT this bar's. The clear removes
+    #      the whole-run latch for it too — the value the state machine reads is
+    #      now at most ONE bar old (the prior completed bar), never latched
+    #      permanently. This fix does NOT make the state machine use same-bar
+    #      disclosures health; the same-bar re-ordering (compute_next_state after
+    #      _load_intel) is a SEPARATE scoped follow-up on the risk-state path.
+    #
+    # crisis_alpha/market_stress have no "DEGRADED" consumer today (latent-inert)
+    # but are cleared too so a future consumer is safe. Convention is healthy ==
+    # key absent (pop, not assign "OK"): consumers test `.get(key) == "DEGRADED"`
+    # / `is None`, and _tc_sizing special-cases only "ERROR". A failed load on
+    # THIS bar still sets "DEGRADED" after the clear, so degraded handling is
+    # preserved; only cross-bar leakage is removed. The FU-2 daily_circuit_breaker
+    # reset below is left as-is (kept separate, not refolded).
+    for _sibling_flag in (
+        "intel_disclosures_triggers",
+        "intel_crisis_alpha",
+        "intel_market_stress",
+    ):
+        ctx.intel_health_flags.pop(_sibling_flag, None)
+
     # Disclosures triggers
     try:
         disc_tr_cfg = intel_cfg.get("disclosures_triggers") or {}
@@ -388,13 +431,18 @@ def _load_intel(
         else:
             # FU2 / defensive: NON-trip bar — explicitly clear the in-cycle
             # "tripped" marker so the flag reflects THIS bar regardless of how
-            # the caller manages ctx lifecycle. The canonical backtest driver
-            # (qa.backtest_engine) builds a FRESH TradingContext per as_of, so a
-            # stale True could never carry over there. But a non-standard caller
-            # that REUSES one ctx across bars without clearing intel_health_flags
-            # would otherwise carry a stale tripped=True from an earlier trip
-            # bar into a non-trip bar — wrongly blocking ALL orders in the risk
-            # gate (_apply_risk_controls_default consumes this flag). Setting
+            # the caller manages ctx lifecycle. NOTE: the canonical backtest
+            # driver (qa.backtest_engine.make_cycle_fn) builds each bar's ctx via
+            # dataclasses.replace WITHOUT passing intel_health_flags. replace
+            # shallow-copies, so the SAME intel_health_flags dict is SHARED BY
+            # REFERENCE across all bars — a stale tripped=True CAN carry over even
+            # in the canonical driver. This per-bar clear (not the "fresh ctx"
+            # assumption) is what guarantees the flag reflects only the current
+            # bar. A caller that REUSES one ctx across bars without clearing
+            # intel_health_flags would otherwise carry a stale tripped=True from an
+            # earlier trip bar into a non-trip bar — wrongly blocking ALL orders in
+            # the risk gate (_apply_risk_controls_default consumes this flag).
+            # Setting
             # tripped=False here is correct in BOTH modes on a non-trip bar:
             # live never sets tripped=True (it blocks via the kill-switch store
             # read), backtest set it only on the trip bar above. Live/EOD
