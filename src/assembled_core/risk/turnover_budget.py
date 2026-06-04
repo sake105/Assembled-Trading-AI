@@ -193,11 +193,19 @@ def apply_turnover_gate(
                 tw - cw
             )
     if "target_qty" in out.columns and not price_series.empty:
+        # target_qty is NOTIONAL dollars (= target_weight * portfolio_value in the
+        # live _tc_sizing flow), but current_q holds SHARES. Convert the current leg
+        # to notional (shares * price) before blending so the ramp stays all-notional
+        # and the gated target_qty matches the target_weight * portfolio_value
+        # contract. Blending shares into a notional quantity is wrong-by-units and
+        # reaches live orders on cap-firing days (order_generation: shares = qty/price).
         for i, sym in enumerate(out["symbol"]):
             tq = float(out.iloc[i]["target_qty"])
             cq = current_q.get(sym, 0.0)
-            out.iloc[i, out.columns.get_loc("target_qty")] = cq + scale_factor * (
-                tq - cq
+            pr = float(price_series.get(sym, 0) or 0)
+            cq_notional = cq * pr
+            out.iloc[i, out.columns.get_loc("target_qty")] = (
+                cq_notional + scale_factor * (tq - cq_notional)
             )
 
     return out, scale_factor
