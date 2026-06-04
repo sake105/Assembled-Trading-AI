@@ -143,7 +143,8 @@ def motif_similarity_feature(
     # Normalize both
     def _norm(arr: np.ndarray) -> np.ndarray:
         std = arr.std()
-        return (arr - arr.mean()) / (std if std > 0 else 1.0)
+        normed: np.ndarray = (arr - arr.mean()) / (std if std > 0 else 1.0)
+        return normed
 
     try:
         dist = dtw.distance(_norm(current), _norm(pattern))

@@ -11,6 +11,8 @@ Sprint 11.E1: Added vectorized implementation option via method parameter.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 from src.assembled_core.data.altdata.contract import (
     filter_events_pit,
@@ -18,10 +20,14 @@ from src.assembled_core.data.altdata.contract import (
 )
 
 # Import vectorized implementations (Sprint 11.E1)
+add_disclosure_count_feature_vectorized: Any
+build_event_feature_panel_vectorized: Any
 try:
     from src.assembled_core.features.event_features_vectorized import (
-        add_disclosure_count_feature_vectorized,
-        build_event_feature_panel_vectorized,
+        add_disclosure_count_feature_vectorized as add_disclosure_count_feature_vectorized,
+    )
+    from src.assembled_core.features.event_features_vectorized import (
+        build_event_feature_panel_vectorized as build_event_feature_panel_vectorized,
     )
 except ImportError:
     # Fallback if vectorized module not available

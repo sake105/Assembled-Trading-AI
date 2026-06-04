@@ -13,6 +13,7 @@ When recession_prob > 0.5:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -94,7 +95,7 @@ def recession_signal_multiplier(recession_prob: float, threshold: float = 0.5) -
 
 
 def latest_recession_prob_from_fred(
-    fred_client: object,
+    fred_client: Any,
     as_of: pd.Timestamp | None = None,
 ) -> float:
     """Fetch T10Y3M and NFCI from FRED and compute latest recession probability.

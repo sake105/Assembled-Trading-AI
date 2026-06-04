@@ -16,6 +16,7 @@ Score range: 0–100 (100 = extreme fear, contrarian buy signal)
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -92,7 +93,7 @@ def sentiment_multiplier(score: float) -> float:
 
 
 def latest_sentiment_score(
-    fred_client: object,
+    fred_client: Any,
     spy_return_127d: float,
     as_of: pd.Timestamp | None = None,
 ) -> float:

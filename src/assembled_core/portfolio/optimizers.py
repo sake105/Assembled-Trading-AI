@@ -150,7 +150,7 @@ def _validate_covariance(
             f"covariance not symmetric (max |Σ − Σ'| = {asym:.2e}); "
             "pre-symmetrise via 0.5 * (Σ + Σ') before calling"
         )
-    sym = 0.5 * (arr + arr.T)
+    sym: np.ndarray = 0.5 * (arr + arr.T)
     if check_psd:
         eigvals = np.linalg.eigvalsh(sym)
         min_eig = float(eigvals.min())
@@ -444,7 +444,7 @@ def mean_variance_efficient_frontier(
     bounds = [(0.0, 1.0)] * n if long_only else [(-1.0, 1.0)] * n
     x0 = np.full(n, 1.0 / n)
 
-    rows = []
+    rows: list[dict[str, object]] = []
     n_failed = 0
     minimize = _require_minimize()
     for target in target_returns:

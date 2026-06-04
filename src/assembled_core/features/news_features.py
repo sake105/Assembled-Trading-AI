@@ -338,7 +338,8 @@ def compute_sector_rotation_signal(
         agg = tmp.groupby("affected_sectors").agg(
             count=("_sev", "count"), weighted=("_w", "sum")
         )
-        return agg.rename_axis(None).to_dict("index")
+        scores: dict[str, dict] = agg.rename_axis(None).to_dict("index")
+        return scores
 
     curr_scores = _sector_scores(current)
     prior_scores = _sector_scores(prior)

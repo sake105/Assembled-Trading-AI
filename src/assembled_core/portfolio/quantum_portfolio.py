@@ -79,7 +79,7 @@ def build_qubo_matrix(
     cov_matrix: np.ndarray,
     risk_aversion: float = 1.0,
     budget_penalty: float = 10.0,
-) -> tuple[np.ndarray, dict[str, float]]:
+) -> tuple[np.ndarray, dict[str, object]]:
     """Build QUBO matrix Q for portfolio selection.
 
     The portfolio optimization objective:

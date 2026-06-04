@@ -28,12 +28,14 @@ def _is_turn_of_month(dates: pd.DatetimeIndex) -> np.ndarray:
     day = dates.day
     days_in_month = dates.days_in_month
     # Last trading day of month or first 3 days of next month
-    return ((day >= days_in_month - 1) | (day <= 3)).astype(float)
+    result: np.ndarray = ((day >= days_in_month - 1) | (day <= 3)).astype(float)
+    return result
 
 
 def _is_january(dates: pd.DatetimeIndex) -> np.ndarray:
     """Return 1 if date is in January (January effect)."""
-    return (dates.month == 1).astype(float)
+    result: np.ndarray = (dates.month == 1).astype(float)
+    return result
 
 
 def _is_sell_in_may_period(dates: pd.DatetimeIndex) -> np.ndarray:
@@ -67,7 +69,8 @@ def _is_pre_holiday(dates: pd.DatetimeIndex) -> np.ndarray:
 
 def _russell_reconstitution_window(dates: pd.DatetimeIndex) -> np.ndarray:
     """Return 1 if date is in Russell reconstitution window (June 15-30)."""
-    return ((dates.month == 6) & (dates.day >= 15)).astype(float)
+    result: np.ndarray = ((dates.month == 6) & (dates.day >= 15)).astype(float)
+    return result
 
 
 def _sp_rebalancing_window(dates: pd.DatetimeIndex) -> np.ndarray:
@@ -77,7 +80,8 @@ def _sp_rebalancing_window(dates: pd.DatetimeIndex) -> np.ndarray:
     is_rebal_month = np.isin(month, [3, 6, 9, 12])
     # Approximate: 3rd week of month
     is_rebal_week = (day >= 14) & (day <= 21)
-    return (is_rebal_month & is_rebal_week).astype(float)
+    result: np.ndarray = (is_rebal_month & is_rebal_week).astype(float)
+    return result
 
 
 def _day_of_week_signal(dates: pd.DatetimeIndex) -> np.ndarray:

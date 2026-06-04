@@ -16,6 +16,7 @@ Data: FRED via fredapi (free).
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import pandas as pd
 
@@ -90,7 +91,7 @@ def compute_macro_quadrant(
 
 
 def current_quadrant_from_fred(
-    fred_client: object,
+    fred_client: Any,
     lookback: int = 252,
     as_of: pd.Timestamp | None = None,
 ) -> str:

@@ -65,7 +65,7 @@ class ConformalPositionSizer:
         self.alpha = alpha
         self.cv = cv
         self.max_width_quantile = max_width_quantile
-        self._mapie = None
+        self._mapie: Any | None = None
         self._max_width: float = 1.0
 
     def fit(
@@ -129,7 +129,8 @@ class ConformalPositionSizer:
         widths = np.clip(upper - lower, 0, None)
         normalized = np.clip(widths / self._max_width, 0, 1)
         size_factors = 1.0 - normalized
-        return np.clip(size_factors, 0, 1)
+        clipped: np.ndarray = np.clip(size_factors, 0, 1)
+        return clipped
 
     @property
     def is_fitted(self) -> bool:

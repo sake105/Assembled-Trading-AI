@@ -11,10 +11,14 @@ news-derived scores with the technical signal.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from src.assembled_core.features.ta_features import add_moving_averages
+
+if TYPE_CHECKING:
+    from src.assembled_core.signals.intel_signal_adapter import IntelOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +30,7 @@ def generate_trend_signals(
     volume_threshold: float | None = None,
     min_volume_multiplier: float = 1.0,
     require_weekly_alignment: bool = False,
-    intel_overlay: "object | None" = None,
+    intel_overlay: "IntelOverlay | None" = None,
     news_alpha: float = 0.20,
 ) -> pd.DataFrame:
     """Generate trend-following signals based on moving average crossover.

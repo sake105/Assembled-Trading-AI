@@ -181,7 +181,7 @@ class CrashPredictionEngine:
         if sma50 < sma200:
             # Strength proportional to divergence
             divergence = (sma200 - sma50) / sma200
-            return min(divergence * 10, 1.0)
+            return float(min(divergence * 10, 1.0))
         return 0.0
 
     def _detect_breadth_collapse(self, market_data: pd.DataFrame | None) -> float:
@@ -193,7 +193,7 @@ class CrashPredictionEngine:
             if pd.isna(val):
                 return 0.0
             if val < 0.30:
-                return 1.0 - (val / 0.30)
+                return float(1.0 - (val / 0.30))
         return 0.0
 
     def _check_vix_regime(self, macro_data: dict | None) -> float:
@@ -236,7 +236,7 @@ class CrashPredictionEngine:
             val = market_data["new_lows_pct"].iloc[-1]
             if pd.isna(val):
                 return 0.0
-            return min(val * 5, 1.0)
+            return float(min(val * 5, 1.0))
         return 0.0
 
     def _check_ad_divergence(self, market_data: pd.DataFrame | None) -> float:

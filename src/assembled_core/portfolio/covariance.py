@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -58,7 +59,7 @@ def _ewm_covariance(
     X = ret.values
     mean = (weights[:, None] * X).sum(axis=0)
     X_c = X - mean
-    cov = (weights[:, None] * X_c).T @ X_c
+    cov: np.ndarray = (weights[:, None] * X_c).T @ X_c
     return cov
 
 
@@ -134,7 +135,7 @@ def estimate_covariance(
                 fit_dcc_garch,
             )
 
-            dcc_method = "cdcc" if method == "cdcc" else "dcc"
+            dcc_method: Literal["dcc", "cdcc"] = "cdcc" if method == "cdcc" else "dcc"
             dcc_result = fit_dcc_garch(clean, method=dcc_method)
             if dcc_result is None:
                 logger.warning(

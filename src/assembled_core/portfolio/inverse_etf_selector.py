@@ -273,7 +273,7 @@ class InverseETFSelector:
         # Gross leveraged return
         daily_underlying = annualized_return / 252
         leveraged_daily = leverage * daily_underlying
-        net_return = leveraged_daily * holding_days - decay
+        net_return = float(leveraged_daily * holding_days - decay)
 
         logger.debug(
             "[InverseETFSelector] %s decay=%.3f gross_return=%.3f net=%.3f (hold=%dd)",

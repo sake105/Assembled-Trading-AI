@@ -87,7 +87,8 @@ def simulate_lppls_path(
     log_p = log_p + rng.normal(0.0, noise_sigma, n_days)
 
     # Return prices (LPPLSCrashDetector takes prices and log-transforms internally)
-    return np.exp(log_p)
+    prices: np.ndarray = np.exp(log_p)
+    return prices
 
 
 class LPPLSCrashDetector:

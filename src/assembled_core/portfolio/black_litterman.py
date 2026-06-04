@@ -227,7 +227,7 @@ class BlackLittermanOptimizer:
             grad_ret = mu
             grad_vol = (S @ w) / port_vol
             sharpe = float(mu @ w) / port_vol
-            grad = -(grad_ret / port_vol - sharpe * grad_vol / port_vol)
+            grad: np.ndarray = -(grad_ret / port_vol - sharpe * grad_vol / port_vol)
             if turnover_penalty > 0:
                 grad += turnover_penalty * np.sign(w - w_old)
             return grad
@@ -409,4 +409,5 @@ def robust_bl_shrinkage(
         return mu_bl.copy()
 
     shrinkage = max(0.0, 1.0 - kappa / mu_norm)
-    return mu_bl * shrinkage
+    shrunk: np.ndarray = mu_bl * shrinkage
+    return shrunk

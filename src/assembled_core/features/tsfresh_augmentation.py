@@ -319,12 +319,13 @@ def _rolling_autocorr(arr: np.ndarray, window: int, lag: int) -> np.ndarray:
             return np.nan
         return float(np.dot(x - x.mean(), y - y.mean()) / (len(x) * sx * sy))
 
-    return (
+    result: np.ndarray = (
         pd.Series(arr)
         .rolling(window, min_periods=window)
         .apply(_autocorr_fn, raw=True)
         .values
     )
+    return result
 
 
 def _rolling_mean_abs_change(arr: np.ndarray, window: int) -> np.ndarray:
@@ -337,12 +338,13 @@ def _rolling_mean_abs_change(arr: np.ndarray, window: int) -> np.ndarray:
 
 
 def _rolling_above_mean_frac(arr: np.ndarray, window: int) -> np.ndarray:
-    return (
+    result: np.ndarray = (
         pd.Series(arr)
         .rolling(window, min_periods=window)
         .apply(lambda w: float((w > w.mean()).mean()), raw=True)
         .values
     )
+    return result
 
 
 def _rolling_slope(arr: np.ndarray, window: int) -> np.ndarray:
@@ -358,12 +360,13 @@ def _rolling_slope(arr: np.ndarray, window: int) -> np.ndarray:
         y = w - w.mean()
         return float((x * y).sum() / denom)
 
-    return (
+    result: np.ndarray = (
         pd.Series(arr)
         .rolling(window, min_periods=window)
         .apply(_slope_fn, raw=True)
         .values
     )
+    return result
 
 
 def _rolling_last_minus_first(arr: np.ndarray, window: int) -> np.ndarray:
@@ -403,23 +406,25 @@ def _rolling_log_ret_stat(arr: np.ndarray, window: int, stat: str) -> np.ndarray
 
 
 def _rolling_peaks(arr: np.ndarray, window: int) -> np.ndarray:
-    return (
+    result: np.ndarray = (
         pd.Series(arr)
         .rolling(window, min_periods=window)
         .apply(_count_peaks, raw=True)
         .values
     )
+    return result
 
 
 def _rolling_hurst(arr: np.ndarray, window: int) -> np.ndarray:
     if window < 20:
         return np.full(len(arr), np.nan)
-    return (
+    result: np.ndarray = (
         pd.Series(arr)
         .rolling(window, min_periods=window)
         .apply(_hurst, raw=True)
         .values
     )
+    return result
 
 
 def _rolling_sample_entropy(arr: np.ndarray, window: int) -> np.ndarray:
@@ -427,9 +432,10 @@ def _rolling_sample_entropy(arr: np.ndarray, window: int) -> np.ndarray:
         ret = np.diff(np.log(np.clip(w, 1e-9, None)))
         return _sample_entropy(ret) if len(ret) >= 10 else np.nan
 
-    return (
+    result: np.ndarray = (
         pd.Series(arr)
         .rolling(window, min_periods=window)
         .apply(_se_fn, raw=True)
         .values
     )
+    return result

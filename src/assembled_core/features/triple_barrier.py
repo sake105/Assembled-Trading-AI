@@ -262,13 +262,13 @@ def _fracdiff_numpy(series: pd.Series, d: float, threshold: float) -> pd.Series:
         w.append(w_next)
         k += 1
 
-    w = np.array(w[::-1])
-    width = len(w)
+    w_arr = np.array(w[::-1])
+    width = len(w_arr)
 
     result_values = np.full(len(arr), np.nan)
     if len(arr) >= width:
         # np.convolve(arr, w, 'full')[k] = sum(arr[k-j]*w[j]) = dot(w, window) at position k
-        result_values[width - 1 :] = np.convolve(arr, w, mode="full")[
+        result_values[width - 1 :] = np.convolve(arr, w_arr, mode="full")[
             width - 1 : len(arr)
         ]
     return pd.Series(result_values, index=series.index, name=series.name)

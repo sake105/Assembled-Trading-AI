@@ -179,7 +179,7 @@ def evaluate_stress_scenarios(
         if loss < floor:
             violated.append(sc_name)
 
-    worst_sc = min(losses, key=losses.get) if losses else "none"
+    worst_sc = min(losses, key=lambda k: losses[k]) if losses else "none"
     worst_loss = losses.get(worst_sc, 0.0)
 
     if violated:

@@ -29,6 +29,7 @@ Emitted notional columns (``target_notional`` / ``target_qty``):
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -749,7 +750,7 @@ def apply_news_sentiment_weight_adjustment(
     target_positions: pd.DataFrame,
     news_events: "pd.DataFrame | None" = None,
     *,
-    entity_linker: "object | None" = None,
+    entity_linker: "Any | None" = None,
     sentiment_col: str = "sentiment_score",
     max_adjustment: float = 0.10,
     shadow_only: bool = True,

@@ -217,7 +217,10 @@ def event_study(
         alpha, beta, resid_std = compute_market_model(
             ticker_rets, market_returns, est_start, est_end, min_obs=min_est_obs
         )
-        if alpha is None:
+        # compute_market_model returns (alpha, beta, resid_std) all-None or
+        # all-non-None together; beta is None iff alpha is None, so guarding both
+        # never changes which iterations continue — it only narrows for typing.
+        if alpha is None or beta is None:
             continue
 
         ars = compute_abnormal_returns(

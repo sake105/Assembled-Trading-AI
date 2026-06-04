@@ -623,6 +623,9 @@ def build_adaptive_multifactor_signal(
     for fname, pseries in processed.items():
         non_null = ~pd.isna(pseries)
         if use_ic:
+            # use_ic is True only when ic_weights_df is not None (see above);
+            # assert narrows for the type checker without altering any value.
+            assert ic_weights_df is not None, "use_ic implies ic_weights_df is not None"
             # Map IC weight per timestamp
             weight_col = f"weight_{fname}"
             if weight_col in ic_weights_df.columns:
@@ -652,6 +655,7 @@ def build_adaptive_multifactor_signal(
 
     # Aggregate IC as confidence
     if use_ic:
+        assert ic_weights_df is not None, "use_ic implies ic_weights_df is not None"
         result_df["mf_aggregate_ic"] = result_df[timestamp_col].map(
             ic_weights_df["aggregate_ic"]
         )

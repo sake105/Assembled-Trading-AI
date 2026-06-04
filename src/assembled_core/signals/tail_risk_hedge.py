@@ -161,7 +161,7 @@ def hedge_cost_estimate(
     annual_rolls = 252 / max(dte, 1)
     annual_cost_pct = put_cost_pct * annual_rolls * allocation_pct
 
-    return portfolio_value * annual_cost_pct
+    return float(portfolio_value * annual_cost_pct)
 
 
 __all__ = [

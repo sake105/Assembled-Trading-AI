@@ -84,6 +84,15 @@ def build_or_load_factors(
     if as_of is not None and isinstance(as_of, str):
         as_of = pd.Timestamp(as_of, tz="UTC")
 
+    # By here start_date/end_date are always pd.Timestamp (inferred from the
+    # timestamp column or converted from str above) — bind to freshly-typed
+    # locals so the type checker can resolve ``.date()`` etc. The value is
+    # unchanged (pd.Timestamp() is idempotent on a Timestamp).
+    start_ts: pd.Timestamp = pd.Timestamp(start_date)
+    end_ts: pd.Timestamp = pd.Timestamp(end_date)
+    start_date = start_ts
+    end_date = end_ts
+
     # Try to load from cache first (unless force_rebuild)
     if not force_rebuild:
         cached_factors = load_factors(
@@ -100,7 +109,9 @@ def build_or_load_factors(
             # Check if cache covers the full date range (simple check: all requested dates present)
             cached_start = cached_factors["timestamp"].min()
             cached_end = cached_factors["timestamp"].max()
-            pit_cutoff = as_of if as_of is not None else end_date
+            pit_cutoff: pd.Timestamp = pd.Timestamp(
+                as_of if as_of is not None else end_ts
+            )
 
             # Cache hit if it covers the requested range (with tolerance for PIT filtering)
             if cached_start <= start_date and cached_end >= pit_cutoff:
@@ -119,14 +130,14 @@ def build_or_load_factors(
             else:
                 logger.debug(
                     f"[cache_partial] Cached factors exist but don't cover full range: "
-                    f"requested=[{start_date.date()}, {pit_cutoff.date()}], "
+                    f"requested=[{start_ts.date()}, {pit_cutoff.date()}], "
                     f"cached=[{cached_start.date()}, {cached_end.date()}], will compute missing"
                 )
 
     # Cache miss or incomplete: compute factors
     logger.info(
         f"[cache_miss] Computing factors: {factor_group}/{freq}/{universe_key}, "
-        f"date_range=[{start_date.date()}, {end_date.date()}]"
+        f"date_range=[{start_ts.date()}, {end_ts.date()}]"
     )
 
     # Use default builder if not provided

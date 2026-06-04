@@ -231,6 +231,25 @@ class TestEventStudy:
         if len(es) > 0:
             assert all(isinstance(c, float) for c in es["car"])
 
+    def test_valid_event_not_skipped_by_beta_guard(self):
+        """Regression: events with a valid market model must produce rows.
+
+        ``compute_market_model`` returns (alpha, beta, resid_std) all-None or
+        all-non-None together. The event_study loop guards on
+        ``alpha is None or beta is None`` (beta narrowed for typing). Because
+        beta is None iff alpha is None, this guard must never skip an event
+        whose estimation window has enough observations — the two events here
+        both have ~170 estimation-window days (>= the 100 default), so both
+        must appear in the output.
+        """
+        events, returns_df, mkt = self._setup()
+        es = event_study(events, returns_df, mkt)
+        # Both AAPL and MSFT events have sufficient estimation data, so neither
+        # is dropped by the (alpha/beta) None-guard.
+        assert len(es) == 2
+        assert set(es["ticker"].values) == {"AAPL", "MSFT"}
+        assert es["car"].notna().all()
+
 
 class TestCarSignificance:
     def test_significant_positive_car(self):

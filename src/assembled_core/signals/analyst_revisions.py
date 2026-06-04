@@ -43,8 +43,9 @@ def analyst_revision_score(
         return 0.0
 
     def _score(r: dict) -> float:
-        return (r.get("buy", 0) + 2 * r.get("strongBuy", 0)) - (
-            r.get("sell", 0) + 2 * r.get("strongSell", 0)
+        return float(
+            (r.get("buy", 0) + 2 * r.get("strongBuy", 0))
+            - (r.get("sell", 0) + 2 * r.get("strongSell", 0))
         )
 
     current_score = _score(recs[0])

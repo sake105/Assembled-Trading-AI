@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -67,7 +67,7 @@ except ImportError:  # pragma: no cover — exercised only when scipy is absent
     _SCIPY_AVAILABLE = False
 
 
-def _require_scipy_optimize() -> "object":
+def _require_scipy_optimize() -> Any:
     """Return ``scipy.optimize`` or raise a clear, informative ImportError.
 
     Called by the DRO solvers right before they need ``linprog`` / ``minimize``.

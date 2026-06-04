@@ -36,7 +36,8 @@ except ImportError:
 def _correlation_distance(corr: np.ndarray) -> np.ndarray:
     """Convert correlation matrix to distance matrix."""
     # d(i,j) = sqrt(0.5 * (1 - rho(i,j)))
-    return np.sqrt(0.5 * (1.0 - corr))
+    dist: np.ndarray = np.sqrt(0.5 * (1.0 - corr))
+    return dist
 
 
 def _quasi_diagonalize(link: np.ndarray, n: int) -> list[int]:

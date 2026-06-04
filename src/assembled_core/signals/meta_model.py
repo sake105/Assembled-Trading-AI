@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -152,7 +152,7 @@ class MetaModel:
     def predict_proba_with_meta(
         self,
         X: pd.DataFrame,
-        meta_labeler: object | None = None,
+        meta_labeler: Any | None = None,
     ) -> pd.Series:
         """Konfidenz-Scores mit optionalem Meta-Labeling.
 
@@ -166,7 +166,10 @@ class MetaModel:
             return primary_scores
 
         try:
-            meta_conf = meta_labeler.predict_confidence(X)  # type: ignore[union-attr]
+            # meta_labeler is a duck-typed optional labeler exposing
+            # predict_confidence(X); the surrounding try/except handles a
+            # missing method at runtime.
+            meta_conf = meta_labeler.predict_confidence(X)
             scaled = primary_scores * meta_conf
             logger.debug(
                 "[MetaModel] Meta-Scaling: mean_primary=%.3f → mean_scaled=%.3f",
@@ -269,27 +272,55 @@ class MetaModel:
             num_features: Top-N Features im Output
 
         Returns:
-            dict mit top_features + prediction_value + source.
+            dict mit ``top_features`` (list of (name, contribution) tuples,
+            sorted by |contribution|), ``feature_contributions`` (full map)
+            and ``source``. On failure: ``{"error": ...}``.
         """
         try:
             from src.assembled_core.ml.lime_explainer import LIMEExplainerWrapper
         except ImportError:
             return {"error": "lime_explainer module fehlt"}
         try:
+            feature_names = list(self.feature_names)
+            # Coerce training_data (DataFrame) and X_row (Series/dict) to the
+            # ndarray shapes LIMEExplainerWrapper expects.
+            td_arr: np.ndarray | None
+            if training_data is None:
+                td_arr = None
+            else:
+                td_arr = np.asarray(training_data[feature_names])
+
+            if isinstance(X_row, dict):
+                instance = np.asarray(
+                    [X_row.get(f, 0.0) for f in feature_names], dtype=float
+                )
+            else:  # pd.Series
+                instance = np.asarray(
+                    X_row.reindex(feature_names) if feature_names else X_row,
+                    dtype=float,
+                )
+
             wrapper = LIMEExplainerWrapper(
                 model=self.model,
-                feature_names=list(self.feature_names),
-                training_data=training_data,
+                feature_names=feature_names,
+                training_data=td_arr,
                 mode=(
                     "classification"
                     if hasattr(self.model, "predict_proba")
                     else "regression"
                 ),
             )
-            expl = wrapper.explain(X_row, num_features=num_features)
+            expl = wrapper.explain(instance, num_features=num_features)
+            # LimeExplanation exposes feature_contributions + source only;
+            # derive the top-N features by absolute contribution.
+            top_features = sorted(
+                expl.feature_contributions.items(),
+                key=lambda kv: abs(kv[1]),
+                reverse=True,
+            )[:num_features]
             return {
-                "top_features": expl.top_features(num_features),
-                "predicted_value": expl.predicted_value,
+                "top_features": top_features,
+                "feature_contributions": expl.feature_contributions,
                 "source": expl.source,
             }
         except Exception as exc:
@@ -576,4 +607,7 @@ def load_meta_model(path: str | pathlib.Path) -> MetaModel:
 
     logger.info(f"Loaded meta-model from {path}")
 
-    return meta_model
+    # safe_load_model returns ``object`` by design; the registry verifies the
+    # file identity (SHA256) so the loaded artifact is a MetaModel — narrow for
+    # the type checker without any runtime effect.
+    return cast("MetaModel", meta_model)

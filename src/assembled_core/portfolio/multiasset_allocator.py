@@ -93,10 +93,10 @@ class RegimeDetector:
             self._spy_prices.append(spy_close)
 
         # Compute SPY 200d MA position
-        spy_above_ma = True  # default: assume bull
+        spy_above_ma: bool = True  # default: assume bull
         if len(self._spy_prices) >= cfg.spy_ma_window:
             ma200 = np.mean(self._spy_prices[-cfg.spy_ma_window :])
-            spy_above_ma = self._spy_prices[-1] >= ma200 * cfg.spy_bear_pct
+            spy_above_ma = bool(self._spy_prices[-1] >= ma200 * cfg.spy_bear_pct)
 
         # Determine raw regime
         raw = self._classify(vix, breadth, spy_above_ma)

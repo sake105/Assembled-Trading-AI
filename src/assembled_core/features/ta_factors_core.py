@@ -288,7 +288,7 @@ def _add_trend_strength_factors(
     # Compute moving averages for all lookback windows at once.
     # add_moving_averages expects "timestamp" and "symbol" as column names; rename
     # temporarily when custom names are used so that internal sort logic works correctly.
-    lookback_windows = [20, 50, 200]
+    lookback_windows: tuple[int, ...] = (20, 50, 200)
     ma_input = result.copy()
     rename_map: dict[str, str] = {}
     if timestamp_col != "timestamp":
