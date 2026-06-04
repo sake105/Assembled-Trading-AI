@@ -36,6 +36,35 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+
+@dataclass(frozen=True)
+class _ConformalResult:
+    """Minimal split-conformal interval container for ``predict_with_intervals``.
+
+    Local replacement for the previously-imported ``ml.conformal.ConformalResult``
+    (now archived). Reproduces the exact API + ``confidence()`` semantics that
+    ``predict_with_intervals`` consumed, with no dependency on the archived module.
+    """
+
+    point_predictions: pd.Series
+    lower_bounds: pd.Series
+    upper_bounds: pd.Series
+    half_width: float
+    alpha: float
+    """Miscoverage-Level (0.1 = 90%-Intervall)."""
+
+    def interval_width(self) -> pd.Series:
+        return self.upper_bounds - self.lower_bounds
+
+    def confidence(self) -> pd.Series:
+        """Normalisierte Konfidenz in [0, 1]: schmales Intervall → hoch."""
+        widths = self.interval_width()
+        max_w = widths.max()
+        if max_w < 1e-9:
+            return pd.Series(np.ones(len(widths)), index=widths.index)
+        return 1.0 - (widths / max_w)
+
+
 # Try to import joblib (optional, for model saving/loading)
 try:
     import joblib
@@ -185,18 +214,19 @@ class MetaModel:
             }
 
         try:
-            from src.assembled_core.ml.conformal import ConformalResult
-
-            # Direkt residuals auf Calib-Set rechnen — MetaModel ist bereits
-            # trainiert, daher kein Wrapper/Re-Fit nötig.
+            # Split-conformal interval, computed inline (no archived dependency).
+            # MetaModel ist bereits trainiert → kein Wrapper/Re-Fit nötig,
+            # residuals direkt auf dem Calib-Set.
             calib_preds = self.predict_proba(X_calib).values
             residuals = np.abs(y_calib.values - calib_preds)
             n = len(residuals)
+            if n == 0:
+                raise ValueError("empty calibration set")
             q_level = min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)
             q = float(np.quantile(residuals, q_level))
 
             preds_vals = primary.values
-            result = ConformalResult(
+            result = _ConformalResult(
                 point_predictions=pd.Series(
                     preds_vals, index=X.index, name="prediction"
                 ),
