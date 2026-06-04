@@ -177,6 +177,62 @@ assert targets["target_qty"].dtype == np.float64
 - `src.assembled_core.portfolio.position_sizing.compute_target_positions()`: Position-Sizing
 - `src.assembled_core.execution.order_generation.generate_orders_from_targets()`: Order-Generierung
 
+### 3.1 `target_qty` Einheiten-Semantik (DUAL: Notional → Shares) — Latente Falle
+
+**Verbindlich. Die obige Spalten-Beschreibung „Ziel-Quantität" ist bewusst
+vage — `target_qty` trägt je nach Pipeline-Stufe ZWEI inkompatible Einheiten.
+Wer das verwechselt, baut einen stillen Sizing-Fehler.**
+
+| Stufe | `target_qty` Einheit | Quelle (verifiziert gegen aktuellen Code) |
+|-------|----------------------|-------------------------------------------|
+| Emit (Position-Sizing) | **NOTIONAL (USD)** = `target_weight × total_capital` (Emit rundet NICHT; die 2-dp-Rundung erfolgt erst in den `_tc_sizing`-Overlays) | `portfolio/position_sizing.py` (alle Emit-Funktionen, z. B. Z. 144-145) |
+| Alle `_tc_sizing`-Overlays | **NOTIONAL (USD)** (in-place mutiert, immer aus `target_weight × capital` bzw. `*= scale`) | `pipeline/_tc_sizing.py` Overlay-Mutationen (z. B. Z. 1108-1111, 1169-1171, 1339-1340, 2004-2050) |
+| **Brücke** (Order-Generierung) | liest NOTIONAL **rein**, gibt SHARES **raus** | `execution/order_generation.py` Z. 349-351: `target_shares = target_qty / price` |
+| Post-Conversion (Exposure/Turnover/Fast-Path) | **SHARES** | `risk/exposure_engine.py` Z. 112 (`target_qty = qty + order_delta`, Shares); `risk/turnover_budget.py` Z. 195-201 (Ramp gegen Share-Counts) |
+
+Gleicher Spaltenname, gegensätzliche Einheit: **Notional rein, Shares raus**, an
+der Grenze `order_generation.generate_orders_from_targets()` (Division durch
+Preis). Das ist die EIGENTLICHE latente Gefahr — nicht die unten beschriebene
+`target_notional`-„Drift".
+
+### 3.2 `target_notional` — Emit-Zeit-Marker, WRITE-ONLY (NICHT post-Overlay lesen)
+
+`target_notional` ist eine **nur-zur-Emit-Zeit** gesetzte, wertidentische Kopie
+von `target_qty` (beide = `target_weight × total_capital`). Sie ist ein reiner
+**Honest-Name-Marker** und **write-only**:
+
+- Geschrieben ausschließlich in `position_sizing.py` (jede Emit-Funktion setzt
+  `target_notional` und dann `target_qty = target_notional`).
+- **Nirgends in `src/` als DataFrame-Spalte gelesen** (post-Emit). Die einzigen
+  weiteren Literal-Vorkommen sind eine unabhängige lokale Variable in
+  `execution/pre_trade_checks.py` und ein Log-String-Label in
+  `execution/order_generation.py` — kein Spalten-Read.
+- Die `_tc_sizing`-Overlays mutieren **nur** `target_qty`, **nicht**
+  `target_notional`. Nach einem Overlay ist `target_notional` deshalb ein
+  **veralteter Pre-Overlay-Wert**, der bewusst von `target_qty` abweicht. Diese
+  Divergenz ist **BY DESIGN und harmlos**, weil niemand `target_notional`
+  post-Overlay liest.
+
+**Regel:** `target_notional` nach dem Position-Sizing-Emit **nicht** lesen. Wer
+nach den Overlays einen Notional-Wert braucht, nutzt `target_qty` (das ist die
+live mitgeführte Notional-Spalte, bis zur Order-Generierungs-Grenze).
+
+> Das frühere „~22 target_qty-Emitter / wert-identische Alias-Drift"-Framing aus
+> `docs/Diagnostik.md` ist irreführend: die `target_qty`/`target_notional`-Drift
+> ist harmlos (write-only Marker), die ECHTE Gefahr ist die Notional↔Shares-
+> Dualität von `target_qty` aus §3.1.
+
+**Sauberer Zukunfts-Fix (NICHT hier umgesetzt, größere Initiative):** eine
+eigene Spalte `target_shares` an der `order_generation`-Grenze einführen, sodass
+`target_qty` ausschließlich Notional bleibt und die Einheiten-Umschaltung nicht
+mehr stillschweigend am gleichen Spaltennamen hängt.
+
+**Guardrail-Tests** (pinnen das obige Verhalten gegen aktuellen Code):
+- `tests/portfolio/test_position_sizing_parity.py` — Emit-Zeit-Parität
+  `target_qty == target_notional` über alle Emit-Pfade (§3.2 Schreib-Invariante).
+- `tests/pipeline/test_tc_sizing_target_qty_notional_drift.py` — Overlay mutiert
+  nur `target_qty`, lässt `target_notional` stale → Divergenz BY DESIGN (§3.2).
+
 ---
 
 ## 4. Orders Contract
