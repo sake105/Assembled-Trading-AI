@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -202,7 +202,9 @@ def load_cost_tiers(yaml_path: str | Path | None = None) -> dict[str, dict]:
 
                 with open(yaml_path, encoding="utf-8") as f:
                     cfg = yaml.safe_load(f)
-                return cfg.get("tiers", _DEFAULT_TIERS)
+                return cast(
+                    "dict[str, dict[Any, Any]]", cfg.get("tiers", _DEFAULT_TIERS)
+                )
             except Exception as exc:
                 logger.warning(
                     "[CostModelPolicy] failed to load tiers from %s: %s", yaml_path, exc

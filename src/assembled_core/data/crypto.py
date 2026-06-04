@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import logging
 import time
+from types import ModuleType
+from typing import Any
 
 import pandas as pd
 
@@ -115,12 +117,12 @@ def _fetch_ohlc_single(
     coin_id: str,
     days: int,
     vs_currency: str,
-    requests: object,
+    requests: ModuleType,
     timeout: int,
 ) -> pd.DataFrame | None:
     """Fetch OHLC for a single coin from CoinGecko."""
     url = f"{_BASE_URL}/coins/{coin_id}/ohlc"
-    params = {"vs_currency": vs_currency, "days": days}
+    params: dict[str, Any] = {"vs_currency": vs_currency, "days": days}
 
     try:
         resp = requests.get(url, params=params, timeout=timeout)
@@ -189,7 +191,11 @@ def fetch_coingecko_market_chart(
         return pd.DataFrame(columns=["timestamp", "close", "volume"])
 
     url = f"{_BASE_URL}/coins/{coin_id}/market_chart"
-    params = {"vs_currency": vs_currency, "days": days, "interval": "daily"}
+    params: dict[str, Any] = {
+        "vs_currency": vs_currency,
+        "days": days,
+        "interval": "daily",
+    }
 
     try:
         resp = requests.get(url, params=params, timeout=timeout)

@@ -41,7 +41,7 @@ GEO_SERIES_TAGS = frozenset(
 
 def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 10) -> Any:
     try:
-        import httpx  # type: ignore[import]
+        import httpx
 
         headers = {"Accept": "application/json"}
         r = httpx.get(url, params=params, headers=headers, timeout=timeout)

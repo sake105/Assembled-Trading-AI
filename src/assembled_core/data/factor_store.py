@@ -158,7 +158,7 @@ def _load_all_partitions(panel_dir: Path) -> pd.DataFrame | None:
             try:
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 declared = set(int(y) for y in manifest.get("years", []))
-                loaded_years = set()
+                loaded_years: set[int] = set()
                 for df_part in dfs:
                     if "timestamp" in df_part.columns and not df_part.empty:
                         ts = pd.to_datetime(df_part["timestamp"], utc=True)

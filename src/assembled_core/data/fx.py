@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
+from types import ModuleType
 
 import pandas as pd
 
@@ -127,7 +128,7 @@ def _fetch_single_currency(
     currency: str,
     start_date: str,
     end_date: str,
-    requests: object,
+    requests: ModuleType,
     timeout: int,
 ) -> pd.DataFrame | None:
     """Fetch ECB SDMX-JSON data for a single currency pair."""

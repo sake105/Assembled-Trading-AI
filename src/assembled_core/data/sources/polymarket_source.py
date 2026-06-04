@@ -58,7 +58,7 @@ GEO_KEYWORDS = frozenset(
 def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 10) -> Any:
     """HTTP GET with httpx; returns parsed JSON or None on any error."""
     try:
-        import httpx  # type: ignore[import]
+        import httpx
 
         r = httpx.get(url, params=params, timeout=timeout)
         r.raise_for_status()

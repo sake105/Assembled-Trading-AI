@@ -75,7 +75,7 @@ class CBOESource:
             DataFrame with columns: timestamp, vix, vix3m.
         """
         try:
-            import yfinance as yf  # type: ignore
+            import yfinance as yf
         except ImportError:
             logger.warning("[CBOE] yfinance not installed — cannot fetch VIX")
             return pd.DataFrame(columns=["timestamp", "vix", "vix3m"])

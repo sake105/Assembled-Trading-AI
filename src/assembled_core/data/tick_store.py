@@ -32,7 +32,7 @@ _DRIVER: str | None = None
 _connect_fn: Any = None
 
 try:
-    import psycopg2  # type: ignore[import]
+    import psycopg2  # type: ignore[import-untyped]
 
     _DRIVER = "psycopg2"
     _connect_fn = psycopg2.connect
@@ -41,7 +41,7 @@ except ImportError:
 
 if _DRIVER is None:
     try:
-        import pg8000  # type: ignore[import]
+        import pg8000  # type: ignore[import-not-found]
 
         _DRIVER = "pg8000"
         _connect_fn = pg8000.connect

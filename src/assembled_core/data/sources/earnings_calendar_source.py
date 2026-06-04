@@ -198,7 +198,7 @@ class EarningsCalendarSource:
         end_date: datetime,
     ) -> list[dict]:
         """Fetch earnings dates via yfinance."""
-        import yfinance as yf  # type: ignore
+        import yfinance as yf
 
         ticker = yf.Ticker(symbol)
         cal = ticker.calendar

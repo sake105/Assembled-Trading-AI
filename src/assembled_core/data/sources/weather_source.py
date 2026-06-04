@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -79,7 +80,7 @@ def fetch_temperature_openmeteo(
         import requests
 
         url = "https://archive-api.open-meteo.com/v1/archive"
-        params = {
+        params: dict[str, Any] = {
             "latitude": latitude,
             "longitude": longitude,
             "start_date": start_date.isoformat(),
@@ -218,18 +219,19 @@ def fetch_temperature_noaa(
         start = (date.today() - timedelta(days=lookback_days)).isoformat()
         end = date.today().isoformat()
 
+        noaa_params: dict[str, Any] = {
+            "datasetid": "GHCND",
+            "stationid": station_id,
+            "datatypeid": "TAVG",
+            "startdate": start,
+            "enddate": end,
+            "limit": 1000,
+            "units": "metric",
+        }
         resp = requests.get(
             "https://www.ncei.noaa.gov/cdo-web/api/v2/data",
             headers={"token": token},
-            params={
-                "datasetid": "GHCND",
-                "stationid": station_id,
-                "datatypeid": "TAVG",
-                "startdate": start,
-                "enddate": end,
-                "limit": 1000,
-                "units": "metric",
-            },
+            params=noaa_params,
             timeout=15,
         )
         resp.raise_for_status()

@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import pandas as pd
 
@@ -108,7 +108,7 @@ async def on_demand_analysis(
             if cached:
                 import json
 
-                return json.loads(cached)
+                return cast("dict[str, Any]", json.loads(cached))
         except Exception as _exc:
             logger.debug("[tier_processor] Redis cache GET failed: %s", _exc)
 

@@ -43,7 +43,7 @@ def _to_naive(dt: date | pd.Timestamp) -> pd.Timestamp:
 def is_trading_day(dt: date | pd.Timestamp) -> bool:
     """Check whether *dt* is a valid NYSE trading session."""
     cal = get_nyse_calendar()
-    return cal.is_session(_to_naive(dt))
+    return bool(cal.is_session(_to_naive(dt)))
 
 
 def session_close_utc(dt: date | pd.Timestamp) -> pd.Timestamp:
@@ -88,7 +88,7 @@ def is_weekday(dt: date | pd.Timestamp) -> bool:
     Used as a fallback when exchange_calendars is not installed.
     Less precise than is_trading_day — does not know about market holidays.
     """
-    return pd.Timestamp(dt).weekday() < 5  # 0=Mon … 4=Fri
+    return bool(pd.Timestamp(dt).weekday() < 5)  # 0=Mon … 4=Fri
 
 
 def calendar_mode() -> str:

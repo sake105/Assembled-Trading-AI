@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, cast
 
 import pandas as pd
 
@@ -133,10 +133,10 @@ def get_universe_members(
             "Pass explicitly to suppress this warning."
         )
 
-    if isinstance(as_of, str):
-        as_of = pd.Timestamp(as_of)
-    if as_of.tzinfo is None:
-        as_of = as_of.tz_localize("UTC")
+    as_of_ts: pd.Timestamp = pd.Timestamp(as_of) if isinstance(as_of, str) else as_of
+    if as_of_ts.tzinfo is None:
+        as_of_ts = as_of_ts.tz_localize("UTC")
+    as_of = as_of_ts
 
     history = load_universe_history(universe_name=universe_name, root=root)
     if history.empty:
@@ -553,4 +553,4 @@ def select_top_adv_symbols(
     # Trailing lookback per symbol — take the last `lookback_days` rows each.
     recent = df.groupby("symbol", group_keys=False).tail(lookback_days)
     adv = recent.groupby("symbol")["dollar_volume"].mean().sort_values(ascending=False)
-    return adv.head(top_n).index.tolist()
+    return cast("list[str]", adv.head(top_n).index.tolist())

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def load_etf_universe(path: str | Path | None = None) -> dict[str, Any]:
         raise ValueError(f"[universe_etf] Malformed YAML in {resolved}: {exc}") from exc
 
     _ETF_UNIVERSE_CACHE[cache_key] = data
-    return data
+    return cast("dict[str, Any]", data)
 
 
 def get_all_symbols(universe: dict[str, Any]) -> list[str]:
