@@ -242,19 +242,48 @@ def _load_intel(
     # What this fixes, precisely (two consumers of intel_disclosures_triggers):
     #   1) apply_disclosures_confirm (risk/disclosures_confirm.py:39 early-returns
     #      when the flag is "DEGRADED") runs LATER inside THIS _load_intel call
-    #      (~L461, after this clear + the disclosures producer). So that consumer
+    #      (after this clear + the disclosures producer). So that consumer
     #      is de-latched SAME-CYCLE — it sees this bar's freshly-derived flag.
+    #      That same-cycle de-latch for the downstream consumer is the concrete
+    #      effect of this clear and is unaffected by anything below.
     #   2) compute_next_state (risk/state_machine.py:302 forces
     #      disclosures_confirmed=False while the flag is "DEGRADED") is the
     #      STATE-MACHINE consumer. It runs in ingest_data (~L170/L188) BEFORE this
-    #      _load_intel call (~L195). By the EXISTING cycle design, it therefore
-    #      reads the most-recent COMPLETED bar's disclosures health (intel is
-    #      one bar old by availability design), NOT this bar's. The clear removes
-    #      the whole-run latch for it too — the value the state machine reads is
-    #      now at most ONE bar old (the prior completed bar), never latched
-    #      permanently. This fix does NOT make the state machine use same-bar
-    #      disclosures health; the same-bar re-ordering (compute_next_state after
-    #      _load_intel) is a SEPARATE scoped follow-up on the risk-state path.
+    #      _load_intel call (~L195) — i.e. one STAGE earlier in the SAME bar, not
+    #      one bar earlier. The state machine does NOT read a prior bar's intel:
+    #      the canonical backtest driver (qa.backtest_engine.make_cycle_fn ~L344)
+    #      rebuilds each bar via dataclasses.replace WITHOUT passing news_geo /
+    #      disclosures_triggers / crisis_state_intel, so there is NO per-bar carry
+    #      of loaded intel into the next bar's state-machine read. At
+    #      compute_next_state time these ctx fields therefore hold the TEMPLATE
+    #      value (normally None / empty intel_health_flags), so the flag the state
+    #      machine reads is the cleared/absent default — NOT a prior bar's health.
+    #      The earlier "intel is one bar old by availability design" wording was
+    #      IMPRECISE and is corrected here.
+    #
+    #      _load_intel is DELIBERATELY ordered AFTER compute_next_state. This is a
+    #      PIT FIREWALL, not an accident: the geo/disclosures sources _load_intel
+    #      reads are NOT as_of-indexed. news_geo (data/intel/crisis_state.json,
+    #      producer below) is a single live "latest" snapshot with no as_of slice;
+    #      disclosures_triggers (output/intel/disclosures/triggers_latest.json via
+    #      load_disclosures_triggers(path), producer below) takes only a path, does
+    #      NO PIT filtering, and is a single snapshot keyed by one generated_utc.
+    #      Only ctx.market_stress is genuinely PIT-guarded (as_of price slice).
+    #      Reordering _load_intel ahead of compute_next_state would inject TODAY's
+    #      live snapshot into every historical bar's risk-state transitions
+    #      (WATCH->ACTIVE/PAUSE) = a backtest look-ahead ON THE RISK-STATE PATH
+    #      (anti-pattern E-002), in the most sensitive component. So the current
+    #      ordering is intentional and must be preserved.
+    #
+    #      Net effect of this clear on consumer (2): it removes the whole-run
+    #      DEGRADED latch, so the state machine no longer sees a permanently-stuck
+    #      flag from some earlier bar; it reads the cleared default each bar. It
+    #      does NOT — and by design must not — make the state machine consume
+    #      same-bar disclosures health. The same-bar wiring (compute_next_state
+    #      after _load_intel) is CLOSED / WONT-FIX-by-design: genuine same-bar
+    #      consumption would FIRST require as_of-indexed, PIT-safe disclosures /
+    #      crisis panels (a separate large feature); without that it is a
+    #      look-ahead. It is NOT a "separate scoped follow-up" to be wired later.
     #
     # crisis_alpha/market_stress have no "DEGRADED" consumer today (latent-inert)
     # but are cleared too so a future consumer is safe. Convention is healthy ==
