@@ -25,8 +25,15 @@ classifiers = [
 
 # Runtime dependencies (from requirements.txt)
 dependencies = [
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
+    # numpy/pandas floors are pinned to the requirements.txt versions (numpy==2.2.6,
+    # pandas==2.2.3) so a local `pip install -e .[dev]` cannot resolve BELOW the CI
+    # pin. A lower numpy ships looser stubs that miss numpy-2.x-strict mypy errors CI
+    # catches → local mypy would pass while the blocking CI mypy gate fails (Rule-40
+    # dep-drift). Kept as >= (not ==) so a newer numpy/pandas with even stricter stubs
+    # is allowed: local-passes then implies CI-passes; only local-below-CI breaks, and
+    # the raised floor now blocks that direction.
+    "pandas>=2.2.3",
+    "numpy>=2.2.6",
     "pyarrow>=10.0.0",
     "fastparquet>=2023.1.0",
     "python-dateutil>=2.9.0",
