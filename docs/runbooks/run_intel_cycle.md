@@ -3,6 +3,14 @@
 **Script:** `scripts/run_intel_cycle.py`  
 **Purpose:** Fetch GDELT events every 15 minutes, update crisis state, write geo-trigger artifacts.
 
+> ⚠️ **PIT note (crisis_state.json):** this script writes `data/intel/crisis_state.json` — the SAME
+> path `_load_intel` reads for `ctx.news_geo` / `ctx.crisis_state_intel`. The snapshot is a single
+> "latest" state with NO point-in-time index. It is intentionally injected ONLY in live/EOD; in a
+> backtest (`as_of` set) it is NOT injected and the intel flag is DEGRADED (since commit `83f3c2c8`),
+> because `CrisisState` carries no availability timestamp to filter on. So running this intel cycle
+> and THEN backtesting is PIT-safe now — but do not hand-feed a `crisis_state.json` into a backtest
+> expecting historical-accurate crisis state; it would be today's snapshot.
+
 ---
 
 ## Start

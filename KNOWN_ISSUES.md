@@ -1763,3 +1763,19 @@ abgearbeitet. Alle lokal verifiziert, **CI NICHT gelaufen**.
   *Verengung* auf spezifische Exception-Typen, insbesondere in den 6 Schutzzonen
   (execution/risk/accounting/pipeline/paper) — Cross-Codebase-Narrowing ist ein eigener Task,
   nicht Teil des CI-Unblocks. Der Guard fängt weiterhin eine unkontrollierte Proliferation.
+
+### crisis_state Look-Ahead — Kontaminations-Untersuchung (2026-06-05) — KEINE Kontamination, latent-only
+Nach Item 1 Batch 2 (`83f3c2c8`) read-only untersucht, ob committete Backtest-Ergebnisse durch eine
+vorhandene `crisis_state.json` (Crash-Engine + crisis_alpha-Look-Ahead) kontaminiert waren.
+**Ergebnis: NEIN — der Defekt war real, aber rein latent.** Belege: `crisis_state.json` war NIE in
+Git committed und ist nicht auf der Platte (`git log --all -- "**/crisis_state.json"` leer, Glob
+leer); die einzigen committeten Docs, deren Harness die Datei lesen *könnte*
+(`docs/results/2026_05_{pipeline_realistic,dual_momentum_literal,etf_pairs_literal}_oos.md`), liefen
+auf Equity/ETF-Universen OHNE die Datei (→ `crisis_state_intel=None` → Geo-Signale 0.0) UND setzen
+zusätzlich `ASSEMBLED_NO_CRISIS_OVERLAY=1`; alle übrigen `*_real_oos`/Sektor-Docs sind vektorisierte
+Harnesses (rufen `_load_intel` nie) oder synthetisch (COVID-2020). **→ Kein Re-Baseline, kein
+Superseded-Banner.** Die Vorbedingung (Datei auf Platte + crisis_alpha enabled + Crash/Overlay-Pfad
+mit non-None State) war in keinem committeten Ergebnis je gleichzeitig erfüllt. Foot-gun (geschlossen
+durch `83f3c2c8` Backtest-DEGRADE): der Intel-Writer `run_intel_cycle.py`
+(`_DEFAULT_OUTPUT_DIR="data/intel"`) schreibt genau die Datei, die der Reader liest — pre-fix ein
+Live-Foot-gun für jeden, der nach einem Intel-Lauf backtestete; post-fix in Backtest sicher DEGRADED.
