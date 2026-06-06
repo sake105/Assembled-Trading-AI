@@ -10,6 +10,14 @@
 > bewusst NICHT ausgeführt: der ursprüngliche Alpaca-Preis-Cache existiert nicht mehr
 > (kein byte-reproduzierbares Before/After) und die mfv2-Produktionsgewichtung ist
 > derzeit ~0. Re-Run erst bei erneuter mfv2-Produktionsbetrachtung. Siehe KNOWN_ISSUES.md.
+>
+> **UPDATE (2026-06-06) — Re-Run ausgeführt, Zweifel ausgeräumt.** Der Re-Run lief jetzt
+> (frische Alpaca-Daten, da der Original-Cache fehlt → Code+Daten kombiniert, offengelegt).
+> Ergebnis: Ø CAGR **10.7% unverändert**, Ø Sharpe **0.36→0.37**, Sharpe-Δ vs TA-only
+> **+0.00→+0.01** — der Look-Ahead-Fix (E-038) ist **immateriell**. Die obigen Zahlen waren in
+> der **Schlussfolgerung nie unzuverlässig**: mfv2 Full-Stack hat mit oder ohne Macro-Look-Ahead
+> keinen risk-adjustierten Edge gegenüber SPY (0.37 vs 0.95); die Produktionsgewichtung bleibt ~0.
+> Vollständiger Vergleich: `docs/results/2026_06_oos_edge_rerun_postsweep.md`.
 
 **Erstellt:** 2026-05-28  
 **Branch:** main  

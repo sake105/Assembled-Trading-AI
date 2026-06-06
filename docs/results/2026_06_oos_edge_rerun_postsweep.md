@@ -92,15 +92,25 @@ All 11 strategies still REJECTED. **10 of 11 books are bit-identical** old→new
 
 \* `resmom_ls` −0.10→−0.09 and `high52w_lo` +1.16→+1.15 are sub-0.01 rounding.
 
-**Attribution = CODE (not data).** The control `leverage_short` runs the *same* `bab_ls` signal on the
-*same* universe/window/data via *unchanged* vectorized code and is **bit-identical** old→new — so the
-prices `bab_ls` consumes did not change. With data held fixed, the −0.30 Sharpe move is a code effect of
-the sweep, and it is isolated to the **only leverage/beta-scaled book** (the other 10 are byte-stable).
-The likeliest source is the turnover/sizing notional-unit corrections in the sweep (e.g. the
-turnover-budget unit-mix fix `b3bde616`), which would bite only on a book that applies leverage/beta
-scaling. **Direction-of-correctness (is −0.36 the corrected number and −0.06 the previously-inflated one,
-or a regression?) is not yet determined** — see follow-up. Either way `bab_ls` was and remains REJECTED;
-no edge is created or destroyed.
+**Attribution = CODE (not data), root-caused by per-commit bisect.** The control `leverage_short` runs
+the *same* `bab_ls` signal on the *same* universe/window/data via *unchanged* vectorized code and is
+**bit-identical** old→new — so the prices did not change. A bab_ls-only worktree bisect across the whole
+`329a3240..faf1eef8` range pinned the transition to a single commit: **`b3bde616`** (the turnover-gate
+unit-mix fix, Item C1) — `64b7063e` → −0.06, `b3bde616` → −0.36, stable on both sides.
+
+**It is a CORRECTION, not a regression — `−0.36` is the honest number; the old `−0.06` was inflated by a
+unit-mix bug.** `apply_turnover_gate` blended the *current* leg in **shares** (`cq`) with the *target* in
+**notional** dollars (`tq`): `cq + scale·(tq − cq)` — wrong-by-units. On a turnover-cap-firing day with a
+held position, that value became the live order size (`order_generation: shares = qty/price`). The fix
+converts the current leg to notional first (`cq_notional = cq·price`) so the ramp is all-notional and
+equals the `target_weight × portfolio_value` contract. `bab_ls` is affected because it is the only
+leveraged/high-turnover book — it fires the cap with the largest held notional, so the error
+(`~cq·(price−1)·(1−scale)`) was largest; the other 10 books rarely fire the cap → byte-identical. The
+gate is on this path despite `enable_risk_controls=False` because it fires on `policy.turnover_budget`
+being configured (`_tc_sizing.size_positions:2250`), not on the risk-controls flag. Per the commit the
+same fix corrected a **real live-order sizing bug** on cap-firing days ("LIVE IMPACT, NOT latent") — the
+OOS re-run independently surfaced that fix's footprint. `bab_ls` was and remains REJECTED; the only effect
+is a more honest (more rejected) backtest number.
 
 ### `mfv2_full` — macro-PIT-fix re-baseline (the SUPERSEDED doc)
 
@@ -128,12 +138,15 @@ consolidated report is the durable artifact of the exercise.
 
 ## Follow-ups
 
-1. **`bab_ls` literal-pipeline code-effect (−0.06→−0.36).** One-commit bisect over the sweep's
-   turnover/sizing changes to confirm whether `b3bde616` (turnover-budget notional-unit fix) is the
-   cause and whether the new number is the *corrected* one. Non-urgent (research-harness book, rejected
-   either way; no production strategy uses this path).
-2. **mfv2_full SUPERSEDED banner** can be lifted/annotated: the re-baseline shows the look-ahead was
-   immaterial, so the doc's conclusion was never unreliable.
+1. **`bab_ls` literal-pipeline code-effect (−0.06→−0.36) — RESOLVED.** Per-commit bab_ls bisect pinned
+   it to `b3bde616` (turnover-gate unit-mix fix, Item C1); `−0.36` is the **corrected** number, the old
+   `−0.06` was inflated by a shares-vs-notional unit-mix on turnover-cap-firing days. See the
+   `pipeline_realistic` section above. No further action — the fix is correct and also repaired a real
+   live-order sizing bug. (Open sub-item from `b3bde616` itself, unrelated to this re-run: the
+   `behavior='block'` branch carries the same latent unit-mix but only fires on empty prices where
+   order-gen skips the order — already logged as that commit's own follow-up.)
+2. **mfv2_full SUPERSEDED banner — DONE.** Annotated in `docs/results/2026_05_mfv2_full_stack_real_oos.md`
+   with the re-baseline result (look-ahead immaterial, conclusion was never unreliable).
 
 _Harnesses re-run on the repo venv (Py 3.11.9, numpy 2.2.6, pandas 2.2.3 — the CI vintage). Local
 one-shot; not a CI run. No production module edited; research harnesses set `ASSEMBLED_NO_CRISIS_OVERLAY=1`
