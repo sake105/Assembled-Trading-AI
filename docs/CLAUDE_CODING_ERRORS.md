@@ -529,3 +529,27 @@
 - Ein blockierender mypy-Gate fängt Import-Drift künftig (siehe Commit `2ca6bea4`).
 **Erkannt in:** `src/assembled_core/signals/meta_model.py` (Fix `5266b1eb`, inline q-Intervall statt archiviertem Import), `src/assembled_core/execution/unified_paper_engine.py:106/142` (Fix `9b642ce5`: :142 dead-removal byte-identical; :106 `_HAS_LEDGER=False` gepinnt + Re-Aktivierung als Decision deferred). Von senior-code-reviewer (E-NEW-1-Vorschlag) + risk-execution-reviewer gefangen.
 **Referenzen:** E-003 (silent `except Exception: pass` — generischer Vorläufer), E-025 (Loader Fail-Open maskiert Korruption), E-024 (Infra ohne Consumer-Wiring); Rule 20 (CI/mypy-Gate), CLAUDE.md „stille except-Pfadlogik die Fehler maskiert".
+
+## E-044 — Cross-Source-Dedupe auf einem nicht-kanonisierten Roh-Label zählt still doppelt
+**Datum:** 2026-06-09
+**Kategorie:** logic-error / data-correctness / test-blind-spot
+**Was passierte:** Ein Multi-Mirror-Congress-Ingester (kadoa + house-stock-watcher) deduplizierte überlappende House-Trades per `drop_duplicates(subset=[symbol, event_date, disclosure_date, transaction_type])` — auf dem ROHEN Quell-Label. Dieselbe ökonomische House-PTR-Verkaufstransaktion trägt je Mirror unterschiedliche Roh-Labels („Sale (Partial)"/„Sale (Full)" bei kadoa vs. „Sale" bei house-watcher); KÄUFE kollidierten zufällig (beide „Purchase") und deduplizierten korrekt — was Fixtures/Tests grün erscheinen ließ —, VERKÄUFE überlebten dagegen doppelt. Der gewirte Consumer `add_congress_features` summiert UNSIGNED `amount` → das live `congress_total_amount_*`-Feature wurde für jeden in beiden Mirrors vorhandenen House-Verkauf inflationiert. Eine normalisierte `type`-Spalte (buy/sell) existierte bereits, wurde aber NICHT als Dedupe-Key verwendet.
+**Warum falsch:** Dedupe-/Merge-Keys müssen aus KANONISIERTEN Feldern gebaut werden, nicht aus rohen Per-Source-Strings. Zufällige Übereinstimmung bei genau einem Wert (Käufe) maskiert den Defekt und erzeugt falsche Test-Sicherheit; der Unsigned-Amount-Consumer inflationiert dann still.
+**Wie erkennen:**
+- `drop_duplicates`/Merge-Key, der eine Roh-Label-Spalte enthält, deren Werte sich zwischen Quellen für dasselbe Ereignis unterscheiden.
+- Tests/Fixtures, in denen nur EINE Kategorie (z. B. Käufe) über die Quellen überlappt, sodass der Sell-Pfad ungetestet bleibt.
+**Wie vermeiden:**
+- Auf normalisierte/kanonische Spalten deduplizieren (hier `type` mit Roh-Label-Fallback für None-Sides, damit distinkte Unknown/Exchange-Trades nicht über-kollabieren).
+- Regressionstest, der DASSELBE logische Record in JEDER Quell-Roh-Form füttert und genau 1 überlebende Zeile assertiert; zusätzlich opposite-side same-day → 2 Zeilen.
+**Erkannt in:** `src/assembled_core/data/congress_trades_ingest.py` (`ingest_congress` → neue `dedupe_congress`). Von senior-code-reviewer (Stage 2) gefangen; Stage 1 (PIT-fokussiert) hatte es übersehen.
+**Referenzen:** E-037 (geteilter Cache per Symbol-Validität → Cross-Producer-Kontamination), E-045 (selbe Session/Feature), E-039 (still überschriebene Status-Größe).
+
+## E-045 — Binäres `np.where`-Sign-Mapping macht 'unknown/None' zu einem harten SELL (fail-open)
+**Datum:** 2026-06-09
+**Kategorie:** silent-degradation / fail-open / sign-fabrication
+**Was passierte:** Ein Net-Buy-Score leitete das Vorzeichen via `np.where(side.isin(("buy","purchase")), +1, -1)` ab — zwei-zweigig. Ein Producer, der legitim `None` für unbekannte/Exchange-Sides emittiert, bekam diese Zeilen als SELL (−amount) gewertet statt neutral. Der vorgelagerte Mitigations-Fix (normalisierte `type`-Spalte beim Producer) verlagerte das fail-open lediglich von „Sale→buy" (vorher: `type` fehlt → Default +1) auf „unknown→sell" — beseitigte es NICHT.
+**Warum falsch:** Ein Zwei-Zweig-`where` kollabiert eine Drei-Zustands-Domäne (buy/sell/unknown) auf zwei und fabriziert gerichtetes Signal aus fehlenden Daten — dieselbe fail-open-Klasse, die die Normalisierung eigentlich verhindern sollte. Ein Producer-seitiger Teilfix (Label normalisieren) schließt das Consumer-seitige fail-open NICHT, solange der Consumer einen binären Default hat.
+**Wie erkennen:** `where(cond, a, b)`, dessen `else`-Zweig einem Wert ein gerichtetes Vorzeichen/Signal zuweist, obwohl der Input drei Zustände (inkl. unknown/None) haben kann.
+**Wie vermeiden:** Drei-Zweig-Mapping `where(buy, +1, where(sell, -1, 0))` mit neutralem 0 für unknown; die 0/None-Zeilen vor der Aggregation droppen oder als 0 belassen. Nie einem Default-Zweig ein gerichtetes Vorzeichen für Unknown-Input geben.
+**Erkannt in:** `src/assembled_core/features/congress_features.py` (`compute_congress_net_buy_score`). Von senior-code-reviewer (Stage 2) als MAJOR gefangen (Folge der M1-Mitigation). Fix: Drei-Zweig + neutral, Regressionstest unknown→0.
+**Referenzen:** E-025 (Fail-Open maskiert), E-043 (silent dead-feature), E-044 (selbe Session/Feature).

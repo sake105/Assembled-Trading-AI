@@ -1,0 +1,457 @@
+<SEC-DOCUMENT>0000950170-24-113593.txt : 20241008
+<SEC-HEADER>0000950170-24-113593.hdr.sgml : 20241008
+<ACCEPTANCE-DATETIME>20241008181238
+ACCESSION NUMBER:		0000950170-24-113593
+CONFORMED SUBMISSION TYPE:	4
+PUBLIC DOCUMENT COUNT:		1
+CONFORMED PERIOD OF REPORT:	20241004
+FILED AS OF DATE:		20241008
+DATE AS OF CHANGE:		20241008
+
+REPORTING-OWNER:	
+
+	OWNER DATA:	
+		COMPANY CONFORMED NAME:			COVENANT RHA PARTNERS, L.P.
+		CENTRAL INDEX KEY:			0001274195
+		ORGANIZATION NAME:           	
+		STATE OF INCORPORATION:			TX
+		FISCAL YEAR END:			1231
+
+	FILING VALUES:
+		FORM TYPE:		4
+		SEC ACT:		1934 Act
+		SEC FILE NUMBER:	001-40937
+		FILM NUMBER:		241361127
+
+	BUSINESS ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 650
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+		BUSINESS PHONE:		214-999-6082
+
+	MAIL ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 650
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+
+	FORMER NAME:	
+		FORMER CONFORMED NAME:	COVENANT INVESTMENTS L P
+		DATE OF NAME CHANGE:	20031223
+
+REPORTING-OWNER:	
+
+	OWNER DATA:	
+		COMPANY CONFORMED NAME:			Webb C Clark
+		CENTRAL INDEX KEY:			0001694507
+		ORGANIZATION NAME:           	
+
+	FILING VALUES:
+		FORM TYPE:		4
+		SEC ACT:		1934 Act
+		SEC FILE NUMBER:	001-40937
+		FILM NUMBER:		241361128
+
+	MAIL ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+
+REPORTING-OWNER:	
+
+	OWNER DATA:	
+		COMPANY CONFORMED NAME:			Alpert Robert H
+		CENTRAL INDEX KEY:			0001694574
+		ORGANIZATION NAME:           	
+
+	FILING VALUES:
+		FORM TYPE:		4
+		SEC ACT:		1934 Act
+		SEC FILE NUMBER:	001-40937
+		FILM NUMBER:		241361129
+
+	MAIL ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+
+REPORTING-OWNER:	
+
+	OWNER DATA:	
+		COMPANY CONFORMED NAME:			CCW/LAW Holdings, LLC
+		CENTRAL INDEX KEY:			0001694778
+		ORGANIZATION NAME:           	
+		STATE OF INCORPORATION:			TX
+		FISCAL YEAR END:			1231
+
+	FILING VALUES:
+		FORM TYPE:		4
+		SEC ACT:		1934 Act
+		SEC FILE NUMBER:	001-40937
+		FILM NUMBER:		241361126
+
+	BUSINESS ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+		BUSINESS PHONE:		2149996082
+
+	MAIL ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+
+REPORTING-OWNER:	
+
+	OWNER DATA:	
+		COMPANY CONFORMED NAME:			210 Capital, LLC
+		CENTRAL INDEX KEY:			0001694780
+		ORGANIZATION NAME:           	
+		STATE OF INCORPORATION:			TX
+		FISCAL YEAR END:			1231
+
+	FILING VALUES:
+		FORM TYPE:		4
+		SEC ACT:		1934 Act
+		SEC FILE NUMBER:	001-40937
+		FILM NUMBER:		241361130
+
+	BUSINESS ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+		BUSINESS PHONE:		21479996082
+
+	MAIL ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+
+REPORTING-OWNER:	
+
+	OWNER DATA:	
+		COMPANY CONFORMED NAME:			RHA Investments, Inc.
+		CENTRAL INDEX KEY:			0001694781
+		ORGANIZATION NAME:           	
+		STATE OF INCORPORATION:			TX
+		FISCAL YEAR END:			1231
+
+	FILING VALUES:
+		FORM TYPE:		4
+		SEC ACT:		1934 Act
+		SEC FILE NUMBER:	001-40937
+		FILM NUMBER:		241361125
+
+	BUSINESS ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+		BUSINESS PHONE:		2149996082
+
+	MAIL ADDRESS:	
+		STREET 1:		8214 WESTCHESTER DRIVE
+		STREET 2:		SUITE 950
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75225
+
+ISSUER:		
+
+	COMPANY DATA:	
+		COMPANY CONFORMED NAME:			P10, Inc.
+		CENTRAL INDEX KEY:			0001841968
+		STANDARD INDUSTRIAL CLASSIFICATION:	INVESTMENT ADVICE [6282]
+		ORGANIZATION NAME:           	02 Finance
+		IRS NUMBER:				000000000
+		STATE OF INCORPORATION:			DE
+		FISCAL YEAR END:			1231
+
+	BUSINESS ADDRESS:	
+		STREET 1:		4514 COLE AVENUE, SUITE 1600
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75205
+		BUSINESS PHONE:		(214) 999-6063
+
+	MAIL ADDRESS:	
+		STREET 1:		4514 COLE AVENUE, SUITE 1600
+		CITY:			DALLAS
+		STATE:			TX
+		ZIP:			75205
+</SEC-HEADER>
+<DOCUMENT>
+<TYPE>4
+<SEQUENCE>1
+<FILENAME>ownership.xml
+<DESCRIPTION>4
+<TEXT>
+<XML>
+<?xml version="1.0"?>
+<ownershipDocument>
+
+    <schemaVersion>X0508</schemaVersion>
+
+    <documentType>4</documentType>
+
+    <periodOfReport>2024-10-04</periodOfReport>
+
+    <issuer>
+        <issuerCik>0001841968</issuerCik>
+        <issuerName>P10, Inc.</issuerName>
+        <issuerTradingSymbol>PX</issuerTradingSymbol>
+    </issuer>
+
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0001694780</rptOwnerCik>
+            <rptOwnerName>210 Capital, LLC</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerAddress>
+            <rptOwnerStreet1>C/O P10, INC.</rptOwnerStreet1>
+            <rptOwnerStreet2>4514 COLE AVENUE, SUITE 1600</rptOwnerStreet2>
+            <rptOwnerCity>DALLAS</rptOwnerCity>
+            <rptOwnerState>TX</rptOwnerState>
+            <rptOwnerZipCode>75205</rptOwnerZipCode>
+            <rptOwnerStateDescription></rptOwnerStateDescription>
+        </reportingOwnerAddress>
+        <reportingOwnerRelationship>
+            <isDirector>true</isDirector>
+            <isOfficer>true</isOfficer>
+            <isTenPercentOwner>true</isTenPercentOwner>
+            <isOther>false</isOther>
+            <officerTitle>See Remarks</officerTitle>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0001694574</rptOwnerCik>
+            <rptOwnerName>Alpert Robert H</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerAddress>
+            <rptOwnerStreet1>4514 COLE AVENUE, SUITE 1600</rptOwnerStreet1>
+            <rptOwnerStreet2></rptOwnerStreet2>
+            <rptOwnerCity>DALLAS</rptOwnerCity>
+            <rptOwnerState>TX</rptOwnerState>
+            <rptOwnerZipCode>75205</rptOwnerZipCode>
+            <rptOwnerStateDescription></rptOwnerStateDescription>
+        </reportingOwnerAddress>
+        <reportingOwnerRelationship>
+            <isDirector>true</isDirector>
+            <isOfficer>false</isOfficer>
+            <isTenPercentOwner>true</isTenPercentOwner>
+            <isOther>true</isOther>
+            <otherText>See Remarks</otherText>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0001694507</rptOwnerCik>
+            <rptOwnerName>Webb C Clark</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerAddress>
+            <rptOwnerStreet1>4514 COLE AVENUE, SUITE 1600</rptOwnerStreet1>
+            <rptOwnerStreet2></rptOwnerStreet2>
+            <rptOwnerCity>DALLAS</rptOwnerCity>
+            <rptOwnerState>TX</rptOwnerState>
+            <rptOwnerZipCode>75205</rptOwnerZipCode>
+            <rptOwnerStateDescription></rptOwnerStateDescription>
+        </reportingOwnerAddress>
+        <reportingOwnerRelationship>
+            <isDirector>true</isDirector>
+            <isOfficer>true</isOfficer>
+            <isTenPercentOwner>true</isTenPercentOwner>
+            <isOther>true</isOther>
+            <officerTitle>See Remarks</officerTitle>
+            <otherText>See Remarks</otherText>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0001274195</rptOwnerCik>
+            <rptOwnerName>COVENANT RHA PARTNERS, L.P.</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerAddress>
+            <rptOwnerStreet1>4514 COLE AVENUE, SUITE 1600</rptOwnerStreet1>
+            <rptOwnerStreet2></rptOwnerStreet2>
+            <rptOwnerCity>DALLAS</rptOwnerCity>
+            <rptOwnerState>TX</rptOwnerState>
+            <rptOwnerZipCode>75205</rptOwnerZipCode>
+            <rptOwnerStateDescription></rptOwnerStateDescription>
+        </reportingOwnerAddress>
+        <reportingOwnerRelationship>
+            <isDirector>false</isDirector>
+            <isOfficer>false</isOfficer>
+            <isTenPercentOwner>true</isTenPercentOwner>
+            <isOther>true</isOther>
+            <otherText>See Remarks</otherText>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0001694778</rptOwnerCik>
+            <rptOwnerName>CCW/LAW Holdings, LLC</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerAddress>
+            <rptOwnerStreet1>4514 COLE AVENUE, SUITE 1600</rptOwnerStreet1>
+            <rptOwnerStreet2></rptOwnerStreet2>
+            <rptOwnerCity>DALLAS</rptOwnerCity>
+            <rptOwnerState>TX</rptOwnerState>
+            <rptOwnerZipCode>75205</rptOwnerZipCode>
+            <rptOwnerStateDescription></rptOwnerStateDescription>
+        </reportingOwnerAddress>
+        <reportingOwnerRelationship>
+            <isDirector>false</isDirector>
+            <isOfficer>false</isOfficer>
+            <isTenPercentOwner>true</isTenPercentOwner>
+            <isOther>true</isOther>
+            <otherText>See Remarks</otherText>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0001694781</rptOwnerCik>
+            <rptOwnerName>RHA Investments, Inc.</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerAddress>
+            <rptOwnerStreet1>4514 COLE AVENUE, SUITE 1600</rptOwnerStreet1>
+            <rptOwnerStreet2></rptOwnerStreet2>
+            <rptOwnerCity>DALLAS</rptOwnerCity>
+            <rptOwnerState>TX</rptOwnerState>
+            <rptOwnerZipCode>75205</rptOwnerZipCode>
+            <rptOwnerStateDescription></rptOwnerStateDescription>
+        </reportingOwnerAddress>
+        <reportingOwnerRelationship>
+            <isDirector>false</isDirector>
+            <isOfficer>false</isOfficer>
+            <isTenPercentOwner>true</isTenPercentOwner>
+            <isOther>true</isOther>
+            <otherText>See Remarks</otherText>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+
+    <aff10b5One>true</aff10b5One>
+
+    <nonDerivativeTable>
+        <nonDerivativeTransaction>
+            <securityTitle>
+                <value>Class A Common Stock</value>
+                <footnoteId id="F1"/>
+                <footnoteId id="F2"/>
+            </securityTitle>
+            <transactionDate>
+                <value>2024-10-04</value>
+            </transactionDate>
+            <transactionCoding>
+                <transactionFormType>4</transactionFormType>
+                <transactionCode>S</transactionCode>
+                <equitySwapInvolved>false</equitySwapInvolved>
+                <footnoteId id="F3"/>
+            </transactionCoding>
+            <transactionAmounts>
+                <transactionShares>
+                    <value>247424</value>
+                </transactionShares>
+                <transactionPricePerShare>
+                    <value>11.0517</value>
+                    <footnoteId id="F4"/>
+                </transactionPricePerShare>
+                <transactionAcquiredDisposedCode>
+                    <value>D</value>
+                </transactionAcquiredDisposedCode>
+            </transactionAmounts>
+            <postTransactionAmounts>
+                <sharesOwnedFollowingTransaction>
+                    <value>2750000</value>
+                </sharesOwnedFollowingTransaction>
+            </postTransactionAmounts>
+            <ownershipNature>
+                <directOrIndirectOwnership>
+                    <value>I</value>
+                </directOrIndirectOwnership>
+                <natureOfOwnership>
+                    <value>See Footnote</value>
+                    <footnoteId id="F5"/>
+                </natureOfOwnership>
+            </ownershipNature>
+        </nonDerivativeTransaction>
+        <nonDerivativeHolding>
+            <securityTitle>
+                <value>Class A Common Stock</value>
+                <footnoteId id="F1"/>
+                <footnoteId id="F2"/>
+            </securityTitle>
+            <postTransactionAmounts>
+                <sharesOwnedFollowingTransaction>
+                    <value>339028</value>
+                </sharesOwnedFollowingTransaction>
+            </postTransactionAmounts>
+            <ownershipNature>
+                <directOrIndirectOwnership>
+                    <value>D</value>
+                    <footnoteId id="F6"/>
+                </directOrIndirectOwnership>
+            </ownershipNature>
+        </nonDerivativeHolding>
+        <nonDerivativeHolding>
+            <securityTitle>
+                <value>Class A Common Stock</value>
+                <footnoteId id="F1"/>
+                <footnoteId id="F2"/>
+            </securityTitle>
+            <postTransactionAmounts>
+                <sharesOwnedFollowingTransaction>
+                    <value>334150</value>
+                </sharesOwnedFollowingTransaction>
+            </postTransactionAmounts>
+            <ownershipNature>
+                <directOrIndirectOwnership>
+                    <value>D</value>
+                    <footnoteId id="F7"/>
+                </directOrIndirectOwnership>
+            </ownershipNature>
+        </nonDerivativeHolding>
+    </nonDerivativeTable>
+
+    <footnotes>
+        <footnote id="F1">This Form 4 is being filed by: (i) 210 Capital, LLC (&quot;210 Capital&quot;), in its capacity as the sole member of 210/P10 Acquisition Partners, LLC, the direct holder of shares of Class B Common Stock (&quot;210/P10&quot;); (ii) Covenant RHA Partners, L.P. (&quot;RHA Partners&quot;), in its capacity as member of 210 Capital; (iii) CCW/LAW Holdings, LLC (&quot;CCW Holdings&quot;), in its capacity as member of 210 Capital; (iv) Mr. Webb, individually and in his capacity as sole member of CCW Holdings, and in his capacity as Executive Vice Chairman and a director of the Issuer; (v) RHA Investments, Inc. (&quot;RHA Investments&quot;), in its capacity as general partner of RHA Partners; and (vi) Mr. Alpert, individually and in his capacity as President and sole shareholder of RHA Investments, and in his capacity as a director of the Issuer (collectively, the &quot;Reporting Persons&quot;).</footnote>
+        <footnote id="F2">(Continued from footnote 1) Each Reporting Person disclaims beneficial ownership of the securities of the Issuer reported herein, except to the extent of his or its pecuniary interest therein, and the filing of this Form 4 shall not be construed as an admission that such persons are beneficial owners of the securities of the Issuer reported herein.</footnote>
+        <footnote id="F3">The sales reported on this Form 4 were effected pursuant to a Rule 10b5-1 trading plan adopted by 210/P10 on December 10, 2023.</footnote>
+        <footnote id="F4">The price reported in Column 4 is a weighted average price. These shares were sold in multiple transactions at prices ranging from $11.00 to $11.13, inclusive. The reporting person undertakes to provide to the Issuer, any security holder of the Issuer or the staff of the Securities and Exchange Commission, upon request, full information regarding the number of shares sold at each separate price.</footnote>
+        <footnote id="F5">These securities are owned directly by 210/P10. By virtue of their relationship with 210/P10 described in Footnote 1, each Reporting Person may be deemed to beneficially own the securities of the Issuer owned directly by 210/P10.</footnote>
+        <footnote id="F6">These securities are owned directly by Mr. Alpert.</footnote>
+        <footnote id="F7">These securities are owned directly by Mr. Webb.</footnote>
+    </footnotes>
+
+    <remarks>The Reporting Persons may be deemed to be members of group under Section 13 that collectively beneficially owns more than 10% of the Issuer's Common Stock. In addition, Mr. Webb serves as Executive Vice Chairman of the Issuer, and Mr. Alpert and Mr. Webb each serve as a director on the Board of Directors of the Issuer.</remarks>
+
+    <ownerSignature>
+        <signatureName>/s/C. Clark Webb, as Attorney-in-Fact for the Reporting Persons</signatureName>
+        <signatureDate>2024-10-08</signatureDate>
+    </ownerSignature>
+</ownershipDocument>
+</XML>
+</TEXT>
+</DOCUMENT>
+</SEC-DOCUMENT>

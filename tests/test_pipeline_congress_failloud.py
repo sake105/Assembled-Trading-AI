@@ -1,15 +1,21 @@
-"""Sub-Project A / Task A1b — congress import surfaces missing module loudly.
+"""Sub-Project A / Task A1b — congress import handler in trading_cycle_shared.
 
 The production handler is in `trading_cycle_shared._build_features_default`
 inside a try/except around `from src.assembled_core.data.congress_trades_ingest`.
 A full integration test would require constructing a real `TradingContext` with
 `feature_cfg.include_congress=True`, which is research-work-scoped (out of plan).
 
+UPDATE 2026-06-09: the `congress_trades_ingest` module has now been BUILT (free
+House+Senate STOCK-Act ingester). The earlier "ghost-module" precondition test
+is replaced by one asserting the module exists and exposes `load_congress_sample`.
+The defensive try/except in the handler is intentionally KEPT — it still guards
+against runtime errors from load/merge and against the module being removed again.
+
 Senior-review F-senior-3 caught a self-verifying-warning antipattern in the
 earlier version of this file — the test emitted its own warning and asserted
-on caplog. That has been removed. The remaining tests verify (a) the
-ghost-module precondition and (b) static guarantees about the handler text in
-the source file. They do NOT depend on production code emitting a log signal.
+on caplog. That has been removed. The remaining tests verify static guarantees
+about the handler text in the source file. They do NOT depend on production code
+emitting a log signal.
 """
 
 from __future__ import annotations
@@ -17,22 +23,20 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TRADING_CYCLE_SHARED = (
     REPO_ROOT / "src" / "assembled_core" / "pipeline" / "trading_cycle_shared.py"
 )
 
 
-def test_congress_module_is_missing_from_repo():
-    """Sanity: confirm the ghost-module condition that motivates this test."""
-    with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("src.assembled_core.data.congress_trades_ingest")
+def test_congress_module_exists_and_exposes_loader():
+    """The congress ingester is now built and exposes the pipeline entry point."""
+    mod = importlib.import_module("src.assembled_core.data.congress_trades_ingest")
+    assert hasattr(mod, "load_congress_sample")
 
 
 def test_trading_cycle_shared_imports_cleanly_despite_missing_congress():
-    """The shared module must import even though congress_trades_ingest is absent."""
+    """The shared module must import cleanly (the defensive handler is kept)."""
     mod = importlib.import_module("src.assembled_core.pipeline.trading_cycle_shared")
     assert hasattr(mod, "_build_features_default")
 

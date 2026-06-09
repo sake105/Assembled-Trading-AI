@@ -162,6 +162,17 @@ class Settings(BaseSettings):
         "Set via ASSEMBLED_TWELVE_DATA_API_KEY environment variable.",
     )
 
+    # SEC EDGAR fair-access policy REQUIRES a declared User-Agent with a real
+    # contact (org + email); an undeclared UA returns HTTP 403. Used by the
+    # free Form 4 insider ingester (edgar_form4_ingest). The unprefixed
+    # SEC_USER_AGENT env var takes precedence over this setting (see
+    # edgar_form4_ingest.resolve_user_agent).
+    sec_user_agent: str | None = Field(
+        default=None,
+        description="SEC EDGAR User-Agent, e.g. 'Assembled-Trading-AI you@example.com'. "
+        "Set via ASSEMBLED_SEC_USER_AGENT (or the unprefixed SEC_USER_AGENT) env var.",
+    )
+
     # Local data root for Alt-Daten snapshots (optional)
     # If set, Parquet files are loaded from <local_data_root>/<freq>/<symbol>.parquet
     # If None, uses default behavior (output/aggregates/{freq}.parquet)

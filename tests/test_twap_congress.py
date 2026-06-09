@@ -163,7 +163,7 @@ def test_congress_features_add_columns() -> None:
             "close": [150.0 + i for i in range(10)],
         }
     )
-    events = load_congress_sample()  # dummy data
+    events = load_congress_sample(allow_sample=True)  # explicit opt-in (fail-loud)
 
     result = add_congress_features(prices, events)
     assert "congress_trade_count_60d" in result.columns

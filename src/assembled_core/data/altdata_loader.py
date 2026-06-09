@@ -140,14 +140,39 @@ def load_insider_filings(
 ) -> pd.DataFrame:
     """Load insider filings for symbols, PIT-safe.
 
-    Returns DataFrame with columns: [symbol, filing_date, shares_delta].
-    Note: transaction_type is currently 'unknown' for all rows (data quality issue).
+    Returns a DataFrame carrying the columns the live insider factor requires:
+    ``[symbol, filing_date, transaction_type, value_usd, shares_delta]``. These
+    are present even on the empty/degraded path so that
+    ``earnings_insider_wrapper.compute_earnings_insider_factors`` — which
+    validates them UNCONDITIONALLY — never raises.
+
+    Source preference: the EDGAR Form 4 ingester output
+    ``output/insider_form4.parquet`` (real ``transaction_type`` ∈ {P,S,unknown}
+    and gross ``value_usd``), falling back to the legacy
+    ``output/insider_trading.parquet`` for back-compat (legacy lacks
+    ``value_usd`` → synthesized as NaN; its ``transaction_type`` is 'unknown' for
+    all rows, so the factor stays degraded until the Form 4 feed is generated).
     """
-    empty = pd.DataFrame(columns=["symbol", "filing_date", "shares_delta"])
-    fpath = _resolve(root, "insider_trading.parquet")
+    required_cols = [
+        "symbol",
+        "filing_date",
+        "transaction_type",
+        "value_usd",
+        "shares_delta",
+    ]
+    empty = pd.DataFrame(columns=required_cols)
+
+    fpath = _resolve(root, "insider_form4.parquet")
     if not fpath.exists():
-        _warn_missing_cache("insider", fpath)
-        return empty
+        legacy = _resolve(root, "insider_trading.parquet")
+        if legacy.exists():
+            logger.debug(
+                "[altdata] insider_form4.parquet absent — using legacy %s", legacy
+            )
+            fpath = legacy
+        else:
+            _warn_missing_cache("insider", fpath)
+            return empty
 
     try:
         df = pd.read_parquet(fpath)
@@ -170,10 +195,21 @@ def load_insider_filings(
         mask &= df["symbol"].isin(symbols)
     df = df.loc[mask].copy()
 
-    if "shares" in df.columns and "shares_delta" not in df.columns:
-        df = df.rename(columns={"shares": "shares_delta"})
+    # shares_delta = signed net change. Prefer the signed ``net_shares`` from the
+    # Form 4 feed; fall back to a raw ``shares`` column for the legacy file.
+    if "shares_delta" not in df.columns:
+        if "net_shares" in df.columns:
+            df["shares_delta"] = df["net_shares"]
+        elif "shares" in df.columns:
+            df["shares_delta"] = df["shares"]
 
-    keep = [c for c in ["symbol", "filing_date", "shares_delta"] if c in df.columns]
+    # Guarantee the wrapper-required columns exist even on the legacy path.
+    if "transaction_type" not in df.columns:
+        df["transaction_type"] = "unknown"
+    if "value_usd" not in df.columns:
+        df["value_usd"] = pd.NA
+
+    keep = [c for c in required_cols if c in df.columns]
     df = df[keep].dropna(subset=["symbol", "filing_date"])
     logger.debug(
         "[altdata] insider loaded: %d rows for %d symbols", len(df), len(symbols)

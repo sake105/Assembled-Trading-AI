@@ -199,13 +199,18 @@ def compute_congress_net_buy_score(
         if "amount" in df.columns
         else 0.0
     )
-    df["_sign"] = (
-        np.where(
-            df["type"].astype(str).str.lower().isin(("buy", "purchase")), 1.0, -1.0
+    # Three-branch sign: buy/purchase -> +1, sell/sale -> -1, unknown/None -> 0
+    # (neutral). A two-branch where would fabricate a directional SELL sign for
+    # Exchange/unknown/missing-side rows (fail-open). Neutral rows contribute 0.
+    if "type" in df.columns:
+        _side = df["type"].astype(str).str.lower()
+        df["_sign"] = np.where(
+            _side.isin(("buy", "purchase")),
+            1.0,
+            np.where(_side.isin(("sell", "sale")), -1.0, 0.0),
         )
-        if "type" in df.columns
-        else 1.0
-    )
+    else:
+        df["_sign"] = 0.0
     df["_weight"] = 1.0
     if committee_members and "member_id" in df.columns:
         df["_weight"] = np.where(
