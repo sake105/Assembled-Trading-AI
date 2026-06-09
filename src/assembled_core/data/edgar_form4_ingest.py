@@ -39,6 +39,7 @@ Compliance (SEC fair-access policy)
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -60,6 +61,11 @@ __all__ = [
     "enumerate_form4_filings",
     "fetch_submission",
     "ingest_form4",
+    "parse_cik_map",
+    "parse_recent_form4",
+    "fetch_cik_map",
+    "enumerate_form4_for_cik",
+    "ingest_form4_for_symbols",
     "resolve_user_agent",
     "FORM4_COLUMNS",
 ]
@@ -68,6 +74,8 @@ EDGAR_ARCHIVES = "https://www.sec.gov/Archives/"
 _DAILY_INDEX_FMT = (
     "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{qtr}/form.{ymd}.idx"
 )
+_SUBMISSIONS_FMT = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
+_COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 _EASTERN = "America/New_York"
 MIN_REQUEST_SPACING_S = 0.12  # ~8 req/s, under the 10/s SEC hard cap
 
@@ -592,4 +600,206 @@ def ingest_form4(
         logger.info("[OK] form4_ingest wrote %d rows -> %s", total, out)
     except Exception as exc:
         logger.error("[ERROR] form4_ingest parquet write failed -> %s: %s", out, exc)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Symbol-targeted ingestion (per-CIK submissions feed) — efficient for a
+# watchlist; replaces the retired legacy stub that hardcoded transaction_type=
+# 'unknown' in scripts/download_all_market_data.py.
+# ---------------------------------------------------------------------------
+
+
+def parse_cik_map(data: dict[str, Any]) -> dict[str, str]:
+    """Parse SEC ``company_tickers.json`` into ``{TICKER: zero-padded 10-digit CIK}``."""
+    out: dict[str, str] = {}
+    for v in data.values():
+        ticker = str(v.get("ticker", "")).strip().upper()
+        if not ticker:
+            continue
+        out[ticker] = str(v.get("cik_str", "")).zfill(10)
+    return out
+
+
+def parse_recent_form4(
+    submissions: dict[str, Any], *, cutoff: pd.Timestamp | None = None
+) -> list[dict[str, Any]]:
+    """Extract Form 4 / 4/A accessions from a CIK submissions JSON (recent block).
+
+    ``cutoff`` (optional) drops filings whose ``filing_date`` is strictly older.
+    Missing/empty ``filings.recent`` yields ``[]`` (no crash).
+    """
+    recent = submissions.get("filings", {}).get("recent", {})
+    forms = recent.get("form", [])
+    accs = recent.get("accessionNumber", [])
+    fdates = recent.get("filingDate", [])
+    out: list[dict[str, Any]] = []
+    for i, form in enumerate(forms):
+        if form not in ("4", "4/A"):
+            continue
+        raw_date = fdates[i] if i < len(fdates) else None
+        fdate = pd.Timestamp(raw_date) if raw_date else pd.NaT
+        if cutoff is not None and pd.notna(fdate) and fdate < cutoff:
+            continue
+        acc = accs[i] if i < len(accs) else None
+        if not acc:
+            continue
+        out.append({"accession": acc, "filing_date": fdate, "form_type": form})
+    return out
+
+
+def _issuer_cik_matches(row_issuer_cik: str | None, want_cik: str | int) -> bool:
+    """True if a Form 4 row's issuer CIK is the queried issuer.
+
+    The per-CIK submissions feed also lists Form 4s where the company is the
+    REPORTING OWNER (an insider of ANOTHER issuer) — we want only trades IN the
+    queried company's own stock, i.e. ``issuer_cik == want_cik``. A blank/missing
+    row issuer CIK is treated as a match (fallback to symbol-fill).
+    """
+    rc = str(row_issuer_cik or "").lstrip("0")
+    if not rc:
+        return True
+    return rc == str(int(want_cik))
+
+
+def fetch_cik_map(
+    user_agent: str | None = None, *, limiter: _RateLimiter | None = None
+) -> dict[str, str]:
+    """Fetch + parse the SEC ticker->CIK map (``company_tickers.json``)."""
+    ua = resolve_user_agent(user_agent)
+    limiter = limiter or _RateLimiter()
+    raw = _http_get(_COMPANY_TICKERS_URL, ua, limiter=limiter)
+    return parse_cik_map(json.loads(raw))
+
+
+def enumerate_form4_for_cik(
+    cik: str | int,
+    user_agent: str | None = None,
+    *,
+    lookback_days: int = 90,
+    limiter: _RateLimiter | None = None,
+) -> list[dict[str, Any]]:
+    """Enumerate recent Form 4 / 4/A accessions for ONE issuer CIK (submissions API)."""
+    ua = resolve_user_agent(user_agent)
+    limiter = limiter or _RateLimiter()
+    url = _SUBMISSIONS_FMT.format(cik=int(cik))
+    try:
+        raw = _http_get(url, ua, limiter=limiter)
+    except Exception as exc:  # missing/private CIK -> report, do not crash
+        logger.warning("[WARN] form4_submissions_fetch_failed cik=%s: %s", cik, exc)
+        return []
+    cutoff = (
+        pd.Timestamp.today().normalize() - pd.Timedelta(days=lookback_days)
+        if lookback_days
+        else None
+    )
+    return parse_recent_form4(json.loads(raw), cutoff=cutoff)
+
+
+def ingest_form4_for_symbols(
+    symbols: list[str],
+    *,
+    lookback_days: int = 90,
+    user_agent: str | None = None,
+    out_path: Path | str | None = None,
+    max_per_symbol: int | None = None,
+) -> pd.DataFrame:
+    """Ingest Form 4 filings for a SYMBOL set via the per-CIK submissions feed.
+
+    More targeted than the date-based :func:`ingest_form4` for a watchlist: it
+    queries each issuer's submissions feed, fetches each Form 4's full submission
+    ``.txt`` and parses the real ownership XML (classifying ``transactionCode``).
+    Writes ``out_path`` (default ``output/insider_form4.parquet``). Symbols with
+    no resolvable CIK are logged and skipped. Same PIT/availability contract as
+    :func:`ingest_form4` (``available_at`` = ACCEPTANCE-DATETIME).
+
+    Only own-issuer filings are kept — Form 4s where the symbol is a REPORTING
+    OWNER of another issuer are excluded (counted as ``cross_issuer_skipped``).
+    ``max_per_symbol`` bounds the number of filings FETCHED per symbol (a network
+    cap applied BEFORE the issuer-CIK filter); ``None`` (default) = all recent.
+    """
+    ua = resolve_user_agent(user_agent)
+    limiter = _RateLimiter()
+    cik_map = fetch_cik_map(ua, limiter=limiter)
+
+    all_rows: list[dict[str, Any]] = []
+    n_filings = 0
+    n_no_cik = 0
+    n_cross_issuer = 0
+    unknown_codes: dict[str, int] = {}
+    started = time.monotonic()
+
+    for sym in symbols:
+        cik = cik_map.get(sym.strip().upper())
+        if not cik:
+            n_no_cik += 1
+            logger.warning("[WARN] form4_no_cik symbol=%s", sym)
+            continue
+        entries = enumerate_form4_for_cik(
+            cik, ua, lookback_days=lookback_days, limiter=limiter
+        )
+        if max_per_symbol is not None:
+            entries = entries[:max_per_symbol]
+        for entry in entries:
+            url = f"{EDGAR_ARCHIVES}edgar/data/{int(cik)}/{entry['accession']}.txt"
+            try:
+                text = fetch_submission(url, ua, limiter=limiter)
+            except Exception as exc:
+                logger.warning(
+                    "[WARN] form4_fetch_skip symbol=%s acc=%s reason=%s",
+                    sym,
+                    entry["accession"],
+                    exc,
+                )
+                continue
+            n_filings += 1
+            for r in parse_form4_submission(text, accession=entry["accession"]):
+                # Keep only trades IN this issuer's own stock; the feed also lists
+                # Form 4s where `sym` is a reporting owner of ANOTHER issuer.
+                if not _issuer_cik_matches(r.get("issuer_cik"), cik):
+                    n_cross_issuer += 1
+                    continue
+                if not r["symbol"]:
+                    r["symbol"] = sym.strip().upper()
+                if r["transaction_type"] == "unknown" and r["transaction_code"]:
+                    unknown_codes[r["transaction_code"]] = (
+                        unknown_codes.get(r["transaction_code"], 0) + 1
+                    )
+                all_rows.append(r)
+
+    df = form4_rows_to_dataframe(all_rows)
+    total = len(df)
+    n_ps = int((df["transaction_type"].isin(["P", "S"])).sum()) if total else 0
+    pct_unknown = (100.0 * (total - n_ps) / total) if total else 0.0
+    elapsed = max(time.monotonic() - started, 1e-9)
+    logger.info(
+        "[OK] form4_ingest_symbols symbols=%d no_cik=%d filings=%d rows=%d P/S=%d "
+        "pct_unknown=%.1f%% cross_issuer_skipped=%d req_rate=%.2f/s",
+        len(symbols),
+        n_no_cik,
+        n_filings,
+        total,
+        n_ps,
+        pct_unknown,
+        n_cross_issuer,
+        n_filings / elapsed,
+    )
+    if unknown_codes:
+        logger.warning(
+            "[WARN] form4_unknown_codes (not P/S, classified unknown): %s",
+            ", ".join(
+                f"{c}={n} ({_KNOWN_CODE_LEGEND.get(c, 'unrecognized')})"
+                for c, n in sorted(unknown_codes.items(), key=lambda kv: -kv[1])
+            ),
+        )
+
+    out = Path(out_path) if out_path else Path("output") / "insider_form4.parquet"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        df.to_parquet(out, index=False)
+        logger.info("[OK] form4_ingest_symbols wrote %d rows -> %s", total, out)
+    except Exception as exc:
+        logger.error(
+            "[ERROR] form4_ingest_symbols parquet write failed -> %s: %s", out, exc
+        )
     return df

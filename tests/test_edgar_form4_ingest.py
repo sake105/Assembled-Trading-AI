@@ -20,8 +20,10 @@ from src.assembled_core.data.edgar_form4_ingest import (
     acceptance_datetime_to_utc,
     classify_transaction_code,
     form4_rows_to_dataframe,
+    parse_cik_map,
     parse_form4_index,
     parse_form4_submission,
+    parse_recent_form4,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "edgar" / "form4_full_submission.txt"
@@ -246,3 +248,114 @@ def test_http_get_raises_after_exhausting_retries(monkeypatch):
     limiter = efi._RateLimiter(min_spacing=0.0)
     with pytest.raises(urllib.error.HTTPError):
         efi._http_get("https://www.sec.gov/x", "UA", limiter=limiter, max_retries=3)
+
+
+# --------------------------------------------------------------------------
+# Symbol-targeted path — per-CIK submissions enumeration (pure helpers)
+# --------------------------------------------------------------------------
+
+
+def test_parse_cik_map_zero_pads_and_uppercases():
+    data = {
+        "0": {"cik_str": 320193, "ticker": "aapl", "title": "Apple Inc."},
+        "1": {"cik_str": 1045810, "ticker": "NVDA", "title": "NVIDIA Corp"},
+    }
+    m = parse_cik_map(data)
+    assert m["AAPL"] == "0000320193"
+    assert m["NVDA"] == "0001045810"
+
+
+def test_parse_recent_form4_filters_forms_and_cutoff():
+    subs = {
+        "filings": {
+            "recent": {
+                "form": ["4", "8-K", "4/A", "10-K"],
+                "accessionNumber": ["a1", "a2", "a3", "a4"],
+                "filingDate": ["2026-05-29", "2026-05-20", "2026-01-01", "2026-05-15"],
+            }
+        }
+    }
+    entries = parse_recent_form4(subs)
+    assert [e["accession"] for e in entries] == ["a1", "a3"]  # only 4 and 4/A
+    assert entries[0]["filing_date"] == pd.Timestamp("2026-05-29")
+    # cutoff drops the old 4/A (2026-01-01)
+    recent = parse_recent_form4(subs, cutoff=pd.Timestamp("2026-05-01"))
+    assert [e["accession"] for e in recent] == ["a1"]
+
+
+def test_parse_recent_form4_handles_missing_recent_block():
+    assert parse_recent_form4({}) == []
+    assert parse_recent_form4({"filings": {"recent": {}}}) == []
+
+
+def test_issuer_cik_match_excludes_cross_issuer_filings():
+    from src.assembled_core.data.edgar_form4_ingest import _issuer_cik_matches
+
+    # Trades IN the queried issuer's own stock -> match.
+    assert _issuer_cik_matches("0000320193", "0000320193")  # AAPL own
+    assert _issuer_cik_matches("0000320193", 320193)
+    # Form 4 where the company is a REPORTING OWNER of ANOTHER issuer -> exclude
+    # (real case: PUMP filing surfaced under XOM's feed).
+    assert not _issuer_cik_matches("0001680247", "0000034088")
+    # Blank issuer CIK -> fallback keep (symbol-fill downstream).
+    assert _issuer_cik_matches("", "0000034088")
+    assert _issuer_cik_matches(None, 34088)
+
+
+def test_ingest_for_symbols_excludes_cross_issuer_rows(monkeypatch, tmp_path):
+    # Orchestration-level: a Form 4 where the queried company is a REPORTING
+    # OWNER of ANOTHER issuer must be excluded (not mis-attributed to the query).
+    from src.assembled_core.data import edgar_form4_ingest as efi
+
+    monkeypatch.setenv("SEC_USER_AGENT", "Assembled-Trading-AI test@example.com")
+    monkeypatch.setattr(efi, "fetch_cik_map", lambda *a, **k: {"AAA": "0000000001"})
+    monkeypatch.setattr(
+        efi,
+        "enumerate_form4_for_cik",
+        lambda cik, *a, **k: [
+            {
+                "accession": "a1",
+                "filing_date": pd.Timestamp("2026-05-01"),
+                "form_type": "4",
+            }
+        ],
+    )
+    monkeypatch.setattr(efi, "fetch_submission", lambda *a, **k: "DUMMY")
+
+    def fake_parse(text, accession=None):
+        return [
+            {
+                "symbol": "AAA",
+                "issuer_cik": "0000000001",
+                "transaction_type": "S",
+                "transaction_code": "S",
+                "value_usd": 100.0,
+                "net_shares": -5.0,
+                "is_derivative": False,
+            },
+            {
+                "symbol": "BBB",
+                "issuer_cik": "0000000002",
+                "transaction_type": "S",
+                "transaction_code": "S",
+                "value_usd": 999.0,
+                "net_shares": -9.0,
+                "is_derivative": False,
+            },
+        ]
+
+    monkeypatch.setattr(efi, "parse_form4_submission", fake_parse)
+
+    df = efi.ingest_form4_for_symbols(["AAA"], out_path=tmp_path / "o.parquet")
+    assert set(df["symbol"]) == {"AAA"}  # BBB (cross-issuer) excluded
+    assert len(df) == 1
+
+
+def test_ingest_for_symbols_warns_on_unresolvable_symbol(monkeypatch, tmp_path):
+    from src.assembled_core.data import edgar_form4_ingest as efi
+
+    monkeypatch.setenv("SEC_USER_AGENT", "Assembled-Trading-AI test@example.com")
+    monkeypatch.setattr(efi, "fetch_cik_map", lambda *a, **k: {})  # no CIKs
+    df = efi.ingest_form4_for_symbols(["NOPE"], out_path=tmp_path / "o.parquet")
+    assert df.empty  # no CIK -> skipped, empty frame (still schema-shaped)
+    assert "symbol" in df.columns

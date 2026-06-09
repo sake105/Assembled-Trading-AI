@@ -8,7 +8,7 @@ Saves to:
   output/events_earnings.parquet    — earnings events (eps_actual/estimate)
   output/dividends.parquet          — dividend history
   output/news_sentiment_daily.parquet — daily news sentiment per symbol
-  output/insider_trading.parquet    — SEC Form 4 insider transactions
+  output/insider_form4.parquet      — SEC Form 4 insider transactions (real parser)
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-import requests
 import yfinance as yf
 
 warnings.filterwarnings("ignore")
@@ -554,92 +553,30 @@ def download_news_sentiment(tickers: list[str]) -> pd.DataFrame:
 # 6. SEC EDGAR Insider Trading (Form 4) — free REST API
 # ---------------------------------------------------------------------------
 
-EDGAR_HEADERS = {"User-Agent": "AssembledTradingAI research@example.com"}
-EDGAR_COMPANY_URL = "https://data.sec.gov/submissions/CIK{:010d}.json"
-EDGAR_SEARCH_URL = "https://efts.sec.gov/LATEST/search-index?q=%22form+4%22&dateRange=custom&startdt={start}&enddt={end}&hits.hits.total.value=true&hits.hits._source.period_of_report=true&hits.hits._source.entity_name=true"
-EDGAR_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
-
-
-def _get_cik_map() -> dict[str, str]:
-    """Return {ticker: CIK} from SEC EDGAR company list."""
-    try:
-        r = requests.get(EDGAR_TICKERS_URL, headers=EDGAR_HEADERS, timeout=15)
-        r.raise_for_status()
-        data = r.json()
-        return {v["ticker"]: str(v["cik_str"]).zfill(10) for v in data.values()}
-    except Exception as exc:
-        log.warning("[INSIDER] CIK map failed: %s", exc)
-        return {}
-
-
-def _fetch_form4_for_cik(cik: str, sym: str) -> list[dict]:
-    """Fetch recent Form 4 filings for a CIK."""
-    rows: list[dict] = []
-    try:
-        url = EDGAR_COMPANY_URL.format(int(cik))
-        r = requests.get(url, headers=EDGAR_HEADERS, timeout=15)
-        r.raise_for_status()
-        data = r.json()
-        filings = data.get("filings", {}).get("recent", {})
-        forms = filings.get("form", [])
-        dates = filings.get("filingDate", [])
-        accessions = filings.get("accessionNumber", [])
-
-        for form, date_str, acc in zip(forms, dates, accessions):
-            if form != "4":
-                continue
-            ts = pd.Timestamp(date_str, tz="UTC")
-            rows.append(
-                {
-                    "timestamp": ts,
-                    "symbol": sym,
-                    "cik": cik,
-                    "accession": acc,
-                    "form_type": "4",
-                    "filing_date": ts,
-                    # transaction details need deeper parsing — use filing date as proxy
-                    "transaction_type": "unknown",
-                    "shares": None,
-                    "price": None,
-                }
-            )
-    except Exception as exc:
-        log.debug("[INSIDER] CIK %s (%s): %s", cik, sym, exc)
-    return rows
+# The legacy per-CIK stub here hardcoded transaction_type="unknown" (shares/price
+# unparsed) and wrote output/insider_trading.parquet. RETIRED 2026-06-09: it now
+# delegates to the real EDGAR Form 4 parser (edgar_form4_ingest), which classifies
+# the transactionCode (P/S/unknown) and writes output/insider_form4.parquet with a
+# PIT-correct available_at = SGML ACCEPTANCE-DATETIME, using a SEC-compliant
+# declared User-Agent (SEC_USER_AGENT / settings).
 
 
 def download_insider_trading(tickers: list[str]) -> pd.DataFrame:
-    log.info("[INSIDER] Downloading SEC Form 4 for %d symbols...", len(tickers))
-    cik_map = _get_cik_map()
-    rows: list[dict] = []
-    found = 0
-    for sym in tickers:
-        cik = cik_map.get(sym)
-        if not cik:
-            continue
-        sym_rows = _fetch_form4_for_cik(cik, sym)
-        rows.extend(sym_rows)
-        found += 1
-        time.sleep(0.12)  # EDGAR rate limit: ~8 req/sec
+    """Download + parse REAL SEC Form 4 insider trades for ``tickers``.
 
-    if not rows:
-        return pd.DataFrame()
+    Delegates to :func:`edgar_form4_ingest.ingest_form4_for_symbols` (per-CIK
+    submissions enumeration + real ownership-XML parse). Writes
+    ``output/insider_form4.parquet`` — NOT the legacy all-'unknown'
+    ``insider_trading.parquet``. For deeper history, use the date-based
+    ``edgar_form4_ingest.ingest_form4`` or pass a larger ``lookback_days``.
+    """
+    from src.assembled_core.data.edgar_form4_ingest import ingest_form4_for_symbols
 
-    df = pd.DataFrame(rows)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = (
-        df[df["timestamp"] >= START_DATE]
-        .sort_values(["symbol", "timestamp"])
-        .reset_index(drop=True)
-    )
-    _stamp(df).to_parquet(OUTPUT / "insider_trading.parquet", index=False)
     log.info(
-        "[INSIDER] Saved: %d filings across %d symbols (%d found CIK)",
-        len(df),
-        df["symbol"].nunique(),
-        found,
+        "[INSIDER] Parsing SEC Form 4 (real classifier) for %d symbols...",
+        len(tickers),
     )
-    return df
+    return ingest_form4_for_symbols(tickers, out_path=OUTPUT / "insider_form4.parquet")
 
 
 # ---------------------------------------------------------------------------
