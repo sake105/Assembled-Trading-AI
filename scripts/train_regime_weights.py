@@ -75,8 +75,11 @@ FACTOR_COLUMNS = [
 # (see that file's _note). Keep this list in sync with that _note:
 #   - earnings_surprise_z: EPS estimates cached for only ~44 mega-caps -> degenerate
 #     cross-section (free-feed ceiling, 2026-06-01) + a loader/wrapper schema bug.
-#   - insider_activity_score: insider_trading.parquet is 100% unknown -> always 0.
-#   - congress_activity: no data files exist.
+#   - insider_activity_score: now fed by real EDGAR Form 4 (insider_form4.parquet,
+#     classified P/S) since 2026-06-09 — kept at 0 PENDING an OOS re-baseline of edge
+#     (prior full-stack OOS Sharpe-Delta was +0.00; data availability != activation).
+#   - congress_activity: now fed by free House/Senate STOCK-Act (congress_trades.parquet)
+#     since 2026-06-09 — kept at 0 PENDING an OOS re-baseline of edge.
 # The trainer force-zeros these AFTER the fit so the canonical retrain path stays
 # consistent with the hand-maintained policy. Sub-1.0 regime sums are safe (runtime
 # renormalises by the live-factor sum at scoring time).

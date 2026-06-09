@@ -375,11 +375,21 @@ def _populate_news_events(ctx: Any, root: Path) -> None:
 
 
 def _populate_insider_data(ctx: Any, root: Path) -> None:
-    """Set ctx.insider_data from insider_trading parquet (PIT-safe)."""
-    fpath = root / "insider_trading.parquet"
-    if not fpath.exists():
-        fpath = root / "output" / "insider_trading.parquet"
-    if not fpath.exists():
+    """Set ctx.insider_data from the insider parquet (PIT-safe).
+
+    Prefers the real EDGAR Form 4 feed ``insider_form4.parquet`` (classified
+    P/S); falls back to the retired legacy ``insider_trading.parquet`` only if the
+    new file is absent. Read-only + PIT-gated on ``filing_date <= as_of`` —
+    unchanged availability semantics.
+    """
+    candidates = [
+        root / "insider_form4.parquet",
+        root / "output" / "insider_form4.parquet",
+        root / "insider_trading.parquet",
+        root / "output" / "insider_trading.parquet",
+    ]
+    fpath = next((p for p in candidates if p.exists()), None)
+    if fpath is None:
         log.debug("[INTEL-CTX] insider_data: file not found, skipping")
         return
     try:

@@ -166,6 +166,22 @@ def test_load_congress_sample_fail_loud_without_path():
         load_congress_sample()
 
 
+def test_load_congress_sample_warns_commercial_use_once(tmp_path, caplog):
+    import logging
+
+    from src.assembled_core.data import congress_trades_ingest as cti
+
+    cti._COMMERCIAL_USE_WARNED = False  # reset process-global flag for this test
+    df = normalize_congress(parse_kadoa_records(_kadoa()))
+    p = tmp_path / "c.parquet"
+    df.to_parquet(p, index=False)
+    with caplog.at_level(logging.WARNING, logger=cti.logger.name):
+        load_congress_sample(path=p)
+        load_congress_sample(path=p)  # second load must NOT re-warn
+    hits = [r for r in caplog.records if "13107" in r.message]
+    assert len(hits) == 1  # one-time §13107 commercial-use warning
+
+
 def test_load_congress_sample_roundtrip_feeds_features(tmp_path):
     df = normalize_congress(parse_kadoa_records(_kadoa()))
     p = tmp_path / "congress_trades.parquet"

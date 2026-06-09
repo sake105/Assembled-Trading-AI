@@ -40,7 +40,7 @@ DEFAULT_CACHE_SPECS: dict[str, float] = {
     "news_sentiment_daily.parquet": 96.0,
     "events_earnings.parquet": 96.0,
     "fundamentals.parquet": 168.0,
-    "insider_trading.parquet": 168.0,
+    "insider_form4.parquet": 168.0,  # real EDGAR Form 4 feed (legacy insider_trading.parquet retired)
     "dividends.parquet": 168.0,
 }
 

@@ -332,6 +332,28 @@ _SAMPLE_RECORDS = [
 ]
 
 
+_COMMERCIAL_USE_WARNED = False
+
+
+def _warn_commercial_use_once() -> None:
+    """Surface the 5 U.S.C. app. §13107 commercial-use restriction once per process.
+
+    Financial-disclosure records are unlawful to use for a COMMERCIAL purpose
+    (incl. a live money-making trading system). A private research backtest is the
+    defensible/intended use. This is a compliance gate the user must own before any
+    live (non-backtest) use — surfaced loudly, not silently assumed.
+    """
+    global _COMMERCIAL_USE_WARNED
+    if not _COMMERCIAL_USE_WARNED:
+        _COMMERCIAL_USE_WARNED = True
+        logger.warning(
+            "[WARN] congress data carries a statutory restriction (5 U.S.C. app. "
+            "§13107): use for a COMMERCIAL purpose — including a LIVE money-making "
+            "trading system — is unlawful. Research/backtest use is the intended, "
+            "defensible case. Gate this before any non-backtest use."
+        )
+
+
 def load_congress_sample(
     path: Path | str | None = None, *, allow_sample: bool = False
 ) -> pd.DataFrame:
@@ -340,8 +362,12 @@ def load_congress_sample(
     With ``path`` -> read the saved ingest parquet/csv. Without ``path`` ->
     ``allow_sample=True`` is REQUIRED to opt into built-in dummy data; otherwise a
     ``ValueError`` is raised (no silent phantom-data fallback).
+
+    Emits a one-time §13107 commercial-use warning whenever real (path-backed)
+    congress data is loaded — see :func:`_warn_commercial_use_once`.
     """
     if path is not None:
+        _warn_commercial_use_once()
         path = Path(path)
         if path.suffix == ".parquet":
             df = pd.read_parquet(path)

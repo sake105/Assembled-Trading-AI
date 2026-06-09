@@ -13,6 +13,7 @@ import pandas as pd
 from src.assembled_core.paper.intel_context import (
     MIN_SHOCK_SEVERITY,
     TOPIC_TO_SHOCKS,
+    _populate_insider_data,
     active_shocks_from_triggers,
     persist_historical_scores,
     populate_ctx_from_artifacts,
@@ -171,6 +172,29 @@ def _make_prices_with_sector_etfs(rows_per_symbol: int = 130) -> pd.DataFrame:
         for ts, px in zip(dates, walk):
             rows.append({"timestamp": ts, "symbol": sym, "close": float(max(px, 1.0))})
     return pd.DataFrame(rows)
+
+
+def test_populate_insider_prefers_form4(tmp_path: Path):
+    """When both feeds exist, the real EDGAR Form 4 file wins over legacy."""
+    pd.DataFrame(
+        {"symbol": ["FORM4SYM"], "filing_date": [pd.Timestamp("2026-01-01")]}
+    ).to_parquet(tmp_path / "insider_form4.parquet", index=False)
+    pd.DataFrame(
+        {"symbol": ["LEGACYSYM"], "filing_date": [pd.Timestamp("2026-01-01")]}
+    ).to_parquet(tmp_path / "insider_trading.parquet", index=False)
+    ctx = SimpleNamespace(as_of=pd.Timestamp("2026-06-01", tz="UTC"))
+    _populate_insider_data(ctx, tmp_path)
+    assert list(ctx.insider_data["symbol"]) == ["FORM4SYM"]
+
+
+def test_populate_insider_falls_back_to_legacy(tmp_path: Path):
+    """Only the retired legacy file present -> still read (back-compat)."""
+    pd.DataFrame(
+        {"symbol": ["LEGACYSYM"], "filing_date": [pd.Timestamp("2026-01-01")]}
+    ).to_parquet(tmp_path / "insider_trading.parquet", index=False)
+    ctx = SimpleNamespace(as_of=pd.Timestamp("2026-06-01", tz="UTC"))
+    _populate_insider_data(ctx, tmp_path)
+    assert list(ctx.insider_data["symbol"]) == ["LEGACYSYM"]
 
 
 def test_populate_sector_scores_requires_history():

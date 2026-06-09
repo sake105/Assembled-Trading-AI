@@ -82,8 +82,10 @@ KNOWN_REGIMES = ["bull", "bear", "sideways"]
 # scripts/train_regime_weights.py and the configs/factor_weights_by_regime.json
 # _note: earnings_surprise_z (free-feed ceiling — EPS estimates only for ~44
 # mega-caps → degenerate cross-section + a loader/wrapper schema bug),
-# insider_activity_score (insider_trading.parquet 100% unknown → always 0),
-# congress_activity (no data files exist). Sub-1.0 regime sums are renorm-safe
+# insider_activity_score (now real EDGAR Form 4 insider_form4.parquet since
+# 2026-06-09), congress_activity (now free STOCK-Act congress_trades.parquet) —
+# both kept at 0 PENDING an OOS re-baseline of edge (data availability != activation).
+# Sub-1.0 regime sums are renorm-safe
 # at scoring time (multifactor_v2 renormalises by the live-factor sum).
 INTENTIONALLY_ZEROED_FACTORS = frozenset(
     {"earnings_surprise_z", "insider_activity_score", "congress_activity"}

@@ -31,7 +31,11 @@ PANEL_FILE = ROOT / "output" / "factor_panels" / "full_panel_7y.parquet"
 NEWS_FILE = ROOT / "output" / "news_sentiment_daily.parquet"
 EARNINGS_FILE = ROOT / "output" / "events_earnings.parquet"
 FUNDAMENTALS_FILE = ROOT / "output" / "fundamentals.parquet"
-INSIDER_FILE = ROOT / "output" / "insider_trading.parquet"
+# Prefer the real EDGAR Form 4 feed (classified P/S, so signed_shares is now
+# meaningful); fall back to the legacy all-'unknown' parquet only if it is absent.
+_INSIDER_FORM4 = ROOT / "output" / "insider_form4.parquet"
+_INSIDER_LEGACY = ROOT / "output" / "insider_trading.parquet"
+INSIDER_FILE = _INSIDER_FORM4 if _INSIDER_FORM4.exists() else _INSIDER_LEGACY
 MACRO_FILE = ROOT / "output" / "macro.parquet"
 MODEL_OUT = ROOT / "models" / "meta_model_lgbm_v6.joblib"
 
