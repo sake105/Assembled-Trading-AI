@@ -553,3 +553,27 @@
 **Wie vermeiden:** Drei-Zweig-Mapping `where(buy, +1, where(sell, -1, 0))` mit neutralem 0 für unknown; die 0/None-Zeilen vor der Aggregation droppen oder als 0 belassen. Nie einem Default-Zweig ein gerichtetes Vorzeichen für Unknown-Input geben.
 **Erkannt in:** `src/assembled_core/features/congress_features.py` (`compute_congress_net_buy_score`). Von senior-code-reviewer (Stage 2) als MAJOR gefangen (Folge der M1-Mitigation). Fix: Drei-Zweig + neutral, Regressionstest unknown→0.
 **Referenzen:** E-025 (Fail-Open maskiert), E-043 (silent dead-feature), E-044 (selbe Session/Feature).
+
+## E-046 — Dedupe/Restatement-Groupby-Key lässt eine diskriminierende Dimension weg → kollabiert distinkte Fakten still
+**Datum:** 2026-06-10
+**Kategorie:** logic-error / data-correctness / silent-collapse
+**Was passierte:** Die PIT-/Restatement-Selektion eines neuen XBRL-Company-Facts-Loaders (`select_pit_rows`) wählte je Gruppe die Zeile mit max. Verfügbarkeit, gruppierte aber auf `(symbol, namespace, tag, period_end)` — OHNE `period_start`. Ein einzelnes 10-K emittiert legitim ZWEI Fakten mit identischem `period_end 2023-12-31`: die Q4-Quartalszahl (`start=2023-10-01`) UND die FY-Jahreszahl (`start=2023-01-01`). Beide kollabierten in eine Gruppe; nur eine überlebte und überschrieb die andere still (FY 1.85 statt Q4 0.30). Dasselbe in `coalesce_field`. Das korrumpiert genau die Quartals-EPS-Zeitreihe, die der reanimierte PEAD/SUE-Consumer liest — kein Look-ahead, sondern ein Wrong-Value-Defekt. Offline-Fixtures waren grün, weil jedes `period_end` dort nur EINE Dauer hatte.
+**Warum falsch:** Ein Dedupe-/Selektions-Groupby-Key muss ALLE Dimensionen enthalten, die zwei Beobachtungen fachlich unterscheiden. Bei XBRL-Duration-Fakten ist `period_start` (die Periodendauer: 3M vs. 6/9/12M) genauso diskriminierend wie `period_end`. Fehlt eine solche Dimension, kollabieren distinkte Records still und der „Überlebende" hängt von Selektionsregel + Zeilenreihenfolge ab.
+**Wie erkennen:**
+- `groupby([...]).tail/first/last` oder `drop_duplicates(subset=[...])`, dessen Key eine offensichtlich vorhandene, fachlich-unterscheidende Spalte auslässt (hier `period_start`/`fp`).
+- Test-Fixtures, in denen die ausgelassene Dimension je Key zufällig eindeutig ist (jedes `period_end` hat nur eine Dauer) → der Collapse bleibt ungetestet.
+**Wie vermeiden:**
+- Den vollständigen fachlichen Schlüssel verwenden (`period_start` mit aufnehmen, `dropna=False`).
+- Regressionstest mit zwei Zeilen, die sich NUR in der zusätzlichen Dimension unterscheiden (gleiches `period_end`, anderes `period_start`) → beide müssen überleben.
+**Erkannt in:** `src/assembled_core/data/fundamentals_xbrl_ingest.py` (`select_pit_rows` + `coalesce_field`). Von risk-execution-reviewer + senior-code-reviewer (beide MAJOR, empirisch reproduziert) + task-completion-auditor (CONDITIONAL) gefangen. Fix: `period_start` im Key + FY/Q4-Regressionsfixture.
+**Referenzen:** E-044 (Dedupe auf nicht-kanonischem Key — verwandte Key-Klasse), E-047 (selbe Session, Tie-Break-Determinismus).
+
+## E-047 — Dedup via `sort_values(eine Spalte) + groupby.tail(1)` ist auf Gleichstand reihenfolge-abhängig
+**Datum:** 2026-06-10
+**Kategorie:** logic-error / non-determinism / data-correctness
+**Was passierte:** Dieselbe `select_pit_rows`-Selektion wählte den „aktuellsten" Restatement via `sort_values("_eff").groupby(key).tail(1)` — Sortierung NUR nach effektiver Verfügbarkeit. Bei zwei Filings mit IDENTISCHER Verfügbarkeit (häufig auf dem Date-only-`filed_date+EDGAR_DAYS`-Fallback, wo alles auf dieselbe UTC-Mitternacht kollabiert) behielt `tail(1)` die im DataFrame zuletzt stehende Zeile — also die Input-Reihenfolge. Da ein Parquet-Round-Trip / Cross-Symbol-`concat` keine kanonische Reihenfolge garantiert, war der gewählte as-reported-Wert run-to-run / order-to-order nicht-deterministisch (Vorwärts → Amendment 1.25, rückwärts → Original 1.20).
+**Warum falsch:** Wenn ein Sortier-Key die Gruppenmitglieder nicht eindeutig ordnet, ist die `tail(1)`/`first()`-Auswahl von der zufälligen Zeilenreihenfolge abhängig — nicht reproduzierbar und potenziell fachlich falsch (Original statt Amendment).
+**Wie erkennen:** `sort_values(<einzelne/teilweise Spalte>)` gefolgt von `groupby(...).tail(1)`/`.first()`/`.last()`, wo der Sort-Key Gleichstände zulässt; besonders gefährlich, wenn ein Fallback (Date-only) Gleichstände zum Normalfall macht.
+**Wie vermeiden:** Den Tie-Break deterministisch UND fachlich sinnvoll machen: hier `sort_values(["_eff", "is_amendment", "accession"])` → max. Verfügbarkeit, dann Amendment gewinnt, dann Accession — reihenfolge-unabhängig. Order-Invarianz-Regressionstest (gleiche Daten, umgekehrte Zeilenreihenfolge → identische Auswahl).
+**Erkannt in:** `src/assembled_core/data/fundamentals_xbrl_ingest.py` (`select_pit_rows`). Von risk-execution-reviewer + adversarial-PIT-verifier + senior-code-reviewer gefangen (empirisch via Reihenfolge-Umkehr reproduziert). Fix: dreistufiger deterministischer Sort + Order-Invarianz-Test.
+**Referenzen:** E-046 (selbe Session, fehlende Key-Dimension), E-036 (state-isolation no-op — verwandte „stiller-Default"-Klasse).

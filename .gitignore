@@ -7,6 +7,10 @@ __pycache__/
 /data/
 /output/
 logs/
+# Raw ML data pulls (multi-GB, never commit) — already covered by /data/ above,
+# listed explicitly for clarity (PIT as-of-filing snapshots, 2026-06-10).
+data/raw/insider_congress/
+data/raw/fundamentals/
 
 # Archive & Legacy
 # archive/ is now tracked — contains research code moved out of src/ (2026-04-19)

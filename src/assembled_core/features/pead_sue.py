@@ -36,6 +36,12 @@ should pre-standardise externally (compute rolling-σ per firm from past
 forecast errors only) and feed the standardised series into a downstream
 ranking layer rather than relying on this module's σ.
 
+The parametrised model framing above applies to :func:`compute_sue` /
+:func:`compute_sue_from_expected`. The XBRL-fed live path
+(:func:`latest_sue_from_xbrl`) does NOT select a model: it hard-wires a TRUE
+``(fp, fy-1)`` fiscal-label join (:func:`quarterly_seasonal_expected`) and bypasses
+the positional shift entirely.
+
 References:
 - Bernard, V. L., Thomas, J. K. (1989). *Post-Earnings-Announcement Drift:
   Delayed Price Response or Risk Premium?* JAR 27 Supplement.
@@ -282,6 +288,218 @@ def compute_sue_from_expected(
     )
 
 
+_PANEL_COLS = ["period_end", "fy", "fp", "eps"]
+
+
+def build_quarterly_eps_panel(xbrl_df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """PIT-correct quarterly diluted-EPS PANEL for one symbol (with fiscal labels).
+
+    From the tall SEC-XBRL frame (output of
+    ``altdata_loader.load_fundamentals_xbrl``): coalesce diluted EPS, fall back to
+    ``NetIncomeLoss / WeightedAvgDilutedShares`` where the EPS tag is absent for a
+    quarter, keep only ~3-month (quarterly) durations for Q1-Q4, and DERIVE
+    ``Q4 = FY - (Q1+Q2+Q3)`` when only the FY annual figure is tagged (NEVER
+    fabricated when the FY is missing).
+
+    Returns columns ``[period_end, fy, fp, eps]`` (one row per fiscal quarter,
+    ascending by ``period_end``). The ``(fy, fp)`` labels let downstream code build
+    a TRUE ``(fp, fy-1)`` seasonal comparable (see :func:`quarterly_seasonal_expected`)
+    that is robust to gaps — unlike a positional ``shift(4)``.
+    """
+    # Lazy import keeps the data->features dependency one-directional and avoids
+    # any import-order fragility (Rule 50: reuse coalesce_field, don't duplicate).
+    from src.assembled_core.data.fundamentals_xbrl_ingest import (  # noqa: PLC0415
+        coalesce_field,
+    )
+
+    empty = pd.DataFrame(columns=_PANEL_COLS)
+    if xbrl_df is None or xbrl_df.empty:
+        return empty
+    sym = str(symbol).strip().upper()
+    sub = xbrl_df[xbrl_df["symbol"].astype(str).str.upper() == sym]
+    if sub.empty:
+        return empty
+
+    eps = coalesce_field(sub, "eps_diluted")
+    ni = coalesce_field(sub, "net_income")
+    sh = coalesce_field(sub, "weighted_diluted_shares")
+
+    key_cols = ["period_start", "period_end", "fp", "fy"]
+    parts = [d[key_cols] for d in (eps, ni, sh) if not d.empty]
+    if not parts:
+        return empty
+    base = (
+        pd.concat(parts, ignore_index=True)
+        .dropna(subset=["period_end"])
+        .drop_duplicates(subset=["period_start", "period_end"])
+        .reset_index(drop=True)
+    )
+    base = base.merge(
+        eps[["period_start", "period_end", "eps_diluted"]],
+        on=["period_start", "period_end"],
+        how="left",
+    )
+    base = base.merge(
+        ni[["period_start", "period_end", "net_income"]],
+        on=["period_start", "period_end"],
+        how="left",
+    )
+    base = base.merge(
+        sh[["period_start", "period_end", "weighted_diluted_shares"]],
+        on=["period_start", "period_end"],
+        how="left",
+    )
+
+    # EPS-from-NetIncome fallback only where the EPS tag is absent for the period.
+    # Divide by shares.where(!=0) so a zero/absent denominator yields NaN (never
+    # inf) — avoids the pandas `replace`-downcasting FutureWarning entirely.
+    eps_v = pd.to_numeric(base["eps_diluted"], errors="coerce")
+    ni_v = pd.to_numeric(base["net_income"], errors="coerce")
+    sh_v = pd.to_numeric(base["weighted_diluted_shares"], errors="coerce")
+    fallback = ni_v / sh_v.where(sh_v != 0)
+    base["eps_val"] = eps_v.where(eps_v.notna(), fallback)
+    base = base.dropna(subset=["eps_val"])
+    if base.empty:
+        return empty
+
+    base["period_start"] = pd.to_datetime(base["period_start"], errors="coerce")
+    base["period_end"] = pd.to_datetime(base["period_end"], errors="coerce")
+    base["_dur"] = (base["period_end"] - base["period_start"]).dt.days
+    base["_fp"] = base["fp"].astype(str).str.upper()
+
+    quarterly = base[base["_dur"] <= 100]
+    annual = base[base["_dur"] >= 350]
+
+    recs: list[dict] = []
+    for _, r in quarterly.iterrows():
+        recs.append(
+            {
+                "period_end": r["period_end"],
+                "fy": r["fy"],
+                "fp": r["_fp"],
+                "eps": float(r["eps_val"]),
+            }
+        )
+
+    # Derive Q4 = FY - (Q1+Q2+Q3) per fiscal year ONLY when Q4 is not directly
+    # tagged AND all three earlier quarters are present (never fabricate).
+    for _, fy_row in annual.iterrows():
+        fy = fy_row["fy"]
+        q = quarterly[quarterly["fy"] == fy]
+        fps = set(q["_fp"])
+        if "Q4" in fps:
+            continue
+        if {"Q1", "Q2", "Q3"}.issubset(fps):
+            q123 = q[q["_fp"].isin(["Q1", "Q2", "Q3"])]["eps_val"].astype(float).sum()
+            recs.append(
+                {
+                    "period_end": fy_row["period_end"],
+                    "fy": fy,
+                    "fp": "Q4",
+                    "eps": float(fy_row["eps_val"]) - q123,
+                }
+            )
+
+    if not recs:
+        return empty
+    panel = pd.DataFrame(recs)
+    panel["period_end"] = pd.to_datetime(panel["period_end"])
+    panel = (
+        panel.drop_duplicates(subset=["period_end"], keep="first")
+        .sort_values("period_end")
+        .reset_index(drop=True)
+    )
+    return panel[_PANEL_COLS]
+
+
+def build_quarterly_eps_series(xbrl_df: pd.DataFrame, symbol: str) -> pd.Series:
+    """Quarterly diluted-EPS as a ``period_end``-indexed Series (thin view of the
+    panel from :func:`build_quarterly_eps_panel`). Carries the value only; use the
+    panel when fiscal ``(fy, fp)`` labels are needed for seasonal alignment."""
+    panel = build_quarterly_eps_panel(xbrl_df, symbol)
+    if panel.empty:
+        return pd.Series(dtype=float, name="eps_diluted")
+    s = pd.Series(
+        panel["eps"].astype(float).values,
+        index=pd.to_datetime(panel["period_end"]),
+        name="eps_diluted",
+    )
+    return s.sort_index()
+
+
+def quarterly_seasonal_expected(panel: pd.DataFrame) -> pd.Series:
+    """TRUE ``(fp, fy-1)`` year-ago same-quarter expected EPS, indexed by period_end.
+
+    Joins on the fiscal labels: ``expected[(fy, fp)] = eps[(fy-1, fp)]``. This is the
+    seasonal-RW PEAD baseline done correctly — robust to a missing/extra quarter,
+    unlike a positional ``shift(4)`` which silently misaligns when the per-firm
+    series has any gap. Observations without a prior-year same-quarter value get
+    ``NaN`` (and are dropped by the downstream standardisation).
+    """
+    if panel is None or panel.empty:
+        return pd.Series(dtype=float, name="expected_eps")
+    p = panel.dropna(subset=["fy", "fp"]).copy()
+    if p.empty:
+        return pd.Series(dtype=float, name="expected_eps")
+    # Guard the standalone API: keep the output index period_end-unique so it
+    # aligns 1:1 in compute_sue_from_expected (the live caller already dedups).
+    p = p.drop_duplicates(subset=["period_end"], keep="last")
+    prior = p.drop_duplicates(["fy", "fp"], keep="last").set_index(["fy", "fp"])["eps"]
+    vals: list[float] = []
+    for _, r in p.iterrows():
+        try:
+            vals.append(float(prior.get((int(r["fy"]) - 1, r["fp"]), float("nan"))))
+        except (TypeError, ValueError):
+            vals.append(float("nan"))
+    return pd.Series(vals, index=pd.to_datetime(p["period_end"]), name="expected_eps")
+
+
+def latest_sue_from_xbrl(
+    xbrl_df: pd.DataFrame,
+    symbols: list[str],
+    *,
+    min_quarters: int = 6,
+) -> pd.Series:
+    """Latest PIT SUE per symbol from the XBRL quarterly-EPS panel.
+
+    Expected EPS is the TRUE ``(fp, fy-1)`` year-ago same-quarter value (seasonal
+    RW, joined on fiscal labels via :func:`quarterly_seasonal_expected`), then
+    standardised by :func:`compute_sue_from_expected` — NOT a positional
+    ``shift(4)`` (which would misalign on any gap). Returns a Series indexed by the
+    input ``symbols`` (NaN where history < ``min_quarters``, fewer than 2 aligned
+    year-over-year pairs, or σ degenerate). XBRL-fed data path for
+    ``_compute_pead_sue_factor`` (live weight is held at 0 pending an OOS backtest).
+
+    NOTE (OOS precondition): :func:`compute_sue_from_expected` standardises with a
+    FULL-SAMPLE σ (including the latest event's own forecast error) — acceptable
+    for this shadow/logging use, but the eventual OOS backtest MUST standardise
+    with an expanding, strictly-past-only σ to avoid a standardiser look-ahead.
+    """
+    out: dict[str, float] = {}
+    for sym in symbols:
+        panel = build_quarterly_eps_panel(xbrl_df, sym)
+        panel = panel.dropna(subset=["eps", "fy", "fp"]).sort_values("period_end")
+        if len(panel) < min_quarters:
+            out[sym] = float("nan")
+            continue
+        actual = pd.Series(
+            panel["eps"].astype(float).values,
+            index=pd.to_datetime(panel["period_end"]),
+        )
+        expected = quarterly_seasonal_expected(panel)
+        if expected.notna().sum() < 2:
+            out[sym] = float("nan")
+            continue
+        try:
+            res = compute_sue_from_expected(actual, expected)
+        except ValueError:
+            out[sym] = float("nan")
+            continue
+        sue_clean = res.sue.dropna()
+        out[sym] = float(sue_clean.iloc[-1]) if not sue_clean.empty else float("nan")
+    return pd.Series(out, name="pead_sue_score", dtype=float)
+
+
 __all__ = [
     "ExpectedEpsMethod",
     "SueResult",
@@ -290,4 +508,8 @@ __all__ = [
     "compute_expected_eps_foster",
     "compute_sue",
     "compute_sue_from_expected",
+    "build_quarterly_eps_panel",
+    "build_quarterly_eps_series",
+    "quarterly_seasonal_expected",
+    "latest_sue_from_xbrl",
 ]

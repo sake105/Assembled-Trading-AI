@@ -266,7 +266,7 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
     "earnings_surprise_z": 0.00,  # zeroed 2026-06-01: free-feed ceiling (EPS estimates only cached for ~44 mega-caps → degenerate cross-section) + loader/wrapper schema bug left it dead. See docs/results + factor_weights_by_regime.json.
     "insider_activity_score": 0.00,  # zeroed 2026-05-22: all 59k rows = 'unknown'
     "insider_cluster_score": 0.02,  # NEW 2026-05-23: EDGAR cluster signal (active)
-    "pead_sue_score": 0.03,  # NEW 2026-05-23: post-earnings drift (active)
+    "pead_sue_score": 0.00,  # SHADOW 2026-06-10: XBRL-fed seam fixed + computing, but weight 0 pending a full OOS PEAD backtest (IR-t). Sanity IC +0.062 / top-bottom-tercile fwd60d spread +1.6% positive+correctly-signed but NOT OOS-validated. See factor_weights_by_regime.json (also 0).
     # --- News/Macro (23-26): 12% total ---
     "news_sentiment_7d": 0.04,  # was 0.05; -0.01 to fund new fundamental factors
     "news_volume_spike": 0.03,
@@ -287,9 +287,10 @@ DEFAULT_V2_WEIGHTS: dict[str, float] = {
     "buyback_drift_score": 0.01,  # NEW 2026-05-23: corporate buyback drift (active)
     # NOTE: crash_probability_inverse is applied as a multiplicative scaler
     # on the final composite, not as an additive factor.
-    # Sum = 0.98 (earnings_surprise_z zeroed 2026-06-01); composite renormalises by
-    #            the live-factor sum at scoring time, so sub-1.0 totals are safe.
-    #            (TA=0.61, sector=0.04, earn/ins/cluster=0.05, news/macro=0.12,
+    # Sum = 0.95 (earnings_surprise_z zeroed 2026-06-01; pead_sue_score shadowed
+    #            2026-06-10); composite renormalises by the live-factor sum at
+    #            scoring time, so sub-1.0 totals are safe.
+    #            (TA=0.61, sector=0.04, earn/ins/cluster=0.02, news/macro=0.12,
     #             intermarket=0.08, options=0.03, congress=0.00, geo=0.04, buyback=0.01)
     # 2026-05-23: added insider_cluster_score+pead_sue_score+buyback_drift_score
     #             (all actively computed but absent from fallback dict — AF-003 fix).
@@ -1235,10 +1236,13 @@ def _compute_pead_sue_factor(
     Bernard & Thomas (1989): one of the most robust market anomalies.
     +3-5% p.a. for long top decile / short bottom decile.
 
-    Backtest-mode safety note: unlike _compute_insider_cluster_factor and
-    _compute_buyback_drift_factor (which zero-fill when as_of is set — F-B-2/F-B-3
-    guards), this function calls load_earnings_history(as_of=...) directly.
-    PIT-safety depends on load_earnings_history enforcing the as_of cutoff strictly.
+    Data path (2026-06-10): SEC-XBRL Company Facts via load_fundamentals_xbrl —
+    PIT-gated on the EDGAR acceptance instant (available_at <= as_of) with
+    restatement selection — then latest_sue_from_xbrl builds the (fp,fy-1)-aligned
+    quarterly EPS series (Q4 derived = FY-(Q1+Q2+Q3); NetIncome/shares fallback)
+    and standardises to SUE. Replaces the previously broken Finnhub batch_sue
+    signature. SHADOW: weight is 0 pending a full OOS PEAD backtest (IR-t); the
+    factor computes + logs but does NOT affect the live composite.
     """
     result: dict[str, pd.Series] = {}
     sym_idx = (
@@ -1253,23 +1257,25 @@ def _compute_pead_sue_factor(
             )
             return result
 
-        from src.assembled_core.signals.pead_sue import batch_sue  # noqa: PLC0415
-        from src.assembled_core.data.altdata_loader import (
-            load_earnings_history,
-        )  # noqa: PLC0415
+        from src.assembled_core.data.altdata_loader import (  # noqa: PLC0415
+            load_fundamentals_xbrl,
+        )
+        from src.assembled_core.features.pead_sue import (  # noqa: PLC0415
+            latest_sue_from_xbrl,
+        )
 
-        as_of = (as_of or pd.Timestamp.now()).normalize()
-        earnings_df = load_earnings_history(latest_symbols, as_of, lookback_days=90)
-        if earnings_df is not None and not earnings_df.empty:
-            sue_series = batch_sue(earnings_df, latest_symbols)
-            if sue_series is not None:
-                result["pead_sue_score"] = sue_series.reindex(
-                    latest_symbols, fill_value=0.0
-                )
-                logger.debug(
-                    "[MF-V2] PEAD/SUE: %d symbols with data",
-                    (sue_series != 0).sum(),
-                )
+        as_of_eff = (as_of or pd.Timestamp.now()).normalize()
+        # load_fundamentals_xbrl PIT-gates (available_at <= as_of) + restatement
+        # selection; latest_sue_from_xbrl handles the seasonal alignment + SUE.
+        xbrl_df = load_fundamentals_xbrl(latest_symbols, as_of_eff)
+        if xbrl_df is not None and not xbrl_df.empty:
+            sue_series = latest_sue_from_xbrl(xbrl_df, latest_symbols)
+            result["pead_sue_score"] = sue_series.reindex(latest_symbols).fillna(0.0)
+            logger.debug(
+                "[MF-V2] PEAD/SUE (XBRL): %d/%d symbols with non-null SUE",
+                int(sue_series.notna().sum()),
+                len(latest_symbols),
+            )
     except Exception as exc:
         _warn_factor_degraded("pead_sue_score", exc)
     return result

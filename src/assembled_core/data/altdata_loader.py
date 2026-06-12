@@ -217,6 +217,72 @@ def load_insider_filings(
     return df.reset_index(drop=True)
 
 
+def load_fundamentals_xbrl(
+    symbols: list[str],
+    as_of: pd.Timestamp,
+    *,
+    lookback_days: int | None = None,
+    root: Path | str | None = None,
+) -> pd.DataFrame:
+    """Load SEC XBRL Company-Facts fundamentals for symbols, PIT-safe.
+
+    Reads the tall ``output/fundamentals_xbrl.parquet`` (one row per
+    ``(symbol, namespace, tag, period_end, accession)``) written by
+    :mod:`fundamentals_xbrl_ingest`, then applies the PIT gate + restatement
+    selection (latest filing accepted on-or-before ``as_of`` per period) via
+    :func:`fundamentals_xbrl_ingest.select_pit_rows`.
+
+    ``lookback_days`` defaults to ``None`` (NO window) because the downstream
+    SUE/PEAD consumer needs a multi-year per-firm history (seasonal lag = 4
+    quarters); pass an int only to bound history explicitly. Returns a
+    schema-correct empty frame if the cache is missing (silent degradation,
+    surfaced once at WARNING — callers already handle empty frames).
+    """
+    # Lazy import: keeps altdata_loader import-cycle-free (the ingester imports
+    # the Form 4 module, which pulls optional settings).
+    from src.assembled_core.data.fundamentals_xbrl_ingest import (  # noqa: PLC0415
+        XBRL_COLUMNS,
+        select_pit_rows,
+    )
+
+    empty = pd.DataFrame(columns=XBRL_COLUMNS)
+    fpath = _resolve(root, "fundamentals_xbrl.parquet")
+    if not fpath.exists():
+        _warn_missing_cache("fundamentals_xbrl", fpath)
+        return empty
+
+    try:
+        df = pd.read_parquet(fpath)
+    except Exception as exc:
+        logger.warning("[altdata] cannot read fundamentals_xbrl: %s", exc)
+        return empty
+
+    if "available_at" not in df.columns or "filed_date" not in df.columns:
+        logger.warning("[altdata] fundamentals_xbrl: missing PIT columns")
+        return empty
+
+    sel = select_pit_rows(df, as_of, symbols=symbols)
+
+    if lookback_days is not None and not sel.empty:
+        # NOTE: this optional bound trims by the fiscal PERIOD_END (a history
+        # bound), which is intentionally DISTINCT from the availability-based PIT
+        # gate already applied in select_pit_rows. Do NOT harmonize it onto
+        # available_at — that would truncate the multi-year per-firm history the
+        # seasonal (lag-4) SUE/PEAD consumer needs.
+        as_of_naive = as_of.tz_localize(None) if as_of.tzinfo else as_of
+        cutoff = as_of_naive - pd.Timedelta(days=lookback_days)
+        sel = sel[pd.to_datetime(sel["period_end"], errors="coerce") >= cutoff]
+
+    keep = [c for c in XBRL_COLUMNS if c in sel.columns]
+    df_out = sel[keep].reset_index(drop=True)
+    logger.debug(
+        "[altdata] fundamentals_xbrl loaded: %d rows for %d symbols",
+        len(df_out),
+        len(symbols),
+    )
+    return df_out
+
+
 def load_news_sentiment(
     symbols: list[str],
     as_of: pd.Timestamp,
@@ -356,6 +422,7 @@ def load_macro_indicators(
 __all__ = [
     "load_earnings_history",
     "load_insider_filings",
+    "load_fundamentals_xbrl",
     "load_news_sentiment",
     "load_macro_indicators",
 ]

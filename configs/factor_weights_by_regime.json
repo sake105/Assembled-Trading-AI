@@ -1,5 +1,5 @@
 {
-  "_note": "insider_activity_score + congress_activity intentionally 0.0 in all regimes (§9.6(c), 2026-05-22). earnings_surprise_z also zeroed in all regimes (2026-06-01): free-feed ceiling — EPS estimates cached for only ~44 mega-caps → degenerate cross-section; a loader/wrapper schema mismatch also left it dead, so this is runtime-neutral (already dead-factor-filtered) but removes a misleading 21.6% bull-weight + reactivation landmine. Sums per regime now < 1.0; runtime uses live-factor renorm. Underscore prefix: key skipped by loader.",
+  "_note": "insider_activity_score + congress_activity intentionally 0.0 in all regimes (§9.6(c), 2026-05-22). earnings_surprise_z also zeroed in all regimes (2026-06-01): free-feed ceiling — EPS estimates cached for only ~44 mega-caps → degenerate cross-section; a loader/wrapper schema mismatch also left it dead, so this is runtime-neutral (already dead-factor-filtered) but removes a misleading 21.6% bull-weight + reactivation landmine. pead_sue_score SHADOWED 0.0 in all regimes (2026-06-10): the broken Finnhub batch_sue seam was repointed to the free SEC-XBRL path (PIT-correct, computing); sanity IC +0.062 / tercile fwd60d spread +1.6% is positive+correctly-signed but NOT OOS-validated, so the live weight is held at 0 pending a full OOS PEAD backtest (IR-t). Sums per regime now < 1.0; runtime uses live-factor renorm. Underscore prefix: key skipped by loader.",
   "bull": {
     "trend_ema_spread": 0.4237250387,
     "trend_ma200_position": 0.0,
@@ -33,7 +33,7 @@
     "congress_activity": 0.0,
     "geo_risk_composite": 0.0205174048,
     "insider_cluster_score": 0.0307761072,
-    "pead_sue_score": 0.0307761072,
+    "pead_sue_score": 0.0,
     "buyback_drift_score": 0.0205174048
   },
   "sideways": {
@@ -69,7 +69,7 @@
     "congress_activity": 0.0,
     "geo_risk_composite": 0.0427126386,
     "insider_cluster_score": 0.0213563193,
-    "pead_sue_score": 0.0427126386,
+    "pead_sue_score": 0.0,
     "buyback_drift_score": 0.0213563193
   },
   "bear": {
@@ -105,7 +105,7 @@
     "congress_activity": 0.0,
     "geo_risk_composite": 0.0619469027,
     "insider_cluster_score": 0.017699115,
-    "pead_sue_score": 0.0265486726,
+    "pead_sue_score": 0.0,
     "buyback_drift_score": 0.0088495575
   },
   "crisis": {
@@ -141,7 +141,7 @@
     "congress_activity": 0.0,
     "geo_risk_composite": 0.1066204602,
     "insider_cluster_score": 0.0088850384,
-    "pead_sue_score": 0.0088850384,
+    "pead_sue_score": 0.0,
     "buyback_drift_score": 0.0
   }
 }
