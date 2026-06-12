@@ -77,9 +77,16 @@ def batch_sue(
     finnhub_client: Any,
     lookback_quarters: int = 8,
 ) -> pd.Series:
-    """Compute SUE for a batch of tickers.
+    """Compute SUE for a batch of tickers (Finnhub data path).
 
     Returns Series indexed by ticker.
+
+    DEPRECATED / research-backup only (2026-06-12): this Finnhub-based path has
+    NO production caller. The live PEAD/SUE factor
+    (``multifactor_v2._compute_pead_sue_factor``) was repointed to the free
+    SEC-XBRL path — ``features.pead_sue.latest_sue_from_xbrl`` (true (fp, fy-1)
+    join, PIT-correct). Kept only as an optional paid-feed fallback; the broad
+    OOS PEAD edge was found null (2026-06-12), so this is not on any live path.
     """
     scores = {}
     for ticker in tickers:
