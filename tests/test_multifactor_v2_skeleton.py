@@ -185,19 +185,22 @@ def test_v2_default_weights_shape_and_sum() -> None:
     assert len(weights) == 34, f"expected 34 active factors, got {len(weights)}"
 
     total = sum(weights.values())
-    # earnings_surprise_z zeroed 2026-06-01 (free-feed ceiling) -> ~0.98. Sub-1.0 is
-    # by design (runtime renormalises by the live-factor sum; regime JSON sums < 1.0).
-    assert abs(total - 0.98) <= 0.02, (
-        f"factor weights should sum to ~0.98 (tol 0.02); got {total:.4f}"
+    # earnings_surprise_z zeroed 2026-06-01 + pead_sue_score shadowed 2026-06-12
+    # (XBRL seam fixed, weight 0 pending OOS) -> ~0.95. Sub-1.0 is by design (runtime
+    # renormalises by the live-factor sum; regime JSON sums < 1.0).
+    assert abs(total - 0.95) <= 0.02, (
+        f"factor weights should sum to ~0.95 (tol 0.02); got {total:.4f}"
     )
 
     # All weights must be non-negative; zero is allowed for data-quality-zeroed factors
     # (insider_activity_score: all-unknown data; congress_activity: no data files;
-    # earnings_surprise_z: free-feed ceiling, EPS estimates only for ~44 mega-caps).
+    # earnings_surprise_z: free-feed ceiling, EPS estimates only for ~44 mega-caps;
+    # pead_sue_score: SHADOW 2026-06-12 — XBRL seam fixed but weight 0 pending OOS).
     _INTENTIONALLY_ZEROED = {
         "insider_activity_score",
         "congress_activity",
         "earnings_surprise_z",
+        "pead_sue_score",
     }
     for name, w in weights.items():
         assert w >= 0, f"weight for {name} must be non-negative, got {w}"

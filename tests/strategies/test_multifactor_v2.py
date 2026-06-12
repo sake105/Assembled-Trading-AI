@@ -159,13 +159,13 @@ def test_detect_regime_returns_string() -> None:
 
 
 def test_default_weights_sum_to_one() -> None:
-    # earnings_surprise_z zeroed 2026-06-01 (free-feed ceiling: EPS estimates only
-    # cached for ~44 mega-caps) -> sum is now ~0.98, not 1.0. Sub-1.0 totals are by
-    # design: the composite renormalises by the live-factor sum at scoring time, and
-    # the per-regime weight JSON also sums < 1.0.
+    # earnings_surprise_z zeroed 2026-06-01 (free-feed ceiling) + pead_sue_score
+    # shadowed 2026-06-12 (XBRL seam fixed, weight 0 pending OOS backtest) -> sum is
+    # now ~0.95, not 1.0. Sub-1.0 totals are by design: the composite renormalises by
+    # the live-factor sum at scoring time, and the per-regime weight JSON also sums < 1.0.
     total = sum(DEFAULT_V2_WEIGHTS.values())
-    assert abs(total - 0.98) < 0.01, (
-        f"expected ~0.98 after zeroing earnings; got {total:.4f}"
+    assert abs(total - 0.95) < 0.01, (
+        f"expected ~0.95 after zeroing earnings + shadowing pead_sue; got {total:.4f}"
     )
 
 
