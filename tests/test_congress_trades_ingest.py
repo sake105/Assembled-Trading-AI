@@ -129,7 +129,11 @@ def test_normalize_schema_and_dtypes():
         "member",
     ):
         assert col in df.columns
-    assert str(df["available_at"].dtype) == "datetime64[ns, UTC]"
+    # Resolution-agnostic (pandas 2.3.3 may yield 'us', 2.2.x 'ns'): assert tz-aware
+    # UTC datetime, not the exact dtype string.
+    assert (
+        df["available_at"].dtype.kind == "M" and str(df["available_at"].dt.tz) == "UTC"
+    )
     assert df["amount"].dtype == "float64"
 
 

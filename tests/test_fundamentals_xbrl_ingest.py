@@ -312,10 +312,13 @@ def test_rows_to_dataframe_schema_and_dtypes():
         parse_company_facts(COMPANY_FACTS, symbol="TESTCO")
     )
     assert list(df.columns) == XBRL_COLUMNS
-    assert str(df["period_end"].dtype) == "datetime64[ns]"
-    assert str(df["filed_date"].dtype) == "datetime64[ns]"
-    # available_at must be tz-aware UTC even though unset here (all NaT).
-    assert str(df["available_at"].dtype) == "datetime64[ns, UTC]"
+    # Resolution-agnostic (pandas 2.3.3 may yield 'us', 2.2.x 'ns'): assert kind +
+    # tz, NOT the exact dtype string. period_end/filed_date naive; available_at UTC.
+    assert df["period_end"].dtype.kind == "M" and df["period_end"].dt.tz is None
+    assert df["filed_date"].dtype.kind == "M" and df["filed_date"].dt.tz is None
+    assert (
+        df["available_at"].dtype.kind == "M" and str(df["available_at"].dt.tz) == "UTC"
+    )
     assert df["val"].dtype == "float64"
     assert df["is_amendment"].dtype == bool
     assert str(df["fy"].dtype) == "Int64"
@@ -505,7 +508,10 @@ def test_select_pit_all_nat_available_at_uses_fallback_without_raising():
     assert df["available_at"].isna().all()
     out = select_pit_rows(df, "2023-12-31")
     assert len(out) > 0
-    assert str(out["available_at"].dtype) == "datetime64[ns, UTC]"
+    assert (
+        out["available_at"].dtype.kind == "M"
+        and str(out["available_at"].dt.tz) == "UTC"
+    )
     # restatement still resolves via the filed-date fallback (acc-q1a is later).
     eps_q1 = out[
         (out["tag"] == "EarningsPerShareDiluted")
