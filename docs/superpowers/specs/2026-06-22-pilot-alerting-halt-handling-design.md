@@ -1,152 +1,146 @@
 # Design — Paper-Pilot Alerting + Halt-Handling
 
 Datum: 2026-06-22
-Status: APPROVED (Design), Spec-Review ausstehend
+Status: APPROVED (Design v2), Spec-Review ausstehend
 Autor: Fable (remote-control) + Operator
-Scope-Typ: Ops/Monitoring — orchestriert bestehende Primitive, minimal-invasiv, reversibel
+Scope-Typ: Ops/Monitoring (Phase 1, nicht-geschützt) + gated Auto-Liquidation (Phase 2, geschützt)
+
+> **v2-Korrektur (wichtig):** Beim Code-Lesen festgestellt: es existiert **keine** "Positionen
+> auf Cash verkaufen"-Primitive. `auto_flatten_on_stale` aktiviert nur den **Kill-Switch**
+> (blockt neue Orders), verkauft NICHTS. Der Operator will echtes Auto-Liquidieren — **mit
+> Telegram-Vorwarnung + Interventionsfenster davor**. Das berührt geschützte Pfade
+> (`execution`/`paper`) und wird daher in Phase 2 isoliert, hinter eigener Freigabe + Review-Chain.
 
 ---
 
 ## 1. Problem (belegt, diese Session diagnostiziert)
 
 Der Paper-Pilot hat am **2026-05-22** nach einem 1500s-Soft-Timeout (yfinance-429-Hang im
-Prewarm) selbst eine **Halt-Flag** gesetzt (`output/ops/halt_ack_required.json`,
-`reason: "soft-timeout fired … halted until operator acks via scripts/ack_halt.py"`).
+Prewarm) selbst eine **Halt-Flag** gesetzt (`output/ops/halt_ack_required.json`).
+Danach lief er **jeden Handelstag weiter** (Exit 0), verband sich zum Broker — und
+**verweigerte den Handel** (`rc=1, n_orders=0, "HALT FLAG present"` für 14+ Handelstage im
+`output/pilot/pilot_manifest.json`). Die Paper-Equity driftete dabei **~100k → ~88k (−12 %)**
+unmanaged. **Niemand wurde alarmiert**, weil (1) das Setzen der Halt-Flag keinen Alert auslöst,
+(2) ein separater Alert-Worker nur JSON schreibt statt auszuliefern (Beob. 770), (3) der
+DMS-Heartbeat-Monitor nicht im Task Scheduler läuft.
 
-Danach lief der Pilot **jeden Handelstag weiter** (zuletzt belegt: Exit 0), verband sich
-zum Broker — und **verweigerte den Handel** (`rc=1, n_orders=0, "HALT FLAG present"` für 14+
-Handelstage im `output/pilot/pilot_manifest.json`). In dieser Zeit driftete die Paper-Equity
-**~100k → ~88k (−12 %)** unmanaged, weil gehaltene Positionen weiter schwankten und nicht
-rebalanced/exited wurden.
-
-**Niemand wurde alarmiert.** Ursachen:
-1. Beim Setzen der Halt-Flag ruft **nichts** den `AlertManager` auf.
-2. Ein separater autonomer Alert-Worker schreibt nur JSON, **liefert nie aus** (Beob. 770, 2026-06-02).
-3. Der DMS-Heartbeat-Monitor (`dms_daemon.py`), der Staleness erkennen + flatten würde, ist
-   **nicht im Task Scheduler** registriert → läuft nicht.
-
-Fazit: Ein System, das **stillschweigend anhält**, ist gefährlicher als eines, das gar nicht
-startet. Diese Spec schließt die Monitoring-/Alerting-Lücke.
+Ein System, das **stillschweigend anhält**, ist gefährlicher als eines, das gar nicht startet.
 
 ---
 
-## 2. Bestehende Bausteine (werden WIEDERVERWENDET, nicht neu gebaut)
+## 2. Bestehende Bausteine + die Lücke
 
 | Baustein | Datei | Rolle | Status |
 |---|---|---|---|
-| `AlertManager.fire(rule, ctx)` | `src/assembled_core/ops/alerting.py` | echter Multi-Channel-Dispatcher (telegram/email/log_only, Cooldowns, Env-Creds, liest `configs/alerting.yaml`) | **liefert bereits** — wird nur aufgerufen |
-| `auto_flatten_on_stale(cfg, reason=…)` | `src/assembled_core/ops/dead_man_switch.py:107` | generische Flatten-Primitive via Kill-Switch; `flatten_mode: market/shadow` | **aufrufbar von außen** — wird mit eigenem `reason` wiederverwendet |
-| Halt-Flag schreiben | `scripts/run_live_paper.py` (`_arm_soft_timeout`) | setzt `halt_ack_required.json` | Edit: +1 `fire()`-Call |
-| Halt-Flag clearen | `scripts/ack_halt.py` | entfernt die Flag | Edit: +1 `fire()`-Call (all-clear) |
-| Pilot-State | `output/pilot/pilot_manifest.json`, `output/ops/scheduler_heartbeat.json`, `output/state/heartbeat.json`, `output/journal/trade_journal.jsonl` | Quellen für die Watchdog-Checks | read-only |
-
-**Geschützte Pfade (`execution/risk/accounting/pipeline/paper/.github/workflows`): werden NICHT
-editiert.** `auto_flatten_on_stale` liegt in `ops/` (nicht in der Deny-Liste) und wird nur
-**aufgerufen**, nicht verändert.
+| `AlertManager.fire(rule, ctx)` | `ops/alerting.py` | echter Dispatcher (telegram/email/log_only, Cooldowns, Env-Creds, liest `configs/alerting.yaml`) | **liefert bereits** — wird aufgerufen |
+| `auto_flatten_on_stale(policy, reason=…)` | `ops/dead_man_switch.py:107` | aktiviert **Kill-Switch** (`activate_kill_switch(throttle_pct=0)`) — blockt Orders, **verkauft NICHT** | aufrufbar; ≠ echtes Flatten |
+| `get_positions()` / `cancel_all_orders()` | `execution/broker_adapter.py:75/226` | Positionen lesen, offene Orders canceln | vorhanden |
+| **`close_all_positions()` / liquidate-to-cash** | — | **EXISTIERT NICHT** → muss in Phase 2 neu gebaut werden (geschützt) | **fehlt** |
+| Halt-Flag schreiben / clearen | `scripts/run_live_paper.py`, `scripts/ack_halt.py` | setzt/entfernt `halt_ack_required.json` | Edit: +1 `fire()`-Call je |
 
 ---
 
-## 3. Architektur (Ansatz B — Standalone-Watchdog orchestriert bestehende Primitive)
+## 3. Architektur — zwei Phasen
 
-Erwogene Alternativen: (A) alles in den DMS-Daemon falten — verworfen, schwerere Edits in
-risk-adjacenten Interna; (C) in den `daily_paper_trading.bat`-Wrapper — verworfen, läuft nur
-1×/Tag und kann „Pilot läuft gar nicht mehr" nicht erkennen.
+Ansatz B (Standalone-Watchdog orchestriert bestehende Primitive). Erwogen + verworfen:
+(A) alles in den DMS-Daemon — schwerere Edits in risk-adjacenten Interna; (C) in den
+`daily_paper_trading.bat`-Wrapper — läuft nur 1×/Tag, erkennt "Pilot läuft gar nicht mehr" nicht.
 
-### 3.1 Komponenten
+### PHASE 1 — Alerting + Watchdog + Vorwarnung (NICHT-geschützt, zuerst shippen)
 
-**K1 — Alert-Config `configs/alerting.yaml`** (neu oder erweitert; nicht-geschützt)
-- Channel `telegram` für Severities `critical` + `warning`; `log_only` als Fallback immer aktiv.
-- Regeln (mit Cooldowns): `halt_flag_set`, `halt_cleared`, `halt_unacked_grace_exceeded`,
-  `heartbeat_stale`, `zero_orders_unexpected`, `drawdown_breach`.
-- Creds aus `.env`: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (nie hardcoded, nie geloggt).
+Liefert den belegten Fix (3 Wochen unbemerkt) + das Interventionsfenster — ganz ohne
+geschützte Edits. Die Auto-Liquidation läuft hier im **Shadow** (loggt "würde liquidieren",
+sendet Telegram, verkauft NICHT).
 
-**K2 — `fire()` an der Halt-Quelle** (Edits in `scripts/`, review-chain-getriggert, editierbar)
-- `run_live_paper.py`: beim Schreiben von `halt_ack_required.json` →
-  `AlertManager().fire("halt_flag_set", {reason, ts, equity})`.
-- `ack_halt.py`: nach erfolgreichem Clear → `fire("halt_cleared", {actor, ts})`.
+**K1 — `configs/alerting.yaml`** (neu/erweitert; nicht-geschützt)
+- Channel `telegram` für `critical`+`warning`; `log_only` immer als Fallback.
+- Regeln (mit Cooldowns): `halt_flag_set`, `halt_cleared`, `liquidation_warning`,
+  `liquidation_executed`, `heartbeat_stale`, `zero_orders_unexpected`, `drawdown_breach`.
+- Creds aus `.env`: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (nie hardcoded/geloggt).
+- Schwellen: `warn_after_trading_days` (default 1), `liquidate_after_warning_hours` (default 4),
+  `heartbeat_stale_hours` (26), `zero_order_days` (2), `dd_breach_pct` (−8).
 
-**K3 — `scripts/ops_watchdog.py`** (neu; nicht-geschützt) — der fehlende Monitor.
-Idempotenter Einzel-Durchlauf (kein Daemon-State), per Task Scheduler alle ~15–30 min.
-Pro Tick:
-1. **Halt-Flag-Check:** Flag vorhanden? Alter aus `ts_utc` berechnen.
-   - frisch gesetzt (seit letztem Tick neu) → `fire("halt_flag_set")`.
-   - vorhanden + unacked **> Grace (default 1 Handelstag)** → `auto_flatten_on_stale(cfg,
-     reason="halt_unacked_grace_exceeded")` **+** `fire("halt_unacked_grace_exceeded")`.
-2. **Heartbeat-Staleness:** `scheduler_heartbeat.json` / `heartbeat.json` älter als Schwelle
-   (default 26 h, deckt 1 verpassten Tageslauf + Puffer) → `fire("heartbeat_stale")`.
-   *(Auto-Flatten bei Heartbeat-Staleness bleibt Sache des DMS-Daemons — siehe K4.)*
-3. **Run-Qualität:** letzter `pilot_manifest.json`-Eintrag `rc≠0` **oder** ≥N aufeinanderfolgende
-   Werktags-Läufe mit `n_orders_detected==0` (default N=2) → `fire("zero_orders_unexpected")`.
-4. **Drawdown:** aktuelle Equity vs. Pilot-Peak; Unterschreiten des Pilot-Hard-Stops
-   (`max_drawdown_pct: -8%` aus dem Manifest) → `fire("drawdown_breach")`.
-- Watchdog-eigener State (zuletzt gesehener Halt-ts, letzter Alarm) in
-  `output/ops/watchdog_state.json`, damit „neu vs. schon-alarmiert" + Cooldown sauber sind.
-- Alle Schwellen (`grace_trading_days`, `heartbeat_stale_hours`, `zero_order_days`,
-  `dd_breach_pct`) in `configs/alerting.yaml` — nichts hardcoded.
+**K2 — `fire()` an der Halt-Quelle** (Edits in `scripts/`, review-chain, editierbar)
+- `run_live_paper.py`: beim Schreiben der Halt-Flag → `fire("halt_flag_set", …)`.
+- `ack_halt.py`: nach Clear → `fire("halt_cleared", …)`.
 
-**K4 — DMS-Daemon in den Task Scheduler** (Ops-Schritt, kein Code)
-- `dms_daemon.py` als Scheduled Task registrieren (war nie eingetragen). Liefert die
-  kontinuierliche Heartbeat-Staleness-Flatten-Absicherung, die K3 bewusst NICHT dupliziert.
-- Dokumentierte Arbeitsteilung: **DMS** = Heartbeat-stale → flatten; **Watchdog** = Halt-Alarm
-  + Halt-Grace-Flatten + Run-Qualität + Drawdown-Alarm.
+**K3 — `scripts/ops_watchdog.py`** (neu; nicht-geschützt) — idempotenter Einzel-Durchlauf,
+per Task Scheduler alle ~15–30 min. Pro Tick:
+1. **Halt-Eskalation (zweistufig):**
+   - Flag neu vorhanden → `fire("halt_flag_set")`.
+   - unacked **> `warn_after_trading_days`** → `fire("liquidation_warning")`
+     ("Auto-Liquidation in <`liquidate_after_warning_hours`> h, sofort ack'en zum Abbrechen").
+   - unacked **> warn + `liquidate_after_warning_hours`** → **Liquidation auslösen** (Phase 1:
+     Shadow-Log; Phase 2: echt) + `fire("liquidation_executed")`.
+   - **Ack jederzeit bricht ab** (Flag weg → keine Liquidation, `halt_cleared`).
+2. **Heartbeat-Staleness** > `heartbeat_stale_hours` → `fire("heartbeat_stale")`
+   (Auto-Flatten bei Heartbeat-Stale bleibt Sache des DMS-Daemons, K4).
+3. **Run-Qualität:** letzter Manifest-Eintrag `rc≠0` oder ≥`zero_order_days` Werktags-Läufe mit
+   `n_orders==0` → `fire("zero_orders_unexpected")`.
+4. **Drawdown** unter `dd_breach_pct` → `fire("drawdown_breach")`.
+- Watchdog-State (`last_seen_halt_ts`, `warning_sent_at`, `liquidation_done`, letzte Alarme) in
+  `output/ops/watchdog_state.json` → "neu vs. schon-alarmiert", Eskalationsstufe, Einmaligkeit.
 
-### 3.2 Datenfluss
+**K4 — DMS-Daemon in den Task Scheduler** (Ops-Schritt, kein Code) — `dms_daemon.py`
+registrieren (war nie eingetragen). Arbeitsteilung: **DMS** = Heartbeat-stale → Kill-Switch;
+**Watchdog** = Halt-Eskalation + Run-Qualität + Drawdown-Alarm + (Phase 2) Liquidation.
 
-```
-run_live_paper ──setzt──> halt_ack_required.json ──┐
-ack_halt ──cleared──> (Flag weg)                   │
-                                                   ▼
-scheduler/heartbeat/pilot_manifest/journal ──> ops_watchdog.py (alle 15–30 min)
-                                                   │  ├─ Bedingung erfüllt ─> AlertManager.fire() ─> Telegram
-                                                   │  └─ Halt unacked > Grace ─> auto_flatten_on_stale() ─> Kill-Switch/Broker
-dms_daemon.py (dauerhaft) ── Heartbeat stale ─> auto_flatten_on_stale()
-```
+### PHASE 2 — Echte Auto-Liquidation (GESCHÜTZT, eigene Freigabe + Review-Chain)
+
+**K5 — `close_all_positions()` Broker-Primitive** in `execution/broker_adapter.py` (GESCHÜTZT).
+- Liest `get_positions()`, submitted für jede Long-Position eine schließende SELL-Order
+  (market, day), cancelt vorher offene Orders via `cancel_all_orders()`. Long-only → nur SELL.
+- Idempotent, logged jede Order, gibt Report zurück (geschlossen/fehlgeschlagen je Symbol).
+- Eigener `flatten_mode`-Respekt: bei `shadow` nur "would close X@Y" loggen, kein Submit.
+- **Geschützter Edit:** via Deny-Lift-Workflow (scoped, danach restauriert) + Review-Chain
+  (`risk-execution-reviewer` → `senior-code-reviewer` → `task-completion-auditor`) + explizite
+  Operator-Freigabe pro Datei. Wird ERST nach Phase-1-Verifikation gebaut.
+- Watchdog K3-Schritt 1 ruft dann statt Shadow-Log `broker.close_all_positions()` auf.
 
 ---
 
 ## 4. Fehlerbehandlung / Safety
 
-- **Fail-safe, nicht fail-open:** Watchdog-Fehler (z.B. korruptes JSON, Telegram down) werden
-  geloggt und führen NIE zu einem stillen Skip einer Flatten-Entscheidung; der Flatten-Pfad
-  hat Vorrang vor dem Alert-Pfad (erst flatten-entscheiden, dann alarmieren).
-- **Grace-Flatten ist einmalig + markiert:** nach ausgelöstem Grace-Flatten wird der Zustand in
-  `watchdog_state.json` markiert, damit nicht jeder Tick erneut flattet.
-- **`flatten_mode`-Respekt:** der Watchdog ruft `auto_flatten_on_stale` mit dem in `policy.yaml`
-  konfigurierten `flatten_mode`; bei `shadow` wird nur geloggt/alarmiert (kein Broker-Eingriff)
-  — wichtig für einen sicheren ersten Rollout.
-- **Cooldowns:** verhindern Alarm-Spam (z.B. heartbeat_stale nicht alle 15 min).
-- **Keine Secrets in Logs/Alerts:** Token/Chat-ID nur aus `.env`, nie in Nachrichtentext.
-- **Rollout-Sicherheit:** Watchdog startet mit `flatten_mode: shadow` (alarmiert, flattet nicht),
-  bis der Alert-Pfad live verifiziert ist; dann Umstellung auf `market` als bewusster Schritt.
+- **Fail-safe, nicht fail-open:** Watchdog-Fehler werden geloggt; eine Liquidations-Entscheidung
+  wird nie still übersprungen. Erst Entscheidung berechnen, dann alarmieren.
+- **Zweistufige Eskalation mit Interventionsfenster:** Vor jeder Liquidation geht eine Telegram-
+  Warnung raus mit explizitem Zeitfenster + Ack-Anleitung. Nur wenn nach Ablauf STILL unacked →
+  Liquidation. Das macht die irreversible Aktion menschlich abfangbar.
+- **Einmaligkeit:** Nach ausgelöster Liquidation Markierung in `watchdog_state.json` → kein
+  Re-Trigger pro Tick.
+- **Shadow-first:** Phase 1 + initialer Phase-2-Rollout mit `flatten_mode: shadow` (loggt/alarmiert,
+  verkauft nicht), bis Alert- und Liquidations-Pfad live verifiziert sind; dann bewusster Umstieg
+  auf `market`.
+- **Cooldowns** gegen Alarm-Spam. **Keine Secrets** in Logs/Alerts.
 
 ---
 
 ## 5. Testing
 
-- **Unit (`tests/`):** Watchdog-Bedingungslogik mit synthetischen State-Files — je ein Fixture für
-  halt-frisch / halt-grace-überschritten / heartbeat-stale / 0-orders-streak / dd-breach / all-clear.
-  Order-Invarianz: gleiche Inputs → gleiche Entscheidung; Grace-Flatten genau einmal.
-- **AlertManager-Routing:** `fire()` mit `log_only`-Channel testen (kein echter Telegram-Call im Test).
-- **Flatten-Reuse:** Mock auf `auto_flatten_on_stale`, prüfen dass der Watchdog es mit korrektem
-  `reason` + `flatten_mode` aufruft (kein echter Broker-Call).
-- **Smoke:** `scripts/drills/drill_halt_flag.py` (existiert) → Watchdog-Tick → erwarteter Alarm im Log.
-- **Kein** echter Telegram-/Broker-Call in der Test-Suite.
+- **Watchdog-Logik (`tests/`):** synthetische State-Files je Fixture — halt-neu / unacked>warn
+  (Warnung) / unacked>warn+window (Liquidation) / ack-bricht-ab / heartbeat-stale / 0-orders-streak
+  / dd-breach / all-clear. Order-Invarianz + Liquidation/Warnung genau einmal.
+- **AlertManager-Routing:** `fire()` mit `log_only` (kein echter Telegram-Call im Test).
+- **Liquidation-Reuse:** Mock auf `broker.close_all_positions` / `auto_flatten_on_stale`, prüfen
+  korrekter `reason` + `flatten_mode`; **kein echter Broker-Call** in Tests.
+- **`close_all_positions` (Phase 2):** Unit gegen einen Fake-Broker (gemockte `get_positions` →
+  erwartete SELL-Orders; shadow → keine Submits).
+- **Smoke:** `scripts/drills/drill_halt_flag.py` → Watchdog-Ticks über die Eskalationsstufen.
 
 ---
 
 ## 6. Reversibilität / Blast-Radius
 
-Neu/geändert: 1 neues Skript (`ops_watchdog.py`) + 1 Config (`alerting.yaml`) + 1 Scheduler-Eintrag
-(Watchdog) + 1 Scheduler-Eintrag (DMS) + 2 kleine `fire()`-Calls in `scripts/`. **Null Edits in
-`execution/risk/accounting/pipeline/paper/workflows`.** Rückbau = Skript + Config + Tasks entfernen,
-2 `fire()`-Zeilen revertieren.
+- **Phase 1:** 1 neues Skript + 1 Config + 2 Scheduler-Einträge + 2 `fire()`-Zeilen. **Null
+  geschützte Edits.** Rückbau trivial.
+- **Phase 2:** +1 Methode in `execution/broker_adapter.py` (geschützt, additiv) + Umstellung des
+  Watchdog-Calls Shadow→real. Rückbau = Methode entfernen + Watchdog-Call auf Shadow.
 
 ---
 
-## 7. Offene Punkte / bewusst ausgeklammert (YAGNI)
+## 7. Offene Punkte / YAGNI
 
-- Kein eigener Alert-Channel-Code (Telegram/Email existiert bereits in `alerting.py`).
-- Kein Ersatz des JSON-only-Worker-Pfads in dieser Spec — der Watchdog nutzt direkt
-  `AlertManager`; den toten JSON-Worker separat zu retiren ist ein eigener Follow-up.
-- Keine Änderung der eigentlichen Pilot-Strategie oder des Soft-Timeout-Werts (separate Themen
-  #2 „Datenfetch entkoppeln" adressiert die 429-Ursache).
+- Kein eigener Channel-Code (Telegram/Email existiert in `alerting.py`).
+- Toten JSON-only-Alert-Worker separat retiren (eigener Follow-up).
+- 429-Ursache (Soft-Timeout) ist Thema #2 "Datenfetch entkoppeln" — separat.
+- Phase 2 startet erst nach Phase-1-Live-Verifikation (Telegram-Pfad nachweislich liefert).
