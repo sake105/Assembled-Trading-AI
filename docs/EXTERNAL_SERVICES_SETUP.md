@@ -140,23 +140,28 @@ from §3.
 
 **Why:** Primary push-notification channel for AlertManager rules. Already supported by `AlertManager` channel kind `telegram`.
 
-**Setup (5 min):**
+**Setup (5 min) — guided helper (recommended):**
 
 1. In Telegram, message `@BotFather`. Send `/newbot`. Pick a name
    and handle. Save the token (looks like `123456:ABCDE-...`).
-2. Send a message to your new bot from your own Telegram account.
-3. Fetch your chat-id by visiting
-   `https://api.telegram.org/bot<TOKEN>/getUpdates`. Look for
-   `chat.id` in the JSON.
-4. Set env:
+2. Add **only the token** to `.env` (the helper resolves the chat-id for you):
    ```
    TELEGRAM_BOT_TOKEN=123456:ABCDE-...
-   TELEGRAM_CHAT_ID=<id>
    ```
-5. Verify:
+3. Open your new bot in Telegram and send it any message (e.g. `hi` / tap START).
+4. Run the helper — it reads the token from `.env`, resolves your chat-id via
+   `getUpdates`, writes `TELEGRAM_CHAT_ID` into `.env`, and sends a confirmation
+   message. It never prints the token:
    ```bash
-   python -c "from src.assembled_core.ops.alerting import AlertManager; AlertManager()._send_telegram({}, 'test')"
+   python scripts/setup_telegram.py
    ```
+   A ✅ message in Telegram means it works. The watchdog (`scripts/ops_watchdog.py`)
+   loads `.env` on start, so scheduled runs pick up the creds automatically.
+
+**Manual fallback** (only if the helper can't reach Telegram): set `TELEGRAM_CHAT_ID`
+yourself — visit `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and read
+`chat.id` from the JSON. Note this exposes the token in the URL/browser history; prefer
+the helper above.
 
 **Cost:** free.
 

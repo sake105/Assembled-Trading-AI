@@ -577,3 +577,12 @@
 **Wie vermeiden:** Den Tie-Break deterministisch UND fachlich sinnvoll machen: hier `sort_values(["_eff", "is_amendment", "accession"])` → max. Verfügbarkeit, dann Amendment gewinnt, dann Accession — reihenfolge-unabhängig. Order-Invarianz-Regressionstest (gleiche Daten, umgekehrte Zeilenreihenfolge → identische Auswahl).
 **Erkannt in:** `src/assembled_core/data/fundamentals_xbrl_ingest.py` (`select_pit_rows`). Von risk-execution-reviewer + adversarial-PIT-verifier + senior-code-reviewer gefangen (empirisch via Reihenfolge-Umkehr reproduziert). Fix: dreistufiger deterministischer Sort + Order-Invarianz-Test.
 **Referenzen:** E-046 (selbe Session, fehlende Key-Dimension), E-036 (state-isolation no-op — verwandte „stiller-Default"-Klasse).
+
+## E-048 — `.env`-Credential-Datei in-place rewrite ohne atomic swap / robusten Key-Match
+**Datum:** 2026-06-23
+**Kategorie:** data-loss-risk / config-mutation / test-blind-spot
+**Was passierte:** `scripts/setup_telegram.py::_upsert_env` mutierte die `.env` (einzige Kopie der Broker-/Alert-Credentials, nicht in git) via `read_text` → `write_text` in-place, und matchte existierende Keys mit `ln.strip().startswith(f"{key}=")`. Zwei latente Defekte: (1) ein Crash/Interrupt zwischen Truncate und Write hätte die gesamte `.env` verloren; (2) ein nicht-kanonischer Bestands-Eintrag (`KEY = value` mit Spaces, `export KEY=value`) matchte nicht → ein zweiter `KEY=...` wurde appendiert (dotenv nimmt last-wins, also verhaltens-korrekt, aber stille Duplikat-Akkumulation). Pure-File-Logik, die die Credential-Datei umschreibt, war zudem ungetestet.
+**Warum falsch:** Eine Funktion, die die einzige Kopie sensibler Credentials neu schreibt, braucht atomare Persistenz (sonst Datenverlust-Fenster) und einen Key-Match, der den geparsten Key vergleicht statt eines Literal-Präfixes (sonst Duplikate). Ungetestete Datei-Mutation an Secrets ist ein blinder Fleck.
+**Wie vermeiden:** `.env`/Config-Mutation: tmp-Datei schreiben + `os.replace` (atomarer Swap); Key per `split('=',1)[0].strip()` vergleichen (+ optionales `export `-Präfix strippen, Kommentarzeilen überspringen); `tmp_path`-Unit-Test über append/replace/preserve-others/preserve-comments/spaces-around-eq.
+**Erkannt in:** `scripts/setup_telegram.py` (`_upsert_env`). Von test-runner (Stage 1) + senior-code-reviewer (Stage 2, F-senior-1/2) gefangen; im selben Step gefixt (atomic + robust match + 6 Tests in `tests/test_setup_telegram.py`).
+**Referenzen:** E-003 (silent except — verwandte „stiller-Fehler"-Klasse).

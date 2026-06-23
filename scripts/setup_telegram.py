@@ -44,18 +44,29 @@ def _get(url: str) -> dict:
 
 
 def _upsert_env(key: str, value: str) -> None:
-    """Write key=value into .env, replacing an existing line or appending. Never prints token."""
+    """Write key=value into .env, replacing an existing line or appending.
+
+    Atomic (write tmp + os.replace) so an interrupt can't truncate the sole credential
+    file. Key match is robust: tolerates spaces around '=' and an optional 'export '
+    prefix, and never matches a commented line. Never prints values.
+    """
     lines = ENV.read_text(encoding="utf-8").splitlines() if ENV.exists() else []
     out, found = [], False
     for ln in lines:
-        if ln.strip().startswith(f"{key}="):
+        bare = ln.strip()
+        if bare.startswith("export "):
+            bare = bare[len("export ") :].lstrip()
+        lhs = bare.split("=", 1)[0].strip() if "=" in bare else ""
+        if lhs == key and not bare.startswith("#"):
             out.append(f"{key}={value}")
             found = True
         else:
             out.append(ln)
     if not found:
         out.append(f"{key}={value}")
-    ENV.write_text("\n".join(out) + "\n", encoding="utf-8")
+    tmp = ENV.with_suffix(ENV.suffix + ".tmp")
+    tmp.write_text("\n".join(out) + "\n", encoding="utf-8")
+    os.replace(tmp, ENV)
 
 
 def main() -> int:
