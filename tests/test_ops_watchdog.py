@@ -87,3 +87,41 @@ def test_ack_clears_escalation():
     acts = ow.evaluate(state=state, snap=_snap(halt=None), cfg=CFG, now=NOW)
     assert "halt_cleared" in [a[1] for a in acts if a[0] == "fire"]
     assert not any(a[0] == "liquidate" for a in acts)
+
+
+def test_stale_heartbeat_fires():
+    hb = {"timestamp_utc": (NOW - timedelta(hours=30)).isoformat()}
+    acts = ow.evaluate(state={}, snap=_snap(sched_hb=hb), cfg=CFG, now=NOW)
+    assert "heartbeat_stale" in [a[1] for a in acts if a[0] == "fire"]
+
+
+def test_fresh_heartbeat_silent():
+    hb = {"timestamp_utc": (NOW - timedelta(hours=2)).isoformat()}
+    acts = ow.evaluate(state={}, snap=_snap(sched_hb=hb), cfg=CFG, now=NOW)
+    assert "heartbeat_stale" not in [a[1] for a in acts if a[0] == "fire"]
+
+
+def test_zero_orders_streak_fires():
+    days = [{"rc": 1, "n_orders_detected": 0}, {"rc": 1, "n_orders_detected": 0}]
+    acts = ow.evaluate(state={}, snap=_snap(manifest={"days": days}), cfg=CFG, now=NOW)
+    assert "zero_orders_unexpected" in [a[1] for a in acts if a[0] == "fire"]
+
+
+def test_one_zero_order_day_silent():
+    days = [{"rc": 0, "n_orders_detected": 3}, {"rc": 1, "n_orders_detected": 0}]
+    acts = ow.evaluate(state={}, snap=_snap(manifest={"days": days}), cfg=CFG, now=NOW)
+    assert "zero_orders_unexpected" not in [a[1] for a in acts if a[0] == "fire"]
+
+
+def test_drawdown_breach_fires():
+    acts = ow.evaluate(
+        state={}, snap=_snap(equity=88000, peak=100000), cfg=CFG, now=NOW
+    )
+    assert "drawdown_breach" in [a[1] for a in acts if a[0] == "fire"]
+
+
+def test_drawdown_ok_silent():
+    acts = ow.evaluate(
+        state={}, snap=_snap(equity=97000, peak=100000), cfg=CFG, now=NOW
+    )
+    assert "drawdown_breach" not in [a[1] for a in acts if a[0] == "fire"]
