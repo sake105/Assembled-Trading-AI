@@ -52,6 +52,15 @@ def _write_halt_flag(payload: dict) -> None:
     tmp = HALT_FLAG_PATH.with_suffix(HALT_FLAG_PATH.suffix + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     tmp.replace(HALT_FLAG_PATH)
+    try:
+        from src.assembled_core.ops.alerting import AlertManager
+
+        AlertManager().fire(
+            "halt_flag_set",
+            {"reason": payload.get("reason", "n/a"), "equity": "n/a"},
+        )
+    except Exception as _alert_exc:  # alerting must never break the halt write
+        logger.error("[run_live_paper] halt alert failed: %s", _alert_exc)
 
 
 def _mismatch_exceeds_threshold(

@@ -81,6 +81,12 @@ def main(argv: list[str] | None = None) -> int:
     logger.info(
         "[ACK_HALT] cleared halt flag — ledger entry written to %s", ACK_LEDGER_PATH
     )
+    try:
+        from src.assembled_core.ops.alerting import AlertManager
+
+        AlertManager().fire("halt_cleared", {"actor": args.actor, "reason": reason})
+    except Exception as exc:
+        logger.error("[ACK_HALT] all-clear alert failed: %s", exc)
     return 0
 
 
