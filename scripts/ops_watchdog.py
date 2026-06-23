@@ -4,8 +4,9 @@ side effects. Actions: ("fire", rule_name, ctx) | ("liquidate", reason, ctx)."""
 
 from __future__ import annotations
 import argparse
+import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
@@ -131,8 +132,93 @@ def evaluate(state, snap, cfg, now):
     return actions
 
 
-def main(argv=None):  # pragma: no cover (I/O wiring added in a later task)
+def _load_json(path):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _load_yaml(path):
+    import yaml
+
+    try:
+        return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
+def load_snapshot():
+    manifest = _load_json(PILOT_MANIFEST)
+    equity = peak = None
+    if manifest and manifest.get("days"):
+        eqs = []
+        for d in manifest["days"]:
+            snip = d.get("output_snippet", "")
+            i = snip.find("equity=")
+            if i != -1:
+                try:
+                    eqs.append(float(snip[i + 7 :].split()[0].rstrip("\n")))
+                except Exception:
+                    pass
+        if eqs:
+            equity, peak = eqs[-1], max(eqs)
+    return {
+        "halt": _load_json(HALT_FLAG),
+        "sched_hb": _load_json(SCHED_HB),
+        "state_hb": _load_json(STATE_HB),
+        "manifest": manifest,
+        "equity": equity,
+        "peak": peak,
+    }
+
+
+def _do_liquidation(reason, ctx, policy):
+    """Phase 1: shadow only — delegate to the existing kill-switch primitive (does NOT sell).
+    Phase 2 will replace this body with broker.close_all_positions() under approval."""
+    from src.assembled_core.ops.dead_man_switch import auto_flatten_on_stale
+
+    auto_flatten_on_stale(policy, reason=reason)
+
+
+def apply_actions(acts, am, state, policy, now):
+    for a in acts:
+        kind = a[0]
+        if kind == "fire":
+            _, rule, ctx = a
+            am.fire(rule, ctx)
+            if rule == "liquidation_warning":
+                state["warning_sent_at"] = now.isoformat()
+        elif kind == "liquidate":
+            _, reason, ctx = a
+            _do_liquidation(reason, ctx, policy)
+            state["liquidation_done"] = True
+            am.fire("liquidation_executed", {"mode": ctx.get("mode"), "detail": reason})
+    return state
+
+
+def main(
+    argv=None,
+):  # pragma: no cover (thin I/O wiring; logic covered by evaluate/apply tests)
     argparse.ArgumentParser(description="paper-pilot ops watchdog").parse_args(argv)
+    from src.assembled_core.ops.alerting import AlertManager
+
+    cfg_all = _load_yaml(ALERT_CFG).get("alerts", {})
+    cfg = cfg_all.get("watchdog", {})
+    policy = _load_yaml(POLICY)
+    state = _load_json(WATCHDOG_STATE) or {}
+    snap = load_snapshot()
+    now = datetime.now(timezone.utc)
+    acts = evaluate(state, snap, cfg, now)
+    am = AlertManager(ALERT_CFG)
+    apply_actions(acts, am, state, policy, now)
+    halt = snap.get("halt")
+    state["last_seen_halt_ts"] = (halt or {}).get("ts_utc")
+    if not halt:
+        state.pop("warning_sent_at", None)
+        state.pop("liquidation_done", None)
+    WATCHDOG_STATE.parent.mkdir(parents=True, exist_ok=True)
+    WATCHDOG_STATE.write_text(json.dumps(state, indent=2), encoding="utf-8")
     return 0
 
 

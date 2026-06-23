@@ -125,3 +125,33 @@ def test_drawdown_ok_silent():
         state={}, snap=_snap(equity=97000, peak=100000), cfg=CFG, now=NOW
     )
     assert "drawdown_breach" not in [a[1] for a in acts if a[0] == "fire"]
+
+
+class _FakeAM:
+    def __init__(self):
+        self.fired = []
+
+    def fire(self, rule, ctx=None):
+        self.fired.append((rule, ctx))
+        return True
+
+
+def test_apply_actions_fires_and_shadow_liquidation(monkeypatch):
+    am = _FakeAM()
+    called = {"flatten": 0}
+    monkeypatch.setattr(
+        ow,
+        "_do_liquidation",
+        lambda reason, ctx, policy: called.__setitem__(
+            "flatten", called["flatten"] + 1
+        ),
+    )
+    acts = [
+        ("fire", "halt_flag_set", {"reason": "x", "equity": 1}),
+        ("liquidate", "halt_unacked_grace_exceeded", {"mode": "shadow"}),
+    ]
+    state = {}
+    ow.apply_actions(acts, am=am, state=state, policy={}, now=NOW)
+    assert ("halt_flag_set", {"reason": "x", "equity": 1}) in am.fired
+    assert called["flatten"] == 1
+    assert state.get("liquidation_done") is True
