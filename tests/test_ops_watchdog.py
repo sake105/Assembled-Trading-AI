@@ -155,3 +155,51 @@ def test_apply_actions_fires_and_shadow_liquidation(monkeypatch):
     assert ("halt_flag_set", {"reason": "x", "equity": 1}) in am.fired
     assert called["flatten"] == 1
     assert state.get("liquidation_done") is True
+
+
+def test_do_liquidation_shadow_does_not_call_primitive(monkeypatch):
+    import sys
+    import types
+
+    called = {"n": 0}
+    fake = types.ModuleType("src.assembled_core.ops.dead_man_switch")
+    fake.auto_flatten_on_stale = lambda policy, reason="": called.__setitem__(
+        "n", called["n"] + 1
+    )
+    monkeypatch.setitem(sys.modules, "src.assembled_core.ops.dead_man_switch", fake)
+    ow._do_liquidation("grace", {"mode": "shadow"}, {})
+    assert (
+        called["n"] == 0
+    )  # shadow short-circuits BEFORE importing/calling the primitive
+
+
+def test_do_liquidation_market_calls_primitive(monkeypatch):
+    import sys
+    import types
+
+    called = {"reason": None}
+    fake = types.ModuleType("src.assembled_core.ops.dead_man_switch")
+    fake.auto_flatten_on_stale = lambda policy, reason="": called.__setitem__(
+        "reason", reason
+    )
+    monkeypatch.setitem(sys.modules, "src.assembled_core.ops.dead_man_switch", fake)
+    ow._do_liquidation(
+        "grace", {"mode": "market"}, {"dead_man_switch": {"flatten_mode": "shadow"}}
+    )
+    assert called["reason"] == "grace"
+
+
+def test_corrupt_state_fail_closed():
+    st = ow._resolve_state(ow._CORRUPT)
+    assert st.get("liquidation_done") is True
+
+
+def test_naive_ts_halt_does_not_crash():
+    halt = {"ts_utc": "2026-06-20T00:00:00", "reason": "x"}  # naive, no offset
+    acts = ow.evaluate(
+        state={"last_seen_halt_ts": halt["ts_utc"]},
+        snap=_snap(halt=halt),
+        cfg=CFG,
+        now=NOW,
+    )
+    assert isinstance(acts, list)  # must not raise

@@ -13,6 +13,10 @@ _REPO = Path(__file__).resolve().parent.parent
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
+import logging
+
+logger = logging.getLogger("ops_watchdog")
+
 HALT_FLAG = Path("output/ops/halt_ack_required.json")
 SCHED_HB = Path("output/ops/scheduler_heartbeat.json")
 STATE_HB = Path("output/state/heartbeat.json")
@@ -24,9 +28,12 @@ POLICY = Path("configs/policy.yaml")
 
 def _parse_ts(s):
     try:
-        return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
     except Exception:
         return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def evaluate(state, snap, cfg, now):
@@ -132,22 +139,48 @@ def evaluate(state, snap, cfg, now):
     return actions
 
 
-def _load_json(path):
-    try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
-    except Exception:
+_CORRUPT = object()
+
+
+def _load_json(path, *, on_error=None):
+    p = Path(path)
+    if not p.exists():
         return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.error("[watchdog] failed to read/parse %s: %s", path, exc)
+        return on_error
 
 
 def _load_yaml(path):
     import yaml
 
+    p = Path(path)
+    if not p.exists():
+        return {}
     try:
-        return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    except Exception:
+        return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        logger.error("[watchdog] failed to read/parse %s: %s", path, exc)
         return {}
 
 
+def _resolve_state(loaded):
+    """Fail-closed: a corrupt state file (lost escalation memory) must NOT let us
+    re-liquidate. Treat corruption as 'already liquidated' for this tick + log."""
+    if loaded is _CORRUPT:
+        logger.error(
+            "[watchdog] watchdog_state.json corrupt — fail-closed: suppressing liquidation this tick"
+        )
+        return {"liquidation_done": True}
+    return loaded or {}
+
+
+# NOTE (follow-up, review IMPORTANT #2): equity is scraped from the manifest output_snippet
+# ("equity=" = broker-connect-time NAV at START of run, possibly truncated). peak=max over
+# parsed days can under-report drawdown on parse-misses. drawdown_breach is alert-ONLY (never
+# liquidation), so this is non-safety-critical; replace with a structured equity field later.
 def load_snapshot():
     manifest = _load_json(PILOT_MANIFEST)
     equity = peak = None
@@ -174,8 +207,18 @@ def load_snapshot():
 
 
 def _do_liquidation(reason, ctx, policy):
-    """Phase 1: shadow only — delegate to the existing kill-switch primitive (does NOT sell).
-    Phase 2 will replace this body with broker.close_all_positions() under approval."""
+    """Phase 1: the watchdog's OWN flatten_mode (carried in ctx['mode'], sourced from
+    alerting.yaml alerts.watchdog.flatten_mode) is AUTHORITATIVE. Only 'market' may reach
+    the kill-switch primitive; anything else logs a shadow event and returns — so a
+    missing/corrupt policy.yaml can NEVER silently escalate to a real liquidation."""
+    mode = str((ctx or {}).get("mode", "shadow")).lower()
+    if mode != "market":
+        logger.warning(
+            "[watchdog] SHADOW liquidation (mode=%s) — logged, NOT executed. reason=%s",
+            mode,
+            reason,
+        )
+        return
     from src.assembled_core.ops.dead_man_switch import auto_flatten_on_stale
 
     auto_flatten_on_stale(policy, reason=reason)
@@ -206,7 +249,7 @@ def main(
     cfg_all = _load_yaml(ALERT_CFG).get("alerts", {})
     cfg = cfg_all.get("watchdog", {})
     policy = _load_yaml(POLICY)
-    state = _load_json(WATCHDOG_STATE) or {}
+    state = _resolve_state(_load_json(WATCHDOG_STATE, on_error=_CORRUPT))
     snap = load_snapshot()
     now = datetime.now(timezone.utc)
     acts = evaluate(state, snap, cfg, now)
@@ -217,8 +260,11 @@ def main(
     if not halt:
         state.pop("warning_sent_at", None)
         state.pop("liquidation_done", None)
-    WATCHDOG_STATE.parent.mkdir(parents=True, exist_ok=True)
-    WATCHDOG_STATE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    try:
+        WATCHDOG_STATE.parent.mkdir(parents=True, exist_ok=True)
+        WATCHDOG_STATE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except Exception as exc:
+        logger.error("[watchdog] failed to persist state %s: %s", WATCHDOG_STATE, exc)
     return 0
 
 
