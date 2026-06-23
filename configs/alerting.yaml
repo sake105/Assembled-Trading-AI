@@ -1,5 +1,7 @@
 # Multi-channel alerting configuration (Plan 11/10 §4.1)
 # Environment variables referenced here must be set in .env (never commit credentials)
+# Nachrichtentexte auf Deutsch (2026-06-23). Platzhalter {…} NICHT übersetzen — sie werden
+# per .format(**context) befüllt; Änderung der Keys würde den fire()-Aufruf brechen.
 
 alerts:
   # Channel definitions
@@ -27,98 +29,98 @@ alerts:
   rules:
     - name: "kill_switch_activated"
       severity: critical
-      message: "KILL-SWITCH ACTIVATED: {reason}"
+      message: "KILL-SWITCH AKTIVIERT: {reason}"
       cooldown_minutes: 0
 
     - name: "daily_pnl_loss_limit"
       severity: critical
-      message: "Daily P&L {daily_pnl_pct:.2%} hit hard limit"
+      message: "Tages-P&L {daily_pnl_pct:.2%} hat das harte Limit erreicht"
       cooldown_minutes: 60
 
     - name: "broker_connection_failure"
       severity: critical
-      message: "Broker connection failed: {error}"
+      message: "Broker-Verbindung fehlgeschlagen: {error}"
       cooldown_minutes: 10
 
     - name: "sanity_check_halt"
       severity: critical
-      message: "Order halted by sanity check: {symbol} — {flags}"
+      message: "Order durch Sanity-Check gestoppt: {symbol} — {flags}"
       cooldown_minutes: 5
 
     - name: "data_freshness_stale"
       severity: warning
-      message: "Data older than {max_age_hours}h: {symbols_stale}"
+      message: "Daten älter als {max_age_hours}h: {symbols_stale}"
       cooldown_minutes: 120
 
     - name: "drift_threshold_exceeded"
       severity: warning
-      message: "Feature drift PSI={max_psi:.3f} on {feature_name}"
+      message: "Feature-Drift PSI={max_psi:.3f} bei {feature_name}"
       cooldown_minutes: 240
 
     - name: "fill_rate_low"
       severity: info
-      message: "Fill rate today: {daily_fill_rate:.0%}"
+      message: "Fill-Rate heute: {daily_fill_rate:.0%}"
       cooldown_minutes: 1440
 
     - name: "cycle_error"
       severity: warning
-      message: "Trading cycle error: {error}"
+      message: "Trading-Zyklus-Fehler: {error}"
       cooldown_minutes: 15
 
     # Reconciliation SLO breaches (fired by accounting/reconciliation.py:evaluate_reconcile_slo).
     # Context keys must match the fire() call: cash_diff_bps, max_qty_diff, violation_count, first_violation.
     - name: "reconciliation_fail"
       severity: critical
-      message: "RECONCILE FAIL: cash diff {cash_diff_bps} bps, max qty diff {max_qty_diff}, {violation_count} violation(s) (first: {first_violation})"
+      message: "RECONCILE FAIL: Cash-Differenz {cash_diff_bps} bps, max Mengen-Diff {max_qty_diff}, {violation_count} Verletzung(en) (erste: {first_violation})"
       cooldown_minutes: 60
 
     - name: "reconciliation_warn"
       severity: warning
-      message: "RECONCILE WARN: cash diff {cash_diff_bps} bps, max qty diff {max_qty_diff}, {violation_count} violation(s) (first: {first_violation})"
+      message: "RECONCILE WARN: Cash-Differenz {cash_diff_bps} bps, max Mengen-Diff {max_qty_diff}, {violation_count} Verletzung(en) (erste: {first_violation})"
       cooldown_minutes: 120
 
     # Volatility circuit-breaker trip (fired by risk/circuit_breaker.py:VolCircuitBreaker).
     # Context keys: ratio, threshold, trip_count.
     - name: "circuit_breaker_tripped"
       severity: critical
-      message: "CIRCUIT BREAKER TRIPPED: vol ratio {ratio} > threshold {threshold} (trip #{trip_count})"
+      message: "CIRCUIT BREAKER AUSGELÖST: Vol-Ratio {ratio} > Schwelle {threshold} (Auslösung #{trip_count})"
       cooldown_minutes: 5
 
     # Paper-pilot watchdog rules (fired by ops/alerting.py AlertManager).
     - name: halt_flag_set
       severity: critical
       cooldown_minutes: 60
-      message: "PILOT HALT set: {reason} (equity={equity}). Ack via scripts/ack_halt.py."
+      message: "PILOT-HALT gesetzt: {reason} (Equity={equity}). Quittieren via scripts/ack_halt.py."
 
     - name: halt_cleared
       severity: warning
       cooldown_minutes: 0
-      message: "PILOT halt cleared by {actor}: {reason}."
+      message: "PILOT-Halt aufgehoben von {actor}: {reason}."
 
     - name: liquidation_warning
       severity: critical
       cooldown_minutes: 120
-      message: "AUTO-LIQUIDATION in {window_hours}h unless you ack the halt now (unacked {age_h}h). scripts/ack_halt.py"
+      message: "AUTO-LIQUIDATION in {window_hours}h, falls der Halt nicht jetzt quittiert wird (seit {age_h}h offen). scripts/ack_halt.py"
 
     - name: liquidation_executed
       severity: critical
       cooldown_minutes: 0
-      message: "AUTO-LIQUIDATION triggered (mode={mode}): {detail}"
+      message: "AUTO-LIQUIDATION ausgelöst (Modus={mode}): {detail}"
 
     - name: heartbeat_stale
       severity: critical
       cooldown_minutes: 180
-      message: "Pilot heartbeat STALE: {source} age={age_h}h (threshold {threshold_h}h)."
+      message: "Pilot-Heartbeat VERALTET: {source} Alter={age_h}h (Schwelle {threshold_h}h)."
 
     - name: zero_orders_unexpected
       severity: warning
       cooldown_minutes: 720
-      message: "Pilot produced 0 orders for {streak} weekday runs (last rc={rc})."
+      message: "Pilot hat in {streak} Werktags-Läufen 0 Orders erzeugt (letzter rc={rc})."
 
     - name: drawdown_breach
       severity: critical
       cooldown_minutes: 360
-      message: "Pilot drawdown {dd_pct}% breached limit {limit_pct}% (equity={equity})."
+      message: "Pilot-Drawdown {dd_pct}% hat Limit {limit_pct}% verletzt (Equity={equity})."
 
   watchdog:
     warn_after_trading_days: 1
