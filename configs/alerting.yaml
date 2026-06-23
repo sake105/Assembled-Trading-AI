@@ -5,6 +5,7 @@ alerts:
   # Channel definitions
   channels:
     critical:
+      - type: log_only
       - type: telegram
         chat_id_env: "TELEGRAM_CHAT_ID"        # env var holding chat ID
         bot_token_env: "TELEGRAM_BOT_TOKEN"    # env var holding bot token
@@ -15,6 +16,7 @@ alerts:
         smtp_user_env: "SMTP_USER"
         smtp_pass_env: "SMTP_PASS"
     warning:
+      - type: log_only
       - type: telegram
         chat_id_env: "TELEGRAM_CHAT_ID"
         bot_token_env: "TELEGRAM_BOT_TOKEN"
@@ -81,3 +83,47 @@ alerts:
       severity: critical
       message: "CIRCUIT BREAKER TRIPPED: vol ratio {ratio} > threshold {threshold} (trip #{trip_count})"
       cooldown_minutes: 5
+
+    # Paper-pilot watchdog rules (fired by ops/alerting.py AlertManager).
+    - name: halt_flag_set
+      severity: critical
+      cooldown_minutes: 60
+      message: "PILOT HALT set: {reason} (equity={equity}). Ack via scripts/ack_halt.py."
+
+    - name: halt_cleared
+      severity: warning
+      cooldown_minutes: 0
+      message: "PILOT halt cleared by {actor}: {reason}."
+
+    - name: liquidation_warning
+      severity: critical
+      cooldown_minutes: 120
+      message: "AUTO-LIQUIDATION in {window_hours}h unless you ack the halt now (unacked {age_h}h). scripts/ack_halt.py"
+
+    - name: liquidation_executed
+      severity: critical
+      cooldown_minutes: 0
+      message: "AUTO-LIQUIDATION triggered (mode={mode}): {detail}"
+
+    - name: heartbeat_stale
+      severity: critical
+      cooldown_minutes: 180
+      message: "Pilot heartbeat STALE: {source} age={age_h}h (threshold {threshold_h}h)."
+
+    - name: zero_orders_unexpected
+      severity: warning
+      cooldown_minutes: 720
+      message: "Pilot produced 0 orders for {streak} weekday runs (last rc={rc})."
+
+    - name: drawdown_breach
+      severity: critical
+      cooldown_minutes: 360
+      message: "Pilot drawdown {dd_pct}% breached limit {limit_pct}% (equity={equity})."
+
+  watchdog:
+    warn_after_trading_days: 1
+    liquidate_after_warning_hours: 4
+    heartbeat_stale_hours: 26
+    zero_order_days: 2
+    dd_breach_pct: -8.0
+    flatten_mode: shadow
