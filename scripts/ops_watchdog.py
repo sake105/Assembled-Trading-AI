@@ -244,6 +244,14 @@ def main(
     argv=None,
 ):  # pragma: no cover (thin I/O wiring; logic covered by evaluate/apply tests)
     argparse.ArgumentParser(description="paper-pilot ops watchdog").parse_args(argv)
+    # Load .env so alert credentials (TELEGRAM_*) are present when run headless under
+    # Task Scheduler — without this, AlertManager silently logs "credentials not set".
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(_REPO / ".env")
+    except Exception:
+        pass
     from src.assembled_core.ops.alerting import AlertManager
 
     cfg_all = _load_yaml(ALERT_CFG).get("alerts", {})
