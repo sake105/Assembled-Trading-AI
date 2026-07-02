@@ -20,6 +20,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Ensure the repo root is importable when run as a script: sys.path[0] is
+# otherwise scripts/, so ``from src.assembled_core...`` fails and the
+# halt_cleared alert silently never fires. Mirrors scripts/run_live_paper.py.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 logger = logging.getLogger("ack_halt")
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 

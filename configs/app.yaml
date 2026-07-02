@@ -1,6 +1,7 @@
 paper_runner:
   mode: "paper"           # shadow|paper
-  start_capital: 100000.0 # match Alpaca paper account
+  start_capital: 87874.90 # 2026-07-02 reset: baseline = Alpaca equity at reactivation (was 100000.0)
+  dd_stop_pct: 0.10       # soft-halt at -10% of start_capital (writes ack_halt flag); default 0.30 if absent
   output_dir: "output/runs"
   include_news_pipeline: false
   as_of: null             # optional timestamp override

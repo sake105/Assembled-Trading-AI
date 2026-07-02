@@ -366,28 +366,85 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
         logger.critical("[run_live_paper] KILL SWITCH ENGAGED — aborting")
         return False
 
-    # Drawdown check
+    # Drawdown stop (soft-halt): a breach writes the ack-clearable halt flag
+    # (via _write_halt_flag), NOT the OPERATOR_KILL_TOKEN-gated kill switch.
+    # Threshold + baseline are config-driven via
+    # paper_runner.{dd_stop_pct, start_capital}. A missing dd_stop_pct falls
+    # back to 0.30, preserving the pre-2026-07-02 30% behaviour.
+    #
+    # Evaluation and persistence are deliberately in SEPARATE scopes: a
+    # transient failure to read/evaluate the stop is fail-closed-but-transient
+    # (block this cycle, no flag, retry next cycle); a CONFIRMED breach whose
+    # halt cannot be persisted must still block AND surface as an un-persisted
+    # halt — never be misclassified as a self-recovering skip.
+    dd_breach = False
+    dd_equity = 0.0
+    dd_baseline = 0.0
+    dd_stop = 0.30
     try:
         from src.assembled_core.execution.kill_switch import (
             check_drawdown_kill_switch,
         )
 
+        paper_cfg = app_cfg.get("paper_runner") or {}
         account = adapter.get_account()
-        equity = float(account.get("equity", 0))
-        start_capital = float(
-            (app_cfg.get("paper_runner") or {}).get("start_capital", 10000)
-        )
-        if equity > 0 and start_capital > 0:
-            if check_drawdown_kill_switch(equity, start_capital):
-                dd_pct = (equity - start_capital) / start_capital * 100
-                logger.critical(
-                    "[run_live_paper] DRAWDOWN KILL SWITCH — equity=%.2f dd=%.2f%%",
-                    equity,
-                    dd_pct,
-                )
-                return False
+        dd_equity = float(account.get("equity", 0))
+        dd_baseline = float(paper_cfg.get("start_capital", 10000))
+        dd_stop = float(paper_cfg.get("dd_stop_pct", 0.30))
+        if dd_equity > 0 and dd_baseline > 0:
+            # auto_activate=False -> detect only; a breach is persisted below as
+            # the ack_halt-clearable flag, not the token-gated kill switch.
+            dd_breach = check_drawdown_kill_switch(
+                dd_equity, dd_baseline, kill_threshold=dd_stop, auto_activate=False
+            )
     except Exception as exc:
-        logger.warning("[run_live_paper] drawdown check failed: %s", exc)
+        # Could not read/evaluate the stop (e.g. transient broker get_account()
+        # error): fail-closed for THIS cycle only (return False) WITHOUT a halt
+        # flag, so the next scheduled cycle retries once the read recovers —
+        # avoiding a nuisance manual ack_halt on a transient network blip while
+        # never trading the cycle with the drawdown stop unverified.
+        logger.warning(
+            "[run_live_paper] drawdown check failed (%s) — blocking this cycle "
+            "(fail-closed, self-recovering; no halt flag written)",
+            exc,
+        )
+        return False
+
+    if dd_breach:
+        dd_pct = (dd_equity - dd_baseline) / dd_baseline * 100
+        logger.critical(
+            "[run_live_paper] DRAWDOWN STOP — equity=%.2f dd=%.2f%% "
+            "(limit=-%.0f%% of baseline %.2f) — writing halt flag",
+            dd_equity,
+            dd_pct,
+            dd_stop * 100,
+            dd_baseline,
+        )
+        try:
+            _write_halt_flag(
+                {
+                    "ts_utc": datetime.now(timezone.utc).isoformat(),
+                    "reason": (
+                        f"drawdown stop: equity {dd_equity:.2f} breached "
+                        f"-{dd_stop:.0%} of baseline {dd_baseline:.2f} "
+                        f"(level {dd_baseline * (1 - dd_stop):.2f}). Next run "
+                        f"halted until operator acks via scripts/ack_halt.py."
+                    ),
+                    "source": "run_live_paper._preflight_checks.drawdown_stop",
+                }
+            )
+        except Exception as exc:
+            # A CONFIRMED breach whose halt could not be persisted must STILL
+            # block the cycle, and must NOT be reported as a transient
+            # self-recovering skip: the ack gate did not arm. The next cycle
+            # re-detects the still-breached equity and re-attempts the write.
+            logger.critical(
+                "[run_live_paper] DRAWDOWN STOP breached but halt-flag write "
+                "FAILED (%s) — cycle BLOCKED; halt NOT persisted. Next cycle "
+                "will re-detect; operator: check output/ops writability.",
+                exc,
+            )
+        return False
 
     # Stale open-order cleanup: cancel orders older than 5 minutes that survived
     # a prior crashed or interrupted run.  Orders submitted within the last 5
