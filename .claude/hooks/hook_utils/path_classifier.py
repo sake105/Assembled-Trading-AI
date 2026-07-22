@@ -23,6 +23,11 @@ PROTECTED_PREFIXES = (
     "scripts/",
     ".github/workflows/",
     ".claude/rules/",
+    # F-senior-2 (review_chain_disclosure §20.8, umgesetzt 2026-07-22
+    # GESAMTBEWERTUNG P8): the enforcement layer itself must be
+    # chain-protected — an edit to the hooks could silently disable the
+    # chain that reviews edits.
+    ".claude/hooks/",
 )
 
 SENSITIVE_ZONES = (

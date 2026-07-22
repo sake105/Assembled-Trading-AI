@@ -243,10 +243,22 @@ def verify_certificate(
         cert = ReproducibilityCertificate.from_dict(json.load(f))
 
     new_out = build_output_fingerprint(output_dir)
+
+    def _match(old_hash: str, new_hash: str) -> bool:
+        # P5 fix (2026-07-22, GESAMTBEWERTUNG): "NOT_FOUND" == "NOT_FOUND"
+        # previously counted as a match — a certificate over MISSING
+        # artefacts verified as PASS (tautological reproducibility). An
+        # artefact absent on both sides proves nothing and must FAIL.
+        if old_hash == "NOT_FOUND" or new_hash == "NOT_FOUND":
+            return False
+        return old_hash == new_hash
+
     results = {
-        "equity_curve": cert.outputs.equity_curve_hash == new_out.equity_curve_hash,
-        "trades": cert.outputs.trades_hash == new_out.trades_hash,
-        "signals": cert.outputs.signals_hash == new_out.signals_hash,
+        "equity_curve": _match(
+            cert.outputs.equity_curve_hash, new_out.equity_curve_hash
+        ),
+        "trades": _match(cert.outputs.trades_hash, new_out.trades_hash),
+        "signals": _match(cert.outputs.signals_hash, new_out.signals_hash),
     }
     all_match = all(results.values())
     logger.info(

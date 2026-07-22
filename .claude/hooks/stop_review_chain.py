@@ -178,12 +178,38 @@ Vermeide: ungeprüfte Behauptungen „passt schon", Review-Theater, Scope-Erweit
 """
 
 
+def _heartbeat(note: str) -> None:
+    """F-senior-7 (§20.8, umgesetzt 2026-07-22 GESAMTBEWERTUNG P8): append a
+    liveness line on EVERY invocation. A silent fail-open of this hook has
+    already happened once (36 commits / 27h, disclosure §20.8) and was only
+    detectable in hindsight — 'an enforcer that never triggers is suspect'.
+    With the heartbeat, absence of entries while commits happen is the alarm
+    signal. Best-effort: must never affect the hook decision."""
+    try:
+        hb = REPO_ROOT / ".claude" / ".hook_heartbeat.jsonl"
+        with hb.open("a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "hook": "stop_review_chain",
+                        "note": note,
+                    }
+                )
+                + "\n"
+            )
+    except OSError:
+        pass
+
+
 def main() -> int:
+    _heartbeat("invoked")
     try:
         raw = sys.stdin.read()
         event = json.loads(raw) if raw.strip() else {}
     except json.JSONDecodeError:
         # Malformed input → fail-open, allow stop
+        _heartbeat("malformed_input_allow")
         return _allow_stop()
 
     # Avoid infinite loop: if Claude Code already invoked us in a Stop-hook loop, allow.

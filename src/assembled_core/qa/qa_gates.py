@@ -519,7 +519,17 @@ def check_leakage(
     disclosure_col: str = "disclosure_date",
     timestamp_col: str = "timestamp",
 ) -> QAGateResult:
-    """Check for look-ahead bias / data leakage (mandatory gate).
+    """Check for look-ahead bias / data leakage.
+
+    HONESTY NOTE (W4/P5, 2026-07-22 GESAMTBEWERTUNG): earlier docs called
+    this a "mandatory gate" — it is NOT. It is wired into no production
+    runner: ``evaluate_all_gates`` does not include it and no caller exists
+    outside tests. It only checks anything when a caller explicitly passes
+    ``feature_df``; with ``feature_df=None`` it returns OK (fail-open by
+    design, because "no altdata features" is a legitimate state — but that
+    also means forgetting to pass the frame silently passes). Callers who
+    want a real leakage gate must invoke this explicitly with the feature
+    frame AND treat the ``details["skipped"]`` flag as "not checked".
 
     If feature_df is provided, validates that feature values are zero before
     their disclosure date.  If not provided (no altdata features in this

@@ -16,8 +16,12 @@ Residual gaps (documented, NOT covered):
     redirect/cp/mv/tee token.
   - Command-substitution evasion: a destructive command nested inside `$(...)` or
     backticks of an otherwise-benign command may not be isolated by tokenization.
-  - The separate **PowerShell** tool is a different `tool_name` and is NOT routed
-    through this Bash hook.
+  - PowerShell (K7, 2026-07-22): the tool IS now routed through this hook
+    (settings.json matcher "Bash|PowerShell") with a best-effort check —
+    write/delete cmdlets + zone mention, recursive+force deletes, redirects
+    into zones; literals/here-strings are stripped before cmdlet detection.
+    Residual PS gaps: Invoke-Expression / & call-operator indirection,
+    variable-built paths, [IO.File]::WriteAllText.
 
 Destructive patterns (path-independent), checked per sub-command:
   rm with recursive + force   (combined `-rf`/`-fr`, split `-r -f`, long `--recursive`/`--force`)
@@ -94,7 +98,52 @@ PROTECTED_ZONES: tuple[str, ...] = (
 )
 
 # Sub-command separators: && || |& then single ; newline | &
+# (kept for reference; splitting is done quote-aware in _split_subcommands —
+# K7 fix 2026-07-22: the raw regex split also cut INSIDE quoted strings, so a
+# '|' inside e.g. a python -c literal produced an unbalanced-quote fragment
+# and a fail-closed false positive — two harmless reads were blocked during
+# the 2026-07-19 audit alone.)
 _SEPARATORS = re.compile(r"&&|\|\||\|&|[;\n|&]")
+
+
+def _split_subcommands(command: str) -> list[str]:
+    """Split a shell command on separators OUTSIDE single/double quotes."""
+    subs: list[str] = []
+    buf: list[str] = []
+    i, n = 0, len(command)
+    in_single = in_double = False
+    while i < n:
+        c = command[i]
+        if c == "'" and not in_double:
+            in_single = not in_single
+            buf.append(c)
+            i += 1
+            continue
+        if c == '"' and not in_single:
+            in_double = not in_double
+            buf.append(c)
+            i += 1
+            continue
+        if c == "\\" and in_double and i + 1 < n:
+            buf.append(command[i : i + 2])
+            i += 2
+            continue
+        if not in_single and not in_double:
+            if command[i : i + 2] in ("&&", "||", "|&"):
+                subs.append("".join(buf))
+                buf = []
+                i += 2
+                continue
+            if c in ";\n|&":
+                subs.append("".join(buf))
+                buf = []
+                i += 1
+                continue
+        buf.append(c)
+        i += 1
+    subs.append("".join(buf))
+    return subs
+
 
 # Separate redirect operator token (e.g. ">", ">>", "2>", "&>", ">|")
 _REDIR_OP = re.compile(r"\d*&?>{1,2}\|?")
@@ -283,13 +332,72 @@ def check_command(command: str) -> str | None:
     """Return a block reason for `command`, or None if allowed. Pure (no I/O)."""
     if not command or not command.strip():
         return None
-    for sub in _SEPARATORS.split(command):
+    for sub in _split_subcommands(command):
         sub = sub.strip()
         if not sub:
             continue
         reason = _check_subcommand(sub)
         if reason:
             return reason
+    return None
+
+
+# ---------------------------------------------------------------------------
+# PowerShell tool support (K7, 2026-07-22 GESAMTBEWERTUNG P8)
+# ---------------------------------------------------------------------------
+# The separate PowerShell tool was a documented-but-unmitigated bypass since
+# 2026-05-30 (.hook_diag.jsonl proved the tool was used and diagnosed, the
+# matcher never added). This is a BEST-EFFORT substring/regex check, not a
+# PS parser: it blocks (a) recursive+force deletes anywhere (parity with the
+# bash rm -rf rule) and (b) write/delete cmdlets or >-redirects whose command
+# mentions a protected zone. Reads (Get-Content etc.) stay allowed. False
+# positives are acceptable: the one-shot override exists and the message is
+# explicit. Deliberately NOT fail-closed on "unparseable" — there is no
+# parsing step that could fail.
+
+_PS_WRITE_CMDLETS = re.compile(
+    r"(?i)\b(set-content|add-content|out-file|new-item|remove-item|move-item|"
+    r"copy-item|rename-item|clear-content|tee-object|"
+    r"sc|ni|ri|del|erase|rd|rmdir|mi|move|cpi|copy)\b"
+)
+_PS_RECURSE_FORCE_DELETE = re.compile(
+    r"(?i)\b(remove-item|ri|del|erase|rd|rmdir)\b(?=.*-recurse)(?=.*-force)"
+)
+
+
+_PS_HERESTRING = re.compile(r"@'.*?'@|@\".*?\"@", re.S)
+_PS_QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
+
+
+def _ps_strip_literals(command: str) -> str:
+    """Blank out here-strings and quoted literals.
+
+    Cmdlet/danger-pattern detection runs on the STRIPPED text so that a git
+    commit message MENTIONING 'copy'/'Remove-Item'/zone paths (this repo's
+    commit style does, constantly) is not a false positive. Zone-path
+    detection runs on the RAW text, because a real write target may
+    legitimately be quoted ('Set-Content "src/…/risk/x.py"')."""
+    return _PS_QUOTED.sub(" ", _PS_HERESTRING.sub(" ", command))
+
+
+def check_powershell_command(command: str) -> str | None:
+    """Best-effort PowerShell guard. Returns block reason or None."""
+    if not command or not command.strip():
+        return None
+    stripped = _ps_strip_literals(command)
+    if _PS_RECURSE_FORCE_DELETE.search(stripped):
+        return "PowerShell Remove-Item mit -Recurse + -Force"
+    low_raw = command.replace("\\", "/").lower()
+    zone_hit = any(z in low_raw for z in PROTECTED_ZONES)
+    if not zone_hit:
+        return None
+    if _PS_WRITE_CMDLETS.search(stripped):
+        return "PowerShell write/delete cmdlet mit Schutzzonen-Pfad im Kommando"
+    # Redirect whose TARGET is inside a protected zone (">" alone is too
+    # noisy — 2>&1 pipes are everywhere; only block > <zone-path>).
+    for z in PROTECTED_ZONES:
+        if re.search(r">{1,2}\s*['\"]?[^'\"|;\s]*" + re.escape(z), low_raw):
+            return "PowerShell redirect in eine Schutzzone"
     return None
 
 
@@ -348,7 +456,8 @@ def main() -> int:
         # Edit/Write remain covered declaratively; allow to avoid bricking reads.
         return 0
 
-    if not isinstance(event, dict) or event.get("tool_name", "") != "Bash":
+    tool_name = event.get("tool_name", "") if isinstance(event, dict) else ""
+    if tool_name not in ("Bash", "PowerShell"):
         return 0
 
     tool_input = event.get("tool_input", {})
@@ -359,7 +468,10 @@ def main() -> int:
         command = ""
 
     try:
-        reason = check_command(command)
+        if tool_name == "PowerShell":
+            reason = check_powershell_command(command)
+        else:
+            reason = check_command(command)
     except Exception as exc:  # noqa: BLE001 — fail-closed: never silently allow on bug
         sys.stderr.write(
             "DESTRUCTIVE-BASH-GUARD interner Fehler — fail-closed, Befehl blockiert: "
