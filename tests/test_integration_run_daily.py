@@ -318,13 +318,13 @@ def test_run_daily_handles_empty_signals(
 
     signals = generate_trend_signals_from_prices(latest_prices, ma_fast=20, ma_slow=50)
 
-    # With downward trend, we might get all FLAT signals
+    # With a strictly downward trend the fast MA sits below the slow MA at the
+    # latest date, so the trend rule must not emit any LONG signal.
+    assert not signals.empty, "Signal frame should contain a row for AAPL"
+    assert signals["direction"].isin(["LONG", "FLAT"]).all(), (
+        "direction must only contain LONG or FLAT"
+    )
     long_signals = signals[signals["direction"] == "LONG"]
-
-    # Pipeline should handle this gracefully
-    if long_signals.empty:
-        # No orders should be generated, but pipeline should not crash
-        assert True, "Pipeline should handle empty signals gracefully"
-    else:
-        # If some LONG signals exist, that's also valid
-        assert len(long_signals) >= 0, "Should have zero or more LONG signals"
+    assert long_signals.empty, (
+        "Strict downward trend (MA20 < MA50) must not generate LONG signals"
+    )

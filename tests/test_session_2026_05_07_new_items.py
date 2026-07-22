@@ -27,6 +27,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+# Source-grep audit checks (existence/pattern assertions), not behavioural tests.
+# Marked so operators can select/deselect them explicitly; still part of the
+# default suite (no CI behaviour change).
+pytestmark = pytest.mark.audit_grep
+
 # ─── Item 67: DST-safe market calendar ───────────────────────────────────────
 
 

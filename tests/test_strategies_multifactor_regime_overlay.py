@@ -581,11 +581,15 @@ class TestRegimeOverlayIntegration:
             config=config,
         )
 
-        # Check that regime column exists (if regime overlay was successfully built)
-        # Note: regime column is added per timestamp, so might not exist if regime detection failed
-        # This is acceptable behavior - we just check that the function completes without error
+        # With 5 symbols, distinct factor ranks and quantiles of 0.2, every
+        # monthly rebalance date must select at least 1 long and 1 short.
         assert isinstance(signals, pd.DataFrame)
-        assert len(signals) >= 0  # Can be empty if no signals in rebalance dates
+        assert not signals.empty, "Expected signals on the monthly rebalance dates"
+        for col in ("timestamp", "symbol", "direction", "score"):
+            assert col in signals.columns, f"Missing signal column: {col}"
+        assert signals["direction"].isin(["LONG", "SHORT"]).all(), (
+            "direction must only contain LONG or SHORT"
+        )
 
         # Check that regime_state_df is stored in attrs
         if hasattr(signals, "attrs") and "regime_state_df" in signals.attrs:

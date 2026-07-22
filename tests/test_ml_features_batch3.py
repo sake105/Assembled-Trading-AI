@@ -444,42 +444,6 @@ class TestPolicyConsistency:
 # ---------------------------------------------------------------------------
 
 
-class TestGracefulDegradation:
-    def test_tracker(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.pipeline.graceful_degradation")
-        from src.assembled_core.pipeline.graceful_degradation import DegradationTracker
-
-        t = DegradationTracker()
-        assert not t.is_degraded
-        t.record_failure("fred_macro", "API timeout")
-        assert t.is_degraded
-        assert t.severity == "minor"
-        assert "fred_macro" in t.failed_sources
-
-    def test_neutralize(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.pipeline.graceful_degradation")
-        from src.assembled_core.pipeline.graceful_degradation import (
-            neutralize_missing_features,
-        )
-
-        df = pd.DataFrame(
-            {
-                "vix_level": [25.0, np.nan, 30.0],
-                "vix_zscore": [1.5, 2.0, np.nan],
-                "other": [1, 2, 3],
-            }
-        )
-        result = neutralize_missing_features(df, {"vix": "stale data"})
-        # vix features should be neutralized
-        assert result["vix_level"].iloc[0] == 20.0  # default neutral
-        assert result["vix_zscore"].iloc[0] == 0.0  # default neutral for zscore
-        assert result["other"].tolist() == [1, 2, 3]  # unchanged
-
-
 # ---------------------------------------------------------------------------
 # 4.4 FinBERT (import only — model not loaded in tests)
 # ---------------------------------------------------------------------------

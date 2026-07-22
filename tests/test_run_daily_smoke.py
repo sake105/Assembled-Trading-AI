@@ -109,18 +109,14 @@ def test_run_daily_eod_smoke(tmp_path: Path, monkeypatch):
         f"Columns should be {expected_cols}, got {list(df.columns)}"
     )
 
-    # Check that we have some orders (may be empty if no signals, but structure should be correct)
-    # At minimum, the file should exist with correct schema
-    assert len(df) >= 0, "Should have non-negative number of orders"
-
-    # If we have orders, check they're valid
-    if len(df) > 0:
-        assert df["Side"].isin(["BUY", "SELL"]).all(), "Sides should be BUY or SELL"
-        assert (df["Quantity"] > 0).all(), "Quantities should be positive"
-        assert df["PriceType"].iloc[0] == "MARKET", "PriceType should be MARKET"
-        assert df["Comment"].iloc[0] == "EOD Strategy - Daily MVP", (
-            "Comment should match"
-        )
+    # Deterministic outcome for this fixture: as of 2025-01-15 only 15 bars per
+    # symbol exist, so MA50 is NaN and the pipeline emits ZERO orders. The smoke
+    # contract is therefore: run completes and writes a schema-valid EMPTY
+    # orders file (the empty-signal path must not crash and must not invent
+    # orders). If this ever yields rows, the signal path changed — investigate.
+    assert len(df) == 0, (
+        f"Expected empty orders file (MA50 warmup not satisfied), got {len(df)} rows"
+    )
 
 
 def test_run_daily_eod_with_universe(tmp_path: Path, monkeypatch):

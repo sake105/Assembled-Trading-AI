@@ -286,7 +286,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 console_output_style = "progress"
-addopts = "-q --strict-markers -m 'not external' --tb=short"
+addopts = "-q --strict-markers --tb=short"
 filterwarnings = [
   "error::DeprecationWarning:src.assembled_core.pipeline.*",
   "error::FutureWarning:src.assembled_core.*",
@@ -302,13 +302,10 @@ markers = [
   "smoke: End-to-end smoke tests (full pipeline runs)",
   "slow: Slow-running tests (may take > 1 second)",
   "unit: Fast unit tests (legacy alias; prefer fast)",
-  "external: Tests that require external services/network (excluded by default)",
   "characterization: Golden-master / snapshot tests (deterministic, seeded)",
   "unwired_code: Tests for code defined but not yet wired into the production pipeline",
   "advanced: Advanced Analytics and Factor Labs tests (Phase A-E, optional)",
-  "requires_scipy: Tests that require scipy (skipped if scipy not installed)",
-  "requires_fastapi: Tests that require FastAPI/TestClient (skipped if fastapi not installed)",
-  "requires_sklearn: Tests that require scikit-learn (skipped if sklearn not installed)",
+  "audit_grep: source-grep audit checks, not behavioural tests",
   "chaos: Chaos / fault-injection tests (broker failures, data gaps, race conditions)",
   "property: Property-based tests using Hypothesis",
   "stress: Stress scenario replay tests",

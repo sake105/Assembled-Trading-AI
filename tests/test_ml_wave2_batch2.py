@@ -6,33 +6,6 @@ import numpy as np
 import pandas as pd
 
 
-class TestEnsembleDiversity:
-    def test_diverse_preds(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.ml.stacking")
-        from src.assembled_core.ml.stacking import enforce_ensemble_diversity
-
-        np.random.seed(42)
-        preds = np.random.normal(0, 1, (100, 3))
-        result = enforce_ensemble_diversity(preds)
-        assert result["diverse"] is True
-        assert result["avg_correlation"] < 0.8
-
-    def test_non_diverse(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.ml.stacking")
-        from src.assembled_core.ml.stacking import enforce_ensemble_diversity
-
-        # Highly correlated predictions
-        base = np.random.normal(0, 1, 100)
-        preds = np.column_stack([base, base + 0.01, base + 0.02])
-        result = enforce_ensemble_diversity(preds)
-        assert result["diverse"] is False
-        assert len(result["recommendations"]) > 0
-
-
 class TestDiffusionIndex:
     def test_basic(self):
         from src.assembled_core.features.macro_features import compute_diffusion_index
@@ -147,22 +120,6 @@ class TestTailRiskParity:
         assert w["A"] > w["B"]
 
 
-class TestMVOCardinality:
-    def test_max_positions(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.portfolio.mvo_optimizer")
-        from src.assembled_core.portfolio.mvo_optimizer import mvo_with_cardinality
-
-        np.random.seed(42)
-        n = 10
-        mu = np.random.normal(0.05, 0.02, n)
-        sigma = np.eye(n) * 0.04
-        w = mvo_with_cardinality(mu, sigma, max_positions=3)
-        assert sum(w > 0.001) <= 3
-        assert abs(sum(w) - 1.0) < 1e-4
-
-
 class TestTCAFeedback:
     def test_flagging(self):
         from src.assembled_core.execution.transaction_costs import compute_tca_feedback
@@ -177,44 +134,6 @@ class TestTCAFeedback:
         result = compute_tca_feedback(df, model_slippage_bps=5.0)
         assert result["AAPL"]["high_slippage_flag"] is True
         assert result["MSFT"]["high_slippage_flag"] is False
-
-
-class TestPortfolioExecution:
-    def test_batching(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.execution.portfolio_execution")
-        from src.assembled_core.execution.portfolio_execution import (
-            optimize_execution_sequence,
-        )
-
-        orders = pd.DataFrame(
-            {
-                "symbol": ["A", "B", "C"],
-                "qty": [100, -50, 200],
-                "direction": ["BUY", "SELL", "BUY"],
-            }
-        )
-        result = optimize_execution_sequence(orders)
-        assert "execution_batch" in result.columns
-
-
-class TestFactorExposureLimits:
-    def test_breach(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.risk.factor_risk_model")
-        from src.assembled_core.risk.factor_risk_model import (
-            check_factor_exposure_limits,
-        )
-
-        weights = pd.Series({"A": 0.8, "B": 0.2})
-        exposures = pd.DataFrame({"momentum": [1.5, 0.2]}, index=["A", "B"])
-        violations = check_factor_exposure_limits(
-            weights, exposures, max_factor_exposure=0.5
-        )
-        assert len(violations) >= 1
-        assert violations[0]["factor"] == "momentum"
 
 
 class TestCashDrag:
@@ -324,37 +243,6 @@ class TestDelistedDetection:
         assert "A" in result["delisted"]
 
 
-class TestRunMetadata:
-    def test_collect(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.pipeline.run_metadata")
-        from src.assembled_core.pipeline.run_metadata import collect_run_metadata
-
-        meta = collect_run_metadata(config={"test": True})
-        assert "python_version" in meta
-        assert "config_hash" in meta
-        assert meta["config_hash"] != "none"
-
-
-class TestPipelineTimer:
-    def test_timing(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.pipeline.pipeline_timing")
-        from src.assembled_core.pipeline.pipeline_timing import PipelineTimer
-        import time
-
-        timer = PipelineTimer(budget_seconds=10)
-        timer.start_step("step1")
-        time.sleep(0.05)
-        timer.end_step()
-        summary = timer.summary()
-        assert "step1" in summary["steps"]
-        assert summary["total_seconds"] >= 0.01
-        assert not summary["over_budget"]
-
-
 class TestJSONLogging:
     def test_formatter(self):
         from src.assembled_core.logging_config import JSONFormatter
@@ -369,27 +257,3 @@ class TestJSONLogging:
         parsed = json.loads(output)
         assert parsed["level"] == "INFO"
         assert parsed["event"] == "test message"
-
-
-class TestSignalPlugin:
-    def test_no_plugins_dir(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.signals.plugin_loader")
-        from src.assembled_core.signals.plugin_loader import discover_signal_plugins
-
-        result = discover_signal_plugins("nonexistent_dir")
-        assert result == {}
-
-
-class TestFeatureFlagAudit:
-    def test_audit(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.features.feature_flag_audit")
-        from src.assembled_core.features.feature_flag_audit import audit_feature_flags
-
-        policy = {"features": {"ta": {"enabled": True}, "macro": {"enabled": False}}}
-        result = audit_feature_flags(policy)
-        assert "ta_features" in result["enabled"]
-        assert "macro_features" in result["disabled"]

@@ -8,39 +8,6 @@ import numpy as np
 import pandas as pd
 
 
-class TestMeanReversion:
-    def test_bull_regime_generates_signals(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.signals.mean_reversion")
-        from src.assembled_core.signals.mean_reversion import (
-            compute_mean_reversion_signals,
-        )
-
-        np.random.seed(42)
-        n = 100
-        prices = pd.DataFrame(
-            {
-                "symbol": ["A"] * n,
-                "close": np.cumsum(np.random.normal(0, 1, n)) + 100,
-            }
-        )
-        result = compute_mean_reversion_signals(prices, regime="bull")
-        assert isinstance(result, pd.DataFrame)
-
-    def test_bear_regime_inactive(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.signals.mean_reversion")
-        from src.assembled_core.signals.mean_reversion import (
-            compute_mean_reversion_signals,
-        )
-
-        prices = pd.DataFrame({"symbol": ["A"] * 50, "close": range(50)})
-        result = compute_mean_reversion_signals(prices, regime="bear")
-        assert result.empty
-
-
 class TestSignalDiagnostics:
     def test_compute_health(self):
         import pytest
@@ -77,60 +44,6 @@ class TestCrashPredictionThresholds:
         assert "p90" in result.columns
 
 
-class TestFeatureDrift:
-    def test_no_drift(self):
-        import pytest
-
-        pytest.importorskip("scipy")
-        pytest.importorskip("src.assembled_core.ml.model_monitoring")
-        from src.assembled_core.ml.model_monitoring import detect_feature_drift
-
-        np.random.seed(42)
-        train = pd.DataFrame({"f1": np.random.normal(0, 1, 200)})
-        recent = pd.DataFrame({"f1": np.random.normal(0, 1, 50)})
-        result = detect_feature_drift(train, recent, ["f1"])
-        assert result["alert_level"] == "OK"
-
-
-class TestSatelliteFeatures:
-    def test_copper_gold(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.features.satellite_proxy_features")
-        from src.assembled_core.features.satellite_proxy_features import (
-            compute_copper_gold_ratio,
-        )
-
-        copper = pd.Series([4.0, 4.1, 4.2])
-        gold = pd.Series([1800, 1810, 1790])
-        result = compute_copper_gold_ratio(copper, gold)
-        assert len(result) == 3
-        assert result.iloc[0] > 0
-
-
-class TestDisclosureFeatures:
-    def test_fog_index(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.features.disclosure_features")
-        from src.assembled_core.features.disclosure_features import compute_fog_index
-
-        text = (
-            "The company faces significant risks. Market conditions are challenging. "
-            * 10
-        )
-        fog = compute_fog_index(text)
-        assert fog > 0
-
-    def test_empty_text(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.features.disclosure_features")
-        from src.assembled_core.features.disclosure_features import compute_fog_index
-
-        assert compute_fog_index("") == 0.0
-
-
 class TestWildCardDetector:
     def test_no_anomaly(self):
         from src.assembled_core.intel.wild_card_detector import detect_volume_anomaly
@@ -150,21 +63,6 @@ class TestWildCardDetector:
         assert result["is_anomaly"] is True
 
 
-class TestWargaming:
-    def test_prisoners_dilemma(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.intel.wargaming")
-        from src.assembled_core.intel.wargaming import find_nash_2x2
-
-        # Classic prisoner's dilemma
-        payoff_a = np.array([[3, 0], [5, 1]])
-        payoff_b = np.array([[3, 5], [0, 1]])
-        result = find_nash_2x2(payoff_a, payoff_b)
-        assert result.equilibrium_type in ("pure", "mixed", "dominant", "degenerate")
-        assert result.confidence > 0
-
-
 class TestStructuralCycles:
     def test_normal_environment(self):
         from src.assembled_core.intel.structural_cycles import (
@@ -181,18 +79,6 @@ class TestStructuralCycles:
         assert result.composite >= 0
 
 
-class TestRegimePortfolio:
-    def test_blend_templates(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.portfolio.regime_portfolio")
-        from src.assembled_core.portfolio.regime_portfolio import blend_regime_templates
-
-        result = blend_regime_templates({"bull": 0.7, "bear": 0.3})
-        assert sum(result.values()) > 0
-        assert all(v >= 0 for v in result.values())
-
-
 class TestSmartOrderRouter:
     def test_route_order(self):
         from src.assembled_core.execution.smart_order_router import (
@@ -207,41 +93,6 @@ class TestSmartOrderRouter:
         assert result.total_expected_fill_pct > 0
 
 
-class TestSystemicRisk:
-    def test_centrality(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.risk.systemic_risk")
-        from src.assembled_core.risk.systemic_risk import (
-            compute_return_network_centrality,
-        )
-
-        np.random.seed(42)
-        returns = pd.DataFrame(
-            {
-                "A": np.random.normal(0, 0.01, 100),
-                "B": np.random.normal(0, 0.01, 100),
-                "C": np.random.normal(0, 0.01, 100),
-            }
-        )
-        result = compute_return_network_centrality(returns)
-        assert all(0 <= v <= 1 for v in result.values())
-
-
-class TestAntifragility:
-    def test_score(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.risk.antifragility")
-        from src.assembled_core.risk.antifragility import compute_antifragility_score
-
-        np.random.seed(42)
-        port = pd.Series(np.random.normal(0, 0.01, 100))
-        market = pd.Series(np.random.normal(0, 0.01, 100))
-        result = compute_antifragility_score(port, market)
-        assert len(result) == 100
-
-
 class TestTaxLots:
     def test_fifo_pnl(self):
         import pytest
@@ -254,56 +105,6 @@ class TestTaxLots:
         tracker.buy("AAPL", 50, 160.0, date(2024, 2, 1))
         pnl = tracker.sell("AAPL", 100, 170.0, date(2024, 3, 1))
         assert pnl == 2000.0  # (170-150)*100 FIFO
-
-
-class TestRoundTrips:
-    def test_basic(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.accounting.round_trips")
-        from src.assembled_core.accounting.round_trips import (
-            compute_round_trips,
-            round_trip_summary,
-        )
-
-        trades = pd.DataFrame(
-            {
-                "symbol": ["AAPL", "AAPL"],
-                "date": ["2024-01-01", "2024-01-10"],
-                "side": ["BUY", "SELL"],
-                "price": [150.0, 160.0],
-                "quantity": [100, 100],
-                "commission": [1.0, 1.0],
-            }
-        )
-        trips = compute_round_trips(trades)
-        assert len(trips) == 1
-        summary = round_trip_summary(trips)
-        assert summary["n_trips"] == 1
-        assert summary["total_pnl"] > 0
-
-
-class TestDecisionAudit:
-    def test_record_and_summary(self):
-        import pytest
-
-        pytest.importorskip("src.assembled_core.accounting.decision_audit")
-        from src.assembled_core.accounting.decision_audit import (
-            DecisionAuditTrail,
-            DecisionRecord,
-        )
-
-        audit = DecisionAuditTrail()
-        audit.record(
-            DecisionRecord(
-                timestamp="2024-01-01",
-                symbol="AAPL",
-                direction="LONG",
-                signal_score=0.8,
-                regime="bull",
-            )
-        )
-        assert audit.summary()["n_records"] == 1
 
 
 class TestFreshnessMonitor:

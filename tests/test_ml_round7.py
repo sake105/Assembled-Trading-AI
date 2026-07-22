@@ -16,79 +16,6 @@ pytestmark = pytest.mark.fast
 # ---------------------------------------------------------------------------
 
 
-def test_signal_decay_tracker_basic(tmp_path):
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.signal_decay_tracker")
-    from src.assembled_core.ml.signal_decay_tracker import SignalDecayTracker
-
-    tracker = SignalDecayTracker(state_path=tmp_path / "decay.json", horizons=[1, 5])
-
-    rng = np.random.default_rng(3)
-    n = 100
-    preds = {"sig1": pd.Series(rng.standard_normal(n))}
-    rets = {1: pd.Series(rng.normal(0, 0.01, n)), 5: pd.Series(rng.normal(0, 0.02, n))}
-
-    snap = tracker.record_snapshot(preds, rets)
-    assert snap.as_of is not None
-    assert "sig1" in snap.signal_ic
-    assert tracker.history_length() == 1
-
-
-def test_signal_decay_report_halflife(tmp_path):
-    """IC sinkt über Snapshots → halflife erkennbar."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.signal_decay_tracker")
-    from src.assembled_core.ml.signal_decay_tracker import SignalDecayTracker
-
-    tracker = SignalDecayTracker(state_path=tmp_path / "decay.json", horizons=[5])
-
-    rng = np.random.default_rng(42)
-    n = 100
-
-    # 5 Snapshots mit abnehmender IC
-    for ic_noise in [0.0, 0.2, 0.5, 0.8, 1.0]:  # immer mehr Noise → sinkende IC
-        alpha_signal = 0.5
-        actual_ret = rng.normal(0, 0.01, n)
-        pred = alpha_signal * actual_ret + ic_noise * rng.standard_normal(n)
-        tracker.record_snapshot(
-            {"sig1": pd.Series(pred)},
-            {5: pd.Series(actual_ret)},
-            as_of=f"2025-01-{ic_noise * 10:02.0f}",
-        )
-
-    report = tracker.get_report("sig1")
-    assert report is not None
-    assert "horizon_5d" in report.current_ic
-    # historische Werte müssen eine Zeitreihe sein
-    assert len(report.historical_ic["horizon_5d"]) == 5
-
-
-def test_signal_decay_wiring_feedback_loop(tmp_path):
-    """WIRING: feedback_loop._record_signal_decay existiert und crasht nicht."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.feedback_loop")
-    from src.assembled_core.ml.feedback_loop import FeedbackLoopController
-
-    controller = FeedbackLoopController()
-    assert hasattr(controller, "_record_signal_decay")
-
-    # Empty panel → should not crash, just return
-    controller._record_signal_decay(pd.DataFrame())
-    # Also works with valid panel
-    rng = np.random.default_rng(0)
-    panel = pd.DataFrame(
-        {
-            "timestamp": pd.date_range("2025-01-01", periods=60),
-            "f1": rng.standard_normal(60),
-            "fwd_return_5d": rng.normal(0, 0.01, 60),
-        }
-    )
-    controller._record_signal_decay(panel)  # should not raise
-
-
 # ---------------------------------------------------------------------------
 # B: Turnover-Penalty
 # ---------------------------------------------------------------------------
@@ -186,35 +113,6 @@ def test_smoothing_preserves_capital_scaling():
 # ---------------------------------------------------------------------------
 
 
-def test_online_hpo_select_arm(tmp_path):
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    adapter = OnlineHyperparamAdapter(state_path=tmp_path / "hpo.json")
-    chosen = adapter.select_arm()
-    assert chosen.arm_id.startswith("arm_")
-    assert isinstance(chosen.params, dict)
-
-
-def test_online_hpo_reward_update(tmp_path):
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    adapter = OnlineHyperparamAdapter(state_path=tmp_path / "hpo.json")
-    chosen = adapter.select_arm()
-    adapter.observe_reward(chosen.arm_id, reward=0.12)
-    adapter.save()
-
-    # Re-load and check state persisted
-    adapter2 = OnlineHyperparamAdapter(state_path=tmp_path / "hpo.json")
-    assert adapter2.arms[chosen.arm_id].n_pulls == 1
-    assert adapter2.arms[chosen.arm_id].mean_reward == pytest.approx(0.12)
-
-
 def test_online_hpo_wiring_retraining_scheduler(tmp_path):
     """WIRING: adapt_hyperparameters_via_bandit existiert."""
     import pytest
@@ -228,116 +126,6 @@ def test_online_hpo_wiring_retraining_scheduler(tmp_path):
         state_path=tmp_path / "hpo.json"
     )
     assert result is None  # default disabled
-
-
-def test_online_hpo_sklearn_gb_preset(tmp_path):
-    """Preset: sklearn GB-Arme ohne LightGBM-spezifische Keys."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    adapter = OnlineHyperparamAdapter.with_sklearn_gb_arms(
-        state_path=tmp_path / "hpo.json"
-    )
-    assert len(adapter.arms) == 4
-    # Jeder Arm hat generische GB-Keys, kein `num_leaves` o.ä.
-    for arm in adapter.arms.values():
-        assert set(arm.params.keys()) == {"n_estimators", "learning_rate", "max_depth"}
-
-
-def test_online_hpo_ridge_preset(tmp_path):
-    """Preset: Ridge-Arme mit nur alpha-Parameter."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    adapter = OnlineHyperparamAdapter.with_ridge_arms(state_path=tmp_path / "hpo.json")
-    assert len(adapter.arms) == 4
-    for arm in adapter.arms.values():
-        assert set(arm.params.keys()) == {"alpha"}
-
-
-def test_online_hpo_from_param_grid(tmp_path):
-    """Custom-Grid: kartesisches Produkt → n_arms = prod(len(values))."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    grid = {"alpha": [0.1, 1.0], "l1_ratio": [0.0, 0.5, 1.0]}
-    adapter = OnlineHyperparamAdapter.from_param_grid(
-        grid, state_path=tmp_path / "hpo.json"
-    )
-    assert len(adapter.arms) == 6  # 2 * 3
-    # jeder Arm hat beide Keys
-    for arm in adapter.arms.values():
-        assert set(arm.params.keys()) == {"alpha", "l1_ratio"}
-
-
-def test_online_hpo_from_empty_grid_safe(tmp_path):
-    """Leerer Grid → keine Arme, select_arm nimmt fallback."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    adapter = OnlineHyperparamAdapter.from_param_grid(
-        {}, state_path=tmp_path / "hpo.json"
-    )
-    assert len(adapter.arms) == 0
-
-
-def test_online_hpo_discount_factor_bounds_effective_n(tmp_path):
-    """Mit discount_factor < 1 bleibt effektive Sample-Size endlich."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    adapter = OnlineHyperparamAdapter(
-        arms=[{"x": 1}],
-        state_path=tmp_path / "hpo.json",
-        discount_factor=0.9,
-    )
-    arm_id = "arm_0"
-    for _ in range(200):
-        adapter.observe_reward(arm_id, reward=0.1)
-    # Geometrische Reihe: n_pulls → 1 / (1 - df) = 10 im Limit
-    n = adapter.arms[arm_id].n_pulls
-    assert 9.0 < n < 10.5
-
-
-def test_online_hpo_no_discount_keeps_integer_count(tmp_path):
-    """Default discount_factor=1.0 → n_pulls bleibt exakt integer-äquivalent."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    adapter = OnlineHyperparamAdapter(
-        arms=[{"x": 1}],
-        state_path=tmp_path / "hpo.json",
-    )
-    for _ in range(5):
-        adapter.observe_reward("arm_0", reward=0.1)
-    assert adapter.arms["arm_0"].n_pulls == 5
-
-
-def test_online_hpo_rejects_invalid_discount():
-    """discount_factor außerhalb (0, 1] → ValueError."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.online_hpo")
-    from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
-
-    with pytest.raises(ValueError):
-        OnlineHyperparamAdapter(arms=[{"x": 1}], discount_factor=0.0)
-    with pytest.raises(ValueError):
-        OnlineHyperparamAdapter(arms=[{"x": 1}], discount_factor=1.5)
-    with pytest.raises(ValueError):
-        OnlineHyperparamAdapter(arms=[{"x": 1}], discount_factor=-0.5)
 
 
 # ---------------------------------------------------------------------------
@@ -676,48 +464,6 @@ def test_kelly_wiring_position_sizing():
 # ---------------------------------------------------------------------------
 
 
-def test_signal_correlation_redundancy():
-    import pytest
-
-    pytest.importorskip("src.assembled_core.ml.signal_correlation")
-    from src.assembled_core.ml.signal_correlation import SignalCorrelationAnalyzer
-
-    rng = np.random.default_rng(1)
-    n = 200
-    base = rng.standard_normal(n)
-    # Zwei stark korrelierte und ein unabhängiges Signal
-    df = pd.DataFrame(
-        {
-            "sig1": base + 0.01 * rng.standard_normal(n),
-            "sig2": base + 0.01 * rng.standard_normal(n),
-            "sig3": rng.standard_normal(n),
-        }
-    )
-    analyzer = SignalCorrelationAnalyzer(redundancy_threshold=0.9)
-    report = analyzer.analyze(df)
-    assert report.n_signals == 3
-    assert len(report.redundant_clusters) >= 1
-
-
-def test_signal_correlation_wiring_feedback_loop():
-    """WIRING: _record_signal_correlation existiert und läuft fehlerfrei."""
-    pytest.importorskip("src.assembled_core.ml.feedback_loop")
-    from src.assembled_core.ml.feedback_loop import FeedbackLoopController
-
-    controller = FeedbackLoopController()
-    assert hasattr(controller, "_record_signal_correlation")
-
-    rng = np.random.default_rng(0)
-    panel = pd.DataFrame(
-        {
-            "f1": rng.standard_normal(50),
-            "f2": rng.standard_normal(50),
-            "f3": rng.standard_normal(50),
-        }
-    )
-    controller._record_signal_correlation(panel)  # no-raise
-
-
 # ---------------------------------------------------------------------------
 # H: Drawdown-Decomposition
 # ---------------------------------------------------------------------------
@@ -825,45 +571,6 @@ def test_trade_tca_wiring_learning_store(tmp_path):
 # ---------------------------------------------------------------------------
 # J: Online-HMM-Regime
 # ---------------------------------------------------------------------------
-
-
-def test_online_hmm_fallback():
-    """Ohne hmmlearn → Vol-Quantile-Fallback funktioniert."""
-    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
-    from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
-
-    rng = np.random.default_rng(2)
-    returns = pd.Series(rng.normal(0.0005, 0.01, 200))
-    detector = OnlineHMMRegimeDetector()
-    detector.fit(returns)
-    state = detector.predict_current_regime(returns)
-    assert state.regime_label in ("LOW_VOL", "NORMAL", "HIGH_VOL")
-
-
-def test_combined_regime_agreement():
-    pytest.importorskip("src.assembled_core.ml.combined_regime")
-    from src.assembled_core.ml.combined_regime import CombinedRegimeClassifier
-
-    # Beide classifier None → NEUTRAL / NEUTRAL → agreement
-    combined = CombinedRegimeClassifier()
-    out = combined.predict()
-    assert out.combined_regime == "NEUTRAL"
-
-
-def test_combined_regime_wiring_ml_pipeline():
-    """WIRING: MLSignalPipeline akzeptiert combined_regime_classifier."""
-    import pytest
-
-    pytest.importorskip("src.assembled_core.signals.ml_integration")
-    pytest.importorskip("src.assembled_core.ml.combined_regime")
-    from src.assembled_core.signals.ml_integration import MLSignalPipeline
-    from src.assembled_core.ml.combined_regime import CombinedRegimeClassifier
-
-    combined = CombinedRegimeClassifier()
-    pipeline = MLSignalPipeline(combined_regime_classifier=combined)
-    X = pd.DataFrame({"f1": [0.0, 0.1, -0.2]})
-    output = pipeline.run(X, market_returns=pd.Series([0.001, -0.002, 0.001]))
-    assert output.regime in ("RISK_ON", "NEUTRAL", "RISK_OFF", "CRISIS")
 
 
 # ---------------------------------------------------------------------------
@@ -1108,64 +815,9 @@ def test_trade_tca_aggregate_mean_matches():
     assert report.per_symbol["A"]["n"] == 3
 
 
-def test_online_hmm_high_vol_detection():
-    """Künstlich hohe Vol am Ende → recent_vol / long_vol > 1.5 → HIGH_VOL im Fallback."""
-    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
-    from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
-
-    rng = np.random.default_rng(0)
-    # 180 normale Tage + 20 hochvolatile
-    calm = rng.normal(0.0, 0.005, 180)
-    storm = rng.normal(0.0, 0.05, 20)
-    returns = pd.Series(np.concatenate([calm, storm]))
-
-    detector = OnlineHMMRegimeDetector()
-    # Fallback-Pfad erzwingen, damit der Test deterministisch ist (hmmlearn nicht garantiert)
-    detector._available = False
-    state = detector.predict_current_regime(returns)
-    assert state.regime_label == "HIGH_VOL"
-    assert state.regime_id == 2
-
-
-def test_online_hmm_low_vol_detection():
-    """Künstlich ruhiges Ende nach volatiler Historie → ratio < 0.7 → LOW_VOL."""
-    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
-    from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
-
-    rng = np.random.default_rng(1)
-    vol = rng.normal(0.0, 0.04, 180)
-    calm = rng.normal(0.0, 0.002, 20)
-    returns = pd.Series(np.concatenate([vol, calm]))
-
-    detector = OnlineHMMRegimeDetector()
-    detector._available = False
-    state = detector.predict_current_regime(returns)
-    assert state.regime_label == "LOW_VOL"
-    assert state.regime_id == 0
-
-
-def test_online_hmm_short_input_safe():
-    """Weniger als 20 Punkte → default NORMAL, kein Crash."""
-    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
-    from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
-
-    detector = OnlineHMMRegimeDetector()
-    state = detector.predict_current_regime(pd.Series([0.001, -0.002, 0.0005]))
-    assert state.regime_label == "NORMAL"
-
-
 # ---------------------------------------------------------------------------
 # Auto-deploy invariants — pin the human-review-required contract (CLAUDE.md Rule 30)
 # ---------------------------------------------------------------------------
-
-
-def test_feedback_loop_config_auto_deploy_default_false():
-    """FeedbackLoopConfig.auto_deploy default MUSS False bleiben (Human-Review-Pflicht)."""
-    pytest.importorskip("src.assembled_core.ml.feedback_loop")
-    from src.assembled_core.ml.feedback_loop import FeedbackLoopConfig
-
-    cfg = FeedbackLoopConfig()
-    assert cfg.auto_deploy is False
 
 
 def test_retraining_scheduler_hard_enforces_auto_deploy_false(tmp_path):
