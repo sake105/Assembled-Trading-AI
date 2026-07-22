@@ -44,8 +44,15 @@ class BrokerExecutionResult:
     execution_time_s: float = 0.0
 
 
-# Terminal order statuses (no further state changes expected)
-_TERMINAL_STATUSES = frozenset({"filled", "cancelled", "rejected", "expired"})
+# Terminal order statuses (no further state changes expected).
+# E-055 fix (2026-07-22): Alpaca emits "canceled" (single-l, US spelling);
+# the set previously only contained "cancelled" (double-l), so a
+# broker-side cancel was never recognised as terminal — the order polled
+# until timeout and landed in timed_out instead of rejected. Keep BOTH
+# spellings; this is the single canonical terminal set for this module.
+_TERMINAL_STATUSES = frozenset(
+    {"filled", "canceled", "cancelled", "rejected", "expired"}
+)
 
 
 def submit_orders_to_broker(
@@ -499,11 +506,11 @@ def execute_via_broker(
     else:
         final_orders = []
 
-    # Categorize results
+    # Categorize results (E-055: both cancel spellings are terminal)
     for order in final_orders:
         if order.status == "filled":
             result.filled.append(order)
-        elif order.status in ("cancelled", "rejected", "expired"):
+        elif order.status in ("canceled", "cancelled", "rejected", "expired"):
             result.rejected.append(order)
         else:
             result.timed_out.append(order)
@@ -561,15 +568,10 @@ def execute_via_broker(
                         rexc,
                     )
                     break
-                if refreshed_order.status in (
-                    "canceled",
-                    "cancelled",
-                    "filled",
-                    "rejected",
-                    "expired",
-                ):
+                if refreshed_order.status in _TERMINAL_STATUSES:
                     break
-                time.sleep(min(poll_interval_s, 2.0))
+                if _attempt < 2:  # no useless sleep after the final poll
+                    time.sleep(min(poll_interval_s, 2.0))
             refreshed_timed_out.append(refreshed_order)
         result.timed_out = refreshed_timed_out
         final_orders = result.filled + result.rejected + refreshed_timed_out

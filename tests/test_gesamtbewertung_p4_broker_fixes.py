@@ -112,10 +112,15 @@ def test_k4_partial_without_price_is_skipped(tmp_path):
 
 
 class _FakeAdapter:
-    """Submits everything as 'accepted' and never fills -> timeout path."""
+    """Simulates the timeout path honestly: the order stays 'accepted'
+    (non-terminal) during the fill poll, and only AFTER a cancel attempt
+    does get_order_status report ``refresh_status``. (The first version
+    returned the terminal refresh status already during the poll — which
+    only worked because of the E-055 canceled/cancelled drift.)"""
 
     def __init__(self):
         self.cancelled: list[str] = []
+        self.cancel_attempted = False
         self.refresh_status = "canceled"
         self.refresh_filled_qty = 0.0
         self.refresh_price: float | None = None
@@ -126,15 +131,17 @@ class _FakeAdapter:
         return _order(f"fake-{self._n}", symbol, "accepted", qty=qty)
 
     def get_order_status(self, order_id: str) -> BrokerOrder:
+        status = self.refresh_status if self.cancel_attempted else "accepted"
         return _order(
             order_id,
             "ZZZ",
-            self.refresh_status,
+            status,
             filled_qty=self.refresh_filled_qty,
             filled_avg_price=self.refresh_price,
         )
 
     def cancel_order(self, order_id: str) -> bool:
+        self.cancel_attempted = True
         self.cancelled.append(order_id)
         return True
 
@@ -188,7 +195,9 @@ def test_w8_lifecycle_events_written_for_broker_path(tmp_path, monkeypatch):
     import src.assembled_core.execution.broker_execution as be
 
     monkeypatch.setattr(lc, "append_lifecycle_event", _capture)  # raising default
-    # broker_execution imports inside the function -> patch the source module.
+    # Patching lc's module attribute works because broker_execution does a
+    # function-local `from ...order_lifecycle_log import append_lifecycle_event`
+    # at call time, which re-binds from lc's (patched) namespace.
     adapter = _FakeAdapter()
     orders_df = pd.DataFrame([{"symbol": "ZZZ", "side": "BUY", "qty": 7.0}])
     be.execute_via_broker(
@@ -276,6 +285,22 @@ def test_k2b_adapter_without_cancel_order_books_partial_and_logs(tmp_path, monke
     assert result.fills_for_ledger == [
         {"symbol": "ZZZ", "side": "BUY", "qty": 2.0, "price": 10.0}
     ]
+
+
+def test_e055_broker_canceled_single_l_is_terminal(tmp_path, monkeypatch):
+    # E-055: Alpaca emits "canceled" (single-l). Before the fix this status
+    # was not in the terminal set -> the order polled until timeout and
+    # landed in timed_out; now it must be terminal and categorised rejected.
+    class _CanceledAdapter(_FakeAdapter):
+        def submit_market_order(self, symbol, side, qty, client_order_id=None):
+            self._n += 1
+            return _order(f"fake-{self._n}", symbol, "canceled", qty=qty)
+
+    adapter = _CanceledAdapter()
+    result = _run(adapter, tmp_path, monkeypatch, tmp_path / "lifecycle.jsonl")
+    assert len(result.rejected) == 1
+    assert result.timed_out == []
+    assert adapter.cancelled == []  # no cancel attempt on a terminal order
 
 
 # ---------------------------------------------------------------------------

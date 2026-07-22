@@ -645,3 +645,12 @@
 **Wie vermeiden:** Beim Scharfschalten eines artefakt-basierten Gates den Writer-Pfad gegen den Reader-Pfad VERIFIZIEREN (identischer absoluter Pfad, Freshness-Feld vorhanden) und einen Operator-Recovery-Pfad bereitstellen, weil ein pre-cycle-Gate seinen eigenen Refresh nicht auslösen kann. Fix hier: stabile Root-Kopie in paper_runner (Layout-Guard `output_dir.parent.parent.name == "output"`), Seed dokumentiert, Recovery via `scripts/ops/rebuild_reconcile_artifact.py` (re-evaluiert Invarianten, kein Bypass).
 **Erkannt in:** `src/assembled_core/ops/paper_runner.py`, `src/assembled_core/ops/_paper_runner_gates.py`, `configs/app.yaml` — GESAMTBEWERTUNG K5-Umsetzung 2026-07-21; von Stage-1 risk-execution-reviewer (M3/M4) und Stage-2 senior-code-reviewer bestätigt.
 **Referenzen:** `docs/GESAMTBEWERTUNG.md` §5 Schritt 3, Commit `54cc9026` (default-off-Einführung).
+
+## E-055 — Status-Schreibweisen-Drift: Alpaca „canceled" (ein L) vs. Terminal-Set „cancelled" (zwei L)
+**Datum:** 2026-07-22
+**Kategorie:** logic-error / vendor-enum-drift / silent-misclassification
+**Was passierte:** `broker_execution._TERMINAL_STATUSES` und die Poll-Kategorisierung prüften nur „cancelled" (britisch, zwei L). `AlpacaAdapter._normalize_order` liefert den echten Alpaca-Enum aber als „canceled" (US, ein L). Eine broker-seitig gecancelte Order galt dadurch nie als terminal: sie pollte bis zum 120s-Timeout und landete in `timed_out` statt `rejected` — Latenzverschwendung pro Zyklus und semantisch falsche Kategorie in Result/Journal.
+**Warum falsch:** Vendor-Enums sind die kanonische Wahrheit; ein lokal gewähltes Synonym driftet still. Der Fehler ist unsichtbar, solange kein Broker-Cancel auftritt, und maskiert sich dann als „Timeout".
+**Wie vermeiden:** Vendor-Status-Strings EINMAL zentral normalisieren oder die Terminal-Menge mit ALLEN real emittierten Schreibweisen definieren und überall referenzieren (keine lokalen Status-Tupel). Beim Anfassen einer Status-Naht: die tatsächlich vom Adapter emittierten Werte gegen jede Vergleichsstelle grep-prüfen.
+**Erkannt in:** `src/assembled_core/execution/broker_execution.py` — Stage-2 senior-code-reviewer beim P4-Review (pre-existing, nicht vom Paket eingeführt); Fix + Regressionstest `test_e055_broker_canceled_single_l_is_terminal` im Follow-up-Commit.
+**Referenzen:** E-044 (nicht-kanonisierte Roh-Labels), GESAMTBEWERTUNG P4 Stage-2-Review.
