@@ -990,6 +990,26 @@ class AlpacaAdapter(BrokerAdapter):
         logger.info("[AlpacaAdapter] cancelled %d orders", count)
         return count
 
+    def cancel_order(self, order_id: str) -> bool:
+        """Cancel a single order by broker order id. Returns True on success.
+
+        K2b/K3 (2026-07-22, GESAMTBEWERTUNG): targeted cancel so stale or
+        timed-out orders can be removed without the cancel_all_orders blast
+        radius hitting healthy recent orders. Deliberately defined ONLY on
+        AlpacaAdapter (not the base class): scripts/run_live_paper.py
+        feature-detects ``cancel_order`` via getattr — a base-class stub
+        raising NotImplementedError would defeat that detection and route
+        callers into a dead branch. Exceptions propagate (callers decide;
+        no silent-except in the adapter, E-003).
+        """
+        api = self._get_api()
+        try:
+            api.cancel_order_by_id(order_id)
+        except AttributeError:
+            api.cancel_order(order_id)
+        logger.info("[AlpacaAdapter] cancelled order %s", order_id)
+        return True
+
     def get_order_status(self, order_id: str) -> BrokerOrder:
         """Get status of a specific order."""
         api = self._get_api()

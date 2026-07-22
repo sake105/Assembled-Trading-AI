@@ -24,7 +24,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BrokerExecutionResult:
-    """Result of a broker execution cycle."""
+    """Result of a broker execution cycle.
+
+    Note on ``timed_out`` (K2b, 2026-07-22): orders land here when the
+    fill-wait expires; they are then cancelled in-run and their entries are
+    REFRESHED broker states — the list can therefore contain terminal
+    statuses (``canceled``, even ``filled`` when a fill won the cancel
+    race). It means "did not fill within the wait window", not "still
+    live". Executed quantities from these orders ARE booked to the ledger.
+    """
 
     submitted: list[BrokerOrder] = field(default_factory=list)
     filled: list[BrokerOrder] = field(default_factory=list)
@@ -325,13 +333,28 @@ def convert_broker_fills_to_ledger_format(
         except Exception as exc:
             logger.warning("[broker_execution] intent completion write failed: %s", exc)
 
+        # K4 (2026-07-22, GESAMTBEWERTUNG): book ANY executed quantity, not
+        # only status=="filled". A partially_filled / timed-out / cancelled
+        # order with filled_qty > 0 has really traded at the broker — before
+        # this fix those shares were silently dropped, a systematic
+        # ledger-vs-broker drift source (the 2026-07-14 incident class).
         if order.status != "filled":
-            logger.info(
-                "[broker_execution] order %s status=%s — not converting to fill",
-                order.symbol,
-                order.status,
-            )
-            continue
+            if order.filled_qty and order.filled_qty > 0:
+                logger.warning(
+                    "[broker_execution] order %s status=%s with partial "
+                    "filled_qty=%s — booking the executed portion (K4)",
+                    order.symbol,
+                    order.status,
+                    order.filled_qty,
+                )
+            else:
+                logger.info(
+                    "[broker_execution] order %s status=%s — nothing executed, "
+                    "not converting to fill",
+                    order.symbol,
+                    order.status,
+                )
+                continue
 
         if order.filled_qty <= 0:
             logger.warning(
@@ -343,8 +366,10 @@ def convert_broker_fills_to_ledger_format(
         fill_price = order.filled_avg_price
         if fill_price is None or fill_price <= 0:
             logger.warning(
-                "[broker_execution] order %s filled but no valid fill price — skipping",
+                "[broker_execution] order %s has filled_qty=%s but no valid "
+                "fill price — skipping (ledger would book a zero-cost fill)",
                 order.symbol,
+                order.filled_qty,
             )
             continue
 
@@ -483,12 +508,163 @@ def execute_via_broker(
         else:
             result.timed_out.append(order)
 
+    # K2b (2026-07-22, GESAMTBEWERTUNG): cancel timed-out orders IN-RUN so a
+    # market DAY order can never linger accepted and fill at the next open
+    # while the ledger looks away (2026-07-14 incident: 5 after-hours orders
+    # timed out un-cancelled, filled at the 15.07 open, reconcile halt on
+    # 20.07). After the cancel, refresh each order once to capture any
+    # last-moment (partial) fill for the ledger conversion below.
+    if result.timed_out and not dry_run:
+        refreshed_timed_out: list[BrokerOrder] = []
+        cancel_fn = getattr(adapter, "cancel_order", None)
+        for order in result.timed_out:
+            if callable(cancel_fn):
+                try:
+                    cancel_fn(order.order_id)
+                    logger.warning(
+                        "[broker_execution] timed-out order %s (%s) cancelled "
+                        "in-run (K2b)",
+                        order.order_id,
+                        order.symbol,
+                    )
+                except Exception as cexc:
+                    logger.error(
+                        "[broker_execution] cancel of timed-out order %s (%s) "
+                        "FAILED: %s — order may still fill later; reconcile "
+                        "halt is the backstop",
+                        order.order_id,
+                        order.symbol,
+                        cexc,
+                    )
+            else:
+                logger.error(
+                    "[broker_execution] adapter has no cancel_order — "
+                    "timed-out order %s (%s) left live; it may fill after "
+                    "this run (reconcile halt is the backstop)",
+                    order.order_id,
+                    order.symbol,
+                )
+            # Stage-1 M2: Alpaca cancels are asynchronous (pending_cancel) —
+            # a single immediate refresh misses fills that land while the
+            # cancel is processed. Bounded re-poll until a terminal status
+            # (max 3 attempts); a fill after the final poll is caught by the
+            # reconcile halt (backstop), not by this loop.
+            refreshed_order = order
+            for _attempt in range(3):
+                try:
+                    refreshed_order = adapter.get_order_status(order.order_id)
+                except Exception as rexc:
+                    logger.warning(
+                        "[broker_execution] post-cancel refresh of %s failed: "
+                        "%s — using last known state",
+                        order.order_id,
+                        rexc,
+                    )
+                    break
+                if refreshed_order.status in (
+                    "canceled",
+                    "cancelled",
+                    "filled",
+                    "rejected",
+                    "expired",
+                ):
+                    break
+                time.sleep(min(poll_interval_s, 2.0))
+            refreshed_timed_out.append(refreshed_order)
+        result.timed_out = refreshed_timed_out
+        final_orders = result.filled + result.rejected + refreshed_timed_out
+
     # Step 3: Convert fills to ledger format
     result.fills_for_ledger = convert_broker_fills_to_ledger_format(
         final_orders,
         intent_keys=intent_keys,
         intent_store_path=intent_store_path,
     )
+
+    # W8 (2026-07-22, GESAMTBEWERTUNG): wire the order-lifecycle log into the
+    # REAL broker path. GO_LIVE C1 was marked done while only the simulated
+    # paths (unified_paper_engine, _tc_risk/_tc_execution) logged events —
+    # not a single live pilot order ever appeared in the journal.
+    # append_lifecycle_event is non-blocking by contract (disk failure never
+    # interrupts trading).
+    if not dry_run:
+        try:
+            from src.assembled_core.ops.order_lifecycle_log import (
+                append_lifecycle_event,
+            )
+
+            _run_tag = time.strftime("%Y-%m-%d", time.gmtime())  # UTC like the journal
+
+            def _lc(event_type, order, qty, **kw):
+                # Per-order guard (Stage-1 MINOR): one malformed order must
+                # not abort the remaining journal events of the run.
+                try:
+                    append_lifecycle_event(
+                        event_type,
+                        order.order_id,
+                        order.symbol,
+                        (order.side or "").upper(),
+                        qty,
+                        actor="broker_execution",
+                        run_id=_run_tag,
+                        **kw,
+                    )
+                except Exception as _one_exc:
+                    logger.warning(
+                        "[broker_execution] lifecycle event %s for %s failed: %s",
+                        event_type,
+                        getattr(order, "order_id", "?"),
+                        _one_exc,
+                    )
+
+            for order in submitted:
+                _lc("SUBMITTED", order, order.qty)
+            for order in result.filled:
+                _lc(
+                    "FILLED",
+                    order,
+                    order.filled_qty or order.qty,
+                    price=order.filled_avg_price,
+                )
+            for order in result.rejected:
+                _lc("REJECTED", order, order.qty, reason=order.status)
+            for order in result.timed_out:
+                # Stage-1 MINOR: label by the REFRESHED broker state — the
+                # journal must never claim a cancel that did not happen or
+                # downgrade a race-won full fill to PARTIAL_FILL.
+                _fq = order.filled_qty or 0
+                if order.status == "filled":
+                    _lc(
+                        "FILLED",
+                        order,
+                        _fq or order.qty,
+                        price=order.filled_avg_price,
+                        reason="filled_during_cancel_race",
+                    )
+                elif _fq > 0:
+                    _lc(
+                        "PARTIAL_FILL",
+                        order,
+                        _fq,
+                        price=order.filled_avg_price,
+                        reason=f"timeout_cancel(status={order.status})",
+                    )
+                elif order.status in ("canceled", "cancelled", "expired", "rejected"):
+                    _lc(
+                        "CANCELLED",
+                        order,
+                        order.qty,
+                        reason=f"timeout_cancel(status={order.status})",
+                    )
+                else:
+                    _lc(
+                        "CANCELLED",
+                        order,
+                        order.qty,
+                        reason=f"cancel_attempted_STILL_LIVE(status={order.status})",
+                    )
+        except Exception as _lc_exc:
+            logger.warning("[broker_execution] lifecycle logging failed: %s", _lc_exc)
 
     result.execution_time_s = time.monotonic() - t0
     logger.info(

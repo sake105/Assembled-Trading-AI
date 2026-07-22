@@ -84,12 +84,16 @@ jobs:
     # are silently dropped, or the DSR input is degenerate. That catches an
     # engine/data regression even on synthetic data.
     #
-    # What stays NON-blocking (grace through 2026-07-01): an E3/E4 statistical
-    # miss on the synthetic series. --enforce is deliberately NOT passed here;
-    # turning it on against synthetic data would either be vacuous-green or
-    # CI-red on a meaningless number. Re-evaluate when the E5 real-price
-    # fixture exists. Job KEY kept as `walk-forward-gate` to preserve any
-    # branch-protection required-check wiring.
+    # What stays NON-blocking: an E3/E4 statistical miss on the synthetic
+    # series. --enforce is deliberately NOT passed here; turning it on
+    # against synthetic data would either be vacuous-green or CI-red on a
+    # meaningless number. W14 re-evaluation 2026-07-22 (GESAMTBEWERTUNG):
+    # the old "grace through 2026-07-01" date expired — the decision is now
+    # CONDITION-based, not date-based: E3/E4 stay non-blocking UNTIL the E5
+    # real-price fixture (~30 paper days of Alpaca fills, user-gated on
+    # GitHub Secrets) exists; then flip to --enforce on real data. Job KEY
+    # kept as `walk-forward-gate` to preserve any branch-protection
+    # required-check wiring.
     name: Walk-Forward Smoke (synthetic data; integrity blocks, E3/E4 non-blocking)
     runs-on: ubuntu-latest
     steps:

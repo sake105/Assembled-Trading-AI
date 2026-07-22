@@ -1006,6 +1006,7 @@ def _sp_apply_turnover_gate(
     prices_latest: pd.DataFrame | None,
     policy: dict,
     log: logging.Logger,
+    meta: dict,
 ) -> pd.DataFrame:
     """Turnover budget gate (INT-6)."""
     tb = policy.get("turnover_budget") or {}
@@ -1063,7 +1064,21 @@ def _sp_apply_turnover_gate(
                 target_invested_pct=float(tb.get("target_invested_pct", 0.80) or 0.80),
             )
         except Exception as e:
-            log.debug("turnover_budget gate skipped: %s", e)
+            # W11b (2026-07-22, GESAMTBEWERTUNG; Stage-1 B1 fix: meta is now
+            # a real parameter — the first version referenced an undefined
+            # name and inverted fail-open into fail-crash): a crashed
+            # turnover gate previously vanished at DEBUG while the cycle
+            # proceeded UNCAPPED — the CLAUDE.md "stille except-Pfadlogik"
+            # class. Degraded-step marker carries the UNCAPPED context; the
+            # fail-open direction itself is kept deliberately (flipping to
+            # fail-closed here would need an explicit risk sign-off).
+            _record_degraded_step(
+                "turnover_budget_gate",
+                e,
+                meta=meta,
+                log_obj=log,
+                detail="cycle proceeds UNCAPPED (turnover budget not applied)",
+            )
     return target_positions
 
 
@@ -2248,7 +2263,7 @@ def size_positions(
         target_positions, ctx, prices_filtered, policy, meta, log
     )
     target_positions = _sp_apply_turnover_gate(
-        target_positions, ctx, prices_for_sizing, prices_latest, policy, log
+        target_positions, ctx, prices_for_sizing, prices_latest, policy, log, meta
     )
     target_positions = _sp_apply_correlation_guard(
         target_positions, prices_for_sizing, policy, ctx, meta

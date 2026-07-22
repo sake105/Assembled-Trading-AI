@@ -30,6 +30,15 @@ def load_prices(
         DataFrame with columns: timestamp (UTC), symbol, close
         Sorted by symbol, then timestamp
 
+    Price semantics (W13, 2026-07-21 GESAMTBEWERTUNG): the live store
+    ``output/aggregates/daily.parquet`` carries a TOTAL-RETURN-adjusted
+    ``close`` (splits AND dividends folded in; verified 2026-06-01 against
+    yfinance Adj Close, ~0bps median). It is NOT a raw trade price. Raw-price
+    consumers (tax lots, corporate-action bookkeeping) must source
+    elsewhere; return/backtest consumers get dividends implicitly and must
+    not credit them a second time. The latest bar equals the raw close
+    (adjustment factor 1.0 at the anchor), so same-day marks are unaffected.
+
     Raises:
         FileNotFoundError: If price file does not exist
         KeyError: If required columns are missing
