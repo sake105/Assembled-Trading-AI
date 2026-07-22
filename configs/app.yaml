@@ -49,10 +49,21 @@ paper_runner:
   # (qa/backtest_engine.py) never reaches this gate. With enabled=false the
   # call is a pure pass-through (byte-identical behaviour).
   reconcile_block:
-    enabled: false                              # default-off; true = ARM (fail-closed)
+    # 2026-07-21 (GESAMTBEWERTUNG K5): ARMED. Prerequisite fix shipped same
+    # day: ops/paper_runner now writes a stable root-level copy of the
+    # artifact (output/reconcile_latest.json) — previously it existed only
+    # per-run, so an armed gate could never verify a pass. The initial root
+    # artifact was seeded manually from the 2026-07-20 run (documented in
+    # docs/GESAMTBEWERTUNG.md §7). RECOVERY after a FAIL/stale deadlock
+    # (gate runs BEFORE the cycle, so a blocked pilot never refreshes the
+    # artifact itself): fix the root cause, then run
+    #   python scripts/ops/rebuild_reconcile_artifact.py --reason "..."
+    # which re-evaluates the ledger invariants and writes a fresh artifact
+    # (still FAIL if the ledger is actually broken — no bypass).
+    enabled: true                               # ARMED (fail-closed)
     block_on: ["fail"]                          # add "unverified" to also block WARN/UNKNOWN
     artifact: "output/reconcile_latest.json"    # resolved relative to repo root
-    block_if_stale_hours: null                  # null = disabled; e.g. 36 = block stale-OK
+    block_if_stale_hours: 120                   # block stale-OK older than 5 days (covers long weekends)
 
   # §9.6 (b) Phase 2 shadow-mode (2026-05-21): mfv2 cannot run as shadow
   # under the price-only whitelist (it needs feature-pipeline-enriched

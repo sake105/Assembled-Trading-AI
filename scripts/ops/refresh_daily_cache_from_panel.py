@@ -109,6 +109,24 @@ def refresh(cache_path: Path, panel_path: Path, *, dry_run: bool) -> int:
     cache["timestamp"] = pd.to_datetime(cache["timestamp"], utc=True)
     panel["timestamp"] = pd.to_datetime(panel["timestamp"], utc=True)
 
+    # K6 / E-053 (2026-07-21, GESAMTBEWERTUNG): enforce the PIT cutoff in
+    # THIS writer instead of trusting the panel builder's fetch semantics.
+    # Every ingest path into the live price store must drop same-day
+    # (potentially forming) bars itself — mirrors the guard in
+    # scripts/ops/refresh_daily_cache_from_eodhd.py and
+    # refresh_sector_etf_cache.py. Daily bars carry their trading day at
+    # midnight UTC, so `timestamp < today` keeps only completed sessions.
+    today_utc = pd.Timestamp.now("UTC").normalize()
+    n_before_cutoff = len(panel)
+    panel = panel[panel["timestamp"] < today_utc]
+    if len(panel) < n_before_cutoff:
+        logger.warning(
+            "[refresh-cache] PIT cutoff dropped %d same-day/future panel row(s) "
+            "(>= %s) — forming bars must never enter daily.parquet (E-053)",
+            n_before_cutoff - len(panel),
+            today_utc.date(),
+        )
+
     cache_latest = cache["timestamp"].max()
     panel_latest = panel["timestamp"].max()
     logger.info(

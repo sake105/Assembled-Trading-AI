@@ -109,8 +109,13 @@ def test_as_dict_contains_all_fields() -> None:
 
 def test_sharpe_std_error_direct_formula() -> None:
     # Pin the stderr composition at a chosen input.
+    # 2026-07-21 (GESAMTBEWERTUNG W1): this test previously pinned the WRONG
+    # coefficient ((excess-1)/4 -> 1 - SR^2/4 for normal returns). BLP 2014
+    # use ((gamma4_raw - 1)/4) with raw kurtosis (normal = 3), i.e.
+    # ((excess + 2)/4) -> 1 + SR^2/2 for normal returns. The old pin froze an
+    # anti-conservative SE (DSR probability overstated).
     se = sharpe_std_error(sharpe=0.2, n_obs=100, skew=0.0, excess_kurtosis=0.0)
-    expected = math.sqrt((1.0 + (-1.0 / 4.0) * 0.04) / 99.0)
+    expected = math.sqrt((1.0 + (2.0 / 4.0) * 0.04) / 99.0)
     assert se == pytest.approx(expected, rel=1e-9)
 
 

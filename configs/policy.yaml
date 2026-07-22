@@ -69,9 +69,17 @@ risk_limits:
 # More conservative than risk_limits.max_drawdown (benchmark-style) to trigger
 # intra-run de-risk/kill earlier. Values must be <= corresponding risk_limits entries.
 drawdown_policy:
-  soft: 0.10   # warn at 10% DD
-  hard: 0.15   # reduce exposure at 15% DD
-  kill: 0.20   # kill switch at 20% DD
+  # 2026-07-21 (GESAMTBEWERTUNG W10 / Diagnostik G5): restructured to the
+  # shape the runtime actually reads. pipeline/trading_cycle_shared.py:1206
+  # reads drawdown_policy.levels.{soft,hard,kill} as NEGATIVE fractions
+  # (dd <= level triggers). The previous flat positive keys (soft: 0.10 …)
+  # were silently ignored and the hardcoded fallback (-0.08/-0.12/-0.18)
+  # applied instead. Operator intent (10/15/20%) now takes effect.
+  auto_kill_enabled: true
+  levels:
+    soft: -0.10   # warn / throttle to 50% allowed at -10% DD
+    hard: -0.15   # throttle to 20% allowed at -15% DD
+    kill: -0.20   # block all orders at -20% DD
 
 # High-level state machine config (WATCH / ACTIVE / COOLDOWN / PAUSE).
 state_machine:

@@ -397,6 +397,18 @@ def apply_fills_to_ledger(
                     "avg_price": new_avg,
                     "hwm": new_hwm,
                 }
+    # W18 (2026-07-21, GESAMTBEWERTUNG): dust sweep. Position qty is float
+    # arithmetic; partial closes of fractional positions leave residues like
+    # 7.1e-15 (live-verified: CVX/KO/WMT in the pilot ledger) because a
+    # position is only popped on an EXACT zero. Sweep sub-epsilon positions
+    # after all fills are applied. Epsilon 1e-9 is far below the live sync
+    # qty_tol (0.001 in position_sync.sync_positions_from_broker), so
+    # dropping dust can never create a reportable ledger-vs-broker mismatch.
+    _DUST_EPS = 1e-9
+    for _sym in [
+        s for s, p in out["positions"].items() if abs(p.get("qty", 0.0)) < _DUST_EPS
+    ]:
+        out["positions"].pop(_sym, None)
     out["cash"] = float(_cash_d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     return out
 

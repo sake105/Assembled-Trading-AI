@@ -21,13 +21,23 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CPCVResult:
-    """Results from CPCV cross-validation."""
+    """Results from CPCV cross-validation.
+
+    ``method`` (W11a, 2026-07-21 GESAMTBEWERTUNG) names the CV scheme that
+    actually ran, so a silent fallback can never masquerade as purged CV:
+      - "cpcv_purged"                — skfolio CombinatorialPurgedCV ran.
+      - "timeseries_split_unpurged"  — sklearn TimeSeriesSplit fallback,
+                                       NO purge / NO embargo.
+      - "dummy_no_sklearn"           — sklearn missing, zeros returned.
+    Consumers gating on "purged CV passed" MUST check method == "cpcv_purged".
+    """
 
     n_splits: int
     scores: np.ndarray
     mean_score: float
     std_score: float
     oos_predictions: np.ndarray | None
+    method: str = ""
 
 
 def _try_skfolio():
@@ -100,9 +110,19 @@ def combinatorial_purged_cv(
                 mean_score=float(scores.mean()),
                 std_score=float(scores.std()),
                 oos_predictions=None,
+                method="cpcv_purged",
             )
         except Exception as exc:
-            logger.debug("skfolio CPCV failed, using TimeSeriesSplit fallback: %s", exc)
+            # W11a (2026-07-21, GESAMTBEWERTUNG): this degradation used to be
+            # a DEBUG log — "purged" silently became "unpurged" with an
+            # identical result shape. A validation harness must never
+            # downgrade its leakage protection quietly.
+            logger.warning(
+                "CPCV DEGRADED: skfolio CombinatorialPurgedCV failed (%s) — "
+                "falling back to TimeSeriesSplit WITHOUT purge/embargo. "
+                "Check CPCVResult.method before trusting leakage guarantees.",
+                exc,
+            )
 
     # Fallback: TimeSeriesSplit
     return _walk_forward_cv(estimator, X, y, n_splits, scoring)
@@ -119,7 +139,7 @@ def _walk_forward_cv(
     TSCV = _try_sklearn_walk_forward()
     if TSCV is None:
         logger.warning("sklearn not installed — returning dummy CV result")
-        return CPCVResult(0, np.array([]), 0.0, 0.0, None)
+        return CPCVResult(0, np.array([]), 0.0, 0.0, None, method="dummy_no_sklearn")
 
     from sklearn.model_selection import cross_val_score
 
@@ -131,6 +151,7 @@ def _walk_forward_cv(
         mean_score=float(scores.mean()),
         std_score=float(scores.std()),
         oos_predictions=None,
+        method="timeseries_split_unpurged",
     )
 
 

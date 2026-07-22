@@ -34,10 +34,13 @@ Formulas
 Given a return series ``r`` of length ``T``:
 
 - ``SR_hat = mean(r) / std(r, ddof=1)``  (periodic Sharpe)
-- Skew ``γ3`` and excess kurtosis ``γ4`` of ``r``.
+- Skew ``γ3`` and excess kurtosis ``γ4ᵉ`` (normal = 0) of ``r``.
 - Standard error of the Sharpe under non-normal returns::
 
-      sigma(SR) = sqrt( (1 - γ3 * SR + (γ4 - 1)/4 * SR^2) / (T - 1) )
+      sigma(SR) = sqrt( (1 - γ3 * SR + (γ4ᵉ + 2)/4 * SR^2) / (T - 1) )
+
+  (BLP write (γ4 - 1)/4 with RAW kurtosis γ4 = γ4ᵉ + 3; fixed 2026-07-21 —
+  the previous implementation used (γ4ᵉ - 1)/4, understating the SE.)
 
 - The "Sharpe ratio threshold" for ``N`` independent trials::
 
@@ -124,10 +127,19 @@ def _moments(r: np.ndarray) -> tuple[float, float, float, float]:
 def sharpe_std_error(
     sharpe: float, n_obs: int, skew: float, excess_kurtosis: float
 ) -> float:
-    """Standard error of the Sharpe under non-normal returns (BLP 2014)."""
+    """Standard error of the Sharpe under non-normal returns (BLP 2014).
+
+    W1 fix (2026-07-21, GESAMTBEWERTUNG): BLP write the variance term as
+    ((gamma4 - 1) / 4) * SR^2 with gamma4 = RAW kurtosis (normal = 3). This
+    function takes EXCESS kurtosis (normal = 0), so the correct coefficient
+    is ((excess + 3 - 1) / 4) = ((excess + 2) / 4). The previous code used
+    ((excess - 1) / 4), which under-estimated the standard error (for normal
+    returns: 1 - SR^2/4 instead of 1 + SR^2/2) and therefore OVER-stated the
+    DSR probability — an anti-conservative gate error growing with SR^2.
+    """
     if n_obs <= 1:
         return float("nan")
-    inside = 1.0 - skew * sharpe + ((excess_kurtosis - 1.0) / 4.0) * (sharpe**2)
+    inside = 1.0 - skew * sharpe + ((excess_kurtosis + 2.0) / 4.0) * (sharpe**2)
     # Numerical guard: inside must be non-negative for a real stderr. Under
     # heavy non-normality it can dip slightly below zero for small samples.
     inside = max(inside, 0.0)

@@ -987,11 +987,20 @@ def _compute_intermarket_factors(
 def _compute_options_factors(
     latest_symbols: list[str],
     latest: pd.DataFrame,
+    as_of: pd.Timestamp | None = None,
 ) -> dict[str, pd.Series]:
     """Factors 28-29: put-call extreme, VIX regime z-score.
 
     Fetches VIX/VIX3M/PCR from CBOESource, computes regime factors.
     Universal factors — same value per date, broadcast to all symbols.
+
+    W5 / PIT (2026-07-21, GESAMTBEWERTUNG; open since 2026-05-28): the CBOE
+    fetch is live — in a backtest/replay with historical ``as_of`` the last
+    row was TODAY's regime, a look-ahead. The factor series is now sliced to
+    rows <= ``as_of`` before taking the last row. Live callers (as_of ≈ now)
+    are unaffected; historical callers get the PIT row or a degraded factor
+    (empty slice -> factor omitted -> 0.0 downstream) when the source has no
+    history that far back.
     """
     result: dict[str, pd.Series] = {}
     sym_idx = (
@@ -1008,6 +1017,17 @@ def _compute_options_factors(
         cboe_df = cboe.fetch_options_regime_data()
         if not cboe_df.empty:
             opts = build_options_regime_factors(cboe_df)
+            if not opts.empty and as_of is not None and "timestamp" in opts.columns:
+                as_of_day = _to_naive_day(as_of)
+                opts = opts[
+                    pd.to_datetime(opts["timestamp"]).dt.normalize() <= as_of_day
+                ]
+                if opts.empty:
+                    logger.warning(
+                        "[MF-V2] options factors: no CBOE rows <= as_of=%s — "
+                        "factors degraded to 0.0 (PIT slice, no look-ahead)",
+                        as_of_day.date(),
+                    )
             if not opts.empty:
                 last_row = opts.iloc[-1]
                 pcr_extreme = float(last_row.get("equity_put_call_extreme", 0.0))
@@ -1619,8 +1639,8 @@ def compute_signals(
         else 0.0
     )
 
-    # Factors 28-29: Options (put-call extreme, VIX regime score)
-    options = _compute_options_factors(latest_symbols, latest)
+    # Factors 28-29: Options (put-call extreme, VIX regime score) — PIT (W5)
+    options = _compute_options_factors(latest_symbols, latest, as_of=as_of)
     scores["options_put_call_extreme"] = (
         scores["symbol"]
         .map(options.get("options_put_call_extreme", pd.Series(dtype=float)))

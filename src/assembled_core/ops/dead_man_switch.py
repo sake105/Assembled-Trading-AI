@@ -1,8 +1,17 @@
-"""Dead-Man's Switch: auto-flatten all positions when heartbeat goes stale.
+"""Dead-Man's Switch: block all NEW orders when the heartbeat goes stale.
+
+W12 honesty note (2026-07-21, GESAMTBEWERTUNG): despite the historical
+"auto-flatten" naming, the DMS does NOT close any positions — no
+``close_all_positions`` exists anywhere in the codebase. In ``market`` mode
+it engages the kill switch (order BLOCK); existing positions stay open until
+an operator closes them. Position liquidation is the still-unbuilt "Phase 2"
+(gated since 2026-06-22). Audit-file note: ``dms_audit.jsonl`` is written
+ONLY when a trigger fires — its absence means "never triggered", not
+"daemon dead" (liveness must be checked via the daemon process/heartbeat).
 
 The DMS is a passive, time-based safety mechanism that monitors the heartbeat
 file written by the trading cycle. If no heartbeat arrives within
-``timeout_seconds``, the DMS triggers an auto-flatten via the kill switch.
+``timeout_seconds``, the DMS engages the kill switch (order block).
 
 The Kill-Switch (P2-1) is operator-initiated; the DMS is fully passive.
 
@@ -108,13 +117,16 @@ def auto_flatten_on_stale(
     policy: dict[str, Any],
     reason: str = "heartbeat_timeout",
 ) -> None:
-    """Trigger auto-flatten when a stale heartbeat is detected.
+    """Engage the order block when a stale heartbeat is detected.
+
+    Naming caveat (W12): "flatten" is historical — NO positions are closed
+    in ANY mode; see module docstring.
 
     In ``shadow`` mode this function logs the event and writes the audit record
     but does NOT call activate_kill_switch — safe for testing and dry-run.
 
     In ``market`` mode it calls activate_kill_switch(throttle_pct=0.0) which
-    blocks all orders system-wide.
+    blocks all NEW orders system-wide (existing positions remain open).
 
     Args:
         policy: Full policy dict (reads ``dead_man_switch`` block).

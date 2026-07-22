@@ -679,6 +679,30 @@ def _prd_paper_fills_and_ledger(
         cost_model_cfg=cost_cfg,
     )
     write_reconcile_artifact(output_dir, report)
+    # K5 (2026-07-21): stable root-level copy for the reconcile-block gate.
+    # apply_reconcile_block_gate reads <root>/output/reconcile_latest.json,
+    # but the artifact was only ever written into the per-run directory —
+    # an ARMED gate could therefore never verify a pass and would block
+    # every cycle fail-closed. Derive the stable location from the per-run
+    # layout (<root>/output/runs/<run_id>); refuse to guess on unexpected
+    # layouts so we never scatter artifacts into arbitrary directories.
+    try:
+        _stable_dir = output_dir.resolve().parent.parent
+        if _stable_dir.name == "output":
+            write_reconcile_artifact(_stable_dir, report)
+        else:
+            log.warning(
+                "[reconcile] unexpected output_dir layout %s — stable "
+                "reconcile_latest.json NOT written (armed gate would fail closed)",
+                output_dir,
+            )
+    except Exception as _stable_exc:  # noqa: BLE001 — Stage-1 O6: any failure
+        # here must not skip the ledger save below; the armed gate fails
+        # closed on a stale artifact, which is the visible symptom.
+        log.warning(
+            "[reconcile] stable reconcile_latest.json write failed: %s",
+            _stable_exc,
+        )
     reconcile_status = report.get("status") or "OK"
     save_ledger_state(state_after, ledger_path)
     write_ledger_snapshot(output_dir, state_after, equity_after)

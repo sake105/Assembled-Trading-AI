@@ -479,17 +479,55 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
                     stale_ids.append(o.order_id)
 
             if stale_ids:
-                logger.warning(
-                    "[run_live_paper] cancelling %d stale open order(s) (>5min old) — "
-                    "%d recent order(s) left untouched",
-                    len(stale_ids),
-                    recent_count,
-                )
-                cancelled = adapter.cancel_all_orders()
-                logger.warning(
-                    "[run_live_paper] stale order cleanup: %d order(s) cancelled",
-                    cancelled,
-                )
+                # K3 (2026-07-21, GESAMTBEWERTUNG): the old code claimed
+                # "recent orders left untouched" but then called
+                # cancel_all_orders(), cancelling recent orders too. Prefer a
+                # per-order cancel when the adapter provides one; otherwise
+                # only blanket-cancel when NO recent orders would be caught
+                # in the blast radius — never silently contradict the log.
+                cancel_one = getattr(adapter, "cancel_order", None)
+                if callable(cancel_one):
+                    cancelled = 0
+                    for oid in stale_ids:
+                        try:
+                            cancel_one(oid)
+                            cancelled += 1
+                        except Exception as cexc:
+                            logger.warning(
+                                "[run_live_paper] cancel of stale order %s failed: %s",
+                                oid,
+                                cexc,
+                            )
+                    logger.warning(
+                        "[run_live_paper] stale order cleanup: %d/%d stale order(s) "
+                        "cancelled — %d recent order(s) left untouched",
+                        cancelled,
+                        len(stale_ids),
+                        recent_count,
+                    )
+                elif recent_count == 0:
+                    cancelled = adapter.cancel_all_orders()
+                    logger.warning(
+                        "[run_live_paper] stale order cleanup: %d order(s) cancelled "
+                        "(blanket cancel — no recent orders present)",
+                        cancelled,
+                    )
+                else:
+                    # Stage-1 review M1 (2026-07-21): trading on top of live
+                    # stale orders risks double exposure (the unbooked-fill
+                    # class). If we can neither cancel them individually nor
+                    # safely blanket-cancel, BLOCK the cycle instead of
+                    # warn-and-trade.
+                    logger.error(
+                        "[run_live_paper] PREFLIGHT BLOCK: %d stale order(s) "
+                        "cannot be cancelled (adapter has no per-order cancel; "
+                        "%d recent order(s) would be caught by "
+                        "cancel_all_orders()). Operator: cancel stale orders "
+                        "manually, then re-run.",
+                        len(stale_ids),
+                        recent_count,
+                    )
+                    return False
             elif recent_count:
                 logger.info(
                     "[run_live_paper] %d recent open order(s) found — all within 5min, "
@@ -507,13 +545,43 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
 
         pending = find_pending_order_intents()
         if pending:
-            logger.warning(
-                "[run_live_paper] %d pending order intents from prior crash — "
-                "reconcile manually before proceeding",
+            # W7 (2026-07-21, GESAMTBEWERTUNG): pending intents mean a prior
+            # run crashed between submit-intent and fill-confirmation — the
+            # broker may hold orders/positions the ledger never booked
+            # (exactly the 2026-07-14 failure class). Trading on top of
+            # unresolved crash residue is not safe: BLOCK instead of WARN.
+            logger.error(
+                "[run_live_paper] PREFLIGHT BLOCK: %d pending order intent(s) "
+                "from a prior crashed run — resolve before trading. Operator: "
+                "compare broker orders/positions vs ledger (scripts/"
+                "ops_adopt_external_positions.py for unbooked fills), then "
+                "clear/abandon the intents.",
                 len(pending),
             )
+            return False
+    except ImportError as exc:
+        # Stage-2 review F-senior-1 (2026-07-22): separate diagnosis — an
+        # ImportError is an infrastructure/deploy problem (renamed module,
+        # broken package), NOT crash residue. Still fail-closed (Rule 30),
+        # but tell the operator the true cause.
+        logger.error(
+            "[run_live_paper] PREFLIGHT BLOCK: intent_store module unavailable "
+            "(%s) — deploy/import problem, not crash residue. Fix the "
+            "installation, then re-run.",
+            exc,
+        )
+        return False
     except Exception as exc:
-        logger.warning("[run_live_paper] intent store check failed: %s", exc)
+        # Stage-1 review M2 (2026-07-21): a crashed prior run is precisely
+        # when the intent store may be corrupt — a broken checker must not
+        # fail open into trading. Fail closed like the block it guards.
+        logger.error(
+            "[run_live_paper] PREFLIGHT BLOCK: intent store check failed (%s) — "
+            "cannot prove there is no crash residue. Operator: inspect "
+            "output/ops intent store, then re-run.",
+            exc,
+        )
+        return False
 
     return True
 
@@ -583,6 +651,161 @@ def _check_soft_timeout(stage: str) -> None:
         sys.exit(2)
 
 
+def _alert_on_run_gap(app_cfg: dict, *, max_gap_days: int = 3) -> None:
+    """W12 (2026-07-21, GESAMTBEWERTUNG): detect missed pilot runs after the fact.
+
+    The watchdog runs on the SAME host as the pilot — a powered-off machine
+    alarms nothing (live-verified: runs 15.-17.07. missed silently). True
+    external monitoring needs an off-host component; until then, the next
+    successful start compares the ledger's last equity-curve date with today
+    and alerts on a gap > ``max_gap_days`` calendar days (3 covers normal
+    weekends; anything longer means missed trading days). Best-effort:
+    never blocks the cycle.
+    """
+    try:
+        from src.assembled_core.ops.paper_ledger import load_ledger_state
+
+        paper_cfg = app_cfg.get("paper_runner") or {}
+        ledger_path_str = (
+            paper_cfg.get("ledger_path")
+            or "output/runs/_paper_ledger/ledger_state.json"
+        )
+        ledger_path = (
+            ROOT / ledger_path_str
+            if not Path(ledger_path_str).is_absolute()
+            else Path(ledger_path_str)
+        )
+        if not ledger_path.exists():
+            return
+        state = load_ledger_state(ledger_path)
+        curve = state.get("equity_curve") or []
+        if not curve:
+            return
+        last_utc = str(curve[-1].get("utc", ""))[:10]
+        if not last_utc:
+            return
+        last_day = datetime.strptime(last_utc, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        gap_days = (datetime.now(timezone.utc) - last_day).days
+        if gap_days > max_gap_days:
+            logger.warning(
+                "[run_live_paper] RUN GAP: last ledger equity point is %s "
+                "(%d calendar days ago) — pilot runs were missed silently. "
+                "Check host uptime / Task Scheduler history.",
+                last_utc,
+                gap_days,
+            )
+            try:
+                from src.assembled_core.ops.alerting import AlertManager
+
+                AlertManager().fire(
+                    "pilot_run_gap",
+                    {"last_run_date": last_utc, "gap_days": str(gap_days)},
+                )
+            except Exception as _alert_exc:
+                logger.error("[run_live_paper] run-gap alert failed: %s", _alert_exc)
+    except Exception as exc:  # detection is best-effort, never block the cycle
+        logger.warning("[run_live_paper] run-gap detection failed: %s", exc)
+
+
+def _sync_trips_halt(sync_result, policy: dict) -> tuple[bool, str]:
+    """W7b (2026-07-21, GESAMTBEWERTUNG): decide whether a failed broker
+    sync trips the reconcile halt.
+
+    The original gate only looked at cash_diff — pure position mismatches
+    (qty diffs, symbols missing on either side) with a small cash_diff never
+    halted (live-verified 2026-07-20: halt JSON reported mismatches_count=0
+    while 5 symbols were missing from the ledger). Position truth is the
+    core of the pilot: any non-dust mismatch (position_sync applies qty_tol)
+    trips the halt as well.
+    """
+    tripped, reason = _mismatch_exceeds_threshold(
+        sync_result.cash_diff,
+        sync_result.broker_equity,
+        policy,
+    )
+    if tripped:
+        return tripped, reason
+    # Stage-1 review B1 (2026-07-21): `mismatches` only carries qty diffs for
+    # symbols present on BOTH sides (reconciliation.position_diffs_df).
+    # Symbols the ledger does not know at all land in missing_in_ledger /
+    # missing_in_broker — exactly the 2026-07-20 incident class (5 broker
+    # positions unknown to the ledger). All three must trip.
+    n_mismatch = len(sync_result.mismatches or [])
+    n_missing_ledger = len(getattr(sync_result, "missing_in_ledger", []) or [])
+    n_missing_broker = len(getattr(sync_result, "missing_in_broker", []) or [])
+    if n_mismatch or n_missing_ledger or n_missing_broker:
+        return True, (
+            f"position_mismatches={n_mismatch} "
+            f"missing_in_ledger={n_missing_ledger} "
+            f"missing_in_broker={n_missing_broker} "
+            f"(cash_diff ${sync_result.cash_diff:.2f} below threshold)"
+        )
+    return False, ""
+
+
+def _market_open_for_submission(
+    adapter, *, min_minutes_to_close: float = 10.0
+) -> tuple[bool, str]:
+    """K2a (2026-07-21, GESAMTBEWERTUNG): gate broker submissions on market hours.
+
+    Root cause 2026-07-14: a delayed run submitted 5 market DAY orders at
+    16:08 ET (after close). Alpaca queued them overnight and filled them at
+    the next open, while the in-run 120s fill-wait timed out — the ledger
+    never saw the fills (reconcile halt 2026-07-20). Submissions must only
+    happen while the market is open AND far enough from the close that the
+    fill-wait can complete.
+
+    Primary source: the Alpaca clock via the adapter's underlying trading
+    client (authoritative, holiday-aware; read-only private-attr access —
+    the adapter exposes no public clock yet, see P4 follow-up). Fallback:
+    local New-York wall-clock window Mon-Fri 09:30-15:50 ET (no holiday
+    knowledge). Returns (is_open_for_submission, reason).
+    """
+    now_utc = datetime.now(timezone.utc)
+    api = getattr(adapter, "_api", None)
+    get_clock = getattr(api, "get_clock", None) if api is not None else None
+    if callable(get_clock):
+        try:
+            clock = get_clock()
+            if not bool(getattr(clock, "is_open", False)):
+                return False, "alpaca_clock: market closed"
+            next_close = getattr(clock, "next_close", None)
+            if next_close is not None:
+                try:
+                    mins_to_close = (next_close - now_utc).total_seconds() / 60.0
+                    if mins_to_close < min_minutes_to_close:
+                        return False, (
+                            f"alpaca_clock: only {mins_to_close:.1f}min to close "
+                            f"(< {min_minutes_to_close:.0f}min buffer)"
+                        )
+                except TypeError:
+                    logger.warning(
+                        "[run_live_paper] market-hours gate: unparseable "
+                        "next_close %r — ignoring close-buffer check",
+                        next_close,
+                    )
+            return True, "alpaca_clock: open"
+        except Exception as exc:
+            logger.warning(
+                "[run_live_paper] market-hours gate: Alpaca clock failed (%s) — "
+                "falling back to local NY window",
+                exc,
+            )
+    try:
+        from zoneinfo import ZoneInfo
+
+        ny = now_utc.astimezone(ZoneInfo("America/New_York"))
+        if ny.weekday() >= 5:
+            return False, "fallback: weekend (NY)"
+        minutes = ny.hour * 60 + ny.minute
+        if 570 <= minutes < 950:  # 09:30 <= t < 15:50 ET
+            return True, "fallback: inside 09:30-15:50 ET window (no holiday check)"
+        return False, f"fallback: outside 09:30-15:50 ET (NY time {ny:%H:%M})"
+    except Exception as exc:
+        # Cannot determine market state at all — fail closed for submissions.
+        return False, f"fallback failed ({exc}) — fail-closed"
+
+
 def cmd_once(args):
     """Single execution cycle."""
     import pandas as pd
@@ -601,12 +824,30 @@ def cmd_once(args):
         if soft_timer is not None:
             soft_timer.cancel()
         sys.exit(1)
+    _alert_on_run_gap(app_cfg)  # W12: detect silently missed runs
     _check_soft_timeout("post_preflight")
 
     # Reset per-cycle counters
     adapter.reset_cycle_counters()
 
     execution_mode = "dry_run" if args.dry_run else "broker"
+
+    # K2a (2026-07-21): never submit into a closed or nearly-closed market —
+    # root cause of the 2026-07-14 after-hours fills. Dry-run cycles may
+    # proceed (no broker submission). Ordered skip = exit 0 (not a failure).
+    if execution_mode == "broker" and not getattr(args, "allow_closed_market", False):
+        market_open, clock_reason = _market_open_for_submission(adapter)
+        if not market_open:
+            logger.warning(
+                "[run_live_paper] MARKET-HOURS GATE: skipping broker cycle — %s "
+                "(override for testing: --allow-closed-market)",
+                clock_reason,
+            )
+            if soft_timer is not None:
+                soft_timer.cancel()
+            sys.exit(0)
+        logger.info("[run_live_paper] market-hours gate: %s", clock_reason)
+
     as_of = pd.Timestamp.now("UTC")
     run_id = generate_run_id(prefix="live_paper")
     output_dir = ROOT / "output" / "runs" / run_id
@@ -670,11 +911,8 @@ def cmd_once(args):
 
             if not sync_result.ok:
                 policy = _reconcile_policy(app_cfg)
-                tripped, reason = _mismatch_exceeds_threshold(
-                    sync_result.cash_diff,
-                    sync_result.broker_equity,
-                    policy,
-                )
+                # W7b: cash thresholds OR non-dust position mismatches trip.
+                tripped, reason = _sync_trips_halt(sync_result, policy)
                 logger.warning(
                     "[run_live_paper] POST-EXECUTION MISMATCH: %s",
                     sync_result.message,
@@ -869,6 +1107,16 @@ def main():
             "halt-ack flag and exits at the next stage checkpoint, so the "
             "Task Scheduler hard-kill (PT30M default) does not interrupt "
             "mid-order. Set 0 to disable."
+        ),
+    )
+    once_p.add_argument(
+        "--allow-closed-market",
+        action="store_true",
+        help=(
+            "K2a override: run a broker cycle even when the market-hours "
+            "gate reports the market closed/near-close. Testing only — "
+            "after-hours market DAY orders queue to the next open and "
+            "bypass the in-run fill-wait (2026-07-14 incident)."
         ),
     )
     once_p.set_defaults(func=cmd_once)
