@@ -60,7 +60,7 @@ def build_event_feature_panel(
         lookback_days: Number of days to look back for event aggregation (default: 30)
             Window is based on disclosure_date (not event_date)
         feature_prefix: Prefix for feature column names (default: "event")
-        method: Implementation method (default: "legacy")
+        method: Implementation method (default: "vectorized" — docstring corrected 2026-07-23; signature default has been "vectorized" since Sprint 11.E1)
             - "legacy": Original nested loop implementation (Sprint 10.B)
             - "vectorized": Vectorized implementation using merge_asof + cumulative counting (Sprint 11.E1)
                 Production-ready and tested. Equivalent to legacy, but faster for large datasets.
@@ -230,7 +230,7 @@ def add_disclosure_count_feature(
         as_of: Optional point-in-time cutoff (pd.Timestamp, UTC)
             If provided, events are filtered globally. Otherwise, per-row filtering
             is applied (disclosure_date <= price timestamp)
-        method: Implementation method (default: "legacy")
+        method: Implementation method (default: "vectorized" — docstring corrected 2026-07-23; signature default has been "vectorized" since Sprint 11.E1)
             - "legacy": Original nested loop implementation (Sprint 10.B)
             - "vectorized": Vectorized implementation using merge_asof + cumulative counting (Sprint 11.E1)
                 Production-ready and tested. Equivalent to legacy, but faster for large datasets.

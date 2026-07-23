@@ -19,7 +19,12 @@ class PurgedKFold:
     label_horizon : int
         Forward-return horizon in days (used for purging).
     embargo_pct : float
-        Fraction of the fold length to embargo after the test set.
+        Fraction of the fold length purged from the END of the training
+        window, BEFORE the test set. (Docstring corrected 2026-07-23,
+        GESAMTBEWERTUNG: the code has always purged
+        ``test_start - max(embargo, label_horizon)`` — i.e. a gap before
+        the test — which is the leakage-correct direction for
+        walk-forward; the old text claimed "after the test set".)
     """
 
     def __init__(
@@ -49,7 +54,7 @@ class PurgedKFold:
         Raises
         ------
         ValueError
-            If timestamps has fewer than n_splits * 2 samples.
+            If timestamps has fewer than n_splits * 4 samples.
         """
         ts = pd.to_datetime(timestamps).reset_index(drop=True)
         n = len(ts)

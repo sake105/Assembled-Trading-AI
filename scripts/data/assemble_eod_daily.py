@@ -1,11 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""LEGACY assembler — überschreibt output/aggregates/daily.parquet aus data/raw.
+
+GEFAHR (GESAMTBEWERTUNG 2026-07-23): data/raw/equities_eod enthält heute nur
+noch 2 Symbole (AAPL/MSFT-Reste) — ein Aufruf würde den 197-Symbol-Live-Cache
+des Paper-Piloten mit diesem Restbestand ÜBERSCHREIBEN. Der Pfad ist tot; die
+Live-Writer sind scripts/ops/refresh_daily_cache_from_eodhd.py bzw.
+refresh_daily_cache_from_panel.py. Ausführung erfordert --force-legacy.
+"""
 
 import glob
 import sys
 from pathlib import Path
 
 import pandas as pd
+
+if "--force-legacy" not in sys.argv:
+    print(
+        "[ABBRUCH] assemble_eod_daily.py ist ein Legacy-Writer und wuerde "
+        "daily.parquet mit dem 2-Symbol-Raw-Restbestand ueberschreiben. "
+        "Live-Refresh: scripts/ops/refresh_daily_cache_from_eodhd.py. "
+        "Wirklich gewollt: --force-legacy anhaengen.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+sys.argv.remove("--force-legacy")
 
 REPO = Path(__file__).resolve().parents[2]  # <repo>/scripts/data/ -> up 2
 RAW_ROOTS = [

@@ -1,5 +1,13 @@
 """Paper-trading live runner — real-time Alpaca bars (Plan 11/10 §3.1.1).
 
+DEPRECATED (GESAMTBEWERTUNG 2026-07-23): NICHT der Pilot-Runner. Der
+produktive Paper-Pilot laeuft ueber scripts/run_live_paper.py (Task
+Scheduler -> run_paper_pilot.py -> run_live_paper.py once). Dieses Script
+ist der aeltere Intraday-Loop-Runner mit verwirrend aehnlichem Namen; er
+traegt KEINE der 2026-07-Sicherungen (Market-Hours-Gate, Reconcile-Block,
+Halt-Preflight, Dividenden-Buchung). Nur noch fuer Experimente; fuer den
+Pilot IMMER run_live_paper.py verwenden.
+
 Runs continuously during market hours. Pulls the latest bar snapshot from
 Alpaca every N minutes and triggers the full trading cycle. Designed for
 the 30-day pilot (run_paper_pilot.py --run-day) before going live.

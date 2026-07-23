@@ -6,7 +6,7 @@ Two layers:
   the institutional hardening sprints; kept stable because downstream
   backtests depend on its exact numbers for 1e-9 regression.
 * :func:`get_tier_for_symbol` / :func:`get_tier_costs` — per-symbol cost
-  tiers driven by ``config/cost_tiers.yaml``. These are what the paper
+  tiers driven by ``configs/cost_tiers.yaml``. These are what the paper
   engine's Almgren-Chriss fill simulator consumes so that a mega-cap
   like AAPL and a micro-cap like an obscure biotech pay realistically
   different costs instead of both getting a hardcoded 5 bps half-spread.
@@ -55,7 +55,11 @@ def get_default_cost_model() -> CostModel:
 # ---------------------------------------------------------------------------
 
 _TIER_CACHE: dict[str, Any] | None = None
-_TIER_YAML_PATH = Path("configs/cost_tiers.yaml")
+# Repo-root-anchored (GESAMTBEWERTUNG 2026-07-23): the old CWD-relative
+# Path("configs/cost_tiers.yaml") silently fell back to _FALLBACK_TIERS
+# whenever the process CWD was not the repo root (Task Scheduler, CI
+# working-dir drift) — a config-ignored cost model with no error.
+_TIER_YAML_PATH = Path(__file__).resolve().parents[2] / "configs" / "cost_tiers.yaml"
 
 _FALLBACK_TIERS: dict[str, Any] = {
     "tiers": {
