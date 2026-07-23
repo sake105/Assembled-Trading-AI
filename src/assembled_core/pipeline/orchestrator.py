@@ -1002,6 +1002,32 @@ def _eo_step_qa(
                     logger.error(
                         "QA gates BLOCKED - strategy does not meet quality thresholds"
                     )
+                    # W4 (2026-07-24, GESAMTBEWERTUNG Schritt 8): a BLOCK
+                    # verdict is no longer log-only — persist the qa_block
+                    # flag so run_live_paper's preflight refuses to trade
+                    # until an operator reviews and clears it. Root-output
+                    # runs only: research/CI runs with their own output_dir
+                    # must never block the live pilot. write_qa_block_flag
+                    # never raises (best-effort by contract).
+                    try:
+                        from src.assembled_core.config import OUTPUT_DIR as _root_out
+                        from src.assembled_core.qa.qa_gates import (
+                            write_qa_block_flag,
+                        )
+
+                        if Path(base).resolve() == Path(_root_out).resolve():
+                            write_qa_block_flag(
+                                qa_gate_result,
+                                source=f"orchestrator/eod_pipeline freq={freq}",
+                            )
+                        else:
+                            logger.info(
+                                "[QA-BLOCK] non-root output_dir (%s) — flag "
+                                "NOT written (research/CI run, pilot unaffected)",
+                                base,
+                            )
+                    except Exception as _qa_flag_exc:  # noqa: BLE001
+                        logger.error("[QA-BLOCK] flag wiring failed: %s", _qa_flag_exc)
                 elif qa_gate_result.overall_result == QAResult.WARNING:
                     logger.warning("QA gates WARNING - some quality thresholds not met")
 

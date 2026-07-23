@@ -72,6 +72,7 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
     """
     import src.assembled_core.execution.intent_store as _intent_store
     import src.assembled_core.ops.order_lifecycle_log as _lifecycle
+    import src.assembled_core.qa.qa_gates as _qa_gates
 
     monkeypatch.setattr(
         _intent_store, "_DEFAULT_STORE_PATH", tmp_path / "intent_store.jsonl"
@@ -81,6 +82,7 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
         "DEFAULT_LIFECYCLE_LOG_PATH",
         tmp_path / "order_lifecycle.jsonl",
     )
+    monkeypatch.setattr(_qa_gates, "QA_BLOCK_FLAG_PATH", tmp_path / "qa_block.json")
 
 
 @pytest.fixture

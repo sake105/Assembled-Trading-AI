@@ -583,6 +583,45 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
         )
         return False
 
+    # W4 (2026-07-24, GESAMTBEWERTUNG Schritt 8): QA-block flag gate.
+    # A BLOCK verdict from a root-output orchestrator run persists
+    # output/ops/qa_block.json; while it exists (or is unreadable —
+    # fail-closed on positive-but-corrupt evidence) the pilot refuses to
+    # trade. ABSENCE means "no known QA block", not "QA passed" — the
+    # orchestrator does not run in the daily cycle, so a freshness-gated
+    # variant would dead-lock the pilot (E-054 lesson). Clearing is an
+    # audited operator act: scripts/ops/ack_qa_block.py (reason-gated,
+    # ledger-appended, flag archived — NOT a bare delete).
+    # Runs AFTER the intent check (Stage-1 B5: crash residue is the more
+    # urgent diagnosis; both blocks surface in order of urgency).
+    # NOTE: distinct from ctx.qa_block_trading (in-cycle data-QC gate in
+    # trading_cycle_shared) — this flag carries a cross-process BACKTEST
+    # QA verdict.
+    try:
+        from src.assembled_core.qa.qa_gates import read_qa_block_flag
+
+        _qa_flag = read_qa_block_flag()
+    except Exception as exc:
+        # Stage-1 H1 (2026-07-24): a failing flag READER is "evidence check
+        # not performable", not "no evidence" — fail closed like the intent
+        # check above (self-healing next cycle; no freshness dead-lock risk).
+        logger.error(
+            "[run_live_paper] PREFLIGHT BLOCK: qa-block flag check failed "
+            "(%s) — infra failure, not a QA verdict. Fix and re-run.",
+            exc,
+        )
+        return False
+    if _qa_flag is not None:
+        logger.error(
+            "[run_live_paper] PREFLIGHT BLOCK: QA-block flag present "
+            "(source=%s, written_at=%s, gates=%s) — review, then clear via "
+            'scripts/ops/ack_qa_block.py --reason "...".',
+            _qa_flag.get("source", "?"),
+            _qa_flag.get("written_at_utc", "?"),
+            _qa_flag.get("blocked_gates", "unreadable flag"),
+        )
+        return False
+
     return True
 
 

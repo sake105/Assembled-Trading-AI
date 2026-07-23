@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 import pandas as pd
 from src.assembled_core.qa.metrics import PerformanceMetrics
@@ -680,3 +681,112 @@ def evaluate_all_gates(
         blocked_gates=blocked_gates,
         gate_results=gate_results,
     )
+
+
+# ---------------------------------------------------------------------------
+# W4 (2026-07-24, GESAMTBEWERTUNG Schritt 8): QA-BLOCK flag bridge to the
+# live pilot.
+#
+# Design honesty: the QA gates evaluate BACKTEST quality; the daily pilot
+# cycle (paper_runner) never computes them, so a freshness-gated artifact
+# would be permanently stale — a dead gate (the E-054 lesson: a gate whose
+# path no writer serves). Chosen semantics instead (ack_halt pattern):
+#   - a BLOCK verdict from an orchestrator run over the ROOT output dir
+#     writes a persistent flag file,
+#   - run_live_paper's preflight refuses to trade WHILE the flag exists
+#     (positive block evidence -> fail-closed),
+#   - ABSENCE of the flag means "no known QA block", NOT "QA passed" —
+#     the pilot is not dead-locked by the orchestrator simply never running,
+#   - clearing is an explicit operator act (delete after review; the flag
+#     carries the reasons), audit-logged by the preflight when honored.
+# ---------------------------------------------------------------------------
+
+# Repo-root anchored (not CWD-relative — the costs.py CWD-trap class):
+# qa_gates.py lives at src/assembled_core/qa/, three parents up = repo root.
+QA_BLOCK_FLAG_PATH = (
+    Path(__file__).resolve().parents[3] / "output" / "ops" / "qa_block.json"
+)
+
+
+def write_qa_block_flag(
+    summary: QAGatesSummary,
+    *,
+    source: str,
+    flag_path: Path | str | None = None,
+) -> Path | None:
+    """Persist a QA-BLOCK verdict so the live pilot preflight can refuse to trade.
+
+    Only writes when ``summary.overall_result == BLOCK`` (returns None
+    otherwise). Atomic tmp+replace write. Never raises — a flag-write
+    failure must not break the calling pipeline; it logs ERROR instead
+    (the pipeline's own BLOCK logging remains the primary signal).
+
+    Timing note (Stage-1 B3): the pilot preflight reads this flag once per
+    cycle start — a BLOCK written while a pilot cycle is already running
+    takes effect at the NEXT cycle.
+    """
+    import json
+    import logging
+    from datetime import datetime, timezone
+
+    log = logging.getLogger(__name__)
+    if summary.overall_result != QAResult.BLOCK:
+        return None
+    path = Path(flag_path) if flag_path is not None else QA_BLOCK_FLAG_PATH
+    payload = {
+        "schema": "qa_block.v1",
+        "written_at_utc": datetime.now(timezone.utc).isoformat(),
+        "source": source,
+        "overall": summary.overall_result.value,
+        "blocked_gates": [
+            {"gate": r.gate_name, "reason": r.reason}
+            for r in summary.gate_results
+            if r.result == QAResult.BLOCK
+        ],
+        "clear_instructions": (
+            "Operator: review the blocked gates, then clear via "
+            'scripts/ops/ack_qa_block.py --reason "..." (reason-gated, '
+            "ledger-appended, flag archived). Do NOT bare-delete this file."
+        ),
+        "note": (
+            "Distinct from ctx.qa_block_trading (in-cycle data-QC gate): "
+            "this flag carries a cross-process BACKTEST QA verdict."
+        ),
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(path)
+        log.error(
+            "[QA-BLOCK] flag written to %s (%d blocked gate(s)) — live pilot "
+            "preflight will refuse to trade until an operator clears it",
+            path,
+            len(payload["blocked_gates"]),
+        )
+        return path
+    except Exception as exc:  # noqa: BLE001 — Stage-1 B6: docstring promises
+        # "never raises"; the calling pipeline must not break on flag I/O.
+        log.error("[QA-BLOCK] flag write FAILED (%s): %s", path, exc)
+        return None
+
+
+def read_qa_block_flag(
+    flag_path: Path | str | None = None,
+) -> dict | None:
+    """Return the parsed QA-block flag, or None when absent.
+
+    Fail-closed on unreadable/corrupt content: returns a minimal dict with
+    ``{"schema": "unreadable"}`` so callers treat a corrupt flag as a block
+    (a safety flag that cannot be read must not be silently ignored).
+    """
+    import json
+
+    path = Path(flag_path) if flag_path is not None else QA_BLOCK_FLAG_PATH
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {"schema": "unreadable"}
+    except (OSError, json.JSONDecodeError):
+        return {"schema": "unreadable"}
