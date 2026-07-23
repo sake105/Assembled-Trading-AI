@@ -8,12 +8,17 @@
 # To regenerate: pip-compile pyproject.toml -o requirements.txt
 # ============================================================
 
-# setuptools floor (2026-07-23): PYSEC-2026-3447 (MANIFEST.in Unicode-
+# setuptools pinned (2026-07-23): PYSEC-2026-3447 (MANIFEST.in Unicode-
 # normalization bypass, fixed 83.0.0) plus the older PYSEC-2022-43012/
 # 2025-49/2026-1918 hit ANY runner-bundled setuptools <83 — this newly
 # published advisory turned the pip-audit gate red on 2026-07-23 without
-# any repo change. Real fix (floor), no waiver.
-setuptools>=83.0.0
+# any repo change. Real fix, no waiver. Exact pin (==, not >=) because
+# tests/test_session_2026_05_07_new_items.py::TestDependencyPinning
+# enforces the file's exact-pin policy (a >= floor turned the CI matrix
+# red on 2026-07-23). NOTE: setuptools 83 no longer ships pkg_resources —
+# verified locally: full fast suite green, all main imports OK (pytz uses
+# a guarded fallback).
+setuptools==83.0.0
 pandas==2.2.3
 numpy==2.2.6
 # pyarrow 23.0.1 clears CVE-2026-25087 / PYSEC-2026-113 (use-after-free in IPC
