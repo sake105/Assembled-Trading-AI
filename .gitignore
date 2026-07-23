@@ -83,6 +83,13 @@ system_check/runs/*/
 datensammlungen/**/*.parquet
 !tests/fixtures/*.parquet
 
+# Research data pulls — code/results/reports ARE tracked (W16, 2026-07-23),
+# the bulk price/filing parquets are re-pullable (research/mandat/pull_eodhd_verdict.py
+# bzw. fable mill scripts) and stay out of git (~4.1 GB in mandat/data alone).
+research/mandat/data/
+research/fable_exploration/**/*.parquet
+research/**/__pycache__/
+
 # Legacy singular config/ dir — merged into configs/ on 2026-04-25
 # Prevents accidental re-creation of the old split
 /config/

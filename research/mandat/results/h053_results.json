@@ -1,0 +1,64 @@
+{
+  "H053_all_opp": {
+    "label": "H053_all_opp",
+    "final_value": 1459701.625,
+    "cagr_net": 0.13274010581647078,
+    "sharpe_net": 0.6554774736017841,
+    "maxdd_net": -0.5536623601629043,
+    "tax_paid": 396555.09375,
+    "years": 21.508555783709788
+  },
+  "H053_cluster2": {
+    "label": "H053_cluster2",
+    "final_value": 1039490.5,
+    "cagr_net": 0.11500076421819783,
+    "sharpe_net": 0.603900943928905,
+    "maxdd_net": -0.5998947425526768,
+    "tax_paid": 299756.34375,
+    "years": 21.508555783709788
+  },
+  "_verdict": {
+    "selected": "H053_all_opp",
+    "best_final": 1459702,
+    "best_sharpe": 0.655,
+    "best_maxdd": -0.554,
+    "ETF_net_path": 772823,
+    "SPY_sharpe": 0.642,
+    "crit1_gt_ETF": true,
+    "crit2_sharpe_gt_SPY": true,
+    "crit3_DSR": {
+      "prob": 0.669,
+      "pass": false
+    },
+    "crit4_windows": {
+      "2005": {
+        "ins": 0.05,
+        "spy": -0.109
+      },
+      "2009": {
+        "ins": 0.936,
+        "spy": 0.758
+      },
+      "2013": {
+        "ins": 0.981,
+        "spy": 1.102
+      },
+      "2017": {
+        "ins": 0.839,
+        "spy": 0.837
+      },
+      "2021": {
+        "ins": 0.642,
+        "spy": 0.853
+      },
+      "2025": {
+        "ins": 0.71,
+        "spy": 1.085
+      }
+    },
+    "crit4_pass": true,
+    "crit5_maxdd_ok": false,
+    "PBO": 0.257,
+    "PASS": false
+  }
+}

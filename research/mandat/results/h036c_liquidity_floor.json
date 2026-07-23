@@ -1,0 +1,24 @@
+{
+  "ETF_net_path": 690400,
+  "adv_1M": {
+    "median_names": 2288,
+    "final": 6053197,
+    "sharpe": 0.413,
+    "maxdd": -0.958,
+    "gt_ETF": true
+  },
+  "adv_10M": {
+    "median_names": 1266,
+    "final": 5276413,
+    "sharpe": 0.412,
+    "maxdd": -0.982,
+    "gt_ETF": true
+  },
+  "adv_50M": {
+    "median_names": 541,
+    "final": 1932297,
+    "sharpe": 0.369,
+    "maxdd": -0.656,
+    "gt_ETF": true
+  }
+}

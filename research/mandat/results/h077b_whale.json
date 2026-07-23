@@ -1,0 +1,48 @@
+{
+  "WHALE_13F": {
+    "n": 60,
+    "survivors": [],
+    "top5": {
+      "WHL_c20_w6_h6_all": {
+        "net": 804815,
+        "cagr": 6.84,
+        "sharpe": 0.383,
+        "oos_sharpe": 0.544,
+        "maxdd": -0.309,
+        "survives": false
+      },
+      "WHL_c15_w3_h12_all": {
+        "net": 803980,
+        "cagr": 6.84,
+        "sharpe": 0.384,
+        "oos_sharpe": 0.546,
+        "maxdd": -0.308,
+        "survives": false
+      },
+      "WHL_c20_w3_h12_all": {
+        "net": 802255,
+        "cagr": 6.83,
+        "sharpe": 0.381,
+        "oos_sharpe": 0.542,
+        "maxdd": -0.307,
+        "survives": false
+      },
+      "WHL_c20_w6_h12_all": {
+        "net": 798616,
+        "cagr": 6.82,
+        "sharpe": 0.382,
+        "oos_sharpe": 0.543,
+        "maxdd": -0.305,
+        "survives": false
+      },
+      "WHL_c15_w6_h6_all": {
+        "net": 798151,
+        "cagr": 6.82,
+        "sharpe": 0.384,
+        "oos_sharpe": 0.546,
+        "maxdd": -0.309,
+        "survives": false
+      }
+    }
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "H014_tlh_out60": {
+    "label": "H014_tlh_out60",
+    "final_value": 516350.9555719451,
+    "cagr_net": 0.1693779340474939,
+    "sharpe_net": 0.6968414548729094,
+    "maxdd_net": -0.41048348696720927,
+    "tax_paid": 67523.16699356704,
+    "costs_paid": 5925.282029065577,
+    "loss_pot_end": 0.0,
+    "years": 10.491444216290212
+  },
+  "H014_tlh_out80": {
+    "label": "H014_tlh_out80",
+    "final_value": 518829.9755935736,
+    "cagr_net": 0.16991189973624787,
+    "sharpe_net": 0.7103764027571682,
+    "maxdd_net": -0.41332642718395673,
+    "tax_paid": 91777.04271148595,
+    "costs_paid": 5216.845140517772,
+    "loss_pot_end": 9999.768465948775,
+    "years": 10.491444216290212
+  },
+  "H014_tlh_out100": {
+    "label": "H014_tlh_out100",
+    "final_value": 453778.8261656217,
+    "cagr_net": 0.15506814819441317,
+    "sharpe_net": 0.6894554991327829,
+    "maxdd_net": -0.40447291733779156,
+    "tax_paid": 75120.19459116207,
+    "costs_paid": 4685.044358608535,
+    "loss_pot_end": 8775.511222809586,
+    "years": 10.491444216290212
+  },
+  "H015_atr3x": {
+    "label": "H015_atr3x",
+    "final_value": 291021.5773639978,
+    "cagr_net": 0.1071829340794479,
+    "sharpe_net": 0.600233158143982,
+    "maxdd_net": -0.29103554330446013,
+    "tax_paid": 55034.334098904284,
+    "costs_paid": 17533.99813582243,
+    "loss_pot_end": 2973.887387270692,
+    "years": 10.491444216290212
+  },
+  "H015_atr4x": {
+    "label": "H015_atr4x",
+    "final_value": 385178.6822060038,
+    "cagr_net": 0.13716332051631408,
+    "sharpe_net": 0.6903947983007843,
+    "maxdd_net": -0.30896525569820266,
+    "tax_paid": 65733.06513813224,
+    "costs_paid": 13194.00159051121,
+    "loss_pot_end": 11288.58546896949,
+    "years": 10.491444216290212
+  },
+  "H015_atr5x": {
+    "label": "H015_atr5x",
+    "final_value": 480415.15958030656,
+    "cagr_net": 0.1613652189467205,
+    "sharpe_net": 0.7512364911816839,
+    "maxdd_net": -0.3086876809957029,
+    "tax_paid": 86638.83477090711,
+    "costs_paid": 10430.211589435308,
+    "loss_pot_end": 0.0,
+    "years": 10.491444216290212
+  },
+  "H017_lowvol": {
+    "label": "H017_lowvol",
+    "final_value": 248692.85535406246,
+    "cagr_net": 0.09071917902583371,
+    "sharpe_net": 0.6678993649276462,
+    "maxdd_net": -0.3549417932247778,
+    "tax_paid": 23031.063881345497,
+    "costs_paid": 1261.9191239150007,
+    "loss_pot_end": 2672.310392006273,
+    "years": 10.491444216290212
+  },
+  "H018_high52": {
+    "label": "H018_high52",
+    "final_value": 217438.51247259873,
+    "cagr_net": 0.0768457107580871,
+    "sharpe_net": 0.5618926900606525,
+    "maxdd_net": -0.28649168668092007,
+    "tax_paid": 47210.94938444665,
+    "costs_paid": 23220.161069360034,
+    "loss_pot_end": 7082.549191557754,
+    "years": 10.491444216290212
+  },
+  "H019_gate_sma": {
+    "label": "H019_gate_sma",
+    "final_value": 600666.377344544,
+    "cagr_net": 0.18635872466892978,
+    "sharpe_net": 0.7558689638546413,
+    "maxdd_net": -0.41187149097466025,
+    "tax_paid": 89244.15806046267,
+    "costs_paid": 5949.0149262833165,
+    "loss_pot_end": 0.2580072181758292,
+    "years": 10.491444216290212
+  },
+  "H019_gate_vol": {
+    "label": "H019_gate_vol",
+    "final_value": 660509.4585356254,
+    "cagr_net": 0.19714676297580658,
+    "sharpe_net": 0.7685446127262484,
+    "maxdd_net": -0.41405605038787274,
+    "tax_paid": 87197.02226544241,
+    "costs_paid": 5797.455877134073,
+    "loss_pot_end": 1312.3283021040752,
+    "years": 10.491444216290212
+  },
+  "H019_gate_both": {
+    "label": "H019_gate_both",
+    "final_value": 613132.536636244,
+    "cagr_net": 0.1886838007773648,
+    "sharpe_net": 0.7524107940842032,
+    "maxdd_net": -0.41618577280750413,
+    "tax_paid": 89368.15046581447,
+    "costs_paid": 5984.072317560726,
+    "loss_pot_end": 0.26310224020591416,
+    "years": 10.491444216290212
+  },
+  "H016_gem_classic": {
+    "label": "H016_gem_classic",
+    "final_value": 249183.87004771995,
+    "cagr_net": 0.10096509808253962,
+    "sharpe_net": 0.7503769678597949,
+    "maxdd_net": -0.26157741657550715,
+    "tax_paid": 13509.980502951577,
+    "years": 9.492128678986996
+  },
+  "H016_abs_only": {
+    "label": "H016_abs_only",
+    "final_value": 247814.66643261904,
+    "cagr_net": 0.10032620539916359,
+    "sharpe_net": 0.6558621685946954,
+    "maxdd_net": -0.33766297294376624,
+    "tax_paid": 13076.999995136897,
+    "years": 9.492128678986996
+  },
+  "_family_H014": {
+    "selected": "H014_tlh_out80",
+    "DSR_prob": 0.49977091129906764,
+    "DSR_passes": false,
+    "n_trials": 53,
+    "PBO_CSCV": 1.0
+  },
+  "_family_H015": {
+    "selected": "H015_atr5x",
+    "DSR_prob": 0.5434527957444824,
+    "DSR_passes": false,
+    "n_trials": 56,
+    "PBO_CSCV": 0.37142857142857144
+  },
+  "_family_H017": {
+    "selected": "H017_lowvol",
+    "DSR_prob": 0.43030794849091025,
+    "DSR_passes": false,
+    "n_trials": 59,
+    "PBO_CSCV": "n/a (Einzellauf)"
+  },
+  "_family_H018": {
+    "selected": "H018_high52",
+    "DSR_prob": 0.30117924604355295,
+    "DSR_passes": false,
+    "n_trials": 60,
+    "PBO_CSCV": "n/a (Einzellauf)"
+  },
+  "_family_H019": {
+    "selected": "H019_gate_vol",
+    "DSR_prob": 0.548210579405872,
+    "DSR_passes": false,
+    "n_trials": 63,
+    "PBO_CSCV": 0.9142857142857143
+  },
+  "_family_H016": {
+    "selected": "H016_gem_classic",
+    "DSR_prob": 0.49041968401744307,
+    "DSR_passes": false,
+    "n_trials": 58,
+    "PBO_CSCV": 0.6571428571428571
+  }
+}

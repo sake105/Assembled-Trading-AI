@@ -1,0 +1,64 @@
+{
+  "H065_withdrawal": {
+    "3.0%_100% SPY": {
+      "ruin_pct": 0.0,
+      "median_rest": 3408677,
+      "q05_rest": 616984
+    },
+    "3.0%_70/30": {
+      "ruin_pct": 0.0,
+      "median_rest": 3641049,
+      "q05_rest": 1101919
+    },
+    "3.5%_100% SPY": {
+      "ruin_pct": 0.3,
+      "median_rest": 3186220,
+      "q05_rest": 522031
+    },
+    "3.5%_70/30": {
+      "ruin_pct": 0.0,
+      "median_rest": 3445784,
+      "q05_rest": 986616
+    },
+    "4.0%_100% SPY": {
+      "ruin_pct": 0.6,
+      "median_rest": 2954267,
+      "q05_rest": 438167
+    },
+    "4.0%_70/30": {
+      "ruin_pct": 0.0,
+      "median_rest": 3238013,
+      "q05_rest": 883795
+    },
+    "5.0%_100% SPY": {
+      "ruin_pct": 2.0,
+      "median_rest": 2516014,
+      "q05_rest": 220683
+    },
+    "5.0%_70/30": {
+      "ruin_pct": 0.0,
+      "median_rest": 2789614,
+      "q05_rest": 624763
+    }
+  },
+  "H066_rolling": {
+    "windows": 139,
+    "blend_wins": 44,
+    "win_rate_pct": 31.7,
+    "first": [
+      "2005-01-01",
+      189007,
+      231610
+    ],
+    "last": [
+      "2016-07-01",
+      358540,
+      346981
+    ]
+  },
+  "mc": {
+    "paths": 1000,
+    "seed": 42,
+    "start_capital": 500000
+  }
+}

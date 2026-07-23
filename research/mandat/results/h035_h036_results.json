@@ -1,0 +1,86 @@
+{
+  "H035_mom_top30_out90": {
+    "label": "H035_mom_top30_out90",
+    "final_value": 279805.22027326067,
+    "cagr_net": 0.0413147998033252,
+    "sharpe_net": 0.29971826232437404,
+    "maxdd_net": -0.834809938999905,
+    "tax_paid": 84375.796875,
+    "costs_paid": 53186.0703125,
+    "years": 25.415468856947296,
+    "final_net_postliq": null
+  },
+  "H035_mom_top30_out120": {
+    "label": "H035_mom_top30_out120",
+    "final_value": 249994.9294932486,
+    "cagr_net": 0.036709426302433235,
+    "sharpe_net": 0.29499313128107985,
+    "maxdd_net": -0.8323693664214223,
+    "tax_paid": 70282.9296875,
+    "costs_paid": 38935.4765625,
+    "years": 25.415468856947296,
+    "final_net_postliq": null
+  },
+  "H035_mom_top30_out150": {
+    "label": "H035_mom_top30_out150",
+    "final_value": 273770.5709987595,
+    "cagr_net": 0.040421864922599804,
+    "sharpe_net": 0.2831941958063939,
+    "maxdd_net": -0.8350786638343838,
+    "tax_paid": 77315.484375,
+    "costs_paid": 37638.62890625,
+    "years": 25.415468856947296,
+    "final_net_postliq": null
+  },
+  "H035_EWband_small": {
+    "label": "H035_EWband_small",
+    "final_value": 6729460.01149226,
+    "cagr_net": 0.18011389166007263,
+    "sharpe_net": 0.41324645760747125,
+    "maxdd_net": -0.9584667799922197,
+    "tax_paid": 2248525.0,
+    "costs_paid": 236857.6875,
+    "years": 25.415468856947296,
+    "final_net_postliq": null
+  },
+  "H036_EWband_large": {
+    "label": "H036_EWband_large",
+    "final_value": 1003309.3966911363,
+    "cagr_net": 0.09497088992575198,
+    "sharpe_net": 0.3503315366713264,
+    "maxdd_net": -0.6361251119341047,
+    "tax_paid": 116482.234375,
+    "costs_paid": 29223.185546875,
+    "years": 25.415468856947296,
+    "final_net_postliq": null
+  },
+  "benchmarks": {
+    "SPY_sharpe": 0.5453103440081642,
+    "SPY_cagr": 0.08941113948822021,
+    "ETF_net_final": 736458.8125,
+    "ETF_net_cagr": 0.0817575454711914,
+    "years": 25.4072553045859
+  },
+  "DSR_verdict": {
+    "sharpe_observed_daily": 0.018582820567665855,
+    "threshold": 0.03168645762074882,
+    "probability": 0.043491735045615695,
+    "passes_5pct": false,
+    "n_trials": 114
+  },
+  "PBO_CSCV_mom_family": 0.8571428571428571,
+  "consistency_2y_mom_ge_ew": 0.28,
+  "H035_criteria": {
+    "1_gt_ETF": false,
+    "2_sharpe_gt_EWband": false,
+    "3_DSR_passes": false,
+    "4_consistency_ge_60pct": false,
+    "5_maxdd_not_worse": true
+  },
+  "H035_PASS": false,
+  "H036_criteria": {
+    "small_gt_large_x110": true,
+    "small_gt_ETF": true
+  },
+  "H036_PASS": true
+}

@@ -1,0 +1,116 @@
+{
+  "_BH": {
+    "net": 436371,
+    "cagr": 5.71,
+    "sharpe": 0.416,
+    "oos_sharpe": 0.783,
+    "maxdd": -0.565
+  },
+  "TOM_4_3": {
+    "net": 184443,
+    "cagr": 2.34,
+    "sharpe": 0.269,
+    "oos_sharpe": 0.473,
+    "maxdd": -0.356,
+    "trades": 318,
+    "tax": 28158,
+    "gross": {
+      "in_mean_bps": 6.61,
+      "out_mean_bps": 1.48,
+      "t_diff": 1.65
+    },
+    "beats": false
+  },
+  "TOM_2_2": {
+    "net": 147572,
+    "cagr": 1.48,
+    "sharpe": 0.215,
+    "oos_sharpe": 0.245,
+    "maxdd": -0.304,
+    "trades": 319,
+    "tax": 21054,
+    "gross": {
+      "in_mean_bps": 6.65,
+      "out_mean_bps": 2.38,
+      "t_diff": 1.18
+    },
+    "beats": false
+  },
+  "DoW_TueFri": {
+    "net": 100708,
+    "cagr": 0.03,
+    "sharpe": 0.089,
+    "oos_sharpe": 0.267,
+    "maxdd": -0.638,
+    "trades": 1250,
+    "tax": 11748,
+    "gross": {
+      "in_mean_bps": 2.04,
+      "out_mean_bps": 8.17,
+      "t_diff": -1.62
+    },
+    "beats": false
+  },
+  "DoW_WedOnly": {
+    "net": 15146,
+    "cagr": -6.87,
+    "sharpe": -0.811,
+    "oos_sharpe": -0.549,
+    "maxdd": -0.858,
+    "trades": 1368,
+    "tax": 1314,
+    "gross": {
+      "in_mean_bps": 3.07,
+      "out_mean_bps": 3.22,
+      "t_diff": -0.04
+    },
+    "beats": false
+  },
+  "_BH_window_sectors": {
+    "net": 436371,
+    "cagr": 5.71,
+    "sharpe": 0.416,
+    "oos_sharpe": 0.783,
+    "maxdd": -0.565
+  },
+  "ROT_top1_buf3": {
+    "net": 321460,
+    "cagr": 4.7,
+    "sharpe": 0.327,
+    "oos_sharpe": 0.36,
+    "maxdd": -0.533,
+    "switches": 57,
+    "tax": 98736,
+    "beats": false
+  },
+  "ROT_top3_buf5": {
+    "net": 317884,
+    "cagr": 4.66,
+    "sharpe": 0.376,
+    "oos_sharpe": 0.465,
+    "maxdd": -0.429,
+    "switches": 123,
+    "tax": 49933,
+    "beats": false
+  },
+  "ROT_top3_buf3": {
+    "net": 337863,
+    "cagr": 4.91,
+    "sharpe": 0.382,
+    "oos_sharpe": 0.401,
+    "maxdd": -0.422,
+    "switches": 202,
+    "tax": 71546,
+    "beats": false
+  },
+  "ROT_top1_buf1": {
+    "net": 338796,
+    "cagr": 4.92,
+    "sharpe": 0.336,
+    "oos_sharpe": 0.359,
+    "maxdd": -0.546,
+    "switches": 92,
+    "tax": 128968,
+    "beats": false
+  }
+}

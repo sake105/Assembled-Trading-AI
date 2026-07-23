@@ -1,0 +1,35 @@
+{
+  "ETF_net_path": 690400,
+  "30bps": {
+    "small_final": 6450029,
+    "large_final": 3536690,
+    "small_sharpe": 0.413,
+    "small_maxdd": -0.959,
+    "small_gt_ETF": true,
+    "small_gt_large_x110": true
+  },
+  "60bps": {
+    "small_final": 5756018,
+    "large_final": 3228285,
+    "small_sharpe": 0.413,
+    "small_maxdd": -0.958,
+    "small_gt_ETF": true,
+    "small_gt_large_x110": true
+  },
+  "100bps": {
+    "small_final": 4977732,
+    "large_final": 2862809,
+    "small_sharpe": 0.412,
+    "small_maxdd": -0.958,
+    "small_gt_ETF": true,
+    "small_gt_large_x110": true
+  },
+  "150bps": {
+    "small_final": 4151517,
+    "large_final": 2442216,
+    "small_sharpe": 0.411,
+    "small_maxdd": -0.958,
+    "small_gt_ETF": true,
+    "small_gt_large_x110": true
+  }
+}

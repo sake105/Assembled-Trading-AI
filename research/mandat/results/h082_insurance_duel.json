@@ -1,0 +1,135 @@
+{
+  "PPUT": {
+    "gross_idx": {
+      "label": "PPUT",
+      "cagr_pct": 8.03,
+      "sharpe": 0.706,
+      "maxdd": -0.389,
+      "years": 38.4,
+      "n_months": 462
+    },
+    "gross_spxtr": {
+      "label": "SPXTR",
+      "cagr_pct": 11.52,
+      "sharpe": 0.821,
+      "maxdd": -0.509,
+      "years": 38.4,
+      "n_months": 462
+    },
+    "decades": {
+      "1990s": {
+        "idx": 12.16,
+        "spx": 18.21
+      },
+      "2000s": {
+        "idx": -1.39,
+        "spx": -0.95
+      },
+      "2010s": {
+        "idx": 9.67,
+        "spx": 13.56
+      },
+      "2020s": {
+        "idx": 12.43,
+        "spx": 15.53
+      }
+    },
+    "german_overlay_2005": {
+      "combined_net": 545355,
+      "ETF_net": 805657,
+      "overlay_contribution": -260302,
+      "opt_tax_paid": 1919,
+      "beats_ETF": false
+    }
+  },
+  "CNDR": {
+    "gross_idx": {
+      "label": "CNDR",
+      "cagr_pct": 5.55,
+      "sharpe": 0.832,
+      "maxdd": -0.19,
+      "years": 38.4,
+      "n_months": 462
+    },
+    "gross_spxtr": {
+      "label": "SPXTR",
+      "cagr_pct": 11.52,
+      "sharpe": 0.821,
+      "maxdd": -0.509,
+      "years": 38.4,
+      "n_months": 462
+    },
+    "decades": {
+      "1990s": {
+        "idx": 11.33,
+        "spx": 18.21
+      },
+      "2000s": {
+        "idx": 6.79,
+        "spx": -0.95
+      },
+      "2010s": {
+        "idx": -0.73,
+        "spx": 13.56
+      },
+      "2020s": {
+        "idx": 1.57,
+        "spx": 15.53
+      }
+    },
+    "german_overlay_2005": {
+      "combined_net": 25060,
+      "ETF_net": 805657,
+      "overlay_contribution": -780597,
+      "opt_tax_paid": 14889,
+      "beats_ETF": false
+    }
+  },
+  "CLL": {
+    "gross_idx": {
+      "label": "CLL",
+      "cagr_pct": 6.95,
+      "sharpe": 0.604,
+      "maxdd": -0.221,
+      "years": 17.8,
+      "n_months": 215
+    },
+    "gross_spxtr": {
+      "label": "SPXTR",
+      "cagr_pct": 12.6,
+      "sharpe": 0.777,
+      "maxdd": -0.361,
+      "years": 17.8,
+      "n_months": 215
+    },
+    "decades": {
+      "2010s": {
+        "idx": 7.54,
+        "spx": 13.56
+      },
+      "2020s": {
+        "idx": 10.68,
+        "spx": 15.53
+      }
+    },
+    "german_overlay_2005": {
+      "combined_net": 405446,
+      "ETF_net": 694773,
+      "overlay_contribution": -289327,
+      "opt_tax_paid": 7268,
+      "beats_ETF": false
+    }
+  },
+  "_incumbents_2005_2026_ref": {
+    "quelle": "H-061/W26 (tagesbasiert, SPY+GLD, End-Liq)",
+    "100% SPY": {
+      "net": 767247,
+      "maxdd": -0.552
+    },
+    "70/30 Gold biennial": {
+      "net": 889650,
+      "maxdd": -0.361,
+      "sharpe": 0.818
+    }
+  }
+}

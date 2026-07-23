@@ -1,0 +1,20 @@
+{
+  "top10_mtm": 699819,
+  "top10_postliq": 658885,
+  "top20_postliq": 1103693,
+  "top10_sharpe": 0.373,
+  "top10_maxdd": -0.722,
+  "ETF_net_window": 1610149,
+  "SPY_sharpe": 0.605,
+  "DSR_p": 0.284,
+  "window": [
+    "1996-02-07",
+    "2026-07-06"
+  ],
+  "criteria": {
+    "postliq_gt_ETF": false,
+    "sharpe_gt_SPY": false,
+    "DSR_passes": false
+  },
+  "PASS": false
+}

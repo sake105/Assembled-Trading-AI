@@ -1,0 +1,6 @@
+F:\Python_Projekt\Aktiengerüst\research\mandat\verdict_engine.py:80: UserWarning: Converting to PeriodArray/Index representation will drop timezone information.
+  month_ends = close_index.to_series().groupby(close_index.to_period("M")).max()
+F:\Python_Projekt\Aktiengerüst\research\mandat\h047_buyback.py:48: UserWarning: Converting to PeriodArray/Index representation will drop timezone information.
+  month_ends = close_index.to_series().groupby(close_index.to_period("M")).max()
+F:\Python_Projekt\Aktiengerüst\research\mandat\verdict_engine.py:113: FutureWarning: The default fill_method='pad' in Series.pct_change is deprecated and will be removed in a future version. Either fill in any non-leading NA values prior to calling pct_change or specify 'fill_method=None' to not fill NA values.
+  spy_v20 = spy.pct_change().rolling(20).std()

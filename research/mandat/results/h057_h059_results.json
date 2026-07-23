@@ -1,0 +1,67 @@
+{
+  "H057_crisis_rebal": {
+    "100% SPY": {
+      "net_final": 767247,
+      "cagr_net_pct": 9.94,
+      "sharpe": 0.64,
+      "maxdd": -0.552,
+      "tax_paid": 151059
+    },
+    "static 70/30 annual": {
+      "net_final": 875169,
+      "cagr_net_pct": 10.61,
+      "sharpe": 0.814,
+      "maxdd": -0.377,
+      "tax_paid": 116135
+    },
+    "crisis-rebal revert": {
+      "net_final": 848704,
+      "cagr_net_pct": 10.45,
+      "sharpe": 0.719,
+      "maxdd": -0.43,
+      "tax_paid": 126742,
+      "gold_shortterm_taxed_sales": 1
+    },
+    "crisis-rebal noRevert": {
+      "net_final": 769248,
+      "cagr_net_pct": 9.95,
+      "sharpe": 0.725,
+      "maxdd": -0.443,
+      "tax_paid": 185589,
+      "gold_shortterm_taxed_sales": 5
+    }
+  },
+  "H058_glide_MC": {
+    "glide 90->50": {
+      "median": 866331,
+      "q05": 319360,
+      "P_beat_SPY_pct": 61.6
+    },
+    "static 70/30": {
+      "median": 869524,
+      "q05": 332252,
+      "P_beat_SPY_pct": 54.0
+    },
+    "100% SPY": {
+      "median": 780425,
+      "q05": 229555
+    }
+  },
+  "H059_sparplan_MC": {
+    "contributed_total": 258000,
+    "DCA 100% SPY": {
+      "median": 855025,
+      "q05": 395981
+    },
+    "DCA 70/30": {
+      "median": 923937,
+      "q05": 495249,
+      "P_beat_SPY_pct": 55.5
+    }
+  },
+  "mc": {
+    "n_paths": 1000,
+    "seed": 42,
+    "years": 21.5
+  }
+}

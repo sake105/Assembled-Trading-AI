@@ -1,0 +1,24 @@
+{
+  "H032_low_div": {
+    "final_mtm": 2005510,
+    "final_net_postliq": 1589963,
+    "tax_mtm": 112467,
+    "tax_postliq": 551570,
+    "sharpe": 0.569
+  },
+  "EW_full": {
+    "final_mtm": 1338701,
+    "final_net_postliq": 1146757,
+    "tax_mtm": 295194,
+    "tax_postliq": 501769,
+    "sharpe": 0.549
+  },
+  "ETF_net_window_matched": 1610149,
+  "ETF_net_full_span": 2335072,
+  "window": [
+    "1996-02-07",
+    "2026-07-06"
+  ],
+  "low_div_mtm_beats_ETFwin": true,
+  "low_div_postliq_beats_ETFwin": false
+}

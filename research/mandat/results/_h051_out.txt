@@ -1,0 +1,115 @@
+[RESULT] {
+  "A_equity_gold_2005": {
+    "100% SPY": {
+      "net_final": 767247,
+      "cagr_net_pct": 9.94,
+      "sharpe": 0.64,
+      "maxdd": -0.552,
+      "years": 21.5
+    },
+    "90/10 SPY/Gold": {
+      "net_final": 777563,
+      "cagr_net_pct": 10.01,
+      "sharpe": 0.709,
+      "maxdd": -0.457,
+      "years": 21.5
+    },
+    "80/20 SPY/Gold": {
+      "net_final": 787879,
+      "cagr_net_pct": 10.07,
+      "sharpe": 0.765,
+      "maxdd": -0.392,
+      "years": 21.5
+    },
+    "70/30 SPY/Gold": {
+      "net_final": 798195,
+      "cagr_net_pct": 10.14,
+      "sharpe": 0.802,
+      "maxdd": -0.349,
+      "years": 21.5
+    }
+  },
+  "A_gold_haircut_x0.3_2005": {
+    "100% SPY": {
+      "net_final": 767247,
+      "cagr_net_pct": 9.94,
+      "sharpe": 0.64,
+      "maxdd": -0.552,
+      "years": 21.5
+    },
+    "80/20 SPY/Gold_hc": {
+      "net_final": 655057,
+      "cagr_net_pct": 9.13,
+      "sharpe": 0.686,
+      "maxdd": -0.439,
+      "years": 21.5
+    },
+    "70/30 SPY/Gold_hc": {
+      "net_final": 598962,
+      "cagr_net_pct": 8.68,
+      "sharpe": 0.711,
+      "maxdd": -0.381,
+      "years": 21.5
+    }
+  },
+  "B_with_crypto_2016": {
+    "100% SPY": {
+      "net_final": 377111,
+      "cagr_net_pct": 13.46,
+      "sharpe": 0.882,
+      "maxdd": -0.337,
+      "years": 10.5
+    },
+    "90/10 SPY/Gold": {
+      "net_final": 375793,
+      "cagr_net_pct": 13.43,
+      "sharpe": 0.933,
+      "maxdd": -0.312,
+      "years": 10.5
+    },
+    "95/5 SPY/BTC": {
+      "net_final": 1077014,
+      "cagr_net_pct": 25.38,
+      "sharpe": 0.812,
+      "maxdd": -0.627,
+      "years": 10.5
+    },
+    "90/10 SPY/BTC": {
+      "net_final": 1776917,
+      "cagr_net_pct": 31.5,
+      "sharpe": 0.842,
+      "maxdd": -0.69,
+      "years": 10.5
+    },
+    "80/10/10 SPY/Gold/BTC": {
+      "net_final": 1775599,
+      "cagr_net_pct": 31.49,
+      "sharpe": 0.841,
+      "maxdd": -0.692,
+      "years": 10.5
+    }
+  },
+  "B_crypto_haircut_x0.5": {
+    "95/5 SPY/BTC_hc": {
+      "net_final": 464889,
+      "cagr_net_pct": 15.75,
+      "sharpe": 1.005,
+      "maxdd": -0.311,
+      "years": 10.5
+    },
+    "90/10 SPY/BTC_hc": {
+      "net_final": 552666,
+      "cagr_net_pct": 17.67,
+      "sharpe": 1.043,
+      "maxdd": -0.323,
+      "years": 10.5
+    },
+    "80/10/10 SPY/Gold/BTC_hc": {
+      "net_final": 551348,
+      "cagr_net_pct": 17.64,
+      "sharpe": 1.074,
+      "maxdd": -0.322,
+      "years": 10.5
+    }
+  }
+}

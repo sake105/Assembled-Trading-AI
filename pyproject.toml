@@ -169,6 +169,7 @@ ignore = ["E501", "E203", "E402", "E702"]  # E402: module-level import not at to
 "src/assembled_core/config/__init__.py" = ["F401"]  # re-export pattern: imports added to __all__ dynamically
 "tests/**" = ["F841"]  # test helper variables assigned for side-effects or future assertions
 "tests/*.py" = ["F841"]  # same, for flat test files
+"research/**" = ["F841", "F401"]  # one-shot research scripts (W16 versioning, 2026-07-23): exploratory leftovers tolerated; results are the artifact, not the code style
 
 [tool.ruff.lint.isort]
 known-first-party = ["assembled_core"]

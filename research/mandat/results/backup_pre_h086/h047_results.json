@@ -1,0 +1,50 @@
+{
+  "base_final": 1337689.1702027929,
+  "base_sharpe": 0.5482718300470231,
+  "v_final": 585903.7087554475,
+  "v_sharpe": 0.49924685747485664,
+  "v_maxdd": -0.43243680057373923,
+  "ETF_net": 1593149.988170063,
+  "SPY_sharpe": 0.6034046132600237,
+  "DSR_p": 0.5550354895666079,
+  "consistency": 0.5625,
+  "criteria": {
+    "sharpe_gt_base_x105": false,
+    "final_gt_base_x105": false,
+    "final_gt_ETF": false,
+    "DSR_passes": false
+  },
+  "PASS": false,
+  "all": {
+    "base": {
+      "label": "EWband_fullSP",
+      "final_value": 1337689.1702027929,
+      "cagr_net": 0.08902993174849061,
+      "sharpe_net": 0.5482718300470231,
+      "maxdd_net": -0.5852292426140555,
+      "tax_paid": 298422.009766643,
+      "costs_paid": 3094.906338003963,
+      "years": 30.409308692676248
+    },
+    "H047_buyback_33": {
+      "label": "H047_buyback_33",
+      "final_value": 585903.7087554475,
+      "cagr_net": 0.05986295015790999,
+      "sharpe_net": 0.49924685747485664,
+      "maxdd_net": -0.43243680057373923,
+      "tax_paid": 162447.68146866956,
+      "costs_paid": 4700.644726652136,
+      "years": 30.409308692676248
+    },
+    "H047_buyback_50": {
+      "label": "H047_buyback_50",
+      "final_value": 554324.7207256354,
+      "cagr_net": 0.05793367130834248,
+      "sharpe_net": 0.49637462537533633,
+      "maxdd_net": -0.4107669320839882,
+      "tax_paid": 138423.27576180408,
+      "costs_paid": 3384.943809851868,
+      "years": 30.409308692676248
+    }
+  }
+}

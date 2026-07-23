@@ -1,0 +1,126 @@
+{
+  "BXMD": {
+    "gross_idx": {
+      "label": "BXMD",
+      "cagr_pct": 10.9,
+      "sharpe": 0.903,
+      "maxdd": -0.427,
+      "years": 38.4,
+      "n_months": 462
+    },
+    "gross_spxtr": {
+      "label": "SPXTR",
+      "cagr_pct": 11.52,
+      "sharpe": 0.821,
+      "maxdd": -0.509,
+      "years": 38.4,
+      "n_months": 462
+    },
+    "excess_cagr_pp": -0.62,
+    "decades": {
+      "1990s": {
+        "idx_cagr": 17.98,
+        "spx_cagr": 18.21
+      },
+      "2000s": {
+        "idx_cagr": 2.77,
+        "spx_cagr": -0.95
+      },
+      "2010s": {
+        "idx_cagr": 9.82,
+        "spx_cagr": 13.56
+      },
+      "2020s": {
+        "idx_cagr": 10.79,
+        "spx_cagr": 15.53
+      }
+    },
+    "german_tax_overlay": {
+      "combined_net": 3558537,
+      "ETF_net": 5147102,
+      "overlay_contribution": -1588565,
+      "opt_tax_paid": 40946,
+      "beats_ETF": false
+    }
+  },
+  "PUT": {
+    "gross_idx": {
+      "label": "PUT",
+      "cagr_pct": 7.08,
+      "sharpe": 0.689,
+      "maxdd": -0.327,
+      "years": 19.4,
+      "n_months": 234
+    },
+    "gross_spxtr": {
+      "label": "SPXTR",
+      "cagr_pct": 11.04,
+      "sharpe": 0.754,
+      "maxdd": -0.509,
+      "years": 19.4,
+      "n_months": 234
+    },
+    "excess_cagr_pp": -3.96,
+    "decades": {
+      "2000s": {
+        "idx_cagr": 1.16,
+        "spx_cagr": -6.27
+      },
+      "2010s": {
+        "idx_cagr": 7.33,
+        "spx_cagr": 13.56
+      },
+      "2020s": {
+        "idx_cagr": 9.32,
+        "spx_cagr": 15.53
+      }
+    },
+    "german_tax_overlay": {
+      "combined_net": 359495,
+      "ETF_net": 653665,
+      "overlay_contribution": -294170,
+      "opt_tax_paid": 6429,
+      "beats_ETF": false
+    }
+  },
+  "BXM": {
+    "gross_idx": {
+      "label": "BXM",
+      "cagr_pct": 6.11,
+      "sharpe": 0.609,
+      "maxdd": -0.358,
+      "years": 24.3,
+      "n_months": 292
+    },
+    "gross_spxtr": {
+      "label": "SPXTR",
+      "cagr_pct": 10.16,
+      "sharpe": 0.724,
+      "maxdd": -0.509,
+      "years": 24.3,
+      "n_months": 292
+    },
+    "excess_cagr_pp": -4.05,
+    "decades": {
+      "2000s": {
+        "idx_cagr": 3.53,
+        "spx_cagr": 1.61
+      },
+      "2010s": {
+        "idx_cagr": 7.05,
+        "spx_cagr": 13.56
+      },
+      "2020s": {
+        "idx_cagr": 7.71,
+        "spx_cagr": 15.53
+      }
+    },
+    "german_tax_overlay": {
+      "combined_net": 458505,
+      "ETF_net": 924733,
+      "overlay_contribution": -466228,
+      "opt_tax_paid": 4643,
+      "beats_ETF": false
+    }
+  }
+}

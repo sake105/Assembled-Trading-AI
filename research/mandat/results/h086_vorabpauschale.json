@@ -1,0 +1,119 @@
+{
+  "window": [
+    "1996-02-07",
+    "2026-07-06"
+  ],
+  "reproduced_old_etf_matches_h032b": true,
+  "teilfreistellung_finding": "Teilfreistellung 30% war im Alt-Pfad BEREITS modelliert (18,5% ~ 26,375%*0,7), nur gerundet statt exakt 18,4625% -> Alt-Pfad besteuerte den ETF um 0,0375 Pp zu hoch. KEINE zweite Luecke.",
+  "ETF_old_185_no_vp": 1610149,
+  "ETF_tfs_exact_only_no_vp": 1610844,
+  "ETF_new_vp_tfs_exact_no_spb": 1609380,
+  "ETF_new_vp_tfs_exact_spb1000": 1610944,
+  "ETF_vp_only_at_old_rate_185": 1608716,
+  "vp_detail_no_spb": {
+    "final": 1609380.4510563943,
+    "vp_tax_paid_total": 11954.99,
+    "acc_vp_at_sale": 64431.68,
+    "terminal_tax": 327366.9,
+    "per_year": {
+      "2018": {
+        "basiszins": 0.0087,
+        "basisertrag": 3735.29,
+        "wertzuwachs": -32184.53,
+        "vp": 0.0,
+        "vp_tax": 0.0
+      },
+      "2019": {
+        "basiszins": 0.0052,
+        "basisertrag": 2117.64,
+        "wertzuwachs": 180855.54,
+        "vp": 2117.64,
+        "vp_tax": 390.97
+      },
+      "2020": {
+        "basiszins": 0.0007,
+        "basisertrag": 376.99,
+        "wertzuwachs": 132601.06,
+        "vp": 376.99,
+        "vp_tax": 69.6
+      },
+      "2021": {
+        "basiszins": 0.0,
+        "vp": 0.0,
+        "vp_tax": 0.0
+      },
+      "2022": {
+        "basiszins": 0.0,
+        "vp": 0.0,
+        "vp_tax": 0.0
+      },
+      "2023": {
+        "basiszins": 0.0255,
+        "basisertrag": 16885.9,
+        "wertzuwachs": 252668.35,
+        "vp": 16885.9,
+        "vp_tax": 3117.56
+      },
+      "2024": {
+        "basiszins": 0.0229,
+        "basisertrag": 19057.25,
+        "wertzuwachs": 304216.85,
+        "vp": 19057.25,
+        "vp_tax": 3518.44
+      },
+      "2025": {
+        "basiszins": 0.0253,
+        "basisertrag": 26315.07,
+        "wertzuwachs": 267621.45,
+        "vp": 26315.07,
+        "vp_tax": 4858.42
+      }
+    }
+  },
+  "vp_detail_spb1000": {
+    "final": 1610944.3367420512,
+    "vp_tax_paid_total": 10837.96,
+    "acc_vp_at_sale": 64494.29,
+    "terminal_tax": 327685.01
+  },
+  "effects": {
+    "vp_effect_pct_at_exact_rate": -0.091,
+    "tfs_rounding_effect_pct": 0.043,
+    "net_effect_pct_old_to_new": -0.048
+  },
+  "H032_low_div_vs_ETF": {
+    "old": {
+      "candidate": 1589963,
+      "etf": 1610149,
+      "candidate_beats_etf": false,
+      "delta_pct": -1.25
+    },
+    "new": {
+      "candidate": 1589963,
+      "etf": 1609380,
+      "candidate_beats_etf": false,
+      "delta_pct": -1.21
+    }
+  },
+  "H024_ew_band_full_vs_ETF": {
+    "old": {
+      "candidate": 1146757,
+      "etf": 1610149,
+      "candidate_beats_etf": false,
+      "delta_pct": -28.78
+    },
+    "new": {
+      "candidate": 1146757,
+      "etf": 1609380,
+      "candidate_beats_etf": false,
+      "delta_pct": -28.75
+    }
+  },
+  "model_notes": [
+    "VP erst ab 2018; 1996-2017 alte Rechtslage (ausschuettungsgleiche Ertraege) NICHT modelliert -> ETF-Pfad dort weiterhin zu stark (Richtung: pro Benchmark / gegen Kandidaten).",
+    "Verkaufsjahr (letztes Fensterjahr) ohne VP (Zufluss erst Folgejahr).",
+    "VP-Steuer via Anteilsverkauf am Jahresultimo, Mikro-Verkaufsgewinn unbesteuert (minimal pro ETF); Basis+acc_vp pro-rata reduziert.",
+    "2026er Basiszins = Carry-Forward 2,53% (Annahme, hier ohne Wirkung).",
+    "Kandidaten-Endwerte unveraendert aus h032b_terminal_liq.json."
+  ]
+}

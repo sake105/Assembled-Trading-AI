@@ -1,0 +1,43 @@
+{
+  "H032_low_div": {
+    "label": "H032_low_div",
+    "final_value": 2695589.2672600197,
+    "cagr_net": 0.1144140314365889,
+    "sharpe_net": 0.6113019756494132,
+    "maxdd_net": -0.5255969011097386,
+    "tax_paid": 249346.06550833126,
+    "costs_paid": 3995.9609733802445,
+    "years": 30.409308692676248
+  },
+  "H032_high_div": {
+    "label": "H032_high_div",
+    "final_value": 643768.1516858685,
+    "cagr_net": 0.06315062823854078,
+    "sharpe_net": 0.4315225301857466,
+    "maxdd_net": -0.5592201599199051,
+    "tax_paid": 412680.2502169191,
+    "costs_paid": 2454.538074723902,
+    "years": 30.409308692676248
+  },
+  "EW_PIT_divtax_full": {
+    "label": "EW_ref",
+    "final_value": 988039.0702983359,
+    "cagr_net": 0.07823348759525683,
+    "sharpe_net": 0.48797438704462454,
+    "maxdd_net": -0.6110959732654594,
+    "tax_paid": 380988.199954478,
+    "costs_paid": 8445.049815278664,
+    "years": 30.409308692676248
+  },
+  "ETF_net_path_window": {
+    "final_value": 1593149.988170063
+  },
+  "_verdict": {
+    "low_div_final": 2695589.2672600197,
+    "high_div_final": 643768.1516858685,
+    "ratio": 4.187,
+    "crit1_low_gt_high_x110": true,
+    "crit2_low_gt_ewpit": true,
+    "PASS": true
+  }
+}

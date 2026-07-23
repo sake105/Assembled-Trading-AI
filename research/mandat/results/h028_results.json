@@ -1,0 +1,50 @@
+{
+  "H028_gem_classic": {
+    "label": "H028_gem_classic",
+    "final_value": 438031.2349753054,
+    "cagr_net": 0.06650752815720296,
+    "sharpe_net": 0.4747390653299692,
+    "maxdd_net": -0.3397315554529682,
+    "tax_paid": 175356.3036391865,
+    "years": 22.940451745379878
+  },
+  "H028_relative_only": {
+    "label": "H028_relative_only",
+    "final_value": 506115.0512063858,
+    "cagr_net": 0.07324534665639804,
+    "sharpe_net": 0.4562524747572992,
+    "maxdd_net": -0.6341506469793701,
+    "tax_paid": 191808.66795755344,
+    "years": 22.940451745379878
+  },
+  "SPY_bh": {
+    "cagr_gross": 0.1124114845801043,
+    "sharpe": 0.6680191373741703,
+    "maxdd": -0.5518910727654853
+  },
+  "ETF_net_path": {
+    "final_value": 956886.1357004485
+  },
+  "_verdict": {
+    "selected": "H028_relative_only",
+    "crit1_gt_etf": "False",
+    "crit2_dsr": {
+      "prob": 0.38522330225000806,
+      "pass": false
+    },
+    "crit3_maxdd_ok": false,
+    "crit5_halves": {
+      "best": [
+        0.37735216221827916,
+        0.5499653398546277
+      ],
+      "spy": [
+        0.5205254660576756,
+        0.832146040070518
+      ],
+      "pass": false
+    },
+    "PBO_info": 0.9714285714285714,
+    "PASS": false
+  }
+}

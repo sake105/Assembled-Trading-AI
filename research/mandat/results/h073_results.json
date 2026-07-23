@@ -1,0 +1,8601 @@
+{
+  "URTH:SMAx_10_50": {
+    "net": 192573,
+    "cagr": 4.63,
+    "sharpe": 0.469,
+    "oos_sharpe": 0.478,
+    "maxdd": -0.222,
+    "trades": 41,
+    "tax": 21586
+  },
+  "URTH:SMAx_20_100": {
+    "net": 214367,
+    "cagr": 5.4,
+    "sharpe": 0.501,
+    "oos_sharpe": 0.584,
+    "maxdd": -0.221,
+    "trades": 17,
+    "tax": 26160
+  },
+  "URTH:SMAx_50_200": {
+    "net": 225535,
+    "cagr": 5.77,
+    "sharpe": 0.494,
+    "oos_sharpe": 0.572,
+    "maxdd": -0.34,
+    "trades": 8,
+    "tax": 28534
+  },
+  "URTH:SMAx_100_300": {
+    "net": 208982,
+    "cagr": 5.22,
+    "sharpe": 0.448,
+    "oos_sharpe": 0.555,
+    "maxdd": -0.363,
+    "trades": 5,
+    "tax": 24736
+  },
+  "URTH:EMAx_12_26": {
+    "net": 205694,
+    "cagr": 5.1,
+    "sharpe": 0.505,
+    "oos_sharpe": 0.76,
+    "maxdd": -0.199,
+    "trades": 53,
+    "tax": 24701
+  },
+  "URTH:EMAx_20_100": {
+    "net": 299210,
+    "cagr": 7.86,
+    "sharpe": 0.676,
+    "oos_sharpe": 0.791,
+    "maxdd": -0.228,
+    "trades": 17,
+    "tax": 45419
+  },
+  "URTH:EMAx_50_200": {
+    "net": 278166,
+    "cagr": 7.31,
+    "sharpe": 0.571,
+    "oos_sharpe": 0.53,
+    "maxdd": -0.317,
+    "trades": 7,
+    "tax": 40461
+  },
+  "URTH:MACD_12_26_9": {
+    "net": 154003,
+    "cagr": 3.02,
+    "sharpe": 0.361,
+    "oos_sharpe": 0.471,
+    "maxdd": -0.23,
+    "trades": 151,
+    "tax": 14330
+  },
+  "URTH:Donch_55_20": {
+    "net": 129511,
+    "cagr": 1.8,
+    "sharpe": 0.248,
+    "oos_sharpe": 0.377,
+    "maxdd": -0.217,
+    "trades": 45,
+    "tax": 7244
+  },
+  "URTH:Donch_100_50": {
+    "net": 173050,
+    "cagr": 3.86,
+    "sharpe": 0.43,
+    "oos_sharpe": 0.7,
+    "maxdd": -0.189,
+    "trades": 19,
+    "tax": 16803
+  },
+  "URTH:RSIrev_30_55": {
+    "net": 190353,
+    "cagr": 4.54,
+    "sharpe": 0.462,
+    "oos_sharpe": 0.41,
+    "maxdd": -0.295,
+    "trades": 43,
+    "tax": 21113
+  },
+  "URTH:RSIrev_25_50": {
+    "net": 140770,
+    "cagr": 2.39,
+    "sharpe": 0.302,
+    "oos_sharpe": 0.195,
+    "maxdd": -0.288,
+    "trades": 25,
+    "tax": 9558
+  },
+  "URTH:RSItrend_50": {
+    "net": 128610,
+    "cagr": 1.75,
+    "sharpe": 0.222,
+    "oos_sharpe": 0.59,
+    "maxdd": -0.383,
+    "trades": 211,
+    "tax": 8957
+  },
+  "URTH:BBrev_20_2": {
+    "net": 189535,
+    "cagr": 4.51,
+    "sharpe": 0.465,
+    "oos_sharpe": 0.371,
+    "maxdd": -0.288,
+    "trades": 60,
+    "tax": 21555
+  },
+  "URTH:BBbrk_20_2": {
+    "net": 114887,
+    "cagr": 0.96,
+    "sharpe": 0.187,
+    "oos_sharpe": 0.336,
+    "maxdd": -0.17,
+    "trades": 54,
+    "tax": 3999
+  },
+  "URTH:TSmom_126": {
+    "net": 232774,
+    "cagr": 6.0,
+    "sharpe": 0.566,
+    "oos_sharpe": 0.747,
+    "maxdd": -0.246,
+    "trades": 49,
+    "tax": 30809
+  },
+  "URTH:TSmom_252": {
+    "net": 221867,
+    "cagr": 5.65,
+    "sharpe": 0.533,
+    "oos_sharpe": 0.72,
+    "maxdd": -0.297,
+    "trades": 34,
+    "tax": 28034
+  },
+  "URTH:VolFilter_p80": {
+    "net": 193907,
+    "cagr": 4.68,
+    "sharpe": 0.475,
+    "oos_sharpe": 0.585,
+    "maxdd": -0.198,
+    "trades": 31,
+    "tax": 23286
+  },
+  "URTH:AND_SMA200_Mom12": {
+    "net": 176420,
+    "cagr": 4.0,
+    "sharpe": 0.415,
+    "oos_sharpe": 0.527,
+    "maxdd": -0.298,
+    "trades": 25,
+    "tax": 17624
+  },
+  "URTH:OR_SMA200_Mom12": {
+    "net": 287561,
+    "cagr": 7.56,
+    "sharpe": 0.598,
+    "oos_sharpe": 0.746,
+    "maxdd": -0.34,
+    "trades": 17,
+    "tax": 42696
+  },
+  "URTH:AND_MACD_RSI50": {
+    "net": 112123,
+    "cagr": 0.79,
+    "sharpe": 0.137,
+    "oos_sharpe": 0.2,
+    "maxdd": -0.245,
+    "trades": 176,
+    "tax": 7401
+  },
+  "URTH:AND_Donch_Vol": {
+    "net": 113020,
+    "cagr": 0.85,
+    "sharpe": 0.152,
+    "oos_sharpe": 0.261,
+    "maxdd": -0.203,
+    "trades": 45,
+    "tax": 4043
+  },
+  "URTH:AND_SMA200_Vol": {
+    "net": 180991,
+    "cagr": 4.18,
+    "sharpe": 0.467,
+    "oos_sharpe": 0.652,
+    "maxdd": -0.175,
+    "trades": 25,
+    "tax": 20140
+  },
+  "URTH:ENS_2of3": {
+    "net": 221025,
+    "cagr": 5.63,
+    "sharpe": 0.531,
+    "oos_sharpe": 0.756,
+    "maxdd": -0.285,
+    "trades": 38,
+    "tax": 27905
+  },
+  "URTH:ENS_3of3": {
+    "net": 86664,
+    "cagr": -0.98,
+    "sharpe": -0.13,
+    "oos_sharpe": -0.159,
+    "maxdd": -0.222,
+    "trades": 123,
+    "tax": 789
+  },
+  "ACWI:SMAx_10_50": {
+    "net": 223052,
+    "cagr": 4.49,
+    "sharpe": 0.428,
+    "oos_sharpe": 0.551,
+    "maxdd": -0.233,
+    "trades": 54,
+    "tax": 28689
+  },
+  "ACWI:SMAx_20_100": {
+    "net": 279655,
+    "cagr": 5.79,
+    "sharpe": 0.521,
+    "oos_sharpe": 0.548,
+    "maxdd": -0.25,
+    "trades": 25,
+    "tax": 41124
+  },
+  "ACWI:SMAx_50_200": {
+    "net": 279830,
+    "cagr": 5.79,
+    "sharpe": 0.473,
+    "oos_sharpe": 0.525,
+    "maxdd": -0.335,
+    "trades": 11,
+    "tax": 40887
+  },
+  "ACWI:SMAx_100_300": {
+    "net": 264825,
+    "cagr": 5.47,
+    "sharpe": 0.437,
+    "oos_sharpe": 0.531,
+    "maxdd": -0.349,
+    "trades": 7,
+    "tax": 37413
+  },
+  "ACWI:EMAx_12_26": {
+    "net": 239047,
+    "cagr": 4.88,
+    "sharpe": 0.463,
+    "oos_sharpe": 0.65,
+    "maxdd": -0.211,
+    "trades": 67,
+    "tax": 32536
+  },
+  "ACWI:EMAx_20_100": {
+    "net": 322053,
+    "cagr": 6.61,
+    "sharpe": 0.588,
+    "oos_sharpe": 0.749,
+    "maxdd": -0.223,
+    "trades": 24,
+    "tax": 50696
+  },
+  "ACWI:EMAx_50_200": {
+    "net": 234853,
+    "cagr": 4.78,
+    "sharpe": 0.406,
+    "oos_sharpe": 0.52,
+    "maxdd": -0.306,
+    "trades": 10,
+    "tax": 30661
+  },
+  "ACWI:MACD_12_26_9": {
+    "net": 122007,
+    "cagr": 1.09,
+    "sharpe": 0.15,
+    "oos_sharpe": 0.466,
+    "maxdd": -0.399,
+    "trades": 193,
+    "tax": 7878
+  },
+  "ACWI:Donch_55_20": {
+    "net": 125186,
+    "cagr": 1.24,
+    "sharpe": 0.179,
+    "oos_sharpe": 0.356,
+    "maxdd": -0.299,
+    "trades": 61,
+    "tax": 6443
+  },
+  "ACWI:Donch_100_50": {
+    "net": 165960,
+    "cagr": 2.81,
+    "sharpe": 0.325,
+    "oos_sharpe": 0.502,
+    "maxdd": -0.255,
+    "trades": 26,
+    "tax": 15284
+  },
+  "ACWI:RSIrev_30_55": {
+    "net": 218394,
+    "cagr": 4.36,
+    "sharpe": 0.373,
+    "oos_sharpe": 0.47,
+    "maxdd": -0.39,
+    "trades": 64,
+    "tax": 27790
+  },
+  "ACWI:RSIrev_25_50": {
+    "net": 125844,
+    "cagr": 1.27,
+    "sharpe": 0.166,
+    "oos_sharpe": 0.289,
+    "maxdd": -0.375,
+    "trades": 36,
+    "tax": 6249
+  },
+  "ACWI:RSItrend_50": {
+    "net": 149956,
+    "cagr": 2.24,
+    "sharpe": 0.245,
+    "oos_sharpe": 0.366,
+    "maxdd": -0.283,
+    "trades": 258,
+    "tax": 15603
+  },
+  "ACWI:BBrev_20_2": {
+    "net": 149246,
+    "cagr": 2.21,
+    "sharpe": 0.227,
+    "oos_sharpe": 0.3,
+    "maxdd": -0.369,
+    "trades": 80,
+    "tax": 13498
+  },
+  "ACWI:BBbrk_20_2": {
+    "net": 109328,
+    "cagr": 0.49,
+    "sharpe": 0.105,
+    "oos_sharpe": 0.204,
+    "maxdd": -0.246,
+    "trades": 67,
+    "tax": 3931
+  },
+  "ACWI:TSmom_126": {
+    "net": 284601,
+    "cagr": 5.89,
+    "sharpe": 0.541,
+    "oos_sharpe": 0.539,
+    "maxdd": -0.305,
+    "trades": 63,
+    "tax": 42892
+  },
+  "ACWI:TSmom_252": {
+    "net": 218045,
+    "cagr": 4.36,
+    "sharpe": 0.395,
+    "oos_sharpe": 0.469,
+    "maxdd": -0.338,
+    "trades": 46,
+    "tax": 27362
+  },
+  "ACWI:VolFilter_p80": {
+    "net": 299939,
+    "cagr": 6.19,
+    "sharpe": 0.507,
+    "oos_sharpe": 0.628,
+    "maxdd": -0.322,
+    "trades": 46,
+    "tax": 49978
+  },
+  "ACWI:AND_SMA200_Mom12": {
+    "net": 217893,
+    "cagr": 4.35,
+    "sharpe": 0.417,
+    "oos_sharpe": 0.475,
+    "maxdd": -0.291,
+    "trades": 36,
+    "tax": 27212
+  },
+  "ACWI:OR_SMA200_Mom12": {
+    "net": 281957,
+    "cagr": 5.83,
+    "sharpe": 0.456,
+    "oos_sharpe": 0.52,
+    "maxdd": -0.378,
+    "trades": 21,
+    "tax": 41520
+  },
+  "ACWI:AND_MACD_RSI50": {
+    "net": 117291,
+    "cagr": 0.88,
+    "sharpe": 0.137,
+    "oos_sharpe": 0.178,
+    "maxdd": -0.217,
+    "trades": 235,
+    "tax": 8630
+  },
+  "ACWI:AND_Donch_Vol": {
+    "net": 111219,
+    "cagr": 0.58,
+    "sharpe": 0.11,
+    "oos_sharpe": 0.221,
+    "maxdd": -0.299,
+    "trades": 67,
+    "tax": 4670
+  },
+  "ACWI:AND_SMA200_Vol": {
+    "net": 188645,
+    "cagr": 3.53,
+    "sharpe": 0.355,
+    "oos_sharpe": 0.55,
+    "maxdd": -0.286,
+    "trades": 35,
+    "tax": 22931
+  },
+  "ACWI:ENS_2of3": {
+    "net": 245506,
+    "cagr": 5.04,
+    "sharpe": 0.448,
+    "oos_sharpe": 0.536,
+    "maxdd": -0.317,
+    "trades": 56,
+    "tax": 33741
+  },
+  "ACWI:ENS_3of3": {
+    "net": 103973,
+    "cagr": 0.21,
+    "sharpe": 0.065,
+    "oos_sharpe": 0.077,
+    "maxdd": -0.193,
+    "trades": 151,
+    "tax": 3594
+  },
+  "EFA:SMAx_10_50": {
+    "net": 186504,
+    "cagr": 2.54,
+    "sharpe": 0.263,
+    "oos_sharpe": 0.182,
+    "maxdd": -0.34,
+    "trades": 75,
+    "tax": 23895
+  },
+  "EFA:SMAx_20_100": {
+    "net": 331796,
+    "cagr": 4.94,
+    "sharpe": 0.445,
+    "oos_sharpe": 0.452,
+    "maxdd": -0.273,
+    "trades": 36,
+    "tax": 53202
+  },
+  "EFA:SMAx_50_200": {
+    "net": 231283,
+    "cagr": 3.43,
+    "sharpe": 0.313,
+    "oos_sharpe": 0.196,
+    "maxdd": -0.389,
+    "trades": 15,
+    "tax": 29983
+  },
+  "EFA:SMAx_100_300": {
+    "net": 365601,
+    "cagr": 5.35,
+    "sharpe": 0.438,
+    "oos_sharpe": 0.402,
+    "maxdd": -0.359,
+    "trades": 9,
+    "tax": 60323
+  },
+  "EFA:EMAx_12_26": {
+    "net": 252201,
+    "cagr": 3.79,
+    "sharpe": 0.362,
+    "oos_sharpe": 0.212,
+    "maxdd": -0.261,
+    "trades": 103,
+    "tax": 36560
+  },
+  "EFA:EMAx_20_100": {
+    "net": 321529,
+    "cagr": 4.8,
+    "sharpe": 0.435,
+    "oos_sharpe": 0.407,
+    "maxdd": -0.288,
+    "trades": 39,
+    "tax": 50959
+  },
+  "EFA:EMAx_50_200": {
+    "net": 251612,
+    "cagr": 3.78,
+    "sharpe": 0.342,
+    "oos_sharpe": 0.258,
+    "maxdd": -0.38,
+    "trades": 17,
+    "tax": 34627
+  },
+  "EFA:MACD_12_26_9": {
+    "net": 84527,
+    "cagr": -0.67,
+    "sharpe": 0.015,
+    "oos_sharpe": 0.133,
+    "maxdd": -0.552,
+    "trades": 261,
+    "tax": 4841
+  },
+  "EFA:Donch_55_20": {
+    "net": 207125,
+    "cagr": 2.97,
+    "sharpe": 0.346,
+    "oos_sharpe": 0.354,
+    "maxdd": -0.281,
+    "trades": 71,
+    "tax": 25565
+  },
+  "EFA:Donch_100_50": {
+    "net": 169812,
+    "cagr": 2.15,
+    "sharpe": 0.255,
+    "oos_sharpe": 0.17,
+    "maxdd": -0.306,
+    "trades": 33,
+    "tax": 18683
+  },
+  "EFA:RSIrev_30_55": {
+    "net": 176192,
+    "cagr": 2.3,
+    "sharpe": 0.233,
+    "oos_sharpe": 0.323,
+    "maxdd": -0.448,
+    "trades": 82,
+    "tax": 18351
+  },
+  "EFA:RSIrev_25_50": {
+    "net": 143830,
+    "cagr": 1.47,
+    "sharpe": 0.184,
+    "oos_sharpe": 0.216,
+    "maxdd": -0.284,
+    "trades": 55,
+    "tax": 10636
+  },
+  "EFA:RSItrend_50": {
+    "net": 131813,
+    "cagr": 1.12,
+    "sharpe": 0.151,
+    "oos_sharpe": 0.052,
+    "maxdd": -0.543,
+    "trades": 374,
+    "tax": 20432
+  },
+  "EFA:BBrev_20_2": {
+    "net": 140934,
+    "cagr": 1.39,
+    "sharpe": 0.169,
+    "oos_sharpe": 0.446,
+    "maxdd": -0.439,
+    "trades": 111,
+    "tax": 11493
+  },
+  "EFA:BBbrk_20_2": {
+    "net": 89832,
+    "cagr": -0.43,
+    "sharpe": -0.011,
+    "oos_sharpe": 0.112,
+    "maxdd": -0.445,
+    "trades": 109,
+    "tax": 8041
+  },
+  "EFA:TSmom_126": {
+    "net": 356019,
+    "cagr": 5.23,
+    "sharpe": 0.475,
+    "oos_sharpe": 0.359,
+    "maxdd": -0.301,
+    "trades": 88,
+    "tax": 59964
+  },
+  "EFA:TSmom_252": {
+    "net": 232373,
+    "cagr": 3.44,
+    "sharpe": 0.324,
+    "oos_sharpe": 0.263,
+    "maxdd": -0.461,
+    "trades": 74,
+    "tax": 31306
+  },
+  "EFA:VolFilter_p80": {
+    "net": 402811,
+    "cagr": 5.76,
+    "sharpe": 0.466,
+    "oos_sharpe": 0.265,
+    "maxdd": -0.275,
+    "trades": 61,
+    "tax": 73421
+  },
+  "EFA:AND_SMA200_Mom12": {
+    "net": 262262,
+    "cagr": 3.95,
+    "sharpe": 0.383,
+    "oos_sharpe": 0.26,
+    "maxdd": -0.4,
+    "trades": 40,
+    "tax": 37572
+  },
+  "EFA:OR_SMA200_Mom12": {
+    "net": 203370,
+    "cagr": 2.89,
+    "sharpe": 0.267,
+    "oos_sharpe": 0.203,
+    "maxdd": -0.551,
+    "trades": 49,
+    "tax": 24181
+  },
+  "EFA:AND_MACD_RSI50": {
+    "net": 105667,
+    "cagr": 0.22,
+    "sharpe": 0.076,
+    "oos_sharpe": 0.11,
+    "maxdd": -0.388,
+    "trades": 317,
+    "tax": 6138
+  },
+  "EFA:AND_Donch_Vol": {
+    "net": 174368,
+    "cagr": 2.26,
+    "sharpe": 0.292,
+    "oos_sharpe": 0.22,
+    "maxdd": -0.296,
+    "trades": 80,
+    "tax": 19578
+  },
+  "EFA:AND_SMA200_Vol": {
+    "net": 288607,
+    "cagr": 4.35,
+    "sharpe": 0.43,
+    "oos_sharpe": 0.233,
+    "maxdd": -0.285,
+    "trades": 36,
+    "tax": 45833
+  },
+  "EFA:ENS_2of3": {
+    "net": 209999,
+    "cagr": 3.03,
+    "sharpe": 0.294,
+    "oos_sharpe": 0.27,
+    "maxdd": -0.467,
+    "trades": 83,
+    "tax": 26232
+  },
+  "EFA:ENS_3of3": {
+    "net": 99673,
+    "cagr": -0.01,
+    "sharpe": 0.033,
+    "oos_sharpe": -0.132,
+    "maxdd": -0.298,
+    "trades": 177,
+    "tax": 6619
+  },
+  "VGK:SMAx_10_50": {
+    "net": 225032,
+    "cagr": 3.88,
+    "sharpe": 0.346,
+    "oos_sharpe": 0.391,
+    "maxdd": -0.26,
+    "trades": 66,
+    "tax": 29500
+  },
+  "VGK:SMAx_20_100": {
+    "net": 309100,
+    "cagr": 5.43,
+    "sharpe": 0.446,
+    "oos_sharpe": 0.49,
+    "maxdd": -0.285,
+    "trades": 28,
+    "tax": 47888
+  },
+  "VGK:SMAx_50_200": {
+    "net": 192510,
+    "cagr": 3.12,
+    "sharpe": 0.277,
+    "oos_sharpe": 0.238,
+    "maxdd": -0.421,
+    "trades": 14,
+    "tax": 21160
+  },
+  "VGK:SMAx_100_300": {
+    "net": 219363,
+    "cagr": 3.75,
+    "sharpe": 0.312,
+    "oos_sharpe": 0.508,
+    "maxdd": -0.39,
+    "trades": 10,
+    "tax": 27152
+  },
+  "VGK:EMAx_12_26": {
+    "net": 153859,
+    "cagr": 2.04,
+    "sharpe": 0.216,
+    "oos_sharpe": 0.217,
+    "maxdd": -0.341,
+    "trades": 90,
+    "tax": 14335
+  },
+  "VGK:EMAx_20_100": {
+    "net": 235420,
+    "cagr": 4.1,
+    "sharpe": 0.357,
+    "oos_sharpe": 0.433,
+    "maxdd": -0.32,
+    "trades": 31,
+    "tax": 31154
+  },
+  "VGK:EMAx_50_200": {
+    "net": 186552,
+    "cagr": 2.97,
+    "sharpe": 0.27,
+    "oos_sharpe": 0.334,
+    "maxdd": -0.393,
+    "trades": 16,
+    "tax": 19823
+  },
+  "VGK:MACD_12_26_9": {
+    "net": 77305,
+    "cagr": -1.2,
+    "sharpe": -0.01,
+    "oos_sharpe": 0.19,
+    "maxdd": -0.549,
+    "trades": 218,
+    "tax": 1248
+  },
+  "VGK:Donch_55_20": {
+    "net": 183163,
+    "cagr": 2.88,
+    "sharpe": 0.322,
+    "oos_sharpe": 0.564,
+    "maxdd": -0.362,
+    "trades": 59,
+    "tax": 19696
+  },
+  "VGK:Donch_100_50": {
+    "net": 163533,
+    "cagr": 2.33,
+    "sharpe": 0.26,
+    "oos_sharpe": 0.169,
+    "maxdd": -0.233,
+    "trades": 28,
+    "tax": 17254
+  },
+  "VGK:RSIrev_30_55": {
+    "net": 190710,
+    "cagr": 3.07,
+    "sharpe": 0.276,
+    "oos_sharpe": 0.331,
+    "maxdd": -0.473,
+    "trades": 67,
+    "tax": 21478
+  },
+  "VGK:RSIrev_25_50": {
+    "net": 162414,
+    "cagr": 2.3,
+    "sharpe": 0.255,
+    "oos_sharpe": 0.358,
+    "maxdd": -0.318,
+    "trades": 43,
+    "tax": 14719
+  },
+  "VGK:RSItrend_50": {
+    "net": 137731,
+    "cagr": 1.51,
+    "sharpe": 0.178,
+    "oos_sharpe": 0.345,
+    "maxdd": -0.494,
+    "trades": 329,
+    "tax": 12874
+  },
+  "VGK:BBrev_20_2": {
+    "net": 143389,
+    "cagr": 1.7,
+    "sharpe": 0.188,
+    "oos_sharpe": 0.433,
+    "maxdd": -0.512,
+    "trades": 96,
+    "tax": 11924
+  },
+  "VGK:BBbrk_20_2": {
+    "net": 92239,
+    "cagr": -0.38,
+    "sharpe": 0.001,
+    "oos_sharpe": 0.533,
+    "maxdd": -0.493,
+    "trades": 89,
+    "tax": 2781
+  },
+  "VGK:TSmom_126": {
+    "net": 267605,
+    "cagr": 4.72,
+    "sharpe": 0.404,
+    "oos_sharpe": 0.31,
+    "maxdd": -0.36,
+    "trades": 70,
+    "tax": 39354
+  },
+  "VGK:TSmom_252": {
+    "net": 158997,
+    "cagr": 2.2,
+    "sharpe": 0.224,
+    "oos_sharpe": 0.337,
+    "maxdd": -0.432,
+    "trades": 66,
+    "tax": 14160
+  },
+  "VGK:VolFilter_p80": {
+    "net": 153400,
+    "cagr": 2.03,
+    "sharpe": 0.207,
+    "oos_sharpe": 0.188,
+    "maxdd": -0.39,
+    "trades": 59,
+    "tax": 13921
+  },
+  "VGK:AND_SMA200_Mom12": {
+    "net": 205073,
+    "cagr": 3.42,
+    "sharpe": 0.328,
+    "oos_sharpe": 0.365,
+    "maxdd": -0.39,
+    "trades": 37,
+    "tax": 24373
+  },
+  "VGK:OR_SMA200_Mom12": {
+    "net": 149331,
+    "cagr": 1.9,
+    "sharpe": 0.197,
+    "oos_sharpe": 0.225,
+    "maxdd": -0.529,
+    "trades": 40,
+    "tax": 11682
+  },
+  "VGK:AND_MACD_RSI50": {
+    "net": 88189,
+    "cagr": -0.59,
+    "sharpe": 0.012,
+    "oos_sharpe": 0.171,
+    "maxdd": -0.384,
+    "trades": 272,
+    "tax": 1269
+  },
+  "VGK:AND_Donch_Vol": {
+    "net": 125326,
+    "cagr": 1.06,
+    "sharpe": 0.158,
+    "oos_sharpe": 0.486,
+    "maxdd": -0.385,
+    "trades": 65,
+    "tax": 7332
+  },
+  "VGK:AND_SMA200_Vol": {
+    "net": 145542,
+    "cagr": 1.77,
+    "sharpe": 0.203,
+    "oos_sharpe": 0.2,
+    "maxdd": -0.32,
+    "trades": 41,
+    "tax": 11861
+  },
+  "VGK:ENS_2of3": {
+    "net": 164318,
+    "cagr": 2.36,
+    "sharpe": 0.235,
+    "oos_sharpe": 0.329,
+    "maxdd": -0.381,
+    "trades": 88,
+    "tax": 15621
+  },
+  "VGK:ENS_3of3": {
+    "net": 84158,
+    "cagr": -0.81,
+    "sharpe": -0.076,
+    "oos_sharpe": -0.008,
+    "maxdd": -0.258,
+    "trades": 135,
+    "tax": 1550
+  },
+  "EWJ:SMAx_10_50": {
+    "net": 116442,
+    "cagr": 0.5,
+    "sharpe": 0.106,
+    "oos_sharpe": 0.078,
+    "maxdd": -0.388,
+    "trades": 98,
+    "tax": 10863
+  },
+  "EWJ:SMAx_20_100": {
+    "net": 164850,
+    "cagr": 1.66,
+    "sharpe": 0.188,
+    "oos_sharpe": 0.174,
+    "maxdd": -0.332,
+    "trades": 49,
+    "tax": 15370
+  },
+  "EWJ:SMAx_50_200": {
+    "net": 278379,
+    "cagr": 3.44,
+    "sharpe": 0.307,
+    "oos_sharpe": 0.353,
+    "maxdd": -0.32,
+    "trades": 22,
+    "tax": 40738
+  },
+  "EWJ:SMAx_100_300": {
+    "net": 314515,
+    "cagr": 3.85,
+    "sharpe": 0.33,
+    "oos_sharpe": 0.35,
+    "maxdd": -0.317,
+    "trades": 12,
+    "tax": 48773
+  },
+  "EWJ:EMAx_12_26": {
+    "net": 145735,
+    "cagr": 1.25,
+    "sharpe": 0.159,
+    "oos_sharpe": 0.143,
+    "maxdd": -0.369,
+    "trades": 130,
+    "tax": 12706
+  },
+  "EWJ:EMAx_20_100": {
+    "net": 218947,
+    "cagr": 2.62,
+    "sharpe": 0.253,
+    "oos_sharpe": 0.253,
+    "maxdd": -0.337,
+    "trades": 43,
+    "tax": 27640
+  },
+  "EWJ:EMAx_50_200": {
+    "net": 241627,
+    "cagr": 2.95,
+    "sharpe": 0.273,
+    "oos_sharpe": 0.207,
+    "maxdd": -0.393,
+    "trades": 21,
+    "tax": 32402
+  },
+  "EWJ:MACD_12_26_9": {
+    "net": 42532,
+    "cagr": -2.78,
+    "sharpe": -0.108,
+    "oos_sharpe": 0.014,
+    "maxdd": -0.681,
+    "trades": 348,
+    "tax": 442
+  },
+  "EWJ:Donch_55_20": {
+    "net": 178209,
+    "cagr": 1.92,
+    "sharpe": 0.227,
+    "oos_sharpe": 0.151,
+    "maxdd": -0.275,
+    "trades": 74,
+    "tax": 21996
+  },
+  "EWJ:Donch_100_50": {
+    "net": 180447,
+    "cagr": 1.97,
+    "sharpe": 0.224,
+    "oos_sharpe": 0.349,
+    "maxdd": -0.409,
+    "trades": 33,
+    "tax": 18687
+  },
+  "EWJ:RSIrev_30_55": {
+    "net": 153147,
+    "cagr": 1.42,
+    "sharpe": 0.169,
+    "oos_sharpe": 0.495,
+    "maxdd": -0.437,
+    "trades": 110,
+    "tax": 14592
+  },
+  "EWJ:RSIrev_25_50": {
+    "net": 220091,
+    "cagr": 2.64,
+    "sharpe": 0.278,
+    "oos_sharpe": 0.464,
+    "maxdd": -0.252,
+    "trades": 83,
+    "tax": 30395
+  },
+  "EWJ:RSItrend_50": {
+    "net": 63287,
+    "cagr": -1.5,
+    "sharpe": -0.034,
+    "oos_sharpe": 0.056,
+    "maxdd": -0.593,
+    "trades": 495,
+    "tax": 3192
+  },
+  "EWJ:BBrev_20_2": {
+    "net": 204711,
+    "cagr": 2.39,
+    "sharpe": 0.239,
+    "oos_sharpe": 0.607,
+    "maxdd": -0.449,
+    "trades": 131,
+    "tax": 25513
+  },
+  "EWJ:BBbrk_20_2": {
+    "net": 107446,
+    "cagr": 0.24,
+    "sharpe": 0.074,
+    "oos_sharpe": 0.129,
+    "maxdd": -0.382,
+    "trades": 131,
+    "tax": 6348
+  },
+  "EWJ:TSmom_126": {
+    "net": 158317,
+    "cagr": 1.53,
+    "sharpe": 0.179,
+    "oos_sharpe": 0.288,
+    "maxdd": -0.423,
+    "trades": 143,
+    "tax": 14946
+  },
+  "EWJ:TSmom_252": {
+    "net": 248625,
+    "cagr": 3.05,
+    "sharpe": 0.285,
+    "oos_sharpe": 0.332,
+    "maxdd": -0.454,
+    "trades": 81,
+    "tax": 34846
+  },
+  "EWJ:VolFilter_p80": {
+    "net": 152198,
+    "cagr": 1.4,
+    "sharpe": 0.167,
+    "oos_sharpe": 0.234,
+    "maxdd": -0.662,
+    "trades": 88,
+    "tax": 12796
+  },
+  "EWJ:AND_SMA200_Mom12": {
+    "net": 288061,
+    "cagr": 3.55,
+    "sharpe": 0.339,
+    "oos_sharpe": 0.364,
+    "maxdd": -0.389,
+    "trades": 51,
+    "tax": 43482
+  },
+  "EWJ:OR_SMA200_Mom12": {
+    "net": 243422,
+    "cagr": 2.98,
+    "sharpe": 0.266,
+    "oos_sharpe": 0.33,
+    "maxdd": -0.42,
+    "trades": 52,
+    "tax": 33151
+  },
+  "EWJ:AND_MACD_RSI50": {
+    "net": 44218,
+    "cagr": -2.66,
+    "sharpe": -0.145,
+    "oos_sharpe": 0.043,
+    "maxdd": -0.651,
+    "trades": 423,
+    "tax": 803
+  },
+  "EWJ:AND_Donch_Vol": {
+    "net": 176958,
+    "cagr": 1.9,
+    "sharpe": 0.24,
+    "oos_sharpe": 0.208,
+    "maxdd": -0.299,
+    "trades": 80,
+    "tax": 19100
+  },
+  "EWJ:AND_SMA200_Vol": {
+    "net": 217475,
+    "cagr": 2.6,
+    "sharpe": 0.266,
+    "oos_sharpe": 0.264,
+    "maxdd": -0.324,
+    "trades": 52,
+    "tax": 27433
+  },
+  "EWJ:ENS_2of3": {
+    "net": 273381,
+    "cagr": 3.37,
+    "sharpe": 0.309,
+    "oos_sharpe": 0.45,
+    "maxdd": -0.434,
+    "trades": 117,
+    "tax": 40943
+  },
+  "EWJ:ENS_3of3": {
+    "net": 83875,
+    "cagr": -0.58,
+    "sharpe": -0.026,
+    "oos_sharpe": -0.181,
+    "maxdd": -0.492,
+    "trades": 191,
+    "tax": 7625
+  },
+  "EEM:SMAx_10_50": {
+    "net": 293773,
+    "cagr": 4.74,
+    "sharpe": 0.364,
+    "oos_sharpe": 0.229,
+    "maxdd": -0.461,
+    "trades": 73,
+    "tax": 62032
+  },
+  "EEM:SMAx_20_100": {
+    "net": 456316,
+    "cagr": 6.75,
+    "sharpe": 0.475,
+    "oos_sharpe": 0.43,
+    "maxdd": -0.395,
+    "trades": 32,
+    "tax": 81588
+  },
+  "EEM:SMAx_50_200": {
+    "net": 284875,
+    "cagr": 4.61,
+    "sharpe": 0.34,
+    "oos_sharpe": 0.34,
+    "maxdd": -0.481,
+    "trades": 18,
+    "tax": 42220
+  },
+  "EEM:SMAx_100_300": {
+    "net": 404689,
+    "cagr": 6.2,
+    "sharpe": 0.416,
+    "oos_sharpe": 0.452,
+    "maxdd": -0.455,
+    "trades": 11,
+    "tax": 69249
+  },
+  "EEM:EMAx_12_26": {
+    "net": 316797,
+    "cagr": 5.09,
+    "sharpe": 0.384,
+    "oos_sharpe": 0.228,
+    "maxdd": -0.403,
+    "trades": 93,
+    "tax": 55416
+  },
+  "EEM:EMAx_20_100": {
+    "net": 601779,
+    "cagr": 8.03,
+    "sharpe": 0.534,
+    "oos_sharpe": 0.409,
+    "maxdd": -0.352,
+    "trades": 30,
+    "tax": 114827
+  },
+  "EEM:EMAx_50_200": {
+    "net": 486543,
+    "cagr": 7.04,
+    "sharpe": 0.457,
+    "oos_sharpe": 0.273,
+    "maxdd": -0.526,
+    "trades": 16,
+    "tax": 88100
+  },
+  "EEM:MACD_12_26_9": {
+    "net": 122476,
+    "cagr": 0.88,
+    "sharpe": 0.137,
+    "oos_sharpe": 0.233,
+    "maxdd": -0.585,
+    "trades": 239,
+    "tax": 14329
+  },
+  "EEM:Donch_55_20": {
+    "net": 238590,
+    "cagr": 3.81,
+    "sharpe": 0.357,
+    "oos_sharpe": 0.349,
+    "maxdd": -0.303,
+    "trades": 64,
+    "tax": 32631
+  },
+  "EEM:Donch_100_50": {
+    "net": 206924,
+    "cagr": 3.18,
+    "sharpe": 0.288,
+    "oos_sharpe": 0.22,
+    "maxdd": -0.378,
+    "trades": 29,
+    "tax": 24739
+  },
+  "EEM:RSIrev_30_55": {
+    "net": 131071,
+    "cagr": 1.17,
+    "sharpe": 0.153,
+    "oos_sharpe": 0.156,
+    "maxdd": -0.558,
+    "trades": 65,
+    "tax": 7777
+  },
+  "EEM:RSIrev_25_50": {
+    "net": 157100,
+    "cagr": 1.96,
+    "sharpe": 0.203,
+    "oos_sharpe": 0.262,
+    "maxdd": -0.36,
+    "trades": 47,
+    "tax": 13599
+  },
+  "EEM:RSItrend_50": {
+    "net": 187925,
+    "cagr": 2.75,
+    "sharpe": 0.246,
+    "oos_sharpe": 0.04,
+    "maxdd": -0.528,
+    "trades": 354,
+    "tax": 38785
+  },
+  "EEM:BBrev_20_2": {
+    "net": 96591,
+    "cagr": -0.15,
+    "sharpe": 0.078,
+    "oos_sharpe": 0.212,
+    "maxdd": -0.545,
+    "trades": 94,
+    "tax": 1774
+  },
+  "EEM:BBbrk_20_2": {
+    "net": 108593,
+    "cagr": 0.36,
+    "sharpe": 0.088,
+    "oos_sharpe": 0.101,
+    "maxdd": -0.506,
+    "trades": 97,
+    "tax": 13997
+  },
+  "EEM:TSmom_126": {
+    "net": 209321,
+    "cagr": 3.23,
+    "sharpe": 0.273,
+    "oos_sharpe": 0.397,
+    "maxdd": -0.57,
+    "trades": 115,
+    "tax": 26497
+  },
+  "EEM:TSmom_252": {
+    "net": 363283,
+    "cagr": 5.71,
+    "sharpe": 0.403,
+    "oos_sharpe": 0.507,
+    "maxdd": -0.46,
+    "trades": 71,
+    "tax": 61251
+  },
+  "EEM:VolFilter_p80": {
+    "net": 179983,
+    "cagr": 2.56,
+    "sharpe": 0.232,
+    "oos_sharpe": 0.018,
+    "maxdd": -0.507,
+    "trades": 54,
+    "tax": 24238
+  },
+  "EEM:AND_SMA200_Mom12": {
+    "net": 316139,
+    "cagr": 5.08,
+    "sharpe": 0.389,
+    "oos_sharpe": 0.515,
+    "maxdd": -0.394,
+    "trades": 51,
+    "tax": 50025
+  },
+  "EEM:OR_SMA200_Mom12": {
+    "net": 326684,
+    "cagr": 5.22,
+    "sharpe": 0.359,
+    "oos_sharpe": 0.352,
+    "maxdd": -0.519,
+    "trades": 38,
+    "tax": 52209
+  },
+  "EEM:AND_MACD_RSI50": {
+    "net": 101113,
+    "cagr": 0.05,
+    "sharpe": 0.077,
+    "oos_sharpe": 0.003,
+    "maxdd": -0.428,
+    "trades": 296,
+    "tax": 9603
+  },
+  "EEM:AND_Donch_Vol": {
+    "net": 194081,
+    "cagr": 2.89,
+    "sharpe": 0.316,
+    "oos_sharpe": 0.253,
+    "maxdd": -0.265,
+    "trades": 64,
+    "tax": 22832
+  },
+  "EEM:AND_SMA200_Vol": {
+    "net": 200655,
+    "cagr": 3.04,
+    "sharpe": 0.285,
+    "oos_sharpe": 0.258,
+    "maxdd": -0.523,
+    "trades": 40,
+    "tax": 23514
+  },
+  "EEM:ENS_2of3": {
+    "net": 265786,
+    "cagr": 4.29,
+    "sharpe": 0.33,
+    "oos_sharpe": 0.514,
+    "maxdd": -0.518,
+    "trades": 102,
+    "tax": 39297
+  },
+  "EEM:ENS_3of3": {
+    "net": 121423,
+    "cagr": 0.84,
+    "sharpe": 0.133,
+    "oos_sharpe": 0.044,
+    "maxdd": -0.286,
+    "trades": 148,
+    "tax": 9441
+  },
+  "XLK:SMAx_10_50": {
+    "net": 299107,
+    "cagr": 4.22,
+    "sharpe": 0.345,
+    "oos_sharpe": 0.582,
+    "maxdd": -0.514,
+    "trades": 82,
+    "tax": 46205
+  },
+  "XLK:SMAx_20_100": {
+    "net": 200514,
+    "cagr": 2.66,
+    "sharpe": 0.248,
+    "oos_sharpe": 0.394,
+    "maxdd": -0.518,
+    "trades": 37,
+    "tax": 40935
+  },
+  "XLK:SMAx_50_200": {
+    "net": 304777,
+    "cagr": 4.29,
+    "sharpe": 0.333,
+    "oos_sharpe": 0.412,
+    "maxdd": -0.561,
+    "trades": 15,
+    "tax": 97887
+  },
+  "XLK:SMAx_100_300": {
+    "net": 294240,
+    "cagr": 4.15,
+    "sharpe": 0.318,
+    "oos_sharpe": 0.425,
+    "maxdd": -0.542,
+    "trades": 12,
+    "tax": 97443
+  },
+  "XLK:EMAx_12_26": {
+    "net": 228099,
+    "cagr": 3.16,
+    "sharpe": 0.28,
+    "oos_sharpe": 0.64,
+    "maxdd": -0.484,
+    "trades": 109,
+    "tax": 30125
+  },
+  "XLK:EMAx_20_100": {
+    "net": 199234,
+    "cagr": 2.63,
+    "sharpe": 0.247,
+    "oos_sharpe": 0.393,
+    "maxdd": -0.531,
+    "trades": 35,
+    "tax": 50485
+  },
+  "XLK:EMAx_50_200": {
+    "net": 314623,
+    "cagr": 4.42,
+    "sharpe": 0.333,
+    "oos_sharpe": 0.439,
+    "maxdd": -0.532,
+    "trades": 13,
+    "tax": 94051
+  },
+  "XLK:MACD_12_26_9": {
+    "net": 49220,
+    "cagr": -2.64,
+    "sharpe": -0.032,
+    "oos_sharpe": 0.32,
+    "maxdd": -0.758,
+    "trades": 274,
+    "tax": 27
+  },
+  "XLK:Donch_55_20": {
+    "net": 249155,
+    "cagr": 3.5,
+    "sharpe": 0.348,
+    "oos_sharpe": 0.515,
+    "maxdd": -0.407,
+    "trades": 71,
+    "tax": 34709
+  },
+  "XLK:Donch_100_50": {
+    "net": 188988,
+    "cagr": 2.43,
+    "sharpe": 0.246,
+    "oos_sharpe": 0.285,
+    "maxdd": -0.521,
+    "trades": 31,
+    "tax": 48759
+  },
+  "XLK:RSIrev_30_55": {
+    "net": 84783,
+    "cagr": -0.62,
+    "sharpe": 0.084,
+    "oos_sharpe": 0.226,
+    "maxdd": -0.622,
+    "trades": 85,
+    "tax": 13098
+  },
+  "XLK:RSIrev_25_50": {
+    "net": 54026,
+    "cagr": -2.3,
+    "sharpe": -0.031,
+    "oos_sharpe": 0.107,
+    "maxdd": -0.587,
+    "trades": 54,
+    "tax": 1456
+  },
+  "XLK:RSItrend_50": {
+    "net": 284304,
+    "cagr": 4.02,
+    "sharpe": 0.333,
+    "oos_sharpe": 0.5,
+    "maxdd": -0.49,
+    "trades": 390,
+    "tax": 50960
+  },
+  "XLK:BBrev_20_2": {
+    "net": 202859,
+    "cagr": 2.7,
+    "sharpe": 0.242,
+    "oos_sharpe": 0.54,
+    "maxdd": -0.491,
+    "trades": 114,
+    "tax": 24720
+  },
+  "XLK:BBbrk_20_2": {
+    "net": 123144,
+    "cagr": 0.79,
+    "sharpe": 0.127,
+    "oos_sharpe": 0.485,
+    "maxdd": -0.439,
+    "trades": 120,
+    "tax": 6287
+  },
+  "XLK:TSmom_126": {
+    "net": 245442,
+    "cagr": 3.44,
+    "sharpe": 0.291,
+    "oos_sharpe": 0.405,
+    "maxdd": -0.535,
+    "trades": 101,
+    "tax": 80996
+  },
+  "XLK:TSmom_252": {
+    "net": 312348,
+    "cagr": 4.39,
+    "sharpe": 0.334,
+    "oos_sharpe": 0.394,
+    "maxdd": -0.518,
+    "trades": 60,
+    "tax": 84689
+  },
+  "XLK:VolFilter_p80": {
+    "net": 150941,
+    "cagr": 1.57,
+    "sharpe": 0.191,
+    "oos_sharpe": 0.382,
+    "maxdd": -0.737,
+    "trades": 66,
+    "tax": 33987
+  },
+  "XLK:AND_SMA200_Mom12": {
+    "net": 211582,
+    "cagr": 2.87,
+    "sharpe": 0.262,
+    "oos_sharpe": 0.343,
+    "maxdd": -0.526,
+    "trades": 38,
+    "tax": 60698
+  },
+  "XLK:OR_SMA200_Mom12": {
+    "net": 458064,
+    "cagr": 5.91,
+    "sharpe": 0.403,
+    "oos_sharpe": 0.455,
+    "maxdd": -0.542,
+    "trades": 37,
+    "tax": 135313
+  },
+  "XLK:AND_MACD_RSI50": {
+    "net": 144693,
+    "cagr": 1.4,
+    "sharpe": 0.171,
+    "oos_sharpe": 0.551,
+    "maxdd": -0.509,
+    "trades": 337,
+    "tax": 13318
+  },
+  "XLK:AND_Donch_Vol": {
+    "net": 315830,
+    "cagr": 4.43,
+    "sharpe": 0.445,
+    "oos_sharpe": 0.526,
+    "maxdd": -0.197,
+    "trades": 75,
+    "tax": 50197
+  },
+  "XLK:AND_SMA200_Vol": {
+    "net": 255471,
+    "cagr": 3.6,
+    "sharpe": 0.316,
+    "oos_sharpe": 0.347,
+    "maxdd": -0.527,
+    "trades": 44,
+    "tax": 79903
+  },
+  "XLK:ENS_2of3": {
+    "net": 255923,
+    "cagr": 3.61,
+    "sharpe": 0.297,
+    "oos_sharpe": 0.412,
+    "maxdd": -0.519,
+    "trades": 81,
+    "tax": 78217
+  },
+  "XLK:ENS_3of3": {
+    "net": 66403,
+    "cagr": -1.53,
+    "sharpe": -0.032,
+    "oos_sharpe": 0.026,
+    "maxdd": -0.581,
+    "trades": 187,
+    "tax": 13596
+  },
+  "XLF:SMAx_10_50": {
+    "net": 141994,
+    "cagr": 1.33,
+    "sharpe": 0.163,
+    "oos_sharpe": 0.046,
+    "maxdd": -0.415,
+    "trades": 89,
+    "tax": 13243
+  },
+  "XLF:SMAx_20_100": {
+    "net": 228572,
+    "cagr": 3.17,
+    "sharpe": 0.28,
+    "oos_sharpe": 0.28,
+    "maxdd": -0.398,
+    "trades": 40,
+    "tax": 30032
+  },
+  "XLF:SMAx_50_200": {
+    "net": 153838,
+    "cagr": 1.64,
+    "sharpe": 0.183,
+    "oos_sharpe": 0.187,
+    "maxdd": -0.547,
+    "trades": 17,
+    "tax": 12394
+  },
+  "XLF:SMAx_100_300": {
+    "net": 137344,
+    "cagr": 1.2,
+    "sharpe": 0.156,
+    "oos_sharpe": 0.271,
+    "maxdd": -0.496,
+    "trades": 11,
+    "tax": 8574
+  },
+  "XLF:EMAx_12_26": {
+    "net": 102517,
+    "cagr": 0.09,
+    "sharpe": 0.086,
+    "oos_sharpe": 0.036,
+    "maxdd": -0.463,
+    "trades": 125,
+    "tax": 3425
+  },
+  "XLF:EMAx_20_100": {
+    "net": 201487,
+    "cagr": 2.68,
+    "sharpe": 0.25,
+    "oos_sharpe": 0.251,
+    "maxdd": -0.396,
+    "trades": 44,
+    "tax": 23601
+  },
+  "XLF:EMAx_50_200": {
+    "net": 149667,
+    "cagr": 1.53,
+    "sharpe": 0.176,
+    "oos_sharpe": 0.154,
+    "maxdd": -0.512,
+    "trades": 18,
+    "tax": 12686
+  },
+  "XLF:MACD_12_26_9": {
+    "net": 84881,
+    "cagr": -0.62,
+    "sharpe": 0.057,
+    "oos_sharpe": 0.413,
+    "maxdd": -0.662,
+    "trades": 281,
+    "tax": 2092
+  },
+  "XLF:Donch_55_20": {
+    "net": 42667,
+    "cagr": -3.16,
+    "sharpe": -0.208,
+    "oos_sharpe": -0.268,
+    "maxdd": -0.649,
+    "trades": 85,
+    "tax": 0
+  },
+  "XLF:Donch_100_50": {
+    "net": 98138,
+    "cagr": -0.07,
+    "sharpe": 0.059,
+    "oos_sharpe": -0.057,
+    "maxdd": -0.529,
+    "trades": 35,
+    "tax": 8276
+  },
+  "XLF:RSIrev_30_55": {
+    "net": 401322,
+    "cagr": 5.38,
+    "sharpe": 0.375,
+    "oos_sharpe": 0.537,
+    "maxdd": -0.39,
+    "trades": 90,
+    "tax": 70335
+  },
+  "XLF:RSIrev_25_50": {
+    "net": 227595,
+    "cagr": 3.15,
+    "sharpe": 0.275,
+    "oos_sharpe": 0.157,
+    "maxdd": -0.368,
+    "trades": 59,
+    "tax": 31656
+  },
+  "XLF:RSItrend_50": {
+    "net": 74212,
+    "cagr": -1.12,
+    "sharpe": 0.019,
+    "oos_sharpe": 0.291,
+    "maxdd": -0.708,
+    "trades": 420,
+    "tax": 41
+  },
+  "XLF:BBrev_20_2": {
+    "net": 204998,
+    "cagr": 2.74,
+    "sharpe": 0.237,
+    "oos_sharpe": 0.39,
+    "maxdd": -0.473,
+    "trades": 119,
+    "tax": 27679
+  },
+  "XLF:BBbrk_20_2": {
+    "net": 103504,
+    "cagr": 0.13,
+    "sharpe": 0.07,
+    "oos_sharpe": 0.071,
+    "maxdd": -0.386,
+    "trades": 115,
+    "tax": 4902
+  },
+  "XLF:TSmom_126": {
+    "net": 195213,
+    "cagr": 2.56,
+    "sharpe": 0.249,
+    "oos_sharpe": 0.264,
+    "maxdd": -0.386,
+    "trades": 118,
+    "tax": 26677
+  },
+  "XLF:TSmom_252": {
+    "net": 128186,
+    "cagr": 0.94,
+    "sharpe": 0.138,
+    "oos_sharpe": 0.123,
+    "maxdd": -0.534,
+    "trades": 87,
+    "tax": 9388
+  },
+  "XLF:VolFilter_p80": {
+    "net": 178318,
+    "cagr": 2.21,
+    "sharpe": 0.212,
+    "oos_sharpe": 0.267,
+    "maxdd": -0.525,
+    "trades": 54,
+    "tax": 20001
+  },
+  "XLF:AND_SMA200_Mom12": {
+    "net": 105808,
+    "cagr": 0.21,
+    "sharpe": 0.082,
+    "oos_sharpe": 0.113,
+    "maxdd": -0.514,
+    "trades": 55,
+    "tax": 4176
+  },
+  "XLF:OR_SMA200_Mom12": {
+    "net": 185955,
+    "cagr": 2.37,
+    "sharpe": 0.225,
+    "oos_sharpe": 0.192,
+    "maxdd": -0.569,
+    "trades": 47,
+    "tax": 20152
+  },
+  "XLF:AND_MACD_RSI50": {
+    "net": 53852,
+    "cagr": -2.31,
+    "sharpe": -0.076,
+    "oos_sharpe": 0.385,
+    "maxdd": -0.74,
+    "trades": 337,
+    "tax": 2286
+  },
+  "XLF:AND_Donch_Vol": {
+    "net": 54217,
+    "cagr": -2.28,
+    "sharpe": -0.189,
+    "oos_sharpe": -0.293,
+    "maxdd": -0.529,
+    "trades": 84,
+    "tax": 0
+  },
+  "XLF:AND_SMA200_Vol": {
+    "net": 144705,
+    "cagr": 1.4,
+    "sharpe": 0.172,
+    "oos_sharpe": 0.159,
+    "maxdd": -0.419,
+    "trades": 44,
+    "tax": 15530
+  },
+  "XLF:ENS_2of3": {
+    "net": 130926,
+    "cagr": 1.02,
+    "sharpe": 0.144,
+    "oos_sharpe": 0.307,
+    "maxdd": -0.465,
+    "trades": 104,
+    "tax": 8445
+  },
+  "XLF:ENS_3of3": {
+    "net": 73842,
+    "cagr": -1.14,
+    "sharpe": -0.122,
+    "oos_sharpe": -0.138,
+    "maxdd": -0.308,
+    "trades": 177,
+    "tax": 1742
+  },
+  "XLE:SMAx_10_50": {
+    "net": 53956,
+    "cagr": -2.3,
+    "sharpe": 0.003,
+    "oos_sharpe": -0.219,
+    "maxdd": -0.787,
+    "trades": 92,
+    "tax": 20487
+  },
+  "XLE:SMAx_20_100": {
+    "net": 51422,
+    "cagr": -2.48,
+    "sharpe": -0.008,
+    "oos_sharpe": -0.182,
+    "maxdd": -0.773,
+    "trades": 47,
+    "tax": 16622
+  },
+  "XLE:SMAx_50_200": {
+    "net": 140971,
+    "cagr": 1.3,
+    "sharpe": 0.18,
+    "oos_sharpe": 0.021,
+    "maxdd": -0.747,
+    "trades": 19,
+    "tax": 72511
+  },
+  "XLE:SMAx_100_300": {
+    "net": 165210,
+    "cagr": 1.91,
+    "sharpe": 0.195,
+    "oos_sharpe": 0.028,
+    "maxdd": -0.653,
+    "trades": 12,
+    "tax": 25441
+  },
+  "XLE:EMAx_12_26": {
+    "net": 34695,
+    "cagr": -3.91,
+    "sharpe": -0.081,
+    "oos_sharpe": -0.22,
+    "maxdd": -0.802,
+    "trades": 120,
+    "tax": 8802
+  },
+  "XLE:EMAx_20_100": {
+    "net": 50540,
+    "cagr": -2.54,
+    "sharpe": -0.01,
+    "oos_sharpe": -0.172,
+    "maxdd": -0.82,
+    "trades": 51,
+    "tax": 24551
+  },
+  "XLE:EMAx_50_200": {
+    "net": 147761,
+    "cagr": 1.48,
+    "sharpe": 0.188,
+    "oos_sharpe": -0.086,
+    "maxdd": -0.735,
+    "trades": 20,
+    "tax": 77617
+  },
+  "XLE:MACD_12_26_9": {
+    "net": 57371,
+    "cagr": -2.07,
+    "sharpe": 0.025,
+    "oos_sharpe": -0.031,
+    "maxdd": -0.687,
+    "trades": 268,
+    "tax": 13336
+  },
+  "XLE:Donch_55_20": {
+    "net": 49043,
+    "cagr": -2.65,
+    "sharpe": -0.059,
+    "oos_sharpe": -0.141,
+    "maxdd": -0.691,
+    "trades": 71,
+    "tax": 8871
+  },
+  "XLE:Donch_100_50": {
+    "net": 45653,
+    "cagr": -2.91,
+    "sharpe": -0.069,
+    "oos_sharpe": -0.084,
+    "maxdd": -0.653,
+    "trades": 35,
+    "tax": 2944
+  },
+  "XLE:RSIrev_30_55": {
+    "net": 189766,
+    "cagr": 2.45,
+    "sharpe": 0.225,
+    "oos_sharpe": 0.163,
+    "maxdd": -0.677,
+    "trades": 99,
+    "tax": 21849
+  },
+  "XLE:RSIrev_25_50": {
+    "net": 142473,
+    "cagr": 1.34,
+    "sharpe": 0.165,
+    "oos_sharpe": 0.007,
+    "maxdd": -0.509,
+    "trades": 60,
+    "tax": 16534
+  },
+  "XLE:RSItrend_50": {
+    "net": 61800,
+    "cagr": -1.8,
+    "sharpe": 0.031,
+    "oos_sharpe": -0.015,
+    "maxdd": -0.712,
+    "trades": 398,
+    "tax": 18553
+  },
+  "XLE:BBrev_20_2": {
+    "net": 288345,
+    "cagr": 4.08,
+    "sharpe": 0.313,
+    "oos_sharpe": 0.257,
+    "maxdd": -0.601,
+    "trades": 122,
+    "tax": 45072
+  },
+  "XLE:BBbrk_20_2": {
+    "net": 82956,
+    "cagr": -0.7,
+    "sharpe": 0.002,
+    "oos_sharpe": 0.019,
+    "maxdd": -0.487,
+    "trades": 106,
+    "tax": 6624
+  },
+  "XLE:TSmom_126": {
+    "net": 46868,
+    "cagr": -2.82,
+    "sharpe": -0.026,
+    "oos_sharpe": -0.243,
+    "maxdd": -0.772,
+    "trades": 131,
+    "tax": 14045
+  },
+  "XLE:TSmom_252": {
+    "net": 221299,
+    "cagr": 3.04,
+    "sharpe": 0.256,
+    "oos_sharpe": 0.023,
+    "maxdd": -0.523,
+    "trades": 78,
+    "tax": 43803
+  },
+  "XLE:VolFilter_p80": {
+    "net": 126154,
+    "cagr": 0.88,
+    "sharpe": 0.162,
+    "oos_sharpe": 0.078,
+    "maxdd": -0.619,
+    "trades": 77,
+    "tax": 29469
+  },
+  "XLE:AND_SMA200_Mom12": {
+    "net": 186408,
+    "cagr": 2.38,
+    "sharpe": 0.224,
+    "oos_sharpe": 0.025,
+    "maxdd": -0.424,
+    "trades": 46,
+    "tax": 36865
+  },
+  "XLE:OR_SMA200_Mom12": {
+    "net": 170534,
+    "cagr": 2.03,
+    "sharpe": 0.214,
+    "oos_sharpe": 0.021,
+    "maxdd": -0.705,
+    "trades": 49,
+    "tax": 84626
+  },
+  "XLE:AND_MACD_RSI50": {
+    "net": 57894,
+    "cagr": -2.04,
+    "sharpe": 0.004,
+    "oos_sharpe": -0.019,
+    "maxdd": -0.695,
+    "trades": 341,
+    "tax": 16075
+  },
+  "XLE:AND_Donch_Vol": {
+    "net": 40702,
+    "cagr": -3.33,
+    "sharpe": -0.121,
+    "oos_sharpe": -0.227,
+    "maxdd": -0.736,
+    "trades": 78,
+    "tax": 8155
+  },
+  "XLE:AND_SMA200_Vol": {
+    "net": 78489,
+    "cagr": -0.91,
+    "sharpe": 0.061,
+    "oos_sharpe": -0.071,
+    "maxdd": -0.767,
+    "trades": 51,
+    "tax": 42898
+  },
+  "XLE:ENS_2of3": {
+    "net": 65678,
+    "cagr": -1.57,
+    "sharpe": 0.042,
+    "oos_sharpe": -0.215,
+    "maxdd": -0.751,
+    "trades": 102,
+    "tax": 30110
+  },
+  "XLE:ENS_3of3": {
+    "net": 149168,
+    "cagr": 1.52,
+    "sharpe": 0.195,
+    "oos_sharpe": 0.052,
+    "maxdd": -0.345,
+    "trades": 147,
+    "tax": 28097
+  },
+  "XLV:SMAx_10_50": {
+    "net": 155658,
+    "cagr": 1.68,
+    "sharpe": 0.205,
+    "oos_sharpe": 0.25,
+    "maxdd": -0.285,
+    "trades": 87,
+    "tax": 13643
+  },
+  "XLV:SMAx_20_100": {
+    "net": 146367,
+    "cagr": 1.45,
+    "sharpe": 0.182,
+    "oos_sharpe": 0.315,
+    "maxdd": -0.414,
+    "trades": 42,
+    "tax": 14348
+  },
+  "XLV:SMAx_50_200": {
+    "net": 135666,
+    "cagr": 1.16,
+    "sharpe": 0.155,
+    "oos_sharpe": 0.21,
+    "maxdd": -0.405,
+    "trades": 23,
+    "tax": 19215
+  },
+  "XLV:SMAx_100_300": {
+    "net": 179236,
+    "cagr": 2.23,
+    "sharpe": 0.23,
+    "oos_sharpe": 0.489,
+    "maxdd": -0.471,
+    "trades": 14,
+    "tax": 18104
+  },
+  "XLV:EMAx_12_26": {
+    "net": 135658,
+    "cagr": 1.16,
+    "sharpe": 0.16,
+    "oos_sharpe": 0.268,
+    "maxdd": -0.33,
+    "trades": 117,
+    "tax": 9342
+  },
+  "XLV:EMAx_20_100": {
+    "net": 163186,
+    "cagr": 1.86,
+    "sharpe": 0.218,
+    "oos_sharpe": 0.392,
+    "maxdd": -0.421,
+    "trades": 47,
+    "tax": 16425
+  },
+  "XLV:EMAx_50_200": {
+    "net": 119298,
+    "cagr": 0.67,
+    "sharpe": 0.116,
+    "oos_sharpe": 0.123,
+    "maxdd": -0.426,
+    "trades": 25,
+    "tax": 14001
+  },
+  "XLV:MACD_12_26_9": {
+    "net": 148712,
+    "cagr": 1.51,
+    "sharpe": 0.192,
+    "oos_sharpe": 0.27,
+    "maxdd": -0.33,
+    "trades": 261,
+    "tax": 19342
+  },
+  "XLV:Donch_55_20": {
+    "net": 107751,
+    "cagr": 0.28,
+    "sharpe": 0.075,
+    "oos_sharpe": 0.06,
+    "maxdd": -0.325,
+    "trades": 79,
+    "tax": 3286
+  },
+  "XLV:Donch_100_50": {
+    "net": 120442,
+    "cagr": 0.7,
+    "sharpe": 0.123,
+    "oos_sharpe": 0.175,
+    "maxdd": -0.363,
+    "trades": 37,
+    "tax": 11092
+  },
+  "XLV:RSIrev_30_55": {
+    "net": 219677,
+    "cagr": 3.01,
+    "sharpe": 0.317,
+    "oos_sharpe": 0.566,
+    "maxdd": -0.369,
+    "trades": 91,
+    "tax": 30208
+  },
+  "XLV:RSIrev_25_50": {
+    "net": 212013,
+    "cagr": 2.88,
+    "sharpe": 0.344,
+    "oos_sharpe": 0.481,
+    "maxdd": -0.254,
+    "trades": 62,
+    "tax": 26390
+  },
+  "XLV:RSItrend_50": {
+    "net": 89282,
+    "cagr": -0.43,
+    "sharpe": 0.016,
+    "oos_sharpe": 0.004,
+    "maxdd": -0.328,
+    "trades": 413,
+    "tax": 6210
+  },
+  "XLV:BBrev_20_2": {
+    "net": 170546,
+    "cagr": 2.03,
+    "sharpe": 0.235,
+    "oos_sharpe": 0.542,
+    "maxdd": -0.366,
+    "trades": 111,
+    "tax": 17490
+  },
+  "XLV:BBbrk_20_2": {
+    "net": 94523,
+    "cagr": -0.21,
+    "sharpe": 0.004,
+    "oos_sharpe": -0.127,
+    "maxdd": -0.202,
+    "trades": 110,
+    "tax": 3341
+  },
+  "XLV:TSmom_126": {
+    "net": 87415,
+    "cagr": -0.51,
+    "sharpe": 0.012,
+    "oos_sharpe": 0.216,
+    "maxdd": -0.507,
+    "trades": 146,
+    "tax": 3316
+  },
+  "XLV:TSmom_252": {
+    "net": 167814,
+    "cagr": 1.97,
+    "sharpe": 0.219,
+    "oos_sharpe": 0.282,
+    "maxdd": -0.365,
+    "trades": 115,
+    "tax": 21998
+  },
+  "XLV:VolFilter_p80": {
+    "net": 338182,
+    "cagr": 4.7,
+    "sharpe": 0.433,
+    "oos_sharpe": 0.523,
+    "maxdd": -0.291,
+    "trades": 90,
+    "tax": 55891
+  },
+  "XLV:AND_SMA200_Mom12": {
+    "net": 112135,
+    "cagr": 0.43,
+    "sharpe": 0.094,
+    "oos_sharpe": 0.056,
+    "maxdd": -0.421,
+    "trades": 68,
+    "tax": 15751
+  },
+  "XLV:OR_SMA200_Mom12": {
+    "net": 204493,
+    "cagr": 2.74,
+    "sharpe": 0.263,
+    "oos_sharpe": 0.407,
+    "maxdd": -0.464,
+    "trades": 68,
+    "tax": 26363
+  },
+  "XLV:AND_MACD_RSI50": {
+    "net": 123746,
+    "cagr": 0.81,
+    "sharpe": 0.132,
+    "oos_sharpe": 0.22,
+    "maxdd": -0.286,
+    "trades": 322,
+    "tax": 12378
+  },
+  "XLV:AND_Donch_Vol": {
+    "net": 124340,
+    "cagr": 0.83,
+    "sharpe": 0.147,
+    "oos_sharpe": 0.003,
+    "maxdd": -0.256,
+    "trades": 87,
+    "tax": 8205
+  },
+  "XLV:AND_SMA200_Vol": {
+    "net": 128816,
+    "cagr": 0.96,
+    "sharpe": 0.146,
+    "oos_sharpe": 0.241,
+    "maxdd": -0.324,
+    "trades": 67,
+    "tax": 13804
+  },
+  "XLV:ENS_2of3": {
+    "net": 138182,
+    "cagr": 1.23,
+    "sharpe": 0.162,
+    "oos_sharpe": 0.225,
+    "maxdd": -0.335,
+    "trades": 134,
+    "tax": 15587
+  },
+  "XLV:ENS_3of3": {
+    "net": 96223,
+    "cagr": -0.15,
+    "sharpe": 0.01,
+    "oos_sharpe": -0.112,
+    "maxdd": -0.313,
+    "trades": 176,
+    "tax": 9041
+  },
+  "XLI:SMAx_10_50": {
+    "net": 254239,
+    "cagr": 3.58,
+    "sharpe": 0.334,
+    "oos_sharpe": 0.329,
+    "maxdd": -0.282,
+    "trades": 89,
+    "tax": 36384
+  },
+  "XLI:SMAx_20_100": {
+    "net": 193657,
+    "cagr": 2.52,
+    "sharpe": 0.255,
+    "oos_sharpe": 0.256,
+    "maxdd": -0.38,
+    "trades": 49,
+    "tax": 21912
+  },
+  "XLI:SMAx_50_200": {
+    "net": 275997,
+    "cagr": 3.9,
+    "sharpe": 0.338,
+    "oos_sharpe": 0.342,
+    "maxdd": -0.502,
+    "trades": 17,
+    "tax": 40142
+  },
+  "XLI:SMAx_100_300": {
+    "net": 391828,
+    "cagr": 5.29,
+    "sharpe": 0.417,
+    "oos_sharpe": 0.44,
+    "maxdd": -0.475,
+    "trades": 9,
+    "tax": 66243
+  },
+  "XLI:EMAx_12_26": {
+    "net": 181564,
+    "cagr": 2.28,
+    "sharpe": 0.239,
+    "oos_sharpe": 0.292,
+    "maxdd": -0.315,
+    "trades": 115,
+    "tax": 20004
+  },
+  "XLI:EMAx_20_100": {
+    "net": 216892,
+    "cagr": 2.96,
+    "sharpe": 0.284,
+    "oos_sharpe": 0.451,
+    "maxdd": -0.316,
+    "trades": 47,
+    "tax": 27096
+  },
+  "XLI:EMAx_50_200": {
+    "net": 302286,
+    "cagr": 4.26,
+    "sharpe": 0.36,
+    "oos_sharpe": 0.447,
+    "maxdd": -0.339,
+    "trades": 17,
+    "tax": 46088
+  },
+  "XLI:MACD_12_26_9": {
+    "net": 188134,
+    "cagr": 2.41,
+    "sharpe": 0.245,
+    "oos_sharpe": 0.551,
+    "maxdd": -0.372,
+    "trades": 264,
+    "tax": 23263
+  },
+  "XLI:Donch_55_20": {
+    "net": 66492,
+    "cagr": -1.53,
+    "sharpe": -0.106,
+    "oos_sharpe": -0.183,
+    "maxdd": -0.461,
+    "trades": 87,
+    "tax": 0
+  },
+  "XLI:Donch_100_50": {
+    "net": 104700,
+    "cagr": 0.17,
+    "sharpe": 0.07,
+    "oos_sharpe": 0.117,
+    "maxdd": -0.327,
+    "trades": 41,
+    "tax": 2772
+  },
+  "XLI:RSIrev_30_55": {
+    "net": 179754,
+    "cagr": 2.24,
+    "sharpe": 0.229,
+    "oos_sharpe": 0.495,
+    "maxdd": -0.478,
+    "trades": 89,
+    "tax": 19177
+  },
+  "XLI:RSIrev_25_50": {
+    "net": 148669,
+    "cagr": 1.51,
+    "sharpe": 0.184,
+    "oos_sharpe": 0.278,
+    "maxdd": -0.365,
+    "trades": 67,
+    "tax": 11882
+  },
+  "XLI:RSItrend_50": {
+    "net": 102120,
+    "cagr": 0.08,
+    "sharpe": 0.072,
+    "oos_sharpe": 0.185,
+    "maxdd": -0.444,
+    "trades": 406,
+    "tax": 4435
+  },
+  "XLI:BBrev_20_2": {
+    "net": 181872,
+    "cagr": 2.28,
+    "sharpe": 0.234,
+    "oos_sharpe": 0.433,
+    "maxdd": -0.453,
+    "trades": 126,
+    "tax": 21087
+  },
+  "XLI:BBbrk_20_2": {
+    "net": 143690,
+    "cagr": 1.38,
+    "sharpe": 0.207,
+    "oos_sharpe": 0.47,
+    "maxdd": -0.282,
+    "trades": 107,
+    "tax": 11718
+  },
+  "XLI:TSmom_126": {
+    "net": 286401,
+    "cagr": 4.05,
+    "sharpe": 0.372,
+    "oos_sharpe": 0.535,
+    "maxdd": -0.34,
+    "trades": 119,
+    "tax": 44112
+  },
+  "XLI:TSmom_252": {
+    "net": 246693,
+    "cagr": 3.46,
+    "sharpe": 0.322,
+    "oos_sharpe": 0.432,
+    "maxdd": -0.365,
+    "trades": 82,
+    "tax": 34441
+  },
+  "XLI:VolFilter_p80": {
+    "net": 241733,
+    "cagr": 3.39,
+    "sharpe": 0.3,
+    "oos_sharpe": 0.335,
+    "maxdd": -0.549,
+    "trades": 60,
+    "tax": 38243
+  },
+  "XLI:AND_SMA200_Mom12": {
+    "net": 231387,
+    "cagr": 3.22,
+    "sharpe": 0.322,
+    "oos_sharpe": 0.331,
+    "maxdd": -0.38,
+    "trades": 51,
+    "tax": 30661
+  },
+  "XLI:OR_SMA200_Mom12": {
+    "net": 295566,
+    "cagr": 4.17,
+    "sharpe": 0.342,
+    "oos_sharpe": 0.427,
+    "maxdd": -0.453,
+    "trades": 46,
+    "tax": 44969
+  },
+  "XLI:AND_MACD_RSI50": {
+    "net": 118070,
+    "cagr": 0.63,
+    "sharpe": 0.112,
+    "oos_sharpe": 0.452,
+    "maxdd": -0.443,
+    "trades": 336,
+    "tax": 8448
+  },
+  "XLI:AND_Donch_Vol": {
+    "net": 64418,
+    "cagr": -1.65,
+    "sharpe": -0.146,
+    "oos_sharpe": -0.246,
+    "maxdd": -0.471,
+    "trades": 92,
+    "tax": 788
+  },
+  "XLI:AND_SMA200_Vol": {
+    "net": 220446,
+    "cagr": 3.03,
+    "sharpe": 0.308,
+    "oos_sharpe": 0.251,
+    "maxdd": -0.309,
+    "trades": 48,
+    "tax": 32866
+  },
+  "XLI:ENS_2of3": {
+    "net": 302485,
+    "cagr": 4.26,
+    "sharpe": 0.38,
+    "oos_sharpe": 0.468,
+    "maxdd": -0.313,
+    "trades": 99,
+    "tax": 47516
+  },
+  "XLI:ENS_3of3": {
+    "net": 93968,
+    "cagr": -0.23,
+    "sharpe": 0.007,
+    "oos_sharpe": 0.083,
+    "maxdd": -0.358,
+    "trades": 186,
+    "tax": 5596
+  },
+  "XLY:SMAx_10_50": {
+    "net": 263141,
+    "cagr": 3.72,
+    "sharpe": 0.328,
+    "oos_sharpe": 0.316,
+    "maxdd": -0.362,
+    "trades": 86,
+    "tax": 43596
+  },
+  "XLY:SMAx_20_100": {
+    "net": 152945,
+    "cagr": 1.62,
+    "sharpe": 0.194,
+    "oos_sharpe": 0.053,
+    "maxdd": -0.602,
+    "trades": 38,
+    "tax": 46925
+  },
+  "XLY:SMAx_50_200": {
+    "net": 124115,
+    "cagr": 0.82,
+    "sharpe": 0.15,
+    "oos_sharpe": 0.146,
+    "maxdd": -0.607,
+    "trades": 16,
+    "tax": 27880
+  },
+  "XLY:SMAx_100_300": {
+    "net": 214346,
+    "cagr": 2.92,
+    "sharpe": 0.26,
+    "oos_sharpe": 0.228,
+    "maxdd": -0.513,
+    "trades": 11,
+    "tax": 47031
+  },
+  "XLY:EMAx_12_26": {
+    "net": 250672,
+    "cagr": 3.53,
+    "sharpe": 0.317,
+    "oos_sharpe": 0.499,
+    "maxdd": -0.421,
+    "trades": 113,
+    "tax": 39452
+  },
+  "XLY:EMAx_20_100": {
+    "net": 207831,
+    "cagr": 2.8,
+    "sharpe": 0.262,
+    "oos_sharpe": 0.174,
+    "maxdd": -0.573,
+    "trades": 35,
+    "tax": 65294
+  },
+  "XLY:EMAx_50_200": {
+    "net": 159581,
+    "cagr": 1.78,
+    "sharpe": 0.202,
+    "oos_sharpe": 0.143,
+    "maxdd": -0.573,
+    "trades": 15,
+    "tax": 41246
+  },
+  "XLY:MACD_12_26_9": {
+    "net": 93562,
+    "cagr": -0.25,
+    "sharpe": 0.087,
+    "oos_sharpe": 0.165,
+    "maxdd": -0.604,
+    "trades": 270,
+    "tax": 29290
+  },
+  "XLY:Donch_55_20": {
+    "net": 154858,
+    "cagr": 1.66,
+    "sharpe": 0.209,
+    "oos_sharpe": 0.248,
+    "maxdd": -0.19,
+    "trades": 78,
+    "tax": 16901
+  },
+  "XLY:Donch_100_50": {
+    "net": 139395,
+    "cagr": 1.26,
+    "sharpe": 0.166,
+    "oos_sharpe": 0.226,
+    "maxdd": -0.251,
+    "trades": 37,
+    "tax": 9989
+  },
+  "XLY:RSIrev_30_55": {
+    "net": 104935,
+    "cagr": 0.18,
+    "sharpe": 0.112,
+    "oos_sharpe": 0.157,
+    "maxdd": -0.567,
+    "trades": 86,
+    "tax": 29331
+  },
+  "XLY:RSIrev_25_50": {
+    "net": 213894,
+    "cagr": 2.91,
+    "sharpe": 0.303,
+    "oos_sharpe": 0.32,
+    "maxdd": -0.277,
+    "trades": 54,
+    "tax": 27781
+  },
+  "XLY:RSItrend_50": {
+    "net": 68608,
+    "cagr": -1.41,
+    "sharpe": 0.016,
+    "oos_sharpe": 0.044,
+    "maxdd": -0.592,
+    "trades": 406,
+    "tax": 15344
+  },
+  "XLY:BBrev_20_2": {
+    "net": 318945,
+    "cagr": 4.47,
+    "sharpe": 0.384,
+    "oos_sharpe": 0.547,
+    "maxdd": -0.426,
+    "trades": 114,
+    "tax": 54555
+  },
+  "XLY:BBbrk_20_2": {
+    "net": 122122,
+    "cagr": 0.76,
+    "sharpe": 0.129,
+    "oos_sharpe": 0.314,
+    "maxdd": -0.436,
+    "trades": 111,
+    "tax": 7836
+  },
+  "XLY:TSmom_126": {
+    "net": 126553,
+    "cagr": 0.89,
+    "sharpe": 0.152,
+    "oos_sharpe": 0.098,
+    "maxdd": -0.58,
+    "trades": 138,
+    "tax": 35412
+  },
+  "XLY:TSmom_252": {
+    "net": 179937,
+    "cagr": 2.24,
+    "sharpe": 0.227,
+    "oos_sharpe": 0.23,
+    "maxdd": -0.513,
+    "trades": 64,
+    "tax": 43244
+  },
+  "XLY:VolFilter_p80": {
+    "net": 261345,
+    "cagr": 3.69,
+    "sharpe": 0.302,
+    "oos_sharpe": 0.231,
+    "maxdd": -0.633,
+    "trades": 75,
+    "tax": 108841
+  },
+  "XLY:AND_SMA200_Mom12": {
+    "net": 107155,
+    "cagr": 0.26,
+    "sharpe": 0.115,
+    "oos_sharpe": 0.17,
+    "maxdd": -0.587,
+    "trades": 47,
+    "tax": 24834
+  },
+  "XLY:OR_SMA200_Mom12": {
+    "net": 211836,
+    "cagr": 2.87,
+    "sharpe": 0.257,
+    "oos_sharpe": 0.221,
+    "maxdd": -0.513,
+    "trades": 32,
+    "tax": 39290
+  },
+  "XLY:AND_MACD_RSI50": {
+    "net": 55869,
+    "cagr": -2.17,
+    "sharpe": -0.047,
+    "oos_sharpe": 0.11,
+    "maxdd": -0.648,
+    "trades": 342,
+    "tax": 8016
+  },
+  "XLY:AND_Donch_Vol": {
+    "net": 152185,
+    "cagr": 1.6,
+    "sharpe": 0.213,
+    "oos_sharpe": 0.252,
+    "maxdd": -0.186,
+    "trades": 84,
+    "tax": 16325
+  },
+  "XLY:AND_SMA200_Vol": {
+    "net": 137508,
+    "cagr": 1.21,
+    "sharpe": 0.171,
+    "oos_sharpe": 0.181,
+    "maxdd": -0.606,
+    "trades": 46,
+    "tax": 40454
+  },
+  "XLY:ENS_2of3": {
+    "net": 151920,
+    "cagr": 1.59,
+    "sharpe": 0.192,
+    "oos_sharpe": 0.234,
+    "maxdd": -0.527,
+    "trades": 79,
+    "tax": 41786
+  },
+  "XLY:ENS_3of3": {
+    "net": 44068,
+    "cagr": -3.04,
+    "sharpe": -0.161,
+    "oos_sharpe": -0.02,
+    "maxdd": -0.613,
+    "trades": 202,
+    "tax": 3150
+  },
+  "XLP:SMAx_10_50": {
+    "net": 143647,
+    "cagr": 1.38,
+    "sharpe": 0.188,
+    "oos_sharpe": 0.071,
+    "maxdd": -0.33,
+    "trades": 92,
+    "tax": 13438
+  },
+  "XLP:SMAx_20_100": {
+    "net": 78641,
+    "cagr": -0.9,
+    "sharpe": -0.033,
+    "oos_sharpe": -0.199,
+    "maxdd": -0.383,
+    "trades": 51,
+    "tax": 4121
+  },
+  "XLP:SMAx_50_200": {
+    "net": 132353,
+    "cagr": 1.06,
+    "sharpe": 0.15,
+    "oos_sharpe": 0.083,
+    "maxdd": -0.302,
+    "trades": 27,
+    "tax": 11620
+  },
+  "XLP:SMAx_100_300": {
+    "net": 172582,
+    "cagr": 2.08,
+    "sharpe": 0.234,
+    "oos_sharpe": 0.127,
+    "maxdd": -0.27,
+    "trades": 12,
+    "tax": 20606
+  },
+  "XLP:EMAx_12_26": {
+    "net": 116427,
+    "cagr": 0.58,
+    "sharpe": 0.108,
+    "oos_sharpe": -0.053,
+    "maxdd": -0.271,
+    "trades": 119,
+    "tax": 10678
+  },
+  "XLP:EMAx_20_100": {
+    "net": 102915,
+    "cagr": 0.11,
+    "sharpe": 0.063,
+    "oos_sharpe": 0.001,
+    "maxdd": -0.308,
+    "trades": 53,
+    "tax": 5304
+  },
+  "XLP:EMAx_50_200": {
+    "net": 123481,
+    "cagr": 0.8,
+    "sharpe": 0.127,
+    "oos_sharpe": 0.045,
+    "maxdd": -0.316,
+    "trades": 22,
+    "tax": 10512
+  },
+  "XLP:MACD_12_26_9": {
+    "net": 138661,
+    "cagr": 1.24,
+    "sharpe": 0.179,
+    "oos_sharpe": 0.503,
+    "maxdd": -0.319,
+    "trades": 283,
+    "tax": 13278
+  },
+  "XLP:Donch_55_20": {
+    "net": 101827,
+    "cagr": 0.07,
+    "sharpe": 0.047,
+    "oos_sharpe": -0.138,
+    "maxdd": -0.255,
+    "trades": 79,
+    "tax": 5741
+  },
+  "XLP:Donch_100_50": {
+    "net": 91608,
+    "cagr": -0.33,
+    "sharpe": 0.005,
+    "oos_sharpe": -0.188,
+    "maxdd": -0.298,
+    "trades": 39,
+    "tax": 5316
+  },
+  "XLP:RSIrev_30_55": {
+    "net": 138595,
+    "cagr": 1.24,
+    "sharpe": 0.178,
+    "oos_sharpe": 0.481,
+    "maxdd": -0.342,
+    "trades": 92,
+    "tax": 10822
+  },
+  "XLP:RSIrev_25_50": {
+    "net": 139207,
+    "cagr": 1.26,
+    "sharpe": 0.197,
+    "oos_sharpe": 0.32,
+    "maxdd": -0.231,
+    "trades": 62,
+    "tax": 10753
+  },
+  "XLP:RSItrend_50": {
+    "net": 109828,
+    "cagr": 0.35,
+    "sharpe": 0.085,
+    "oos_sharpe": 0.006,
+    "maxdd": -0.327,
+    "trades": 425,
+    "tax": 8786
+  },
+  "XLP:BBrev_20_2": {
+    "net": 204272,
+    "cagr": 2.73,
+    "sharpe": 0.348,
+    "oos_sharpe": 0.589,
+    "maxdd": -0.26,
+    "trades": 124,
+    "tax": 25420
+  },
+  "XLP:BBbrk_20_2": {
+    "net": 85312,
+    "cagr": -0.6,
+    "sharpe": -0.063,
+    "oos_sharpe": 0.131,
+    "maxdd": -0.329,
+    "trades": 127,
+    "tax": 1561
+  },
+  "XLP:TSmom_126": {
+    "net": 75512,
+    "cagr": -1.05,
+    "sharpe": -0.056,
+    "oos_sharpe": -0.112,
+    "maxdd": -0.376,
+    "trades": 172,
+    "tax": 2545
+  },
+  "XLP:TSmom_252": {
+    "net": 170211,
+    "cagr": 2.03,
+    "sharpe": 0.233,
+    "oos_sharpe": 0.169,
+    "maxdd": -0.257,
+    "trades": 93,
+    "tax": 20171
+  },
+  "XLP:VolFilter_p80": {
+    "net": 139527,
+    "cagr": 1.26,
+    "sharpe": 0.172,
+    "oos_sharpe": 0.116,
+    "maxdd": -0.433,
+    "trades": 84,
+    "tax": 11864
+  },
+  "XLP:AND_SMA200_Mom12": {
+    "net": 105574,
+    "cagr": 0.2,
+    "sharpe": 0.071,
+    "oos_sharpe": 0.057,
+    "maxdd": -0.254,
+    "trades": 71,
+    "tax": 5756
+  },
+  "XLP:OR_SMA200_Mom12": {
+    "net": 214539,
+    "cagr": 2.92,
+    "sharpe": 0.293,
+    "oos_sharpe": 0.192,
+    "maxdd": -0.251,
+    "trades": 49,
+    "tax": 28446
+  },
+  "XLP:AND_MACD_RSI50": {
+    "net": 129613,
+    "cagr": 0.98,
+    "sharpe": 0.159,
+    "oos_sharpe": 0.327,
+    "maxdd": -0.295,
+    "trades": 353,
+    "tax": 11750
+  },
+  "XLP:AND_Donch_Vol": {
+    "net": 83996,
+    "cagr": -0.66,
+    "sharpe": -0.071,
+    "oos_sharpe": -0.356,
+    "maxdd": -0.324,
+    "trades": 93,
+    "tax": 5134
+  },
+  "XLP:AND_SMA200_Vol": {
+    "net": 102280,
+    "cagr": 0.09,
+    "sharpe": 0.052,
+    "oos_sharpe": -0.124,
+    "maxdd": -0.318,
+    "trades": 70,
+    "tax": 7692
+  },
+  "XLP:ENS_2of3": {
+    "net": 151012,
+    "cagr": 1.57,
+    "sharpe": 0.195,
+    "oos_sharpe": 0.274,
+    "maxdd": -0.283,
+    "trades": 126,
+    "tax": 14077
+  },
+  "XLP:ENS_3of3": {
+    "net": 89193,
+    "cagr": -0.43,
+    "sharpe": -0.042,
+    "oos_sharpe": 0.076,
+    "maxdd": -0.226,
+    "trades": 206,
+    "tax": 2603
+  },
+  "XLU:SMAx_10_50": {
+    "net": 122972,
+    "cagr": 0.78,
+    "sharpe": 0.125,
+    "oos_sharpe": 0.008,
+    "maxdd": -0.342,
+    "trades": 92,
+    "tax": 10183
+  },
+  "XLU:SMAx_20_100": {
+    "net": 58675,
+    "cagr": -1.99,
+    "sharpe": -0.029,
+    "oos_sharpe": -0.218,
+    "maxdd": -0.664,
+    "trades": 51,
+    "tax": 10859
+  },
+  "XLU:SMAx_50_200": {
+    "net": 110260,
+    "cagr": 0.37,
+    "sharpe": 0.122,
+    "oos_sharpe": -0.023,
+    "maxdd": -0.54,
+    "trades": 16,
+    "tax": 25166
+  },
+  "XLU:SMAx_100_300": {
+    "net": 159507,
+    "cagr": 1.78,
+    "sharpe": 0.204,
+    "oos_sharpe": 0.009,
+    "maxdd": -0.543,
+    "trades": 8,
+    "tax": 38033
+  },
+  "XLU:EMAx_12_26": {
+    "net": 110021,
+    "cagr": 0.36,
+    "sharpe": 0.09,
+    "oos_sharpe": -0.032,
+    "maxdd": -0.336,
+    "trades": 115,
+    "tax": 10804
+  },
+  "XLU:EMAx_20_100": {
+    "net": 57286,
+    "cagr": -2.08,
+    "sharpe": -0.037,
+    "oos_sharpe": -0.242,
+    "maxdd": -0.679,
+    "trades": 46,
+    "tax": 13773
+  },
+  "XLU:EMAx_50_200": {
+    "net": 111857,
+    "cagr": 0.42,
+    "sharpe": 0.126,
+    "oos_sharpe": -0.038,
+    "maxdd": -0.55,
+    "trades": 14,
+    "tax": 18719
+  },
+  "XLU:MACD_12_26_9": {
+    "net": 124265,
+    "cagr": 0.82,
+    "sharpe": 0.128,
+    "oos_sharpe": 0.436,
+    "maxdd": -0.392,
+    "trades": 264,
+    "tax": 9532
+  },
+  "XLU:Donch_55_20": {
+    "net": 104230,
+    "cagr": 0.16,
+    "sharpe": 0.063,
+    "oos_sharpe": 0.002,
+    "maxdd": -0.348,
+    "trades": 70,
+    "tax": 8885
+  },
+  "XLU:Donch_100_50": {
+    "net": 46881,
+    "cagr": -2.82,
+    "sharpe": -0.123,
+    "oos_sharpe": -0.268,
+    "maxdd": -0.676,
+    "trades": 34,
+    "tax": 6512
+  },
+  "XLU:RSIrev_30_55": {
+    "net": 130274,
+    "cagr": 1.0,
+    "sharpe": 0.142,
+    "oos_sharpe": 0.356,
+    "maxdd": -0.412,
+    "trades": 84,
+    "tax": 7773
+  },
+  "XLU:RSIrev_25_50": {
+    "net": 116258,
+    "cagr": 0.57,
+    "sharpe": 0.107,
+    "oos_sharpe": 0.22,
+    "maxdd": -0.401,
+    "trades": 64,
+    "tax": 4930
+  },
+  "XLU:RSItrend_50": {
+    "net": 85938,
+    "cagr": -0.57,
+    "sharpe": 0.012,
+    "oos_sharpe": 0.092,
+    "maxdd": -0.454,
+    "trades": 411,
+    "tax": 6148
+  },
+  "XLU:BBrev_20_2": {
+    "net": 122043,
+    "cagr": 0.75,
+    "sharpe": 0.122,
+    "oos_sharpe": 0.445,
+    "maxdd": -0.533,
+    "trades": 107,
+    "tax": 6018
+  },
+  "XLU:BBbrk_20_2": {
+    "net": 61856,
+    "cagr": -1.8,
+    "sharpe": -0.196,
+    "oos_sharpe": 0.089,
+    "maxdd": -0.486,
+    "trades": 132,
+    "tax": 726
+  },
+  "XLU:TSmom_126": {
+    "net": 79363,
+    "cagr": -0.87,
+    "sharpe": 0.039,
+    "oos_sharpe": -0.09,
+    "maxdd": -0.577,
+    "trades": 116,
+    "tax": 12745
+  },
+  "XLU:TSmom_252": {
+    "net": 79886,
+    "cagr": -0.84,
+    "sharpe": 0.046,
+    "oos_sharpe": -0.143,
+    "maxdd": -0.59,
+    "trades": 85,
+    "tax": 16997
+  },
+  "XLU:VolFilter_p80": {
+    "net": 99004,
+    "cagr": -0.04,
+    "sharpe": 0.097,
+    "oos_sharpe": -0.021,
+    "maxdd": -0.564,
+    "trades": 99,
+    "tax": 25220
+  },
+  "XLU:AND_SMA200_Mom12": {
+    "net": 83763,
+    "cagr": -0.67,
+    "sharpe": 0.051,
+    "oos_sharpe": -0.115,
+    "maxdd": -0.54,
+    "trades": 51,
+    "tax": 14644
+  },
+  "XLU:OR_SMA200_Mom12": {
+    "net": 109626,
+    "cagr": 0.35,
+    "sharpe": 0.123,
+    "oos_sharpe": -0.035,
+    "maxdd": -0.54,
+    "trades": 49,
+    "tax": 19269
+  },
+  "XLU:AND_MACD_RSI50": {
+    "net": 74132,
+    "cagr": -1.12,
+    "sharpe": -0.052,
+    "oos_sharpe": 0.253,
+    "maxdd": -0.551,
+    "trades": 344,
+    "tax": 155
+  },
+  "XLU:AND_Donch_Vol": {
+    "net": 97709,
+    "cagr": -0.09,
+    "sharpe": 0.031,
+    "oos_sharpe": 0.103,
+    "maxdd": -0.392,
+    "trades": 89,
+    "tax": 5886
+  },
+  "XLU:AND_SMA200_Vol": {
+    "net": 99443,
+    "cagr": -0.02,
+    "sharpe": 0.089,
+    "oos_sharpe": -0.047,
+    "maxdd": -0.572,
+    "trades": 68,
+    "tax": 26140
+  },
+  "XLU:ENS_2of3": {
+    "net": 78406,
+    "cagr": -0.91,
+    "sharpe": 0.042,
+    "oos_sharpe": -0.117,
+    "maxdd": -0.559,
+    "trades": 96,
+    "tax": 12795
+  },
+  "XLU:ENS_3of3": {
+    "net": 118952,
+    "cagr": 0.66,
+    "sharpe": 0.124,
+    "oos_sharpe": 0.403,
+    "maxdd": -0.334,
+    "trades": 169,
+    "tax": 6347
+  },
+  "XLB:SMAx_10_50": {
+    "net": 92364,
+    "cagr": -0.3,
+    "sharpe": 0.056,
+    "oos_sharpe": 0.036,
+    "maxdd": -0.377,
+    "trades": 93,
+    "tax": 7383
+  },
+  "XLB:SMAx_20_100": {
+    "net": 128249,
+    "cagr": 0.94,
+    "sharpe": 0.138,
+    "oos_sharpe": -0.038,
+    "maxdd": -0.446,
+    "trades": 49,
+    "tax": 20548
+  },
+  "XLB:SMAx_50_200": {
+    "net": 61726,
+    "cagr": -1.8,
+    "sharpe": 0.009,
+    "oos_sharpe": -0.091,
+    "maxdd": -0.647,
+    "trades": 20,
+    "tax": 14112
+  },
+  "XLB:SMAx_100_300": {
+    "net": 55329,
+    "cagr": -2.21,
+    "sharpe": -0.003,
+    "oos_sharpe": -0.019,
+    "maxdd": -0.592,
+    "trades": 14,
+    "tax": 3343
+  },
+  "XLB:EMAx_12_26": {
+    "net": 38511,
+    "cagr": -3.54,
+    "sharpe": -0.097,
+    "oos_sharpe": -0.199,
+    "maxdd": -0.701,
+    "trades": 116,
+    "tax": 5332
+  },
+  "XLB:EMAx_20_100": {
+    "net": 95464,
+    "cagr": -0.17,
+    "sharpe": 0.064,
+    "oos_sharpe": 0.085,
+    "maxdd": -0.443,
+    "trades": 52,
+    "tax": 4308
+  },
+  "XLB:EMAx_50_200": {
+    "net": 100310,
+    "cagr": 0.01,
+    "sharpe": 0.08,
+    "oos_sharpe": 0.149,
+    "maxdd": -0.486,
+    "trades": 21,
+    "tax": 5155
+  },
+  "XLB:MACD_12_26_9": {
+    "net": 46636,
+    "cagr": -2.84,
+    "sharpe": -0.053,
+    "oos_sharpe": -0.022,
+    "maxdd": -0.625,
+    "trades": 275,
+    "tax": 3999
+  },
+  "XLB:Donch_55_20": {
+    "net": 44191,
+    "cagr": -3.03,
+    "sharpe": -0.218,
+    "oos_sharpe": -0.206,
+    "maxdd": -0.57,
+    "trades": 79,
+    "tax": 0
+  },
+  "XLB:Donch_100_50": {
+    "net": 90175,
+    "cagr": -0.39,
+    "sharpe": 0.028,
+    "oos_sharpe": 0.044,
+    "maxdd": -0.322,
+    "trades": 37,
+    "tax": 4522
+  },
+  "XLB:RSIrev_30_55": {
+    "net": 424084,
+    "cagr": 5.6,
+    "sharpe": 0.437,
+    "oos_sharpe": 0.569,
+    "maxdd": -0.485,
+    "trades": 96,
+    "tax": 75678
+  },
+  "XLB:RSIrev_25_50": {
+    "net": 227369,
+    "cagr": 3.15,
+    "sharpe": 0.311,
+    "oos_sharpe": 0.411,
+    "maxdd": -0.325,
+    "trades": 62,
+    "tax": 29923
+  },
+  "XLB:RSItrend_50": {
+    "net": 42717,
+    "cagr": -3.16,
+    "sharpe": -0.077,
+    "oos_sharpe": -0.012,
+    "maxdd": -0.645,
+    "trades": 385,
+    "tax": 431
+  },
+  "XLB:BBrev_20_2": {
+    "net": 240180,
+    "cagr": 3.36,
+    "sharpe": 0.302,
+    "oos_sharpe": 0.443,
+    "maxdd": -0.392,
+    "trades": 127,
+    "tax": 33646
+  },
+  "XLB:BBbrk_20_2": {
+    "net": 40351,
+    "cagr": -3.37,
+    "sharpe": -0.159,
+    "oos_sharpe": -0.219,
+    "maxdd": -0.671,
+    "trades": 117,
+    "tax": 1679
+  },
+  "XLB:TSmom_126": {
+    "net": 39904,
+    "cagr": -3.41,
+    "sharpe": -0.094,
+    "oos_sharpe": -0.17,
+    "maxdd": -0.71,
+    "trades": 162,
+    "tax": 5467
+  },
+  "XLB:TSmom_252": {
+    "net": 182818,
+    "cagr": 2.3,
+    "sharpe": 0.226,
+    "oos_sharpe": 0.297,
+    "maxdd": -0.328,
+    "trades": 82,
+    "tax": 29805
+  },
+  "XLB:VolFilter_p80": {
+    "net": 87839,
+    "cagr": -0.49,
+    "sharpe": 0.086,
+    "oos_sharpe": -0.093,
+    "maxdd": -0.606,
+    "trades": 67,
+    "tax": 22012
+  },
+  "XLB:AND_SMA200_Mom12": {
+    "net": 131715,
+    "cagr": 1.04,
+    "sharpe": 0.145,
+    "oos_sharpe": 0.217,
+    "maxdd": -0.338,
+    "trades": 62,
+    "tax": 18505
+  },
+  "XLB:OR_SMA200_Mom12": {
+    "net": 87352,
+    "cagr": -0.51,
+    "sharpe": 0.088,
+    "oos_sharpe": -0.016,
+    "maxdd": -0.613,
+    "trades": 38,
+    "tax": 20930
+  },
+  "XLB:AND_MACD_RSI50": {
+    "net": 38125,
+    "cagr": -3.57,
+    "sharpe": -0.126,
+    "oos_sharpe": -0.097,
+    "maxdd": -0.673,
+    "trades": 310,
+    "tax": 0
+  },
+  "XLB:AND_Donch_Vol": {
+    "net": 48905,
+    "cagr": -2.66,
+    "sharpe": -0.222,
+    "oos_sharpe": -0.293,
+    "maxdd": -0.574,
+    "trades": 88,
+    "tax": 1220
+  },
+  "XLB:AND_SMA200_Vol": {
+    "net": 55213,
+    "cagr": -2.22,
+    "sharpe": -0.031,
+    "oos_sharpe": -0.146,
+    "maxdd": -0.627,
+    "trades": 49,
+    "tax": 8635
+  },
+  "XLB:ENS_2of3": {
+    "net": 63170,
+    "cagr": -1.72,
+    "sharpe": 0.009,
+    "oos_sharpe": -0.058,
+    "maxdd": -0.66,
+    "trades": 113,
+    "tax": 17901
+  },
+  "XLB:ENS_3of3": {
+    "net": 75159,
+    "cagr": -1.07,
+    "sharpe": -0.083,
+    "oos_sharpe": -0.092,
+    "maxdd": -0.314,
+    "trades": 177,
+    "tax": 2232
+  },
+  "TLT:SMAx_10_50": {
+    "net": 176504,
+    "cagr": 2.65,
+    "sharpe": 0.296,
+    "oos_sharpe": 0.21,
+    "maxdd": -0.245,
+    "trades": 77,
+    "tax": 34673
+  },
+  "TLT:SMAx_20_100": {
+    "net": 190453,
+    "cagr": 3.0,
+    "sharpe": 0.323,
+    "oos_sharpe": 0.281,
+    "maxdd": -0.228,
+    "trades": 37,
+    "tax": 41739
+  },
+  "TLT:SMAx_50_200": {
+    "net": 126445,
+    "cagr": 1.17,
+    "sharpe": 0.161,
+    "oos_sharpe": 0.087,
+    "maxdd": -0.292,
+    "trades": 22,
+    "tax": 19143
+  },
+  "TLT:SMAx_100_300": {
+    "net": 119768,
+    "cagr": 0.94,
+    "sharpe": 0.14,
+    "oos_sharpe": -0.003,
+    "maxdd": -0.334,
+    "trades": 13,
+    "tax": 17650
+  },
+  "TLT:EMAx_12_26": {
+    "net": 172146,
+    "cagr": 2.54,
+    "sharpe": 0.287,
+    "oos_sharpe": 0.204,
+    "maxdd": -0.202,
+    "trades": 103,
+    "tax": 33557
+  },
+  "TLT:EMAx_20_100": {
+    "net": 162347,
+    "cagr": 2.38,
+    "sharpe": 0.267,
+    "oos_sharpe": 0.119,
+    "maxdd": -0.316,
+    "trades": 42,
+    "tax": 43862
+  },
+  "TLT:EMAx_50_200": {
+    "net": 133148,
+    "cagr": 1.39,
+    "sharpe": 0.178,
+    "oos_sharpe": 0.066,
+    "maxdd": -0.32,
+    "trades": 21,
+    "tax": 19757
+  },
+  "TLT:MACD_12_26_9": {
+    "net": 95953,
+    "cagr": 0.04,
+    "sharpe": 0.056,
+    "oos_sharpe": 0.077,
+    "maxdd": -0.337,
+    "trades": 238,
+    "tax": 17024
+  },
+  "TLT:Donch_55_20": {
+    "net": 113677,
+    "cagr": 0.77,
+    "sharpe": 0.132,
+    "oos_sharpe": -0.134,
+    "maxdd": -0.372,
+    "trades": 57,
+    "tax": 21707
+  },
+  "TLT:Donch_100_50": {
+    "net": 142266,
+    "cagr": 1.8,
+    "sharpe": 0.231,
+    "oos_sharpe": 0.015,
+    "maxdd": -0.352,
+    "trades": 25,
+    "tax": 36992
+  },
+  "TLT:RSIrev_30_55": {
+    "net": 87731,
+    "cagr": -0.48,
+    "sharpe": -0.027,
+    "oos_sharpe": -0.039,
+    "maxdd": -0.262,
+    "trades": 84,
+    "tax": 4471
+  },
+  "TLT:RSIrev_25_50": {
+    "net": 86154,
+    "cagr": -0.6,
+    "sharpe": -0.061,
+    "oos_sharpe": 0.105,
+    "maxdd": -0.28,
+    "trades": 59,
+    "tax": 1063
+  },
+  "TLT:RSItrend_50": {
+    "net": 97460,
+    "cagr": 0.15,
+    "sharpe": 0.066,
+    "oos_sharpe": -0.111,
+    "maxdd": -0.394,
+    "trades": 366,
+    "tax": 20580
+  },
+  "TLT:BBrev_20_2": {
+    "net": 106911,
+    "cagr": 0.33,
+    "sharpe": 0.083,
+    "oos_sharpe": 0.216,
+    "maxdd": -0.233,
+    "trades": 91,
+    "tax": 4681
+  },
+  "TLT:BBbrk_20_2": {
+    "net": 126216,
+    "cagr": 1.21,
+    "sharpe": 0.193,
+    "oos_sharpe": 0.221,
+    "maxdd": -0.265,
+    "trades": 108,
+    "tax": 24220
+  },
+  "TLT:TSmom_126": {
+    "net": 117150,
+    "cagr": 0.93,
+    "sharpe": 0.139,
+    "oos_sharpe": 0.02,
+    "maxdd": -0.326,
+    "trades": 110,
+    "tax": 25148
+  },
+  "TLT:TSmom_252": {
+    "net": 120408,
+    "cagr": 1.02,
+    "sharpe": 0.146,
+    "oos_sharpe": -0.115,
+    "maxdd": -0.363,
+    "trades": 66,
+    "tax": 23826
+  },
+  "TLT:VolFilter_p80": {
+    "net": 106994,
+    "cagr": 0.54,
+    "sharpe": 0.104,
+    "oos_sharpe": -0.047,
+    "maxdd": -0.36,
+    "trades": 75,
+    "tax": 22196
+  },
+  "TLT:AND_SMA200_Mom12": {
+    "net": 135240,
+    "cagr": 1.43,
+    "sharpe": 0.19,
+    "oos_sharpe": 0.138,
+    "maxdd": -0.273,
+    "trades": 37,
+    "tax": 17514
+  },
+  "TLT:OR_SMA200_Mom12": {
+    "net": 113844,
+    "cagr": 0.8,
+    "sharpe": 0.126,
+    "oos_sharpe": -0.128,
+    "maxdd": -0.426,
+    "trades": 51,
+    "tax": 23509
+  },
+  "TLT:AND_MACD_RSI50": {
+    "net": 101230,
+    "cagr": 0.27,
+    "sharpe": 0.075,
+    "oos_sharpe": 0.088,
+    "maxdd": -0.304,
+    "trades": 302,
+    "tax": 18058
+  },
+  "TLT:AND_Donch_Vol": {
+    "net": 123290,
+    "cagr": 1.06,
+    "sharpe": 0.2,
+    "oos_sharpe": -0.101,
+    "maxdd": -0.172,
+    "trades": 63,
+    "tax": 18125
+  },
+  "TLT:AND_SMA200_Vol": {
+    "net": 90352,
+    "cagr": -0.31,
+    "sharpe": 0.0,
+    "oos_sharpe": -0.122,
+    "maxdd": -0.267,
+    "trades": 54,
+    "tax": 8021
+  },
+  "TLT:ENS_2of3": {
+    "net": 91748,
+    "cagr": -0.12,
+    "sharpe": 0.046,
+    "oos_sharpe": -0.141,
+    "maxdd": -0.423,
+    "trades": 121,
+    "tax": 17694
+  },
+  "TLT:ENS_3of3": {
+    "net": 96113,
+    "cagr": -0.09,
+    "sharpe": 0.025,
+    "oos_sharpe": 0.143,
+    "maxdd": -0.316,
+    "trades": 122,
+    "tax": 6158
+  },
+  "SLV:SMAx_10_50": {
+    "net": 119853,
+    "cagr": 0.9,
+    "sharpe": 0.163,
+    "oos_sharpe": 0.328,
+    "maxdd": -0.724,
+    "trades": 72,
+    "tax": 47356
+  },
+  "SLV:SMAx_20_100": {
+    "net": 82313,
+    "cagr": -0.96,
+    "sharpe": 0.094,
+    "oos_sharpe": 0.212,
+    "maxdd": -0.885,
+    "trades": 41,
+    "tax": 50137
+  },
+  "SLV:SMAx_50_200": {
+    "net": 309544,
+    "cagr": 5.75,
+    "sharpe": 0.349,
+    "oos_sharpe": 0.343,
+    "maxdd": -0.589,
+    "trades": 13,
+    "tax": 0
+  },
+  "SLV:SMAx_100_300": {
+    "net": 384622,
+    "cagr": 6.9,
+    "sharpe": 0.388,
+    "oos_sharpe": 0.445,
+    "maxdd": -0.63,
+    "trades": 8,
+    "tax": 0
+  },
+  "SLV:EMAx_12_26": {
+    "net": 99965,
+    "cagr": -0.0,
+    "sharpe": 0.125,
+    "oos_sharpe": 0.14,
+    "maxdd": -0.699,
+    "trades": 93,
+    "tax": 42789
+  },
+  "SLV:EMAx_20_100": {
+    "net": 155822,
+    "cagr": 2.22,
+    "sharpe": 0.218,
+    "oos_sharpe": 0.375,
+    "maxdd": -0.716,
+    "trades": 41,
+    "tax": 0
+  },
+  "SLV:EMAx_50_200": {
+    "net": 227946,
+    "cagr": 4.16,
+    "sharpe": 0.29,
+    "oos_sharpe": 0.265,
+    "maxdd": -0.661,
+    "trades": 17,
+    "tax": 0
+  },
+  "SLV:MACD_12_26_9": {
+    "net": 139094,
+    "cagr": 1.65,
+    "sharpe": 0.192,
+    "oos_sharpe": 0.243,
+    "maxdd": -0.501,
+    "trades": 196,
+    "tax": 62294
+  },
+  "SLV:Donch_55_20": {
+    "net": 152427,
+    "cagr": 2.11,
+    "sharpe": 0.208,
+    "oos_sharpe": 0.356,
+    "maxdd": -0.538,
+    "trades": 48,
+    "tax": 42918
+  },
+  "SLV:Donch_100_50": {
+    "net": 174232,
+    "cagr": 2.79,
+    "sharpe": 0.238,
+    "oos_sharpe": 0.189,
+    "maxdd": -0.663,
+    "trades": 22,
+    "tax": 9204
+  },
+  "SLV:RSIrev_30_55": {
+    "net": 143128,
+    "cagr": 1.79,
+    "sharpe": 0.19,
+    "oos_sharpe": 0.452,
+    "maxdd": -0.552,
+    "trades": 90,
+    "tax": 67023
+  },
+  "SLV:RSIrev_25_50": {
+    "net": 122642,
+    "cagr": 1.02,
+    "sharpe": 0.143,
+    "oos_sharpe": 0.344,
+    "maxdd": -0.393,
+    "trades": 67,
+    "tax": 43878
+  },
+  "SLV:RSItrend_50": {
+    "net": 75168,
+    "cagr": -1.4,
+    "sharpe": 0.068,
+    "oos_sharpe": 0.074,
+    "maxdd": -0.719,
+    "trades": 285,
+    "tax": 27826
+  },
+  "SLV:BBrev_20_2": {
+    "net": 132889,
+    "cagr": 1.42,
+    "sharpe": 0.169,
+    "oos_sharpe": 0.581,
+    "maxdd": -0.61,
+    "trades": 78,
+    "tax": 28689
+  },
+  "SLV:BBbrk_20_2": {
+    "net": 89521,
+    "cagr": -0.55,
+    "sharpe": 0.072,
+    "oos_sharpe": 0.253,
+    "maxdd": -0.475,
+    "trades": 94,
+    "tax": 3348
+  },
+  "SLV:TSmom_126": {
+    "net": 245795,
+    "cagr": 4.55,
+    "sharpe": 0.305,
+    "oos_sharpe": 0.367,
+    "maxdd": -0.67,
+    "trades": 99,
+    "tax": 13216
+  },
+  "SLV:TSmom_252": {
+    "net": 307277,
+    "cagr": 5.71,
+    "sharpe": 0.347,
+    "oos_sharpe": 0.387,
+    "maxdd": -0.625,
+    "trades": 45,
+    "tax": 15056
+  },
+  "SLV:VolFilter_p80": {
+    "net": 161571,
+    "cagr": 2.4,
+    "sharpe": 0.22,
+    "oos_sharpe": 0.409,
+    "maxdd": -0.801,
+    "trades": 58,
+    "tax": 59142
+  },
+  "SLV:AND_SMA200_Mom12": {
+    "net": 344923,
+    "cagr": 6.32,
+    "sharpe": 0.375,
+    "oos_sharpe": 0.363,
+    "maxdd": -0.51,
+    "trades": 18,
+    "tax": 0
+  },
+  "SLV:OR_SMA200_Mom12": {
+    "net": 275760,
+    "cagr": 5.15,
+    "sharpe": 0.324,
+    "oos_sharpe": 0.368,
+    "maxdd": -0.675,
+    "trades": 40,
+    "tax": 15388
+  },
+  "SLV:AND_MACD_RSI50": {
+    "net": 78870,
+    "cagr": -1.17,
+    "sharpe": 0.06,
+    "oos_sharpe": 0.16,
+    "maxdd": -0.551,
+    "trades": 243,
+    "tax": 15751
+  },
+  "SLV:AND_Donch_Vol": {
+    "net": 123191,
+    "cagr": 1.04,
+    "sharpe": 0.145,
+    "oos_sharpe": 0.164,
+    "maxdd": -0.58,
+    "trades": 57,
+    "tax": 34691
+  },
+  "SLV:AND_SMA200_Vol": {
+    "net": 135672,
+    "cagr": 1.52,
+    "sharpe": 0.176,
+    "oos_sharpe": 0.183,
+    "maxdd": -0.704,
+    "trades": 46,
+    "tax": 41538
+  },
+  "SLV:ENS_2of3": {
+    "net": 324839,
+    "cagr": 6.01,
+    "sharpe": 0.357,
+    "oos_sharpe": 0.331,
+    "maxdd": -0.589,
+    "trades": 65,
+    "tax": 7661
+  },
+  "SLV:ENS_3of3": {
+    "net": 120143,
+    "cagr": 0.91,
+    "sharpe": 0.144,
+    "oos_sharpe": 0.205,
+    "maxdd": -0.511,
+    "trades": 89,
+    "tax": 39074
+  },
+  "ETH:SMAx_10_50": {
+    "net": 7506870,
+    "cagr": 57.42,
+    "sharpe": 0.826,
+    "oos_sharpe": 0.305,
+    "maxdd": -0.776,
+    "trades": 41,
+    "tax": 7159910
+  },
+  "ETH:SMAx_20_100": {
+    "net": 4174248,
+    "cagr": 48.01,
+    "sharpe": 0.756,
+    "oos_sharpe": 0.161,
+    "maxdd": -0.765,
+    "trades": 18,
+    "tax": 1131588
+  },
+  "ETH:SMAx_50_200": {
+    "net": 792193,
+    "cagr": 24.29,
+    "sharpe": 0.553,
+    "oos_sharpe": 0.011,
+    "maxdd": -0.901,
+    "trades": 9,
+    "tax": 93825
+  },
+  "ETH:SMAx_100_300": {
+    "net": 681876,
+    "cagr": 22.35,
+    "sharpe": 0.528,
+    "oos_sharpe": -0.184,
+    "maxdd": -0.809,
+    "trades": 7,
+    "tax": 115303
+  },
+  "ETH:EMAx_12_26": {
+    "net": 16134208,
+    "cagr": 70.6,
+    "sharpe": 0.916,
+    "oos_sharpe": 0.131,
+    "maxdd": -0.726,
+    "trades": 48,
+    "tax": 19690100
+  },
+  "ETH:EMAx_20_100": {
+    "net": 35640998,
+    "cagr": 85.42,
+    "sharpe": 1.0,
+    "oos_sharpe": 0.039,
+    "maxdd": -0.751,
+    "trades": 16,
+    "tax": 7944885
+  },
+  "ETH:EMAx_50_200": {
+    "net": 8684249,
+    "cagr": 59.85,
+    "sharpe": 0.831,
+    "oos_sharpe": 0.003,
+    "maxdd": -0.951,
+    "trades": 9,
+    "tax": 939049
+  },
+  "ETH:MACD_12_26_9": {
+    "net": 2069306,
+    "cagr": 37.49,
+    "sharpe": 0.671,
+    "oos_sharpe": 0.123,
+    "maxdd": -0.79,
+    "trades": 124,
+    "tax": 2678910
+  },
+  "ETH:Donch_55_20": {
+    "net": 10633227,
+    "cagr": 63.29,
+    "sharpe": 0.916,
+    "oos_sharpe": 0.275,
+    "maxdd": -0.659,
+    "trades": 30,
+    "tax": 9924678
+  },
+  "ETH:Donch_100_50": {
+    "net": 1217738,
+    "cagr": 30.04,
+    "sharpe": 0.614,
+    "oos_sharpe": 0.399,
+    "maxdd": -0.78,
+    "trades": 12,
+    "tax": 880781
+  },
+  "ETH:RSIrev_30_55": {
+    "net": 65918,
+    "cagr": -4.28,
+    "sharpe": 0.138,
+    "oos_sharpe": 0.062,
+    "maxdd": -0.815,
+    "trades": 59,
+    "tax": 7204
+  },
+  "ETH:RSIrev_25_50": {
+    "net": 46910,
+    "cagr": -7.65,
+    "sharpe": 0.008,
+    "oos_sharpe": -0.067,
+    "maxdd": -0.737,
+    "trades": 36,
+    "tax": 6328
+  },
+  "ETH:RSItrend_50": {
+    "net": 7185492,
+    "cagr": 56.7,
+    "sharpe": 0.829,
+    "oos_sharpe": 0.12,
+    "maxdd": -0.756,
+    "trades": 192,
+    "tax": 10889375
+  },
+  "ETH:BBrev_20_2": {
+    "net": 26477,
+    "cagr": -13.03,
+    "sharpe": -0.055,
+    "oos_sharpe": -0.081,
+    "maxdd": -0.85,
+    "trades": 53,
+    "tax": 30292
+  },
+  "ETH:BBbrk_20_2": {
+    "net": 3153763,
+    "cagr": 43.71,
+    "sharpe": 0.753,
+    "oos_sharpe": 0.106,
+    "maxdd": -0.51,
+    "trades": 61,
+    "tax": 3828011
+  },
+  "ETH:TSmom_126": {
+    "net": 1807780,
+    "cagr": 35.55,
+    "sharpe": 0.657,
+    "oos_sharpe": 0.114,
+    "maxdd": -0.816,
+    "trades": 35,
+    "tax": 1899643
+  },
+  "ETH:TSmom_252": {
+    "net": 475249,
+    "cagr": 17.8,
+    "sharpe": 0.479,
+    "oos_sharpe": -0.004,
+    "maxdd": -0.893,
+    "trades": 27,
+    "tax": 140936
+  },
+  "ETH:VolFilter_p80": {
+    "net": 119031,
+    "cagr": 1.85,
+    "sharpe": 0.332,
+    "oos_sharpe": -0.079,
+    "maxdd": -0.94,
+    "trades": 40,
+    "tax": 227203
+  },
+  "ETH:AND_SMA200_Mom12": {
+    "net": 626001,
+    "cagr": 21.26,
+    "sharpe": 0.517,
+    "oos_sharpe": 0.038,
+    "maxdd": -0.857,
+    "trades": 18,
+    "tax": 111092
+  },
+  "ETH:OR_SMA200_Mom12": {
+    "net": 692691,
+    "cagr": 22.55,
+    "sharpe": 0.536,
+    "oos_sharpe": -0.048,
+    "maxdd": -0.901,
+    "trades": 17,
+    "tax": 222735
+  },
+  "ETH:AND_MACD_RSI50": {
+    "net": 3788991,
+    "cagr": 46.51,
+    "sharpe": 0.766,
+    "oos_sharpe": 0.318,
+    "maxdd": -0.735,
+    "trades": 147,
+    "tax": 4720000
+  },
+  "ETH:AND_Donch_Vol": {
+    "net": 556312,
+    "cagr": 19.76,
+    "sharpe": 0.523,
+    "oos_sharpe": 0.038,
+    "maxdd": -0.563,
+    "trades": 35,
+    "tax": 595966
+  },
+  "ETH:AND_SMA200_Vol": {
+    "net": 240706,
+    "cagr": 9.67,
+    "sharpe": 0.376,
+    "oos_sharpe": -0.08,
+    "maxdd": -0.873,
+    "trades": 34,
+    "tax": 348186
+  },
+  "ETH:ENS_2of3": {
+    "net": 1027395,
+    "cagr": 27.74,
+    "sharpe": 0.584,
+    "oos_sharpe": -0.068,
+    "maxdd": -0.826,
+    "trades": 44,
+    "tax": 84169
+  },
+  "ETH:ENS_3of3": {
+    "net": 114636,
+    "cagr": 1.45,
+    "sharpe": 0.19,
+    "oos_sharpe": -0.03,
+    "maxdd": -0.569,
+    "trades": 72,
+    "tax": 84597
+  },
+  "ADS.XETRA:SMAx_10_50": {
+    "net": 114890,
+    "cagr": 1.04,
+    "sharpe": 0.155,
+    "oos_sharpe": 0.065,
+    "maxdd": -0.659,
+    "trades": 90,
+    "tax": 55990
+  },
+  "ADS.XETRA:SMAx_20_100": {
+    "net": 237841,
+    "cagr": 3.65,
+    "sharpe": 0.272,
+    "oos_sharpe": 0.333,
+    "maxdd": -0.588,
+    "trades": 46,
+    "tax": 69821
+  },
+  "ADS.XETRA:SMAx_50_200": {
+    "net": 756782,
+    "cagr": 8.31,
+    "sharpe": 0.459,
+    "oos_sharpe": 0.318,
+    "maxdd": -0.533,
+    "trades": 16,
+    "tax": 244010
+  },
+  "ADS.XETRA:SMAx_100_300": {
+    "net": 1049341,
+    "cagr": 9.65,
+    "sharpe": 0.507,
+    "oos_sharpe": 0.438,
+    "maxdd": -0.472,
+    "trades": 10,
+    "tax": 340688
+  },
+  "ADS.XETRA:EMAx_12_26": {
+    "net": 101237,
+    "cagr": 0.55,
+    "sharpe": 0.131,
+    "oos_sharpe": 0.178,
+    "maxdd": -0.675,
+    "trades": 124,
+    "tax": 47872
+  },
+  "ADS.XETRA:EMAx_20_100": {
+    "net": 338045,
+    "cagr": 4.99,
+    "sharpe": 0.33,
+    "oos_sharpe": 0.474,
+    "maxdd": -0.556,
+    "trades": 40,
+    "tax": 86292
+  },
+  "ADS.XETRA:EMAx_50_200": {
+    "net": 435623,
+    "cagr": 6.03,
+    "sharpe": 0.367,
+    "oos_sharpe": 0.356,
+    "maxdd": -0.484,
+    "trades": 20,
+    "tax": 120888
+  },
+  "ADS.XETRA:MACD_12_26_9": {
+    "net": 165446,
+    "cagr": 2.2,
+    "sharpe": 0.208,
+    "oos_sharpe": 0.187,
+    "maxdd": -0.512,
+    "trades": 260,
+    "tax": 41681
+  },
+  "ADS.XETRA:Donch_55_20": {
+    "net": 70287,
+    "cagr": -1.17,
+    "sharpe": 0.01,
+    "oos_sharpe": 0.089,
+    "maxdd": -0.579,
+    "trades": 75,
+    "tax": 9411
+  },
+  "ADS.XETRA:Donch_100_50": {
+    "net": 135875,
+    "cagr": 1.48,
+    "sharpe": 0.172,
+    "oos_sharpe": 0.137,
+    "maxdd": -0.53,
+    "trades": 36,
+    "tax": 39205
+  },
+  "ADS.XETRA:RSIrev_30_55": {
+    "net": 147858,
+    "cagr": 1.8,
+    "sharpe": 0.188,
+    "oos_sharpe": 0.093,
+    "maxdd": -0.516,
+    "trades": 103,
+    "tax": 42274
+  },
+  "ADS.XETRA:RSIrev_25_50": {
+    "net": 79348,
+    "cagr": -0.66,
+    "sharpe": 0.042,
+    "oos_sharpe": -0.057,
+    "maxdd": -0.551,
+    "trades": 75,
+    "tax": 15378
+  },
+  "ADS.XETRA:RSItrend_50": {
+    "net": 121564,
+    "cagr": 1.24,
+    "sharpe": 0.163,
+    "oos_sharpe": 0.104,
+    "maxdd": -0.635,
+    "trades": 365,
+    "tax": 57472
+  },
+  "ADS.XETRA:BBrev_20_2": {
+    "net": 79336,
+    "cagr": -0.42,
+    "sharpe": 0.068,
+    "oos_sharpe": -0.115,
+    "maxdd": -0.574,
+    "trades": 107,
+    "tax": 33297
+  },
+  "ADS.XETRA:BBbrk_20_2": {
+    "net": 91038,
+    "cagr": -0.07,
+    "sharpe": 0.072,
+    "oos_sharpe": 0.025,
+    "maxdd": -0.585,
+    "trades": 131,
+    "tax": 24086
+  },
+  "ADS.XETRA:TSmom_126": {
+    "net": 338699,
+    "cagr": 5.02,
+    "sharpe": 0.332,
+    "oos_sharpe": 0.421,
+    "maxdd": -0.562,
+    "trades": 149,
+    "tax": 93381
+  },
+  "ADS.XETRA:TSmom_252": {
+    "net": 187787,
+    "cagr": 2.79,
+    "sharpe": 0.234,
+    "oos_sharpe": 0.165,
+    "maxdd": -0.644,
+    "trades": 84,
+    "tax": 64713
+  },
+  "ADS.XETRA:VolFilter_p80": {
+    "net": 313056,
+    "cagr": 5.44,
+    "sharpe": 0.334,
+    "oos_sharpe": 0.074,
+    "maxdd": -0.719,
+    "trades": 92,
+    "tax": 312874
+  },
+  "ADS.XETRA:AND_SMA200_Mom12": {
+    "net": 208467,
+    "cagr": 3.22,
+    "sharpe": 0.255,
+    "oos_sharpe": 0.166,
+    "maxdd": -0.593,
+    "trades": 54,
+    "tax": 76845
+  },
+  "ADS.XETRA:OR_SMA200_Mom12": {
+    "net": 678174,
+    "cagr": 7.85,
+    "sharpe": 0.43,
+    "oos_sharpe": 0.309,
+    "maxdd": -0.592,
+    "trades": 46,
+    "tax": 212603
+  },
+  "ADS.XETRA:AND_MACD_RSI50": {
+    "net": 103021,
+    "cagr": 0.49,
+    "sharpe": 0.117,
+    "oos_sharpe": 0.015,
+    "maxdd": -0.609,
+    "trades": 314,
+    "tax": 35921
+  },
+  "ADS.XETRA:AND_Donch_Vol": {
+    "net": 74940,
+    "cagr": -0.79,
+    "sharpe": 0.021,
+    "oos_sharpe": -0.019,
+    "maxdd": -0.597,
+    "trades": 87,
+    "tax": 20264
+  },
+  "ADS.XETRA:AND_SMA200_Vol": {
+    "net": 539297,
+    "cagr": 6.98,
+    "sharpe": 0.426,
+    "oos_sharpe": 0.293,
+    "maxdd": -0.404,
+    "trades": 63,
+    "tax": 194968
+  },
+  "ADS.XETRA:ENS_2of3": {
+    "net": 226362,
+    "cagr": 3.46,
+    "sharpe": 0.263,
+    "oos_sharpe": 0.225,
+    "maxdd": -0.566,
+    "trades": 97,
+    "tax": 66918
+  },
+  "ADS.XETRA:ENS_3of3": {
+    "net": 100570,
+    "cagr": 0.42,
+    "sharpe": 0.099,
+    "oos_sharpe": -0.145,
+    "maxdd": -0.521,
+    "trades": 190,
+    "tax": 37405
+  },
+  "AIR.PA:SMAx_10_50": {
+    "net": 183694,
+    "cagr": 2.52,
+    "sharpe": 0.223,
+    "oos_sharpe": 0.337,
+    "maxdd": -0.698,
+    "trades": 91,
+    "tax": 32592
+  },
+  "AIR.PA:SMAx_20_100": {
+    "net": 153751,
+    "cagr": 1.84,
+    "sharpe": 0.194,
+    "oos_sharpe": 0.291,
+    "maxdd": -0.691,
+    "trades": 46,
+    "tax": 27477
+  },
+  "AIR.PA:SMAx_50_200": {
+    "net": 301873,
+    "cagr": 4.59,
+    "sharpe": 0.304,
+    "oos_sharpe": 0.214,
+    "maxdd": -0.55,
+    "trades": 20,
+    "tax": 88058
+  },
+  "AIR.PA:SMAx_100_300": {
+    "net": 104113,
+    "cagr": 0.38,
+    "sharpe": 0.151,
+    "oos_sharpe": 0.169,
+    "maxdd": -0.763,
+    "trades": 11,
+    "tax": 21136
+  },
+  "AIR.PA:EMAx_12_26": {
+    "net": 114676,
+    "cagr": 0.66,
+    "sharpe": 0.149,
+    "oos_sharpe": 0.371,
+    "maxdd": -0.765,
+    "trades": 134,
+    "tax": 15073
+  },
+  "AIR.PA:EMAx_20_100": {
+    "net": 238056,
+    "cagr": 3.59,
+    "sharpe": 0.265,
+    "oos_sharpe": 0.239,
+    "maxdd": -0.509,
+    "trades": 45,
+    "tax": 56352
+  },
+  "AIR.PA:EMAx_50_200": {
+    "net": 279590,
+    "cagr": 4.22,
+    "sharpe": 0.289,
+    "oos_sharpe": 0.231,
+    "maxdd": -0.562,
+    "trades": 20,
+    "tax": 64923
+  },
+  "AIR.PA:MACD_12_26_9": {
+    "net": 272262,
+    "cagr": 4.13,
+    "sharpe": 0.284,
+    "oos_sharpe": 0.369,
+    "maxdd": -0.559,
+    "trades": 276,
+    "tax": 68335
+  },
+  "AIR.PA:Donch_55_20": {
+    "net": 48074,
+    "cagr": -2.56,
+    "sharpe": -0.05,
+    "oos_sharpe": -0.247,
+    "maxdd": -0.652,
+    "trades": 80,
+    "tax": 7394
+  },
+  "AIR.PA:Donch_100_50": {
+    "net": 122773,
+    "cagr": 0.95,
+    "sharpe": 0.146,
+    "oos_sharpe": 0.259,
+    "maxdd": -0.601,
+    "trades": 36,
+    "tax": 18685
+  },
+  "AIR.PA:RSIrev_30_55": {
+    "net": 293120,
+    "cagr": 4.47,
+    "sharpe": 0.306,
+    "oos_sharpe": 0.255,
+    "maxdd": -0.612,
+    "trades": 98,
+    "tax": 84753
+  },
+  "AIR.PA:RSIrev_25_50": {
+    "net": 96386,
+    "cagr": 0.13,
+    "sharpe": 0.103,
+    "oos_sharpe": -0.026,
+    "maxdd": -0.61,
+    "trades": 66,
+    "tax": 23265
+  },
+  "AIR.PA:RSItrend_50": {
+    "net": 195079,
+    "cagr": 2.8,
+    "sharpe": 0.233,
+    "oos_sharpe": 0.324,
+    "maxdd": -0.619,
+    "trades": 421,
+    "tax": 42952
+  },
+  "AIR.PA:BBrev_20_2": {
+    "net": 172674,
+    "cagr": 2.33,
+    "sharpe": 0.215,
+    "oos_sharpe": 0.329,
+    "maxdd": -0.631,
+    "trades": 112,
+    "tax": 38178
+  },
+  "AIR.PA:BBbrk_20_2": {
+    "net": 178155,
+    "cagr": 2.42,
+    "sharpe": 0.222,
+    "oos_sharpe": 0.303,
+    "maxdd": -0.459,
+    "trades": 129,
+    "tax": 34145
+  },
+  "AIR.PA:TSmom_126": {
+    "net": 516882,
+    "cagr": 6.76,
+    "sharpe": 0.388,
+    "oos_sharpe": 0.428,
+    "maxdd": -0.473,
+    "trades": 110,
+    "tax": 164938
+  },
+  "AIR.PA:TSmom_252": {
+    "net": 340046,
+    "cagr": 5.02,
+    "sharpe": 0.32,
+    "oos_sharpe": 0.326,
+    "maxdd": -0.581,
+    "trades": 67,
+    "tax": 87956
+  },
+  "AIR.PA:VolFilter_p80": {
+    "net": 704282,
+    "cagr": 8.02,
+    "sharpe": 0.417,
+    "oos_sharpe": 0.459,
+    "maxdd": -0.768,
+    "trades": 78,
+    "tax": 228888
+  },
+  "AIR.PA:AND_SMA200_Mom12": {
+    "net": 287491,
+    "cagr": 4.35,
+    "sharpe": 0.302,
+    "oos_sharpe": 0.227,
+    "maxdd": -0.422,
+    "trades": 47,
+    "tax": 73646
+  },
+  "AIR.PA:OR_SMA200_Mom12": {
+    "net": 364462,
+    "cagr": 5.3,
+    "sharpe": 0.326,
+    "oos_sharpe": 0.311,
+    "maxdd": -0.647,
+    "trades": 40,
+    "tax": 96012
+  },
+  "AIR.PA:AND_MACD_RSI50": {
+    "net": 216796,
+    "cagr": 3.21,
+    "sharpe": 0.252,
+    "oos_sharpe": 0.461,
+    "maxdd": -0.506,
+    "trades": 332,
+    "tax": 48467
+  },
+  "AIR.PA:AND_Donch_Vol": {
+    "net": 79855,
+    "cagr": -0.67,
+    "sharpe": 0.04,
+    "oos_sharpe": -0.091,
+    "maxdd": -0.549,
+    "trades": 85,
+    "tax": 12657
+  },
+  "AIR.PA:AND_SMA200_Vol": {
+    "net": 459618,
+    "cagr": 6.27,
+    "sharpe": 0.389,
+    "oos_sharpe": 0.392,
+    "maxdd": -0.402,
+    "trades": 59,
+    "tax": 138809
+  },
+  "AIR.PA:ENS_2of3": {
+    "net": 343393,
+    "cagr": 5.06,
+    "sharpe": 0.324,
+    "oos_sharpe": 0.362,
+    "maxdd": -0.562,
+    "trades": 96,
+    "tax": 90048
+  },
+  "AIR.PA:ENS_3of3": {
+    "net": 106191,
+    "cagr": 0.39,
+    "sharpe": 0.096,
+    "oos_sharpe": 0.002,
+    "maxdd": -0.36,
+    "trades": 175,
+    "tax": 15319
+  },
+  "ALV.XETRA:SMAx_10_50": {
+    "net": 145155,
+    "cagr": 1.55,
+    "sharpe": 0.176,
+    "oos_sharpe": 0.371,
+    "maxdd": -0.625,
+    "trades": 94,
+    "tax": 17751
+  },
+  "ALV.XETRA:SMAx_20_100": {
+    "net": 454722,
+    "cagr": 6.2,
+    "sharpe": 0.426,
+    "oos_sharpe": 0.392,
+    "maxdd": -0.403,
+    "trades": 44,
+    "tax": 128685
+  },
+  "ALV.XETRA:SMAx_50_200": {
+    "net": 328032,
+    "cagr": 4.87,
+    "sharpe": 0.356,
+    "oos_sharpe": 0.344,
+    "maxdd": -0.589,
+    "trades": 16,
+    "tax": 82164
+  },
+  "ALV.XETRA:SMAx_100_300": {
+    "net": 455370,
+    "cagr": 6.21,
+    "sharpe": 0.42,
+    "oos_sharpe": 0.542,
+    "maxdd": -0.535,
+    "trades": 9,
+    "tax": 127623
+  },
+  "ALV.XETRA:EMAx_12_26": {
+    "net": 140330,
+    "cagr": 1.47,
+    "sharpe": 0.172,
+    "oos_sharpe": 0.186,
+    "maxdd": -0.578,
+    "trades": 115,
+    "tax": 22705
+  },
+  "ALV.XETRA:EMAx_20_100": {
+    "net": 282093,
+    "cagr": 4.26,
+    "sharpe": 0.318,
+    "oos_sharpe": 0.384,
+    "maxdd": -0.442,
+    "trades": 43,
+    "tax": 66283
+  },
+  "ALV.XETRA:EMAx_50_200": {
+    "net": 340804,
+    "cagr": 5.02,
+    "sharpe": 0.356,
+    "oos_sharpe": 0.425,
+    "maxdd": -0.483,
+    "trades": 15,
+    "tax": 86705
+  },
+  "ALV.XETRA:MACD_12_26_9": {
+    "net": 99909,
+    "cagr": 0.02,
+    "sharpe": 0.103,
+    "oos_sharpe": 0.683,
+    "maxdd": -0.816,
+    "trades": 262,
+    "tax": 2266
+  },
+  "ALV.XETRA:Donch_55_20": {
+    "net": 110670,
+    "cagr": 0.51,
+    "sharpe": 0.106,
+    "oos_sharpe": 0.202,
+    "maxdd": -0.537,
+    "trades": 73,
+    "tax": 12547
+  },
+  "ALV.XETRA:Donch_100_50": {
+    "net": 230419,
+    "cagr": 3.43,
+    "sharpe": 0.302,
+    "oos_sharpe": 0.456,
+    "maxdd": -0.311,
+    "trades": 32,
+    "tax": 47418
+  },
+  "ALV.XETRA:RSIrev_30_55": {
+    "net": 276479,
+    "cagr": 4.18,
+    "sharpe": 0.289,
+    "oos_sharpe": 0.52,
+    "maxdd": -0.765,
+    "trades": 104,
+    "tax": 65919
+  },
+  "ALV.XETRA:RSIrev_25_50": {
+    "net": 125149,
+    "cagr": 0.94,
+    "sharpe": 0.145,
+    "oos_sharpe": 0.423,
+    "maxdd": -0.639,
+    "trades": 74,
+    "tax": 10059
+  },
+  "ALV.XETRA:RSItrend_50": {
+    "net": 152635,
+    "cagr": 1.79,
+    "sharpe": 0.187,
+    "oos_sharpe": 0.479,
+    "maxdd": -0.573,
+    "trades": 372,
+    "tax": 24253
+  },
+  "ALV.XETRA:BBrev_20_2": {
+    "net": 71561,
+    "cagr": -1.12,
+    "sharpe": 0.054,
+    "oos_sharpe": 0.545,
+    "maxdd": -0.808,
+    "trades": 113,
+    "tax": 8848
+  },
+  "ALV.XETRA:BBbrk_20_2": {
+    "net": 125043,
+    "cagr": 0.95,
+    "sharpe": 0.137,
+    "oos_sharpe": 0.241,
+    "maxdd": -0.339,
+    "trades": 119,
+    "tax": 11057
+  },
+  "ALV.XETRA:TSmom_126": {
+    "net": 335692,
+    "cagr": 4.97,
+    "sharpe": 0.365,
+    "oos_sharpe": 0.48,
+    "maxdd": -0.345,
+    "trades": 96,
+    "tax": 87123
+  },
+  "ALV.XETRA:TSmom_252": {
+    "net": 333143,
+    "cagr": 4.93,
+    "sharpe": 0.375,
+    "oos_sharpe": 0.471,
+    "maxdd": -0.452,
+    "trades": 52,
+    "tax": 84700
+  },
+  "ALV.XETRA:VolFilter_p80": {
+    "net": 174212,
+    "cagr": 2.31,
+    "sharpe": 0.213,
+    "oos_sharpe": 0.567,
+    "maxdd": -0.745,
+    "trades": 75,
+    "tax": 29454
+  },
+  "ALV.XETRA:AND_SMA200_Mom12": {
+    "net": 317772,
+    "cagr": 4.74,
+    "sharpe": 0.377,
+    "oos_sharpe": 0.456,
+    "maxdd": -0.414,
+    "trades": 36,
+    "tax": 78898
+  },
+  "ALV.XETRA:OR_SMA200_Mom12": {
+    "net": 342526,
+    "cagr": 5.05,
+    "sharpe": 0.357,
+    "oos_sharpe": 0.363,
+    "maxdd": -0.556,
+    "trades": 32,
+    "tax": 87745
+  },
+  "ALV.XETRA:AND_MACD_RSI50": {
+    "net": 201003,
+    "cagr": 2.9,
+    "sharpe": 0.251,
+    "oos_sharpe": 0.734,
+    "maxdd": -0.576,
+    "trades": 297,
+    "tax": 40951
+  },
+  "ALV.XETRA:AND_Donch_Vol": {
+    "net": 143572,
+    "cagr": 1.51,
+    "sharpe": 0.181,
+    "oos_sharpe": 0.209,
+    "maxdd": -0.46,
+    "trades": 80,
+    "tax": 17308
+  },
+  "ALV.XETRA:AND_SMA200_Vol": {
+    "net": 330650,
+    "cagr": 4.92,
+    "sharpe": 0.381,
+    "oos_sharpe": 0.389,
+    "maxdd": -0.367,
+    "trades": 50,
+    "tax": 87926
+  },
+  "ALV.XETRA:ENS_2of3": {
+    "net": 375182,
+    "cagr": 5.42,
+    "sharpe": 0.4,
+    "oos_sharpe": 0.463,
+    "maxdd": -0.386,
+    "trades": 71,
+    "tax": 100554
+  },
+  "ALV.XETRA:ENS_3of3": {
+    "net": 169629,
+    "cagr": 2.2,
+    "sharpe": 0.271,
+    "oos_sharpe": 0.43,
+    "maxdd": -0.313,
+    "trades": 170,
+    "tax": 28540
+  },
+  "AZN.LSE:SMAx_10_50": {
+    "net": 67712,
+    "cagr": -1.31,
+    "sharpe": 0.014,
+    "oos_sharpe": -0.13,
+    "maxdd": -0.507,
+    "trades": 101,
+    "tax": 9404
+  },
+  "AZN.LSE:SMAx_20_100": {
+    "net": 142589,
+    "cagr": 1.51,
+    "sharpe": 0.173,
+    "oos_sharpe": 0.135,
+    "maxdd": -0.444,
+    "trades": 50,
+    "tax": 20087
+  },
+  "AZN.LSE:SMAx_50_200": {
+    "net": 215518,
+    "cagr": 3.23,
+    "sharpe": 0.257,
+    "oos_sharpe": 0.356,
+    "maxdd": -0.389,
+    "trades": 19,
+    "tax": 55342
+  },
+  "AZN.LSE:SMAx_100_300": {
+    "net": 215397,
+    "cagr": 3.19,
+    "sharpe": 0.256,
+    "oos_sharpe": 0.397,
+    "maxdd": -0.434,
+    "trades": 12,
+    "tax": 48809
+  },
+  "AZN.LSE:EMAx_12_26": {
+    "net": 61538,
+    "cagr": -1.81,
+    "sharpe": -0.013,
+    "oos_sharpe": 0.012,
+    "maxdd": -0.54,
+    "trades": 137,
+    "tax": 0
+  },
+  "AZN.LSE:EMAx_20_100": {
+    "net": 154695,
+    "cagr": 1.85,
+    "sharpe": 0.192,
+    "oos_sharpe": 0.204,
+    "maxdd": -0.426,
+    "trades": 46,
+    "tax": 26448
+  },
+  "AZN.LSE:EMAx_50_200": {
+    "net": 203831,
+    "cagr": 3.02,
+    "sharpe": 0.246,
+    "oos_sharpe": 0.341,
+    "maxdd": -0.455,
+    "trades": 21,
+    "tax": 54332
+  },
+  "AZN.LSE:MACD_12_26_9": {
+    "net": 136448,
+    "cagr": 1.39,
+    "sharpe": 0.167,
+    "oos_sharpe": 0.451,
+    "maxdd": -0.619,
+    "trades": 265,
+    "tax": 25905
+  },
+  "AZN.LSE:Donch_55_20": {
+    "net": 81433,
+    "cagr": -0.77,
+    "sharpe": 0.017,
+    "oos_sharpe": 0.216,
+    "maxdd": -0.477,
+    "trades": 80,
+    "tax": 0
+  },
+  "AZN.LSE:Donch_100_50": {
+    "net": 143825,
+    "cagr": 1.55,
+    "sharpe": 0.176,
+    "oos_sharpe": 0.131,
+    "maxdd": -0.413,
+    "trades": 36,
+    "tax": 21966
+  },
+  "AZN.LSE:RSIrev_30_55": {
+    "net": 276773,
+    "cagr": 4.19,
+    "sharpe": 0.349,
+    "oos_sharpe": 0.591,
+    "maxdd": -0.383,
+    "trades": 103,
+    "tax": 66242
+  },
+  "AZN.LSE:RSIrev_25_50": {
+    "net": 225587,
+    "cagr": 3.35,
+    "sharpe": 0.345,
+    "oos_sharpe": 0.65,
+    "maxdd": -0.337,
+    "trades": 79,
+    "tax": 46845
+  },
+  "AZN.LSE:RSItrend_50": {
+    "net": 93502,
+    "cagr": -0.15,
+    "sharpe": 0.082,
+    "oos_sharpe": 0.255,
+    "maxdd": -0.655,
+    "trades": 397,
+    "tax": 8904
+  },
+  "AZN.LSE:BBrev_20_2": {
+    "net": 320281,
+    "cagr": 4.8,
+    "sharpe": 0.411,
+    "oos_sharpe": 0.718,
+    "maxdd": -0.404,
+    "trades": 120,
+    "tax": 87315
+  },
+  "AZN.LSE:BBbrk_20_2": {
+    "net": 43038,
+    "cagr": -3.07,
+    "sharpe": -0.171,
+    "oos_sharpe": 0.121,
+    "maxdd": -0.714,
+    "trades": 134,
+    "tax": 2425
+  },
+  "AZN.LSE:TSmom_126": {
+    "net": 77959,
+    "cagr": -0.72,
+    "sharpe": 0.06,
+    "oos_sharpe": -0.025,
+    "maxdd": -0.572,
+    "trades": 152,
+    "tax": 15354
+  },
+  "AZN.LSE:TSmom_252": {
+    "net": 143314,
+    "cagr": 1.75,
+    "sharpe": 0.187,
+    "oos_sharpe": 0.157,
+    "maxdd": -0.485,
+    "trades": 109,
+    "tax": 49614
+  },
+  "AZN.LSE:VolFilter_p80": {
+    "net": 349265,
+    "cagr": 5.14,
+    "sharpe": 0.351,
+    "oos_sharpe": 0.411,
+    "maxdd": -0.463,
+    "trades": 94,
+    "tax": 95016
+  },
+  "AZN.LSE:AND_SMA200_Mom12": {
+    "net": 127808,
+    "cagr": 1.19,
+    "sharpe": 0.157,
+    "oos_sharpe": 0.181,
+    "maxdd": -0.465,
+    "trades": 60,
+    "tax": 30198
+  },
+  "AZN.LSE:OR_SMA200_Mom12": {
+    "net": 246850,
+    "cagr": 3.84,
+    "sharpe": 0.282,
+    "oos_sharpe": 0.325,
+    "maxdd": -0.45,
+    "trades": 67,
+    "tax": 82221
+  },
+  "AZN.LSE:AND_MACD_RSI50": {
+    "net": 135011,
+    "cagr": 1.36,
+    "sharpe": 0.164,
+    "oos_sharpe": 0.414,
+    "maxdd": -0.588,
+    "trades": 311,
+    "tax": 27339
+  },
+  "AZN.LSE:AND_Donch_Vol": {
+    "net": 58078,
+    "cagr": -2.01,
+    "sharpe": -0.132,
+    "oos_sharpe": -0.0,
+    "maxdd": -0.481,
+    "trades": 90,
+    "tax": 1092
+  },
+  "AZN.LSE:AND_SMA200_Vol": {
+    "net": 140068,
+    "cagr": 1.48,
+    "sharpe": 0.172,
+    "oos_sharpe": 0.208,
+    "maxdd": -0.443,
+    "trades": 81,
+    "tax": 25536
+  },
+  "AZN.LSE:ENS_2of3": {
+    "net": 146174,
+    "cagr": 1.72,
+    "sharpe": 0.185,
+    "oos_sharpe": 0.245,
+    "maxdd": -0.403,
+    "trades": 120,
+    "tax": 36105
+  },
+  "AZN.LSE:ENS_3of3": {
+    "net": 96128,
+    "cagr": -0.06,
+    "sharpe": 0.06,
+    "oos_sharpe": 0.196,
+    "maxdd": -0.358,
+    "trades": 175,
+    "tax": 7500
+  },
+  "BAS.XETRA:SMAx_10_50": {
+    "net": 157073,
+    "cagr": 2.08,
+    "sharpe": 0.202,
+    "oos_sharpe": 0.078,
+    "maxdd": -0.506,
+    "trades": 90,
+    "tax": 51801
+  },
+  "BAS.XETRA:SMAx_20_100": {
+    "net": 144283,
+    "cagr": 1.94,
+    "sharpe": 0.196,
+    "oos_sharpe": -0.103,
+    "maxdd": -0.594,
+    "trades": 40,
+    "tax": 74502
+  },
+  "BAS.XETRA:SMAx_50_200": {
+    "net": 150556,
+    "cagr": 1.98,
+    "sharpe": 0.197,
+    "oos_sharpe": -0.114,
+    "maxdd": -0.643,
+    "trades": 23,
+    "tax": 59017
+  },
+  "BAS.XETRA:SMAx_100_300": {
+    "net": 127566,
+    "cagr": 1.37,
+    "sharpe": 0.167,
+    "oos_sharpe": -0.135,
+    "maxdd": -0.671,
+    "trades": 13,
+    "tax": 52351
+  },
+  "BAS.XETRA:EMAx_12_26": {
+    "net": 105742,
+    "cagr": 0.54,
+    "sharpe": 0.123,
+    "oos_sharpe": 0.017,
+    "maxdd": -0.539,
+    "trades": 124,
+    "tax": 32366
+  },
+  "BAS.XETRA:EMAx_20_100": {
+    "net": 145211,
+    "cagr": 2.09,
+    "sharpe": 0.203,
+    "oos_sharpe": -0.197,
+    "maxdd": -0.646,
+    "trades": 44,
+    "tax": 92364
+  },
+  "BAS.XETRA:EMAx_50_200": {
+    "net": 99495,
+    "cagr": 0.81,
+    "sharpe": 0.138,
+    "oos_sharpe": -0.285,
+    "maxdd": -0.742,
+    "trades": 25,
+    "tax": 81398
+  },
+  "BAS.XETRA:MACD_12_26_9": {
+    "net": 125057,
+    "cagr": 1.09,
+    "sharpe": 0.152,
+    "oos_sharpe": 0.096,
+    "maxdd": -0.416,
+    "trades": 286,
+    "tax": 27345
+  },
+  "BAS.XETRA:Donch_55_20": {
+    "net": 62919,
+    "cagr": -1.56,
+    "sharpe": -0.029,
+    "oos_sharpe": -0.238,
+    "maxdd": -0.547,
+    "trades": 85,
+    "tax": 9686
+  },
+  "BAS.XETRA:Donch_100_50": {
+    "net": 108123,
+    "cagr": 0.59,
+    "sharpe": 0.117,
+    "oos_sharpe": -0.06,
+    "maxdd": -0.503,
+    "trades": 36,
+    "tax": 29405
+  },
+  "BAS.XETRA:RSIrev_30_55": {
+    "net": 237704,
+    "cagr": 3.6,
+    "sharpe": 0.283,
+    "oos_sharpe": 0.221,
+    "maxdd": -0.553,
+    "trades": 99,
+    "tax": 59029
+  },
+  "BAS.XETRA:RSIrev_25_50": {
+    "net": 112933,
+    "cagr": 0.76,
+    "sharpe": 0.125,
+    "oos_sharpe": 0.022,
+    "maxdd": -0.571,
+    "trades": 69,
+    "tax": 31016
+  },
+  "BAS.XETRA:RSItrend_50": {
+    "net": 68398,
+    "cagr": -1.28,
+    "sharpe": 0.029,
+    "oos_sharpe": -0.028,
+    "maxdd": -0.636,
+    "trades": 383,
+    "tax": 8938
+  },
+  "BAS.XETRA:BBrev_20_2": {
+    "net": 187050,
+    "cagr": 2.64,
+    "sharpe": 0.234,
+    "oos_sharpe": 0.181,
+    "maxdd": -0.538,
+    "trades": 115,
+    "tax": 41110
+  },
+  "BAS.XETRA:BBbrk_20_2": {
+    "net": 59547,
+    "cagr": -1.94,
+    "sharpe": -0.073,
+    "oos_sharpe": -0.098,
+    "maxdd": -0.55,
+    "trades": 125,
+    "tax": 0
+  },
+  "BAS.XETRA:TSmom_126": {
+    "net": 145524,
+    "cagr": 1.96,
+    "sharpe": 0.197,
+    "oos_sharpe": -0.153,
+    "maxdd": -0.661,
+    "trades": 128,
+    "tax": 73076
+  },
+  "BAS.XETRA:TSmom_252": {
+    "net": 112165,
+    "cagr": 0.73,
+    "sharpe": 0.131,
+    "oos_sharpe": -0.108,
+    "maxdd": -0.615,
+    "trades": 93,
+    "tax": 30390
+  },
+  "BAS.XETRA:VolFilter_p80": {
+    "net": 183368,
+    "cagr": 2.71,
+    "sharpe": 0.231,
+    "oos_sharpe": -0.03,
+    "maxdd": -0.624,
+    "trades": 85,
+    "tax": 65657
+  },
+  "BAS.XETRA:AND_SMA200_Mom12": {
+    "net": 101496,
+    "cagr": 0.44,
+    "sharpe": 0.108,
+    "oos_sharpe": -0.251,
+    "maxdd": -0.612,
+    "trades": 57,
+    "tax": 35671
+  },
+  "BAS.XETRA:OR_SMA200_Mom12": {
+    "net": 166894,
+    "cagr": 2.29,
+    "sharpe": 0.212,
+    "oos_sharpe": -0.021,
+    "maxdd": -0.612,
+    "trades": 58,
+    "tax": 51530
+  },
+  "BAS.XETRA:AND_MACD_RSI50": {
+    "net": 59261,
+    "cagr": -1.93,
+    "sharpe": -0.032,
+    "oos_sharpe": 0.088,
+    "maxdd": -0.633,
+    "trades": 334,
+    "tax": 1244
+  },
+  "BAS.XETRA:AND_Donch_Vol": {
+    "net": 55226,
+    "cagr": -2.0,
+    "sharpe": -0.093,
+    "oos_sharpe": -0.421,
+    "maxdd": -0.572,
+    "trades": 95,
+    "tax": 11074
+  },
+  "BAS.XETRA:AND_SMA200_Vol": {
+    "net": 131722,
+    "cagr": 1.7,
+    "sharpe": 0.183,
+    "oos_sharpe": -0.284,
+    "maxdd": -0.603,
+    "trades": 46,
+    "tax": 81430
+  },
+  "BAS.XETRA:ENS_2of3": {
+    "net": 90501,
+    "cagr": 0.16,
+    "sharpe": 0.101,
+    "oos_sharpe": -0.219,
+    "maxdd": -0.669,
+    "trades": 129,
+    "tax": 45676
+  },
+  "BAS.XETRA:ENS_3of3": {
+    "net": 70219,
+    "cagr": -1.09,
+    "sharpe": -0.05,
+    "oos_sharpe": -0.34,
+    "maxdd": -0.56,
+    "trades": 181,
+    "tax": 15019
+  },
+  "BMW.XETRA:SMAx_10_50": {
+    "net": 146218,
+    "cagr": 1.65,
+    "sharpe": 0.182,
+    "oos_sharpe": 0.186,
+    "maxdd": -0.622,
+    "trades": 97,
+    "tax": 27452
+  },
+  "BMW.XETRA:SMAx_20_100": {
+    "net": 105451,
+    "cagr": 0.52,
+    "sharpe": 0.131,
+    "oos_sharpe": -0.072,
+    "maxdd": -0.518,
+    "trades": 47,
+    "tax": 31464
+  },
+  "BMW.XETRA:SMAx_50_200": {
+    "net": 132496,
+    "cagr": 1.24,
+    "sharpe": 0.164,
+    "oos_sharpe": 0.133,
+    "maxdd": -0.602,
+    "trades": 21,
+    "tax": 20977
+  },
+  "BMW.XETRA:SMAx_100_300": {
+    "net": 114224,
+    "cagr": 0.79,
+    "sharpe": 0.148,
+    "oos_sharpe": 0.009,
+    "maxdd": -0.693,
+    "trades": 12,
+    "tax": 30126
+  },
+  "BMW.XETRA:EMAx_12_26": {
+    "net": 113016,
+    "cagr": 0.61,
+    "sharpe": 0.133,
+    "oos_sharpe": 0.074,
+    "maxdd": -0.52,
+    "trades": 123,
+    "tax": 14879
+  },
+  "BMW.XETRA:EMAx_20_100": {
+    "net": 139685,
+    "cagr": 1.58,
+    "sharpe": 0.18,
+    "oos_sharpe": 0.009,
+    "maxdd": -0.591,
+    "trades": 50,
+    "tax": 39438
+  },
+  "BMW.XETRA:EMAx_50_200": {
+    "net": 266880,
+    "cagr": 4.09,
+    "sharpe": 0.291,
+    "oos_sharpe": 0.118,
+    "maxdd": -0.514,
+    "trades": 18,
+    "tax": 76269
+  },
+  "BMW.XETRA:MACD_12_26_9": {
+    "net": 114426,
+    "cagr": 0.69,
+    "sharpe": 0.139,
+    "oos_sharpe": 0.314,
+    "maxdd": -0.681,
+    "trades": 265,
+    "tax": 18367
+  },
+  "BMW.XETRA:Donch_55_20": {
+    "net": 66935,
+    "cagr": -1.5,
+    "sharpe": -0.002,
+    "oos_sharpe": -0.023,
+    "maxdd": -0.486,
+    "trades": 77,
+    "tax": 0
+  },
+  "BMW.XETRA:Donch_100_50": {
+    "net": 122054,
+    "cagr": 1.02,
+    "sharpe": 0.145,
+    "oos_sharpe": 0.028,
+    "maxdd": -0.517,
+    "trades": 32,
+    "tax": 29304
+  },
+  "BMW.XETRA:RSIrev_30_55": {
+    "net": 501272,
+    "cagr": 6.71,
+    "sharpe": 0.435,
+    "oos_sharpe": 0.181,
+    "maxdd": -0.467,
+    "trades": 109,
+    "tax": 193249
+  },
+  "BMW.XETRA:RSIrev_25_50": {
+    "net": 305806,
+    "cagr": 4.65,
+    "sharpe": 0.37,
+    "oos_sharpe": 0.271,
+    "maxdd": -0.412,
+    "trades": 79,
+    "tax": 94423
+  },
+  "BMW.XETRA:RSItrend_50": {
+    "net": 24845,
+    "cagr": -5.01,
+    "sharpe": -0.139,
+    "oos_sharpe": 0.088,
+    "maxdd": -0.874,
+    "trades": 392,
+    "tax": 2482
+  },
+  "BMW.XETRA:BBrev_20_2": {
+    "net": 259513,
+    "cagr": 4.13,
+    "sharpe": 0.316,
+    "oos_sharpe": 0.143,
+    "maxdd": -0.476,
+    "trades": 122,
+    "tax": 109651
+  },
+  "BMW.XETRA:BBbrk_20_2": {
+    "net": 57135,
+    "cagr": -2.09,
+    "sharpe": -0.076,
+    "oos_sharpe": 0.19,
+    "maxdd": -0.614,
+    "trades": 118,
+    "tax": 0
+  },
+  "BMW.XETRA:TSmom_126": {
+    "net": 105676,
+    "cagr": 0.42,
+    "sharpe": 0.123,
+    "oos_sharpe": 0.069,
+    "maxdd": -0.537,
+    "trades": 128,
+    "tax": 20338
+  },
+  "BMW.XETRA:TSmom_252": {
+    "net": 94985,
+    "cagr": 0.05,
+    "sharpe": 0.11,
+    "oos_sharpe": -0.009,
+    "maxdd": -0.607,
+    "trades": 86,
+    "tax": 21556
+  },
+  "BMW.XETRA:VolFilter_p80": {
+    "net": 212422,
+    "cagr": 3.51,
+    "sharpe": 0.264,
+    "oos_sharpe": 0.026,
+    "maxdd": -0.512,
+    "trades": 89,
+    "tax": 124820
+  },
+  "BMW.XETRA:AND_SMA200_Mom12": {
+    "net": 83817,
+    "cagr": -0.54,
+    "sharpe": 0.066,
+    "oos_sharpe": -0.028,
+    "maxdd": -0.579,
+    "trades": 61,
+    "tax": 9288
+  },
+  "BMW.XETRA:OR_SMA200_Mom12": {
+    "net": 158600,
+    "cagr": 1.97,
+    "sharpe": 0.2,
+    "oos_sharpe": 0.138,
+    "maxdd": -0.647,
+    "trades": 45,
+    "tax": 30278
+  },
+  "BMW.XETRA:AND_MACD_RSI50": {
+    "net": 46046,
+    "cagr": -2.64,
+    "sharpe": -0.048,
+    "oos_sharpe": 0.188,
+    "maxdd": -0.812,
+    "trades": 309,
+    "tax": 10690
+  },
+  "BMW.XETRA:AND_Donch_Vol": {
+    "net": 63987,
+    "cagr": -1.54,
+    "sharpe": -0.042,
+    "oos_sharpe": -0.28,
+    "maxdd": -0.621,
+    "trades": 94,
+    "tax": 7372
+  },
+  "BMW.XETRA:AND_SMA200_Vol": {
+    "net": 187206,
+    "cagr": 2.72,
+    "sharpe": 0.236,
+    "oos_sharpe": 0.19,
+    "maxdd": -0.437,
+    "trades": 58,
+    "tax": 54264
+  },
+  "BMW.XETRA:ENS_2of3": {
+    "net": 103212,
+    "cagr": 0.2,
+    "sharpe": 0.116,
+    "oos_sharpe": 0.123,
+    "maxdd": -0.628,
+    "trades": 101,
+    "tax": 7780
+  },
+  "BMW.XETRA:ENS_3of3": {
+    "net": 112823,
+    "cagr": 0.62,
+    "sharpe": 0.112,
+    "oos_sharpe": 0.015,
+    "maxdd": -0.389,
+    "trades": 164,
+    "tax": 17124
+  },
+  "BP.LSE:SMAx_10_50": {
+    "net": 66929,
+    "cagr": -1.48,
+    "sharpe": 0.016,
+    "oos_sharpe": 0.128,
+    "maxdd": -0.585,
+    "trades": 95,
+    "tax": 1492
+  },
+  "BP.LSE:SMAx_20_100": {
+    "net": 122894,
+    "cagr": 0.89,
+    "sharpe": 0.141,
+    "oos_sharpe": 0.263,
+    "maxdd": -0.495,
+    "trades": 41,
+    "tax": 12136
+  },
+  "BP.LSE:SMAx_50_200": {
+    "net": 104493,
+    "cagr": 0.3,
+    "sharpe": 0.11,
+    "oos_sharpe": 0.35,
+    "maxdd": -0.541,
+    "trades": 19,
+    "tax": 12225
+  },
+  "BP.LSE:SMAx_100_300": {
+    "net": 147410,
+    "cagr": 1.63,
+    "sharpe": 0.18,
+    "oos_sharpe": 0.386,
+    "maxdd": -0.615,
+    "trades": 16,
+    "tax": 19897
+  },
+  "BP.LSE:EMAx_12_26": {
+    "net": 83823,
+    "cagr": -0.66,
+    "sharpe": 0.059,
+    "oos_sharpe": 0.175,
+    "maxdd": -0.515,
+    "trades": 121,
+    "tax": 0
+  },
+  "BP.LSE:EMAx_20_100": {
+    "net": 125758,
+    "cagr": 0.98,
+    "sharpe": 0.146,
+    "oos_sharpe": 0.314,
+    "maxdd": -0.449,
+    "trades": 51,
+    "tax": 12456
+  },
+  "BP.LSE:EMAx_50_200": {
+    "net": 114704,
+    "cagr": 0.68,
+    "sharpe": 0.13,
+    "oos_sharpe": 0.355,
+    "maxdd": -0.541,
+    "trades": 22,
+    "tax": 16131
+  },
+  "BP.LSE:MACD_12_26_9": {
+    "net": 205141,
+    "cagr": 3.11,
+    "sharpe": 0.255,
+    "oos_sharpe": 0.319,
+    "maxdd": -0.518,
+    "trades": 257,
+    "tax": 66883
+  },
+  "BP.LSE:Donch_55_20": {
+    "net": 56469,
+    "cagr": -2.13,
+    "sharpe": -0.08,
+    "oos_sharpe": 0.024,
+    "maxdd": -0.589,
+    "trades": 76,
+    "tax": 0
+  },
+  "BP.LSE:Donch_100_50": {
+    "net": 65390,
+    "cagr": -1.59,
+    "sharpe": -0.017,
+    "oos_sharpe": 0.198,
+    "maxdd": -0.553,
+    "trades": 35,
+    "tax": 0
+  },
+  "BP.LSE:RSIrev_30_55": {
+    "net": 171125,
+    "cagr": 2.26,
+    "sharpe": 0.214,
+    "oos_sharpe": 0.146,
+    "maxdd": -0.578,
+    "trades": 104,
+    "tax": 32943
+  },
+  "BP.LSE:RSIrev_25_50": {
+    "net": 101774,
+    "cagr": 0.18,
+    "sharpe": 0.087,
+    "oos_sharpe": 0.142,
+    "maxdd": -0.582,
+    "trades": 74,
+    "tax": 10241
+  },
+  "BP.LSE:RSItrend_50": {
+    "net": 75987,
+    "cagr": -0.89,
+    "sharpe": 0.045,
+    "oos_sharpe": 0.05,
+    "maxdd": -0.638,
+    "trades": 423,
+    "tax": 9561
+  },
+  "BP.LSE:BBrev_20_2": {
+    "net": 109488,
+    "cagr": 0.41,
+    "sharpe": 0.111,
+    "oos_sharpe": 0.352,
+    "maxdd": -0.613,
+    "trades": 114,
+    "tax": 7008
+  },
+  "BP.LSE:BBbrk_20_2": {
+    "net": 128952,
+    "cagr": 1.07,
+    "sharpe": 0.147,
+    "oos_sharpe": 0.244,
+    "maxdd": -0.433,
+    "trades": 113,
+    "tax": 12457
+  },
+  "BP.LSE:TSmom_126": {
+    "net": 90732,
+    "cagr": -0.02,
+    "sharpe": 0.09,
+    "oos_sharpe": 0.121,
+    "maxdd": -0.633,
+    "trades": 156,
+    "tax": 28874
+  },
+  "BP.LSE:TSmom_252": {
+    "net": 126044,
+    "cagr": 0.99,
+    "sharpe": 0.145,
+    "oos_sharpe": 0.356,
+    "maxdd": -0.61,
+    "trades": 116,
+    "tax": 12545
+  },
+  "BP.LSE:VolFilter_p80": {
+    "net": 282333,
+    "cagr": 4.34,
+    "sharpe": 0.31,
+    "oos_sharpe": 0.3,
+    "maxdd": -0.471,
+    "trades": 92,
+    "tax": 85877
+  },
+  "BP.LSE:AND_SMA200_Mom12": {
+    "net": 139361,
+    "cagr": 1.41,
+    "sharpe": 0.167,
+    "oos_sharpe": 0.307,
+    "maxdd": -0.476,
+    "trades": 77,
+    "tax": 18385
+  },
+  "BP.LSE:OR_SMA200_Mom12": {
+    "net": 95433,
+    "cagr": -0.11,
+    "sharpe": 0.095,
+    "oos_sharpe": 0.393,
+    "maxdd": -0.677,
+    "trades": 58,
+    "tax": 5398
+  },
+  "BP.LSE:AND_MACD_RSI50": {
+    "net": 158465,
+    "cagr": 1.95,
+    "sharpe": 0.199,
+    "oos_sharpe": 0.307,
+    "maxdd": -0.534,
+    "trades": 323,
+    "tax": 27647
+  },
+  "BP.LSE:AND_Donch_Vol": {
+    "net": 86034,
+    "cagr": -0.55,
+    "sharpe": 0.012,
+    "oos_sharpe": 0.089,
+    "maxdd": -0.364,
+    "trades": 83,
+    "tax": 1159
+  },
+  "BP.LSE:AND_SMA200_Vol": {
+    "net": 167428,
+    "cagr": 2.39,
+    "sharpe": 0.225,
+    "oos_sharpe": 0.324,
+    "maxdd": -0.482,
+    "trades": 52,
+    "tax": 65086
+  },
+  "BP.LSE:ENS_2of3": {
+    "net": 109430,
+    "cagr": 0.43,
+    "sharpe": 0.114,
+    "oos_sharpe": 0.35,
+    "maxdd": -0.656,
+    "trades": 130,
+    "tax": 8387
+  },
+  "BP.LSE:ENS_3of3": {
+    "net": 234319,
+    "cagr": 3.59,
+    "sharpe": 0.378,
+    "oos_sharpe": 0.471,
+    "maxdd": -0.267,
+    "trades": 151,
+    "tax": 67731
+  },
+  "DTE.XETRA:SMAx_10_50": {
+    "net": 42349,
+    "cagr": -3.19,
+    "sharpe": -0.085,
+    "oos_sharpe": 0.182,
+    "maxdd": -0.689,
+    "trades": 100,
+    "tax": 0
+  },
+  "DTE.XETRA:SMAx_20_100": {
+    "net": 83265,
+    "cagr": -0.69,
+    "sharpe": 0.045,
+    "oos_sharpe": 0.218,
+    "maxdd": -0.577,
+    "trades": 46,
+    "tax": 196
+  },
+  "DTE.XETRA:SMAx_50_200": {
+    "net": 104827,
+    "cagr": 0.27,
+    "sharpe": 0.098,
+    "oos_sharpe": 0.41,
+    "maxdd": -0.567,
+    "trades": 20,
+    "tax": 8918
+  },
+  "DTE.XETRA:SMAx_100_300": {
+    "net": 168785,
+    "cagr": 2.2,
+    "sharpe": 0.214,
+    "oos_sharpe": 0.396,
+    "maxdd": -0.43,
+    "trades": 11,
+    "tax": 31609
+  },
+  "DTE.XETRA:EMAx_12_26": {
+    "net": 49670,
+    "cagr": -2.56,
+    "sharpe": -0.042,
+    "oos_sharpe": 0.297,
+    "maxdd": -0.785,
+    "trades": 120,
+    "tax": 2242
+  },
+  "DTE.XETRA:EMAx_20_100": {
+    "net": 115149,
+    "cagr": 0.64,
+    "sharpe": 0.124,
+    "oos_sharpe": 0.415,
+    "maxdd": -0.629,
+    "trades": 51,
+    "tax": 10444
+  },
+  "DTE.XETRA:EMAx_50_200": {
+    "net": 105291,
+    "cagr": 0.28,
+    "sharpe": 0.104,
+    "oos_sharpe": 0.287,
+    "maxdd": -0.515,
+    "trades": 22,
+    "tax": 8485
+  },
+  "DTE.XETRA:MACD_12_26_9": {
+    "net": 45141,
+    "cagr": -2.94,
+    "sharpe": -0.041,
+    "oos_sharpe": 0.688,
+    "maxdd": -0.889,
+    "trades": 266,
+    "tax": 643
+  },
+  "DTE.XETRA:Donch_55_20": {
+    "net": 70723,
+    "cagr": -1.3,
+    "sharpe": -0.023,
+    "oos_sharpe": 0.204,
+    "maxdd": -0.525,
+    "trades": 69,
+    "tax": 0
+  },
+  "DTE.XETRA:Donch_100_50": {
+    "net": 66428,
+    "cagr": -1.51,
+    "sharpe": -0.027,
+    "oos_sharpe": 0.127,
+    "maxdd": -0.614,
+    "trades": 36,
+    "tax": 1454
+  },
+  "DTE.XETRA:RSIrev_30_55": {
+    "net": 99705,
+    "cagr": 0.05,
+    "sharpe": 0.092,
+    "oos_sharpe": 0.772,
+    "maxdd": -0.849,
+    "trades": 109,
+    "tax": 5071
+  },
+  "DTE.XETRA:RSIrev_25_50": {
+    "net": 138068,
+    "cagr": 1.39,
+    "sharpe": 0.168,
+    "oos_sharpe": 0.671,
+    "maxdd": -0.673,
+    "trades": 88,
+    "tax": 20926
+  },
+  "DTE.XETRA:RSItrend_50": {
+    "net": 32212,
+    "cagr": -3.99,
+    "sharpe": -0.112,
+    "oos_sharpe": 0.219,
+    "maxdd": -0.85,
+    "trades": 376,
+    "tax": 5726
+  },
+  "DTE.XETRA:BBrev_20_2": {
+    "net": 157412,
+    "cagr": 1.9,
+    "sharpe": 0.195,
+    "oos_sharpe": 0.566,
+    "maxdd": -0.667,
+    "trades": 121,
+    "tax": 25053
+  },
+  "DTE.XETRA:BBbrk_20_2": {
+    "net": 77408,
+    "cagr": -0.96,
+    "sharpe": -0.008,
+    "oos_sharpe": 0.485,
+    "maxdd": -0.637,
+    "trades": 117,
+    "tax": 203
+  },
+  "DTE.XETRA:TSmom_126": {
+    "net": 105313,
+    "cagr": 0.3,
+    "sharpe": 0.104,
+    "oos_sharpe": 0.386,
+    "maxdd": -0.623,
+    "trades": 131,
+    "tax": 9794
+  },
+  "DTE.XETRA:TSmom_252": {
+    "net": 176697,
+    "cagr": 2.42,
+    "sharpe": 0.229,
+    "oos_sharpe": 0.411,
+    "maxdd": -0.42,
+    "trades": 76,
+    "tax": 38860
+  },
+  "DTE.XETRA:VolFilter_p80": {
+    "net": 74515,
+    "cagr": -1.02,
+    "sharpe": 0.058,
+    "oos_sharpe": 0.45,
+    "maxdd": -0.794,
+    "trades": 77,
+    "tax": 5526
+  },
+  "DTE.XETRA:AND_SMA200_Mom12": {
+    "net": 145974,
+    "cagr": 1.62,
+    "sharpe": 0.185,
+    "oos_sharpe": 0.41,
+    "maxdd": -0.501,
+    "trades": 50,
+    "tax": 24189
+  },
+  "DTE.XETRA:OR_SMA200_Mom12": {
+    "net": 126476,
+    "cagr": 1.07,
+    "sharpe": 0.149,
+    "oos_sharpe": 0.413,
+    "maxdd": -0.482,
+    "trades": 46,
+    "tax": 20859
+  },
+  "DTE.XETRA:AND_MACD_RSI50": {
+    "net": 52186,
+    "cagr": -2.34,
+    "sharpe": -0.047,
+    "oos_sharpe": 0.347,
+    "maxdd": -0.76,
+    "trades": 312,
+    "tax": 4175
+  },
+  "DTE.XETRA:AND_Donch_Vol": {
+    "net": 81445,
+    "cagr": -0.77,
+    "sharpe": -0.017,
+    "oos_sharpe": 0.217,
+    "maxdd": -0.423,
+    "trades": 76,
+    "tax": 0
+  },
+  "DTE.XETRA:AND_SMA200_Vol": {
+    "net": 115613,
+    "cagr": 0.68,
+    "sharpe": 0.118,
+    "oos_sharpe": 0.37,
+    "maxdd": -0.392,
+    "trades": 53,
+    "tax": 13912
+  },
+  "DTE.XETRA:ENS_2of3": {
+    "net": 161509,
+    "cagr": 2.04,
+    "sharpe": 0.205,
+    "oos_sharpe": 0.543,
+    "maxdd": -0.515,
+    "trades": 96,
+    "tax": 30700
+  },
+  "DTE.XETRA:ENS_3of3": {
+    "net": 135468,
+    "cagr": 1.36,
+    "sharpe": 0.196,
+    "oos_sharpe": 0.251,
+    "maxdd": -0.358,
+    "trades": 143,
+    "tax": 24863
+  },
+  "HSBA.LSE:SMAx_10_50": {
+    "net": 124329,
+    "cagr": 0.92,
+    "sharpe": 0.139,
+    "oos_sharpe": 0.223,
+    "maxdd": -0.655,
+    "trades": 97,
+    "tax": 10027
+  },
+  "HSBA.LSE:SMAx_20_100": {
+    "net": 322523,
+    "cagr": 4.8,
+    "sharpe": 0.35,
+    "oos_sharpe": 0.449,
+    "maxdd": -0.455,
+    "trades": 45,
+    "tax": 80790
+  },
+  "HSBA.LSE:SMAx_50_200": {
+    "net": 381039,
+    "cagr": 5.48,
+    "sharpe": 0.382,
+    "oos_sharpe": 0.629,
+    "maxdd": -0.495,
+    "trades": 20,
+    "tax": 101029
+  },
+  "HSBA.LSE:SMAx_100_300": {
+    "net": 315129,
+    "cagr": 4.7,
+    "sharpe": 0.346,
+    "oos_sharpe": 0.611,
+    "maxdd": -0.463,
+    "trades": 16,
+    "tax": 77312
+  },
+  "HSBA.LSE:EMAx_12_26": {
+    "net": 177228,
+    "cagr": 2.37,
+    "sharpe": 0.22,
+    "oos_sharpe": 0.316,
+    "maxdd": -0.572,
+    "trades": 125,
+    "tax": 29820
+  },
+  "HSBA.LSE:EMAx_20_100": {
+    "net": 378097,
+    "cagr": 5.45,
+    "sharpe": 0.385,
+    "oos_sharpe": 0.638,
+    "maxdd": -0.472,
+    "trades": 40,
+    "tax": 100462
+  },
+  "HSBA.LSE:EMAx_50_200": {
+    "net": 333644,
+    "cagr": 4.94,
+    "sharpe": 0.357,
+    "oos_sharpe": 0.591,
+    "maxdd": -0.494,
+    "trades": 23,
+    "tax": 84117
+  },
+  "HSBA.LSE:MACD_12_26_9": {
+    "net": 91227,
+    "cagr": -0.23,
+    "sharpe": 0.078,
+    "oos_sharpe": 0.294,
+    "maxdd": -0.781,
+    "trades": 267,
+    "tax": 9336
+  },
+  "HSBA.LSE:Donch_55_20": {
+    "net": 165885,
+    "cagr": 2.1,
+    "sharpe": 0.221,
+    "oos_sharpe": 0.499,
+    "maxdd": -0.582,
+    "trades": 71,
+    "tax": 24799
+  },
+  "HSBA.LSE:Donch_100_50": {
+    "net": 199445,
+    "cagr": 2.84,
+    "sharpe": 0.258,
+    "oos_sharpe": 0.326,
+    "maxdd": -0.418,
+    "trades": 33,
+    "tax": 36316
+  },
+  "HSBA.LSE:RSIrev_30_55": {
+    "net": 278985,
+    "cagr": 4.22,
+    "sharpe": 0.345,
+    "oos_sharpe": 0.329,
+    "maxdd": -0.354,
+    "trades": 97,
+    "tax": 67105
+  },
+  "HSBA.LSE:RSIrev_25_50": {
+    "net": 293172,
+    "cagr": 4.42,
+    "sharpe": 0.391,
+    "oos_sharpe": 0.514,
+    "maxdd": -0.362,
+    "trades": 78,
+    "tax": 71380
+  },
+  "HSBA.LSE:RSItrend_50": {
+    "net": 67318,
+    "cagr": -1.43,
+    "sharpe": 0.006,
+    "oos_sharpe": 0.157,
+    "maxdd": -0.732,
+    "trades": 418,
+    "tax": 2986
+  },
+  "HSBA.LSE:BBrev_20_2": {
+    "net": 210147,
+    "cagr": 3.07,
+    "sharpe": 0.278,
+    "oos_sharpe": 0.458,
+    "maxdd": -0.474,
+    "trades": 111,
+    "tax": 41824
+  },
+  "HSBA.LSE:BBbrk_20_2": {
+    "net": 118550,
+    "cagr": 0.77,
+    "sharpe": 0.124,
+    "oos_sharpe": 0.227,
+    "maxdd": -0.404,
+    "trades": 119,
+    "tax": 13778
+  },
+  "HSBA.LSE:TSmom_126": {
+    "net": 381030,
+    "cagr": 5.49,
+    "sharpe": 0.396,
+    "oos_sharpe": 0.554,
+    "maxdd": -0.42,
+    "trades": 134,
+    "tax": 103821
+  },
+  "HSBA.LSE:TSmom_252": {
+    "net": 375084,
+    "cagr": 5.42,
+    "sharpe": 0.405,
+    "oos_sharpe": 0.663,
+    "maxdd": -0.412,
+    "trades": 86,
+    "tax": 99968
+  },
+  "HSBA.LSE:VolFilter_p80": {
+    "net": 298215,
+    "cagr": 4.5,
+    "sharpe": 0.324,
+    "oos_sharpe": 0.46,
+    "maxdd": -0.493,
+    "trades": 57,
+    "tax": 76095
+  },
+  "HSBA.LSE:AND_SMA200_Mom12": {
+    "net": 274633,
+    "cagr": 4.15,
+    "sharpe": 0.348,
+    "oos_sharpe": 0.55,
+    "maxdd": -0.343,
+    "trades": 68,
+    "tax": 63660
+  },
+  "HSBA.LSE:OR_SMA200_Mom12": {
+    "net": 549090,
+    "cagr": 6.97,
+    "sharpe": 0.442,
+    "oos_sharpe": 0.752,
+    "maxdd": -0.475,
+    "trades": 38,
+    "tax": 161539
+  },
+  "HSBA.LSE:AND_MACD_RSI50": {
+    "net": 96825,
+    "cagr": -0.07,
+    "sharpe": 0.073,
+    "oos_sharpe": 0.277,
+    "maxdd": -0.7,
+    "trades": 327,
+    "tax": 4679
+  },
+  "HSBA.LSE:AND_Donch_Vol": {
+    "net": 186663,
+    "cagr": 2.59,
+    "sharpe": 0.286,
+    "oos_sharpe": 0.585,
+    "maxdd": -0.466,
+    "trades": 72,
+    "tax": 34626
+  },
+  "HSBA.LSE:AND_SMA200_Vol": {
+    "net": 254048,
+    "cagr": 3.84,
+    "sharpe": 0.325,
+    "oos_sharpe": 0.388,
+    "maxdd": -0.383,
+    "trades": 47,
+    "tax": 59454
+  },
+  "HSBA.LSE:ENS_2of3": {
+    "net": 368389,
+    "cagr": 5.34,
+    "sharpe": 0.394,
+    "oos_sharpe": 0.723,
+    "maxdd": -0.476,
+    "trades": 116,
+    "tax": 97799
+  },
+  "HSBA.LSE:ENS_3of3": {
+    "net": 137764,
+    "cagr": 1.35,
+    "sharpe": 0.191,
+    "oos_sharpe": 0.315,
+    "maxdd": -0.278,
+    "trades": 159,
+    "tax": 16509
+  },
+  "IFX.XETRA:SMAx_10_50": {
+    "net": 411464,
+    "cagr": 5.84,
+    "sharpe": 0.336,
+    "oos_sharpe": 0.337,
+    "maxdd": -0.725,
+    "trades": 91,
+    "tax": 114846
+  },
+  "IFX.XETRA:SMAx_20_100": {
+    "net": 224393,
+    "cagr": 3.48,
+    "sharpe": 0.263,
+    "oos_sharpe": 0.321,
+    "maxdd": -0.743,
+    "trades": 48,
+    "tax": 72165
+  },
+  "IFX.XETRA:SMAx_50_200": {
+    "net": 481594,
+    "cagr": 6.49,
+    "sharpe": 0.363,
+    "oos_sharpe": 0.339,
+    "maxdd": -0.668,
+    "trades": 17,
+    "tax": 137499
+  },
+  "IFX.XETRA:SMAx_100_300": {
+    "net": 504569,
+    "cagr": 6.68,
+    "sharpe": 0.369,
+    "oos_sharpe": 0.555,
+    "maxdd": -0.672,
+    "trades": 10,
+    "tax": 145300
+  },
+  "IFX.XETRA:EMAx_12_26": {
+    "net": 362615,
+    "cagr": 5.33,
+    "sharpe": 0.32,
+    "oos_sharpe": 0.386,
+    "maxdd": -0.706,
+    "trades": 135,
+    "tax": 98016
+  },
+  "IFX.XETRA:EMAx_20_100": {
+    "net": 254245,
+    "cagr": 3.92,
+    "sharpe": 0.276,
+    "oos_sharpe": 0.319,
+    "maxdd": -0.666,
+    "trades": 44,
+    "tax": 70317
+  },
+  "IFX.XETRA:EMAx_50_200": {
+    "net": 156398,
+    "cagr": 2.02,
+    "sharpe": 0.21,
+    "oos_sharpe": 0.264,
+    "maxdd": -0.767,
+    "trades": 22,
+    "tax": 42461
+  },
+  "IFX.XETRA:MACD_12_26_9": {
+    "net": 315341,
+    "cagr": 4.76,
+    "sharpe": 0.308,
+    "oos_sharpe": 0.481,
+    "maxdd": -0.872,
+    "trades": 265,
+    "tax": 82114
+  },
+  "IFX.XETRA:Donch_55_20": {
+    "net": 514378,
+    "cagr": 6.78,
+    "sharpe": 0.39,
+    "oos_sharpe": 0.24,
+    "maxdd": -0.497,
+    "trades": 62,
+    "tax": 159470
+  },
+  "IFX.XETRA:Donch_100_50": {
+    "net": 369469,
+    "cagr": 5.39,
+    "sharpe": 0.338,
+    "oos_sharpe": 0.368,
+    "maxdd": -0.417,
+    "trades": 30,
+    "tax": 97610
+  },
+  "IFX.XETRA:RSIrev_30_55": {
+    "net": 189599,
+    "cagr": 2.66,
+    "sharpe": 0.239,
+    "oos_sharpe": 0.602,
+    "maxdd": -0.923,
+    "trades": 100,
+    "tax": 33446
+  },
+  "IFX.XETRA:RSIrev_25_50": {
+    "net": 136823,
+    "cagr": 1.32,
+    "sharpe": 0.181,
+    "oos_sharpe": 0.555,
+    "maxdd": -0.858,
+    "trades": 80,
+    "tax": 14282
+  },
+  "IFX.XETRA:RSItrend_50": {
+    "net": 182405,
+    "cagr": 2.55,
+    "sharpe": 0.24,
+    "oos_sharpe": 0.371,
+    "maxdd": -0.845,
+    "trades": 384,
+    "tax": 38107
+  },
+  "IFX.XETRA:BBrev_20_2": {
+    "net": 98864,
+    "cagr": 0.04,
+    "sharpe": 0.139,
+    "oos_sharpe": 0.395,
+    "maxdd": -0.888,
+    "trades": 117,
+    "tax": 7647
+  },
+  "IFX.XETRA:BBbrk_20_2": {
+    "net": 75952,
+    "cagr": -1.04,
+    "sharpe": 0.078,
+    "oos_sharpe": 0.108,
+    "maxdd": -0.826,
+    "trades": 123,
+    "tax": 21
+  },
+  "IFX.XETRA:TSmom_126": {
+    "net": 180533,
+    "cagr": 2.47,
+    "sharpe": 0.227,
+    "oos_sharpe": 0.321,
+    "maxdd": -0.599,
+    "trades": 120,
+    "tax": 31033
+  },
+  "IFX.XETRA:TSmom_252": {
+    "net": 466699,
+    "cagr": 6.36,
+    "sharpe": 0.365,
+    "oos_sharpe": 0.55,
+    "maxdd": -0.667,
+    "trades": 60,
+    "tax": 133627
+  },
+  "IFX.XETRA:VolFilter_p80": {
+    "net": 199632,
+    "cagr": 2.9,
+    "sharpe": 0.251,
+    "oos_sharpe": 0.418,
+    "maxdd": -0.848,
+    "trades": 93,
+    "tax": 41829
+  },
+  "IFX.XETRA:AND_SMA200_Mom12": {
+    "net": 551669,
+    "cagr": 7.05,
+    "sharpe": 0.404,
+    "oos_sharpe": 0.488,
+    "maxdd": -0.515,
+    "trades": 37,
+    "tax": 163266
+  },
+  "IFX.XETRA:OR_SMA200_Mom12": {
+    "net": 394054,
+    "cagr": 5.66,
+    "sharpe": 0.333,
+    "oos_sharpe": 0.407,
+    "maxdd": -0.747,
+    "trades": 40,
+    "tax": 107039
+  },
+  "IFX.XETRA:AND_MACD_RSI50": {
+    "net": 200183,
+    "cagr": 2.91,
+    "sharpe": 0.244,
+    "oos_sharpe": 0.296,
+    "maxdd": -0.807,
+    "trades": 328,
+    "tax": 42059
+  },
+  "IFX.XETRA:AND_Donch_Vol": {
+    "net": 147003,
+    "cagr": 1.84,
+    "sharpe": 0.19,
+    "oos_sharpe": 0.02,
+    "maxdd": -0.482,
+    "trades": 67,
+    "tax": 49310
+  },
+  "IFX.XETRA:AND_SMA200_Vol": {
+    "net": 294599,
+    "cagr": 4.67,
+    "sharpe": 0.306,
+    "oos_sharpe": 0.216,
+    "maxdd": -0.621,
+    "trades": 51,
+    "tax": 126324
+  },
+  "IFX.XETRA:ENS_2of3": {
+    "net": 575987,
+    "cagr": 7.23,
+    "sharpe": 0.394,
+    "oos_sharpe": 0.546,
+    "maxdd": -0.595,
+    "trades": 91,
+    "tax": 174441
+  },
+  "IFX.XETRA:ENS_3of3": {
+    "net": 236630,
+    "cagr": 3.58,
+    "sharpe": 0.304,
+    "oos_sharpe": 0.252,
+    "maxdd": -0.471,
+    "trades": 147,
+    "tax": 52587
+  },
+  "MC.PA:SMAx_10_50": {
+    "net": 380105,
+    "cagr": 5.49,
+    "sharpe": 0.362,
+    "oos_sharpe": 0.509,
+    "maxdd": -0.437,
+    "trades": 93,
+    "tax": 109022
+  },
+  "MC.PA:SMAx_20_100": {
+    "net": 347869,
+    "cagr": 5.19,
+    "sharpe": 0.35,
+    "oos_sharpe": 0.336,
+    "maxdd": -0.603,
+    "trades": 51,
+    "tax": 116099
+  },
+  "MC.PA:SMAx_50_200": {
+    "net": 243449,
+    "cagr": 4.14,
+    "sharpe": 0.298,
+    "oos_sharpe": 0.229,
+    "maxdd": -0.62,
+    "trades": 20,
+    "tax": 166588
+  },
+  "MC.PA:SMAx_100_300": {
+    "net": 201648,
+    "cagr": 3.19,
+    "sharpe": 0.251,
+    "oos_sharpe": 0.261,
+    "maxdd": -0.586,
+    "trades": 13,
+    "tax": 93866
+  },
+  "MC.PA:EMAx_12_26": {
+    "net": 177859,
+    "cagr": 2.47,
+    "sharpe": 0.22,
+    "oos_sharpe": 0.368,
+    "maxdd": -0.493,
+    "trades": 126,
+    "tax": 43236
+  },
+  "MC.PA:EMAx_20_100": {
+    "net": 483796,
+    "cagr": 6.5,
+    "sharpe": 0.414,
+    "oos_sharpe": 0.506,
+    "maxdd": -0.447,
+    "trades": 42,
+    "tax": 156033
+  },
+  "MC.PA:EMAx_50_200": {
+    "net": 269774,
+    "cagr": 4.32,
+    "sharpe": 0.306,
+    "oos_sharpe": 0.337,
+    "maxdd": -0.492,
+    "trades": 20,
+    "tax": 125064
+  },
+  "MC.PA:MACD_12_26_9": {
+    "net": 60120,
+    "cagr": -1.87,
+    "sharpe": 0.011,
+    "oos_sharpe": 0.279,
+    "maxdd": -0.679,
+    "trades": 274,
+    "tax": 1579
+  },
+  "MC.PA:Donch_55_20": {
+    "net": 120108,
+    "cagr": 0.77,
+    "sharpe": 0.126,
+    "oos_sharpe": 0.439,
+    "maxdd": -0.579,
+    "trades": 78,
+    "tax": 8187
+  },
+  "MC.PA:Donch_100_50": {
+    "net": 258018,
+    "cagr": 3.97,
+    "sharpe": 0.315,
+    "oos_sharpe": 0.383,
+    "maxdd": -0.477,
+    "trades": 31,
+    "tax": 75967
+  },
+  "MC.PA:RSIrev_30_55": {
+    "net": 145239,
+    "cagr": 1.6,
+    "sharpe": 0.176,
+    "oos_sharpe": 0.387,
+    "maxdd": -0.715,
+    "trades": 91,
+    "tax": 23100
+  },
+  "MC.PA:RSIrev_25_50": {
+    "net": 163574,
+    "cagr": 2.16,
+    "sharpe": 0.212,
+    "oos_sharpe": 0.398,
+    "maxdd": -0.582,
+    "trades": 68,
+    "tax": 41447
+  },
+  "MC.PA:RSItrend_50": {
+    "net": 86692,
+    "cagr": -0.31,
+    "sharpe": 0.084,
+    "oos_sharpe": 0.282,
+    "maxdd": -0.584,
+    "trades": 395,
+    "tax": 17705
+  },
+  "MC.PA:BBrev_20_2": {
+    "net": 243105,
+    "cagr": 3.77,
+    "sharpe": 0.293,
+    "oos_sharpe": 0.474,
+    "maxdd": -0.572,
+    "trades": 112,
+    "tax": 77788
+  },
+  "MC.PA:BBbrk_20_2": {
+    "net": 55474,
+    "cagr": -2.17,
+    "sharpe": -0.094,
+    "oos_sharpe": -0.049,
+    "maxdd": -0.525,
+    "trades": 128,
+    "tax": 1324
+  },
+  "MC.PA:TSmom_126": {
+    "net": 115728,
+    "cagr": 0.95,
+    "sharpe": 0.145,
+    "oos_sharpe": 0.191,
+    "maxdd": -0.72,
+    "trades": 125,
+    "tax": 42104
+  },
+  "MC.PA:TSmom_252": {
+    "net": 442434,
+    "cagr": 6.2,
+    "sharpe": 0.393,
+    "oos_sharpe": 0.458,
+    "maxdd": -0.451,
+    "trades": 86,
+    "tax": 166914
+  },
+  "MC.PA:VolFilter_p80": {
+    "net": 210427,
+    "cagr": 3.35,
+    "sharpe": 0.256,
+    "oos_sharpe": 0.338,
+    "maxdd": -0.664,
+    "trades": 88,
+    "tax": 96666
+  },
+  "MC.PA:AND_SMA200_Mom12": {
+    "net": 355401,
+    "cagr": 5.22,
+    "sharpe": 0.367,
+    "oos_sharpe": 0.403,
+    "maxdd": -0.407,
+    "trades": 49,
+    "tax": 100269
+  },
+  "MC.PA:OR_SMA200_Mom12": {
+    "net": 315857,
+    "cagr": 5.23,
+    "sharpe": 0.336,
+    "oos_sharpe": 0.307,
+    "maxdd": -0.654,
+    "trades": 56,
+    "tax": 236703
+  },
+  "MC.PA:AND_MACD_RSI50": {
+    "net": 86397,
+    "cagr": -0.4,
+    "sharpe": 0.067,
+    "oos_sharpe": 0.325,
+    "maxdd": -0.595,
+    "trades": 316,
+    "tax": 11867
+  },
+  "MC.PA:AND_Donch_Vol": {
+    "net": 102120,
+    "cagr": 0.22,
+    "sharpe": 0.083,
+    "oos_sharpe": 0.132,
+    "maxdd": -0.463,
+    "trades": 84,
+    "tax": 13235
+  },
+  "MC.PA:AND_SMA200_Vol": {
+    "net": 218134,
+    "cagr": 3.82,
+    "sharpe": 0.296,
+    "oos_sharpe": 0.184,
+    "maxdd": -0.615,
+    "trades": 57,
+    "tax": 172483
+  },
+  "MC.PA:ENS_2of3": {
+    "net": 324945,
+    "cagr": 4.99,
+    "sharpe": 0.338,
+    "oos_sharpe": 0.374,
+    "maxdd": -0.433,
+    "trades": 103,
+    "tax": 130463
+  },
+  "MC.PA:ENS_3of3": {
+    "net": 102255,
+    "cagr": 0.22,
+    "sharpe": 0.076,
+    "oos_sharpe": 0.197,
+    "maxdd": -0.458,
+    "trades": 168,
+    "tax": 12625
+  },
+  "MUV2.XETRA:SMAx_10_50": {
+    "net": 95010,
+    "cagr": -0.12,
+    "sharpe": 0.085,
+    "oos_sharpe": 0.245,
+    "maxdd": -0.64,
+    "trades": 96,
+    "tax": 6585
+  },
+  "MUV2.XETRA:SMAx_20_100": {
+    "net": 124889,
+    "cagr": 1.03,
+    "sharpe": 0.146,
+    "oos_sharpe": 0.351,
+    "maxdd": -0.592,
+    "trades": 49,
+    "tax": 21614
+  },
+  "MUV2.XETRA:SMAx_50_200": {
+    "net": 368648,
+    "cagr": 5.34,
+    "sharpe": 0.375,
+    "oos_sharpe": 0.476,
+    "maxdd": -0.484,
+    "trades": 17,
+    "tax": 96626
+  },
+  "MUV2.XETRA:SMAx_100_300": {
+    "net": 348039,
+    "cagr": 5.11,
+    "sharpe": 0.362,
+    "oos_sharpe": 0.454,
+    "maxdd": -0.484,
+    "trades": 9,
+    "tax": 89062
+  },
+  "MUV2.XETRA:EMAx_12_26": {
+    "net": 115310,
+    "cagr": 0.7,
+    "sharpe": 0.13,
+    "oos_sharpe": 0.316,
+    "maxdd": -0.689,
+    "trades": 128,
+    "tax": 16407
+  },
+  "MUV2.XETRA:EMAx_20_100": {
+    "net": 175390,
+    "cagr": 2.45,
+    "sharpe": 0.223,
+    "oos_sharpe": 0.393,
+    "maxdd": -0.592,
+    "trades": 49,
+    "tax": 48954
+  },
+  "MUV2.XETRA:EMAx_50_200": {
+    "net": 320971,
+    "cagr": 4.84,
+    "sharpe": 0.345,
+    "oos_sharpe": 0.346,
+    "maxdd": -0.58,
+    "trades": 15,
+    "tax": 98260
+  },
+  "MUV2.XETRA:MACD_12_26_9": {
+    "net": 91599,
+    "cagr": -0.32,
+    "sharpe": 0.08,
+    "oos_sharpe": 0.533,
+    "maxdd": -0.817,
+    "trades": 273,
+    "tax": 986
+  },
+  "MUV2.XETRA:Donch_55_20": {
+    "net": 61097,
+    "cagr": -1.84,
+    "sharpe": -0.07,
+    "oos_sharpe": 0.176,
+    "maxdd": -0.618,
+    "trades": 70,
+    "tax": 0
+  },
+  "MUV2.XETRA:Donch_100_50": {
+    "net": 125536,
+    "cagr": 1.03,
+    "sharpe": 0.143,
+    "oos_sharpe": 0.375,
+    "maxdd": -0.494,
+    "trades": 34,
+    "tax": 19271
+  },
+  "MUV2.XETRA:RSIrev_30_55": {
+    "net": 155920,
+    "cagr": 1.9,
+    "sharpe": 0.193,
+    "oos_sharpe": 0.1,
+    "maxdd": -0.549,
+    "trades": 94,
+    "tax": 29885
+  },
+  "MUV2.XETRA:RSIrev_25_50": {
+    "net": 118608,
+    "cagr": 0.82,
+    "sharpe": 0.129,
+    "oos_sharpe": 0.053,
+    "maxdd": -0.462,
+    "trades": 69,
+    "tax": 18280
+  },
+  "MUV2.XETRA:RSItrend_50": {
+    "net": 48284,
+    "cagr": -2.68,
+    "sharpe": -0.057,
+    "oos_sharpe": 0.243,
+    "maxdd": -0.76,
+    "trades": 408,
+    "tax": 1190
+  },
+  "MUV2.XETRA:BBrev_20_2": {
+    "net": 178529,
+    "cagr": 2.45,
+    "sharpe": 0.223,
+    "oos_sharpe": 0.129,
+    "maxdd": -0.523,
+    "trades": 103,
+    "tax": 38935
+  },
+  "MUV2.XETRA:BBbrk_20_2": {
+    "net": 31479,
+    "cagr": -4.27,
+    "sharpe": -0.297,
+    "oos_sharpe": 0.029,
+    "maxdd": -0.759,
+    "trades": 129,
+    "tax": 0
+  },
+  "MUV2.XETRA:TSmom_126": {
+    "net": 242695,
+    "cagr": 3.73,
+    "sharpe": 0.296,
+    "oos_sharpe": 0.352,
+    "maxdd": -0.386,
+    "trades": 134,
+    "tax": 70198
+  },
+  "MUV2.XETRA:TSmom_252": {
+    "net": 200591,
+    "cagr": 2.87,
+    "sharpe": 0.252,
+    "oos_sharpe": 0.407,
+    "maxdd": -0.543,
+    "trades": 93,
+    "tax": 37537
+  },
+  "MUV2.XETRA:VolFilter_p80": {
+    "net": 224277,
+    "cagr": 3.35,
+    "sharpe": 0.265,
+    "oos_sharpe": 0.638,
+    "maxdd": -0.69,
+    "trades": 73,
+    "tax": 51340
+  },
+  "MUV2.XETRA:AND_SMA200_Mom12": {
+    "net": 240265,
+    "cagr": 3.6,
+    "sharpe": 0.307,
+    "oos_sharpe": 0.408,
+    "maxdd": -0.532,
+    "trades": 53,
+    "tax": 51274
+  },
+  "MUV2.XETRA:OR_SMA200_Mom12": {
+    "net": 306947,
+    "cagr": 4.6,
+    "sharpe": 0.327,
+    "oos_sharpe": 0.467,
+    "maxdd": -0.489,
+    "trades": 57,
+    "tax": 75290
+  },
+  "MUV2.XETRA:AND_MACD_RSI50": {
+    "net": 84133,
+    "cagr": -0.65,
+    "sharpe": 0.042,
+    "oos_sharpe": 0.409,
+    "maxdd": -0.656,
+    "trades": 340,
+    "tax": 0
+  },
+  "MUV2.XETRA:AND_Donch_Vol": {
+    "net": 82167,
+    "cagr": -0.65,
+    "sharpe": 0.003,
+    "oos_sharpe": 0.211,
+    "maxdd": -0.447,
+    "trades": 76,
+    "tax": 6292
+  },
+  "MUV2.XETRA:AND_SMA200_Vol": {
+    "net": 361870,
+    "cagr": 5.27,
+    "sharpe": 0.415,
+    "oos_sharpe": 0.544,
+    "maxdd": -0.287,
+    "trades": 56,
+    "tax": 95719
+  },
+  "MUV2.XETRA:ENS_2of3": {
+    "net": 272360,
+    "cagr": 4.12,
+    "sharpe": 0.32,
+    "oos_sharpe": 0.366,
+    "maxdd": -0.535,
+    "trades": 104,
+    "tax": 64516
+  },
+  "MUV2.XETRA:ENS_3of3": {
+    "net": 188907,
+    "cagr": 2.64,
+    "sharpe": 0.316,
+    "oos_sharpe": 0.374,
+    "maxdd": -0.229,
+    "trades": 180,
+    "tax": 35659
+  },
+  "OR.PA:SMAx_10_50": {
+    "net": 117124,
+    "cagr": 0.85,
+    "sharpe": 0.134,
+    "oos_sharpe": 0.197,
+    "maxdd": -0.601,
+    "trades": 100,
+    "tax": 27295
+  },
+  "OR.PA:SMAx_20_100": {
+    "net": 106904,
+    "cagr": 0.33,
+    "sharpe": 0.105,
+    "oos_sharpe": 0.199,
+    "maxdd": -0.612,
+    "trades": 52,
+    "tax": 7711
+  },
+  "OR.PA:SMAx_50_200": {
+    "net": 226775,
+    "cagr": 3.49,
+    "sharpe": 0.281,
+    "oos_sharpe": 0.163,
+    "maxdd": -0.36,
+    "trades": 23,
+    "tax": 72093
+  },
+  "OR.PA:SMAx_100_300": {
+    "net": 264126,
+    "cagr": 3.99,
+    "sharpe": 0.3,
+    "oos_sharpe": 0.368,
+    "maxdd": -0.361,
+    "trades": 10,
+    "tax": 59038
+  },
+  "OR.PA:EMAx_12_26": {
+    "net": 74566,
+    "cagr": -0.99,
+    "sharpe": 0.026,
+    "oos_sharpe": 0.14,
+    "maxdd": -0.666,
+    "trades": 137,
+    "tax": 7171
+  },
+  "OR.PA:EMAx_20_100": {
+    "net": 107088,
+    "cagr": 0.44,
+    "sharpe": 0.111,
+    "oos_sharpe": 0.163,
+    "maxdd": -0.607,
+    "trades": 57,
+    "tax": 17567
+  },
+  "OR.PA:EMAx_50_200": {
+    "net": 279955,
+    "cagr": 4.3,
+    "sharpe": 0.32,
+    "oos_sharpe": 0.213,
+    "maxdd": -0.324,
+    "trades": 19,
+    "tax": 83588
+  },
+  "OR.PA:MACD_12_26_9": {
+    "net": 63390,
+    "cagr": -1.67,
+    "sharpe": -0.01,
+    "oos_sharpe": 0.069,
+    "maxdd": -0.526,
+    "trades": 307,
+    "tax": 2062
+  },
+  "OR.PA:Donch_55_20": {
+    "net": 120603,
+    "cagr": 0.92,
+    "sharpe": 0.135,
+    "oos_sharpe": 0.206,
+    "maxdd": -0.358,
+    "trades": 75,
+    "tax": 23093
+  },
+  "OR.PA:Donch_100_50": {
+    "net": 127608,
+    "cagr": 1.14,
+    "sharpe": 0.149,
+    "oos_sharpe": 0.132,
+    "maxdd": -0.366,
+    "trades": 37,
+    "tax": 24559
+  },
+  "OR.PA:RSIrev_30_55": {
+    "net": 258356,
+    "cagr": 3.92,
+    "sharpe": 0.34,
+    "oos_sharpe": 0.399,
+    "maxdd": -0.252,
+    "trades": 85,
+    "tax": 62496
+  },
+  "OR.PA:RSIrev_25_50": {
+    "net": 177420,
+    "cagr": 2.39,
+    "sharpe": 0.263,
+    "oos_sharpe": 0.195,
+    "maxdd": -0.2,
+    "trades": 54,
+    "tax": 31704
+  },
+  "OR.PA:RSItrend_50": {
+    "net": 56727,
+    "cagr": -2.01,
+    "sharpe": -0.032,
+    "oos_sharpe": -0.047,
+    "maxdd": -0.537,
+    "trades": 483,
+    "tax": 5448
+  },
+  "OR.PA:BBrev_20_2": {
+    "net": 340311,
+    "cagr": 5.05,
+    "sharpe": 0.417,
+    "oos_sharpe": 0.381,
+    "maxdd": -0.257,
+    "trades": 120,
+    "tax": 96889
+  },
+  "OR.PA:BBbrk_20_2": {
+    "net": 60712,
+    "cagr": -1.86,
+    "sharpe": -0.107,
+    "oos_sharpe": 0.103,
+    "maxdd": -0.486,
+    "trades": 136,
+    "tax": 0
+  },
+  "OR.PA:TSmom_126": {
+    "net": 125020,
+    "cagr": 1.03,
+    "sharpe": 0.145,
+    "oos_sharpe": 0.027,
+    "maxdd": -0.433,
+    "trades": 147,
+    "tax": 20223
+  },
+  "OR.PA:TSmom_252": {
+    "net": 96838,
+    "cagr": 0.05,
+    "sharpe": 0.092,
+    "oos_sharpe": 0.107,
+    "maxdd": -0.503,
+    "trades": 98,
+    "tax": 14669
+  },
+  "OR.PA:VolFilter_p80": {
+    "net": 207975,
+    "cagr": 3.08,
+    "sharpe": 0.251,
+    "oos_sharpe": 0.3,
+    "maxdd": -0.52,
+    "trades": 94,
+    "tax": 52190
+  },
+  "OR.PA:AND_SMA200_Mom12": {
+    "net": 88553,
+    "cagr": -0.27,
+    "sharpe": 0.063,
+    "oos_sharpe": -0.097,
+    "maxdd": -0.495,
+    "trades": 70,
+    "tax": 14901
+  },
+  "OR.PA:OR_SMA200_Mom12": {
+    "net": 243016,
+    "cagr": 3.77,
+    "sharpe": 0.285,
+    "oos_sharpe": 0.3,
+    "maxdd": -0.438,
+    "trades": 51,
+    "tax": 78581
+  },
+  "OR.PA:AND_MACD_RSI50": {
+    "net": 49085,
+    "cagr": -2.6,
+    "sharpe": -0.097,
+    "oos_sharpe": -0.018,
+    "maxdd": -0.562,
+    "trades": 369,
+    "tax": 2183
+  },
+  "OR.PA:AND_Donch_Vol": {
+    "net": 102218,
+    "cagr": 0.22,
+    "sharpe": 0.074,
+    "oos_sharpe": 0.109,
+    "maxdd": -0.314,
+    "trades": 93,
+    "tax": 12653
+  },
+  "OR.PA:AND_SMA200_Vol": {
+    "net": 209876,
+    "cagr": 3.14,
+    "sharpe": 0.281,
+    "oos_sharpe": 0.118,
+    "maxdd": -0.287,
+    "trades": 73,
+    "tax": 57732
+  },
+  "OR.PA:ENS_2of3": {
+    "net": 102233,
+    "cagr": 0.39,
+    "sharpe": 0.111,
+    "oos_sharpe": 0.026,
+    "maxdd": -0.476,
+    "trades": 117,
+    "tax": 29205
+  },
+  "OR.PA:ENS_3of3": {
+    "net": 39929,
+    "cagr": -3.4,
+    "sharpe": -0.285,
+    "oos_sharpe": -0.41,
+    "maxdd": -0.601,
+    "trades": 207,
+    "tax": 0
+  },
+  "RIO.LSE:SMAx_10_50": {
+    "net": 174435,
+    "cagr": 2.66,
+    "sharpe": 0.23,
+    "oos_sharpe": 0.231,
+    "maxdd": -0.755,
+    "trades": 90,
+    "tax": 87916
+  },
+  "RIO.LSE:SMAx_20_100": {
+    "net": 622865,
+    "cagr": 7.5,
+    "sharpe": 0.407,
+    "oos_sharpe": 0.323,
+    "maxdd": -0.454,
+    "trades": 47,
+    "tax": 190204
+  },
+  "RIO.LSE:SMAx_50_200": {
+    "net": 462026,
+    "cagr": 6.27,
+    "sharpe": 0.365,
+    "oos_sharpe": 0.357,
+    "maxdd": -0.579,
+    "trades": 26,
+    "tax": 131043
+  },
+  "RIO.LSE:SMAx_100_300": {
+    "net": 125355,
+    "cagr": 1.07,
+    "sharpe": 0.174,
+    "oos_sharpe": 0.119,
+    "maxdd": -0.69,
+    "trades": 15,
+    "tax": 24352
+  },
+  "RIO.LSE:EMAx_12_26": {
+    "net": 197267,
+    "cagr": 2.81,
+    "sharpe": 0.235,
+    "oos_sharpe": 0.291,
+    "maxdd": -0.642,
+    "trades": 121,
+    "tax": 37434
+  },
+  "RIO.LSE:EMAx_20_100": {
+    "net": 277059,
+    "cagr": 4.19,
+    "sharpe": 0.288,
+    "oos_sharpe": 0.341,
+    "maxdd": -0.642,
+    "trades": 50,
+    "tax": 64932
+  },
+  "RIO.LSE:EMAx_50_200": {
+    "net": 488775,
+    "cagr": 6.5,
+    "sharpe": 0.374,
+    "oos_sharpe": 0.377,
+    "maxdd": -0.465,
+    "trades": 26,
+    "tax": 140410
+  },
+  "RIO.LSE:MACD_12_26_9": {
+    "net": 111623,
+    "cagr": 0.52,
+    "sharpe": 0.146,
+    "oos_sharpe": 0.183,
+    "maxdd": -0.575,
+    "trades": 272,
+    "tax": 10651
+  },
+  "RIO.LSE:Donch_55_20": {
+    "net": 130039,
+    "cagr": 1.1,
+    "sharpe": 0.156,
+    "oos_sharpe": 0.267,
+    "maxdd": -0.641,
+    "trades": 72,
+    "tax": 11859
+  },
+  "RIO.LSE:Donch_100_50": {
+    "net": 290933,
+    "cagr": 4.38,
+    "sharpe": 0.303,
+    "oos_sharpe": 0.338,
+    "maxdd": -0.473,
+    "trades": 32,
+    "tax": 69317
+  },
+  "RIO.LSE:RSIrev_30_55": {
+    "net": 403902,
+    "cagr": 5.76,
+    "sharpe": 0.36,
+    "oos_sharpe": 0.501,
+    "maxdd": -0.606,
+    "trades": 109,
+    "tax": 125156
+  },
+  "RIO.LSE:RSIrev_25_50": {
+    "net": 216924,
+    "cagr": 3.21,
+    "sharpe": 0.261,
+    "oos_sharpe": 0.36,
+    "maxdd": -0.557,
+    "trades": 72,
+    "tax": 47618
+  },
+  "RIO.LSE:RSItrend_50": {
+    "net": 139738,
+    "cagr": 1.43,
+    "sharpe": 0.182,
+    "oos_sharpe": 0.203,
+    "maxdd": -0.685,
+    "trades": 356,
+    "tax": 20381
+  },
+  "RIO.LSE:BBrev_20_2": {
+    "net": 396754,
+    "cagr": 5.66,
+    "sharpe": 0.366,
+    "oos_sharpe": 0.299,
+    "maxdd": -0.564,
+    "trades": 103,
+    "tax": 111105
+  },
+  "RIO.LSE:BBbrk_20_2": {
+    "net": 24750,
+    "cagr": -5.11,
+    "sharpe": -0.186,
+    "oos_sharpe": 0.128,
+    "maxdd": -0.842,
+    "trades": 134,
+    "tax": 563
+  },
+  "RIO.LSE:TSmom_126": {
+    "net": 275869,
+    "cagr": 4.2,
+    "sharpe": 0.288,
+    "oos_sharpe": 0.221,
+    "maxdd": -0.737,
+    "trades": 151,
+    "tax": 71645
+  },
+  "RIO.LSE:TSmom_252": {
+    "net": 305959,
+    "cagr": 4.6,
+    "sharpe": 0.302,
+    "oos_sharpe": 0.289,
+    "maxdd": -0.648,
+    "trades": 110,
+    "tax": 77623
+  },
+  "RIO.LSE:VolFilter_p80": {
+    "net": 573232,
+    "cagr": 7.18,
+    "sharpe": 0.39,
+    "oos_sharpe": 0.424,
+    "maxdd": -0.494,
+    "trades": 75,
+    "tax": 187194
+  },
+  "RIO.LSE:AND_SMA200_Mom12": {
+    "net": 247635,
+    "cagr": 3.74,
+    "sharpe": 0.274,
+    "oos_sharpe": 0.226,
+    "maxdd": -0.618,
+    "trades": 73,
+    "tax": 56578
+  },
+  "RIO.LSE:OR_SMA200_Mom12": {
+    "net": 568032,
+    "cagr": 7.14,
+    "sharpe": 0.384,
+    "oos_sharpe": 0.401,
+    "maxdd": -0.617,
+    "trades": 63,
+    "tax": 179074
+  },
+  "RIO.LSE:AND_MACD_RSI50": {
+    "net": 91893,
+    "cagr": -0.29,
+    "sharpe": 0.099,
+    "oos_sharpe": 0.108,
+    "maxdd": -0.553,
+    "trades": 312,
+    "tax": 2297
+  },
+  "RIO.LSE:AND_Donch_Vol": {
+    "net": 136323,
+    "cagr": 1.35,
+    "sharpe": 0.163,
+    "oos_sharpe": 0.193,
+    "maxdd": -0.574,
+    "trades": 85,
+    "tax": 20669
+  },
+  "RIO.LSE:AND_SMA200_Vol": {
+    "net": 204778,
+    "cagr": 3.11,
+    "sharpe": 0.249,
+    "oos_sharpe": 0.341,
+    "maxdd": -0.553,
+    "trades": 70,
+    "tax": 67621
+  },
+  "RIO.LSE:ENS_2of3": {
+    "net": 155093,
+    "cagr": 2.04,
+    "sharpe": 0.206,
+    "oos_sharpe": 0.178,
+    "maxdd": -0.726,
+    "trades": 150,
+    "tax": 53033
+  },
+  "RIO.LSE:ENS_3of3": {
+    "net": 109713,
+    "cagr": 0.44,
+    "sharpe": 0.103,
+    "oos_sharpe": 0.124,
+    "maxdd": -0.523,
+    "trades": 173,
+    "tax": 8960
+  },
+  "RWE.XETRA:SMAx_10_50": {
+    "net": 192627,
+    "cagr": 2.71,
+    "sharpe": 0.233,
+    "oos_sharpe": 0.238,
+    "maxdd": -0.69,
+    "trades": 86,
+    "tax": 35105
+  },
+  "RWE.XETRA:SMAx_20_100": {
+    "net": 273177,
+    "cagr": 4.13,
+    "sharpe": 0.3,
+    "oos_sharpe": 0.311,
+    "maxdd": -0.584,
+    "trades": 40,
+    "tax": 63340
+  },
+  "RWE.XETRA:SMAx_50_200": {
+    "net": 412645,
+    "cagr": 5.8,
+    "sharpe": 0.379,
+    "oos_sharpe": 0.319,
+    "maxdd": -0.413,
+    "trades": 16,
+    "tax": 112647
+  },
+  "RWE.XETRA:SMAx_100_300": {
+    "net": 712413,
+    "cagr": 8.05,
+    "sharpe": 0.484,
+    "oos_sharpe": 0.472,
+    "maxdd": -0.562,
+    "trades": 10,
+    "tax": 219878
+  },
+  "RWE.XETRA:EMAx_12_26": {
+    "net": 251104,
+    "cagr": 3.8,
+    "sharpe": 0.286,
+    "oos_sharpe": 0.314,
+    "maxdd": -0.503,
+    "trades": 110,
+    "tax": 59685
+  },
+  "RWE.XETRA:EMAx_20_100": {
+    "net": 273271,
+    "cagr": 4.13,
+    "sharpe": 0.301,
+    "oos_sharpe": 0.311,
+    "maxdd": -0.563,
+    "trades": 37,
+    "tax": 63243
+  },
+  "RWE.XETRA:EMAx_50_200": {
+    "net": 334469,
+    "cagr": 4.95,
+    "sharpe": 0.34,
+    "oos_sharpe": 0.33,
+    "maxdd": -0.616,
+    "trades": 16,
+    "tax": 84513
+  },
+  "RWE.XETRA:MACD_12_26_9": {
+    "net": 208448,
+    "cagr": 3.12,
+    "sharpe": 0.251,
+    "oos_sharpe": 0.254,
+    "maxdd": -0.719,
+    "trades": 256,
+    "tax": 57914
+  },
+  "RWE.XETRA:Donch_55_20": {
+    "net": 254957,
+    "cagr": 3.85,
+    "sharpe": 0.326,
+    "oos_sharpe": 0.397,
+    "maxdd": -0.489,
+    "trades": 65,
+    "tax": 57311
+  },
+  "RWE.XETRA:Donch_100_50": {
+    "net": 118157,
+    "cagr": 0.88,
+    "sharpe": 0.136,
+    "oos_sharpe": 0.088,
+    "maxdd": -0.66,
+    "trades": 32,
+    "tax": 26646
+  },
+  "RWE.XETRA:RSIrev_30_55": {
+    "net": 98787,
+    "cagr": 0.14,
+    "sharpe": 0.099,
+    "oos_sharpe": 0.048,
+    "maxdd": -0.67,
+    "trades": 100,
+    "tax": 16246
+  },
+  "RWE.XETRA:RSIrev_25_50": {
+    "net": 70819,
+    "cagr": -0.96,
+    "sharpe": 0.012,
+    "oos_sharpe": -0.122,
+    "maxdd": -0.68,
+    "trades": 78,
+    "tax": 21933
+  },
+  "RWE.XETRA:RSItrend_50": {
+    "net": 155366,
+    "cagr": 1.91,
+    "sharpe": 0.195,
+    "oos_sharpe": 0.192,
+    "maxdd": -0.773,
+    "trades": 360,
+    "tax": 33222
+  },
+  "RWE.XETRA:BBrev_20_2": {
+    "net": 93179,
+    "cagr": -0.13,
+    "sharpe": 0.079,
+    "oos_sharpe": 0.124,
+    "maxdd": -0.699,
+    "trades": 105,
+    "tax": 11564
+  },
+  "RWE.XETRA:BBbrk_20_2": {
+    "net": 162034,
+    "cagr": 2.11,
+    "sharpe": 0.216,
+    "oos_sharpe": 0.161,
+    "maxdd": -0.431,
+    "trades": 113,
+    "tax": 40353
+  },
+  "RWE.XETRA:TSmom_126": {
+    "net": 405910,
+    "cagr": 5.75,
+    "sharpe": 0.377,
+    "oos_sharpe": 0.247,
+    "maxdd": -0.397,
+    "trades": 129,
+    "tax": 115600
+  },
+  "RWE.XETRA:TSmom_252": {
+    "net": 331312,
+    "cagr": 4.92,
+    "sharpe": 0.339,
+    "oos_sharpe": 0.38,
+    "maxdd": -0.737,
+    "trades": 78,
+    "tax": 85414
+  },
+  "RWE.XETRA:VolFilter_p80": {
+    "net": 214243,
+    "cagr": 3.16,
+    "sharpe": 0.251,
+    "oos_sharpe": 0.455,
+    "maxdd": -0.844,
+    "trades": 86,
+    "tax": 45938
+  },
+  "RWE.XETRA:AND_SMA200_Mom12": {
+    "net": 215524,
+    "cagr": 3.16,
+    "sharpe": 0.261,
+    "oos_sharpe": 0.191,
+    "maxdd": -0.638,
+    "trades": 43,
+    "tax": 42521
+  },
+  "RWE.XETRA:OR_SMA200_Mom12": {
+    "net": 641388,
+    "cagr": 7.62,
+    "sharpe": 0.444,
+    "oos_sharpe": 0.484,
+    "maxdd": -0.586,
+    "trades": 50,
+    "tax": 196554
+  },
+  "RWE.XETRA:AND_MACD_RSI50": {
+    "net": 108657,
+    "cagr": 0.58,
+    "sharpe": 0.123,
+    "oos_sharpe": 0.092,
+    "maxdd": -0.744,
+    "trades": 304,
+    "tax": 26139
+  },
+  "RWE.XETRA:AND_Donch_Vol": {
+    "net": 246346,
+    "cagr": 3.75,
+    "sharpe": 0.345,
+    "oos_sharpe": 0.297,
+    "maxdd": -0.473,
+    "trades": 77,
+    "tax": 62556
+  },
+  "RWE.XETRA:AND_SMA200_Vol": {
+    "net": 324190,
+    "cagr": 4.84,
+    "sharpe": 0.359,
+    "oos_sharpe": 0.298,
+    "maxdd": -0.542,
+    "trades": 60,
+    "tax": 87579
+  },
+  "RWE.XETRA:ENS_2of3": {
+    "net": 395743,
+    "cagr": 5.64,
+    "sharpe": 0.372,
+    "oos_sharpe": 0.325,
+    "maxdd": -0.657,
+    "trades": 96,
+    "tax": 109816
+  },
+  "RWE.XETRA:ENS_3of3": {
+    "net": 135153,
+    "cagr": 1.34,
+    "sharpe": 0.17,
+    "oos_sharpe": 0.112,
+    "maxdd": -0.366,
+    "trades": 150,
+    "tax": 23325
+  },
+  "SAP.XETRA:SMAx_10_50": {
+    "net": 134058,
+    "cagr": 1.37,
+    "sharpe": 0.169,
+    "oos_sharpe": 0.396,
+    "maxdd": -0.561,
+    "trades": 88,
+    "tax": 31147
+  },
+  "SAP.XETRA:SMAx_20_100": {
+    "net": 168824,
+    "cagr": 2.22,
+    "sharpe": 0.209,
+    "oos_sharpe": 0.231,
+    "maxdd": -0.485,
+    "trades": 43,
+    "tax": 34606
+  },
+  "SAP.XETRA:SMAx_50_200": {
+    "net": 72050,
+    "cagr": -1.23,
+    "sharpe": 0.056,
+    "oos_sharpe": 0.214,
+    "maxdd": -0.768,
+    "trades": 21,
+    "tax": 0
+  },
+  "SAP.XETRA:SMAx_100_300": {
+    "net": 119260,
+    "cagr": 0.73,
+    "sharpe": 0.139,
+    "oos_sharpe": 0.181,
+    "maxdd": -0.607,
+    "trades": 16,
+    "tax": 7130
+  },
+  "SAP.XETRA:EMAx_12_26": {
+    "net": 129738,
+    "cagr": 1.2,
+    "sharpe": 0.161,
+    "oos_sharpe": 0.38,
+    "maxdd": -0.689,
+    "trades": 117,
+    "tax": 24765
+  },
+  "SAP.XETRA:EMAx_20_100": {
+    "net": 95104,
+    "cagr": -0.18,
+    "sharpe": 0.101,
+    "oos_sharpe": 0.275,
+    "maxdd": -0.744,
+    "trades": 45,
+    "tax": 839
+  },
+  "SAP.XETRA:EMAx_50_200": {
+    "net": 58278,
+    "cagr": -2.02,
+    "sharpe": 0.025,
+    "oos_sharpe": 0.235,
+    "maxdd": -0.839,
+    "trades": 24,
+    "tax": 0
+  },
+  "SAP.XETRA:MACD_12_26_9": {
+    "net": 94786,
+    "cagr": 0.07,
+    "sharpe": 0.114,
+    "oos_sharpe": 0.087,
+    "maxdd": -0.616,
+    "trades": 284,
+    "tax": 23547
+  },
+  "SAP.XETRA:Donch_55_20": {
+    "net": 70748,
+    "cagr": -1.21,
+    "sharpe": -0.001,
+    "oos_sharpe": 0.406,
+    "maxdd": -0.759,
+    "trades": 77,
+    "tax": 5509
+  },
+  "SAP.XETRA:Donch_100_50": {
+    "net": 91846,
+    "cagr": -0.32,
+    "sharpe": 0.068,
+    "oos_sharpe": 0.386,
+    "maxdd": -0.673,
+    "trades": 36,
+    "tax": 0
+  },
+  "SAP.XETRA:RSIrev_30_55": {
+    "net": 154786,
+    "cagr": 1.93,
+    "sharpe": 0.195,
+    "oos_sharpe": 0.197,
+    "maxdd": -0.744,
+    "trades": 97,
+    "tax": 37489
+  },
+  "SAP.XETRA:RSIrev_25_50": {
+    "net": 117691,
+    "cagr": 0.72,
+    "sharpe": 0.125,
+    "oos_sharpe": 0.336,
+    "maxdd": -0.742,
+    "trades": 70,
+    "tax": 10431
+  },
+  "SAP.XETRA:RSItrend_50": {
+    "net": 101420,
+    "cagr": 0.34,
+    "sharpe": 0.121,
+    "oos_sharpe": 0.178,
+    "maxdd": -0.607,
+    "trades": 416,
+    "tax": 26558
+  },
+  "SAP.XETRA:BBrev_20_2": {
+    "net": 77792,
+    "cagr": -0.7,
+    "sharpe": 0.068,
+    "oos_sharpe": 0.107,
+    "maxdd": -0.748,
+    "trades": 116,
+    "tax": 17488
+  },
+  "SAP.XETRA:BBbrk_20_2": {
+    "net": 48952,
+    "cagr": -2.64,
+    "sharpe": -0.1,
+    "oos_sharpe": 0.081,
+    "maxdd": -0.714,
+    "trades": 128,
+    "tax": 807
+  },
+  "SAP.XETRA:TSmom_126": {
+    "net": 98385,
+    "cagr": -0.06,
+    "sharpe": 0.104,
+    "oos_sharpe": 0.249,
+    "maxdd": -0.668,
+    "trades": 106,
+    "tax": 469
+  },
+  "SAP.XETRA:TSmom_252": {
+    "net": 236251,
+    "cagr": 3.55,
+    "sharpe": 0.273,
+    "oos_sharpe": 0.242,
+    "maxdd": -0.471,
+    "trades": 75,
+    "tax": 53492
+  },
+  "SAP.XETRA:VolFilter_p80": {
+    "net": 115925,
+    "cagr": 0.8,
+    "sharpe": 0.158,
+    "oos_sharpe": 0.143,
+    "maxdd": -0.751,
+    "trades": 88,
+    "tax": 25098
+  },
+  "SAP.XETRA:AND_SMA200_Mom12": {
+    "net": 122079,
+    "cagr": 0.83,
+    "sharpe": 0.136,
+    "oos_sharpe": 0.11,
+    "maxdd": -0.553,
+    "trades": 41,
+    "tax": 8533
+  },
+  "SAP.XETRA:OR_SMA200_Mom12": {
+    "net": 149257,
+    "cagr": 1.67,
+    "sharpe": 0.189,
+    "oos_sharpe": 0.35,
+    "maxdd": -0.784,
+    "trades": 53,
+    "tax": 20163
+  },
+  "SAP.XETRA:AND_MACD_RSI50": {
+    "net": 82970,
+    "cagr": -0.51,
+    "sharpe": 0.067,
+    "oos_sharpe": 0.173,
+    "maxdd": -0.662,
+    "trades": 343,
+    "tax": 14431
+  },
+  "SAP.XETRA:AND_Donch_Vol": {
+    "net": 60692,
+    "cagr": -1.85,
+    "sharpe": -0.074,
+    "oos_sharpe": 0.292,
+    "maxdd": -0.678,
+    "trades": 86,
+    "tax": 720
+  },
+  "SAP.XETRA:AND_SMA200_Vol": {
+    "net": 76396,
+    "cagr": -1.01,
+    "sharpe": 0.042,
+    "oos_sharpe": 0.055,
+    "maxdd": -0.684,
+    "trades": 57,
+    "tax": 0
+  },
+  "SAP.XETRA:ENS_2of3": {
+    "net": 196963,
+    "cagr": 2.82,
+    "sharpe": 0.237,
+    "oos_sharpe": 0.21,
+    "maxdd": -0.578,
+    "trades": 109,
+    "tax": 40994
+  },
+  "SAP.XETRA:ENS_3of3": {
+    "net": 61566,
+    "cagr": -1.81,
+    "sharpe": -0.115,
+    "oos_sharpe": -0.097,
+    "maxdd": -0.584,
+    "trades": 180,
+    "tax": 0
+  },
+  "SHEL.LSE:SMAx_10_50": {
+    "net": 125767,
+    "cagr": 0.96,
+    "sharpe": 0.152,
+    "oos_sharpe": 0.176,
+    "maxdd": -0.411,
+    "trades": 78,
+    "tax": 10670
+  },
+  "SHEL.LSE:SMAx_20_100": {
+    "net": 142115,
+    "cagr": 1.46,
+    "sharpe": 0.184,
+    "oos_sharpe": 0.455,
+    "maxdd": -0.564,
+    "trades": 41,
+    "tax": 15752
+  },
+  "SHEL.LSE:SMAx_50_200": {
+    "net": 338417,
+    "cagr": 5.0,
+    "sharpe": 0.405,
+    "oos_sharpe": 0.635,
+    "maxdd": -0.361,
+    "trades": 18,
+    "tax": 85886
+  },
+  "SHEL.LSE:SMAx_100_300": {
+    "net": 339969,
+    "cagr": 5.02,
+    "sharpe": 0.398,
+    "oos_sharpe": 0.551,
+    "maxdd": -0.328,
+    "trades": 11,
+    "tax": 86269
+  },
+  "SHEL.LSE:EMAx_12_26": {
+    "net": 96130,
+    "cagr": -0.1,
+    "sharpe": 0.085,
+    "oos_sharpe": 0.157,
+    "maxdd": -0.478,
+    "trades": 102,
+    "tax": 3985
+  },
+  "SHEL.LSE:EMAx_20_100": {
+    "net": 178484,
+    "cagr": 2.42,
+    "sharpe": 0.243,
+    "oos_sharpe": 0.434,
+    "maxdd": -0.343,
+    "trades": 43,
+    "tax": 32649
+  },
+  "SHEL.LSE:EMAx_50_200": {
+    "net": 311826,
+    "cagr": 4.67,
+    "sharpe": 0.374,
+    "oos_sharpe": 0.54,
+    "maxdd": -0.316,
+    "trades": 16,
+    "tax": 76285
+  },
+  "SHEL.LSE:MACD_12_26_9": {
+    "net": 143683,
+    "cagr": 1.66,
+    "sharpe": 0.196,
+    "oos_sharpe": 0.092,
+    "maxdd": -0.595,
+    "trades": 230,
+    "tax": 37285
+  },
+  "SHEL.LSE:Donch_55_20": {
+    "net": 85123,
+    "cagr": -0.6,
+    "sharpe": 0.013,
+    "oos_sharpe": 0.28,
+    "maxdd": -0.483,
+    "trades": 64,
+    "tax": 107
+  },
+  "SHEL.LSE:Donch_100_50": {
+    "net": 91212,
+    "cagr": -0.33,
+    "sharpe": 0.047,
+    "oos_sharpe": 0.321,
+    "maxdd": -0.503,
+    "trades": 30,
+    "tax": 1102
+  },
+  "SHEL.LSE:RSIrev_30_55": {
+    "net": 323768,
+    "cagr": 4.87,
+    "sharpe": 0.407,
+    "oos_sharpe": 0.205,
+    "maxdd": -0.556,
+    "trades": 92,
+    "tax": 95143
+  },
+  "SHEL.LSE:RSIrev_25_50": {
+    "net": 167682,
+    "cagr": 2.2,
+    "sharpe": 0.246,
+    "oos_sharpe": 0.174,
+    "maxdd": -0.548,
+    "trades": 67,
+    "tax": 34122
+  },
+  "SHEL.LSE:RSItrend_50": {
+    "net": 63925,
+    "cagr": -1.46,
+    "sharpe": -0.003,
+    "oos_sharpe": 0.005,
+    "maxdd": -0.651,
+    "trades": 336,
+    "tax": 12970
+  },
+  "SHEL.LSE:BBrev_20_2": {
+    "net": 364055,
+    "cagr": 5.31,
+    "sharpe": 0.453,
+    "oos_sharpe": 0.511,
+    "maxdd": -0.556,
+    "trades": 109,
+    "tax": 98573
+  },
+  "SHEL.LSE:BBbrk_20_2": {
+    "net": 128407,
+    "cagr": 1.05,
+    "sharpe": 0.159,
+    "oos_sharpe": 0.296,
+    "maxdd": -0.359,
+    "trades": 92,
+    "tax": 11894
+  },
+  "SHEL.LSE:TSmom_126": {
+    "net": 149259,
+    "cagr": 1.7,
+    "sharpe": 0.199,
+    "oos_sharpe": 0.4,
+    "maxdd": -0.503,
+    "trades": 136,
+    "tax": 23089
+  },
+  "SHEL.LSE:TSmom_252": {
+    "net": 306400,
+    "cagr": 4.6,
+    "sharpe": 0.375,
+    "oos_sharpe": 0.347,
+    "maxdd": -0.459,
+    "trades": 75,
+    "tax": 76575
+  },
+  "SHEL.LSE:VolFilter_p80": {
+    "net": 420011,
+    "cagr": 5.89,
+    "sharpe": 0.459,
+    "oos_sharpe": 0.389,
+    "maxdd": -0.42,
+    "trades": 59,
+    "tax": 117876
+  },
+  "SHEL.LSE:AND_SMA200_Mom12": {
+    "net": 229343,
+    "cagr": 3.42,
+    "sharpe": 0.315,
+    "oos_sharpe": 0.469,
+    "maxdd": -0.379,
+    "trades": 59,
+    "tax": 47744
+  },
+  "SHEL.LSE:OR_SMA200_Mom12": {
+    "net": 455750,
+    "cagr": 6.22,
+    "sharpe": 0.458,
+    "oos_sharpe": 0.511,
+    "maxdd": -0.327,
+    "trades": 34,
+    "tax": 128755
+  },
+  "SHEL.LSE:AND_MACD_RSI50": {
+    "net": 123435,
+    "cagr": 1.03,
+    "sharpe": 0.154,
+    "oos_sharpe": 0.153,
+    "maxdd": -0.443,
+    "trades": 282,
+    "tax": 25791
+  },
+  "SHEL.LSE:AND_Donch_Vol": {
+    "net": 110466,
+    "cagr": 0.45,
+    "sharpe": 0.103,
+    "oos_sharpe": 0.182,
+    "maxdd": -0.336,
+    "trades": 66,
+    "tax": 7258
+  },
+  "SHEL.LSE:AND_SMA200_Vol": {
+    "net": 381630,
+    "cagr": 5.5,
+    "sharpe": 0.467,
+    "oos_sharpe": 0.569,
+    "maxdd": -0.266,
+    "trades": 46,
+    "tax": 103443
+  },
+  "SHEL.LSE:ENS_2of3": {
+    "net": 229370,
+    "cagr": 3.43,
+    "sharpe": 0.307,
+    "oos_sharpe": 0.397,
+    "maxdd": -0.372,
+    "trades": 99,
+    "tax": 48992
+  },
+  "SHEL.LSE:ENS_3of3": {
+    "net": 185968,
+    "cagr": 2.67,
+    "sharpe": 0.325,
+    "oos_sharpe": 0.328,
+    "maxdd": -0.308,
+    "trades": 153,
+    "tax": 49930
+  },
+  "SIE.XETRA:SMAx_10_50": {
+    "net": 195788,
+    "cagr": 2.8,
+    "sharpe": 0.235,
+    "oos_sharpe": 0.439,
+    "maxdd": -0.542,
+    "trades": 98,
+    "tax": 40210
+  },
+  "SIE.XETRA:SMAx_20_100": {
+    "net": 377047,
+    "cagr": 5.45,
+    "sharpe": 0.357,
+    "oos_sharpe": 0.374,
+    "maxdd": -0.535,
+    "trades": 39,
+    "tax": 103220
+  },
+  "SIE.XETRA:SMAx_50_200": {
+    "net": 258235,
+    "cagr": 3.89,
+    "sharpe": 0.285,
+    "oos_sharpe": 0.241,
+    "maxdd": -0.651,
+    "trades": 19,
+    "tax": 57258
+  },
+  "SIE.XETRA:SMAx_100_300": {
+    "net": 174445,
+    "cagr": 2.3,
+    "sharpe": 0.213,
+    "oos_sharpe": 0.232,
+    "maxdd": -0.68,
+    "trades": 14,
+    "tax": 26919
+  },
+  "SIE.XETRA:EMAx_12_26": {
+    "net": 267158,
+    "cagr": 4.04,
+    "sharpe": 0.289,
+    "oos_sharpe": 0.391,
+    "maxdd": -0.503,
+    "trades": 121,
+    "tax": 62784
+  },
+  "SIE.XETRA:EMAx_20_100": {
+    "net": 299907,
+    "cagr": 4.51,
+    "sharpe": 0.309,
+    "oos_sharpe": 0.38,
+    "maxdd": -0.519,
+    "trades": 42,
+    "tax": 72648
+  },
+  "SIE.XETRA:EMAx_50_200": {
+    "net": 231589,
+    "cagr": 3.45,
+    "sharpe": 0.262,
+    "oos_sharpe": 0.194,
+    "maxdd": -0.605,
+    "trades": 23,
+    "tax": 47782
+  },
+  "SIE.XETRA:MACD_12_26_9": {
+    "net": 110382,
+    "cagr": 0.47,
+    "sharpe": 0.129,
+    "oos_sharpe": 0.365,
+    "maxdd": -0.699,
+    "trades": 279,
+    "tax": 9618
+  },
+  "SIE.XETRA:Donch_55_20": {
+    "net": 79284,
+    "cagr": -0.87,
+    "sharpe": 0.027,
+    "oos_sharpe": 0.254,
+    "maxdd": -0.552,
+    "trades": 83,
+    "tax": 0
+  },
+  "SIE.XETRA:Donch_100_50": {
+    "net": 142868,
+    "cagr": 1.53,
+    "sharpe": 0.173,
+    "oos_sharpe": 0.186,
+    "maxdd": -0.567,
+    "trades": 34,
+    "tax": 21949
+  },
+  "SIE.XETRA:RSIrev_30_55": {
+    "net": 166249,
+    "cagr": 2.11,
+    "sharpe": 0.203,
+    "oos_sharpe": 0.487,
+    "maxdd": -0.698,
+    "trades": 97,
+    "tax": 25291
+  },
+  "SIE.XETRA:RSIrev_25_50": {
+    "net": 132921,
+    "cagr": 1.19,
+    "sharpe": 0.154,
+    "oos_sharpe": 0.293,
+    "maxdd": -0.563,
+    "trades": 66,
+    "tax": 12870
+  },
+  "SIE.XETRA:RSItrend_50": {
+    "net": 140363,
+    "cagr": 1.5,
+    "sharpe": 0.177,
+    "oos_sharpe": 0.22,
+    "maxdd": -0.549,
+    "trades": 390,
+    "tax": 26435
+  },
+  "SIE.XETRA:BBrev_20_2": {
+    "net": 99422,
+    "cagr": 0.0,
+    "sharpe": 0.097,
+    "oos_sharpe": 0.363,
+    "maxdd": -0.711,
+    "trades": 111,
+    "tax": 2096
+  },
+  "SIE.XETRA:BBbrk_20_2": {
+    "net": 68208,
+    "cagr": -1.36,
+    "sharpe": -0.014,
+    "oos_sharpe": 0.113,
+    "maxdd": -0.671,
+    "trades": 141,
+    "tax": 4426
+  },
+  "SIE.XETRA:TSmom_126": {
+    "net": 227191,
+    "cagr": 3.38,
+    "sharpe": 0.264,
+    "oos_sharpe": 0.194,
+    "maxdd": -0.605,
+    "trades": 111,
+    "tax": 48428
+  },
+  "SIE.XETRA:TSmom_252": {
+    "net": 256077,
+    "cagr": 3.86,
+    "sharpe": 0.287,
+    "oos_sharpe": 0.357,
+    "maxdd": -0.423,
+    "trades": 68,
+    "tax": 57262
+  },
+  "SIE.XETRA:VolFilter_p80": {
+    "net": 240792,
+    "cagr": 3.63,
+    "sharpe": 0.268,
+    "oos_sharpe": 0.316,
+    "maxdd": -0.769,
+    "trades": 90,
+    "tax": 55296
+  },
+  "SIE.XETRA:AND_SMA200_Mom12": {
+    "net": 251601,
+    "cagr": 3.79,
+    "sharpe": 0.292,
+    "oos_sharpe": 0.281,
+    "maxdd": -0.361,
+    "trades": 47,
+    "tax": 55548
+  },
+  "SIE.XETRA:OR_SMA200_Mom12": {
+    "net": 265063,
+    "cagr": 4.0,
+    "sharpe": 0.285,
+    "oos_sharpe": 0.317,
+    "maxdd": -0.612,
+    "trades": 39,
+    "tax": 59991
+  },
+  "SIE.XETRA:AND_MACD_RSI50": {
+    "net": 71023,
+    "cagr": -1.08,
+    "sharpe": 0.037,
+    "oos_sharpe": 0.27,
+    "maxdd": -0.726,
+    "trades": 328,
+    "tax": 13092
+  },
+  "SIE.XETRA:AND_Donch_Vol": {
+    "net": 96326,
+    "cagr": -0.06,
+    "sharpe": 0.067,
+    "oos_sharpe": 0.129,
+    "maxdd": -0.378,
+    "trades": 102,
+    "tax": 7407
+  },
+  "SIE.XETRA:AND_SMA200_Vol": {
+    "net": 182486,
+    "cagr": 2.52,
+    "sharpe": 0.227,
+    "oos_sharpe": 0.099,
+    "maxdd": -0.568,
+    "trades": 65,
+    "tax": 35965
+  },
+  "SIE.XETRA:ENS_2of3": {
+    "net": 359948,
+    "cagr": 5.25,
+    "sharpe": 0.354,
+    "oos_sharpe": 0.37,
+    "maxdd": -0.391,
+    "trades": 91,
+    "tax": 95912
+  },
+  "SIE.XETRA:ENS_3of3": {
+    "net": 57874,
+    "cagr": -2.04,
+    "sharpe": -0.114,
+    "oos_sharpe": -0.002,
+    "maxdd": -0.574,
+    "trades": 180,
+    "tax": 0
+  },
+  "TTE.PA:SMAx_10_50": {
+    "net": 87489,
+    "cagr": -0.44,
+    "sharpe": 0.061,
+    "oos_sharpe": 0.167,
+    "maxdd": -0.573,
+    "trades": 111,
+    "tax": 4711
+  },
+  "TTE.PA:SMAx_20_100": {
+    "net": 123902,
+    "cagr": 0.99,
+    "sharpe": 0.142,
+    "oos_sharpe": 0.162,
+    "maxdd": -0.49,
+    "trades": 54,
+    "tax": 19814
+  },
+  "TTE.PA:SMAx_50_200": {
+    "net": 127266,
+    "cagr": 1.0,
+    "sharpe": 0.144,
+    "oos_sharpe": 0.317,
+    "maxdd": -0.519,
+    "trades": 22,
+    "tax": 10091
+  },
+  "TTE.PA:SMAx_100_300": {
+    "net": 153519,
+    "cagr": 1.77,
+    "sharpe": 0.187,
+    "oos_sharpe": 0.27,
+    "maxdd": -0.656,
+    "trades": 15,
+    "tax": 19470
+  },
+  "TTE.PA:EMAx_12_26": {
+    "net": 52435,
+    "cagr": -2.28,
+    "sharpe": -0.046,
+    "oos_sharpe": 0.175,
+    "maxdd": -0.73,
+    "trades": 139,
+    "tax": 6107
+  },
+  "TTE.PA:EMAx_20_100": {
+    "net": 103902,
+    "cagr": 0.4,
+    "sharpe": 0.111,
+    "oos_sharpe": 0.182,
+    "maxdd": -0.611,
+    "trades": 55,
+    "tax": 24182
+  },
+  "TTE.PA:EMAx_50_200": {
+    "net": 192044,
+    "cagr": 2.69,
+    "sharpe": 0.234,
+    "oos_sharpe": 0.351,
+    "maxdd": -0.467,
+    "trades": 21,
+    "tax": 33446
+  },
+  "TTE.PA:MACD_12_26_9": {
+    "net": 83861,
+    "cagr": -0.65,
+    "sharpe": 0.051,
+    "oos_sharpe": 0.289,
+    "maxdd": -0.675,
+    "trades": 287,
+    "tax": 1046
+  },
+  "TTE.PA:Donch_55_20": {
+    "net": 121816,
+    "cagr": 0.9,
+    "sharpe": 0.133,
+    "oos_sharpe": 0.065,
+    "maxdd": -0.427,
+    "trades": 68,
+    "tax": 16701
+  },
+  "TTE.PA:Donch_100_50": {
+    "net": 112741,
+    "cagr": 0.55,
+    "sharpe": 0.11,
+    "oos_sharpe": 0.249,
+    "maxdd": -0.564,
+    "trades": 36,
+    "tax": 10200
+  },
+  "TTE.PA:RSIrev_30_55": {
+    "net": 438051,
+    "cagr": 6.07,
+    "sharpe": 0.442,
+    "oos_sharpe": 0.375,
+    "maxdd": -0.604,
+    "trades": 94,
+    "tax": 129695
+  },
+  "TTE.PA:RSIrev_25_50": {
+    "net": 403491,
+    "cagr": 5.72,
+    "sharpe": 0.479,
+    "oos_sharpe": 0.317,
+    "maxdd": -0.544,
+    "trades": 62,
+    "tax": 112318
+  },
+  "TTE.PA:RSItrend_50": {
+    "net": 28492,
+    "cagr": -4.55,
+    "sharpe": -0.186,
+    "oos_sharpe": 0.032,
+    "maxdd": -0.862,
+    "trades": 419,
+    "tax": 1966
+  },
+  "TTE.PA:BBrev_20_2": {
+    "net": 284234,
+    "cagr": 4.32,
+    "sharpe": 0.34,
+    "oos_sharpe": 0.355,
+    "maxdd": -0.593,
+    "trades": 118,
+    "tax": 76040
+  },
+  "TTE.PA:BBbrk_20_2": {
+    "net": 118008,
+    "cagr": 0.71,
+    "sharpe": 0.118,
+    "oos_sharpe": 0.295,
+    "maxdd": -0.357,
+    "trades": 116,
+    "tax": 8248
+  },
+  "TTE.PA:TSmom_126": {
+    "net": 120873,
+    "cagr": 0.81,
+    "sharpe": 0.132,
+    "oos_sharpe": 0.261,
+    "maxdd": -0.583,
+    "trades": 141,
+    "tax": 9637
+  },
+  "TTE.PA:TSmom_252": {
+    "net": 182474,
+    "cagr": 2.49,
+    "sharpe": 0.227,
+    "oos_sharpe": 0.349,
+    "maxdd": -0.652,
+    "trades": 122,
+    "tax": 31931
+  },
+  "TTE.PA:VolFilter_p80": {
+    "net": 175011,
+    "cagr": 2.36,
+    "sharpe": 0.217,
+    "oos_sharpe": 0.335,
+    "maxdd": -0.464,
+    "trades": 75,
+    "tax": 35579
+  },
+  "TTE.PA:AND_SMA200_Mom12": {
+    "net": 136907,
+    "cagr": 1.31,
+    "sharpe": 0.16,
+    "oos_sharpe": 0.264,
+    "maxdd": -0.6,
+    "trades": 82,
+    "tax": 14575
+  },
+  "TTE.PA:OR_SMA200_Mom12": {
+    "net": 169122,
+    "cagr": 2.17,
+    "sharpe": 0.207,
+    "oos_sharpe": 0.395,
+    "maxdd": -0.564,
+    "trades": 62,
+    "tax": 25819
+  },
+  "TTE.PA:AND_MACD_RSI50": {
+    "net": 36412,
+    "cagr": -3.73,
+    "sharpe": -0.172,
+    "oos_sharpe": 0.108,
+    "maxdd": -0.834,
+    "trades": 358,
+    "tax": 426
+  },
+  "TTE.PA:AND_Donch_Vol": {
+    "net": 106871,
+    "cagr": 0.42,
+    "sharpe": 0.093,
+    "oos_sharpe": -0.017,
+    "maxdd": -0.493,
+    "trades": 76,
+    "tax": 16607
+  },
+  "TTE.PA:AND_SMA200_Vol": {
+    "net": 145148,
+    "cagr": 1.59,
+    "sharpe": 0.178,
+    "oos_sharpe": 0.24,
+    "maxdd": -0.415,
+    "trades": 53,
+    "tax": 23079
+  },
+  "TTE.PA:ENS_2of3": {
+    "net": 110378,
+    "cagr": 0.48,
+    "sharpe": 0.113,
+    "oos_sharpe": 0.207,
+    "maxdd": -0.675,
+    "trades": 141,
+    "tax": 10799
+  },
+  "TTE.PA:ENS_3of3": {
+    "net": 93288,
+    "cagr": -0.23,
+    "sharpe": 0.03,
+    "oos_sharpe": 0.281,
+    "maxdd": -0.58,
+    "trades": 187,
+    "tax": 2718
+  },
+  "ULVR.LSE:SMAx_10_50": {
+    "net": 102102,
+    "cagr": 0.19,
+    "sharpe": 0.093,
+    "oos_sharpe": -0.017,
+    "maxdd": -0.348,
+    "trades": 92,
+    "tax": 10563
+  },
+  "ULVR.LSE:SMAx_20_100": {
+    "net": 132617,
+    "cagr": 1.29,
+    "sharpe": 0.16,
+    "oos_sharpe": 0.071,
+    "maxdd": -0.368,
+    "trades": 53,
+    "tax": 26546
+  },
+  "ULVR.LSE:SMAx_50_200": {
+    "net": 164656,
+    "cagr": 2.18,
+    "sharpe": 0.213,
+    "oos_sharpe": 0.096,
+    "maxdd": -0.477,
+    "trades": 25,
+    "tax": 41160
+  },
+  "ULVR.LSE:SMAx_100_300": {
+    "net": 206378,
+    "cagr": 3.08,
+    "sharpe": 0.265,
+    "oos_sharpe": 0.096,
+    "maxdd": -0.385,
+    "trades": 13,
+    "tax": 56661
+  },
+  "ULVR.LSE:EMAx_12_26": {
+    "net": 83704,
+    "cagr": -0.6,
+    "sharpe": 0.042,
+    "oos_sharpe": 0.037,
+    "maxdd": -0.425,
+    "trades": 125,
+    "tax": 4986
+  },
+  "ULVR.LSE:EMAx_20_100": {
+    "net": 84616,
+    "cagr": -0.5,
+    "sharpe": 0.05,
+    "oos_sharpe": -0.072,
+    "maxdd": -0.471,
+    "trades": 58,
+    "tax": 9424
+  },
+  "ULVR.LSE:EMAx_50_200": {
+    "net": 168711,
+    "cagr": 2.19,
+    "sharpe": 0.211,
+    "oos_sharpe": 0.096,
+    "maxdd": -0.385,
+    "trades": 24,
+    "tax": 29558
+  },
+  "ULVR.LSE:MACD_12_26_9": {
+    "net": 245508,
+    "cagr": 3.72,
+    "sharpe": 0.315,
+    "oos_sharpe": 0.345,
+    "maxdd": -0.297,
+    "trades": 265,
+    "tax": 60080
+  },
+  "ULVR.LSE:Donch_55_20": {
+    "net": 92713,
+    "cagr": -0.21,
+    "sharpe": 0.043,
+    "oos_sharpe": -0.01,
+    "maxdd": -0.315,
+    "trades": 80,
+    "tax": 6157
+  },
+  "ULVR.LSE:Donch_100_50": {
+    "net": 131169,
+    "cagr": 1.24,
+    "sharpe": 0.161,
+    "oos_sharpe": 0.072,
+    "maxdd": -0.449,
+    "trades": 33,
+    "tax": 25136
+  },
+  "ULVR.LSE:RSIrev_30_55": {
+    "net": 238773,
+    "cagr": 3.66,
+    "sharpe": 0.37,
+    "oos_sharpe": 0.41,
+    "maxdd": -0.271,
+    "trades": 95,
+    "tax": 68446
+  },
+  "ULVR.LSE:RSIrev_25_50": {
+    "net": 146971,
+    "cagr": 1.67,
+    "sharpe": 0.224,
+    "oos_sharpe": 0.141,
+    "maxdd": -0.272,
+    "trades": 64,
+    "tax": 27231
+  },
+  "ULVR.LSE:RSItrend_50": {
+    "net": 103261,
+    "cagr": 0.3,
+    "sharpe": 0.098,
+    "oos_sharpe": 0.003,
+    "maxdd": -0.406,
+    "trades": 425,
+    "tax": 17079
+  },
+  "ULVR.LSE:BBrev_20_2": {
+    "net": 209285,
+    "cagr": 3.08,
+    "sharpe": 0.324,
+    "oos_sharpe": 0.304,
+    "maxdd": -0.252,
+    "trades": 115,
+    "tax": 46755
+  },
+  "ULVR.LSE:BBbrk_20_2": {
+    "net": 59991,
+    "cagr": -1.82,
+    "sharpe": -0.116,
+    "oos_sharpe": -0.313,
+    "maxdd": -0.545,
+    "trades": 150,
+    "tax": 4998
+  },
+  "ULVR.LSE:TSmom_126": {
+    "net": 123576,
+    "cagr": 1.07,
+    "sharpe": 0.146,
+    "oos_sharpe": -0.004,
+    "maxdd": -0.543,
+    "trades": 146,
+    "tax": 29941
+  },
+  "ULVR.LSE:TSmom_252": {
+    "net": 121065,
+    "cagr": 1.07,
+    "sharpe": 0.148,
+    "oos_sharpe": -0.046,
+    "maxdd": -0.513,
+    "trades": 98,
+    "tax": 38787
+  },
+  "ULVR.LSE:VolFilter_p80": {
+    "net": 279868,
+    "cagr": 4.23,
+    "sharpe": 0.327,
+    "oos_sharpe": 0.225,
+    "maxdd": -0.492,
+    "trades": 90,
+    "tax": 67351
+  },
+  "ULVR.LSE:AND_SMA200_Mom12": {
+    "net": 130012,
+    "cagr": 1.26,
+    "sharpe": 0.159,
+    "oos_sharpe": -0.084,
+    "maxdd": -0.391,
+    "trades": 64,
+    "tax": 31220
+  },
+  "ULVR.LSE:OR_SMA200_Mom12": {
+    "net": 164148,
+    "cagr": 2.14,
+    "sharpe": 0.206,
+    "oos_sharpe": 0.121,
+    "maxdd": -0.542,
+    "trades": 57,
+    "tax": 36619
+  },
+  "ULVR.LSE:AND_MACD_RSI50": {
+    "net": 145464,
+    "cagr": 1.61,
+    "sharpe": 0.184,
+    "oos_sharpe": 0.174,
+    "maxdd": -0.295,
+    "trades": 333,
+    "tax": 24379
+  },
+  "ULVR.LSE:AND_Donch_Vol": {
+    "net": 74141,
+    "cagr": -1.04,
+    "sharpe": -0.057,
+    "oos_sharpe": -0.17,
+    "maxdd": -0.415,
+    "trades": 89,
+    "tax": 5476
+  },
+  "ULVR.LSE:AND_SMA200_Vol": {
+    "net": 164425,
+    "cagr": 2.12,
+    "sharpe": 0.221,
+    "oos_sharpe": 0.124,
+    "maxdd": -0.55,
+    "trades": 70,
+    "tax": 33024
+  },
+  "ULVR.LSE:ENS_2of3": {
+    "net": 135284,
+    "cagr": 1.44,
+    "sharpe": 0.169,
+    "oos_sharpe": 0.031,
+    "maxdd": -0.446,
+    "trades": 128,
+    "tax": 35649
+  },
+  "ULVR.LSE:ENS_3of3": {
+    "net": 124942,
+    "cagr": 1.0,
+    "sharpe": 0.152,
+    "oos_sharpe": 0.117,
+    "maxdd": -0.24,
+    "trades": 184,
+    "tax": 16929
+  },
+  "_summary": {
+    "n_configs": 950,
+    "N_cumulative": 1195,
+    "by_class": {
+      "region": {
+        "assets": 6,
+        "configs": 150,
+        "beat": 0
+      },
+      "sector": {
+        "assets": 9,
+        "configs": 225,
+        "beat": 7
+      },
+      "bond": {
+        "assets": 1,
+        "configs": 25,
+        "beat": 0
+      },
+      "metal": {
+        "assets": 1,
+        "configs": 25,
+        "beat": 0
+      },
+      "crypto": {
+        "assets": 1,
+        "configs": 25,
+        "beat": 0
+      },
+      "eu_stock": {
+        "assets": 20,
+        "configs": 500,
+        "beat": 4
+      }
+    },
+    "best_beating": {
+      "RWE.XETRA:SMAx_100_300": {
+        "net": 712413,
+        "cagr": 8.05,
+        "sharpe": 0.484,
+        "oos_sharpe": 0.472,
+        "maxdd": -0.562,
+        "trades": 10,
+        "tax": 219878
+      },
+      "DSR_prob": 0.214,
+      "DSR_pass": false
+    }
+  }
+}

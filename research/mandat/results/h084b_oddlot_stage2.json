@@ -1,0 +1,12 @@
+{
+  "n_filings": 189,
+  "n_docs": 189,
+  "n_priced": 133,
+  "n_captures": 124,
+  "capture_mean_pct": 64.85,
+  "capture_median_pct": 3.73,
+  "share_positive_pct": 60.5,
+  "pos_only_median_pct": 14.58,
+  "events_per_year_positive": 6.5,
+  "hinweis": "Capture = Dutch-LOW/Fix-Preis vs Close am Filing-Tag; Fill via Odd-Lot-Priorit\u00e4t ~sicher; VOR Steuern/Spreads; Completion-Risk nicht modelliert."
+}

@@ -1,0 +1,66 @@
+{
+  "years": 31.5,
+  "principal": 100000.0,
+  "rows": [
+    {
+      "name": "ETF passiv (thesaur., 18,46%)",
+      "cagr_gross_pct": 11.21,
+      "cagr_net_pct": 10.52,
+      "final_gross": 2842420,
+      "final_net": 2336169,
+      "tax_cost_eur": 506251,
+      "tax_cost_pct_of_gross": 17.8,
+      "cagr_drag_pp": 0.69
+    },
+    {
+      "name": "EW-Band (H-024)",
+      "cagr_gross_pct": 10.8,
+      "cagr_net_pct": 8.05,
+      "final_gross": 2527690,
+      "final_net": 1146757,
+      "tax_cost_eur": 1380934,
+      "tax_cost_pct_of_gross": 54.6,
+      "cagr_drag_pp": 2.75
+    },
+    {
+      "name": "Low-Div Tilt (H-032)",
+      "cagr_gross_pct": 11.17,
+      "cagr_net_pct": 9.18,
+      "final_gross": 2812866,
+      "final_net": 1589963,
+      "tax_cost_eur": 1222903,
+      "tax_cost_pct_of_gross": 43.5,
+      "cagr_drag_pp": 2.0
+    },
+    {
+      "name": "Momentum Top-20 (H-049)",
+      "cagr_gross_pct": 10.9,
+      "cagr_net_pct": 7.92,
+      "final_gross": 2605206,
+      "final_net": 1103693,
+      "tax_cost_eur": 1501513,
+      "tax_cost_pct_of_gross": 57.6,
+      "cagr_drag_pp": 2.98
+    },
+    {
+      "name": "Quality/ROE Top-33 (H-041)",
+      "cagr_gross_pct": 7.34,
+      "cagr_net_pct": 5.41,
+      "final_gross": 932334,
+      "final_net": 526239,
+      "tax_cost_eur": 406094,
+      "tax_cost_pct_of_gross": 43.6,
+      "cagr_drag_pp": 1.93
+    },
+    {
+      "name": "Low-Vol Top-33 (H-040)",
+      "cagr_gross_pct": 9.83,
+      "cagr_net_pct": 6.1,
+      "final_gross": 1916460,
+      "final_net": 645097,
+      "tax_cost_eur": 1271363,
+      "tax_cost_pct_of_gross": 66.3,
+      "cagr_drag_pp": 3.73
+    }
+  ]
+}

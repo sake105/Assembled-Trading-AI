@@ -1,0 +1,680 @@
+{
+  "n_constructions": 48,
+  "years": 9.5,
+  "crypto_x1.0": [
+    {
+      "name": "65/25/5/5 spy/gld/btc/eth",
+      "median": 1967325,
+      "q05": 239397,
+      "median_dd": -0.622,
+      "P_beat_SPY": 94.5
+    },
+    {
+      "name": "IV3 spy/gld/btc",
+      "median": 1047388,
+      "q05": 236699,
+      "median_dd": -0.515,
+      "P_beat_SPY": 91.7
+    },
+    {
+      "name": "40spy_g75b25",
+      "median": 1269302,
+      "q05": 234085,
+      "median_dd": -0.55,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "btc_ladder_10",
+      "median": 962370,
+      "q05": 231672,
+      "median_dd": -0.502,
+      "P_beat_SPY": 92.4
+    },
+    {
+      "name": "50spy_g75b25",
+      "median": 1118214,
+      "q05": 231629,
+      "median_dd": -0.529,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "60spy_g75b25",
+      "median": 962302,
+      "q05": 230904,
+      "median_dd": -0.503,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "70/25/5 spy/gld/eth",
+      "median": 1129446,
+      "q05": 230251,
+      "median_dd": -0.611,
+      "P_beat_SPY": 91.9
+    },
+    {
+      "name": "btc_ladder_8",
+      "median": 839854,
+      "q05": 229928,
+      "median_dd": -0.473,
+      "P_beat_SPY": 91.8
+    },
+    {
+      "name": "btc_ladder_15",
+      "median": 1257192,
+      "q05": 228290,
+      "median_dd": -0.555,
+      "P_beat_SPY": 92.4
+    },
+    {
+      "name": "70spy_g75b25",
+      "median": 804998,
+      "q05": 228166,
+      "median_dd": -0.467,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "btc_ladder_5",
+      "median": 670554,
+      "q05": 227043,
+      "median_dd": -0.417,
+      "P_beat_SPY": 91.5
+    },
+    {
+      "name": "btc_ladder_20",
+      "median": 1541521,
+      "q05": 226325,
+      "median_dd": -0.588,
+      "P_beat_SPY": 92.6
+    },
+    {
+      "name": "btc_ladder_3",
+      "median": 563750,
+      "q05": 224138,
+      "median_dd": -0.359,
+      "P_beat_SPY": 89.6
+    },
+    {
+      "name": "50spy_g50b50",
+      "median": 1834728,
+      "q05": 223369,
+      "median_dd": -0.614,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "80spy_g75b25",
+      "median": 665713,
+      "q05": 222457,
+      "median_dd": -0.426,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "60spy_g50b50",
+      "median": 1541020,
+      "q05": 222210,
+      "median_dd": -0.591,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "btc_ladder_2",
+      "median": 507930,
+      "q05": 221067,
+      "median_dd": -0.321,
+      "P_beat_SPY": 88.6
+    },
+    {
+      "name": "70spy_g50b50",
+      "median": 1244342,
+      "q05": 221026,
+      "median_dd": -0.557,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "aggr 80/10/10 spy/btc/eth",
+      "median": 3475001,
+      "q05": 220486,
+      "median_dd": -0.691,
+      "P_beat_SPY": 92.1
+    },
+    {
+      "name": "40spy_g50b50",
+      "median": 2119003,
+      "q05": 219210,
+      "median_dd": -0.63,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "80spy_g50b50",
+      "median": 943397,
+      "q05": 216764,
+      "median_dd": -0.511,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "btc_ladder_1",
+      "median": 465223,
+      "q05": 216048,
+      "median_dd": -0.287,
+      "P_beat_SPY": 85.3
+    },
+    {
+      "name": "90spy_g50b50",
+      "median": 670762,
+      "q05": 209280,
+      "median_dd": -0.443,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "60spy_gold",
+      "median": 355629,
+      "q05": 206433,
+      "median_dd": -0.223,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "90spy_g75b25",
+      "median": 521729,
+      "q05": 204863,
+      "median_dd": -0.379,
+      "P_beat_SPY": 92.3
+    },
+    {
+      "name": "90/10 spy/eth",
+      "median": 1830431,
+      "q05": 202588,
+      "median_dd": -0.692,
+      "P_beat_SPY": 87.3
+    },
+    {
+      "name": "50spy_gold",
+      "median": 356222,
+      "q05": 202542,
+      "median_dd": -0.204,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "goldheavy 50/50 spy/gld",
+      "median": 356222,
+      "q05": 202542,
+      "median_dd": -0.204,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "70spy_gold",
+      "median": 355982,
+      "q05": 200792,
+      "median_dd": -0.246,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "40spy_gold",
+      "median": 351840,
+      "q05": 198963,
+      "median_dd": -0.189,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "80spy_gold",
+      "median": 351690,
+      "q05": 198528,
+      "median_dd": -0.275,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "70/20/10 spy/gld/slv",
+      "median": 358975,
+      "q05": 196167,
+      "median_dd": -0.273,
+      "P_beat_SPY": 57.3
+    },
+    {
+      "name": "90spy_gold",
+      "median": 346858,
+      "q05": 193334,
+      "median_dd": -0.306,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "70/15/15 spy/gld/slv",
+      "median": 361765,
+      "q05": 192589,
+      "median_dd": -0.287,
+      "P_beat_SPY": 57.4
+    },
+    {
+      "name": "EW8",
+      "median": 4300489,
+      "q05": 192315,
+      "median_dd": -0.715,
+      "P_beat_SPY": 91.2
+    },
+    {
+      "name": "60/20/20 spy/efa/gld",
+      "median": 327783,
+      "q05": 189162,
+      "median_dd": -0.273,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "50/25/25 spy/efa/gld",
+      "median": 324539,
+      "q05": 186915,
+      "median_dd": -0.257,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "40/30/30 spy/efa/gld",
+      "median": 318528,
+      "q05": 183979,
+      "median_dd": -0.244,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "100 SPY",
+      "median": 340357,
+      "q05": 176777,
+      "median_dd": -0.337,
+      "P_beat_SPY": 0.0
+    },
+    {
+      "name": "EW5 spy/efa/gld/tlt/btc",
+      "median": 1453231,
+      "q05": 176055,
+      "median_dd": -0.612,
+      "P_beat_SPY": 85.3
+    },
+    {
+      "name": "kons 40/40/20 spy/gld/tlt",
+      "median": 303809,
+      "q05": 175638,
+      "median_dd": -0.184,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "100 GLD",
+      "median": 345305,
+      "q05": 163297,
+      "median_dd": -0.253,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "50/30/20 spy/tlt/gld",
+      "median": 277881,
+      "q05": 161657,
+      "median_dd": -0.203,
+      "P_beat_SPY": 15.2
+    },
+    {
+      "name": "maxcrypto 70/30 btc/eth",
+      "median": 13403412,
+      "q05": 148166,
+      "median_dd": -0.835,
+      "P_beat_SPY": 92.7
+    },
+    {
+      "name": "40/40/20 spy/tlt/gld",
+      "median": 253666,
+      "q05": 147878,
+      "median_dd": -0.19,
+      "P_beat_SPY": 12.4
+    },
+    {
+      "name": "IV4 spy/efa/gld/tlt",
+      "median": 252918,
+      "q05": 147567,
+      "median_dd": -0.197,
+      "P_beat_SPY": 15.2
+    },
+    {
+      "name": "60/40 spy/tlt",
+      "median": 244997,
+      "q05": 139172,
+      "median_dd": -0.245,
+      "P_beat_SPY": 0.6
+    },
+    {
+      "name": "100 BTC",
+      "median": 6026200,
+      "q05": 105024,
+      "median_dd": -0.809,
+      "P_beat_SPY": 90.0
+    }
+  ],
+  "crypto_x0.25": [
+    {
+      "name": "65/25/5/5 spy/gld/btc/eth",
+      "median": 394027,
+      "q05": 215443,
+      "median_dd": -0.237,
+      "P_beat_SPY": 77.1
+    },
+    {
+      "name": "40spy_g75b25",
+      "median": 384953,
+      "q05": 212545,
+      "median_dd": -0.184,
+      "P_beat_SPY": 63.3
+    },
+    {
+      "name": "70/25/5 spy/gld/eth",
+      "median": 389807,
+      "q05": 211557,
+      "median_dd": -0.247,
+      "P_beat_SPY": 76.7
+    },
+    {
+      "name": "btc_ladder_15",
+      "median": 379894,
+      "q05": 211527,
+      "median_dd": -0.223,
+      "P_beat_SPY": 66.1
+    },
+    {
+      "name": "50spy_g75b25",
+      "median": 379322,
+      "q05": 211271,
+      "median_dd": -0.202,
+      "P_beat_SPY": 63.3
+    },
+    {
+      "name": "IV3 spy/gld/btc",
+      "median": 379408,
+      "q05": 210588,
+      "median_dd": -0.188,
+      "P_beat_SPY": 60.9
+    },
+    {
+      "name": "40spy_g50b50",
+      "median": 402317,
+      "q05": 210336,
+      "median_dd": -0.189,
+      "P_beat_SPY": 68.9
+    },
+    {
+      "name": "60spy_g75b25",
+      "median": 376720,
+      "q05": 210060,
+      "median_dd": -0.223,
+      "P_beat_SPY": 63.3
+    },
+    {
+      "name": "60spy_g50b50",
+      "median": 382927,
+      "q05": 209780,
+      "median_dd": -0.226,
+      "P_beat_SPY": 68.9
+    },
+    {
+      "name": "btc_ladder_20",
+      "median": 386214,
+      "q05": 209743,
+      "median_dd": -0.216,
+      "P_beat_SPY": 67.6
+    },
+    {
+      "name": "50spy_g50b50",
+      "median": 389965,
+      "q05": 209482,
+      "median_dd": -0.206,
+      "P_beat_SPY": 68.9
+    },
+    {
+      "name": "btc_ladder_10",
+      "median": 374079,
+      "q05": 208532,
+      "median_dd": -0.231,
+      "P_beat_SPY": 63.3
+    },
+    {
+      "name": "60spy_gold",
+      "median": 355629,
+      "q05": 206433,
+      "median_dd": -0.223,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "btc_ladder_8",
+      "median": 371546,
+      "q05": 206101,
+      "median_dd": -0.234,
+      "P_beat_SPY": 62.6
+    },
+    {
+      "name": "70spy_g50b50",
+      "median": 371464,
+      "q05": 205197,
+      "median_dd": -0.252,
+      "P_beat_SPY": 68.9
+    },
+    {
+      "name": "btc_ladder_3",
+      "median": 361088,
+      "q05": 203965,
+      "median_dd": -0.242,
+      "P_beat_SPY": 57.0
+    },
+    {
+      "name": "btc_ladder_2",
+      "median": 359967,
+      "q05": 203593,
+      "median_dd": -0.243,
+      "P_beat_SPY": 56.3
+    },
+    {
+      "name": "70spy_g75b25",
+      "median": 368380,
+      "q05": 202813,
+      "median_dd": -0.249,
+      "P_beat_SPY": 63.3
+    },
+    {
+      "name": "btc_ladder_5",
+      "median": 365166,
+      "q05": 202755,
+      "median_dd": -0.239,
+      "P_beat_SPY": 59.6
+    },
+    {
+      "name": "50spy_gold",
+      "median": 356222,
+      "q05": 202542,
+      "median_dd": -0.204,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "goldheavy 50/50 spy/gld",
+      "median": 356222,
+      "q05": 202542,
+      "median_dd": -0.204,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "btc_ladder_1",
+      "median": 358406,
+      "q05": 202256,
+      "median_dd": -0.244,
+      "P_beat_SPY": 54.7
+    },
+    {
+      "name": "70spy_gold",
+      "median": 355982,
+      "q05": 200792,
+      "median_dd": -0.246,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "aggr 80/10/10 spy/btc/eth",
+      "median": 404567,
+      "q05": 199399,
+      "median_dd": -0.286,
+      "P_beat_SPY": 79.1
+    },
+    {
+      "name": "40spy_gold",
+      "median": 351840,
+      "q05": 198963,
+      "median_dd": -0.189,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "80spy_g75b25",
+      "median": 356214,
+      "q05": 198883,
+      "median_dd": -0.278,
+      "P_beat_SPY": 63.3
+    },
+    {
+      "name": "80spy_gold",
+      "median": 351690,
+      "q05": 198528,
+      "median_dd": -0.275,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "80spy_g50b50",
+      "median": 359294,
+      "q05": 198157,
+      "median_dd": -0.279,
+      "P_beat_SPY": 68.9
+    },
+    {
+      "name": "70/20/10 spy/gld/slv",
+      "median": 358975,
+      "q05": 196167,
+      "median_dd": -0.273,
+      "P_beat_SPY": 57.3
+    },
+    {
+      "name": "90spy_gold",
+      "median": 346858,
+      "q05": 193334,
+      "median_dd": -0.306,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "90spy_g75b25",
+      "median": 349960,
+      "q05": 193061,
+      "median_dd": -0.308,
+      "P_beat_SPY": 63.3
+    },
+    {
+      "name": "90spy_g50b50",
+      "median": 351094,
+      "q05": 192820,
+      "median_dd": -0.308,
+      "P_beat_SPY": 68.9
+    },
+    {
+      "name": "70/15/15 spy/gld/slv",
+      "median": 361765,
+      "q05": 192589,
+      "median_dd": -0.287,
+      "P_beat_SPY": 57.4
+    },
+    {
+      "name": "90/10 spy/eth",
+      "median": 398275,
+      "q05": 190620,
+      "median_dd": -0.307,
+      "P_beat_SPY": 81.3
+    },
+    {
+      "name": "60/20/20 spy/efa/gld",
+      "median": 327783,
+      "q05": 189162,
+      "median_dd": -0.273,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "50/25/25 spy/efa/gld",
+      "median": 324539,
+      "q05": 186915,
+      "median_dd": -0.257,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "40/30/30 spy/efa/gld",
+      "median": 318528,
+      "q05": 183979,
+      "median_dd": -0.244,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "EW8",
+      "median": 391702,
+      "q05": 180255,
+      "median_dd": -0.235,
+      "P_beat_SPY": 64.9
+    },
+    {
+      "name": "100 SPY",
+      "median": 340357,
+      "q05": 176777,
+      "median_dd": -0.337,
+      "P_beat_SPY": 0.0
+    },
+    {
+      "name": "kons 40/40/20 spy/gld/tlt",
+      "median": 303809,
+      "q05": 175638,
+      "median_dd": -0.184,
+      "P_beat_SPY": 34.4
+    },
+    {
+      "name": "maxcrypto 70/30 btc/eth",
+      "median": 531408,
+      "q05": 169699,
+      "median_dd": -0.302,
+      "P_beat_SPY": 76.7
+    },
+    {
+      "name": "EW5 spy/efa/gld/tlt/btc",
+      "median": 308672,
+      "q05": 167373,
+      "median_dd": -0.189,
+      "P_beat_SPY": 32.8
+    },
+    {
+      "name": "100 GLD",
+      "median": 345305,
+      "q05": 163297,
+      "median_dd": -0.253,
+      "P_beat_SPY": 53.8
+    },
+    {
+      "name": "50/30/20 spy/tlt/gld",
+      "median": 277881,
+      "q05": 161657,
+      "median_dd": -0.203,
+      "P_beat_SPY": 15.2
+    },
+    {
+      "name": "100 BTC",
+      "median": 419384,
+      "q05": 152029,
+      "median_dd": -0.29,
+      "P_beat_SPY": 64.7
+    },
+    {
+      "name": "40/40/20 spy/tlt/gld",
+      "median": 253666,
+      "q05": 147878,
+      "median_dd": -0.19,
+      "P_beat_SPY": 12.4
+    },
+    {
+      "name": "IV4 spy/efa/gld/tlt",
+      "median": 252918,
+      "q05": 147567,
+      "median_dd": -0.197,
+      "P_beat_SPY": 15.2
+    },
+    {
+      "name": "60/40 spy/tlt",
+      "median": 244997,
+      "q05": 139172,
+      "median_dd": -0.245,
+      "P_beat_SPY": 0.6
+    }
+  ]
+}

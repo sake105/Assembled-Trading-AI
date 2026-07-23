@@ -1,0 +1,54 @@
+{
+  "EW_PIT_monthly": {
+    "label": "EW_PIT_monthly_divtax",
+    "final_value": 983303.3767560415,
+    "cagr_net": 0.07806314458841368,
+    "sharpe_net": 0.48792266843402443,
+    "maxdd_net": -0.6028846203702865,
+    "tax_paid": 376046.34328862163,
+    "costs_paid": 8411.893914269152,
+    "years": 30.409308692676248,
+    "old_final": 1305849,
+    "delta_pct": -24.7
+  },
+  "H023_out100": {
+    "label": "H023_out100_divtax",
+    "final_value": 953647.6764998044,
+    "cagr_net": 0.07697803783833002,
+    "sharpe_net": 0.4278993387141836,
+    "maxdd_net": -0.6631385412210526,
+    "tax_paid": 300246.49704569066,
+    "costs_paid": 29504.2489036523,
+    "years": 30.409308692676248,
+    "old_final": 1475985,
+    "delta_pct": -35.4
+  },
+  "H024_band25": {
+    "label": "H024_band25_divtax",
+    "final_value": 1231245.8613354198,
+    "cagr_net": 0.08606451816359417,
+    "sharpe_net": 0.5281249373454384,
+    "maxdd_net": -0.5951853971759209,
+    "tax_paid": 347201.9167731167,
+    "costs_paid": 4290.082429310637,
+    "years": 30.409308692676248,
+    "old_final": 1616344,
+    "delta_pct": -23.8
+  },
+  "H024_band50": {
+    "label": "H024_band50_divtax",
+    "final_value": 1315514.8898483133,
+    "cagr_net": 0.08843147481773128,
+    "sharpe_net": 0.5452661475603872,
+    "maxdd_net": -0.5853933188622864,
+    "tax_paid": 302303.1071249424,
+    "costs_paid": 3055.277214640539,
+    "years": 30.409308692676248,
+    "old_final": 1690822,
+    "delta_pct": -22.2
+  },
+  "_stability": {
+    "H023_still_below_ETF": true,
+    "H024_both_still_above_EW": true
+  }
+}

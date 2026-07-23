@@ -1,0 +1,129 @@
+{
+  "H067": {
+    "observed": {
+      "mu_ann_pct": 69.3,
+      "sigma_ann_pct": 66.0
+    },
+    "kelly_by_scenario": {
+      "x1.0": {
+        "mu_pct": 69.3,
+        "kelly_pct": 154.5,
+        "half_kelly_pct": 77.2
+      },
+      "x0.5": {
+        "mu_pct": 34.7,
+        "kelly_pct": 74.9,
+        "half_kelly_pct": 37.5
+      },
+      "x0.25": {
+        "mu_pct": 17.3,
+        "kelly_pct": 35.2,
+        "half_kelly_pct": 17.6
+      },
+      "x0.1": {
+        "mu_pct": 6.9,
+        "kelly_pct": 11.3,
+        "half_kelly_pct": 5.7
+      },
+      "x0.0": {
+        "mu_pct": 0.0,
+        "kelly_pct": 0,
+        "half_kelly_pct": 0
+      }
+    },
+    "mc_10y_window": {
+      "hc1.0_btc0pct": {
+        "median": 393003,
+        "q05": 217625
+      },
+      "hc1.0_btc2pct": {
+        "median": 721729,
+        "q05": 265071
+      },
+      "hc1.0_btc5pct": {
+        "median": 983284,
+        "q05": 265561
+      },
+      "hc1.0_btc10pct": {
+        "median": 1971269,
+        "q05": 277316
+      },
+      "hc0.25_btc0pct": {
+        "median": 390827,
+        "q05": 218790
+      },
+      "hc0.25_btc2pct": {
+        "median": 387277,
+        "q05": 231785
+      },
+      "hc0.25_btc5pct": {
+        "median": 391759,
+        "q05": 237668
+      },
+      "hc0.25_btc10pct": {
+        "median": 408121,
+        "q05": 242909
+      },
+      "hc0.0_btc0pct": {
+        "median": 392733,
+        "q05": 218711
+      },
+      "hc0.0_btc2pct": {
+        "median": 386938,
+        "q05": 227563
+      },
+      "hc0.0_btc5pct": {
+        "median": 371184,
+        "q05": 212033
+      },
+      "hc0.0_btc10pct": {
+        "median": 360991,
+        "q05": 223475
+      }
+    }
+  },
+  "H068": {
+    "GFC_2007-2009": {
+      "100% SPY": {
+        "maxdd_eur_pct": -50.0,
+        "recovered_after_days": null
+      },
+      "85/15": {
+        "maxdd_eur_pct": -36.8,
+        "recovered_after_days": 937
+      },
+      "70/30": {
+        "maxdd_eur_pct": -27.4,
+        "recovered_after_days": 833
+      }
+    },
+    "COVID_2020": {
+      "100% SPY": {
+        "maxdd_eur_pct": -33.7,
+        "recovered_after_days": 323
+      },
+      "85/15": {
+        "maxdd_eur_pct": -29.2,
+        "recovered_after_days": 323
+      },
+      "70/30": {
+        "maxdd_eur_pct": -24.7,
+        "recovered_after_days": 191
+      }
+    },
+    "Inflation_2022": {
+      "100% SPY": {
+        "maxdd_eur_pct": -17.5,
+        "recovered_after_days": 224
+      },
+      "85/15": {
+        "maxdd_eur_pct": -13.4,
+        "recovered_after_days": 221
+      },
+      "70/30": {
+        "maxdd_eur_pct": -9.3,
+        "recovered_after_days": 212
+      }
+    }
+  }
+}

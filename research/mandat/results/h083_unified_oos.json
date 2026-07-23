@@ -1,0 +1,190 @@
+{
+  "holdout": "2021-07-01 -> 2026-07",
+  "A_harvest": {
+    "h071_results": {
+      "n": 79,
+      "oos_median": 0.525,
+      "oos_max": 0.945,
+      "n_flagged": 0
+    },
+    "h073_results": {
+      "n": 951,
+      "oos_median": 0.243,
+      "oos_max": 0.791,
+      "n_flagged": 0
+    },
+    "h075_h076_results": {
+      "n": 10,
+      "oos_median": 0.381,
+      "oos_max": 0.783,
+      "n_flagged": 0
+    },
+    "h077b_whale": {
+      "n": 5,
+      "oos_median": 0.544,
+      "oos_max": 0.546,
+      "n_flagged": 0
+    },
+    "h077_mega_search": {
+      "n": 40,
+      "oos_median": 0.768,
+      "oos_max": 1.754,
+      "n_flagged": 13
+    },
+    "h079_options_stage2": {
+      "n": 12,
+      "oos_median": 0.859,
+      "oos_max": 0.886,
+      "n_flagged": 0
+    },
+    "h080_results": {
+      "n": 15,
+      "oos_median": 0.75,
+      "oos_max": 1.17,
+      "n_flagged": 3
+    }
+  },
+  "B_holdout": [
+    {
+      "label": "SPY B&H",
+      "cagr_pct": 11.69,
+      "sharpe": 0.732,
+      "maxdd": -0.254,
+      "beats_SPY": false
+    },
+    {
+      "label": "GLD HODL (\u00a723)",
+      "cagr_pct": 17.65,
+      "sharpe": 0.984,
+      "maxdd": -0.262,
+      "beats_SPY": true
+    },
+    {
+      "label": "BTC HODL (\u00a723)",
+      "cagr_pct": 11.94,
+      "sharpe": 0.397,
+      "maxdd": -0.766,
+      "beats_SPY": false
+    },
+    {
+      "label": "ETH HODL (\u00a723)",
+      "cagr_pct": -5.38,
+      "sharpe": 0.227,
+      "maxdd": -0.794,
+      "beats_SPY": false
+    },
+    {
+      "label": "SPY SMA200 L/C",
+      "cagr_pct": 8.08,
+      "sharpe": 0.752,
+      "maxdd": -0.216,
+      "beats_SPY": false
+    },
+    {
+      "label": "SPY TSmom252 L/C",
+      "cagr_pct": 9.0,
+      "sharpe": 0.722,
+      "maxdd": -0.229,
+      "beats_SPY": false
+    },
+    {
+      "label": "SPY OR(SMA200,Mom12)",
+      "cagr_pct": 10.61,
+      "sharpe": 0.774,
+      "maxdd": -0.232,
+      "beats_SPY": false
+    },
+    {
+      "label": "BTC TSmom252 L/C",
+      "cagr_pct": 36.21,
+      "sharpe": 0.789,
+      "maxdd": -0.398,
+      "beats_SPY": true
+    },
+    {
+      "label": "70/30 SPY/GLD",
+      "cagr_pct": 14.09,
+      "sharpe": 1.02,
+      "maxdd": -0.203,
+      "beats_SPY": true
+    },
+    {
+      "label": "65/25/5/5 +BTC/ETH",
+      "cagr_pct": 12.95,
+      "sharpe": 0.852,
+      "maxdd": -0.267,
+      "beats_SPY": true
+    },
+    {
+      "label": "60/40 SPY/TLT",
+      "cagr_pct": 4.42,
+      "sharpe": 0.41,
+      "maxdd": -0.277,
+      "beats_SPY": false
+    },
+    {
+      "label": "RP-IV3 (PIT: {'SPY': np.float64(0.2902), 'GLD': np.float64(0.3111), 'TLT': np.float64(0.3987)})",
+      "cagr_pct": 6.38,
+      "sharpe": 0.611,
+      "maxdd": -0.242,
+      "beats_SPY": false
+    },
+    {
+      "label": "CBOE BXMD",
+      "cagr_pct": 10.49,
+      "sharpe": 0.786,
+      "maxdd": -0.22,
+      "beats_SPY": false
+    },
+    {
+      "label": "CBOE PUT",
+      "cagr_pct": 9.47,
+      "sharpe": 0.885,
+      "maxdd": -0.16,
+      "beats_SPY": false
+    },
+    {
+      "label": "CBOE BXM",
+      "cagr_pct": 8.54,
+      "sharpe": 0.78,
+      "maxdd": -0.182,
+      "beats_SPY": false
+    },
+    {
+      "label": "CBOE PPUT",
+      "cagr_pct": 8.7,
+      "sharpe": 0.699,
+      "maxdd": -0.221,
+      "beats_SPY": false
+    },
+    {
+      "label": "CBOE CNDR",
+      "cagr_pct": 3.14,
+      "sharpe": 0.453,
+      "maxdd": -0.103,
+      "beats_SPY": false
+    },
+    {
+      "label": "TOM 4+3",
+      "cagr_pct": 2.0,
+      "sharpe": 0.25,
+      "maxdd": -0.22,
+      "beats_SPY": false
+    },
+    {
+      "label": "Halloween Nov-Apr",
+      "cagr_pct": 3.4,
+      "sharpe": 0.323,
+      "maxdd": -0.19,
+      "beats_SPY": false
+    },
+    {
+      "label": "SektorRot top1 (monatl.)",
+      "cagr_pct": 3.66,
+      "sharpe": 0.308,
+      "maxdd": -0.547,
+      "beats_SPY": null
+    }
+  ],
+  "B_n_beat_SPY": 4
+}

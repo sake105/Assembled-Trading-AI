@@ -1,0 +1,25 @@
+{
+  "SPY": {
+    "book": {
+      "final_pretax": 311201.65528511227,
+      "final_net": 228149.76393062726,
+      "tax_total": 83051.89135448502,
+      "sharpe_active": 0.5491200548626031
+    },
+    "ETF_net": 436206,
+    "buyhold_sharpe": 0.416,
+    "PASS": false
+  },
+  "EW_sectors": {
+    "book": {
+      "final_pretax": 310463.43903596135,
+      "final_net": 208932.42599978333,
+      "tax_total": 101531.01303617803,
+      "sharpe_active": 0.5261882769426974
+    },
+    "ETF_net": 373678,
+    "buyhold_sharpe": 0.384,
+    "PASS": false
+  },
+  "PASS_any": false
+}

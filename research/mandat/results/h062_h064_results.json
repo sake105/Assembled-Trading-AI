@@ -1,0 +1,204 @@
+{
+  "H062_vix_covered_call": {
+    "otm0_skew0": {
+      "overlay_net": -85445,
+      "combined": 368518,
+      "buyhold_net": 453963
+    },
+    "otm0_skew10": {
+      "overlay_net": -185672,
+      "combined": 268291,
+      "buyhold_net": 453963
+    },
+    "otm0_skew20": {
+      "overlay_net": -286405,
+      "combined": 167558,
+      "buyhold_net": 453963
+    },
+    "otm3_skew0": {
+      "overlay_net": 81547,
+      "combined": 535510,
+      "buyhold_net": 453963
+    },
+    "otm3_skew10": {
+      "overlay_net": -245,
+      "combined": 453718,
+      "buyhold_net": 453963
+    },
+    "otm3_skew20": {
+      "overlay_net": -79304,
+      "combined": 374659,
+      "buyhold_net": 453963
+    },
+    "otm5_skew0": {
+      "overlay_net": 100905,
+      "combined": 554869,
+      "buyhold_net": 453963
+    },
+    "otm5_skew10": {
+      "overlay_net": 39103,
+      "combined": 493066,
+      "buyhold_net": 453963
+    },
+    "otm5_skew20": {
+      "overlay_net": -17539,
+      "combined": 436425,
+      "buyhold_net": 453963
+    }
+  },
+  "H063_eur": {
+    "window": [
+      "2004-11-18",
+      "2026-07-08"
+    ],
+    "SPY_in_USD": {
+      "net": 530334,
+      "cagr": 8.02,
+      "sharpe": 0.544,
+      "maxdd": -0.565
+    },
+    "SPY_in_EUR": {
+      "net": 602299,
+      "cagr": 8.65,
+      "sharpe": 0.552,
+      "maxdd": -0.531
+    },
+    "GLD_in_EUR": {
+      "net": 962359,
+      "cagr": 11.03,
+      "sharpe": 0.632,
+      "maxdd": -0.376
+    },
+    "70/30_in_EUR": {
+      "net": 710317,
+      "sharpe": 0.692,
+      "maxdd": -0.259
+    },
+    "100SPY_in_EUR": {
+      "net": 602299,
+      "sharpe": 0.552,
+      "maxdd": -0.531
+    }
+  },
+  "H064_factor_etfs": {
+    "MTUM": {
+      "years": 13.2,
+      "MTUM": {
+        "net": 607370,
+        "cagr": 14.62,
+        "sharpe": 0.85,
+        "maxdd": -0.341
+      },
+      "SPY": {
+        "net": 412776,
+        "cagr": 11.32,
+        "sharpe": 0.788,
+        "maxdd": -0.341
+      },
+      "excess_t": 1.41,
+      "beats": false
+    },
+    "USMV": {
+      "years": 14.7,
+      "USMV": {
+        "net": 432312,
+        "cagr": 10.46,
+        "sharpe": 0.893,
+        "maxdd": -0.331
+      },
+      "SPY": {
+        "net": 518048,
+        "cagr": 11.83,
+        "sharpe": 0.822,
+        "maxdd": -0.341
+      },
+      "excess_t": -0.89,
+      "beats": false
+    },
+    "QUAL": {
+      "years": 13.0,
+      "QUAL": {
+        "net": 447346,
+        "cagr": 12.24,
+        "sharpe": 0.835,
+        "maxdd": -0.341
+      },
+      "SPY": {
+        "net": 378381,
+        "cagr": 10.8,
+        "sharpe": 0.758,
+        "maxdd": -0.341
+      },
+      "excess_t": 1.44,
+      "beats": false
+    },
+    "VLUE": {
+      "years": 13.2,
+      "VLUE": {
+        "net": 456039,
+        "cagr": 12.16,
+        "sharpe": 0.785,
+        "maxdd": -0.395
+      },
+      "SPY": {
+        "net": 412776,
+        "cagr": 11.32,
+        "sharpe": 0.798,
+        "maxdd": -0.341
+      },
+      "excess_t": 0.48,
+      "beats": false
+    },
+    "SCHD": {
+      "years": 14.7,
+      "SCHD": {
+        "net": 523536,
+        "cagr": 11.91,
+        "sharpe": 0.884,
+        "maxdd": -0.334
+      },
+      "SPY": {
+        "net": 518048,
+        "cagr": 11.83,
+        "sharpe": 0.82,
+        "maxdd": -0.341
+      },
+      "excess_t": -0.07,
+      "beats": false
+    },
+    "NOBL": {
+      "years": 12.7,
+      "NOBL": {
+        "net": 313007,
+        "cagr": 9.37,
+        "sharpe": 0.718,
+        "maxdd": -0.354
+      },
+      "SPY": {
+        "net": 377743,
+        "cagr": 10.99,
+        "sharpe": 0.766,
+        "maxdd": -0.341
+      },
+      "excess_t": -0.75,
+      "beats": false
+    },
+    "SPMO": {
+      "years": 10.7,
+      "SPMO": {
+        "net": 574153,
+        "cagr": 17.68,
+        "sharpe": 1.064,
+        "maxdd": -0.309
+      },
+      "SPY": {
+        "net": 320067,
+        "cagr": 11.44,
+        "sharpe": 0.838,
+        "maxdd": -0.341
+      },
+      "excess_t": 2.14,
+      "beats": true
+    }
+  }
+}

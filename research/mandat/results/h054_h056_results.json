@@ -1,0 +1,110 @@
+{
+  "H054_riskparity": {
+    "100% SPY (ref)": {
+      "net_final": 791500,
+      "cagr_net_pct": 10.09,
+      "sharpe": 0.648,
+      "maxdd": -0.552,
+      "tax_paid": 156565,
+      "years": 21.5
+    },
+    "RP iv(SPY,EFA,GLD,TLT) monthly": {
+      "net_final": 477017,
+      "cagr_net_pct": 7.53,
+      "sharpe": 0.807,
+      "maxdd": -0.241,
+      "tax_paid": 66283,
+      "years": 21.5
+    },
+    "RP iv +band20": {
+      "net_final": 489525,
+      "cagr_net_pct": 7.66,
+      "sharpe": 0.816,
+      "maxdd": -0.243,
+      "tax_paid": 65864,
+      "years": 21.5
+    },
+    "RP iv(SPY,GLD,TLT,BTC) 2016+": {
+      "net_final": 361755,
+      "cagr_net_pct": 13.02,
+      "sharpe": 1.21,
+      "maxdd": -0.277,
+      "tax_paid": 22371,
+      "years": 10.5
+    }
+  },
+  "H055_voltarget": {
+    "85/15 (ref, no VT)": {
+      "net_final": 852745,
+      "cagr_net_pct": 10.48,
+      "sharpe": 0.733,
+      "maxdd": -0.47,
+      "tax_paid": 139330,
+      "years": 21.5
+    },
+    "VT 10%": {
+      "net_final": 517590,
+      "cagr_net_pct": 7.94,
+      "sharpe": 0.785,
+      "maxdd": -0.236,
+      "tax_paid": 86032,
+      "years": 21.5
+    },
+    "VT 15%": {
+      "net_final": 673583,
+      "cagr_net_pct": 9.27,
+      "sharpe": 0.762,
+      "maxdd": -0.328,
+      "tax_paid": 112139,
+      "years": 21.5
+    }
+  },
+  "H056_montecarlo": {
+    "n_paths": 1000,
+    "years_per_path": 21.5,
+    "block_mean_days": 60,
+    "seed": 42,
+    "allocs": {
+      "100% SPY": {
+        "median_net": 765559,
+        "q05_net": 235489,
+        "q95_net": 2222943,
+        "P_beat_SPY_pct": 0.0,
+        "median_maxdd": -0.429,
+        "median_cagr_net_pct": 9.94
+      },
+      "70/30 SPY/GLD": {
+        "median_net": 880749,
+        "q05_net": 331919,
+        "q95_net": 2213249,
+        "P_beat_SPY_pct": 54.0,
+        "median_maxdd": -0.33,
+        "median_cagr_net_pct": 10.66
+      },
+      "60/40 SPY/TLT": {
+        "median_net": 542255,
+        "q05_net": 221099,
+        "q95_net": 1409160,
+        "P_beat_SPY_pct": 6.2,
+        "median_maxdd": -0.313,
+        "median_cagr_net_pct": 8.19
+      },
+      "50/30/20 SPY/GLD/TLT": {
+        "median_net": 760096,
+        "q05_net": 305199,
+        "q95_net": 1756332,
+        "P_beat_SPY_pct": 38.8,
+        "median_maxdd": -0.272,
+        "median_cagr_net_pct": 9.9
+      },
+      "40/25/20/15 SPY/EFA/GLD/TLT": {
+        "median_net": 648928,
+        "q05_net": 259467,
+        "q95_net": 1609011,
+        "P_beat_SPY_pct": 26.1,
+        "median_maxdd": -0.313,
+        "median_cagr_net_pct": 9.1
+      }
+    }
+  }
+}

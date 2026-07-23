@@ -1,0 +1,715 @@
+{
+  "_BH_SPY": {
+    "net": 436371,
+    "cagr": 5.71,
+    "sharpe": 0.416,
+    "oos_sharpe": 0.783,
+    "maxdd": -0.565
+  },
+  "SPY:SMAx_10_50": {
+    "net": 198150,
+    "cagr": 2.61,
+    "sharpe": 0.287,
+    "oos_sharpe": 0.449,
+    "maxdd": -0.299,
+    "trades": 87,
+    "tax": 23328
+  },
+  "SPY:SMAx_20_100": {
+    "net": 249951,
+    "cagr": 3.52,
+    "sharpe": 0.357,
+    "oos_sharpe": 0.504,
+    "maxdd": -0.262,
+    "trades": 37,
+    "tax": 34486
+  },
+  "SPY:SMAx_50_200": {
+    "net": 446508,
+    "cagr": 5.81,
+    "sharpe": 0.508,
+    "oos_sharpe": 0.525,
+    "maxdd": -0.341,
+    "trades": 13,
+    "tax": 78734
+  },
+  "SPY:SMAx_100_300": {
+    "net": 482538,
+    "cagr": 6.12,
+    "sharpe": 0.507,
+    "oos_sharpe": 0.606,
+    "maxdd": -0.341,
+    "trades": 8,
+    "tax": 86774
+  },
+  "SPY:EMAx_12_26": {
+    "net": 189739,
+    "cagr": 2.45,
+    "sharpe": 0.274,
+    "oos_sharpe": 0.452,
+    "maxdd": -0.343,
+    "trades": 102,
+    "tax": 21630
+  },
+  "SPY:EMAx_20_100": {
+    "net": 217161,
+    "cagr": 2.97,
+    "sharpe": 0.314,
+    "oos_sharpe": 0.508,
+    "maxdd": -0.301,
+    "trades": 40,
+    "tax": 27037
+  },
+  "SPY:EMAx_50_200": {
+    "net": 343593,
+    "cagr": 4.77,
+    "sharpe": 0.425,
+    "oos_sharpe": 0.527,
+    "maxdd": -0.306,
+    "trades": 15,
+    "tax": 55416
+  },
+  "SPY:MACD_12_26_9": {
+    "net": 120786,
+    "cagr": 0.71,
+    "sharpe": 0.12,
+    "oos_sharpe": 0.478,
+    "maxdd": -0.491,
+    "trades": 287,
+    "tax": 8723
+  },
+  "SPY:Donch_55_20": {
+    "net": 118273,
+    "cagr": 0.64,
+    "sharpe": 0.117,
+    "oos_sharpe": 0.203,
+    "maxdd": -0.287,
+    "trades": 82,
+    "tax": 5117
+  },
+  "SPY:Donch_100_50": {
+    "net": 227508,
+    "cagr": 3.15,
+    "sharpe": 0.391,
+    "oos_sharpe": 0.573,
+    "maxdd": -0.197,
+    "trades": 33,
+    "tax": 29365
+  },
+  "SPY:RSIrev_30_55": {
+    "net": 227530,
+    "cagr": 3.15,
+    "sharpe": 0.303,
+    "oos_sharpe": 0.548,
+    "maxdd": -0.413,
+    "trades": 81,
+    "tax": 30038
+  },
+  "SPY:RSIrev_25_50": {
+    "net": 153070,
+    "cagr": 1.62,
+    "sharpe": 0.201,
+    "oos_sharpe": 0.341,
+    "maxdd": -0.346,
+    "trades": 50,
+    "tax": 12618
+  },
+  "SPY:RSItrend_50": {
+    "net": 166160,
+    "cagr": 1.93,
+    "sharpe": 0.228,
+    "oos_sharpe": 0.348,
+    "maxdd": -0.291,
+    "trades": 365,
+    "tax": 20061
+  },
+  "SPY:BBrev_20_2": {
+    "net": 186624,
+    "cagr": 2.38,
+    "sharpe": 0.243,
+    "oos_sharpe": 0.492,
+    "maxdd": -0.384,
+    "trades": 124,
+    "tax": 21817
+  },
+  "SPY:BBbrk_20_2": {
+    "net": 82094,
+    "cagr": -0.74,
+    "sharpe": -0.088,
+    "oos_sharpe": 0.238,
+    "maxdd": -0.369,
+    "trades": 105,
+    "tax": 0
+  },
+  "SPY:TSmom_126": {
+    "net": 309286,
+    "cagr": 4.35,
+    "sharpe": 0.44,
+    "oos_sharpe": 0.549,
+    "maxdd": -0.286,
+    "trades": 89,
+    "tax": 48969
+  },
+  "SPY:TSmom_252": {
+    "net": 457328,
+    "cagr": 5.9,
+    "sharpe": 0.524,
+    "oos_sharpe": 0.599,
+    "maxdd": -0.259,
+    "trades": 44,
+    "tax": 81807
+  },
+  "SPY:VolFilter_p80": {
+    "net": 335720,
+    "cagr": 4.67,
+    "sharpe": 0.417,
+    "oos_sharpe": 0.56,
+    "maxdd": -0.503,
+    "trades": 61,
+    "tax": 54489
+  },
+  "SPY:AND_SMA200_Mom12": {
+    "net": 334135,
+    "cagr": 4.66,
+    "sharpe": 0.459,
+    "oos_sharpe": 0.529,
+    "maxdd": -0.237,
+    "trades": 27,
+    "tax": 53510
+  },
+  "SPY:OR_SMA200_Mom12": {
+    "net": 619956,
+    "cagr": 7.12,
+    "sharpe": 0.569,
+    "oos_sharpe": 0.592,
+    "maxdd": -0.341,
+    "trades": 30,
+    "tax": 118442
+  },
+  "SPY:AND_MACD_RSI50": {
+    "net": 115391,
+    "cagr": 0.54,
+    "sharpe": 0.104,
+    "oos_sharpe": 0.387,
+    "maxdd": -0.406,
+    "trades": 334,
+    "tax": 9577
+  },
+  "SPY:AND_Donch_Vol": {
+    "net": 138060,
+    "cagr": 1.22,
+    "sharpe": 0.191,
+    "oos_sharpe": 0.184,
+    "maxdd": -0.25,
+    "trades": 83,
+    "tax": 10253
+  },
+  "SPY:AND_SMA200_Vol": {
+    "net": 341560,
+    "cagr": 4.74,
+    "sharpe": 0.504,
+    "oos_sharpe": 0.533,
+    "maxdd": -0.23,
+    "trades": 37,
+    "tax": 59186
+  },
+  "SPY:ENS_2of3": {
+    "net": 440735,
+    "cagr": 5.75,
+    "sharpe": 0.524,
+    "oos_sharpe": 0.617,
+    "maxdd": -0.247,
+    "trades": 61,
+    "tax": 78422
+  },
+  "SPY:ENS_3of3": {
+    "net": 101849,
+    "cagr": 0.07,
+    "sharpe": 0.043,
+    "oos_sharpe": 0.124,
+    "maxdd": -0.273,
+    "trades": 202,
+    "tax": 7409
+  },
+  "_BH_GLD": {
+    "net": 843736,
+    "cagr": 10.36,
+    "sharpe": 0.634,
+    "oos_sharpe": 0.802,
+    "maxdd": -0.456
+  },
+  "GLD:SMAx_10_50": {
+    "net": 191203,
+    "cagr": 3.04,
+    "sharpe": 0.28,
+    "oos_sharpe": 0.489,
+    "maxdd": -0.403,
+    "trades": 69,
+    "tax": 74799
+  },
+  "GLD:SMAx_20_100": {
+    "net": 320444,
+    "cagr": 5.53,
+    "sharpe": 0.439,
+    "oos_sharpe": 0.811,
+    "maxdd": -0.497,
+    "trades": 35,
+    "tax": 41895
+  },
+  "GLD:SMAx_50_200": {
+    "net": 530436,
+    "cagr": 8.02,
+    "sharpe": 0.592,
+    "oos_sharpe": 0.604,
+    "maxdd": -0.352,
+    "trades": 14,
+    "tax": 0
+  },
+  "GLD:SMAx_100_300": {
+    "net": 475472,
+    "cagr": 7.47,
+    "sharpe": 0.548,
+    "oos_sharpe": 0.588,
+    "maxdd": -0.343,
+    "trades": 8,
+    "tax": 0
+  },
+  "GLD:EMAx_12_26": {
+    "net": 240394,
+    "cagr": 4.14,
+    "sharpe": 0.347,
+    "oos_sharpe": 0.485,
+    "maxdd": -0.384,
+    "trades": 90,
+    "tax": 115362
+  },
+  "GLD:EMAx_20_100": {
+    "net": 431497,
+    "cagr": 6.99,
+    "sharpe": 0.525,
+    "oos_sharpe": 0.693,
+    "maxdd": -0.378,
+    "trades": 33,
+    "tax": 24631
+  },
+  "GLD:EMAx_50_200": {
+    "net": 593423,
+    "cagr": 8.58,
+    "sharpe": 0.62,
+    "oos_sharpe": 0.54,
+    "maxdd": -0.322,
+    "trades": 14,
+    "tax": 0
+  },
+  "GLD:MACD_12_26_9": {
+    "net": 161579,
+    "cagr": 2.24,
+    "sharpe": 0.235,
+    "oos_sharpe": 0.318,
+    "maxdd": -0.31,
+    "trades": 220,
+    "tax": 73471
+  },
+  "GLD:Donch_55_20": {
+    "net": 160742,
+    "cagr": 2.22,
+    "sharpe": 0.243,
+    "oos_sharpe": 0.344,
+    "maxdd": -0.36,
+    "trades": 52,
+    "tax": 50073
+  },
+  "GLD:Donch_100_50": {
+    "net": 281458,
+    "cagr": 4.9,
+    "sharpe": 0.428,
+    "oos_sharpe": 0.682,
+    "maxdd": -0.423,
+    "trades": 23,
+    "tax": 35629
+  },
+  "GLD:RSIrev_30_55": {
+    "net": 151054,
+    "cagr": 1.92,
+    "sharpe": 0.26,
+    "oos_sharpe": 0.253,
+    "maxdd": -0.158,
+    "trades": 81,
+    "tax": 58227
+  },
+  "GLD:RSIrev_25_50": {
+    "net": 122565,
+    "cagr": 0.94,
+    "sharpe": 0.163,
+    "oos_sharpe": 0.193,
+    "maxdd": -0.137,
+    "trades": 58,
+    "tax": 30211
+  },
+  "GLD:RSItrend_50": {
+    "net": 158801,
+    "cagr": 2.16,
+    "sharpe": 0.225,
+    "oos_sharpe": 0.376,
+    "maxdd": -0.312,
+    "trades": 324,
+    "tax": 71619
+  },
+  "GLD:BBrev_20_2": {
+    "net": 142839,
+    "cagr": 1.66,
+    "sharpe": 0.23,
+    "oos_sharpe": 0.317,
+    "maxdd": -0.185,
+    "trades": 89,
+    "tax": 43846
+  },
+  "GLD:BBbrk_20_2": {
+    "net": 128412,
+    "cagr": 1.16,
+    "sharpe": 0.162,
+    "oos_sharpe": 0.197,
+    "maxdd": -0.3,
+    "trades": 94,
+    "tax": 27835
+  },
+  "GLD:TSmom_126": {
+    "net": 487842,
+    "cagr": 7.6,
+    "sharpe": 0.564,
+    "oos_sharpe": 0.651,
+    "maxdd": -0.325,
+    "trades": 72,
+    "tax": 27211
+  },
+  "GLD:TSmom_252": {
+    "net": 468486,
+    "cagr": 7.4,
+    "sharpe": 0.535,
+    "oos_sharpe": 0.573,
+    "maxdd": -0.349,
+    "trades": 59,
+    "tax": 5599
+  },
+  "GLD:VolFilter_p80": {
+    "net": 262184,
+    "cagr": 4.56,
+    "sharpe": 0.393,
+    "oos_sharpe": 0.568,
+    "maxdd": -0.421,
+    "trades": 67,
+    "tax": 96510
+  },
+  "GLD:AND_SMA200_Mom12": {
+    "net": 457386,
+    "cagr": 7.28,
+    "sharpe": 0.558,
+    "oos_sharpe": 0.572,
+    "maxdd": -0.301,
+    "trades": 36,
+    "tax": 14396
+  },
+  "GLD:OR_SMA200_Mom12": {
+    "net": 488501,
+    "cagr": 7.61,
+    "sharpe": 0.535,
+    "oos_sharpe": 0.612,
+    "maxdd": -0.424,
+    "trades": 37,
+    "tax": 2148
+  },
+  "GLD:AND_MACD_RSI50": {
+    "net": 147583,
+    "cagr": 1.82,
+    "sharpe": 0.21,
+    "oos_sharpe": 0.277,
+    "maxdd": -0.289,
+    "trades": 261,
+    "tax": 55017
+  },
+  "GLD:AND_Donch_Vol": {
+    "net": 148919,
+    "cagr": 1.86,
+    "sharpe": 0.249,
+    "oos_sharpe": 0.448,
+    "maxdd": -0.349,
+    "trades": 59,
+    "tax": 45370
+  },
+  "GLD:AND_SMA200_Vol": {
+    "net": 223004,
+    "cagr": 3.78,
+    "sharpe": 0.381,
+    "oos_sharpe": 0.428,
+    "maxdd": -0.338,
+    "trades": 62,
+    "tax": 68981
+  },
+  "GLD:ENS_2of3": {
+    "net": 427812,
+    "cagr": 6.95,
+    "sharpe": 0.516,
+    "oos_sharpe": 0.573,
+    "maxdd": -0.371,
+    "trades": 76,
+    "tax": 19355
+  },
+  "GLD:ENS_3of3": {
+    "net": 140661,
+    "cagr": 1.59,
+    "sharpe": 0.205,
+    "oos_sharpe": 0.135,
+    "maxdd": -0.292,
+    "trades": 142,
+    "tax": 48167
+  },
+  "_BH_BTC": {
+    "net": 8004354,
+    "cagr": 41.92,
+    "sharpe": 0.714,
+    "oos_sharpe": 0.748,
+    "maxdd": -0.834
+  },
+  "BTC:SMAx_10_50": {
+    "net": 2525727,
+    "cagr": 29.43,
+    "sharpe": 0.64,
+    "oos_sharpe": 0.578,
+    "maxdd": -0.831,
+    "trades": 52,
+    "tax": 2607510
+  },
+  "BTC:SMAx_20_100": {
+    "net": 8680701,
+    "cagr": 42.85,
+    "sharpe": 0.793,
+    "oos_sharpe": 0.766,
+    "maxdd": -0.694,
+    "trades": 24,
+    "tax": 5029442
+  },
+  "BTC:SMAx_50_200": {
+    "net": 6846193,
+    "cagr": 40.16,
+    "sharpe": 0.749,
+    "oos_sharpe": 0.649,
+    "maxdd": -0.729,
+    "trades": 11,
+    "tax": 2458944
+  },
+  "BTC:SMAx_100_300": {
+    "net": 29120081,
+    "cagr": 57.35,
+    "sharpe": 0.942,
+    "oos_sharpe": 0.852,
+    "maxdd": -0.684,
+    "trades": 5,
+    "tax": 0
+  },
+  "BTC:EMAx_12_26": {
+    "net": 3738126,
+    "cagr": 33.55,
+    "sharpe": 0.69,
+    "oos_sharpe": 0.617,
+    "maxdd": -0.748,
+    "trades": 61,
+    "tax": 3967105
+  },
+  "BTC:EMAx_20_100": {
+    "net": 9616460,
+    "cagr": 44.02,
+    "sharpe": 0.806,
+    "oos_sharpe": 0.806,
+    "maxdd": -0.706,
+    "trades": 19,
+    "tax": 4043248
+  },
+  "BTC:EMAx_50_200": {
+    "net": 13384534,
+    "cagr": 47.87,
+    "sharpe": 0.829,
+    "oos_sharpe": 0.891,
+    "maxdd": -0.793,
+    "trades": 9,
+    "tax": 201325
+  },
+  "BTC:MACD_12_26_9": {
+    "net": 2904641,
+    "cagr": 30.88,
+    "sharpe": 0.665,
+    "oos_sharpe": 0.41,
+    "maxdd": -0.688,
+    "trades": 153,
+    "tax": 3224194
+  },
+  "BTC:Donch_55_20": {
+    "net": 1553599,
+    "cagr": 24.5,
+    "sharpe": 0.612,
+    "oos_sharpe": 0.524,
+    "maxdd": -0.618,
+    "trades": 38,
+    "tax": 1669477
+  },
+  "BTC:Donch_100_50": {
+    "net": 1994764,
+    "cagr": 27.01,
+    "sharpe": 0.619,
+    "oos_sharpe": 0.604,
+    "maxdd": -0.616,
+    "trades": 17,
+    "tax": 1766299
+  },
+  "BTC:RSIrev_30_55": {
+    "net": 87094,
+    "cagr": -1.1,
+    "sharpe": 0.152,
+    "oos_sharpe": 0.462,
+    "maxdd": -0.718,
+    "trades": 76,
+    "tax": 14928
+  },
+  "BTC:RSIrev_25_50": {
+    "net": 71608,
+    "cagr": -2.63,
+    "sharpe": 0.09,
+    "oos_sharpe": 0.192,
+    "maxdd": -0.643,
+    "trades": 58,
+    "tax": 15143
+  },
+  "BTC:RSItrend_50": {
+    "net": 1738420,
+    "cagr": 25.62,
+    "sharpe": 0.596,
+    "oos_sharpe": 0.473,
+    "maxdd": -0.739,
+    "trades": 256,
+    "tax": 2162347
+  },
+  "BTC:BBrev_20_2": {
+    "net": 41292,
+    "cagr": -6.82,
+    "sharpe": 0.027,
+    "oos_sharpe": 0.282,
+    "maxdd": -0.809,
+    "trades": 66,
+    "tax": 0
+  },
+  "BTC:BBbrk_20_2": {
+    "net": 814439,
+    "cagr": 18.24,
+    "sharpe": 0.526,
+    "oos_sharpe": 0.283,
+    "maxdd": -0.673,
+    "trades": 82,
+    "tax": 946458
+  },
+  "BTC:TSmom_126": {
+    "net": 8593966,
+    "cagr": 42.73,
+    "sharpe": 0.781,
+    "oos_sharpe": 0.66,
+    "maxdd": -0.717,
+    "trades": 64,
+    "tax": 6243774
+  },
+  "BTC:TSmom_252": {
+    "net": 47754147,
+    "cagr": 63.69,
+    "sharpe": 0.984,
+    "oos_sharpe": 0.945,
+    "maxdd": -0.699,
+    "trades": 21,
+    "tax": 360662
+  },
+  "BTC:VolFilter_p80": {
+    "net": 727260,
+    "cagr": 17.18,
+    "sharpe": 0.473,
+    "oos_sharpe": 0.517,
+    "maxdd": -0.789,
+    "trades": 43,
+    "tax": 767432
+  },
+  "BTC:AND_SMA200_Mom12": {
+    "net": 7917160,
+    "cagr": 41.8,
+    "sharpe": 0.784,
+    "oos_sharpe": 0.54,
+    "maxdd": -0.699,
+    "trades": 17,
+    "tax": 5536359
+  },
+  "BTC:OR_SMA200_Mom12": {
+    "net": 30042804,
+    "cagr": 57.74,
+    "sharpe": 0.903,
+    "oos_sharpe": 0.921,
+    "maxdd": -0.697,
+    "trades": 15,
+    "tax": 353622
+  },
+  "BTC:AND_MACD_RSI50": {
+    "net": 1158140,
+    "cagr": 21.61,
+    "sharpe": 0.561,
+    "oos_sharpe": 0.462,
+    "maxdd": -0.612,
+    "trades": 206,
+    "tax": 1355439
+  },
+  "BTC:AND_Donch_Vol": {
+    "net": 907168,
+    "cagr": 19.26,
+    "sharpe": 0.564,
+    "oos_sharpe": 0.459,
+    "maxdd": -0.521,
+    "trades": 50,
+    "tax": 945537
+  },
+  "BTC:AND_SMA200_Vol": {
+    "net": 705632,
+    "cagr": 16.89,
+    "sharpe": 0.487,
+    "oos_sharpe": 0.49,
+    "maxdd": -0.598,
+    "trades": 35,
+    "tax": 748970
+  },
+  "BTC:ENS_2of3": {
+    "net": 12555232,
+    "cagr": 47.12,
+    "sharpe": 0.821,
+    "oos_sharpe": 0.501,
+    "maxdd": -0.749,
+    "trades": 51,
+    "tax": 11234517
+  },
+  "BTC:ENS_3of3": {
+    "net": 1381627,
+    "cagr": 23.34,
+    "sharpe": 0.634,
+    "oos_sharpe": 0.451,
+    "maxdd": -0.49,
+    "trades": 83,
+    "tax": 1615294
+  },
+  "_summary": {
+    "n_configs": 75,
+    "N_cumulative": 238,
+    "best": "BTC:TSmom_252",
+    "best_res": {
+      "net": 47754147,
+      "cagr": 63.69,
+      "sharpe": 0.984,
+      "oos_sharpe": 0.945,
+      "maxdd": -0.699,
+      "trades": 21,
+      "tax": 360662
+    },
+    "best_DSR_prob": 0.917,
+    "best_DSR_pass": false,
+    "PBO_SPY_family": 0.5
+  }
+}

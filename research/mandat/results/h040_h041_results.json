@@ -1,0 +1,91 @@
+{
+  "EWband_fullSP": {
+    "label": "EWband_fullSP",
+    "final_value": 1331514.7793184486,
+    "cagr_net": 0.08886426194204633,
+    "sharpe_net": 0.5471949874492872,
+    "maxdd_net": -0.5871429666085917,
+    "tax_paid": 296314.11570787715,
+    "costs_paid": 3060.3881490562494,
+    "years": 30.409308692676248
+  },
+  "H040_lowvol_20": {
+    "label": "H040_lowvol_20",
+    "final_value": 555958.9562457982,
+    "cagr_net": 0.058036091106108856,
+    "sharpe_net": 0.481058442656178,
+    "maxdd_net": -0.44905407583011514,
+    "tax_paid": 232568.57977626333,
+    "costs_paid": 28464.649158258802,
+    "years": 30.409308692676248
+  },
+  "H040_lowvol_33": {
+    "label": "H040_lowvol_33",
+    "final_value": 655934.9460216956,
+    "cagr_net": 0.06380541011789753,
+    "sharpe_net": 0.5010474956661185,
+    "maxdd_net": -0.4653234640370163,
+    "tax_paid": 268202.26930837857,
+    "costs_paid": 25418.05574097881,
+    "years": 30.409308692676248
+  },
+  "H040_lowvol_50": {
+    "label": "H040_lowvol_50",
+    "final_value": 807919.0667084134,
+    "cagr_net": 0.07112089179377001,
+    "sharpe_net": 0.5238270507238006,
+    "maxdd_net": -0.4842340822213177,
+    "tax_paid": 304111.12471660564,
+    "costs_paid": 20952.468066351,
+    "years": 30.409308692676248
+  },
+  "H041_quality_33": {
+    "label": "H041_quality_33",
+    "final_value": 591901.8972012198,
+    "cagr_net": 0.06021800556999657,
+    "sharpe_net": 0.517093927984303,
+    "maxdd_net": -0.36408085866486206,
+    "tax_paid": 143156.87499318787,
+    "costs_paid": 4664.3420191570385,
+    "years": 30.409308692676248
+  },
+  "H041_quality_50": {
+    "label": "H041_quality_50",
+    "final_value": 560159.7739478045,
+    "cagr_net": 0.058298031921282245,
+    "sharpe_net": 0.5036012708095453,
+    "maxdd_net": -0.36835325504627503,
+    "tax_paid": 129345.16438062607,
+    "costs_paid": 3985.5303389540336,
+    "years": 30.409308692676248
+  },
+  "benchmarks": {
+    "SPY_sharpe": 0.6034046132600237,
+    "ETF_net_final": 1593149.988170063,
+    "years": 30.406570841889117
+  },
+  "DSR_H040": {
+    "prob": 0.574749446347433,
+    "passes_5pct": false,
+    "n_trials": 114
+  },
+  "DSR_H041": {
+    "prob": 0.6063599304520133,
+    "passes_5pct": false,
+    "n_trials": 116
+  },
+  "H040_criteria": {
+    "1_sharpe_gt_base": false,
+    "2_final_gt_ETF": false,
+    "3_DSR_passes": false,
+    "4_maxdd_better": true,
+    "5_consistency_ge_60": false
+  },
+  "H040_PASS": false,
+  "H041_criteria": {
+    "sharpe_gt_base_x105": false,
+    "final_gt_base_x105": false,
+    "final_gt_ETF": false
+  },
+  "H041_PASS": false
+}

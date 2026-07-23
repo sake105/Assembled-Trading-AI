@@ -1,0 +1,23 @@
+{
+  "fixed": {
+    "median_net": 923937,
+    "q05_net": 495249,
+    "median_dd": -0.234,
+    "median_tax": 0,
+    "median_end_weight_eq": 0.705
+  },
+  "cashflow": {
+    "median_net": 926069,
+    "q05_net": 500160,
+    "median_dd": -0.231,
+    "median_tax": 0,
+    "median_end_weight_eq": 0.679
+  },
+  "sellrebal": {
+    "median_net": 918045,
+    "q05_net": 499046,
+    "median_dd": -0.236,
+    "median_tax": 8011,
+    "median_end_weight_eq": 0.707
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "ETF_net_path": 2335072,
+  "noTLH": {
+    "final_net_postliq": 1155584.7855354662,
+    "tax_paid": 505735.50600645324,
+    "loss_pot_left": 80.01559966571747,
+    "n_harvests": 0
+  },
+  "TLH15": {
+    "final_net_postliq": 1217851.3777141022,
+    "tax_paid": 536923.5747104121,
+    "loss_pot_left": 61.860581106739446,
+    "n_harvests": 2240
+  },
+  "TLH30": {
+    "final_net_postliq": 1194230.5333889306,
+    "tax_paid": 525103.0881281822,
+    "loss_pot_left": 60.609891516505584,
+    "n_harvests": 1169
+  },
+  "tax_alpha_TLH_vs_noTLH_best": 62267,
+  "PASS": false
+}

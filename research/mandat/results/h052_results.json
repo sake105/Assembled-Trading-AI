@@ -1,0 +1,78 @@
+{
+  "window_A_2005_noCrypto": {
+    "100% SPY (BH)": {
+      "net_final": 776840,
+      "cagr_net_pct": 10.0,
+      "sharpe": 0.643,
+      "maxdd": -0.552,
+      "tax_paid": 153231,
+      "years": 21.5
+    },
+    "Global-Equity BH (60/25/15)": {
+      "net_final": 604590,
+      "cagr_net_pct": 8.72,
+      "sharpe": 0.554,
+      "maxdd": -0.579,
+      "tax_paid": 114235,
+      "years": 21.5
+    },
+    "Global-Equity REBAL": {
+      "net_final": 571881,
+      "cagr_net_pct": 8.44,
+      "sharpe": 0.543,
+      "maxdd": -0.575,
+      "tax_paid": 106966,
+      "years": 21.5
+    },
+    "Global+Gold REBAL (55/20/10/15)": {
+      "net_final": 653022,
+      "cagr_net_pct": 9.12,
+      "sharpe": 0.638,
+      "maxdd": -0.488,
+      "tax_paid": 101035,
+      "years": 21.5
+    },
+    "US+Gold REBAL (85/15)": {
+      "net_final": 823647,
+      "cagr_net_pct": 10.3,
+      "sharpe": 0.729,
+      "maxdd": -0.465,
+      "tax_paid": 134437,
+      "years": 21.5
+    },
+    "US+Gold_hc REBAL (85/15, gold x0.3)": {
+      "net_final": 640403,
+      "cagr_net_pct": 9.02,
+      "sharpe": 0.669,
+      "maxdd": -0.478,
+      "tax_paid": 115189,
+      "years": 21.5
+    }
+  },
+  "window_B_2016_withCrypto": {
+    "100% SPY (BH)": {
+      "net_final": 381706,
+      "cagr_net_pct": 13.59,
+      "sharpe": 0.889,
+      "maxdd": -0.337,
+      "tax_paid": 63776,
+      "years": 10.5
+    },
+    "Global+Gold+BTC REBAL (55/15/10/12/8)": {
+      "net_final": 901832,
+      "cagr_net_pct": 23.28,
+      "sharpe": 1.281,
+      "maxdd": -0.3,
+      "tax_paid": 91915,
+      "years": 10.5
+    },
+    "US+Gold+BTC REBAL (80/12/8)": {
+      "net_final": 1017767,
+      "cagr_net_pct": 24.71,
+      "sharpe": 1.328,
+      "maxdd": -0.304,
+      "tax_paid": 111872,
+      "years": 10.5
+    }
+  }
+}

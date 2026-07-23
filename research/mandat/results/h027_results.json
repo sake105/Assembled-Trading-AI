@@ -1,0 +1,41 @@
+{
+  "H027_ew50_monthly": {
+    "label": "H027_ew50_monthly",
+    "final_value": 960787.1139019821,
+    "cagr_net": 0.07724222334130348,
+    "sharpe_net": 0.5855944660998593,
+    "maxdd_net": -0.7996639098852261,
+    "tax_paid": 223854.71637367702,
+    "costs_paid": 8126.3910591724225,
+    "years": 30.409308692676248
+  },
+  "H027_band25": {
+    "label": "H027_band25",
+    "final_value": 1237878.702889361,
+    "cagr_net": 0.08625641822203312,
+    "sharpe_net": 0.5783647053862622,
+    "maxdd_net": -0.7756196218204652,
+    "tax_paid": 210531.99411340905,
+    "costs_paid": 5710.039371455472,
+    "years": 30.409308692676248
+  },
+  "H027_band50": {
+    "label": "H027_band50",
+    "final_value": 1296004.1568491366,
+    "cagr_net": 0.08789677958393605,
+    "sharpe_net": 0.6092572905168684,
+    "maxdd_net": -0.7992406796094194,
+    "tax_paid": 189708.9000703282,
+    "costs_paid": 4817.415124939982,
+    "years": 30.409308692676248
+  },
+  "_verdict": {
+    "crit_final_both_gt_ref": true,
+    "crit_sharpe_within_005": true,
+    "PBO": 0.5428571428571428,
+    "crit_pbo": false,
+    "selected": "H027_band50",
+    "DSR_prob_info": 0.9110726343545822,
+    "PASS": false
+  }
+}

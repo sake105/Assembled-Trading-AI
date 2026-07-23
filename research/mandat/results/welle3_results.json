@@ -1,0 +1,67 @@
+{
+  "H020_band25": {
+    "label": "H020_band25",
+    "final_value": 477113.2765479323,
+    "cagr_net": 0.16060202920565803,
+    "sharpe_net": 0.9249617927795912,
+    "maxdd_net": -0.3768003855093419,
+    "tax_paid": 56164.25361907203,
+    "costs_paid": 719.6684435091024,
+    "loss_pot_end": 0.0,
+    "years": 10.491444216290212
+  },
+  "H020_band50": {
+    "label": "H020_band50",
+    "final_value": 476522.85456286935,
+    "cagr_net": 0.1604650570484052,
+    "sharpe_net": 0.9557131606839492,
+    "maxdd_net": -0.36355246319722756,
+    "tax_paid": 42177.45876109016,
+    "costs_paid": 444.7787413320303,
+    "loss_pot_end": 0.0,
+    "years": 10.491444216290212
+  },
+  "H021_annual": {
+    "label": "H021_annual",
+    "final_value": 577485.0283859944,
+    "cagr_net": 0.18191660698872503,
+    "sharpe_net": 0.752178226918714,
+    "maxdd_net": -0.41416230316613467,
+    "tax_paid": 67048.96305567052,
+    "costs_paid": 2546.232343501339,
+    "loss_pot_end": 18884.829631967274,
+    "years": 10.491444216290212
+  },
+  "H022_buyhold": {
+    "label": "H022_buyhold",
+    "final_value": 699551.9283547758,
+    "cagr_net": 0.2037177316749481,
+    "sharpe_net": 1.033600614744765,
+    "maxdd_net": -0.3701592802902973,
+    "tax_paid": 0.0,
+    "costs_paid": 99.99978308025963,
+    "loss_pot_end": 0.0,
+    "years": 10.491444216290212
+  },
+  "_dsr_H020_band25": {
+    "prob": 0.7268738385639331,
+    "passes": false,
+    "n": 65
+  },
+  "_dsr_H021_annual": {
+    "prob": 0.520712525236499,
+    "passes": false,
+    "n": 66
+  },
+  "_dsr_H022_buyhold": {
+    "prob": 0.8261261483113298,
+    "passes": false,
+    "n": 67
+  },
+  "_pbo_H020": 0.0,
+  "_refs": {
+    "EW_monthly_final": 416611.81,
+    "EW_monthly_sharpe": 0.851,
+    "H012_out60_final": 614905.0
+  }
+}

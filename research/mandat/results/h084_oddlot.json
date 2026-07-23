@@ -1,0 +1,26 @@
+{
+  "n_events_priced": 125,
+  "n_fail": 61,
+  "+10BD": {
+    "n": 125,
+    "mean_excess_pct": 0.68,
+    "median_pct": -0.01,
+    "hit_rate_pct": 49.6,
+    "t": 1.22
+  },
+  "+30BD": {
+    "n": 124,
+    "mean_excess_pct": -0.22,
+    "median_pct": 0.19,
+    "hit_rate_pct": 52.4,
+    "t": -0.17
+  },
+  "+45BD": {
+    "n": 123,
+    "mean_excess_pct": -0.39,
+    "median_pct": -1.59,
+    "hit_rate_pct": 44.7,
+    "t": -0.24
+  },
+  "PASS_stage1": false
+}

@@ -1,0 +1,87 @@
+{
+  "horizon_years": 20,
+  "principal": 100000.0,
+  "scenarios": [
+    {
+      "market_gross_pct": 6.0,
+      "perf_fee_pct": 10,
+      "ETF_net": 270276,
+      "wiki_net_at_parity_gross": 203723,
+      "parity_shortfall_pct": -24.6,
+      "breakeven_underlying_gross_pct": 7.88,
+      "required_annual_gross_alpha_pct": 1.88
+    },
+    {
+      "market_gross_pct": 6.0,
+      "perf_fee_pct": 20,
+      "ETF_net": 270276,
+      "wiki_net_at_parity_gross": 187523,
+      "parity_shortfall_pct": -30.6,
+      "breakeven_underlying_gross_pct": 8.75,
+      "required_annual_gross_alpha_pct": 2.75
+    },
+    {
+      "market_gross_pct": 6.0,
+      "perf_fee_pct": 30,
+      "ETF_net": 270276,
+      "wiki_net_at_parity_gross": 172735,
+      "parity_shortfall_pct": -36.1,
+      "breakeven_underlying_gross_pct": 9.86,
+      "required_annual_gross_alpha_pct": 3.86
+    },
+    {
+      "market_gross_pct": 8.0,
+      "perf_fee_pct": 10,
+      "ETF_net": 384683,
+      "wiki_net_at_parity_gross": 275134,
+      "parity_shortfall_pct": -28.5,
+      "breakeven_underlying_gross_pct": 10.2,
+      "required_annual_gross_alpha_pct": 2.2
+    },
+    {
+      "market_gross_pct": 8.0,
+      "perf_fee_pct": 20,
+      "ETF_net": 384683,
+      "wiki_net_at_parity_gross": 244443,
+      "parity_shortfall_pct": -36.5,
+      "breakeven_underlying_gross_pct": 11.35,
+      "required_annual_gross_alpha_pct": 3.35
+    },
+    {
+      "market_gross_pct": 8.0,
+      "perf_fee_pct": 30,
+      "ETF_net": 384683,
+      "wiki_net_at_parity_gross": 217373,
+      "parity_shortfall_pct": -43.5,
+      "breakeven_underlying_gross_pct": 12.83,
+      "required_annual_gross_alpha_pct": 4.83
+    },
+    {
+      "market_gross_pct": 10.0,
+      "perf_fee_pct": 10,
+      "ETF_net": 547414,
+      "wiki_net_at_parity_gross": 373339,
+      "parity_shortfall_pct": -31.8,
+      "breakeven_underlying_gross_pct": 12.49,
+      "required_annual_gross_alpha_pct": 2.49
+    },
+    {
+      "market_gross_pct": 10.0,
+      "perf_fee_pct": 20,
+      "ETF_net": 547414,
+      "wiki_net_at_parity_gross": 320142,
+      "parity_shortfall_pct": -41.5,
+      "breakeven_underlying_gross_pct": 13.93,
+      "required_annual_gross_alpha_pct": 3.93
+    },
+    {
+      "market_gross_pct": 10.0,
+      "perf_fee_pct": 30,
+      "ETF_net": 547414,
+      "wiki_net_at_parity_gross": 274755,
+      "parity_shortfall_pct": -49.8,
+      "breakeven_underlying_gross_pct": 15.78,
+      "required_annual_gross_alpha_pct": 5.78
+    }
+  ]
+}

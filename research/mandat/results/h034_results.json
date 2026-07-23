@@ -1,0 +1,92 @@
+{
+  "H034_copy_all": {
+    "label": "H034_copy_all",
+    "final_value": 310851.67076283647,
+    "cagr_net": 0.05415911884679314,
+    "sharpe_net": 0.46589859176492443,
+    "maxdd_net": -0.34540670433906717,
+    "tax_paid": 36437.97186113173,
+    "years": 21.503080082135522,
+    "final_value_window": 310851.6707628374,
+    "sharpe_window": 0.5870253215186942,
+    "maxdd_window": -0.34540670433906695
+  },
+  "H034_big_buys": {
+    "label": "H034_big_buys",
+    "final_value": 219559.1766102401,
+    "cagr_net": 0.037250959187060895,
+    "sharpe_net": 0.3647393753526375,
+    "maxdd_net": -0.3698621255821366,
+    "tax_paid": 24183.969268143588,
+    "years": 21.503080082135522,
+    "final_value_window": 219559.17661023987,
+    "sharpe_window": 0.45952121359080045,
+    "maxdd_window": -0.3698621255821368
+  },
+  "H034_cluster3": {
+    "label": "H034_cluster3",
+    "final_value": 360159.9888002996,
+    "cagr_net": 0.06140175754414945,
+    "sharpe_net": 0.5303687787707991,
+    "maxdd_net": -0.31480129847690064,
+    "tax_paid": 40139.13815361239,
+    "years": 21.503080082135522,
+    "final_value_window": 360159.9888003004,
+    "sharpe_window": 0.6683068263097098,
+    "maxdd_window": -0.31480129847690064
+  },
+  "ETF_net_path": {
+    "final_value": 546380.3768226645
+  },
+  "SPY_sharpe": 0.9086969826422625,
+  "SPY_maxdd": -0.33717395815769335,
+  "EW_window_sharpe": 0.5922001099902852,
+  "_verdict": {
+    "selected": "H034_cluster3",
+    "crit1_gt_etf": "False",
+    "crit2_sharpe_gt_ew": true,
+    "crit3_dsr": {
+      "prob": 0.46860867819161295,
+      "pass": false
+    },
+    "crit4_pass": true,
+    "crit4_windows": {
+      "2013": {
+        "H034": -0.185,
+        "EW": 1.591
+      },
+      "2015": {
+        "H034": 0.518,
+        "EW": 0.214
+      },
+      "2017": {
+        "H034": 0.74,
+        "EW": 0.179
+      },
+      "2019": {
+        "H034": 1.153,
+        "EW": 0.709
+      },
+      "2021": {
+        "H034": -0.119,
+        "EW": 0.242
+      },
+      "2023": {
+        "H034": 1.909,
+        "EW": 0.868
+      },
+      "2025": {
+        "H034": 0.72,
+        "EW": 0.766
+      }
+    },
+    "crit5_maxdd_ok": true,
+    "spy_corr_all": {
+      "H034_copy_all": 0.96,
+      "H034_big_buys": 0.856,
+      "H034_cluster3": 0.905
+    },
+    "PBO_info": 0.6285714285714286,
+    "PASS": false
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "decomposition": {
+    "SPY": {
+      "overnight_mean_bps": 2.239,
+      "intraday_mean_bps": 0.911,
+      "n": 6666
+    },
+    "XLK": {
+      "overnight_mean_bps": 3.38,
+      "intraday_mean_bps": 0.082,
+      "n": 6666
+    },
+    "XLF": {
+      "overnight_mean_bps": 2.778,
+      "intraday_mean_bps": 0.168,
+      "n": 6666
+    },
+    "XLE": {
+      "overnight_mean_bps": 3.457,
+      "intraday_mean_bps": -0.515,
+      "n": 6666
+    },
+    "XLV": {
+      "overnight_mean_bps": 2.435,
+      "intraday_mean_bps": 0.807,
+      "n": 6666
+    },
+    "XLI": {
+      "overnight_mean_bps": 3.951,
+      "intraday_mean_bps": -0.293,
+      "n": 6666
+    },
+    "XLY": {
+      "overnight_mean_bps": 2.134,
+      "intraday_mean_bps": 1.247,
+      "n": 6666
+    },
+    "XLP": {
+      "overnight_mean_bps": 1.048,
+      "intraday_mean_bps": 1.419,
+      "n": 6666
+    },
+    "XLU": {
+      "overnight_mean_bps": 3.365,
+      "intraday_mean_bps": -1.555,
+      "n": 6666
+    },
+    "XLB": {
+      "overnight_mean_bps": 2.046,
+      "intraday_mean_bps": 0.308,
+      "n": 6666
+    }
+  },
+  "SPY_overnight_book": {
+    "final_pretax": 6892.853792288716,
+    "final_net": 4997.382293399581,
+    "tax_total": 1895.4714988891358,
+    "sharpe_pretax": -0.8411985896896793,
+    "years": 26.507871321013006
+  },
+  "ETF_net_path": 436206,
+  "SPY_buyhold_sharpe": 0.416,
+  "PASS": false
+}

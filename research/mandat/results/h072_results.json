@@ -1,0 +1,68 @@
+{
+  "_BH_SPY_window": {
+    "net": 190920
+  },
+  "ORB_30min": {
+    "gross_daily_bps": -3.05,
+    "days_traded": 1440,
+    "sharpe_gross": -0.755,
+    "net_final": 62616,
+    "tax": 0,
+    "cagr_net": -7.84,
+    "beats_BH": false
+  },
+  "ORB_60min": {
+    "gross_daily_bps": -1.67,
+    "days_traded": 1440,
+    "sharpe_gross": -0.494,
+    "net_final": 77005,
+    "tax": 0,
+    "cagr_net": -4.45,
+    "beats_BH": false
+  },
+  "SMA5m_20_60": {
+    "gross_daily_bps": -2.44,
+    "days_traded": 1440,
+    "sharpe_gross": -1.345,
+    "net_final": 69940,
+    "tax": 0,
+    "cagr_net": -6.04,
+    "beats_BH": false
+  },
+  "RSI5m_rev_25_50": {
+    "gross_daily_bps": -6.4,
+    "days_traded": 1440,
+    "sharpe_gross": -3.19,
+    "net_final": 39478,
+    "tax": 0,
+    "cagr_net": -14.96,
+    "beats_BH": false
+  },
+  "GapFollow_0.3pct": {
+    "gross_daily_bps": -10.05,
+    "days_traded": 416,
+    "sharpe_gross": -1.77,
+    "net_final": 64709,
+    "tax": 0,
+    "cagr_net": -7.33,
+    "beats_BH": false
+  },
+  "GapFade_0.3pct": {
+    "gross_daily_bps": -3.1,
+    "days_traded": 326,
+    "sharpe_gross": -0.419,
+    "net_final": 88434,
+    "tax": 0,
+    "cagr_net": -2.12,
+    "beats_BH": false
+  },
+  "PrevDayMom": {
+    "gross_daily_bps": -5.59,
+    "days_traded": 783,
+    "sharpe_gross": -1.215,
+    "net_final": 63214,
+    "tax": 0,
+    "cagr_net": -7.69,
+    "beats_BH": false
+  }
+}

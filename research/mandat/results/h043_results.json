@@ -1,0 +1,39 @@
+{
+  "n_days": 1439,
+  "n_spike": 155,
+  "horizons": {
+    "5m": {
+      "spike_mean_excess_pct": 0.0612,
+      "spike_t": 2.2,
+      "spike_n": 155,
+      "baseline_mean_excess_pct": 0.0054,
+      "spike_minus_base_pct": 0.0558
+    },
+    "15m": {
+      "spike_mean_excess_pct": 0.0867,
+      "spike_t": 2.59,
+      "spike_n": 155,
+      "baseline_mean_excess_pct": -0.0044,
+      "spike_minus_base_pct": 0.0911
+    },
+    "30m": {
+      "spike_mean_excess_pct": 0.0856,
+      "spike_t": 2.21,
+      "spike_n": 155,
+      "baseline_mean_excess_pct": -0.0027,
+      "spike_minus_base_pct": 0.0882
+    },
+    "60m": {
+      "spike_mean_excess_pct": 0.1245,
+      "spike_t": 2.7,
+      "spike_n": 155,
+      "baseline_mean_excess_pct": -0.0043,
+      "spike_minus_base_pct": 0.1288
+    }
+  },
+  "test_A_pass": true,
+  "test_B_net_capturable_pregtax": true,
+  "best_horizon_gross_bps": 12.45,
+  "round_trip_cost_bps": 6.0,
+  "PASS": true
+}

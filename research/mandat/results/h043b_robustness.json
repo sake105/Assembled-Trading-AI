@@ -1,0 +1,79 @@
+{
+  "z>0.5": {
+    "n": 233,
+    "mean_bps": 6.49,
+    "t": 1.78
+  },
+  "z>1.0": {
+    "n": 155,
+    "mean_bps": 12.45,
+    "t": 2.7
+  },
+  "z>1.5": {
+    "n": 111,
+    "mean_bps": 15.96,
+    "t": 2.66
+  },
+  "drop_top_abs": {
+    "drop_top1": {
+      "n": 154,
+      "mean_bps": 14.46,
+      "t": 3.46
+    },
+    "drop_top3": {
+      "n": 152,
+      "mean_bps": 12.21,
+      "t": 3.11
+    },
+    "drop_top5": {
+      "n": 150,
+      "mean_bps": 12.36,
+      "t": 3.32
+    },
+    "drop_top10": {
+      "n": 145,
+      "mean_bps": 8.98,
+      "t": 2.55
+    }
+  },
+  "by_year": {
+    "2020": {
+      "n": 24,
+      "mean_bps": 30.4,
+      "t": 2.61
+    },
+    "2021": {
+      "n": 64,
+      "mean_bps": 3.04,
+      "t": 0.56
+    },
+    "2022": {
+      "n": 32,
+      "mean_bps": 29.9,
+      "t": 1.93
+    },
+    "2025": {
+      "n": 35,
+      "mean_bps": 1.41,
+      "t": 0.22
+    }
+  },
+  "gross_bps": 12.45,
+  "net_after_cost": {
+    "6bps_allin": 6.45,
+    "10bps_allin": 2.45,
+    "14bps_allin": -1.55
+  },
+  "net_after_cost_and_tax": {
+    "6bps_allin": 4.75,
+    "10bps_allin": 1.81,
+    "14bps_allin": 0.0
+  },
+  "spike_strategy_net10bps": {
+    "ann_sharpe": 0.223,
+    "DSR_prob": 0.021,
+    "DSR_passes_5pct": false,
+    "trade_days_per_year": 27.0
+  },
+  "ROBUST_PASS": false
+}

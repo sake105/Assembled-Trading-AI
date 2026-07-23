@@ -1,0 +1,73 @@
+{
+  "base": {
+    "buyhold_ETF_net": 436206.0,
+    "buyhold_sharpe_m": 0.493,
+    "buyhold_maxdd_m": -0.522
+  },
+  "grid": {
+    "otm0_iv1.0": {
+      "overlay_net_contribution": -283263.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 170527.0,
+      "cc_sharpe": 0.356,
+      "cc_maxdd": -0.326
+    },
+    "otm0_iv1.15": {
+      "overlay_net_contribution": -162346.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 291443.0,
+      "cc_sharpe": 0.6,
+      "cc_maxdd": -0.208
+    },
+    "otm0_iv1.3": {
+      "overlay_net_contribution": -42959.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 410831.0,
+      "cc_sharpe": 0.844,
+      "cc_maxdd": -0.147
+    },
+    "otm3_iv1.0": {
+      "overlay_net_contribution": -56311.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 397479.0,
+      "cc_sharpe": 0.596,
+      "cc_maxdd": -0.352
+    },
+    "otm3_iv1.15": {
+      "overlay_net_contribution": 38176.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 491965.0,
+      "cc_sharpe": 0.74,
+      "cc_maxdd": -0.294
+    },
+    "otm3_iv1.3": {
+      "overlay_net_contribution": 135691.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 589480.0,
+      "cc_sharpe": 0.89,
+      "cc_maxdd": -0.238
+    },
+    "otm5_iv1.0": {
+      "overlay_net_contribution": 15329.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 469119.0,
+      "cc_sharpe": 0.608,
+      "cc_maxdd": -0.384
+    },
+    "otm5_iv1.15": {
+      "overlay_net_contribution": 85009.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 538798.0,
+      "cc_sharpe": 0.705,
+      "cc_maxdd": -0.334
+    },
+    "otm5_iv1.3": {
+      "overlay_net_contribution": 160949.0,
+      "buyhold_net_final": 453790.0,
+      "covered_call_final": 614739.0,
+      "cc_sharpe": 0.811,
+      "cc_maxdd": -0.283
+    }
+  },
+  "PASS_any": true
+}

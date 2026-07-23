@@ -1,0 +1,21 @@
+{
+  "as_of": "2026-07-08",
+  "signal_period_end": "2026-03-31",
+  "rule": "H029_k10: >=10 of top-100 13F managers hold it in their top-10 positions",
+  "basket": {
+    "AAPL": 89,
+    "MSFT": 88,
+    "NVDA": 87,
+    "AMZN": 80,
+    "GOOGL": 80,
+    "AVGO": 73,
+    "META": 58,
+    "GOOG": 55,
+    "TSLA": 31,
+    "JPM": 22,
+    "IVV": 21,
+    "LLY": 20,
+    "SPY": 14,
+    "VOO": 10
+  }
+}
