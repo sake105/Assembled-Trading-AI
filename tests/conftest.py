@@ -54,6 +54,35 @@ def pytest_collection_modifyitems(config, items) -> None:  # pragma: no cover - 
                 item.add_marker(canonical)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_operational_stores(monkeypatch, tmp_path):
+    """Redirect ALL tests away from the real operational stores.
+
+    Root cause (2026-07-24): tests calling the broker path without an
+    explicit ``intent_store_path`` (e.g. test_broker_execution.py) wrote
+    MSFT/AAPL fixture intents into the REAL ``output/ops/intent_store.jsonl``
+    for months. Harmless while preflight only warned — but the 2026-07-22
+    fail-closed preflight (W7a) then correctly BLOCKED the live pilot on
+    same-day test residue (runs 22.+23.07. 21:30). Same contamination class
+    as the order-lifecycle journal leak (Stage-1 M1, 2026-07-22).
+
+    This autouse fixture makes the whole class structurally impossible:
+    the module-level default paths are pointed at tmp_path for every test.
+    Tests that pass explicit paths are unaffected.
+    """
+    import src.assembled_core.execution.intent_store as _intent_store
+    import src.assembled_core.ops.order_lifecycle_log as _lifecycle
+
+    monkeypatch.setattr(
+        _intent_store, "_DEFAULT_STORE_PATH", tmp_path / "intent_store.jsonl"
+    )
+    monkeypatch.setattr(
+        _lifecycle,
+        "DEFAULT_LIFECYCLE_LOG_PATH",
+        tmp_path / "order_lifecycle.jsonl",
+    )
+
+
 @pytest.fixture
 def golden_mini_backtest_data():
     """Golden mini backtest fixture: 2-3 symbols, 5-10 days, deterministic signals.
