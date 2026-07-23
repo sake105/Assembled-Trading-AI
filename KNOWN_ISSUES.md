@@ -1,6 +1,6 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-05-12 (Audit-Sweep §8 ergänzt nach 17 Waves)
+**Letzte Aktualisierung:** 2026-07-23 (§0.1 Survivorship ehrlich gemacht; §12 GESAMTBEWERTUNG-Umsetzung ergänzt)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 
@@ -8,11 +8,11 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ## 0. Bekannte Datenqualitäts-Risiken (AUDIT A10)
 
-### 0.1 Survivorship-Bias: PIT-Universe — BEHOBEN (2026-05-06)
+### 0.1 Survivorship-Bias: PIT-Universe — TEILWEISE BEHOBEN (Architektur 2026-05-06; Datenlücke offen)
 
-**Schwere:** reduziert (war: AKUT)  
+**Schwere:** reduziert, aber materiell (war: AKUT)  
 **Entdeckt:** 2026-04-26 (Audit A10)  
-**Status:** ✅ Architektur gewired — data-derived PIT aktiv + Cache-Invalidierung implementiert. ⚠️ Kommerzieller Index-Membership-Feed fehlt weiterhin.
+**Status:** ✅ Architektur gewired — data-derived PIT aktiv + Cache-Invalidierung implementiert. ⚠️ **Nicht behoben auf Datenebene:** delisting-inklusive Preishistorien fehlen im Standard-Datenpfad weiterhin — die frühere Überschrift „BEHOBEN" war zu stark. Empirische Größenordnung: Fable-Exploration 2026-06 maß auf dem Insider-Universum ca. **+0.35 Sharpe Survivorship-Geschenk** allein durch Weglassen von Delistings. Ergebnisse auf survivorship-behafteten Panels sind entsprechend zu diskontieren (Update 2026-07-23).
 
 **Was getan wurde:**
 - `build_universe_history_from_prices(prices_df)` in `universe.py` — leitet `start_date`/`end_date` direkt aus dem Panel ab.
@@ -1779,3 +1779,16 @@ mit non-None State) war in keinem committeten Ergebnis je gleichzeitig erfüllt.
 durch `83f3c2c8` Backtest-DEGRADE): der Intel-Writer `run_intel_cycle.py`
 (`_DEFAULT_OUTPUT_DIR="data/intel"`) schreibt genau die Datei, die der Reader liest — pre-fix ein
 Live-Foot-gun für jeden, der nach einem Intel-Lauf backtestete; post-fix in Backtest sicher DEGRADED.
+
+---
+
+## 12. 2026-07 GESAMTBEWERTUNG-Umsetzung (Status-Snapshot 2026-07-23)
+
+Umsetzungsstand der Findings aus `docs/GESAMTBEWERTUNG.md` (Wxx/Gx/Vx-Nummerierung dort):
+
+- **G5 — Drawdown-Levels: CLOSED.** `configs/policy.yaml` → `drawdown_policy.levels` (soft −10 % / hard −15 % / kill −20 %) committed in `6a4fd712` (2026-07-22).
+- **V1 + G7: CLOSED** (Commits `6a4fd712`/`f7777caf`, GESAMTBEWERTUNG P1–P4).
+- **W4 — QA-Gate im Live-Pfad: OFFEN.** Der QA-Gate-BLOCK ist im Live-/Paper-Pfad **nicht verdrahtet** — `qa_status=None` wird durchgereicht, das Gate greift dort nicht. Nur der Backtest-/Report-Pfad nutzt es.
+- **W6 — TaxLotStore: OFFEN.** `TaxLotStore` existiert, hat aber **keinen Produktions-Caller** — keine Komponente im Live-/Paper-Pfad instanziiert ihn.
+- **W15 — Dividenden-Buchung: umgesetzt.** `scripts/ops/book_dividends.py` (Commit `bb6e10dd`, 2026-07-23) bucht Broker-DIV-Activities idempotent in den Paper-Ledger; in `run_live_paper` vor dem Zyklus verdrahtet, best-effort (Reconcile bleibt Backstop). 4 Regressionstests.
+- **.env-History-Status** (aus `.gitleaks.toml`-Kommentaren, Incident 2026-04-18): Die historischen Commits mit `.env`-Keys verbleiben in der Git-History — **History-Rewrite wurde abgelehnt**, alle Provider-Keys wurden provider-seitig rotiert/revoked (tote Keys). `.env` ist bewusst NICHT allowlisted, sodass jeder neue `.env`-Commit den Gitleaks-Scanner failen lässt. Details: `docs/incidents/2026-04-18_env_exposure.md`.

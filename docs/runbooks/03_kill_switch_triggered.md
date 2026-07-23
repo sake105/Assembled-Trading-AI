@@ -7,8 +7,8 @@
 
 ## Symptoms
 
-- `output/runs/_kill_switch/state.json` shows `active: true`.
-- `kill_switch_audit.jsonl` has recent activation entry.
+- `output/ops/kill_switch_state.json` shows `active: true`.
+- `output/ops/kill_switch_audit.jsonl` has recent activation entry.
 - Cycle logs contain `[CRITICAL] KILL SWITCH ACTIVATED`.
 - Orders filtered out at Phase 18; `orders_placed == 0` with non-empty targets.
 - Alert emitted with severity `critical`.
@@ -17,7 +17,7 @@
 
 1. **Do NOT deactivate immediately.** A kill-switch trigger is a safety signal, not a nuisance.
 2. Read the activation entry:
-   - `tail -n 1 output/runs/_kill_switch/kill_switch_audit.jsonl | python -m json.tool`
+   - `tail -n 1 output/ops/kill_switch_audit.jsonl | python -m json.tool`
    - Note `reason`, `throttle_pct`, `trigger_source`, `timestamp`.
 3. Snapshot current ledger + last run folder.
 4. Notify stakeholders (Telegram / email channel) with reason + audit entry.

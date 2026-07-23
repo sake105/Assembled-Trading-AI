@@ -46,10 +46,17 @@ Tag 2->3: +2%
 
 ### 2. Dividenden als Cashflow
 
-**Prinzip:**
+**Prinzip (Policy-Soll):**
 - Dividenden werden **nicht** in Preise adjustiert
 - Dividenden sind **Cashflow-Events** (Ledger-ready)
 - `compute_dividend_cashflows()` generiert Cashflow-Events fuer Positionen
+
+> **⚠️ Korrektur zur Datenrealitaet (2026-07-23):** Die Aussage "Dividenden nicht adjustiert"
+> beschreibt die Policy, NICHT den Ist-Zustand des Live-Stores: Der `close` in
+> `output/aggregates/daily.parquet` **IST total-return-adjustiert (Splits + Dividenden)** —
+> verifiziert 2026-06-01 gegen yfinance `Adj Close` (~0,00 bps Median-Abweichung; vs. raw
+> 330–1600 bps Divergenz). Wer daily.parquet-`close` als "unadjusted Trading-Preis"
+> interpretiert oder Dividenden-Cashflows ZUSAETZLICH bucht, erzeugt Doppelzaehlung.
 
 **Warum?**
 - Dividenden sind tatsaechliche Cashflows (nicht nur Preis-Anpassung)

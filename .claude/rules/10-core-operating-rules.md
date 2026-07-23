@@ -76,7 +76,7 @@ Nicht jede kleine Änderung braucht ROADMAP-/Memory-Updates.
 
 **Orte (wenn Pflicht greift):**
 
-- `ROADMAP_STATE.md`: Task-Status, letzte Schritte, nächster sicherer Schritt
+- Forschungs-Status: `research/registry.md` + `research/ledger.md`; Umsetzungs-/Findings-Status: `docs/GESAMTBEWERTUNG.md` §4 (eine `ROADMAP_STATE.md` existiert nicht)
 - `memory/MEMORY.md` + zugehörige Memory-Datei: nur bei Milestone-Abschluss oder echtem Statuswechsel
 - passende Spec- oder Designdatei bei sensiblen Architekturentscheidungen
 

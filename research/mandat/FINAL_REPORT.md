@@ -99,3 +99,42 @@ Drawdown. Gold = einzige Versicherung mit positivem Erwartungswert und 0 % Steue
 4. Live: Shadow-Track 13F_k10 läuft (2026-07-12: 101.787 vs SPY 101.281); Paper-Pilot separat.
 
 *Reproduzierbarkeit: alle Skripte research/mandat/, Seeds fixiert, Registry/Ledger append-only.*
+
+---
+
+## Addendum (2026-07-23) — Wellen 41–45 + H-086/E-051-Re-Runs (Stand N=1971)
+
+Dieses Addendum ergänzt das Dossier (Stand 2026-07-12, N=1.964) um die danach abgeschlossenen
+Arbeiten. Der Haupttext bleibt unverändert. Quelle: `research/ledger.md`, Wellen 41–45 + Eintrag
+2026-07-22.
+
+- **H-081 Stillhalter-VERDICT (W41): FAIL, Feld GESCHLOSSEN — Methodik-Hinweis:** Das Verdict
+  beruht auf **Index-Ebene** (CBOE BXMD 38,4 J / PUT 19,4 J / BXM 24,3 J — echte gehandelte
+  SPX-Optionspreise, aber als Index-Historien, keine eigene Implementierung) plus
+  **Extrapolation** des deutschen Steuer-Overlays via Monats-Dekomposition (Approximation,
+  Stillhalter-Asymmetrie: positive Options-Monate sofort 26,375 %, negative nur Verlusttopf).
+  Ergebnis: selbst BXMD trailt SPXTR brutto (10,90 % vs 11,52 % CAGR); netto alle drei klar
+  unter ETF (BXMD 3,56M vs 5,15M). Damit war die im Haupttext offene Tür (Stillhalter-Prämie,
+  daten-gated) geschlossen.
+- **H-083 (W43) — einheitliche OOS-Re-Evaluation:** Rezenz-Holdout 2021-07→2026-07:
+  **0/15 Signal-Strategien schlagen SPY**; nur gold-haltige Aufstellungen gewinnen
+  (70/30 SPY/GLD Sharpe 1,02) — Endspez. bestätigt, aus Diversifikation + §23, nicht Alpha
+  (pseudo-OOS, Daten lagen bei Design vor).
+- **H-084 (W44) — Odd-Lot-Tender:** REAL-ABER-KLEIN — Mechanismus bestätigt (60,5 % positive
+  Captures, Median +3,73 %), Kapazität ~200–600 €/Jahr → Forward-Scanner, kein Backtest-Feld.
+- **H-085 (W45) — Abfindungswerte-Watchlist (DE):** operativ, kein Trial; 6 Fälle inkl.
+  Staatl. Mineralbrunnen (+1,95 % Spread + Nachbesserungs-Option).
+- **H-086 (2026-07-22) — Vorabpauschale (§18 InvStG) im ETF-Benchmark:** Effekt winzig —
+  ETF-Endwert 1.610.149 → 1.609.380 = **netto −0,05 %** (VP-Effekt −0,091 %, TFS-Rundungs-
+  Korrektur +0,043 %). Die Haupttext-Aussage „Vorabpauschale bewusst konservativ weggelassen"
+  ist damit quantifiziert: **kein Verdict-Kipp** — H-032 low-div bleibt mit **−1,21 %** UNTER
+  dem ETF (vorher −1,25 %). Der Mandats-Kernbefund (keine Aktien-Strategie schlägt den ETF
+  nach ehrlicher Steuer) wird benchmark-seitig sauber BESTÄTIGT.
+- **E-051-Re-Runs (2026-07-22):** H-029/H-031/H-047/H-035/H-036(+036c) alle **FAIL bestätigt**,
+  kein Verdict-Flip. Ehrlicher Restbefund: **H-029/H-031 bleiben nicht-deterministisch**
+  (script-eigene Screen-Loops mit Set-Iteration, PYTHONHASHSEED-abhängige Order-Reihenfolge;
+  Streuung ±4–8 % Endwert, DSR-Fail in jedem Draw stabil). Frozenset-Sensitivität war teils
+  groß (H-035 ~4× Endwert, H-036 Large-Band −72 %) — pre-Fix-Absolutwerte dieser Screens als
+  Zufalls-Draws lesen, Verdicts stehen.
+- **Zählerstand:** N=1971 (Stand 2026-07-22; W44/45 + H-086/E-051 waren Re-Validierung/
+  operativ, keine neuen Signal-Trials seit W43).

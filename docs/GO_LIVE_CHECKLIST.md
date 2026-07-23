@@ -28,21 +28,16 @@ aber kein FAILED.
 
 **Beschreibung:** Alle Workflows in `.github/workflows/` grün auf main.
 
-**Status: [OFFEN]**
+**Status: [ERFÜLLT]** — Paket 4a, 2026-05-28
 
-6 von 21 Workflows sind auf dem letzten Push (a7e01689, 2026-05-27T00:24 UTC) rot:
+Alle 7 aktiven CI-Workflows grün seit Paket 4a (Commits 96ae4cd2→879c2c7d, 2026-05-28).
+Fixes damals: requirements.txt-Pins (pytest/ruff/scipy/sklearn), backend-ci.yml `-W error`
+entfernt, 4 Windows-Workflows um scipy/statsmodels/sklearn ergänzt, release-gate bare-pip
+entfernt, 5 Testdateien repariert (importorskip numba/sklearn u. a.).
 
-| Workflow | Fehler |
-|----------|--------|
-| CI (ubuntu + windows) | `test_causal_ml.py` — `RuntimeError: fit_plr requires scikit-learn` |
-| Backend CI (Py 3.10 + 3.11) | Exit code 127 (pytest/Befehl nicht gefunden) |
-| Accounting CI (Windows) | `ModuleNotFoundError: No module named 'scipy'` — Portfolio-`optimizers.py` importiert scipy auf Top-Level |
-| Release Gate CI (Windows) | Gleiche scipy-Kaskade |
-| Evidence Pack CI (Windows) | Gleiche scipy-Kaskade |
-| Ops Evidence CI (Windows) | Gleiche scipy-Kaskade |
-
-15 Workflows grün (inkl. nightly-runall, paper-trading-ci, daily-paper-reconcile, disclosures-worker-ci).  
-**Was konkret fehlt:** `scikit-learn` und `scipy` fehlen in den CI-Requirements für Windows-Jobs; Backend-CI-Job hat einen Konfigurationsfehler (exit 127).
+Historischer Stand 2026-05-27 (überholt): 6 Workflows rot wegen fehlender scipy/sklearn in
+Windows-CI-Requirements + Backend-CI exit 127 — Details in
+`docs/cleanup/`-Artefakten bzw. Memory-Session „paket-4a-ci-repair".
 
 ---
 
@@ -142,6 +137,10 @@ append-only mit Timestamp persistiert.
 - Hook-Punkte: `_tc_risk.py` (SUBMITTED), `_tc_execution.py` (FILLED), `unified_paper_engine.py` (alle Transitions)
 - trade_journal.jsonl bleibt vollständig erhalten (rückwärtskompatibel)
 - 9 Tests, alle PASS. Stage 1+2+3 review chain PASS. CI unverified.
+
+**Nachtrag 2026-07-23:** Zum Zeitpunkt von Paket 4c war das Lifecycle-Log nur in der
+Paper-/Unified-Engine verdrahtet. Im **echten Broker-Pfad** (Alpaca-Execution) ist es erst
+seit Commit `f7777caf` (2026-07-22, GESAMTBEWERTUNG P4 — Lifecycle-Wiring) angebunden.
 
 ---
 
@@ -303,4 +302,4 @@ Infrastruktur produktionsreif für Paper-Betrieb. Kein Go-Live ohne validierten 
 
 *B1 formal erfüllt (OOS-Nachweis existiert), aber Ergebnis **negativ** — kein Go-Live ohne validierten Edge (Abschluss-Entscheidung 2026-05-29).
 
-**Letzte Aktualisierung:** 2026-05-29 (B2 von OFFEN → ERFÜLLT: CPCV-Leakage-Check 10 Folds, 4/4 Checks PASS)
+**Letzte Aktualisierung:** 2026-07-23 (A2-Body auf Post-Paket-4a-Stand versöhnt mit Summary; C1-Nachtrag Broker-Pfad-Wiring f7777caf. Davor: 2026-05-29, B2 OFFEN → ERFÜLLT)

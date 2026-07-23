@@ -1,6 +1,6 @@
 # Backend Architecture - Assembled Trading AI
 
-**Letzte Aktualisierung:** 2025-01-15
+**Letzte Aktualisierung:** 2026-05-31 (letzter Commit 90625485; Header-Datum am 2026-07-23 korrigiert — stand fälschlich auf 2025-01-15)
 
 ## Überblick
 

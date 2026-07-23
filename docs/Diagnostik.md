@@ -465,3 +465,21 @@ Zusätzlich zu Abschnitt A–C des Hauptteils, **neu/aufgewertet**:
 **Entwarnt:** `groupby().last()` (G3, upstream sortiert) und der feature_store-Embargo (G4, inert) — beide kein aktiver Bug. Das **SPY-Urteil bleibt unverändert belastbar**: die load-bearing OOS-Harnesses sind state-isoliert (G2), und kein Befund dieses Nachtrags ändert die Edge-Analyse.
 
 *Ende der Diagnostik (inkl. Nachtrag 2026-06-03). Read-only erstellt; keine Code-Änderungen. Alle Befunde unabhängig zweitgeprüft; 11 Gap-/Blocker-Punkte first-hand verifiziert; Secrets gemäß Rule 20 ohne Wertausgabe behandelt; CI nicht ausgeführt.*
+
+---
+
+## Nachtrag Status 2026-07 (datiert 2026-07-23) — Remediation-Stand der Blocker/Majors
+
+Umsetzungsstand nach GESAMTBEWERTUNG-Paketen P1–P4 (Commits `6a4fd712`, `f7777caf`, 2026-07-22):
+
+- **G5 (drawdown_policy-Shape-Mismatch): CLOSED.** `configs/policy.yaml` hat jetzt
+  `drawdown_policy.levels` (soft −10 % / hard −15 % / kill −20 %) im vom Code erwarteten
+  Shape; operator-gesetzte DD-Schwellen greifen (Commit `6a4fd712`).
+- **V1 (Reconcile-/Circuit-Breaker-Alerts still gedroppt): CLOSED** — fehlende Regeln
+  ergänzt/verdrahtet (GESAMTBEWERTUNG P1–P3).
+- **G7 (Monitoring-Kill-Switch-Dead-Import): CLOSED** (GESAMTBEWERTUNG P1–P3).
+- **V4 (news_alpha-EOD-Pfad funktionslos): TEILREMEDIERT.** Teile des Wirings adressiert;
+  der EOD-Pfad ist noch nicht vollständig als funktionsfähig verifiziert — Reststatus offen.
+
+Alle übrigen Befunde dieses Dokuments: Stand 2026-06-03, dort nicht neu bewertet.
+Der ursprüngliche Text bleibt unverändert (Audit-Artefakt).

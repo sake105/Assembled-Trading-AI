@@ -493,3 +493,24 @@ Momentum-Decay / Crowding / Universumsgröße:
 _Status: Reine Recherche, abgeschlossen 2026-05-31. Kein Code geändert, keine Backtests neu
 ausgeführt, keine Zahlen erfunden. Interne Zahlen transkribiert (CI-unbestätigt, nicht
 unabhängig repliziert); externe Aussagen zitiert (§9); Hypothesen als [H] markiert._
+
+---
+
+## Korrektur-Nachtrag (2026-07-23) — Vorzeichen der SPY-Dividenden-Zeile (Z. ~210)
+
+Die Tabellenzeile „SPY-Benchmark kostenlos + ohne Dividenden → **pessimistisch (konservativ)**"
+ist im Dividenden-Teil **falsch vorzeichenbehaftet**. Richtig ist:
+
+- **SPY ohne Dividenden senkte die Latte** für die Strategien: Der Benchmark wurde um die
+  Dividendenrendite (~1,5–2 % p.a.) untertrieben, war also LEICHTER zu schlagen — für die
+  Strategie ist das **optimistisch**, nicht pessimistisch. (Nur der Teil „SPY kostenlos"
+  wirkt pessimistisch/konservativ.)
+- **Konsequenz für die Verdicts:** Die negativen Verdicts werden dadurch **STÄRKER**, nicht
+  schwächer — eine Strategie, die schon den dividenden-losen (zu niedrigen) SPY nicht schlug,
+  verliert gegen den echten Total-Return-SPY noch deutlicher. Der Kernschluss („negatives
+  Ergebnis ist belastbar") bleibt damit uneingeschränkt gültig und wird verstärkt.
+- Kontext (Befund 2026-06-01): `output/aggregates/daily.parquet` `close` ist total-return-
+  adjustiert — die Strategieseite hatte Dividenden implizit drin, der SPY-Vergleich in
+  `_oos_wf_trend_baseline.py:240-261` nicht.
+
+Der ursprüngliche Text oben wird absichtlich **nicht still geändert** (Audit-Artefakt).

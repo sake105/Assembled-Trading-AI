@@ -27,8 +27,9 @@ Single authority for "should an order be placed at all right now".
 
 ## State
 
-Persistent JSON at `output/state/kill_switch_state.json`. Append-only
-audit at `output/audit/kill_switch_audit.jsonl`. Every transition is
+Persistent JSON at `output/ops/kill_switch_state.json`. Append-only
+audit at `output/ops/kill_switch_audit.jsonl` (Code-Stand `kill_switch.py`,
+env-overridebar). Every transition is
 recorded with timestamp, old tier, new tier, reason, actor.
 
 ## Invariants

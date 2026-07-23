@@ -30,7 +30,7 @@ Sie gelten für Kommunikation, Dateiarbeit und Werkzeugwahl — nicht für fachl
 
 ## claude-mem (installiert v10.6.2)
 
-- **Sitzungsbeginn:** `claude-mem:mem-search` verwenden, um relevantes Vorwissen zu laden — statt ROADMAP_STATE, ROADMAP_LOG und andere große Docs von Grund auf neu einzulesen.
+- **Sitzungsbeginn:** `claude-mem:mem-search` verwenden, um relevantes Vorwissen zu laden — statt `research/registry.md`/`research/ledger.md`, `docs/GESAMTBEWERTUNG.md` §4 und andere große Docs von Grund auf neu einzulesen.
 - **Sitzungsende:** `memory-tracker` Subagent aufrufen, wenn bedeutsame Entscheidungen, Status-Wechsel oder neue Annahmen entstanden sind.
 - **Während der Arbeit:** Keine doppelte Ablage: was in claude-mem steht, nicht nochmal in den Hauptkontext laden.
 - **Niemals:** memory-Inhalte pauschal in Antworten ausgeben — nur auf Anfrage oder wenn direkt relevant.

@@ -4,6 +4,11 @@
 **Art:** Reine Analyse + Verifikation. NICHTS gelöscht, NICHTS geändert (außer den 5 Einzelberichten + diesem Bericht unter `docs/audit/`).
 **Methode:** 5 spezialisierte Sub-Agenten (statische Analyse, Daten-Tracing, Look-Ahead-Prüfung, unabhängige numerische Re-Implementierung, Test-Substanz-Prüfung). Die zwei höchst-relevanten Funde wurden vom Orchestrator **direkt am Quellcode nachverifiziert** (siehe „Verifikationsstatus").
 
+> **Nachtrag 2026-07-23:** **H-1 (MaxDD%-Global-Peak-Bug) ist GEFIXT** — `compute_drawdown`
+> normalisiert jetzt peak-to-date (`src/assembled_core/qa/metrics.py:217-229`, Fix vom
+> 2026-05-30, siehe Fix-Log am Dateiende). Die H-1-Beschreibungen im Berichtstext unten
+> beschreiben den Stand VOR dem Fix und bleiben als Audit-Artefakt unverändert.
+
 **Einzelberichte:**
 - `docs/audit/01_dead_code.md` — Tote Pfade & Ballast
 - `docs/audit/02_wiring_dataflow.md` — Verdrahtung & Daten-Integrität

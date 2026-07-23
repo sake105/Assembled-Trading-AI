@@ -124,3 +124,6 @@ experiments/*/run.json
 
 # System map design/screenshot scratchpad (local UI research, not tracked)
 docs/architecture/system_map/screenshots/
+
+# Hook-Liveness-Heartbeat (P8) — lokales Betriebsartefakt, nicht versionieren
+.claude/.hook_heartbeat.jsonl

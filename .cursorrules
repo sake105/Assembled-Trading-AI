@@ -1,3 +1,9 @@
+# =============================================================================
+# DEPRECATION-HINWEIS (2026-07-23): Diese Datei ist auf dem Stand von ~2025 und
+# wird NICHT mehr gepflegt. Autoritativ fuer Agent-/Assistent-Regeln sind
+# CLAUDE.md (Root) + .claude/rules/*.md. Bei Widerspruch gilt CLAUDE.md.
+# =============================================================================
+
 # Project: Assembled_Trading_AI — Cursor Workspace Rules
 # Purpose: Gib Cursor feste Leitplanken für Code, Scripts, Doku und Reviews.
 

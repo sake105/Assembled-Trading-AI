@@ -1,7 +1,15 @@
 # Pilot Operations Playbook
 
+> **⚠️ TEILWEISE VERALTET (Stand-Hinweis 2026-07-23):** Dieses Playbook ist auf dem Stand
+> 2026-05-07. Seit dem Pilot-Relaunch am **2026-07-02** gilt statt der hier ggf. genannten
+> **−8 %**-Drawdown-Regel eine **−10 %-SOFT-Halt**-Regel (neue Baseline 87.874,90 USD;
+> `configs/app.yaml` `start_capital`+`dd_stop_pct`, Resume via `ack_halt`, kein
+> OPERATOR_KILL_TOKEN nötig). Zusätzlich existieren seit `6a4fd712` (2026-07-22)
+> `drawdown_policy.levels` in `configs/policy.yaml` (soft −10 % / hard −15 % / kill −20 %).
+> Bei Widerspruch gilt der Code-/Config-Stand, nicht dieses Dokument.
+
 **Audience:** Solo operator running 30-day Alpaca paper pilot  
-**Updated:** 2026-05-07  
+**Updated:** 2026-05-07 (Deprecation-Banner 2026-07-23)  
 **Purpose:** Pre-written decision tree for the 7 most likely failure modes.
 Read this BEFORE starting a trading session, not during an incident.
 

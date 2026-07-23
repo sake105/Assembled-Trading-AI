@@ -21,7 +21,7 @@ Plan, Spec, Roadmap und tatsächlich implementierter Code sind unterschiedliche 
 - API-Schicht (FastAPI, read-only)
 
 Das Projekt ist **kein Skeleton und kein Proof-of-Concept**.
-Es umfasst **31 Kernmodule** in `src/assembled_core/`, **91 Scripts**, **557 Testdateien** und **17 CI-Workflows**. (Stand 2026-04-27 — `scripts/regenerate_agents_stats.py` für aktuelle Zahlen.)
+Es umfasst **32 Kernmodule** in `src/assembled_core/`, **~162 Scripts** (top-level), **~706 Testdateien** und **21 CI-Workflows**. (Stand 2026-07-23 — `scripts/regenerate_agents_stats.py` für aktuelle Zahlen.)
 
 **Quellen der Wahrheit:**
 - `src/assembled_core/` — Kernlogik (Single Source of Truth für Backend-Module)
@@ -102,12 +102,12 @@ nennen: veraltet, nicht mehr gültig.
 ## Verzeichnisstruktur (Übersicht)
 
 ```
-src/assembled_core/    — 22 Kernmodule (data, features, signals, execution,
+src/assembled_core/    — 32 Kernmodule (data, features, signals, execution,
                           portfolio, pipeline, qa, api, ops, accounting,
                           risk, reports, events, config, ml, ...)
-scripts/               — ~50 Entry-Point- und Hilfs-Scripts
-tests/                 — ~330 Testdateien, 12 Phasen (phase4–phase12)
-.github/workflows/     — 9 CI-Workflows (Ubuntu + Windows)
+scripts/               — ~162 Entry-Point- und Hilfs-Scripts (top-level .py)
+tests/                 — ~706 Testdateien, 12 Phasen (phase4–phase12)
+.github/workflows/     — 21 CI-Workflows (Ubuntu + Windows)
 configs/               — policy.yaml, Batch-Configs, News-/Disclosure-Configs
 data/                  — data/raw/, data/sample/, data/factors/ (nicht in Git)
 output/                — Pipeline-Outputs (nicht in Git)
@@ -136,7 +136,7 @@ pytest tests/test_cli.py tests/test_features_ta.py tests/test_qa_metrics.py \
 ```
 
 **Bekannte Testrealität:**
-- ~19 Testdateien schlagen bei der Collection fehl (unfertige Stubs in `src/assembled_core/data/`)
+- Collection ist sauber (Stand 2026-07-23: 8716 Tests collected, 0 Collection-Errors). Der frühere Stand „~19 Testdateien mit Collection-Fehlern" ist seit April 2026 behoben.
 - Optionale Dependencies (`scipy`, `scikit-learn`) führen zu erwarteten Skips, nicht zu Fehlern
 - Phase-4-Baseline (~117 Tests) läuft durch
 
@@ -199,7 +199,6 @@ git add -f src/assembled_core/data/<dateiname>
 
 ## Bekannte Problemstellen (pre-existing)
 
-- ~19 Testdateien schlagen bei der Collection fehl (unfertige Stub-Funktionen in `src/assembled_core/data/`)
 - Ruff meldet 76 Lint-Findings (hauptsächlich unused imports) — CI zeigt diese ebenfalls, sie sind bekannt
 - `src/assembled_core/ml/__init__.py` enthält `NotImplementedError` — ML-Trainings-Pfad nicht implementiert
 - Monitoring-Endpoints unter `/api/v1/monitoring/` geben teilweise Dummy-Daten zurück

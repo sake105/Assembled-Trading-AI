@@ -248,3 +248,22 @@ die in §4.4 definierten Mindestanforderungen erfüllt.**
 _Dokument: `docs/PROJEKT_ABSCHLUSS_2026_05.md`_  
 _Ergebnisdokumentation: `docs/results/2026_05_strategy_comparison.md`_  
 _GO_LIVE_CHECKLIST: `docs/GO_LIVE_CHECKLIST.md`_
+
+---
+
+## Nachtrag (2026-07-23) — Einordnung multifactor_long_short / etf_pairs_meanrev
+
+Die Verdicts „KEIN EDGE" für **multifactor_long_short** (Zeile 3) und **etf_pairs_meanrev**
+(Zeile 7) sind präziser als **„nicht valide getestet"** zu lesen, nicht als Konzept-FAIL:
+
+- **multifactor_long_short:** Der OOS-Lauf betrieb das Long-Short-Faktormodell **long-only**
+  (im Dokument selbst benannt: „Long-Only-Betrieb bricht das Long-Short-Faktormodell
+  fundamental"). Das Ergebnis (−19,5 % CAGR) misst damit nicht das Konzept, sondern eine
+  invalide Betriebsart.
+- **etf_pairs_meanrev:** Der Harness testete eine wörtliche Literal-Umsetzung mit bekannten
+  Einschränkungen; das Ergebnis widerlegt das Pair-Trading-Konzept nicht generell, sondern
+  nur diese konkrete Implementierung auf diesem Universum.
+
+Konsequenz: Beide dürfen nicht als „Konzept widerlegt" zitiert werden — korrekt ist
+„in dieser Form nicht valide getestet / kein verwertbarer Nachweis". Der ursprüngliche
+Text oben bleibt unverändert (Audit-Artefakt).

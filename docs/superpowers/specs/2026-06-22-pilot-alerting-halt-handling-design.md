@@ -1,7 +1,7 @@
 # Design — Paper-Pilot Alerting + Halt-Handling
 
 Datum: 2026-06-22
-Status: APPROVED (Design v2), Spec-Review ausstehend
+Status: Phase 1 shipped 2026-06-22 (watchdog + Telegram-Alerts + shadow-Liquidation, Commits `26d9b930`→`b58988ce`); Phase 2 (echtes close_all_positions) weiterhin GATED. (Status aktualisiert 2026-07-23; war: APPROVED Design v2, Spec-Review ausstehend)
 Autor: Fable (remote-control) + Operator
 Scope-Typ: Ops/Monitoring (Phase 1, nicht-geschützt) + gated Auto-Liquidation (Phase 2, geschützt)
 
