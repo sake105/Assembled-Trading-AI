@@ -170,9 +170,11 @@ def book_pending_dividends(
 
     if dry_run:
         logger.info(
-            "[dividends] DRY-RUN: %d activities, %+.2f USD total", len(new), total
+            "[dividends] DRY-RUN: %d activities, %+.2f USD total",
+            len(entries),
+            total,
         )
-        return len(new)
+        return len(entries)
 
     # Booked-log parent FIRST (Stage-1 fix: was the module constant, not the
     # parameter — a custom booked_log with missing parent would fail AFTER
@@ -187,11 +189,12 @@ def book_pending_dividends(
             fh.write(json.dumps(e) + "\n")
     logger.info(
         "[dividends] booked %d DIV activities, %+.2f USD -> ledger cash %.2f",
-        len(new),
+        len(entries),
         total,
         state["cash"],
     )
-    return len(new)
+    # Count of activities actually BOOKED (parse-guard skips excluded).
+    return len(entries)
 
 
 def main() -> int:

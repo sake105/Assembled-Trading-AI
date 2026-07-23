@@ -105,6 +105,43 @@ def test_w15_api_failure_is_nonfatal(mod, tmp_path):
     assert state["cash"] == pytest.approx(1000.0)
 
 
+def test_w15_malformed_net_amount_is_skipped_not_booked(mod, tmp_path):
+    # Stage-2 F-senior-3 / Stage-3 F-auditor-1: one malformed net_amount
+    # must (a) not crash, (b) not block the valid neighbour, (c) NOT be
+    # marked booked — so it is retried on the next run.
+    ledger = tmp_path / "ledger_state.json"
+    booked_log = tmp_path / "booked.jsonl"
+    _write_ledger(ledger, 1000.0)
+
+    def _mixed():
+        return [
+            {"id": "bad-1", "symbol": "XXX", "net_amount": "N/A", "date": "2026-07-01"},
+            {
+                "id": "div-1",
+                "symbol": "TLT",
+                "net_amount": "25.31",
+                "date": "2026-07-01",
+            },
+        ]
+
+    n = mod.book_pending_dividends(
+        ledger_path=ledger, booked_log=booked_log, fetch=_mixed
+    )
+    assert n == 1  # only the valid one counted... see note below
+
+    state = json.loads(ledger.read_text(encoding="utf-8"))
+    assert state["cash"] == pytest.approx(1025.31)  # only TLT credited
+    ids = [json.loads(x)["activity_id"] for x in booked_log.read_text().splitlines()]
+    assert "div-1" in ids
+    assert "bad-1" not in ids  # NOT marked booked -> retried next run
+
+    # Second run: bad-1 is retried (still malformed -> still skipped),
+    # div-1 is idempotent — cash unchanged.
+    mod.book_pending_dividends(ledger_path=ledger, booked_log=booked_log, fetch=_mixed)
+    state2 = json.loads(ledger.read_text(encoding="utf-8"))
+    assert state2["cash"] == pytest.approx(1025.31)
+
+
 def test_w15_dry_run_writes_nothing(mod, tmp_path):
     ledger = tmp_path / "ledger_state.json"
     booked_log = tmp_path / "booked.jsonl"
