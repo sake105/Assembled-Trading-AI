@@ -8,19 +8,35 @@
 # To regenerate: pip-compile pyproject.toml -o requirements.txt
 # ============================================================
 
+# setuptools floor (2026-07-23): PYSEC-2026-3447 (MANIFEST.in Unicode-
+# normalization bypass, fixed 83.0.0) plus the older PYSEC-2022-43012/
+# 2025-49/2026-1918 hit ANY runner-bundled setuptools <83 — this newly
+# published advisory turned the pip-audit gate red on 2026-07-23 without
+# any repo change. Real fix (floor), no waiver.
+setuptools>=83.0.0
 pandas==2.2.3
 numpy==2.2.6
-pyarrow==21.0.0
+# pyarrow 23.0.1 clears CVE-2026-25087 / PYSEC-2026-113 (use-after-free in IPC
+# pre-buffering; affected 15.0.0-23.0.0). Upgraded 2026-07-23 (real fix, no waiver).
+pyarrow==23.0.1
 fastparquet==2024.11.0
 python-dateutil==2.9.0.post0
-requests==2.32.4
+# requests 2.33.0 clears CVE-2026-25645 (extract_zipped_paths temp-file reuse);
+# its pip-audit waiver was removed with this upgrade (2026-07-23).
+requests==2.33.0
 # urllib3 is a transitive dep of requests/yfinance/alpaca-py/polygon-api-client.
 # Pinned explicitly (security floor) so the CI install + pip-audit deterministically
-# get the fixed build: 2.6.3 clears CVE-2025-66418, CVE-2025-66471, CVE-2026-21441.
-# requests==2.32.4 allows urllib3<3,>=1.21.1; polygon-api-client requires >=1.26.9 — both satisfied.
-urllib3==2.6.3
+# get the fixed build: 2.7.0 clears CVE-2026-44431/44432 (= PYSEC-2026-141/142,
+# header-forwarding + decompression-bomb — their waivers removed 2026-07-23) on top
+# of the earlier CVE-2025-66418/66471, CVE-2026-21441 fixes.
+# requests==2.33.0 allows urllib3<3,>=1.21.1; polygon-api-client requires >=1.26.9 — both satisfied.
+urllib3==2.7.0
 yfinance==0.2.54
-alpaca-py==0.38.0
+# alpaca-py raised 0.38.0 -> 0.43.2 (2026-07-23, Stage-2 F-senior-2): the local
+# venv and the LIVE paper pilot have been running 0.43.2 for months while CI
+# tested 0.38.0 — classic Rule-40 drift on the broker SDK. CI now tests what
+# actually runs in production.
+alpaca-py==0.43.2
 polygon-api-client==1.14.4
 fredapi==0.5.2
 edgartools==2.26.1

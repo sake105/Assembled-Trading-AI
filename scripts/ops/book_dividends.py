@@ -21,6 +21,14 @@ Failure policy: best-effort. An API failure logs WARNING and exits 0 — the
 reconcile halt remains the backstop; this script only removes the known
 drift source, it is not itself a safety control.
 
+Known crash window (Stage-2 F-senior-5, accepted trade-off): the ledger
+save happens BEFORE the booked-log append. A process kill between the two
+double-credits on the next run (single TLT payout ~25 USD, below the $100
+reconcile gate). The inverse ordering would instead degrade to
+never-booked on a crash — permanently growing drift. Chosen direction:
+rare double-credit (bounded, reconcile-visible on accumulation) over
+silent permanent drift.
+
 Usage:
     python scripts/ops/book_dividends.py            # book new DIV activities
     python scripts/ops/book_dividends.py --dry-run  # show without writing
@@ -129,7 +137,19 @@ def book_pending_dividends(
     total = 0.0
     entries = []
     for a in new:
-        amount = float(a.get("net_amount", 0.0))
+        # Stage-2 F-senior-3: guard the parse — one malformed net_amount
+        # (e.g. "N/A") must skip that activity, not crash the whole booking.
+        try:
+            amount = float(a.get("net_amount", 0.0))
+        except (TypeError, ValueError):
+            logger.warning(
+                "[dividends] unparseable net_amount %r for activity %s (%s) — "
+                "skipped, NOT marked booked (retried next run)",
+                a.get("net_amount"),
+                a.get("id"),
+                a.get("symbol"),
+            )
+            continue
         total += amount
         entries.append(
             {
@@ -154,9 +174,14 @@ def book_pending_dividends(
         )
         return len(new)
 
+    # Booked-log parent FIRST (Stage-1 fix: was the module constant, not the
+    # parameter — a custom booked_log with missing parent would fail AFTER
+    # the ledger write, leaving the activity unlogged -> double-booked on
+    # retry). Creating the dir before the ledger save keeps the failure
+    # window to the append itself.
+    booked_log.parent.mkdir(parents=True, exist_ok=True)
     state["cash"] = float(state.get("cash", 0.0)) + total
     save_ledger_state(state, ledger_path)
-    BOOKED_LOG.parent.mkdir(parents=True, exist_ok=True)
     with booked_log.open("a", encoding="utf-8") as fh:
         for e in entries:
             fh.write(json.dumps(e) + "\n")

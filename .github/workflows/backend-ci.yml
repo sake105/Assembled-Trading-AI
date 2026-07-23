@@ -82,23 +82,25 @@ jobs:
           # re-blocks CI. Prefer dependency upgrades over indefinite ignores.
           # RESOLVED (CVE-2024-47081, requests): `requests` upgraded to 2.32.4
           # (fixes the .netrc credential leak); the corresponding --ignore-vuln
-          # line has been removed. The separate CVE-2026-25645 (requests) is not
-          # fixed in 2.32.4 (needs >=2.33.0) and remains waived below.
+          # line has been removed.
+          # RESOLVED (CVE-2026-25645 / PYSEC-2026-2275, requests): upgraded to
+          #   2.33.0 (2026-07-23); waiver removed (real fix).
+          # RESOLVED (PYSEC-2026-141/142 = CVE-2026-44431/44432, urllib3):
+          #   upgraded to 2.7.0 (2026-07-23); both waivers removed (real fix).
+          # RESOLVED (PYSEC-2026-113 / CVE-2026-25087 / GHSA-rgxp-2hwp-jwgg,
+          #   pyarrow use-after-free): upgraded 21.0.0 -> 23.0.1 (2026-07-23);
+          #   waiver removed (real fix). This advisory (published ~2026-07)
+          #   was the 2026-07-23 CI blocker: the old waiver line matched the
+          #   PYSEC id but the audit surfaced the GHSA/CVE alias on a pinned
+          #   21.0.0 with no fixed release below 23.0.1.
           #
           # Toolchain / pip:
           # - CVE-2025-8869, CVE-2026-1703, CVE-2026-3219, CVE-2026-6357 (pip):
           #   toolchain only, not shipped in any production artifact
           # Transitive network/HTTP deps:
           # - CVE-2026-33752 (curl-cffi): transitive, not in runtime call path
-          # - CVE-2026-25645 (requests): extract_zipped_paths() predictable temp
-          #   filename; only affects code calling that helper directly (this
-          #   project does not). Fixed in requests >=2.33.0; waived until upgrade.
-          #   CVE-2024-47081 (requests .netrc leak) is now resolved by the
-          #   upgrade to requests 2.32.4 — its waiver has been removed.
           # - CVE-2026-45409 (idna): IDNA 2008 parsing edge-case; project does not
           #   process untrusted hostnames from user input
-          # - PYSEC-2026-141, PYSEC-2026-142 (urllib3): header/decompression DoS;
-          #   all urllib3 calls are outbound to known trusted endpoints only
           # Formatting / docs tools:
           # - CVE-2026-4539 (pygments): docs/formatting only
           # - CVE-2026-32274 (black): formatting tool, not in runtime call path
@@ -106,9 +108,6 @@ jobs:
           # - CVE-2026-28684 (python-dotenv): symlink attack on .env write; .env
           #   files are read-only in this project (no programmatic write path)
           # - CVE-2026-44307 (mako): transitive templating dep, not directly imported
-          # Runtime deps:
-          # - PYSEC-2026-113 (pyarrow): only C++ bindings affected; Python API
-          #   not in vulnerable code path per CVE description
           # RESOLVED (starlette): PYSEC-2026-161, PYSEC-2026-248, PYSEC-2026-249,
           #   CVE-2026-48817, CVE-2026-48818 are all fixed in starlette >=1.3.1
           #   (PYSEC-2026-161 fixed in 1.0.1, per OSV). fastapi upgraded
@@ -124,14 +123,10 @@ jobs:
             --ignore-vuln CVE-2026-3219 \
             --ignore-vuln CVE-2026-6357 \
             --ignore-vuln CVE-2026-4539 \
-            --ignore-vuln CVE-2026-25645 \
             --ignore-vuln CVE-2026-45409 \
-            --ignore-vuln PYSEC-2026-141 \
-            --ignore-vuln PYSEC-2026-142 \
             --ignore-vuln CVE-2026-32274 \
             --ignore-vuln CVE-2026-28684 \
             --ignore-vuln CVE-2026-44307 \
-            --ignore-vuln PYSEC-2026-113 \
             2>&1 | tee -a backend_ci_log.txt
 
       - name: Security scan — code analysis (bandit)
