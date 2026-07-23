@@ -70,19 +70,48 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
     the module-level default paths are pointed at tmp_path for every test.
     Tests that pass explicit paths are unaffected.
     """
-    import src.assembled_core.execution.intent_store as _intent_store
-    import src.assembled_core.ops.order_lifecycle_log as _lifecycle
-    import src.assembled_core.qa.qa_gates as _qa_gates
+    # Each patch is individually import-guarded: importing a module here
+    # pulls its PACKAGE __init__ chain (qa/__init__ -> walk_forward ->
+    # pipeline -> policy_loader -> yaml), and the evidence-pack CI runs a
+    # MINIMAL env without PyYAML — an unguarded qa_gates import broke both
+    # Evidence workflows on 2026-07-24 (commit 06790585). If a module is
+    # not importable in an env, no test in that env can write through it
+    # either, so skipping its patch loses no isolation.
+    import importlib
 
-    monkeypatch.setattr(
-        _intent_store, "_DEFAULT_STORE_PATH", tmp_path / "intent_store.jsonl"
-    )
-    monkeypatch.setattr(
-        _lifecycle,
-        "DEFAULT_LIFECYCLE_LOG_PATH",
-        tmp_path / "order_lifecycle.jsonl",
-    )
-    monkeypatch.setattr(_qa_gates, "QA_BLOCK_FLAG_PATH", tmp_path / "qa_block.json")
+    _patches = [
+        (
+            "src.assembled_core.execution.intent_store",
+            "_DEFAULT_STORE_PATH",
+            tmp_path / "intent_store.jsonl",
+        ),
+        (
+            "src.assembled_core.ops.order_lifecycle_log",
+            "DEFAULT_LIFECYCLE_LOG_PATH",
+            tmp_path / "order_lifecycle.jsonl",
+        ),
+        (
+            "src.assembled_core.qa.qa_gates",
+            "QA_BLOCK_FLAG_PATH",
+            tmp_path / "qa_block.json",
+        ),
+        # test-runner MAJOR 2026-07-24: pre-existing qa_gates/orchestrator
+        # tests overwrote the REAL output/ops/crisis_alpha_state.json on
+        # every run — risk_controls.py reads it as the crisis-alpha PAUSE
+        # kill-switch fallback, so test residue could silently disarm a
+        # live PAUSE. Same contamination class, same fix.
+        (
+            "src.assembled_core.events.crisis_alpha.state_machine",
+            "_DEFAULT_STATE_PATH",
+            tmp_path / "crisis_alpha_state.json",
+        ),
+    ]
+    for _mod_name, _attr, _target in _patches:
+        try:
+            _mod = importlib.import_module(_mod_name)
+        except ImportError:
+            continue  # minimal env — module (and thus its writers) unavailable
+        monkeypatch.setattr(_mod, _attr, _target)
 
 
 @pytest.fixture

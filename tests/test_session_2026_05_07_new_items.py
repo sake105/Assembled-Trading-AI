@@ -3028,13 +3028,17 @@ class TestDriftMonitorFallback:
 
     def test_drift_report_date_defaults_to_today(self):
         from src.assembled_core.ops.drift_monitor import DriftMonitor
-        from datetime import date
+        from datetime import date, datetime, timezone
 
         ref = self._make_df()
         cur = self._make_df()
         monitor = DriftMonitor(ref)
         report = monitor.check_drift(cur)
-        assert report.date == date.today()
+        # Midnight-window flake fix (2026-07-24): the monitor stamps the UTC
+        # date while date.today() is local — between 00:00 and 02:00 CEST the
+        # two differ by one day and this assert failed spuriously (never in
+        # UTC-clocked CI). Accept either calendar interpretation of "today".
+        assert report.date in (date.today(), datetime.now(timezone.utc).date())
 
     def test_estimate_performance_without_evidently(self):
         """estimate_performance_without_labels returns empty dict when nannyml absent."""
@@ -13342,7 +13346,16 @@ class TestExceptPatternBound:
         # to 1025. Cap raised 1015 -> 1030 (tight +5 headroom). These are in data/
         # ingesters (not execution/risk/accounting/pipeline/paper); narrowing them to
         # specific exception types stays an ongoing goal.
-        assert broad <= 1030, f"Too many broad except patterns: {broad}"
+        # Bump 2026-07-24 (documented): the W4 qa_block-flag bridge adds three
+        # DELIBERATE broad excepts, each logged and fail-safe by contract:
+        # (1) orchestrator BLOCK->flag hook (must never break the pipeline),
+        # (2) qa_gates.write_qa_block_flag ("never raises" contract, B6),
+        # (3) run_live_paper preflight flag-reader guard (fail-CLOSED: any
+        # reader failure blocks trading — the broad except is the safety
+        # direction here, not a swallow). Count 1030 -> 1032; cap raised
+        # 1030 -> 1035 (tight +3 headroom). This ratchet caught the growth
+        # exactly as designed (CI matrix red 2026-07-24 on 06790585).
+        assert broad <= 1035, f"Too many broad except patterns: {broad}"
 
 
 # ---------------------------------------------------------------------------
