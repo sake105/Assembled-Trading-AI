@@ -53,7 +53,9 @@ joblib==1.5.2
 # mypy pinned (was unpinned, riding the dev-extra range) so the CI type-check is
 # deterministic and will not break on upstream mypy releases. 1.19.0 = locally measured.
 # Stub packages clear the import-untyped noise (requests/yaml/pytz) so the real
-# typing surface is honest. mypy stays NON-BLOCKING in backend-ci.yml (continue-on-error).
+# typing surface is honest. NOTE (corrected 2026-07-22, GESAMTBEWERTUNG): mypy is
+# BLOCKING in backend-ci.yml since 2026-06, scoped to data/features/signals/
+# execution/portfolio — the old "NON-BLOCKING" claim here was stale.
 mypy==1.19.0
 types-requests==2.33.0.20260518
 types-PyYAML==6.0.12.20260518

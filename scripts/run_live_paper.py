@@ -825,6 +825,28 @@ def cmd_once(args):
             soft_timer.cancel()
         sys.exit(1)
     _alert_on_run_gap(app_cfg)  # W12: detect silently missed runs
+
+    # W15 (2026-07-23, GESAMTBEWERTUNG): book broker dividend payouts into
+    # the ledger BEFORE the cycle/reconcile — otherwise Alpaca's real cash
+    # dividends (TLT pays monthly) drift ledger<broker until the $100 gate
+    # absorbs them into an "unexplained" halt contribution. Best-effort:
+    # the script never raises on API failure; reconcile stays the backstop.
+    # (args.dry_run directly: execution_mode is assigned further down.)
+    if not args.dry_run:
+        try:
+            from scripts.ops.book_dividends import book_pending_dividends
+
+            booked = book_pending_dividends()
+            if booked:
+                logger.info(
+                    "[run_live_paper] booked %d broker dividend payout(s)", booked
+                )
+        except Exception as _div_exc:
+            logger.warning(
+                "[run_live_paper] dividend booking failed (non-blocking): %s",
+                _div_exc,
+            )
+
     _check_soft_timeout("post_preflight")
 
     # Reset per-cycle counters
