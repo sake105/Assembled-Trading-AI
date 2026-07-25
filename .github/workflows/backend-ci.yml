@@ -150,8 +150,14 @@ jobs:
       - name: Run mypy (type checking)
         run: |
           set -o pipefail
-          # mypy is now a BLOCKING gate: any type error fails the job (134-error backlog cleared, mypy 1.19.0 pinned).
-          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio 2>&1 | tee -a backend_ci_log.txt
+          # mypy is a BLOCKING gate: any type error fails the job (mypy 1.19.0 pinned).
+          # Scope history: 134-error backlog cleared 2026-06 (5 paths); risk/ (40 errors)
+          # + paper/ (4 errors) swept to zero and added 2026-07-25 (GESAMTBEWERTUNG §8
+          # Tranche 1; behaviour-neutral type fixes only, 1230 neighbourhood tests green,
+          # 2 potential real bugs flagged as FIXME(mypy-sweep) instead of silently "fixed").
+          # Still unscoped: qa (132), pipeline (131), ops (123), api (79), accounting (41)
+          # — next tranches per §8 (accounting -> ops/api -> pipeline/qa).
+          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio src/assembled_core/risk src/assembled_core/paper 2>&1 | tee -a backend_ci_log.txt
 
       - name: Upload coverage report
         if: always()

@@ -141,7 +141,7 @@ def detect_crowding(
     dominant = None
     dominant_share = 0.0
     if concentrations:
-        dominant = max(concentrations, key=concentrations.get)
+        dominant = max(concentrations, key=lambda k: concentrations[k])
         dominant_share = concentrations[dominant]
 
     # Momentum-specific crowding

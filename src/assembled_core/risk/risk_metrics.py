@@ -16,7 +16,7 @@ and extends them with additional functionality rather than duplicating code.
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -212,7 +212,7 @@ def _z_score(alpha: float) -> float:
     if alpha in _Z_SCORES:
         return _Z_SCORES[alpha]
     try:
-        from scipy.stats import norm  # type: ignore
+        from scipy.stats import norm
 
         return float(norm.ppf(alpha))
     except Exception as exc:  # pragma: no cover - scipy missing
@@ -672,7 +672,7 @@ def compute_risk_by_factor_group(
                 df[timestamp_col] = pd.to_datetime(df[timestamp_col], utc=True)
 
     # Compute portfolio factor scores per group
-    factor_group_results = []
+    factor_group_results: list[dict[str, Any]] = []
 
     for group_name, factor_names in factor_groups.items():
         # Find available factors in this group
@@ -781,17 +781,19 @@ def compute_risk_by_factor_group(
             continue
 
         # Compute correlation
-        correlation = float(
+        corr_val = float(
             merged_with_returns["portfolio_factor_score"].corr(
                 merged_with_returns["portfolio_return"]
             )
         )
-        if np.isnan(correlation):
+        correlation: float | None = corr_val
+        if np.isnan(corr_val):
             correlation = None
 
         # Average exposure (mean of portfolio scores)
-        avg_exposure = float(merged_with_returns["portfolio_factor_score"].mean())
-        if np.isnan(avg_exposure):
+        avg_exposure_val = float(merged_with_returns["portfolio_factor_score"].mean())
+        avg_exposure: float | None = avg_exposure_val
+        if np.isnan(avg_exposure_val):
             avg_exposure = None
 
         factor_group_results.append(
@@ -1216,7 +1218,14 @@ def compute_evt_tail_var(
     EVT metrics into risk budgets without a hard dependency on scipy.
     """
     try:
-        from src.assembled_core.ml.evt_models import compute_evt_risk_metrics
+        # NOTE (mypy-sweep 2026-07-25): ml/evt_models was deliberately
+        # ARCHIVED (commit d2c3d093) — this import never succeeds anymore;
+        # the function always returns the honest evt_status="unavailable"
+        # fallback below. The ignore silences a missing MODULE, not missing
+        # stubs. Restore from archive if EVT tail-VaR is ever needed again.
+        from src.assembled_core.ml.evt_models import (  # type: ignore[import-not-found]
+            compute_evt_risk_metrics,
+        )
     except Exception as exc:  # pragma: no cover - optional import path
         # Zero tail-VaR is indistinguishable from "no tail risk" without a
         # status marker — a caller blending EVT into a tail-budget would treat
@@ -1238,11 +1247,16 @@ def compute_evt_tail_var(
             "evt_cvar_99": 0.0,
             "evt_shape_xi": 0.0,
             "evt_return_period_100y": 0.0,
-            "evt_status": "unavailable",
+            # Intentional schema deviation (see comment above): status marker is
+            # a string in an otherwise float-valued dict.
+            "evt_status": "unavailable",  # type: ignore[dict-item]
         }
     # NOTE: on the success path we do NOT add an "evt_status" field — the
     # frozen schema-stability test (tests/test_risk_metrics_evt.py) asserts the
     # exact 7-key schema. The status flag is emitted ONLY on the
     # module-unavailable fallback above, so callers that want to detect the
     # degraded state can check ``metrics.get("evt_status") == "unavailable"``.
-    return compute_evt_risk_metrics(returns, threshold_quantile=threshold_quantile)
+    return cast(
+        "dict[str, float]",
+        compute_evt_risk_metrics(returns, threshold_quantile=threshold_quantile),
+    )

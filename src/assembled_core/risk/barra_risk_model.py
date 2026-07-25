@@ -99,6 +99,10 @@ class BarraRiskModel:
         """
         if self._factor_returns is None or self._factor_loadings is None:
             self.fit()
+        # fit() unconditionally assigns both attributes — make the implicit
+        # contract explicit for the type checker.
+        assert self._factor_returns is not None, "fit() must assign _factor_returns"
+        assert self._factor_loadings is not None, "fit() must assign _factor_loadings"
 
         w = portfolio_weights
         if isinstance(w, pd.DataFrame):
@@ -160,6 +164,8 @@ class BarraRiskModel:
         """Return factor loadings for a single symbol."""
         if self._factor_loadings is None:
             self.fit()
+        # fit() unconditionally assigns _factor_loadings.
+        assert self._factor_loadings is not None, "fit() must assign _factor_loadings"
         if symbol not in self._factor_loadings.index:
             return None
         return self._factor_loadings.loc[symbol]

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 _ARCH_AVAILABLE: bool
 try:
-    from arch import arch_model as _arch_model  # type: ignore  # noqa: F401
+    from arch import arch_model as _arch_model  # noqa: F401
 
     _ARCH_AVAILABLE = True
 except ImportError:
@@ -85,7 +85,7 @@ def forecast_vol(
 
 def _garch_forecast(r: pd.Series, horizon: int, annualize_factor: float) -> float:
     # arch_model expects returns in percent (it rescales internally)
-    from arch import arch_model  # type: ignore
+    from arch import arch_model
 
     model = arch_model(
         r * 100,
@@ -102,14 +102,14 @@ def _garch_forecast(r: pd.Series, horizon: int, annualize_factor: float) -> floa
     mean_var_pct2 = float(fc.variance.iloc[-1].mean())
     # Convert back: std in fraction = sqrt(var_pct2) / 100
     sigma_per_bar = np.sqrt(mean_var_pct2) / 100.0
-    return sigma_per_bar * np.sqrt(annualize_factor)
+    return float(sigma_per_bar * np.sqrt(annualize_factor))
 
 
 def _fallback_vol(r: pd.Series, window: int, annualize_factor: float) -> float:
     tail = r.tail(window)
     if len(tail) < 2:
         return float("nan")
-    return float(tail.std(ddof=1)) * np.sqrt(annualize_factor)
+    return float(float(tail.std(ddof=1)) * np.sqrt(annualize_factor))
 
 
 # ---------------------------------------------------------------------------

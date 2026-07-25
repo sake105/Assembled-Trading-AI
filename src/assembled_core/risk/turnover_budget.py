@@ -188,9 +188,9 @@ def apply_turnover_gate(
     if "target_weight" in out.columns:
         for i, sym in enumerate(out["symbol"]):
             tw = float(out.iloc[i]["target_weight"])
-            cw = current_w.get(sym, 0.0)
-            out.iloc[i, out.columns.get_loc("target_weight")] = cw + scale_factor * (
-                tw - cw
+            cw_prev = current_w.get(sym, 0.0)
+            out.iloc[i, out.columns.get_loc("target_weight")] = (
+                cw_prev + scale_factor * (tw - cw_prev)
             )
     if "target_qty" in out.columns and not price_series.empty:
         # target_qty is NOTIONAL dollars (= target_weight * portfolio_value in the
@@ -201,9 +201,9 @@ def apply_turnover_gate(
         # reaches live orders on cap-firing days (order_generation: shares = qty/price).
         for i, sym in enumerate(out["symbol"]):
             tq = float(out.iloc[i]["target_qty"])
-            cq = current_q.get(sym, 0.0)
+            cq_prev = current_q.get(sym, 0.0)
             pr = float(price_series.get(sym, 0) or 0)
-            cq_notional = cq * pr
+            cq_notional = cq_prev * pr
             out.iloc[i, out.columns.get_loc("target_qty")] = (
                 cq_notional + scale_factor * (tq - cq_notional)
             )

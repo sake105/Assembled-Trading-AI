@@ -57,8 +57,13 @@ def generate_signals_and_targets_for_day(
 
         signals = generate_trend_signals_from_prices(
             prices_with_features,
-            ma_fast=ma_fast,
-            ma_slow=ma_slow,
+            # FIXME(mypy-sweep): params.get() liefert None, wenn der Key fehlt —
+            # das überschreibt die Funktions-Defaults (20/50) mit None und würde
+            # downstream im Rolling-Window crashen. Impliziter Vertrag: Paper-
+            # Configs setzen ma_fast/ma_slow immer. Verhaltensneutral belassen;
+            # als potenzieller echter Bug gemeldet (kein Fix im Typ-Sweep).
+            ma_fast=ma_fast,  # type: ignore[arg-type]
+            ma_slow=ma_slow,  # type: ignore[arg-type]
         )
 
         target_positions = compute_target_positions_from_trend_signals(

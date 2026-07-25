@@ -42,7 +42,7 @@ def compute_realized_vol(
         return float("nan")
 
     std = float(tail.std(ddof=1))
-    return std * (annualize_factor**0.5)
+    return float(std * (annualize_factor**0.5))
 
 
 def compute_vol_scale_factor(

@@ -12,6 +12,7 @@ post-hoc statistical robustness check.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -80,12 +81,12 @@ def _compute_mdd(returns_matrix: np.ndarray) -> np.ndarray:
     running_max_full = np.maximum.accumulate(equity_full, axis=1)
     drawdowns = equity_full / running_max_full - 1.0
     mdd = drawdowns.min(axis=1)
-    return mdd
+    return cast(np.ndarray, mdd)
 
 
 def _compute_total_return(returns_matrix: np.ndarray) -> np.ndarray:
     """Compute total return (prod(1+r) - 1) for each row."""
-    return np.prod(1.0 + returns_matrix, axis=1) - 1.0
+    return cast(np.ndarray, np.prod(1.0 + returns_matrix, axis=1) - 1.0)
 
 
 def pnl_to_returns(

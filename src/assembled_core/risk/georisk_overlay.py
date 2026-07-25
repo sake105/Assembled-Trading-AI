@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, cast
 
 log = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ def apply_exposure_multiplier_to_targets(
 
     # Import pandas lazily to avoid hard dependency at module import time
     try:
-        import pandas as pd  # type: ignore[import]
+        import pandas as pd
     except Exception:
         return target_positions
 
@@ -296,7 +296,7 @@ def get_market_implied_geo_signal(
 
     if use_polymarket:
         try:
-            from assembled_core.data.sources.polymarket_source import (
+            from assembled_core.data.sources.polymarket_source import (  # type: ignore[import-untyped]
                 get_market_implied_geo_signal as _poly_signal,
             )
 
@@ -306,7 +306,7 @@ def get_market_implied_geo_signal(
 
     if use_kalshi:
         try:
-            from assembled_core.data.sources.kalshi_source import (
+            from assembled_core.data.sources.kalshi_source import (  # type: ignore[import-untyped]
                 fetch_combined_prediction_signal,
             )
             from assembled_core.data.sources.kalshi_source import (
@@ -325,7 +325,9 @@ def get_market_implied_geo_signal(
             fetch_combined_prediction_signal,
         )
 
-        return fetch_combined_prediction_signal(poly_sig, kals_sig, poly_weight)
+        return cast(
+            dict, fetch_combined_prediction_signal(poly_sig, kals_sig, poly_weight)
+        )
     except Exception:
         # Fallback: use whichever signal is available
         available = poly_sig or kals_sig

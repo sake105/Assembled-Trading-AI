@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import logging
 from collections import deque
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +215,9 @@ class VolCircuitBreaker:
             return False
 
         try:
-            seq = list(returns)
+            # cast: the signature accepts `object` on purpose (non-iterables are
+            # rejected at runtime via the TypeError branch below).
+            seq: list[float] = list(cast(Iterable[float], returns))
         except TypeError:
             return False
 

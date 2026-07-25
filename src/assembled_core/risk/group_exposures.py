@@ -220,7 +220,7 @@ def compute_all_group_exposures(
             f"Invalid group_types: {invalid_types}. Must be subset of {GROUP_TYPES}"
         )
 
-    result = {}
+    result: dict[str, tuple[pd.DataFrame, GroupExposureSummary]] = {}
     for group_type in group_types:
         group_df, summary = compute_group_exposures(
             exposures_df,

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -74,7 +74,10 @@ class SVIParams:
 def svi_total_variance(k: np.ndarray, params: SVIParams) -> np.ndarray:
     """Evaluate w(k) = total implied variance for log-moneyness array k."""
     d = k - params.m
-    return params.a + params.b * (params.rho * d + np.sqrt(d**2 + params.sigma**2))
+    return cast(
+        np.ndarray,
+        params.a + params.b * (params.rho * d + np.sqrt(d**2 + params.sigma**2)),
+    )
 
 
 def svi_implied_vol(
@@ -87,7 +90,7 @@ def svi_implied_vol(
     """
     T = max(params.expiry_T, 1e-8)
     w = np.maximum(svi_total_variance(log_moneyness, params), 0.0)
-    return np.sqrt(w / T)
+    return cast(np.ndarray, np.sqrt(w / T))
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +149,7 @@ def fit_svi(
         p = SVIParams(a=a, b=b, rho=rho, m=m, sigma=sigma, expiry_T=expiry_T)
         w_hat = svi_total_variance(k, p)
         # Extra penalty for constraint violation
-        penalty = max(0.0, -(a + b * sigma * np.sqrt(1 - rho**2))) * 1e4
+        penalty = float(max(0.0, -(a + b * sigma * np.sqrt(1 - rho**2)))) * 1e4
         return float(np.mean((w_hat - w) ** 2)) + penalty
 
     try:

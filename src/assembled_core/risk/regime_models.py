@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -492,7 +493,9 @@ def compute_regime_transition_stats(
 
     # Compute transitions
     transitions = []
-    regime_durations = {regime: [] for regime in df[regime_col].unique()}
+    regime_durations: dict[Any, list[Any]] = {
+        regime: [] for regime in df[regime_col].unique()
+    }
 
     current_regime = None
     regime_start_idx = None

@@ -25,7 +25,7 @@ import uuid
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -1387,7 +1387,13 @@ def run_paper_day(
             order_timestamp=as_of,
             enable_risk_controls=True,  # FIXED: was False — bypassed kill-switch and all pre-trade checks
             risk_config={},  # policy.yaml risk_limits are used as fallback when this is empty
-            output_dir=None,
+            # FIXME(mypy-sweep): TradingContext deklariert output_dir als Path
+            # (Default Path("output")), hier wird bewusst None übergeben —
+            # zur Laufzeit toleriert, weil write_outputs=False/output_format="none"
+            # jeden Schreibpfad überspringen. Deklarierter Typ und faktischer
+            # Vertrag weichen ab; Fix gehört in trading_cycle_shared.py
+            # (Path | None), das ist geschützte Pipeline-Zone → nicht im Sweep.
+            output_dir=None,  # type: ignore[arg-type]
             output_format="none",
             write_outputs=False,
             run_id=None,
@@ -2185,8 +2191,9 @@ def run_unified_paper_day_if_configured(
         trades_count=day_result.n_fills,
         buy_count=0,
         sell_count=0,
-        status=(
-            day_result.status if day_result.status in ("success", "error") else "error"
+        status=cast(
+            "Literal['success', 'error']",
+            day_result.status if day_result.status in ("success", "error") else "error",
         ),
         error_message="; ".join(day_result.errors) if day_result.errors else None,
     )

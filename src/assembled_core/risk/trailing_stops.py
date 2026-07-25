@@ -181,7 +181,7 @@ def compute_trailing_stops(
         # Check trigger — grace period: no stops for first 5 bars after entry
         grace_period = 5
         bars_since_entry = current_bar - (
-            prior.get(sym).entry_bar if sym in prior else current_bar
+            prior[sym].entry_bar if sym in prior else current_bar
         )
         triggered = (current_price <= stop) and (bars_since_entry >= grace_period)
 
