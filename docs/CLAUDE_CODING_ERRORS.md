@@ -663,3 +663,12 @@
 **Referenzen:** E-024, Rule 40 (Dependency-Drift), GESAMTBEWERTUNG K8.
 **Erkannt in:** `src/assembled_core/execution/broker_execution.py` — Stage-2 senior-code-reviewer beim P4-Review (pre-existing, nicht vom Paket eingeführt); Fix + Regressionstest `test_e055_broker_canceled_single_l_is_terminal` im Follow-up-Commit.
 **Referenzen:** E-044 (nicht-kanonisierte Roh-Labels), GESAMTBEWERTUNG P4 Stage-2-Review.
+
+## E-057 — mypy-Incremental-Cache meldet Fehler frueherer Einzelmodul-Laeufe im Follow-Graph erneut (falsche Env-Divergenz-Diagnose)
+**Datum:** 2026-07-26
+**Kategorie:** tooling-pitfall / false-diagnosis / ci-vs-local
+**Was passierte:** Beim mypy-Sweep Tranche 1 meldete das lokale 5-Pfad-Gate-Kommando ploetzlich 72 Fehler in 19 followed Dateien (accounting/ops/pipeline/qa) — waehrend CI mit identischem Kommando gruen war. Zwei Reviewer reproduzierten die 72 unabhaengig und diagnostizierten eine Env-Divergenz (CI sieht weniger optionale Deps). Tatsaechliche Ursache: Unmittelbar davor waren qa/ops/accounting/api/pipeline EINZELN mit mypy gemessen worden — der Incremental-Cache (.mypy_cache) kannte deren Fehler und meldete sie bei nachfolgenden Laeufen erneut, sobald die Module im Follow-Import-Graph lagen. Ein frischer Lauf nach Cache-Konsolidierung: lokal == CI == gruen ("no issues in 248 files").
+**Warum falsch:** Eine Tooling-Eigenheit wurde als Umgebungs-/Konfigurationsproblem fehlgedeutet und haette zu einem unnoetigen "Fix" (z.B. follow_imports=silent) fuehren koennen, der das Gate real geschwaecht haette.
+**Wie vermeiden:** Vor jedem Lokal-vs-CI-Divergenz-Schluss bei mypy: frischen Lauf ohne Cache-Vorbelastung machen (Remove .mypy_cache oder --no-incremental) — besonders nach Einzelmodul-Messlaeufen. Erst wenn die Divergenz den Frischlauf ueberlebt, ist es ein Env-Thema (Rule 40).
+**Erkannt in:** mypy-Sweep Tranche 1 (Commit 00ebf104); aufgeklaert durch Frischlauf nach CI-Gruen-Beweis; Stage-3-Auditor empfahl den Registereintrag.
+**Referenzen:** Rule 40 (Dependency-Drift-Unterscheidungspflicht), backend-ci.yml mypy-Gate.
