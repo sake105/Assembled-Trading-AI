@@ -1573,3 +1573,28 @@ Byte-Vergleich der Result-JSONs; Alt-JSONs gesichert in `results/backup_pre_h086
   kippen nirgends. **H-036b (Kosten-Sensitivität) wurde NICHT re-run** (nicht verdict-tragend;
   h036c war der Diskriminator). Kein Verdict-Flip in P6. N bleibt 1971 (Modell-Korrektur +
   Re-Validierung, keine neuen Trials).
+
+## E-051-Determinismus-Fix H-029/H-031 (2026-07-25) — Rest-Nichtdeterminismus geschlossen. Kein neuer Trial, N=1971.
+
+Follow-up aus GESAMTBEWERTUNG P6/W3 (Eintrag 2026-07-22): H-029 und H-031 waren als einzige
+Screens NICHT byte-identisch über PYTHONHASHSEED 0/42 — Ursache script-eigene Set-Iterationen in
+den Portfolio-Loops (`run_consensus`/`run_insider`); der sorted()-Fix in verdict_engine griff dort
+nicht. Minimal-invasiv gefixt (nur sorted() an den Iterationsstellen, KEINE Logikänderung;
+Kommentar „E-051-Determinismus-Fix 2026-07-24" je Stelle):
+- `h029_13f_consensus.py`: Z.164 `for sym in sorted(held - keep - targets)` (Sell-Pending-Reihenfolge),
+  Z.167 `entries = sorted(s for s in targets if s not in held)` (Buy-Pending-Reihenfolge).
+- `h031_insider.py`: Z.132 `for s in sorted(fresh)` (hold_until-Insertion), Z.137
+  `for sym in sorted(held)` (Sell-Pending-Reihenfolge), Z.141
+  `entries = sorted(s for s in fresh if s not in held)` (Buy-Pending-Reihenfolge).
+  Tie-Break = Ticker-Alphabet: deterministisch und fachlich neutral (EW-Slots, fixe Beträge).
+
+**Verifikation (je Screen 2 volle Läufe, PYTHONHASHSEED=0 und =42, SHA256-Byte-Vergleich der
+Result-JSONs; Kopien `results/h029_results.fix_seed0/42.json`, `h031_results.fix_seed0/42.json`):**
+| Screen | byte-identisch | Verdict | Kriterienmuster | Endwert (deterministisch) |
+|---|---|---|---|---|
+| H-029 13F k10 | **JA** (91FCF1A6…) | FAIL unverändert | c1✓ c2✓ c3-DSR✗ (0,722) c4✓ c5✓ — identisch zu Re-Runs 2026-07-22 | 732.455 (Re-Run-Draws waren 662k/686k) |
+| H-031 Insider off10k | **JA** (C563CD12…) | FAIL unverändert | c1✓ c2✓ c3-DSR✗ (0,679) c4✓ c5✓ — identisch zu Re-Runs 2026-07-22 | 1.133.711 (Re-Run-Draws waren 1.078k/1.167k) |
+- Endwerte liegen in/nahe der 2026-07-22 beobachteten Seed-Streuung; kein Kriterium kippt,
+  PASS bleibt in beiden Fällen false (DSR-Fail). E-051 damit für ALLE Verdict-Screens vollständig
+  geschlossen: keine bekannte PYTHONHASHSEED-Abhängigkeit mehr. `h029_results.json`/
+  `h031_results.json` = neuer deterministischer Stand (byte-gleich zu beiden Seed-Läufen).

@@ -128,13 +128,17 @@ def run_insider(close, divp, sig_by_month, month_ends, *, label: str):
                 and np.isfinite(px_t.get(s, np.nan))
                 and px_t.get(s, 0.0) >= 1.0
             }
-            for s in fresh:
+            # E-051-Determinismus-Fix 2026-07-24: Set-Iteration sortiert
+            for s in sorted(fresh):
                 hold_until[s] = t + pd.DateOffset(months=12)
             held = set(pf.lots.keys())
-            for sym in held:
+            # E-051-Determinismus-Fix 2026-07-24: Set-Iteration sortiert
+            # (Pending-Reihenfolge -> Float-Summationsreihenfolge in Cash/Equity)
+            for sym in sorted(held):
                 if hold_until.get(sym, t) < t:
                     pending.append(("sell_all", sym, 0.0))
-            entries = [s for s in fresh if s not in held]
+            # E-051-Determinismus-Fix 2026-07-24: Entries deterministisch sortiert
+            entries = sorted(s for s in fresh if s not in held)
             basket_n = max(20, len(held) + len(entries))
             for sym in entries:
                 pending.append(("trade_to", sym, min(1.0 / basket_n, 0.10) * v))

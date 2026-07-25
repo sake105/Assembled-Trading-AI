@@ -159,9 +159,12 @@ def run_consensus(close, divp, cons, month_ends, *, k: int, label: str):
                 and px_t.get(s, 0.0) >= 1.0
             }
             keep = {s for s in held if last_counts.get(s, 0) >= k / 2}
-            for sym in held - keep - targets:
+            # E-051-Determinismus-Fix 2026-07-24: Set-Differenz sortiert iterieren
+            # (Pending-Reihenfolge -> Float-Summationsreihenfolge in Cash/Equity)
+            for sym in sorted(held - keep - targets):
                 pending.append(("sell_all", sym, 0.0))
-            entries = [s for s in targets if s not in held]
+            # E-051-Determinismus-Fix 2026-07-24: Entries deterministisch sortiert
+            entries = sorted(s for s in targets if s not in held)
             basket = targets | keep
             if entries and basket:
                 w = min(1.0 / len(basket), POS_CAP)

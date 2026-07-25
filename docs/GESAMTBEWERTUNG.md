@@ -376,3 +376,37 @@ Die im Erstbericht als „dünn" markierten Stellen wurden nachgeprüft (Broker-
 - **K1 (Broker-Triage): Diagnose erledigt.** Offen ist nur noch die Operator-Entscheidung: Adoption `--apply` + `ack_halt` (Rest-Diff 1,83 $) — dann läuft der Pilot beim nächsten Scheduler-Lauf weiter; ohne Ack bleibt er sicher geblockt.
 - **Neu in WICHTIG:** (W15) Dividenden-Buchung in den Paper-Pfad (7.2 — strukturelle Drift-Quelle im laufenden Pilot); (W16) `research/mandat/` committen (Datenverlustrisiko FINAL_REPORT + Steuer-Engine); (W17) Exit-Fees + ECB-Vortages-Fallback in `tax_lots.py`, falls die Steuer-Schiene je real genutzt wird — sonst explizit als „nicht integriert" deklarieren; (W18) Epsilon-Cleanup in `apply_fills_to_ledger` (Dust live am Broker nachgewiesen); (W19) Kill-Switch-Pfad-Angaben in Spec+Runbook auf `output/ops/` vereinheitlichen + Playbook −8%→−10%.
 - **Abgeschwächt:** K9 (Skip-Leichen) bleibt richtig, aber Größenordnung ~280 statt ~1000; W7-Teil „CWD-Falle" entfällt als akutes Risiko (WorkingDirectory gesetzt), bleibt als Härtungs-Nice-to-have.
+
+---
+
+## 8. UMSETZUNGSSTAND (Abschluss 2026-07-25)
+
+Die Listen in §4/§5 sind HISTORISCH (Audit-Stand 19.07.). Umsetzung erfolgte 21.–25.07.
+in 17 Commits (`6a4fd712..`), alle mit Review-Kette, alle CI-Runden final 7/7 grün.
+Detail-Chronik: Memory `session-2026-07-23-gesamtbewertung-umsetzung-complete.md` + Commit-Messages.
+
+**ERLEDIGT:** K1–K9 vollständig; W1–W3, W5, W7–W16, W18, W19; W4 (24.07. real verdrahtet:
+qa_block-Flag-Bridge + `ack_qa_block.py`, E2E-getestet); W6/W17 als ehrliche Deklaration
+(TaxLotStore „spezifiziert, nicht integriert"; Steuer-Engine research-only — Integration erst
+bei realem Bedarf). Nice-to-haves erledigt: Root-Junk/experiments/erweiterung/workflows-Archiv,
+Tautologien, tote Marker, `assemble_eod_daily`-Guard, `run_paper_live`-Deprecation,
+costs-Rootanker, Docstring-Fixes (purged_cv/event_features), data/raw-Integritäts-Sidecars
+(`hash_data_raw_manifests.py`), H-029/031-Screen-Determinismus (byte-identisch über Seeds,
+FAILs bestätigt). Dazu ungeplant: E-054/055/056-Fixes, Test-Kontaminations-Klasse strukturell
+geschlossen (conftest-Isolations-Fixture), Dependency-Welle pyarrow 23/setuptools 83/
+requests 2.33/urllib3 2.7/alpaca-py 0.43.2 (4 pip-audit-Waiver entfernt, 14→10).
+
+**OFFEN (brauchen Operator-Entscheid):**
+- **mypy-Scope-Erweiterung** — gemessen 2026-07-25: **679 Fehler** in den ungeprüften Modulen
+  (ops 142, api 142, pipeline 110, qa 91, accounting 73, risk 64, paper 57). Das ist ein
+  eigenes mehrtägiges Vorhaben (Juni-Sweep war 134→0). Empfohlener Zuschnitt: modulweise
+  risk→paper→accounting (kleinste Zahl × höchste Sensibilität zuerst), je Modul eigener
+  CI-Scope-Flip. Nicht nebenbei machen.
+- **target_qty-Konsolidierung** (~50 Emitterstellen / 17 Dateien) — großer Refactor, eigener Auftrag.
+- **Kosten-Default konservativer** (Default-Pfad ~1,75 bps → Tier-Tabelle) — ändert alle künftigen
+  Backtest-Zahlen, braucht Risk-Sign-off.
+- **W17-Vollintegration tax_lots** (Exit-Fees, ECB-Vortages-Fallback, Fill-Hook) — nur bei realem
+  Steuer-Reporting-Bedarf.
+- **Renovate** aktivieren (GitHub-App, Operator) oder `renovate.json` entfernen.
+- Klein: B2-Orchestrator-Weichen-Test (2× als vertretbar deferred), adj_close-NaN-Backfill
+  (Live-Store-Eingriff, nur mit Plan).
