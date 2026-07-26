@@ -402,6 +402,12 @@ requests 2.33/urllib3 2.7/alpaca-py 0.43.2 (4 pip-audit-Waiver entfernt, 14→10
   eigenes mehrtägiges Vorhaben (Juni-Sweep war 134→0). Empfohlener Zuschnitt: modulweise
   risk→paper→accounting (kleinste Zahl × höchste Sensibilität zuerst), je Modul eigener
   CI-Scope-Flip. Nicht nebenbei machen.
+  - *Nachtrag 2026-07-25/26:* Die Zahlen oben waren incremental-cache-inflatiert (→ E-057);
+    Frischläufe maßen deutlich weniger. **Tranche 1 ERLEDIGT** (risk 41→0, paper 4→0,
+    Gate 5→7 Pfade, CI-bestätigt). **Tranche 2 ERLEDIGT 2026-07-26** (accounting 16→0
+    fresh-cache, Gate 7→8 Pfade, Commit `d845c484`, alle 7 CI grün; Review-Kette Stage 1–3
+    PASS, 502 Nachbarschaftstests). Rest-Tranchen offen: ops/api → pipeline/qa
+    (Zahlen vor Start frisch messen).
 - **target_qty-Konsolidierung** (~50 Emitterstellen / 17 Dateien) — großer Refactor, eigener Auftrag.
 - **Kosten-Default konservativer** (Default-Pfad ~1,75 bps → Tier-Tabelle) — ändert alle künftigen
   Backtest-Zahlen, braucht Risk-Sign-off.
