@@ -406,8 +406,17 @@ requests 2.33/urllib3 2.7/alpaca-py 0.43.2 (4 pip-audit-Waiver entfernt, 14→10
     Frischläufe maßen deutlich weniger. **Tranche 1 ERLEDIGT** (risk 41→0, paper 4→0,
     Gate 5→7 Pfade, CI-bestätigt). **Tranche 2 ERLEDIGT 2026-07-26** (accounting 16→0
     fresh-cache, Gate 7→8 Pfade, Commit `d845c484`, alle 7 CI grün; Review-Kette Stage 1–3
-    PASS, 502 Nachbarschaftstests). Rest-Tranchen offen: ops/api → pipeline/qa
-    (Zahlen vor Start frisch messen).
+    PASS, 502 Nachbarschaftstests). **Tranche 3 ERLEDIGT 2026-07-26** (api 7→0 + ops 87→0
+    fresh-cache, Gate 8→10, Commit `2b3824f9`, alle 7 CI grün, Review-Kette PASS).
+    **Tranche 4 ERLEDIGT 2026-07-26** (qa 100→0 + pipeline 79→0 fresh-cache, Gate 10→12,
+    Commit `5df8c426`; Review-Kette Stage 1–3, Verdict CONDITIONAL nur wegen
+    „FULL-coverage"-Wortlaut → korrigiert). **Damit ist die §8-7-Modul-Serie abgeschlossen.**
+    Der Sweep deckte ~13 echte Bugs auf (alle als FIXME(mypy-sweep) markiert, Verhalten
+    unverändert; → E-059): u. a. Zombie-Killer force-FLAT tot, cost_aware-Config-Positionsarg,
+    execution_mode/equity-Wiring, TickStore fehlt, Leakage-Gate-Signatur. Follow-up-Aufträge
+    siehe Commit-Text `5df8c426` (Prio: Zombie-Killer). BEWUSST ungated bleiben die übrigen
+    src-Subpackages (intel, events, ml, strategies, utils, config, reports u. a.) — mögliche
+    Tranche 5, eigener Auftrag.
 - **target_qty-Konsolidierung** (~50 Emitterstellen / 17 Dateien) — großer Refactor, eigener Auftrag.
 - **Kosten-Default konservativer** (Default-Pfad ~1,75 bps → Tier-Tabelle) — ändert alle künftigen
   Backtest-Zahlen, braucht Risk-Sign-off.
