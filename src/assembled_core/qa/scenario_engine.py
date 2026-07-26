@@ -59,7 +59,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -495,7 +495,7 @@ def apply_scenario_to_equity(
 
 def run_scenario_on_equity(
     equity: pd.Series | pd.DataFrame, scenario: Scenario, freq: str = "1d"
-) -> dict[str, float]:
+) -> dict[str, dict[str, float | None]]:
     """Run a scenario on equity and compute risk metrics before/after.
 
     This helper function applies a scenario to an equity curve and computes
@@ -528,16 +528,18 @@ def run_scenario_on_equity(
     from src.assembled_core.qa.risk_metrics import compute_portfolio_risk_metrics
 
     # Compute baseline metrics
-    baseline_metrics = compute_portfolio_risk_metrics(equity, freq=freq)
+    # freq is documented as "1d" | "5min"; cast narrows str for mypy (no-op).
+    freq_lit = cast('Literal["1d", "5min"]', freq)
+    baseline_metrics = compute_portfolio_risk_metrics(equity, freq=freq_lit)
 
     # Apply scenario
     shocked_equity = apply_scenario_to_equity(equity, scenario)
 
     # Compute shocked metrics
-    shocked_metrics = compute_portfolio_risk_metrics(shocked_equity, freq=freq)
+    shocked_metrics = compute_portfolio_risk_metrics(shocked_equity, freq=freq_lit)
 
     # Compute deltas (where both are not None)
-    delta_metrics = {}
+    delta_metrics: dict[str, float | None] = {}
     for key in baseline_metrics:
         baseline_val = baseline_metrics[key]
         shocked_val = shocked_metrics[key]
@@ -856,7 +858,7 @@ def run_crisis_scenarios(
     for spec in _CRISIS_SCENARIO_DEFINITIONS[crisis_type]:
         scenario = Scenario(
             name=spec["name"],
-            shock_type=spec["shock_type"],  # type: ignore[arg-type]
+            shock_type=spec["shock_type"],
             shock_magnitude=spec["shock_magnitude"],
             shock_start=shock_date,
             sector_mapping=symbol_sectors or {},
@@ -1051,7 +1053,7 @@ def load_scenarios_from_yaml(path: str) -> list[Scenario]:
         return []
 
     try:
-        import yaml  # type: ignore
+        import yaml
     except ImportError:
         log.warning("[scenario_engine] PyYAML not installed; cannot load scenarios")
         return []
@@ -1107,14 +1109,15 @@ def load_scenarios_from_yaml(path: str) -> list[Scenario]:
                 py_dt = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
                 if py_dt.tzinfo is None:
                     py_dt = py_dt.replace(tzinfo=timezone.utc)
-                return py_dt
+                # pandas to_pydatetime is Any under the mypy overrides; no-op.
+                return cast(datetime, py_dt)
             except Exception:  # noqa: BLE001
                 return None
 
         try:
             scenario = Scenario(
                 name=str(row.get("name", "unnamed")),
-                shock_type=shock_type,  # type: ignore[arg-type]
+                shock_type=shock_type,
                 shock_magnitude=magnitude,
                 shock_start=_parse(row.get("shock_start")),
                 shock_end=_parse(row.get("shock_end")),

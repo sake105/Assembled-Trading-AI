@@ -100,7 +100,7 @@ def validate_performance(
     """
     errors = []
     warnings = []
-    metadata = {}
+    metadata: dict[str, Any] = {}
 
     # Check Sharpe ratio
     sharpe = metrics.get("sharpe_ratio")
@@ -286,8 +286,8 @@ def validate_data_quality(
         >>> assert "feature1" in result.errors[0]
     """
     errors = []
-    warnings = []
-    metadata = {
+    warnings: list[str] = []
+    metadata: dict[str, Any] = {
         "max_missing_fraction": max_missing_fraction,
         "total_rows": len(feature_df),
         "total_columns": len(feature_df.columns),

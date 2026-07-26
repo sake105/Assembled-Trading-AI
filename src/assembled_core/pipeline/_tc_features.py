@@ -150,7 +150,12 @@ def build_features(
 
         if ctx.backtest_use_snapshot:
             if ctx.precomputed_panel_index is not None and ctx.as_of is not None:
-                from src.assembled_core.pipeline.precomputed_index import snapshot_as_of
+                # FIXME(mypy-sweep): Modul pipeline.precomputed_index existiert
+                # nicht — Pfad feuert nur, wenn ein Caller precomputed_panel_index
+                # setzt (derzeit unmöglich, da das Modul fehlt); dann ImportError.
+                from src.assembled_core.pipeline.precomputed_index import (  # type: ignore[import-not-found]
+                    snapshot_as_of,
+                )
 
                 snap = snapshot_as_of(
                     df=precomputed,
@@ -278,8 +283,10 @@ def build_features(
                         hmm_df = hmm_df.sort_values("date", kind="mergesort")
                     elif "timestamp" in hmm_df.columns:
                         hmm_df = hmm_df.sort_values("timestamp", kind="mergesort")
-                    ctx.regime_state = hmm_df.iloc[-1].get("regime_label", "sideways")
-                    log.info("REGIME_HMM: detected regime='%s'", ctx.regime_state)
+                    # regime_state ist kein deklariertes TradingContext-Feld —
+                    # dynamisches Attribut, Downstream liest via getattr(...).
+                    ctx.regime_state = hmm_df.iloc[-1].get("regime_label", "sideways")  # type: ignore[attr-defined]
+                    log.info("REGIME_HMM: detected regime='%s'", ctx.regime_state)  # type: ignore[attr-defined]
     except Exception as e:
         # Bundle-critical: ctx.regime_state drives size_positions + risk gating.
         _warn_once_feature_skip("[HMM-REGIME] regime detection", e, log)
@@ -441,7 +448,10 @@ def build_features(
     try:
         ix_cfg = (policy.get("features") or {}).get("interaction_features") or {}
         if ix_cfg.get("enabled", False) and not pwf.empty:
-            from src.assembled_core.features.interaction_features import (
+            # FIXME(mypy-sweep): Modul features.interaction_features existiert
+            # nicht — bei enabled=true schlägt der Import zur Laufzeit fehl und
+            # der Schritt wird vom except still geskippt.
+            from src.assembled_core.features.interaction_features import (  # type: ignore[import-not-found]
                 compute_interaction_features,
             )
 
@@ -504,7 +514,10 @@ def build_features(
         if ffd_cfg.get("enabled", False) and not pwf.empty:
             _req = {"close", "symbol", "timestamp"}
             if _req.issubset(pwf.columns):
-                from src.assembled_core.features.fractional_diff import (
+                # FIXME(mypy-sweep): Modul features.fractional_diff existiert
+                # nicht — bei enabled=true schlägt der Import zur Laufzeit fehl
+                # und der Schritt wird vom except still geskippt.
+                from src.assembled_core.features.fractional_diff import (  # type: ignore[import-not-found]
                     apply_ffd_to_panel,
                 )
 
@@ -540,7 +553,11 @@ def build_features(
                                 "ob_imbalance": sig.l1_imbalance,
                                 "ob_vw_imbalance": sig.vw_imbalance,
                             }
-                            for sym, sig in ob_signals.items()
+                            # FIXME(mypy-sweep): rolling_imbalance_signal returns
+                            # list[float] — .items()/.l1_imbalance would raise
+                            # AttributeError, swallowed by the enclosing except:
+                            # the OB-imbalance merge silently never runs.
+                            for sym, sig in ob_signals.items()  # type: ignore[attr-defined]
                         ]
                     )
                     if not ob_df.empty and "symbol" in pwf.columns:

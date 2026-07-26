@@ -136,7 +136,7 @@ def _diebold_mariano(errors_a: np.ndarray, errors_b: np.ndarray) -> tuple[float,
     se = np.sqrt(d.var(ddof=1) / n)
     stat = float(d.mean() / se) if se > 0 else 0.0
     try:
-        from scipy.stats import norm  # type: ignore
+        from scipy.stats import norm
 
         p = 2.0 * (1.0 - norm.cdf(abs(stat)))
     except ImportError:

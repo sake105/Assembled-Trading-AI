@@ -34,7 +34,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 try:
-    import optuna  # type: ignore[import]
+    import optuna  # type: ignore[import-not-found]
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     _OPTUNA_AVAILABLE = True

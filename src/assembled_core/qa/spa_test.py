@@ -37,7 +37,7 @@ def spa_p_values(
     block_size: int | None = None,
     reps: int = 1000,
     seed: int = 42,
-) -> dict[str, float]:
+) -> dict[str, float | str]:
     """Compute Hansen-SPA lower / consistent / upper p-values.
 
     Args:
@@ -82,7 +82,7 @@ def spa_p_values(
     bench_arr = bench_arr[-T:]
 
     try:
-        from arch.bootstrap import SPA  # type: ignore
+        from arch.bootstrap import SPA
     except ImportError:
         logger.warning("[spa_test] arch not installed — returning NaN p-values")
         return {

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -119,7 +120,8 @@ def _generalized_fevd(var_result, horizon: int) -> np.ndarray:
     # by row sum to recover share interpretation).
     row_sums = fevd.sum(axis=1, keepdims=True)
     row_sums = np.where(row_sums > 0, row_sums, 1.0)
-    return fevd / row_sums
+    # statsmodels VAR output is untyped (Any) upstream; cast is a no-op.
+    return cast(np.ndarray, fevd / row_sums)
 
 
 def compute_spillover_index(

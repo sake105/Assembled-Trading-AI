@@ -302,7 +302,7 @@ def _update_equity_mark_to_market(
             if NUMBA_AVAILABLE:
                 mtm = compute_mark_to_market_numba(positions_array, prices_array)
                 equity = cash + mtm
-                return equity
+                return float(equity)
         except (ImportError, AttributeError) as exc:
             # Fall through to pure NumPy implementation
             logger.error(
@@ -316,7 +316,7 @@ def _update_equity_mark_to_market(
     mtm = np.sum(positions_array[valid_mask] * prices_array[valid_mask])
 
     equity = cash + mtm
-    return equity
+    return float(equity)
 
 
 def simulate_equity(
@@ -432,7 +432,9 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
         last: Last timestamp
     """
     if equity.empty or "equity" not in equity.columns:
-        return {"final_pf": 1.0, "sharpe": 0.0, "rows": 0, "first": None, "last": None}
+        # Declared return type dict[str, float | int] is imprecise: "first"/"last"
+        # are timestamps or None also on the normal path (masked by iloc -> Any).
+        return {"final_pf": 1.0, "sharpe": 0.0, "rows": 0, "first": None, "last": None}  # type: ignore[dict-item]
     pf = float(equity["equity"].iloc[-1] / max(equity["equity"].iloc[0], 1e-12))
     ret = equity["equity"].pct_change().replace([np.inf, -np.inf], np.nan).dropna()
     if ret.empty or ret.isna().all():

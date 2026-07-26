@@ -27,6 +27,7 @@ Example usage:
 from __future__ import annotations
 
 from collections import Counter
+from typing import cast
 
 import pandas as pd
 
@@ -182,9 +183,15 @@ def compute_systemic_risk_flags(
         >>> flags = compute_systemic_risk_flags(exposure)
         >>> print(flags["risk_level"])  # "HIGH"
     """
-    avg_congestion = float(shipping_exposure.get("avg_shipping_congestion", 0.0))
-    high_exposure_weight = float(shipping_exposure.get("high_congestion_weight", 0.0))
-    exposed_symbols = shipping_exposure.get("exposed_symbols", [])
+    # Contract from compute_shipping_exposure(): these keys hold floats /
+    # list[str]; cast() only narrows the union for mypy, runtime unchanged.
+    avg_congestion = float(
+        cast(float, shipping_exposure.get("avg_shipping_congestion", 0.0))
+    )
+    high_exposure_weight = float(
+        cast(float, shipping_exposure.get("high_congestion_weight", 0.0))
+    )
+    exposed_symbols = cast("list[str]", shipping_exposure.get("exposed_symbols", []))
 
     # Determine risk flags
     high_shipping_risk = (

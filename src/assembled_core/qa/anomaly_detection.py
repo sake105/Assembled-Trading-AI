@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ class TradeAnomalyDetector:
         self._detectors: dict[str, Any] = {}
         self._fitted = False
         self._method = "unfit"
-        self._baseline_stats: dict[str, tuple[float, float]] = {}
+        self._baseline_stats: dict[str, tuple[float, float, float, float, float]] = {}
 
     def fit(self, baseline_df: pd.DataFrame) -> "TradeAnomalyDetector":
         """Fit on historical normal data."""
@@ -161,7 +161,8 @@ class TradeAnomalyDetector:
     @staticmethod
     def _prepare(df: pd.DataFrame) -> np.ndarray:
         numeric = df.select_dtypes(include=[np.number])
-        return numeric.fillna(numeric.mean()).values
+        # pandas is Any under the mypy overrides; cast is a no-op.
+        return cast(np.ndarray, numeric.fillna(numeric.mean()).values)
 
 
 def detect_fat_finger(

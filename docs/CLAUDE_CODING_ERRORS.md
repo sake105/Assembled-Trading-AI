@@ -672,3 +672,21 @@
 **Wie vermeiden:** Vor jedem Lokal-vs-CI-Divergenz-Schluss bei mypy: frischen Lauf ohne Cache-Vorbelastung machen (Remove .mypy_cache oder --no-incremental) — besonders nach Einzelmodul-Messlaeufen. Erst wenn die Divergenz den Frischlauf ueberlebt, ist es ein Env-Thema (Rule 40).
 **Erkannt in:** mypy-Sweep Tranche 1 (Commit 00ebf104); aufgeklaert durch Frischlauf nach CI-Gruen-Beweis; Stage-3-Auditor empfahl den Registereintrag.
 **Referenzen:** Rule 40 (Dependency-Drift-Unterscheidungspflicht), backend-ci.yml mypy-Gate.
+
+## E-058 — Einseitiges type: ignore fuer lokal-getypte / CI-fehlende Third-Party-Libs (polars-unused-ignore-Falle)
+**Datum:** 2026-07-26
+**Kategorie:** tooling-pitfall / ci-vs-local / type-ignore-asymmetrie
+**Was passierte:** `qa/differential_testing.py` hatte im ImportError-Fallback `pl = None  # type: ignore[assignment]`. Lokal ist polars installiert UND getypt (py.typed) — der ignore ist noetig. In CI fehlt polars (nicht in requirements.txt) und der `[[tool.mypy.overrides]]`-Eintrag `ignore_missing_imports` macht `pl` zu Any — der ignore waere dort UNUSED und `warn_unused_ignores = true` haette das frisch erweiterte 12-Pfad-Gate ROT gemacht, obwohl lokal alles gruen war. Vom Stage-1 ci-debugger per Fake-Modul-Repro empirisch belegt, BEVOR der Commit gepusht war.
+**Warum falsch:** Ein Paket, das lokal getypt vorliegt, aber in CI fehlt und im Override steht, erzeugt asymmetrische ignore-Notwendigkeit: ein einzelner Error-Code ist in genau EINER der beiden Umgebungen falsch. Gleiches Risiko fuer alle lokal-installierten, CI-fehlenden Override-Libs (numba etc.).
+**Wie vermeiden:** Fuer solche Pakete den paarigen Code verwenden: `# type: ignore[<realer-code>, unused-ignore]` — der unused-ignore-Zusatz neutralisiert die Umgebung, in der der Hauptcode nicht feuert. Vor Merge beide Bedingungen pruefen (lokal mit Paket; CI-simuliert ohne, z.B. Fake-Env): 0 unused-ignore UND 0 unsilenced error. Nicht raten — empirisch verifizieren.
+**Erkannt in:** `src/assembled_core/qa/differential_testing.py:64`, `pyproject.toml` — mypy-Sweep Tranche 4, Stage-1 ci-debugger (HIGH), Fix vor Commit.
+**Referenzen:** E-057 (mypy-Cache-Falle), Rule 40 (Drift-Unterscheidungspflicht), backend-ci.yml mypy-Gate.
+
+## E-059 — Import auf nicht-existentes Modul unter broad except = stiller Feature-Ausfall (config-gated dead paths)
+**Datum:** 2026-07-26
+**Kategorie:** silent-except / wiring-gap / plan-ne-implementierung
+**Was passierte:** Der mypy-Sweep Tranche 3+4 deckte >20 config-gated Bloecke auf (in `_tc_signals`, `_tc_features`, `_tc_sizing`, `_tc_execution`, `orchestrator`), deren `from ...X import Y` auf nie existierende Module/Symbole zeigt (`ops.shadow_recorder`, `portfolio.risk_budgeting/bl_sizing/mvo_optimizer`, `risk.factor_risk_model`, `TickStore`-Klasse, falsche `rolling_imbalance_signal`-Nutzung, `ctx.execution_mode`/`ctx.equity` nie gesetzt). Bei aktiviertem Feature wirft der Import/Zugriff, wird vom umschliessenden `except Exception` verschluckt (bestenfalls debug-Log) — das Feature laeuft NIE: u.a. Zombie-Killer force-FLAT, ERC/MVO/BL-Sizing, cost_aware-Config, Factor-Risk-Overlay, OB-Imbalance-Merge, QuestDB-Write-Through, KPI/Manifest/Heartbeat-Sites.
+**Warum falsch:** Ein per Policy aktivierbares Feature taeuscht „aktiviert" vor, ist real tot — klassischer Plan-≠-Implementierung-Drift, unsichtbar gemacht durch broad-except. Die frueher als „importability-only" geloeschten Wiring-Tests haetten genau diese Klasse gefangen.
+**Wie vermeiden:** (1) Config-gated optionale Imports nicht unter broad `except Exception` verstecken: ImportError/ModuleNotFoundError separat fangen und mindestens WARN loggen, damit enabled-aber-tot sichtbar wird. (2) Pro aktivierbarem Feature ein Wiring-/Smoke-Test mit enabled=true, der prueft, dass der Pfad nicht still ge-excepted wird. (3) Blocking-mypy ueber vollstaendiges src/ beibehalten — es war der einzige strukturelle Fang.
+**Erkannt in:** mypy-Sweep Tranchen 3+4 (2026-07-26), alle Stellen als FIXME(mypy-sweep) + type-ignore markiert (verhaltensneutral); Wiring-Fixes als separate Auftraege, Prio Zombie-Killer (`_tc_signals`).
+**Referenzen:** E-054 (Wiring-Gap-Klasse), CLAUDE.md „Bekannte Problemzonen" (stille except-Pfadlogik), GESAMTBEWERTUNG §8.

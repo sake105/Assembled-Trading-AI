@@ -45,7 +45,7 @@ def _get_periods_per_year(freq: Literal["1d", "5min"]) -> int:
 
 def compute_portfolio_risk_metrics(
     equity: pd.Series | pd.DataFrame, freq: Literal["1d", "5min"] = "1d"
-) -> dict[str, float]:
+) -> dict[str, float | None]:
     """Compute portfolio risk metrics from equity curve.
 
     This function computes a focused set of risk metrics:

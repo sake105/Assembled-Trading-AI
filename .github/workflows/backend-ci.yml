@@ -155,11 +155,13 @@ jobs:
           # + paper/ (4 errors) swept to zero and added 2026-07-25 (GESAMTBEWERTUNG §8
           # Tranche 1; behaviour-neutral type fixes only, 1230 neighbourhood tests green,
           # 2 potential real bugs flagged as FIXME(mypy-sweep) instead of silently "fixed").
-          # Still unscoped: qa, pipeline — final tranche per §8 (fresh-cache counts
-          # per E-057 before starting; older cached numbers were inflated).
-          # accounting (16->0, Tranche 2), api (7->0) + ops (87->0) (Tranche 3) swept
-          # 2026-07-26; behaviour-neutral type fixes only, neighbourhood tests green.
-          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio src/assembled_core/risk src/assembled_core/paper src/assembled_core/accounting src/assembled_core/api src/assembled_core/ops 2>&1 | tee -a backend_ci_log.txt
+          # FULL src/assembled_core coverage since 2026-07-26: the 2026-06 backlog
+          # (134 errors, 5 paths) plus tranches risk/paper (T1), accounting (T2),
+          # api/ops (T3), qa/pipeline (T4) are all swept to zero — behaviour-neutral
+          # type fixes only; real bugs found during the sweep are marked
+          # FIXME(mypy-sweep) in-code and tracked as separate tasks.
+          # Fresh-cache counts per E-057 (incremental-cache numbers were inflated).
+          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio src/assembled_core/risk src/assembled_core/paper src/assembled_core/accounting src/assembled_core/api src/assembled_core/ops src/assembled_core/qa src/assembled_core/pipeline 2>&1 | tee -a backend_ci_log.txt
 
       - name: Upload coverage report
         if: always()

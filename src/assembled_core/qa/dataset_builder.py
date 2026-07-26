@@ -17,6 +17,7 @@ Sprint 7.1 additions:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal, cast
 
 import pandas as pd
 from src.assembled_core.logging_utils import get_logger
@@ -368,22 +369,27 @@ def build_ml_dataset_for_strategy(
 
     settings = get_settings()
 
+    # freq is documented as "1d" | "5min"; cast narrows str for mypy (no-op).
+    freq_lit = cast('Literal["1d", "5min"]', freq)
+
     if price_file:
         logger.info(f"Loading prices from explicit file: {price_file}")
-        prices = load_eod_prices(price_file=price_file, freq=freq)
+        prices = load_eod_prices(price_file=price_file, freq=freq_lit)
     elif universe_file:
         logger.info(f"Loading prices for universe file: {universe_file}")
         prices = load_eod_prices_for_universe(
-            universe_file=Path(universe_file), data_dir=settings.data_dir, freq=freq
+            universe_file=Path(universe_file), data_dir=settings.data_dir, freq=freq_lit
         )
     elif universe:
         logger.info(f"Loading prices for {len(universe)} symbols")
-        prices = load_eod_prices(price_file=None, symbols=universe, freq=freq)
+        prices = load_eod_prices(price_file=None, symbols=universe, freq=freq_lit)
     else:
         # Default: use watchlist
         logger.info("Loading prices for default universe (watchlist.txt)")
         prices = load_eod_prices_for_universe(
-            universe_file=settings.watchlist_file, data_dir=settings.data_dir, freq=freq
+            universe_file=settings.watchlist_file,
+            data_dir=settings.data_dir,
+            freq=freq_lit,
         )
 
     if prices.empty:

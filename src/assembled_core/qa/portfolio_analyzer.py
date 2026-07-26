@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -48,10 +49,11 @@ class PerformanceProfile:
 def _to_array(returns: np.ndarray | pd.Series) -> np.ndarray:
     """Coerce input to a clean 1-D float array, dropping NaNs."""
     if isinstance(returns, pd.Series):
-        arr = returns.to_numpy(dtype=float)
+        arr: np.ndarray = returns.to_numpy(dtype=float)
     else:
         arr = np.asarray(returns, dtype=float)
-    return arr[~np.isnan(arr)]
+    # boolean-mask indexing is typed Any in the numpy stubs; cast is a no-op.
+    return cast(np.ndarray, arr[~np.isnan(arr)])
 
 
 def compute_performance_profile(

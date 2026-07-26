@@ -98,15 +98,15 @@ def compute_ic_half_life(ic_series: pd.Series) -> float | None:
         else:
             autocorrs.append(0.0)
 
-    autocorrs = np.array(autocorrs)
+    autocorrs_arr = np.array(autocorrs)
 
     # Fit exponential decay: log(|autocorr|) = -lambda * lag
     # Only use positive autocorrelations for the fit
-    valid = autocorrs > 0.01
+    valid = autocorrs_arr > 0.01
     if valid.sum() < 3:
         return None
 
-    log_ac = np.log(autocorrs[valid])
+    log_ac = np.log(autocorrs_arr[valid])
     lag_valid = lags[valid]
 
     try:

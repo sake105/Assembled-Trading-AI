@@ -251,4 +251,6 @@ def apply_fills_position_deltas_numba(
             deltas[i] = -qtys[i]
 
     # Aggregate by symbol index (reuse existing function)
-    return aggregate_position_deltas_numba(symbol_indices, deltas)
+    # numba @njit chain: callee is Any (numba untyped); no cast() inside
+    # JIT-compiled code — typing.cast is not numba-compilable.
+    return aggregate_position_deltas_numba(symbol_indices, deltas)  # type: ignore[no-any-return]

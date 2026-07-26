@@ -78,7 +78,7 @@ from src.assembled_core.risk.georisk_overlay import (
 )  # re-export for tests
 
 if TYPE_CHECKING:
-    pass
+    from src.assembled_core.intel.trigger_basket import TriggerBasket
 
 logger = logging.getLogger(__name__)
 
@@ -580,7 +580,8 @@ def _load_intel(
     # EDCL — Event-Driven Conviction Layer basket computation
     # Runs even when edcl_conviction_overlay.enabled=false so that ctx.edcl_state
     # is always populated for observability. Multiplier only fires when enabled.
-    _basket = None  # guard: Phase G reads this; must be defined even if try-block skips
+    # guard: Phase G reads this; must be defined even if try-block skips
+    _basket: TriggerBasket | None = None
     try:
         _edcl_cfg = policy.get("edcl_conviction_overlay") or {}
         # Skip entirely in backtest mode unless allow_in_backtest is set
@@ -596,7 +597,7 @@ def _load_intel(
             )
             from src.assembled_core.intel.models import TriggerType
 
-            _basket: TriggerBasket | None = None
+            _basket = None
 
             # Path 1: full keyword scoring from raw NewsEvent objects
             _raw = getattr(ctx, "raw_news_events", None)

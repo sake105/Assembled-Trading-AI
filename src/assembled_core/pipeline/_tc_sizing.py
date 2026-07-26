@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -51,6 +53,13 @@ def _sp_dispatch_sizing(
     """Dispatch to the configured sizing method; validate and return target_positions."""
     sizing_method = sizing_cfg.get("method", "default")
     target_positions: pd.DataFrame = pd.DataFrame()
+    # position_sizing_fn is Optional on TradingContext only for late binding;
+    # every orchestrator entry path assigns it before sizing. cast() keeps
+    # runtime behaviour byte-identical (a None would raise TypeError at the
+    # same call sites as before).
+    _sizing_fn = cast(
+        "Callable[[pd.DataFrame, float], pd.DataFrame]", ctx.position_sizing_fn
+    )
     try:
         if sizing_method == "kelly":
             from src.assembled_core.portfolio.position_sizing import (
@@ -153,12 +162,12 @@ def _sp_dispatch_sizing(
                             ]
                         )
                     else:
-                        target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                        target_positions = _sizing_fn(signals, ctx.capital)
                 else:
-                    target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                    target_positions = _sizing_fn(signals, ctx.capital)
             except Exception as e:
                 log.warning("Black-Litterman sizing failed, using default: %s", e)
-                target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                target_positions = _sizing_fn(signals, ctx.capital)
         elif sizing_method == "cost_aware":
             try:
                 from src.assembled_core.portfolio.cost_aware_optimizer import (
@@ -205,11 +214,16 @@ def _sp_dispatch_sizing(
                                 .fillna(0.0)
                                 .items()
                             }
+                    # FIXME(mypy-sweep): OptimizerConfig is passed as the 4th
+                    # POSITIONAL arg = per_symbol_cost_bps, NOT config= — the
+                    # optimizer runs with the default config and these settings
+                    # are silently ignored (path then falls back via except).
+                    # Real fix (config=...) is a behaviour change -> own task.
                     cao_res = optimize_portfolio(
                         mu_cao,
                         sigma_cao,
                         _cur_w,
-                        OptimizerConfig(
+                        OptimizerConfig(  # type: ignore[arg-type]
                             risk_aversion=float(sizing_cfg.get("risk_aversion", 1.0)),
                             turnover_penalty=float(
                                 sizing_cfg.get("turnover_penalty", 0.001)
@@ -229,14 +243,17 @@ def _sp_dispatch_sizing(
                         ]
                     )
                 else:
-                    target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                    target_positions = _sizing_fn(signals, ctx.capital)
             except Exception as e:
                 log.warning("cost_aware_optimizer failed, using default: %s", e)
-                target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                target_positions = _sizing_fn(signals, ctx.capital)
         elif sizing_method == "erc":
             try:
                 from src.assembled_core.portfolio.covariance import estimate_covariance
-                from src.assembled_core.portfolio.risk_budgeting import (
+
+                # FIXME(mypy-sweep): module does not exist — this sizing method
+                # always falls back to default sizing via the except below.
+                from src.assembled_core.portfolio.risk_budgeting import (  # type: ignore[import-not-found]
                     compute_erc_weights,
                 )
 
@@ -281,21 +298,23 @@ def _sp_dispatch_sizing(
                                 ]
                             )
                         else:
-                            target_positions = ctx.position_sizing_fn(
-                                signals, ctx.capital
-                            )
+                            target_positions = _sizing_fn(signals, ctx.capital)
                     else:
-                        target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                        target_positions = _sizing_fn(signals, ctx.capital)
                 else:
-                    target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                    target_positions = _sizing_fn(signals, ctx.capital)
             except Exception as e:
                 log.warning("erc sizing failed, using default: %s", e)
-                target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                target_positions = _sizing_fn(signals, ctx.capital)
         elif sizing_method == "bl_blend":
             try:
-                from src.assembled_core.portfolio.bl_sizing import apply_bl_sizing
+                # FIXME(mypy-sweep): module does not exist — this sizing method
+                # always falls back to default sizing via the except below.
+                from src.assembled_core.portfolio.bl_sizing import (  # type: ignore[import-not-found]
+                    apply_bl_sizing,
+                )
 
-                base_tp = ctx.position_sizing_fn(signals, ctx.capital)
+                base_tp = _sizing_fn(signals, ctx.capital)
                 if (
                     base_tp is not None
                     and not base_tp.empty
@@ -333,15 +352,15 @@ def _sp_dispatch_sizing(
                         ]
                     )
                 else:
-                    target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                    target_positions = _sizing_fn(signals, ctx.capital)
             except Exception as e:
                 log.warning("bl_blend sizing failed, using default: %s", e)
-                target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                target_positions = _sizing_fn(signals, ctx.capital)
         elif sizing_method == "hrp":
             try:
                 from src.assembled_core.portfolio.hrp_sizing import apply_hrp_sizing
 
-                base_tp = ctx.position_sizing_fn(signals, ctx.capital)
+                base_tp = _sizing_fn(signals, ctx.capital)
                 if (
                     base_tp is not None
                     and not base_tp.empty
@@ -377,15 +396,18 @@ def _sp_dispatch_sizing(
                         ]
                     )
                 else:
-                    target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                    target_positions = _sizing_fn(signals, ctx.capital)
             except Exception as e:
                 log.warning("hrp sizing failed, using default: %s", e)
-                target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                target_positions = _sizing_fn(signals, ctx.capital)
         elif sizing_method == "mvo":
             try:
                 import numpy as _np
                 from src.assembled_core.portfolio.covariance import estimate_covariance
-                from src.assembled_core.portfolio.mvo_optimizer import (
+
+                # FIXME(mypy-sweep): module does not exist — this sizing method
+                # always falls back to default sizing via the except below.
+                from src.assembled_core.portfolio.mvo_optimizer import (  # type: ignore[import-not-found]
                     mvo_with_cardinality,
                 )
 
@@ -445,18 +467,16 @@ def _sp_dispatch_sizing(
                                 ]
                             )
                         else:
-                            target_positions = ctx.position_sizing_fn(
-                                signals, ctx.capital
-                            )
+                            target_positions = _sizing_fn(signals, ctx.capital)
                     else:
-                        target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                        target_positions = _sizing_fn(signals, ctx.capital)
                 else:
-                    target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                    target_positions = _sizing_fn(signals, ctx.capital)
             except Exception as e:
                 log.warning("mvo sizing failed, using default: %s", e)
-                target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+                target_positions = _sizing_fn(signals, ctx.capital)
         else:
-            target_positions = ctx.position_sizing_fn(signals, ctx.capital)
+            target_positions = _sizing_fn(signals, ctx.capital)
 
         if target_positions is None or target_positions.empty:
             target_positions = pd.DataFrame(
@@ -540,7 +560,12 @@ def _sp_compute_final_multiplier(
         ):
             pl_state = getattr(ctx, "profit_lock_state", None) or {}
             profit_lock_mult, pl_state_out = compute_profit_lock_multiplier(
-                ctx.equity_curve, pl_cfg, ctx.equity_curve_index, state=pl_state
+                ctx.equity_curve,
+                pl_cfg,
+                # cast: non-None guaranteed by the getattr-guard above (mypy
+                # cannot narrow attribute access through getattr()).
+                cast(int, ctx.equity_curve_index),
+                state=pl_state,
             )
             ctx.profit_lock_state = pl_state_out
             meta["profit_lock_state"] = pl_state_out
@@ -557,7 +582,10 @@ def _sp_compute_final_multiplier(
             and getattr(ctx, "equity_curve_index", None) is not None
         ):
             vol_scale_factor, realized_vol, target_vol = compute_vol_targeting_result(
-                ctx.equity_curve, vt_cfg, now_idx=ctx.equity_curve_index
+                ctx.equity_curve,
+                vt_cfg,
+                # cast: non-None guaranteed by the getattr-guard above.
+                now_idx=cast(int, ctx.equity_curve_index),
             )
             meta["vol_targeting"] = {
                 "scale_factor": vol_scale_factor,
@@ -584,11 +612,11 @@ def _sp_compute_final_multiplier(
             ms_multiplier = float(_ms_scaling.get("stress_score_1", 0.75))
 
     crisis_alpha_multiplier = 1.0
-    if (
-        getattr(ctx, "crisis_state_intel", None)
-        and os.environ.get("ASSEMBLED_NO_CRISIS_OVERLAY") != "1"
-    ):
-        crisis_mode = str(ctx.crisis_state_intel.get("mode", "NORMAL")).upper()
+    # Local binding (same object) so mypy sees the truthiness guard; runtime
+    # behaviour identical to the previous getattr-based check.
+    _crisis_intel = getattr(ctx, "crisis_state_intel", None)
+    if _crisis_intel and os.environ.get("ASSEMBLED_NO_CRISIS_OVERLAY") != "1":
+        crisis_mode = str(_crisis_intel.get("mode", "NORMAL")).upper()
         ca_cfg = (
             policy.get("crisis_alpha")
             or policy.get("intel", {}).get("crisis_alpha")
@@ -871,7 +899,11 @@ def _sp_apply_factor_risk(
             and prices_for_sizing is not None
             and not prices_for_sizing.empty
         ):
-            from src.assembled_core.risk.factor_risk_model import FactorRiskModel
+            # FIXME(mypy-sweep): module does not exist — factor-risk overlay is
+            # a silent no-op via the enclosing except.
+            from src.assembled_core.risk.factor_risk_model import (  # type: ignore[import-not-found]
+                FactorRiskModel,
+            )
 
             frm = FactorRiskModel()
             frm.fit(prices_for_sizing)
@@ -1104,7 +1136,10 @@ def _sp_apply_correlation_guard(
                 tw_dict_cg, corr_prices, policy
             )
             if corr_reasons:
-                from src.assembled_core.ops.shadow_recorder import (
+                # FIXME(mypy-sweep): module does not exist — shadow-recording
+                # paths are silent no-ops via the enclosing except. (mypy
+                # reports a missing module once per file: first import only.)
+                from src.assembled_core.ops.shadow_recorder import (  # type: ignore[import-not-found]
                     is_shadow_only,
                     record_shadow,
                 )
@@ -1548,13 +1583,14 @@ def _sp_apply_crisis_alpha_cap(
                             )
                             if _gpr_path not in _GPR_PARQUET_CACHE:
                                 try:
-                                    _GPR_PARQUET_CACHE[_gpr_path] = pd.read_parquet(
+                                    _gpr_df_loaded = pd.read_parquet(
                                         _gpr_path, columns=["timestamp", "gpr_index"]
                                     )
+                                    _GPR_PARQUET_CACHE[_gpr_path] = _gpr_df_loaded
                                     log.debug(
                                         "[T4.1] GPR cache loaded: %s (%d rows)",
                                         _gpr_path,
-                                        len(_GPR_PARQUET_CACHE[_gpr_path]),
+                                        len(_gpr_df_loaded),
                                     )
                                 except Exception as _load_exc:
                                     log.warning(

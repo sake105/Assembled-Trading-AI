@@ -165,7 +165,7 @@ def sharpe_threshold(
     q1 = norm.ppf(1.0 - 1.0 / n_trials)
     q2 = norm.ppf(1.0 - 1.0 / (n_trials * math.e))
     sd = math.sqrt(variance_across_trials)
-    return sd * ((1.0 - gamma) * q1 + gamma * q2)
+    return float(sd * ((1.0 - gamma) * q1 + gamma * q2))
 
 
 def deflated_sharpe(

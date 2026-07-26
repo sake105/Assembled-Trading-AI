@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
@@ -42,7 +43,7 @@ try:
 except ImportError:
     HAS_NUMBA = False
 
-    def _njit(*args, **kwargs):  # type: ignore[misc]
+    def _njit(*args, **kwargs):
         """Dummy decorator — Numba unavailable."""
 
         def _decorator(fn):
@@ -60,7 +61,10 @@ try:
     HAS_POLARS = True
 except ImportError:
     HAS_POLARS = False
-    pl = None  # type: ignore[assignment]
+    # unused-ignore in the code: polars is typed locally (ignore needed) but
+    # absent in CI where the ignore_missing_imports override makes pl Any and
+    # the ignore would be flagged unused by warn_unused_ignores.
+    pl = None  # type: ignore[assignment, unused-ignore]
 
 # ---------------------------------------------------------------------------
 # Result dataclass
@@ -165,12 +169,14 @@ def sharpe_polars(returns: np.ndarray, rf: float = 0.0) -> float:
         return float("nan")
     series = pl.Series("excess", arr - rf, dtype=pl.Float64)
     std_val = series.std(ddof=1)
-    if std_val is None or float(std_val) == 0.0:
+    # polars stubs type std()/mean() as broad unions (timedelta/date/... for
+    # other dtypes); dtype=pl.Float64 guarantees float here — cast is a no-op.
+    if std_val is None or float(cast(float, std_val)) == 0.0:
         return float("nan")
     mean_val = series.mean()
     if mean_val is None:
         return float("nan")
-    return float(float(mean_val) / float(std_val) * _SQRT252)
+    return float(float(cast(float, mean_val)) / float(cast(float, std_val)) * _SQRT252)
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +201,8 @@ def _sharpe_kernel(excess: np.ndarray) -> float:
     var = m2 / (n - 1)
     if var <= 0.0:
         return np.nan
-    return mean / np.sqrt(var) * 15.874507866387544  # sqrt(252)
+    # numba kernel: ndarray indexing is Any; no cast() inside JIT code.
+    return mean / np.sqrt(var) * 15.874507866387544  # type: ignore[no-any-return]  # sqrt(252)
 
 
 def sharpe_numba(returns: np.ndarray, rf: float = 0.0) -> float:

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 _REDIS_AVAILABLE = False
 try:
-    import redis  # type: ignore[import]
+    import redis  # type: ignore[import-not-found]
 
     _REDIS_AVAILABLE = True
 except ImportError:

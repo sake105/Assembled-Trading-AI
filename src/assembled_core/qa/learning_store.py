@@ -106,7 +106,9 @@ def summarize_learning_store(
     recent = records[-last_n:]
     hit_rates = [r["overall_hit_rate"] for r in recent if "overall_hit_rate" in r]
     avg_hit_rate = sum(hit_rates) / len(hit_rates) if hit_rates else None
-    dates = [r.get("analysis_date") for r in records if r.get("analysis_date")]
+    dates: list[Any] = [
+        r.get("analysis_date") for r in records if r.get("analysis_date")
+    ]
 
     return {
         "total_records": len(records),

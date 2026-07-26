@@ -216,7 +216,10 @@ class TradingContext:
 
     # Intel (read-only): disclosures triggers snapshot; QC flags for degraded/missing intel
     disclosures_triggers: Any | None = None  # DisclosuresTriggerSnapshot | None
-    intel_health_flags: dict[str, str] = field(default_factory=dict)
+    # dict[str, Any]: values are nested dicts in practice (e.g. the
+    # daily_circuit_breaker entry written by trading_cycle_v2); the previous
+    # dict[str, str] annotation was simply wrong. Annotation-only change.
+    intel_health_flags: dict[str, Any] = field(default_factory=dict)
 
     # GeoRisk intel (read from data/intel/crisis_state.json + triggers_latest.json)
     news_geo: dict[str, Any] | None = (
@@ -560,7 +563,7 @@ def _build_features_default(
     else:
         # Default: direct computation (backward compatible)
         feature_cfg = ensure_feature_config(ctx.feature_config)
-        config: dict[str, Any] = {}
+        config = {}
         if feature_cfg is not None:
             config = {
                 "ma_windows": feature_cfg.ma_windows,
@@ -602,7 +605,7 @@ def _build_features_default(
         build_intermarket_factors = None
         align_intermarket_factors_to_panel = None
         try:
-            from src.assembled_core.features.intermarket_factors import (
+            from src.assembled_core.features.intermarket_factors import (  # type: ignore[assignment]
                 align_intermarket_factors_to_panel,
                 build_intermarket_factors,
             )
@@ -654,7 +657,7 @@ def _build_features_default(
         # the import statements only. Outer: catch-all around data ops.
         build_candlestick_features = None
         try:
-            from src.assembled_core.features.ta_candlestick import (
+            from src.assembled_core.features.ta_candlestick import (  # type: ignore[assignment]
                 build_candlestick_features,
             )
         except ModuleNotFoundError as e:
@@ -696,7 +699,7 @@ def _build_features_default(
         # the import statements only. Outer: catch-all around data ops.
         EarningsCalendarSource = None
         try:
-            from src.assembled_core.data.sources.earnings_calendar_source import (
+            from src.assembled_core.data.sources.earnings_calendar_source import (  # type: ignore[assignment]
                 EarningsCalendarSource,
             )
         except ModuleNotFoundError as e:
@@ -747,10 +750,10 @@ def _build_features_default(
         load_congress_sample = None
         add_congress_features = None
         try:
-            from src.assembled_core.data.congress_trades_ingest import (
+            from src.assembled_core.data.congress_trades_ingest import (  # type: ignore[assignment]
                 load_congress_sample,
             )
-            from src.assembled_core.features.congress_features import (
+            from src.assembled_core.features.congress_features import (  # type: ignore[assignment]
                 add_congress_features,
             )
         except ModuleNotFoundError as e:

@@ -25,7 +25,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 try:
-    import pymc as pm  # type: ignore[import]  # noqa: F401
+    import pymc as pm  # type: ignore[import-not-found]  # noqa: F401
 
     _PYMC_AVAILABLE = True
 except ImportError:
@@ -111,7 +111,7 @@ def _analytic_sharpe_posterior(
     hdi_hi = sharpe_mean + 1.88 * sharpe_std
 
     # P(Sharpe > 0)
-    from scipy.stats import norm  # type: ignore[import]
+    from scipy.stats import norm
 
     p_pos = float(norm.sf(0.0, loc=sharpe_mean, scale=max(sharpe_std, 1e-9)))
 

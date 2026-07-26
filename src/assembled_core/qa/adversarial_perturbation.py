@@ -93,7 +93,9 @@ def min_perturbation_to_flip(
         direction = np.where(mask, direction, 0.0)
 
     def flipped_at(eps: float) -> bool:
-        return np.sign(predict_fn(x + eps * direction)) != base_sign
+        # predict_fn returns a scalar prediction; result is already used in
+        # boolean contexts only — bool() is a no-op wrapper for mypy.
+        return bool(np.sign(predict_fn(x + eps * direction)) != base_sign)
 
     # First check whether a flip is even possible inside max_eps.
     if not flipped_at(max_eps):

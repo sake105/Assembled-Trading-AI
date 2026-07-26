@@ -206,8 +206,8 @@ def plot_calibration_curve(
     ax.set_title("Calibration Curve", fontsize=14, fontweight="bold")
     ax.legend(loc="best", fontsize=10)
     ax.grid(True, alpha=0.3)
-    ax.set_xlim([0, 1])
-    ax.set_ylim([0, 1])
+    ax.set_xlim((0.0, 1.0))
+    ax.set_ylim((0.0, 1.0))
 
     # Save plot
     output_path = pathlib.Path(output_path)

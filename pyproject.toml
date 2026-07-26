@@ -226,6 +226,9 @@ ignore_missing_imports = true
 # unsilenced here. Extended 2026-07 (ops type-sweep Tranche 3) with the
 # optional ops-layer libs (apscheduler/sentry_sdk/evidently/nannyml/shap/
 # mlflow) — none of them pinned in requirements.txt, so local == CI.
+# Extended 2026-07 (qa type-sweep Tranche 4a) with dowhy/pyod/skfolio (optional
+# research libs, missing local+CI) and numba (installed locally without
+# py.typed, NOT pinned in requirements.txt -> missing in CI).
 [[tool.mypy.overrides]]
 module = [
     "apscheduler.*",
@@ -233,6 +236,7 @@ module = [
     "cvxpy.*",
     "dimod.*",
     "doubleml.*",
+    "dowhy.*",
     "dtaidistance.*",
     "duckdb.*",
     "econml.*",
@@ -245,6 +249,7 @@ module = [
     "mlflow",
     "mwviews.*",
     "nannyml",
+    "numba.*",
     "openmeteo_requests.*",
     "pandas_datareader.*",
     "polars",
@@ -252,11 +257,13 @@ module = [
     "py_vollib.*",
     "py_vollib_vectorized.*",
     "pykalman.*",
+    "pyod.*",
     "riskfolio.*",
     "ruptures.*",
     "sentry_sdk",
     "sentry_sdk.*",
     "shap",
+    "skfolio.*",
     "stumpy.*",
     "tsfresh.*",
 ]

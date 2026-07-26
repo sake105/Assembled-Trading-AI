@@ -363,7 +363,7 @@ def _check_missing_sessions(
 
             # Determine severity based on threshold
             if missing_pct >= thresholds.get("missing_sessions_fail_pct", 20.0):
-                severity = "FAIL"
+                severity: Literal["WARN", "FAIL"] = "FAIL"
             elif missing_pct >= thresholds.get("missing_sessions_warn_pct", 5.0):
                 severity = "WARN"
             else:
@@ -516,7 +516,9 @@ def _check_outlier_returns(
             if pd.isna(ret):
                 continue
             abs_ret = float(abs_returns.loc[idx])
-            severity = "FAIL" if abs_ret >= fail_threshold else "WARN"
+            severity: Literal["WARN", "FAIL"] = (
+                "FAIL" if abs_ret >= fail_threshold else "WARN"
+            )
             threshold_used = (
                 fail_threshold if abs_ret >= fail_threshold else warn_threshold
             )
@@ -589,7 +591,7 @@ def _check_zero_volume(
                         continue
                     zero_pct = (n_zero / total) * 100.0
                     if zero_pct >= intraday_zero_vol_fail:
-                        severity: str = "FAIL"
+                        severity: Literal["WARN", "FAIL"] = "FAIL"
                     elif zero_pct >= intraday_zero_vol_warn:
                         severity = "WARN"
                     else:

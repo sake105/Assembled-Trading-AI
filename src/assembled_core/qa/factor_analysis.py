@@ -258,7 +258,11 @@ def compute_factor_ic(
                     "or specify the correct column structure."
                 )
 
-    required_cols.append(symbol_col)
+    # FIXME(mypy-sweep): symbol_col stays None when group_col != "timestamp"
+    # and df has no "symbol" column; None then flows into required_cols and
+    # triggers the missing-columns KeyError below with "None" in the message.
+    # Left as-is (behavior-neutral mandate).
+    required_cols.append(symbol_col)  # type: ignore[arg-type]
 
     missing_cols = [col for col in required_cols if col not in df.columns]
     if missing_cols:
@@ -1971,7 +1975,9 @@ def summarize_factor_portfolios(
                 sv = row.get("sharpe")
                 nv = row.get("n_periods", 0)
                 if sv is None or (isinstance(sv, float) and np.isnan(sv)) or nv < 2:
-                    return row.get("deflated_sharpe", float("nan"))
+                    # No float() conversion: a non-numeric stored value must
+                    # pass through unchanged (pre-existing fallback behaviour).
+                    return row.get("deflated_sharpe", float("nan"))  # type: ignore[no-any-return]
                 try:
                     return deflated_sharpe_ratio(
                         sharpe_annual=sv,
@@ -1984,7 +1990,8 @@ def summarize_factor_portfolios(
                     logger.warning(
                         "[FactorAnalysis] stats computation failed for factor: %s", exc
                     )
-                    return row.get("deflated_sharpe", float("nan"))
+                    # No float() conversion — see fallback note above.
+                    return row.get("deflated_sharpe", float("nan"))  # type: ignore[no-any-return]
 
             result_df["deflated_sharpe"] = result_df.apply(_recompute_dsr, axis=1)
 
@@ -2180,7 +2187,7 @@ def compute_factor_half_life(ic_decay_df: pd.DataFrame) -> float:
     if ic_decay_df.empty or "ic_mean" not in ic_decay_df.columns:
         return float("inf")
 
-    from scipy.optimize import curve_fit  # type: ignore
+    from scipy.optimize import curve_fit
 
     x = ic_decay_df["horizon_days"].values.astype(float)
     y = ic_decay_df["ic_mean"].values.astype(float)

@@ -271,7 +271,7 @@ def make_cycle_fn(
     signal_fn: Callable[[pd.DataFrame], pd.DataFrame],
     position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
     capital: float,
-    run_trading_cycle_fn: Callable | None = None,
+    run_trading_cycle_fn: Callable[..., "TradingCycleResult"] | None = None,
     enable_risk_controls: bool = True,
 ) -> Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"]:
     """Create a callable that runs trading cycle for a given timestamp and positions.
@@ -375,7 +375,10 @@ def make_cycle_fn(
         )
 
         # Run trading cycle
-        return run_trading_cycle_fn(ctx)
+        # run_trading_cycle_fn is guaranteed non-None here: the is-None branch
+        # above (outer scope) rebinds it via import before cycle_fn is created.
+        # mypy cannot carry that narrowing into the closure -> [misc].
+        return run_trading_cycle_fn(ctx)  # type: ignore[misc]
 
     return cycle_fn
 

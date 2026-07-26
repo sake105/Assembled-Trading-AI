@@ -165,11 +165,13 @@ def route_orders(
                         arrival_price=_rl_price,
                         n_steps=_rl_n_steps,
                     )
+                    _rl_exec: RLExecutor | RuleBasedExecutor
                     if _rl_model_path:
-                        _rl_exec: RLExecutor | RuleBasedExecutor = RLExecutor(
+                        _rl_rl_exec = RLExecutor(
                             config=_rl_env_cfg, model_path=_rl_model_path
                         )
-                        _rl_exec.load(_rl_model_path)
+                        _rl_rl_exec.load(_rl_model_path)
+                        _rl_exec = _rl_rl_exec
                     else:
                         _rl_exec = RuleBasedExecutor(config=_rl_env_cfg)
                     _rl_res = _rl_exec.execute(n_steps=_rl_n_steps)
@@ -389,7 +391,11 @@ def book_fills(
                 ctx=ctx,
                 result=result,
                 policy=policy,
-                mode=ctx.execution_mode,
+                # FIXME(mypy-sweep): TradingContext has NO execution_mode
+                # attribute (never assigned anywhere) — this AttributeError is
+                # swallowed by the enclosing except, so the step silently never
+                # runs. Same at the 3 sites below. Wiring fix = own task.
+                mode=ctx.execution_mode,  # type: ignore[attr-defined]
             )
     except Exception as e:
         log.debug("[KPI] write_run_kpis skipped: %s", e)
@@ -407,7 +413,8 @@ def book_fills(
                 metrics={
                     "n_orders": len(result.orders_filtered),
                     "n_signals": len(result.signals),
-                    "execution_mode": ctx.execution_mode,
+                    # FIXME(mypy-sweep): see execution_mode note above.
+                    "execution_mode": ctx.execution_mode,  # type: ignore[attr-defined]
                 },
                 manifests_dir=ctx.output_dir / "manifests",
             )
@@ -425,7 +432,10 @@ def book_fills(
                 date=str(ctx.as_of.date()),
                 status="success",
                 metrics={
-                    "final_equity": float(getattr(ctx, "current_equity", ctx.equity)),
+                    # FIXME(mypy-sweep): ctx.equity does not exist on
+                    # TradingContext; the eager default evaluation raises
+                    # AttributeError -> enclosing except skips this step.
+                    "final_equity": float(getattr(ctx, "current_equity", ctx.equity)),  # type: ignore[attr-defined, arg-type]
                     "n_fills": len(result.orders_filtered),
                 },
                 git_sha=result.meta.get("git_sha", ""),
@@ -485,7 +495,8 @@ def book_fills(
                 _tj_fills,
                 signal_context={
                     "regime": result.meta.get("regime", {}).get("regime", ""),
-                    "execution_mode": ctx.execution_mode,
+                    # FIXME(mypy-sweep): see execution_mode note above.
+                    "execution_mode": ctx.execution_mode,  # type: ignore[attr-defined]
                 },
                 run_id=str(ctx.as_of.date()),
                 journal_path=ctx.output_dir / "trade_journal.jsonl",
@@ -538,7 +549,9 @@ def book_fills(
                 details={
                     "cycle_date": str(ctx.as_of.date()) if ctx.as_of else "",
                     "n_orders": len(result.orders_filtered),
-                    "execution_mode": str(ctx.execution_mode),
+                    # FIXME(mypy-sweep): see execution_mode note above —
+                    # kills the heartbeat write on live/paper via the except.
+                    "execution_mode": str(ctx.execution_mode),  # type: ignore[attr-defined]
                 },
             )
             result.meta["heartbeat"] = {"status": "ok", "path": str(_hb_path)}
@@ -676,7 +689,13 @@ def book_fills(
             and result.orders_filtered is not None
             and not result.orders_filtered.empty
         ):
-            from src.assembled_core.data.tick_store import OHLCVTick, TickStore
+            # FIXME(mypy-sweep): tick_store has NO TickStore class (module-level
+            # functions only) — ImportError here means the QuestDB write-through
+            # silently never runs (enclosing except). Wiring fix = own task.
+            from src.assembled_core.data.tick_store import (  # type: ignore[attr-defined]
+                OHLCVTick,
+                TickStore,
+            )
 
             _qs_store = TickStore(url=qs_cfg.get("url", ""))
             if _qs_store.ping():

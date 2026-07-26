@@ -185,12 +185,12 @@ def brinson_fachler_attribution(
         ret_col = [
             c for c in merged.columns if "return" in c.lower() or c.endswith("_ret")
         ]
-        ret_col = ret_col[0] if ret_col else "return"
+        ret_col_name: str = ret_col[0] if ret_col else "return"
 
         sector_agg = merged.groupby("sector").agg(
             weight=("weight", "sum"),
             weighted_return=(
-                ret_col,
+                ret_col_name,
                 lambda x: (x * merged.loc[x.index, "weight"]).sum()
                 / max(merged.loc[x.index, "weight"].sum(), 1e-12),
             ),
