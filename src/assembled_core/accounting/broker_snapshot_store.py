@@ -185,7 +185,7 @@ def load_broker_snapshot_json(
 
     try:
         with snapshot_path.open("r", encoding="utf-8") as f:
-            snapshot = json.load(f)
+            snapshot: dict[str, Any] = json.load(f)
     except json.JSONDecodeError as exc:
         # Provide clear ASCII-only context for ops/logging.
         raise ValueError(

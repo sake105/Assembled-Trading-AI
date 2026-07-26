@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from src.assembled_core.accounting.accounting_report import (
@@ -117,8 +117,14 @@ def build_ledger_from_trades(
             as_of_date = pd.Timestamp.now("UTC")
     if isinstance(as_of_date, str):
         as_of_date = pd.to_datetime(as_of_date, utc=True)
-    if as_of_date.tz is None:
-        as_of_date = as_of_date.tz_localize("UTC")
+    # Normalize via a Timestamp-annotated local for the type checker. cast()
+    # instead of assert/isinstance so degenerate inputs (e.g. NaT from an
+    # all-NaT trades timestamp column) keep their pre-existing pass-through
+    # behaviour — see the defensive isinstance guards at call-sites below.
+    as_of_ts: pd.Timestamp = cast("pd.Timestamp", as_of_date)
+    if as_of_ts.tz is None:
+        as_of_ts = as_of_ts.tz_localize("UTC")
+    as_of_date = as_of_ts
 
     # Generate ledger events
     logger.info(f"Generating ledger events for run_id={run_id}")
@@ -174,9 +180,9 @@ def build_ledger_from_trades(
         snapshot_df = positions_df.copy()
         snapshot_df["as_of_date"] = as_of_date
         store_daily_snapshot_parquet(snapshot_df, output_dir, run_id, as_of_date)
-        logger.info(f"Stored daily snapshot for {as_of_date.date()}")
+        logger.info(f"Stored daily snapshot for {as_of_ts.date()}")
     else:
-        logger.info(f"No positions to snapshot for {as_of_date.date()}")
+        logger.info(f"No positions to snapshot for {as_of_ts.date()}")
 
     # Determine broker snapshot run_id (for loading/writing)
     snapshot_run_id = (
@@ -187,7 +193,9 @@ def build_ledger_from_trades(
     # Decision logic based on broker_snapshot_policy
     reconciliation_result = None
     reconcile_report_path = None
-    reconciliation_ok = True
+    # bool | None per the documented return contract: None = "unverified"
+    # (B-acct-3 paper_view grading below), True/False = real reconcile outcome.
+    reconciliation_ok: bool | None = True
     reconciliation_severity = None
     reconciliation_violations: list[dict] = []
     reconciliation_blocked = False
@@ -275,7 +283,7 @@ def build_ledger_from_trades(
                 expected_path = broker_snapshot_base_path(output_dir, snapshot_run_id)
                 raise ValueError(
                     f"Broker snapshot required but not found: "
-                    f"run_id={snapshot_run_id}, as_of_date={as_of_date.date()}. "
+                    f"run_id={snapshot_run_id}, as_of_date={as_of_ts.date()}. "
                     f"Expected path: {expected_path}"
                 )
             # Fallback: Use positions_df as broker snapshot (paper broker view)
@@ -600,7 +608,7 @@ def build_ledger_from_trades(
 
         # Write evidence index (links all accounting-related artifacts)
         # Evidence pack expects file paths, not directories (ledger_events.parquet, snapshot_*.json)
-        date_str = as_of_date.strftime("%Y-%m-%d")
+        date_str = as_of_ts.strftime("%Y-%m-%d")
         ledger_events_path = ledger_base / "ledger_events.parquet"
         broker_snapshot_file = (
             (broker_snapshot_path / f"snapshot_{date_str}.json")

@@ -155,9 +155,11 @@ jobs:
           # + paper/ (4 errors) swept to zero and added 2026-07-25 (GESAMTBEWERTUNG §8
           # Tranche 1; behaviour-neutral type fixes only, 1230 neighbourhood tests green,
           # 2 potential real bugs flagged as FIXME(mypy-sweep) instead of silently "fixed").
-          # Still unscoped: qa (132), pipeline (131), ops (123), api (79), accounting (41)
-          # — next tranches per §8 (accounting -> ops/api -> pipeline/qa).
-          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio src/assembled_core/risk src/assembled_core/paper 2>&1 | tee -a backend_ci_log.txt
+          # Still unscoped: qa (132), pipeline (131), ops (123), api (79)
+          # — next tranches per §8 (ops/api -> pipeline/qa). accounting/ (16 errors,
+          # fresh-cache count per E-057) swept to zero and added 2026-07-26
+          # (Tranche 2; behaviour-neutral type fixes only, 502 neighbourhood tests green).
+          mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio src/assembled_core/risk src/assembled_core/paper src/assembled_core/accounting 2>&1 | tee -a backend_ci_log.txt
 
       - name: Upload coverage report
         if: always()

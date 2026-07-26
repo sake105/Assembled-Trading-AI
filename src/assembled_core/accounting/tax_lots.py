@@ -117,7 +117,7 @@ def match_fifo(
         FIFOCloseResult with per-lot breakdown and total P&L in EUR.
     """
     remaining = qty_to_close
-    lots_closed = []
+    lots_closed: list[dict[str, Any]] = []
 
     for lot in sorted(open_lots, key=lambda t: (t.trade_date, t.trade_timestamp)):
         if remaining <= 0:

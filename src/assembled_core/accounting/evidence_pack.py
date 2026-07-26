@@ -13,7 +13,7 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from src.assembled_core import __version__ as CORE_VERSION
@@ -445,9 +445,13 @@ def collect_evidence_files(
             "evidence_index_path": manifest.get("evidence_index_path"),
         }
 
-    # Use centralized required/optional keys per source
-    required_keys = REQUIRED_KEYS_BY_SOURCE.get(source, [])
-    optional_keys = OPTIONAL_KEYS_BY_SOURCE.get(source, [])
+    # Use centralized required/optional keys per source. Guarded lookup: a
+    # non-str source (None — reachable e.g. via a corrupt evidence index that
+    # set evidence_index_used=True but failed before assigning source) yields
+    # the same empty defaults as the previous .get(None, []) behaviour.
+    source_key = source if isinstance(source, str) else ""
+    required_keys = REQUIRED_KEYS_BY_SOURCE.get(source_key, [])
+    optional_keys = OPTIONAL_KEYS_BY_SOURCE.get(source_key, [])
 
     # Process required files (missing -> keys in missing_required)
     for key in required_keys:
@@ -686,8 +690,10 @@ def build_evidence_pack(
 
     # Enforce keys-only: required_missing and optional_missing must only contain allowed keys
     source = collection.get("source")
-    allowed_required = set(REQUIRED_KEYS_BY_SOURCE.get(source, []))
-    allowed_optional = set(OPTIONAL_KEYS_BY_SOURCE.get(source, []))
+    # Non-str source (None) yields the same empty default as an unknown key.
+    source_key = source if isinstance(source, str) else ""
+    allowed_required = set(REQUIRED_KEYS_BY_SOURCE.get(source_key, []))
+    allowed_optional = set(OPTIONAL_KEYS_BY_SOURCE.get(source_key, []))
     missing_required_list = collection.get("missing_required", [])
     missing_optional_list = collection.get("missing_optional", [])
     for key in missing_required_list:
@@ -936,7 +942,7 @@ def read_pack_manifest_from_zip(zip_path: Path | str) -> dict[str, Any]:
         with zf.open(manifest_name) as mf:
             manifest_bytes = mf.read()
         try:
-            return json.loads(manifest_bytes.decode("utf-8"))
+            return cast("dict[str, Any]", json.loads(manifest_bytes.decode("utf-8")))
         except json.JSONDecodeError as exc:
             raise ValueError(
                 _ascii_only(f"Failed to parse pack manifest JSON: {exc}")

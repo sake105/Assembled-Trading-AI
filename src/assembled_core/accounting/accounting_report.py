@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ def _resolve_summary_reconciliation_ok(
          if a result dict exists, else None.
     """
     if reconciliation_ok is not _RECON_OK_UNSET:
-        return reconciliation_ok
+        return cast("bool | None", reconciliation_ok)
     if reconciliation_result is not None:
         return reconciliation_result.get("ok")
     return None

@@ -62,7 +62,7 @@ def _parse_float_like(value: Any) -> float | None:
     try:
         if isinstance(value, (int, float)):
             # pandas may pass NaN as float; treat as None
-            if pd.isna(value):  # type: ignore[arg-type]
+            if pd.isna(value):
                 return None
             return float(value)
     except Exception as exc:
