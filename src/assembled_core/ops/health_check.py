@@ -8,7 +8,7 @@ and report rendering.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import pandas as pd
 
@@ -104,7 +104,11 @@ def health_result_to_dict(result: HealthCheckResult) -> dict[str, Any]:
         check_dict = asdict(check)
         # Convert pd.Timestamp to ISO string if present
         if check_dict.get("last_updated_at") is not None:
-            check_dict["last_updated_at"] = check.last_updated_at.isoformat()
+            # Guard above proves last_updated_at is not None (asdict copies the
+            # same value) — cast only narrows the type, no behavior change.
+            check_dict["last_updated_at"] = cast(
+                "pd.Timestamp", check.last_updated_at
+            ).isoformat()
         checks_dicts.append(check_dict)
 
     # Convert result timestamp to ISO string
@@ -198,7 +202,7 @@ def render_health_summary_text(result: HealthCheckResult) -> str:
     lines.append("")
 
     # Summary statistics
-    status_counts = {}
+    status_counts: dict[str, int] = {}
     for check in result.checks:
         status_counts[check.status] = status_counts.get(check.status, 0) + 1
 

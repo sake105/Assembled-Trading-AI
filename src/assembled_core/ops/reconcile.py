@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from src.assembled_core.ops.paper_ledger import mark_to_market_equity
@@ -17,7 +17,7 @@ def _to_fills_list(fills: list[dict[str, Any]] | pd.DataFrame) -> list[dict[str,
     if isinstance(fills, pd.DataFrame):
         if fills.empty:
             return []
-        return fills.to_dict("records")
+        return cast("list[dict[str, Any]]", fills.to_dict("records"))
     return list(fills) if fills else []
 
 
@@ -27,7 +27,7 @@ def _to_orders_list(
     if isinstance(orders, pd.DataFrame):
         if orders.empty:
             return []
-        return orders.to_dict("records")
+        return cast("list[dict[str, Any]]", orders.to_dict("records"))
     return list(orders) if orders else []
 
 

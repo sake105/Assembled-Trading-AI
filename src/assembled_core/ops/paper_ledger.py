@@ -291,7 +291,10 @@ def apply_fills_to_ledger(
     """
     # Use Decimal for cash to prevent accumulated float rounding error (Item 41)
     _cash_d = Decimal(str(state.get("cash") or 0))
-    out = {
+    # dict[str, Any]: values are heterogeneous JSON shapes (None/str/dict/list);
+    # without the annotation mypy infers a join-union that breaks every
+    # indexed access below. Annotation only — no runtime change.
+    out: dict[str, Any] = {
         "schema_version": state.get("schema_version") or SCHEMA_VERSION,
         "updated_utc": state.get("updated_utc"),
         "cash": None,  # set from _cash_d at the end

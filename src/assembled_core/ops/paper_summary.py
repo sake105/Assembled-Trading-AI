@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -82,7 +82,7 @@ def _daily_returns(equity_values: list[float]) -> list[float]:
     prev = arr[:-1]
     curr = arr[1:]
     mask = prev > 0
-    return ((curr[mask] / prev[mask]) - 1.0).tolist()
+    return cast("list[float]", ((curr[mask] / prev[mask]) - 1.0).tolist())
 
 
 def build_paper_summary(output_root: str | Path, dates: list[str]) -> dict[str, Any]:

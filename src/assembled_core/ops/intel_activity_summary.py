@@ -27,7 +27,7 @@ def _safe_float(x: Any) -> float | None:
 
 
 def _status_counts(
-    status_list: list[str],
+    status_list: list[str | None],
 ) -> tuple[int, int, int]:
     """Return (days_ok, days_degraded, days_error)."""
     ok = sum(1 for s in status_list if (s or "").upper() == "OK")
@@ -139,8 +139,8 @@ def build_intel_activity_summary(
     date_dirs = sorted(d for d in runs_root.iterdir() if d.is_dir())
     n_days = len(date_dirs)
 
-    news_statuses: list[str] = []
-    discl_statuses: list[str] = []
+    news_statuses: list[str | None] = []
+    discl_statuses: list[str | None] = []
     news_days_with_triggers = 0
     news_max_severity_seen: int | None = None
     news_geo_scores: list[float | None] = []

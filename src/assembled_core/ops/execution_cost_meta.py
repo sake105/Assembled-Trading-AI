@@ -27,7 +27,7 @@ All paths are defensive no-ops on missing deps/bad data; never block the cycle.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -41,7 +41,10 @@ def _safe_price_map(prices: pd.DataFrame) -> dict[str, float]:
     if price_col not in prices.columns:
         return {}
     try:
-        return prices.groupby("symbol")[price_col].last().astype(float).to_dict()
+        return cast(
+            "dict[str, float]",
+            prices.groupby("symbol")[price_col].last().astype(float).to_dict(),
+        )
     except Exception:
         return {}
 
@@ -55,13 +58,14 @@ def _safe_adv_map(
     if "volume" not in prices.columns:
         return {}
     try:
-        return (
+        return cast(
+            "dict[str, float]",
             prices.groupby("symbol")
             .tail(20)
             .groupby("symbol")["volume"]
             .mean()
             .fillna(default_adv)
-            .to_dict()
+            .to_dict(),
         )
     except Exception:
         return {}
@@ -151,7 +155,7 @@ def annotate_execution_cost(
         if adv <= 0:
             adv = default_adv
 
-        per = {"symbol": sym, "qty": qty}
+        per: dict[str, Any] = {"symbol": sym, "qty": qty}
 
         if cm_enabled and estimate_impact_cost is not None:
             try:

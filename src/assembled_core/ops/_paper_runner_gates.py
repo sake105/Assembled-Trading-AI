@@ -33,7 +33,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -139,7 +139,7 @@ def apply_halt_cache_gate(
             supplier=_build_halt_supplier(symbols_file),
             ttl_seconds=ttl,
         )
-        _HALT_CACHE._symbols_file = symbols_file  # type: ignore[attr-defined]
+        _HALT_CACHE._symbols_file = symbols_file
 
     snap = _HALT_CACHE.snapshot()
     ctx.halted_symbols = frozenset(snap)
@@ -255,7 +255,9 @@ def _parse_generated_utc(value: Any) -> datetime | None:
     if value is None:
         return None
     try:
-        ts = pd.to_datetime(value, utc=True).to_pydatetime()
+        # cast: pandas resolves as untyped here; to_pydatetime() of a utc
+        # Timestamp is a datetime at runtime. Pure type narrowing.
+        ts = cast("datetime", pd.to_datetime(value, utc=True).to_pydatetime())
     except (ValueError, TypeError):
         return None
     if ts.tzinfo is None:
@@ -305,7 +307,9 @@ def apply_reconcile_block_gate(
     )
     stale_hours = rb_cfg.get("block_if_stale_hours", None)
 
-    def _decide(blocked: bool, reason: str, status: str | None, raw: Any):
+    def _decide(
+        blocked: bool, reason: str, status: str | None, raw: Any
+    ) -> ReconcileDecision:
         ctx.reconcile_gate_state = {
             "armed": True,
             "blocked": blocked,

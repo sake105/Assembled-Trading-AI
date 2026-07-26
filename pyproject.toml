@@ -223,9 +223,12 @@ ignore_missing_imports = true
 # guess. NEVER wildcard, and NEVER a first-party assembled_core.* module:
 # the missing first-party import `src.assembled_core.ml.conformal`
 # (signals/meta_model.py) is a GENUINE issue and is intentionally left
-# unsilenced here.
+# unsilenced here. Extended 2026-07 (ops type-sweep Tranche 3) with the
+# optional ops-layer libs (apscheduler/sentry_sdk/evidently/nannyml/shap/
+# mlflow) — none of them pinned in requirements.txt, so local == CI.
 [[tool.mypy.overrides]]
 module = [
+    "apscheduler.*",
     "backports.zoneinfo",
     "cvxpy.*",
     "dimod.*",
@@ -234,11 +237,14 @@ module = [
     "duckdb.*",
     "econml.*",
     "edgar.*",
+    "evidently.*",
     "filterpy.*",
     "lppls.*",
     "mapie.*",
     "mlfinpy.*",
+    "mlflow",
     "mwviews.*",
+    "nannyml",
     "openmeteo_requests.*",
     "pandas_datareader.*",
     "polars",
@@ -248,6 +254,9 @@ module = [
     "pykalman.*",
     "riskfolio.*",
     "ruptures.*",
+    "sentry_sdk",
+    "sentry_sdk.*",
+    "shap",
     "stumpy.*",
     "tsfresh.*",
 ]

@@ -76,10 +76,9 @@ def _prd_load_paper_state(
     )
     curve = ledger_state.get("equity_curve") or []
     if curve:
-        equity_series: pd.Series | None = pd.Series(
-            [float(c.get("equity", 0)) for c in curve], dtype=float
-        )
-        equity_curve_index: int | None = len(equity_series) - 1
+        _series = pd.Series([float(c.get("equity", 0)) for c in curve], dtype=float)
+        equity_series: pd.Series | None = _series
+        equity_curve_index: int | None = len(_series) - 1
     else:
         equity_series = None
         equity_curve_index = None
@@ -190,7 +189,11 @@ def _prd_make_strategy_fns(
             from src.assembled_core.strategies.multifactor_v1 import (
                 check_exit_signals as mf_check_exits,
             )
-            from src.assembled_core.strategies.multifactor_v1 import (
+
+            # v1's compute_signals lacks the kw-only ``as_of`` param that v2
+            # has; the only call site below never passes as_of, so the
+            # narrower v1 signature is safe. Type-level conflict only.
+            from src.assembled_core.strategies.multifactor_v1 import (  # type: ignore[assignment]
                 compute_signals as mf_compute_signals,
             )
             from src.assembled_core.strategies.multifactor_v1 import (

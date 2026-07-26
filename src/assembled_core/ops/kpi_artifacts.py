@@ -79,12 +79,12 @@ def write_run_kpis(
 
     news_triggers = getattr(ctx, "news_triggers", None)
     if news_triggers is not None and hasattr(news_triggers, "summary"):
-        triggers_summary = news_triggers.summary  # type: ignore[assignment]
+        triggers_summary = news_triggers.summary
     else:
         triggers_summary = {}
 
     if news_geo is not None and hasattr(news_geo, "top_triggers"):
-        top_triggers = list(getattr(news_geo, "top_triggers"))  # type: ignore[arg-type]
+        top_triggers = list(getattr(news_geo, "top_triggers"))
     else:
         top_triggers = []
 

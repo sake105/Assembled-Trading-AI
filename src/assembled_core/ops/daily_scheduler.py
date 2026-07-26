@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Any, Callable, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +37,8 @@ def _ingest_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResul
             worker_name="ingest_worker", status="skip", duration_s=time.monotonic() - t0
         )
     try:
-        import yfinance as yf  # type: ignore
-        from src.assembled_core.data.universe_etf import (  # type: ignore
+        import yfinance as yf
+        from src.assembled_core.data.universe_etf import (
             get_all_symbols,
             load_etf_universe,
         )
@@ -142,7 +142,7 @@ def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
             duration_s=time.monotonic() - t0,
         )
     try:
-        from src.assembled_core.qa import post_trade_analyzer as pta  # type: ignore
+        from src.assembled_core.qa import post_trade_analyzer as pta
 
         # Locate the most recent fills file in output_dir
         fills_path = Path(output_dir) / "fills.parquet"
@@ -212,7 +212,7 @@ def _feedback_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRes
             FeedbackLoopConfig,
             FeedbackLoopController,
         )
-        from src.assembled_core.qa.learning_store import (  # type: ignore
+        from src.assembled_core.qa.learning_store import (
             DEFAULT_LEARNING_STORE_PATH,
             load_learning_records_as_dataframe,
         )
@@ -288,7 +288,7 @@ def _reconcile_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRe
             duration_s=time.monotonic() - t0,
         )
     try:
-        from src.assembled_core.data.ledger_store import LedgerStore  # type: ignore
+        from src.assembled_core.data.ledger_store import LedgerStore
 
         db_path = Path(output_dir) / "paper_ledger.db"
         ledger = LedgerStore(db_path=db_path)
@@ -435,7 +435,7 @@ def _retrain_scheduler_worker(
         import json
 
         from src.assembled_core.ml.retraining_scheduler import (
-            RetrainingScheduler,  # type: ignore
+            RetrainingScheduler,
         )
 
         out_path = Path(output_dir)
@@ -599,7 +599,7 @@ def _factor_curation_worker(
         import json
 
         import pandas as pd
-        from src.assembled_core.qa.factor_analysis import (  # type: ignore
+        from src.assembled_core.qa.factor_analysis import (
             compute_factor_half_life,
             compute_ic_decay_curve,
         )
@@ -646,7 +646,11 @@ def _factor_curation_worker(
             if c not in meta_cols and panel_df[c].dtype in ("float64", "float32")
         ]
 
-        curation_report = {"date": date_str, "factors": {}, "flagged_for_removal": []}
+        curation_report: dict[str, Any] = {
+            "date": date_str,
+            "factors": {},
+            "flagged_for_removal": [],
+        }
         # NOTE: this is a heuristic IC t-stat (IC_mean / IC_std * sqrt(n)), NOT a
         # Deflated Sharpe Ratio — there is NO deflation / multiple-testing
         # correction applied here. Field name kept honest as `ic_tstat` (A35).
@@ -753,7 +757,7 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
         # CRITICAL: Kill-switch state
         try:
             from src.assembled_core.execution.kill_switch import (
-                is_kill_switch_engaged,  # type: ignore
+                is_kill_switch_engaged,
             )
 
             if is_kill_switch_engaged():

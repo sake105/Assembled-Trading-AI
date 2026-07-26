@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ from src.assembled_core.pipeline.io import load_orders
 router = APIRouter()
 
 
-def _parse_portfolio_report(report_path: Path) -> dict[str, float | int]:
+def _parse_portfolio_report(report_path: Path) -> dict[str, float | int | None]:
     """Parse portfolio report markdown file.
 
     Args:
@@ -227,9 +228,11 @@ def get_portfolio_current(freq: Frequency) -> PortfolioSnapshot:
             equity=current_equity,
             cash=cash,
             positions=positions,
-            pf=metrics["final_pf"],
+            # _parse_portfolio_report guarantees: final_pf is always float,
+            # trades always int, only sharpe may be None.
+            pf=cast(float, metrics["final_pf"]),
             sharpe=metrics["sharpe"],
-            total_trades=metrics["trades"],
+            total_trades=cast("int | None", metrics["trades"]),
             start_capital=first_equity,  # Use first equity as proxy for start capital
         )
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from typing import cast
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
@@ -423,7 +424,7 @@ def _load_latest_walk_forward() -> dict:
     if not files:
         return {}
     with open(files[-1], encoding="utf-8") as fh:
-        return json.load(fh)
+        return cast(dict, json.load(fh))
 
 
 @router.get(

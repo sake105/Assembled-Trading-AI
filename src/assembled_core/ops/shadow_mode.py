@@ -119,7 +119,7 @@ def read_shadow_snapshot(path: Path) -> dict[str, Any]:
     because a silent read is worse than no read for audit purposes."""
     if not path.exists():
         raise FileNotFoundError(str(path))
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     required = {"module", "snapshot_date", "written_at", "payload"}
     missing = required - set(data)
     if missing:

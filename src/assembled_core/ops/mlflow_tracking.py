@@ -24,14 +24,14 @@ import logging
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Generator
+from typing import Any, Generator, cast
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
 try:
-    import mlflow  # type: ignore[import-untyped]
+    import mlflow
 
     HAS_MLFLOW = True
 except ImportError:
@@ -189,7 +189,7 @@ def get_best_run(
     )
     if runs.empty:
         return None
-    return runs.iloc[0].to_dict()
+    return cast("dict[str, Any]", runs.iloc[0].to_dict())
 
 
 __all__ = [

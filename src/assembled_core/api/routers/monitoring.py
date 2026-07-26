@@ -12,6 +12,7 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Literal, cast
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
@@ -285,7 +286,10 @@ def get_risk_status_summary(
         from src.assembled_core.qa.risk_metrics import compute_portfolio_risk_metrics
 
         equity_series = equity_df.set_index("timestamp")["equity"].sort_index()
-        risk_metrics = compute_portfolio_risk_metrics(equity_series, freq=freq)
+        # freq is validated against SUPPORTED_FREQS = ("1d", "5min") above.
+        risk_metrics = compute_portfolio_risk_metrics(
+            equity_series, freq=cast(Literal["1d", "5min"], freq)
+        )
 
         # Compute current drawdown
         rolling_max = equity_series.expanding().max()
@@ -445,7 +449,7 @@ def get_portfolio_status(
     try:
         from pathlib import Path as _Path
 
-        from src.assembled_core.data.ledger_store import LedgerStore  # type: ignore
+        from src.assembled_core.data.ledger_store import LedgerStore
 
         no_ledger = {
             "status": "no_ledger",

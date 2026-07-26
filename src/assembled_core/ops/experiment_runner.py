@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pandas as pd
-import yaml  # type: ignore[import]
+import yaml
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def run_experiment(
         )
 
     app_cfg_path = repo_root / "configs" / "app.yaml"
-    app_cfg = {}
+    app_cfg: Dict[str, Any] = {}
     if app_cfg_path.exists():
         try:
             with app_cfg_path.open("r", encoding="utf-8") as f:
@@ -92,7 +92,10 @@ def run_experiment(
         )
 
     original_load_policy = pl.load_policy
-    pl.load_policy = lambda _path=None: merged_policy
+    # Deliberate monkey-patch of the module-level loader for the experiment
+    # scope (restored in finally/error paths below). The lambda drops the
+    # original signature on purpose — type-level mismatch only.
+    pl.load_policy = lambda _path=None: merged_policy  # type: ignore[assignment, misc]
 
     try:
         from src.assembled_core.data.prices_ingest import load_eod_prices

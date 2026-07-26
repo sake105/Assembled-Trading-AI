@@ -15,6 +15,7 @@ import logging
 import os
 import smtplib
 from email.mime.text import MIMEText
+from typing import cast
 
 log = logging.getLogger(__name__)
 
@@ -138,7 +139,9 @@ def drill_failover_check(simulate_discord_failure: bool = False) -> dict[str, ob
         )
 
     result["drill_passed"] = bool(result.get("discord_ok") or result.get("email_ok"))
-    return result
+    # dict is invariant: dict[str, bool | str] is not a dict[str, object] for
+    # mypy, although every value trivially is an object. Pure type-level cast.
+    return cast("dict[str, object]", result)
 
 
 __all__ = ["send_with_failover", "drill_failover_check"]

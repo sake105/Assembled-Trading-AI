@@ -41,7 +41,7 @@ def post_discord(webhook: str, content: str) -> bool:
     )
     try:
         with request.urlopen(req, timeout=10) as resp:
-            return 200 <= resp.status < 300
+            return bool(200 <= resp.status < 300)
     except error.URLError as exc:
         logger.warning("[alert] Discord post failed: %s", exc)
         return False
