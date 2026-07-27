@@ -112,11 +112,10 @@ def generate_signals(
                 ctx.current_positions.to_dict("records"), now_utc, policy
             )
             if zombies:
-                # FIXME(mypy-sweep): Modul ops.shadow_recorder existiert nicht —
-                # sobald Zombies gefunden werden, wirft der Import ImportError und
-                # der gesamte Zombie-Killer-Block wird vom except still geskippt
-                # (force-FLAT greift nie).
-                from src.assembled_core.ops.shadow_recorder import (  # type: ignore[import-not-found]
+                # shadow_recorder restored 2026-07-27 (was archived 13a97b54
+                # while these call sites stayed behind — the whole block died
+                # silently in the except below; found by the mypy sweep, E-059).
+                from src.assembled_core.ops.shadow_recorder import (
                     is_shadow_only,
                     record_shadow,
                 )

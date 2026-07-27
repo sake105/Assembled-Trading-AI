@@ -1136,10 +1136,9 @@ def _sp_apply_correlation_guard(
                 tw_dict_cg, corr_prices, policy
             )
             if corr_reasons:
-                # FIXME(mypy-sweep): module does not exist — shadow-recording
-                # paths are silent no-ops via the enclosing except. (mypy
-                # reports a missing module once per file: first import only.)
-                from src.assembled_core.ops.shadow_recorder import (  # type: ignore[import-not-found]
+                # shadow_recorder restored 2026-07-27 (was archived 13a97b54
+                # while the D1-D4 call sites stayed behind; see E-059).
+                from src.assembled_core.ops.shadow_recorder import (
                     is_shadow_only,
                     record_shadow,
                 )
