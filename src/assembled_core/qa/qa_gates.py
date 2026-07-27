@@ -17,6 +17,7 @@ Each gate returns a structured result (OK, WARNING, BLOCK) with reasoning.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -532,9 +533,20 @@ def check_leakage(
     want a real leakage gate must invoke this explicitly with the feature
     frame AND treat the ``details["skipped"]`` flag as "not checked".
 
-    If feature_df is provided, validates that feature values are zero before
-    their disclosure date.  If not provided (no altdata features in this
-    backtest), returns OK.
+    If feature_df is provided, validates row-wise that feature values are
+    zero (or NaN, treated as zero) before their disclosure date: any row
+    where ``timestamp_col`` < ``disclosure_col`` must not carry a non-zero
+    value in ``feature_col``.  Rows with a missing (NaT) disclosure date and
+    a non-zero feature value are treated as violations (fail-closed: a value
+    without a known disclosure date cannot be proven PIT-safe).  If
+    feature_df is not provided (no altdata features in this backtest),
+    returns OK with ``details["skipped"]``.
+
+    Note: this check is intentionally implemented inline.  The helper
+    ``qa.leakage_tests.assert_feature_zero_before_disclosure`` is a
+    re-computation harness (prices + events + feature_fn at two as_of
+    points) and cannot validate a precomputed flat feature frame, which is
+    all this gate receives.
 
     Args:
         feature_df: DataFrame with feature values and disclosure dates.
@@ -543,7 +555,8 @@ def check_leakage(
         timestamp_col: Column containing observation timestamps.
 
     Returns:
-        QAGateResult: BLOCK if leakage detected, OK otherwise.
+        QAGateResult: BLOCK if leakage is detected or the frame cannot be
+        validated (missing columns, unparseable dates), OK otherwise.
     """
     gate_name = "leakage_detection"
 
@@ -555,45 +568,74 @@ def check_leakage(
             details={"skipped": True},
         )
 
-    try:
-        from src.assembled_core.qa.leakage_tests import (
-            assert_feature_zero_before_disclosure,
-        )
-
-        # This raises AssertionError if leakage is found
-        # FIXME(mypy-sweep): call signature does not match
-        # assert_feature_zero_before_disclosure(prices, events, feature_fn, *,
-        # as_of_before, as_of_after) — this call would raise TypeError at
-        # runtime (unexpected keyword arguments), and TypeError is NOT caught
-        # by the except-clauses below (only AssertionError/ValueError/
-        # ImportError). Gate is effectively broken for non-empty feature_df.
-        # Not fixed in the type-sweep (behavior-neutral mandate).
-        assert_feature_zero_before_disclosure(  # type: ignore[call-arg]
-            df=feature_df,
-            feature_col=feature_col,
-            disclosure_col=disclosure_col,
-            timestamp_col=timestamp_col,
-        )
-        return QAGateResult(
-            gate_name=gate_name,
-            result=QAResult.OK,
-            reason="No look-ahead leakage detected in altdata features",
-            details={"rows_checked": len(feature_df)},
-        )
-    except (AssertionError, ValueError) as exc:
+    missing = [
+        col
+        for col in (feature_col, disclosure_col, timestamp_col)
+        if col not in feature_df.columns
+    ]
+    if missing:
         return QAGateResult(
             gate_name=gate_name,
             result=QAResult.BLOCK,
-            reason=f"LEAKAGE DETECTED: {exc}",
-            details={"error": str(exc)},
+            reason=(
+                f"Leakage check impossible: feature_df is missing required "
+                f"columns {missing}"
+            ),
+            details={
+                "missing_columns": ", ".join(missing),
+                "available_columns": ", ".join(str(c) for c in feature_df.columns),
+            },
         )
-    except ImportError:
+
+    try:
+        timestamps = pd.to_datetime(feature_df[timestamp_col], utc=True)
+        disclosures = pd.to_datetime(feature_df[disclosure_col], utc=True)
+    except (ValueError, TypeError) as exc:
         return QAGateResult(
             gate_name=gate_name,
-            result=QAResult.WARNING,
-            reason="Leakage test module not available",
-            details={"skipped": True},
+            result=QAResult.BLOCK,
+            reason=f"Leakage check impossible: unparseable date column(s): {exc}",
+            details={"error": str(exc)},
         )
+
+    # NaN/NA feature values count as zero (consistent with the
+    # assert_feature_zero_before_disclosure helper semantics).
+    non_zero = feature_df[feature_col].fillna(0) != 0
+    # Fail-closed on BOTH unknown-time axes (F-senior-6): a non-zero value
+    # with an unknown disclosure time OR an unknown observation time cannot
+    # be proven point-in-time-safe and counts as a violation.
+    pre_disclosure = (timestamps < disclosures) | disclosures.isna() | timestamps.isna()
+    violation_mask = non_zero & pre_disclosure
+    n_violations = int(violation_mask.sum())
+
+    if n_violations > 0:
+        # details values are typed float|str|None -> serialize sample as JSON
+        sample = json.dumps(
+            feature_df.loc[violation_mask, [timestamp_col, disclosure_col, feature_col]]
+            .head(5)
+            .astype(str)
+            .to_dict(orient="records")
+        )
+        return QAGateResult(
+            gate_name=gate_name,
+            result=QAResult.BLOCK,
+            reason=(
+                f"LEAKAGE DETECTED: {n_violations} row(s) have non-zero "
+                f"'{feature_col}' before their disclosure date"
+            ),
+            details={
+                "violations": n_violations,
+                "rows_checked": len(feature_df),
+                "sample_violations": sample,
+            },
+        )
+
+    return QAGateResult(
+        gate_name=gate_name,
+        result=QAResult.OK,
+        reason="No look-ahead leakage detected in altdata features",
+        details={"rows_checked": len(feature_df)},
+    )
 
 
 def evaluate_all_gates(
