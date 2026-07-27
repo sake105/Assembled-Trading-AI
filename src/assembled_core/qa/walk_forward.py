@@ -1112,38 +1112,75 @@ def walk_forward_param_optimization(
         prices: Price DataFrame.
         signal_fn_factory: Callable(params) -> signal_fn.
         param_grid: Parameter name -> list of values to search.
-        config: Walk-forward config. Uses default if None.
+        config: Walk-forward config. If None, a default rolling config is
+            derived from the price index (train_window_days=252,
+            test_window_days=63). Note: this function interprets
+            train_window_days/test_window_days/step_size_days as counts of
+            index periods (trading days), not calendar days.
         position_sizing_fn: Position sizing function.
         metric: Optimization target ("sharpe", "return", "sortino").
         n_trials: Max trials per window (for Optuna).
 
     Returns:
         Dict with best_params_per_window, oos_metrics, mean_oos_metric.
+
+    Raises:
+        ValueError: If config.train_window_days is None (expanding mode is
+            not supported by this optimizer).
     """
     import itertools
-
-    if config is None:
-        # FIXME(mypy-sweep): WalkForwardConfig requires start_date/end_date/
-        # train_window_days/test_window_days — this default-construction would
-        # raise TypeError at runtime. The config=None path of
-        # walk_forward_param_optimization is broken (legacy code path).
-        config = WalkForwardConfig()  # type: ignore[call-arg]
 
     # Generate WF splits
     dates = sorted(prices.index.unique())
     n = len(dates)
+
+    if n == 0:
+        return {
+            "n_windows": 0,
+            "window_results": [],
+            "mean_oos_metric": 0.0,
+            "std_oos_metric": 0.0,
+        }
+
+    if config is None:
+        config = WalkForwardConfig(
+            start_date=pd.Timestamp(dates[0]),
+            end_date=pd.Timestamp(dates[-1]),
+            train_window_days=252,
+            test_window_days=63,
+        )
+
+    if config.train_window_days is None:
+        raise ValueError(
+            "walk_forward_param_optimization requires a fixed "
+            "train_window_days (rolling mode); expanding windows "
+            "(train_window_days=None) are not supported. Use "
+            "run_walk_forward_backtest for expanding-window analysis."
+        )
+
+    train_window = config.train_window_days
+    test_window = config.test_window_days
+    step_size = (
+        config.step_size_days if config.step_size_days is not None else test_window
+    )
+
+    # Parameter guard (review B-1): non-positive windows/steps would spin the
+    # while-loop below forever (test_end never advances past n). Mirrors the
+    # validation of the canonical generate_walk_forward_splits path.
+    if train_window <= 0 or test_window <= 0 or step_size <= 0:
+        raise ValueError(
+            "walk_forward_param_optimization requires positive "
+            f"train_window_days/test_window_days/step_size_days, got "
+            f"{train_window}/{test_window}/{step_size}"
+        )
 
     results: list[dict[str, Any]] = []
     window_idx = 0
     start = 0
 
     while True:
-        # FIXME(mypy-sweep): WalkForwardConfig has no attributes
-        # train_size_days/test_size_days (only train_window_days/
-        # test_window_days) — these lines would raise AttributeError at
-        # runtime. Same legacy code path as the call-arg FIXME above.
-        train_end = start + config.train_size_days  # type: ignore[attr-defined]
-        test_end = train_end + config.test_size_days  # type: ignore[attr-defined]
+        train_end = start + train_window
+        test_end = train_end + test_window
 
         if test_end > n:
             break
@@ -1155,10 +1192,7 @@ def walk_forward_param_optimization(
             len(train_dates) < config.min_train_periods
             or len(test_dates) < config.min_test_periods
         ):
-            # step_size_days defaults to None (doc: falls back to
-            # test_window_days elsewhere); this legacy loop would TypeError on
-            # None — part of the broken code path flagged above.
-            start += config.step_size_days  # type: ignore[operator]
+            start += step_size
             continue
 
         train_prices = prices.loc[train_dates]
@@ -1217,8 +1251,7 @@ def walk_forward_param_optimization(
         )
 
         window_idx += 1
-        # Same None-default step_size_days issue as above (legacy code path).
-        start += config.step_size_days  # type: ignore[operator]
+        start += step_size
 
     oos_values = [r["oos_metric"] for r in results]
     return {

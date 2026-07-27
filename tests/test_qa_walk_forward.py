@@ -14,6 +14,7 @@ from src.assembled_core.qa.walk_forward import (
     WalkForwardConfig,
     generate_walk_forward_splits,
     run_walk_forward_backtest,
+    walk_forward_param_optimization,
 )
 
 pytestmark = pytest.mark.advanced
@@ -377,3 +378,171 @@ def test_generate_walk_forward_splits_no_splits_error():
         )
         # This will either fail validation or generate no splits
         generate_walk_forward_splits(config.start_date, config.end_date, config)
+
+
+# ---------------------------------------------------------------------------
+# walk_forward_param_optimization (Plan 9.1, repaired E-059 #8)
+# ---------------------------------------------------------------------------
+
+
+def _make_price_frame(n_days: int) -> pd.DataFrame:
+    """Create a small deterministic synthetic price frame."""
+    idx = pd.date_range(start="2020-01-01", periods=n_days, freq="B", tz="UTC")
+    close = pd.Series(range(1, n_days + 1), index=idx, dtype=float)
+    return pd.DataFrame({"close": close}, index=idx)
+
+
+def _signal_fn_factory(params: dict):
+    """Factory: signal = scaled pct-change (deterministic, param-sensitive)."""
+
+    def signal_fn(prices: pd.DataFrame) -> pd.Series:
+        return prices["close"].pct_change().dropna() * params["scale"]
+
+    return signal_fn
+
+
+def test_param_optimization_small_config_multi_window():
+    """Mini-E2E: small explicit config, multiple windows, plausible output."""
+    prices = _make_price_frame(100)
+    config = WalkForwardConfig(
+        start_date=prices.index[0],
+        end_date=prices.index[-1],
+        train_window_days=30,
+        test_window_days=15,
+        mode="rolling",
+        step_size_days=15,
+        min_train_periods=30,
+        min_test_periods=15,
+    )
+
+    result = walk_forward_param_optimization(
+        prices=prices,
+        signal_fn_factory=_signal_fn_factory,
+        param_grid={"scale": [1.0, 2.0]},
+        config=config,
+        metric="return",
+    )
+
+    # 100 days, train=30, test=15, step=15 -> windows at start 0,15,30,45 (test_end 45,60,75,90 <= 100), start 60 -> test_end 105 > 100
+    assert result["n_windows"] >= 2
+    assert len(result["window_results"]) == result["n_windows"]
+    for wr in result["window_results"]:
+        assert wr["best_params"] == {"scale": 2.0}  # higher scale wins on "return"
+        assert isinstance(wr["oos_metric"], float)
+    assert isinstance(result["mean_oos_metric"], float)
+    assert isinstance(result["std_oos_metric"], float)
+    # Positive drift in synthetic prices -> positive OOS mean-return metric
+    assert result["mean_oos_metric"] > 0.0
+
+
+def test_param_optimization_config_none_default_path():
+    """config=None derives a default rolling config (252/63) from the index."""
+    prices = _make_price_frame(400)
+
+    result = walk_forward_param_optimization(
+        prices=prices,
+        signal_fn_factory=_signal_fn_factory,
+        param_grid={"scale": [1.0]},
+        config=None,
+        metric="return",
+    )
+
+    # 400 days, train=252, test=63, step=63 -> test_end 315 and 378 fit; 441 does not
+    assert result["n_windows"] == 2
+    assert result["window_results"][0]["best_params"] == {"scale": 1.0}
+    assert result["mean_oos_metric"] > 0.0
+
+
+def test_param_optimization_step_size_none_falls_back_to_test_window():
+    """step_size_days=None must fall back to test_window_days (no TypeError)."""
+    prices = _make_price_frame(80)
+    config = WalkForwardConfig(
+        start_date=prices.index[0],
+        end_date=prices.index[-1],
+        train_window_days=30,
+        test_window_days=20,
+        mode="rolling",
+        step_size_days=None,
+        min_train_periods=30,
+        min_test_periods=20,
+    )
+
+    result = walk_forward_param_optimization(
+        prices=prices,
+        signal_fn_factory=_signal_fn_factory,
+        param_grid={"scale": [1.0]},
+        config=config,
+        metric="return",
+    )
+
+    # train=30, test=20, step=20 -> test_end 50, 70 fit; 90 > 80
+    assert result["n_windows"] == 2
+
+
+def test_param_optimization_expanding_mode_rejected():
+    """train_window_days=None (expanding) raises a clear ValueError."""
+    prices = _make_price_frame(100)
+    config = WalkForwardConfig(
+        start_date=prices.index[0],
+        end_date=prices.index[-1],
+        train_window_days=None,
+        test_window_days=20,
+        mode="expanding",
+    )
+
+    with pytest.raises(ValueError, match="train_window_days"):
+        walk_forward_param_optimization(
+            prices=prices,
+            signal_fn_factory=_signal_fn_factory,
+            param_grid={"scale": [1.0]},
+            config=config,
+        )
+
+
+def test_param_optimization_empty_prices_returns_empty_result():
+    """Empty price frame yields an empty result (no config construction crash)."""
+    prices = pd.DataFrame(
+        {"close": pd.Series(dtype=float)},
+        index=pd.DatetimeIndex([], tz="UTC"),
+    )
+
+    result = walk_forward_param_optimization(
+        prices=prices,
+        signal_fn_factory=_signal_fn_factory,
+        param_grid={"scale": [1.0]},
+        config=None,
+    )
+
+    assert result == {
+        "n_windows": 0,
+        "window_results": [],
+        "mean_oos_metric": 0.0,
+        "std_oos_metric": 0.0,
+    }
+
+
+def test_param_optimization_rejects_non_positive_windows():
+    """Parameter guard (review B-1): non-positive windows/steps would spin the
+    window loop forever — must raise a clear ValueError instead."""
+    import pytest as _pytest
+
+    from src.assembled_core.qa.walk_forward import WalkForwardConfig
+
+    prices = _make_price_frame(400)
+    bad_configs = [
+        dict(train_window_days=252, test_window_days=0),
+        dict(train_window_days=252, test_window_days=63, step_size_days=0),
+    ]
+    for kwargs in bad_configs:
+        config = WalkForwardConfig(
+            start_date=prices.index.min(),
+            end_date=prices.index.max(),
+            **kwargs,
+        )
+        with _pytest.raises(ValueError, match="positive"):
+            walk_forward_param_optimization(
+                prices=prices,
+                signal_fn_factory=_signal_fn_factory,
+                param_grid={"scale": [1.0]},
+                config=config,
+            )
