@@ -690,3 +690,12 @@
 **Wie vermeiden:** (1) Config-gated optionale Imports nicht unter broad `except Exception` verstecken: ImportError/ModuleNotFoundError separat fangen und mindestens WARN loggen, damit enabled-aber-tot sichtbar wird. (2) Pro aktivierbarem Feature ein Wiring-/Smoke-Test mit enabled=true, der prueft, dass der Pfad nicht still ge-excepted wird. (3) Blocking-mypy ueber vollstaendiges src/ beibehalten — es war der einzige strukturelle Fang.
 **Erkannt in:** mypy-Sweep Tranchen 3+4 (2026-07-26), alle Stellen als FIXME(mypy-sweep) + type-ignore markiert (verhaltensneutral); Wiring-Fixes als separate Auftraege, Prio Zombie-Killer (`_tc_signals`).
 **Referenzen:** E-054 (Wiring-Gap-Klasse), CLAUDE.md „Bekannte Problemzonen" (stille except-Pfadlogik), GESAMTBEWERTUNG §8.
+
+## E-060 — Ratchet-Bump-Kommentar mit Cap-Wert statt Ist-Count begruendet (+1 statt +3)
+**Datum:** 2026-07-27
+**Kategorie:** test-anti-pattern / audit-trail-integrity / false-arithmetic
+**Was passierte:** Beim Bump des Broad-Except-Ratchets (Cap 1035->1036 nach dem shadow_recorder-Restore) wurde der Delta-Kommentar mit dem alten CAP (1035) als Startpunkt geschrieben und "+1 broad except" behauptet. Tatsaechlich: Ist-Count vor Restore 1033, das restaurierte Modul enthaelt DREI broad-except-Substrings (zwei date-parse-Fallbacks + ein Swallow) = +3. Endzahl (1036) und Zero-Headroom stimmten nur durch Verrechnung zweier Fehler (Startwert -2, Delta +2). Stage-2-Review fing es (F-senior-1 MAJOR).
+**Warum falsch:** Der Ratchet-Kommentar ist die append-only-Audit-Historie, auf die sich jede kuenftige Bump-Entscheidung stuetzt — eine falsche Zahl vergiftet spaetere Reviews. Substring-Zaehlung ("except Exception:"/"except Exception as") ist nicht die gefuehlte Anzahl except-Bloecke; geschachtelte Fallbacks im selben Modul werden leicht als "ein except" fehlwahrgenommen.
+**Wie vermeiden:** Vor jedem Ratchet-Bump den Ist-Count am Parent-Commit UND am neuen Commit empirisch messen (git-Blob + exakt die Zaehlmethode des Tests), Delta aus (neu - alt) ableiten, im Kommentar Ist-Counts (nie Cap-Werte) als Start/Ende dokumentieren. Bei Modul-Restores: broad-Substrings im Modul per grep zaehlen, nicht aus dem Gedaechtnis.
+**Erkannt in:** `tests/test_session_2026_05_07_new_items.py` (Ratchet-Kommentar), `src/assembled_core/ops/shadow_recorder.py` (Z.42/45/60) — Stage-2 senior-code-reviewer auf Commit 35b3ea95; Kommentar im Folge-Commit korrigiert.
+**Referenzen:** Rule 40 (Testehrlichkeit), E-059 (shadow_recorder-Restore-Kontext).

@@ -13356,12 +13356,16 @@ class TestExceptPatternBound:
         # 1030 -> 1035 (tight +3 headroom). This ratchet caught the growth
         # exactly as designed (CI matrix red 2026-07-24 on 06790585).
         # Bump 2026-07-27 (documented): ops/shadow_recorder restored byte-
-        # identical from 728e70e7 (E-059 fix, commit 38bc4be4) — its ONE
-        # deliberate broad except ("a shadow log failure must never break the
-        # trading cycle", pinned by test_record_shadow_swallows_errors)
-        # returns with the module. Count 1035 -> 1036; cap 1035 -> 1036
-        # (ZERO headroom — the next broad except must justify itself here).
-        # Ratchet caught the growth as designed (CI red 2026-07-27 on 38bc4be4).
+        # identical from 728e70e7 (E-059 fix, commit 38bc4be4) brings back
+        # THREE broad-except substrings (two date-parse fallbacks L42/L45 +
+        # the deliberate swallow L60, "a shadow log failure must never break
+        # the trading cycle", pinned by test_record_shadow_swallows_errors).
+        # Actual counts measured with this test's method: 1033 (38bc4be4^)
+        # -> 1036 (38bc4be4), i.e. +3; cap raised 1035 -> 1036 = exactly the
+        # new actual count (ZERO headroom — the next broad except must
+        # justify itself here). Ratchet caught the growth as designed
+        # (CI red 2026-07-27 on 38bc4be4). Stage-2 review corrected an
+        # earlier +1/1035-start misstatement in this comment (F-senior-1).
         assert broad <= 1036, f"Too many broad except patterns: {broad}"
 
 
