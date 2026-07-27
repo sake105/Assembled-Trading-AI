@@ -726,3 +726,12 @@
 **Wie vermeiden:** Jeder Netzwerk-Client, der aus einem synchronen Trading-Zyklus-Step erreichbar ist, MUSS ein explizites connect/read-Timeout auf Treiber-Ebene setzen; try/except allein begrenzt keine Wall-Clock-Zeit. Vor dem Vertrauen auf den except das Timeout verifizieren. Hier: Feature bleibt config-aus; connect_timeout in tick_store ist dokumentierte Enablement-Precondition (Kommentar am Step 7.70).
 **Erkannt in:** `src/assembled_core/data/tick_store.py` (_get_conn_kwargs ohne Timeout), `src/assembled_core/pipeline/_tc_execution.py` (Step 7.70) — Stage-1 risk-execution-reviewer (H-1) + Stage-2 senior beim E-059-Rest-Review 2026-07-27.
 **Referenzen:** E-059 (Silent-Except-Klasse), Rule 30 (Latenz-/Verfuegbarkeits-Invarianten).
+
+## E-064 — enabled-Flip ohne Feld-Voraussetzung = stiller No-Op (falsche Beobachtungs-Evidenz)
+**Datum:** 2026-07-27
+**Kategorie:** wiring-gap / silent-no-op / false-negative-evidence
+**Was passierte:** Der Operator-Flip `zombie_killer.enabled: true` waere allein wirkungslos gewesen: Die Pilot-Ledger-Positionen trugen kein `entry_ts`, `check_zombie_position` gab fuer jede Position `(False, "")` zurueck — ohne eine einzige Logzeile ununterscheidbar von „keine Zombies gefunden". Ein leeres `output/shadow/` haette als Beobachtungs-Evidenz („lief, nichts gefunden") gelesen werden koennen, obwohl die Pruefung datenbedingt tot war. Vom Stage-1 risk-execution-reviewer (H1) VOR dem Commit gefangen.
+**Warum falsch:** Ein enabled-Flag suggeriert Aktivitaet. Ohne die vom Check gelesenen Input-Felder (`entry_ts`, `entry_price`, `current_price`) ist der aktivierte Check ein unsichtbarer No-Op, der falsche Negativ-Evidenz produziert.
+**Wie vermeiden:** Vor jedem enabled-Flip pruefen, ob die Datenquelle die vom Feature gelesenen Felder real liefert (Feld-fuer-Feld gegen den Consumer-Code). Fehlende Inputs LAUT machen (warn-once), nie als Negativ-Ergebnis durchgehen lassen. Flip und Feld-Bereitstellung gehoeren in denselben Step. Fix hier: entry_ts-Schema in paper_ledger (Open/Flip stampt, Add/Partial preserved), Durchreichung in _prd_load_paper_state (+entry_price/current_price fuer den Gain-Check), warn-once in risk/zombie_killer fuer Legacy-Positionen ohne entry_ts.
+**Erkannt in:** `configs/policy.yaml`, `src/assembled_core/ops/paper_ledger.py`, `src/assembled_core/ops/paper_runner.py`, `src/assembled_core/risk/zombie_killer.py` — Zombie-Killer-Aktivierung 2026-07-27.
+**Referenzen:** E-054 (Gate liest un-bedienten Pfad — Geschwister-Klasse Writer-fehlt), E-059 (Silent-Except), E-062 (getattr-Defaults).

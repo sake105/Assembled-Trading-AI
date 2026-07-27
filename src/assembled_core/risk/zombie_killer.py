@@ -12,8 +12,17 @@ M6-T05: implement time stop / zombie killer rules.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Warn-once (per process): positions without a parseable entry_ts are skipped
+# by the hold-time check — silently until 2026-07-27. Legacy pilot ledger
+# entries (pre-entry_ts schema) hit this; the warning makes the observation
+# gap visible instead of reading as "no zombies found".
+_MISSING_ENTRY_TS_WARNED = False
 
 
 def _parse_utc(ts_str: str) -> datetime | None:
@@ -124,7 +133,8 @@ def get_zombie_positions(
         positions: List of open position dicts.
         now_utc: Current UTC datetime.
         policy: Policy dict. Reads from ``zombie_killer`` section:
-            - enabled (bool, default True)
+            - enabled (bool, default False — fail-safe; the docstring claimed
+              "default True" until 2026-07-27, the code always defaulted False)
             - max_hold_days (float, default 5.0)
             - min_gain_pct (float, default 0.005)
 
@@ -140,7 +150,10 @@ def get_zombie_positions(
     min_gain_pct = float(zk.get("min_gain_pct", 0.005) or 0.005)
 
     result: list[tuple[dict[str, Any], str]] = []
+    n_unparseable = 0
     for pos in positions or []:
+        if _hold_hours(str(pos.get("entry_ts", "")), now_utc) < 0:
+            n_unparseable += 1
         is_zombie, reason = check_zombie_position(
             pos,
             now_utc,
@@ -149,6 +162,25 @@ def get_zombie_positions(
         )
         if is_zombie:
             result.append((pos, reason))
+    if n_unparseable:
+        # Loud once per process (logging only — flagging behaviour unchanged,
+        # missing entry_ts still conservatively NOT flagged): without this a
+        # ledger without entry_ts fields makes the enabled zombie check an
+        # invisible no-op ("no zombies" vs "nothing was evaluated").
+        global _MISSING_ENTRY_TS_WARNED
+        if not _MISSING_ENTRY_TS_WARNED:
+            _MISSING_ENTRY_TS_WARNED = True
+            logger.warning(
+                "[zombie_killer] %d position(s) without parseable entry_ts were "
+                "NOT evaluated by the hold-time check (legacy ledger entries "
+                "pre-2026-07-27 carry no entry_ts; repeats logged at DEBUG)",
+                n_unparseable,
+            )
+        else:
+            logger.debug(
+                "[zombie_killer] %d position(s) without parseable entry_ts skipped",
+                n_unparseable,
+            )
     return result
 
 

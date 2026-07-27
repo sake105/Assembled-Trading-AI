@@ -64,8 +64,43 @@ def _prd_load_paper_state(
     else:
         equity_before = ledger_state.get("cash") or start_capital
 
+    # Latest close per symbol for the zombie-killer gain check (current_price);
+    # empty dict when prices are unavailable — fields are then simply absent.
+    _px_map: dict[str, float] = {}
+    if (
+        not prices.empty
+        and "timestamp" in prices.columns
+        and "symbol" in prices.columns
+        and "close" in prices.columns
+    ):
+        _p_ts2 = pd.to_datetime(prices["timestamp"], utc=True)
+        _p_cut = prices.loc[_p_ts2 <= as_of_ts]
+        if not _p_cut.empty:
+            _px_map = (
+                _p_cut.sort_values("timestamp")
+                .groupby("symbol", group_keys=False)["close"]
+                .last()
+                .astype(float)
+                .to_dict()
+            )
+
+    def _pos_record(sym: str, p: dict) -> dict:
+        rec: dict = {"symbol": sym, "qty": p["qty"], "target_qty": p["qty"]}
+        # Zombie-killer inputs (2026-07-27): entry_ts = position-open time from
+        # the ledger (absent on legacy positions — the check then skips them
+        # LOUDLY, see risk/zombie_killer); entry_price/current_price feed the
+        # gain check so a >max_hold_days winner is not force-flat-flagged.
+        if p.get("entry_ts"):
+            rec["entry_ts"] = str(p["entry_ts"])
+        if p.get("avg_price"):
+            rec["entry_price"] = float(p["avg_price"])
+        _cur = _px_map.get(str(sym))
+        if _cur is not None and _cur > 0:
+            rec["current_price"] = _cur
+        return rec
+
     pos_list = [
-        {"symbol": sym, "qty": p["qty"], "target_qty": p["qty"]}
+        _pos_record(sym, p)
         for sym, p in (ledger_state.get("positions") or {}).items()
         if float(p.get("qty", 0)) != 0
     ]

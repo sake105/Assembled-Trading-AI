@@ -729,7 +729,19 @@ correlation_guard:
   max_pairwise_corr: 0.8
 zombie_killer:
   shadow_only: true          # D2 — log zombies but do not force-flat
+  # Operator-Flip 2026-07-27: enabled war nie gesetzt und der Code-Default ist
+  # False — die Shadow-Beobachtung lief daher NIE (E-059 #1-Nachlauf).
+  # Beobachtung AN (WARN-Logs + output/shadow/zombie_killer_*.json) fuer
+  # Positionen MIT entry_ts — das Feld wird seit 2026-07-27 vom Ledger bei
+  # Position-Open gesetzt. Legacy-Positionen ohne entry_ts (z. B. GLD/TLT,
+  # adoptiert 2026-07-14) werden NICHT bewertet und einmalig laut geWARNt
+  # (kein stilles "keine Zombies"). Enforcement bleibt AUS, bis shadow_only
+  # nach Beobachtungs-Evidenz bewusst geflippt wird.
+  # stale_signal_bars: toter Key — im Code nicht implementiert (nur Doku).
+  enabled: true
   max_hold_days: 30
+  min_gain_pct: 0.005        # Zombie nur wenn Gain < 0,5 % nach max_hold_days
+                             # (war impliziter Code-Default; jetzt sichtbar)
   stale_signal_bars: 10
 crash_prediction:
   shadow_only: true          # D3 — long-gross equity cap shadow-only

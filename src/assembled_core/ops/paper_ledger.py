@@ -122,7 +122,7 @@ def load_ledger_state(
     }
 
 
-def _norm_position(v: Any) -> dict[str, float]:
+def _norm_position(v: Any) -> dict[str, Any]:
     if isinstance(v, dict):
         qty = v.get("qty")
         avg_price = v.get("avg_price")
@@ -139,7 +139,14 @@ def _norm_position(v: Any) -> dict[str, float]:
             hwm_f = float(hwm) if hwm is not None else avg_f
         except (TypeError, ValueError):
             hwm_f = avg_f
-        return {"qty": qty_f, "avg_price": avg_f, "hwm": hwm_f}
+        out: dict[str, Any] = {"qty": qty_f, "avg_price": avg_f, "hwm": hwm_f}
+        # entry_ts (ISO UTC string, position-open time) feeds the zombie-killer
+        # hold-time check; preserved when present, never invented (legacy
+        # positions without it are skipped LOUDLY by risk/zombie_killer).
+        entry_ts = v.get("entry_ts")
+        if entry_ts:
+            out["entry_ts"] = str(entry_ts)
+        return out
     return {"qty": 0.0, "avg_price": 0.0, "hwm": 0.0}
 
 
@@ -281,6 +288,13 @@ def simulate_fills(
     return fills
 
 
+def _with_entry_ts(pos_dict: dict[str, Any], entry_ts: Any) -> dict[str, Any]:
+    """Attach entry_ts (position-open time) when known; never invent one."""
+    if entry_ts:
+        pos_dict["entry_ts"] = str(entry_ts)
+    return pos_dict
+
+
 def apply_fills_to_ledger(
     state: dict[str, Any], fills: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -301,6 +315,10 @@ def apply_fills_to_ledger(
         "positions": {k: dict(v) for k, v in (state.get("positions") or {}).items()},
         "equity_curve": list(state.get("equity_curve") or []),
     }
+    # entry_ts for NEW position opens (zombie-killer hold-time base): prefer a
+    # fill-provided timestamp; fall back to apply time. EOD paper fills carry
+    # no timestamp today, so the fallback (== booking time) is the honest base.
+    _apply_ts_iso = datetime.now(tz=timezone.utc).isoformat()
     for f in fills:
         symbol = f.get("symbol")
         if not symbol:
@@ -311,12 +329,16 @@ def apply_fills_to_ledger(
         price = float(f.get("price", 0))
         if qty <= 0 or price <= 0:
             continue
+        _fill_ts = str(f.get("timestamp") or "") or _apply_ts_iso
         pos = out["positions"].setdefault(
             symbol, {"qty": 0.0, "avg_price": 0.0, "hwm": 0.0}
         )
         pos_qty = pos["qty"]
         pos_avg = pos["avg_price"]
         pos_hwm = pos.get("hwm", pos_avg)
+        # Preserved on same-side adds/partials; replaced on open-from-zero and
+        # side flips (a flip IS a new position); dropped with the position.
+        pos_entry_ts = pos.get("entry_ts")
         _notional = Decimal(str(qty)) * Decimal(str(price))
         # F-A-1 fix: explicit cases distinguishing long/short and cover/flip.
         # Cash flow rule: BUY always debits qty*price, SELL always credits qty*price.
@@ -332,11 +354,10 @@ def apply_fills_to_ledger(
                     (pos_avg * pos_qty + price * qty) / new_qty if new_qty else 0.0
                 )
                 new_hwm = max(pos_hwm, price) if pos_hwm > 0 else price
-                out["positions"][symbol] = {
-                    "qty": new_qty,
-                    "avg_price": new_avg,
-                    "hwm": new_hwm,
-                }
+                out["positions"][symbol] = _with_entry_ts(
+                    {"qty": new_qty, "avg_price": new_avg, "hwm": new_hwm},
+                    _fill_ts if pos_qty == 0 else pos_entry_ts,
+                )
             else:
                 # Covering short. cover_qty bounded by short size; remainder flips long.
                 short_open = -pos_qty  # positive
@@ -345,42 +366,38 @@ def apply_fills_to_ledger(
                 new_short = pos_qty + cover_qty  # less negative or 0
                 if new_short < 0:
                     # Still short, qty reduced; short avg preserved
-                    out["positions"][symbol] = {
-                        "qty": new_short,
-                        "avg_price": pos_avg,
-                        "hwm": pos_hwm,
-                    }
+                    out["positions"][symbol] = _with_entry_ts(
+                        {"qty": new_short, "avg_price": pos_avg, "hwm": pos_hwm},
+                        pos_entry_ts,
+                    )
                 elif new_short == 0 and remaining_buy == 0:
                     # Short fully covered, no overflow
                     out["positions"].pop(symbol, None)
                 else:
                     # Short fully covered, overflow opens new long at fill price
-                    out["positions"][symbol] = {
-                        "qty": remaining_buy,
-                        "avg_price": price,
-                        "hwm": price,
-                    }
+                    out["positions"][symbol] = _with_entry_ts(
+                        {"qty": remaining_buy, "avg_price": price, "hwm": price},
+                        _fill_ts,
+                    )
         else:  # SELL
             _cash_d += _notional
             if pos_qty > 0:
                 new_qty = pos_qty - qty
                 if new_qty > 0:
                     # Partial sell of long; avg/hwm preserved
-                    out["positions"][symbol] = {
-                        "qty": new_qty,
-                        "avg_price": pos_avg,
-                        "hwm": pos_hwm,
-                    }
+                    out["positions"][symbol] = _with_entry_ts(
+                        {"qty": new_qty, "avg_price": pos_avg, "hwm": pos_hwm},
+                        pos_entry_ts,
+                    )
                 elif new_qty == 0:
                     out["positions"].pop(symbol, None)
                 else:
                     # Oversell: close long + open short for the overflow
                     short_qty = qty - pos_qty  # positive overflow
-                    out["positions"][symbol] = {
-                        "qty": -short_qty,
-                        "avg_price": price,
-                        "hwm": price,
-                    }
+                    out["positions"][symbol] = _with_entry_ts(
+                        {"qty": -short_qty, "avg_price": price, "hwm": price},
+                        _fill_ts,
+                    )
             else:
                 # Opening or adding to short (pos_qty <= 0)
                 new_qty = pos_qty - qty  # more negative
@@ -395,11 +412,10 @@ def apply_fills_to_ledger(
                         pos_avg * short_open_prior + price * qty
                     ) / short_open_new
                     new_hwm = max(pos_hwm, price) if pos_hwm > 0 else price
-                out["positions"][symbol] = {
-                    "qty": new_qty,
-                    "avg_price": new_avg,
-                    "hwm": new_hwm,
-                }
+                out["positions"][symbol] = _with_entry_ts(
+                    {"qty": new_qty, "avg_price": new_avg, "hwm": new_hwm},
+                    _fill_ts if pos_qty == 0 else pos_entry_ts,
+                )
     # W18 (2026-07-21, GESAMTBEWERTUNG): dust sweep. Position qty is float
     # arithmetic; partial closes of fractional positions leave residues like
     # 7.1e-15 (live-verified: CVX/KO/WMT in the pilot ledger) because a
