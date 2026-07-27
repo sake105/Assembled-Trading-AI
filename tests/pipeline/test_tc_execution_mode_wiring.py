@@ -260,3 +260,85 @@ def test_run_index_uses_real_current_equity_when_present(monkeypatch, tmp_path) 
     assert out.status != "error"
     df = pd.read_csv(Path(ctx.output_dir) / "manifests" / "index.csv")
     assert float(df["final_equity"].iloc[0]) == 0.0
+
+
+# --------------------------------------------------------------------------- #
+# (g) artifact CONTENT assertions (review F-senior-7): Step 7.6 KPI artifact
+#     and Step 7.62 run manifest must exist AND carry ctx.execution_mode.
+#     Both steps live inside `except: log.debug(... skipped ...)` blocks — a
+#     regression there fails silently. Asserting file existence + payload
+#     content makes any swallowed exception visible as a test failure.
+# --------------------------------------------------------------------------- #
+def _kpi_path(ctx: TradingContext) -> Path:
+    # write_run_kpis writes <output_dir>/run_kpis.json (kpi_artifacts.py)
+    return Path(ctx.output_dir) / "run_kpis.json"
+
+
+def _manifest_latest_path(ctx: TradingContext) -> Path:
+    # write_run_manifest writes <output_dir>/manifests/<run_id>/manifest.latest.json
+    # with run_id = str(ctx.as_of.date()) (_tc_execution Step 7.62).
+    return (
+        Path(ctx.output_dir)
+        / "manifests"
+        / str(ctx.as_of.date())
+        / "manifest.latest.json"
+    )
+
+
+def test_kpi_artifact_written_with_execution_mode(monkeypatch, tmp_path) -> None:
+    """Step 7.6: run_kpis.json must exist and its `mode` field must equal
+    ctx.execution_mode (default "sim") — not vanish in the except-skip."""
+    _capture_journal_calls(monkeypatch)
+    ctx = _make_ctx(tmp_path, mode="eod")
+    result = _result_with_orders()
+
+    out = book_fills(result, ctx)
+
+    assert out.status != "error"
+    kpi_path = _kpi_path(ctx)
+    assert kpi_path.exists(), "Step 7.6 must write run_kpis.json (silent skip = bug)"
+    payload = json.loads(kpi_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "run.kpis.v1"
+    assert payload["mode"] == ctx.execution_mode
+    assert payload["mode"] == "sim"
+
+
+def test_run_manifest_metrics_contain_execution_mode(monkeypatch, tmp_path) -> None:
+    """Step 7.62: manifest.latest.json must exist and carry
+    metrics.execution_mode == ctx.execution_mode."""
+    _capture_journal_calls(monkeypatch)
+    ctx = _make_ctx(tmp_path, mode="eod")
+    result = _result_with_orders()
+
+    out = book_fills(result, ctx)
+
+    assert out.status != "error"
+    manifest_path = _manifest_latest_path(ctx)
+    assert manifest_path.exists(), (
+        "Step 7.62 must write manifest.latest.json (silent skip = bug)"
+    )
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "run.manifest.v1"
+    assert payload["metrics"]["execution_mode"] == ctx.execution_mode
+    assert payload["metrics"]["execution_mode"] == "sim"
+    assert payload["metrics"]["n_orders"] == 1
+
+
+def test_kpi_and_manifest_follow_execution_mode_override(monkeypatch, tmp_path) -> None:
+    """A non-default execution_mode ("broker") must land verbatim in BOTH
+    Step-7.6 and Step-7.62 artifacts — proves the artifacts read the ctx
+    field and not a hardcoded default."""
+    _capture_journal_calls(monkeypatch)
+    ctx = _make_ctx(tmp_path, mode="eod")
+    ctx.execution_mode = "broker"
+    result = _result_with_orders()
+
+    out = book_fills(result, ctx)
+
+    assert out.status != "error"
+    kpi_payload = json.loads(_kpi_path(ctx).read_text(encoding="utf-8"))
+    assert kpi_payload["mode"] == "broker"
+    manifest_payload = json.loads(
+        _manifest_latest_path(ctx).read_text(encoding="utf-8")
+    )
+    assert manifest_payload["metrics"]["execution_mode"] == "broker"

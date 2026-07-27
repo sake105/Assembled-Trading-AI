@@ -717,3 +717,12 @@
 **Wie vermeiden:** `getattr(obj, "x", None)` + expliziter `is not None`-Check; NIE einen Attributzugriff als getattr-Default; NIE `or` als Default-Mechanik fuer Numerik, die legitim 0 sein kann.
 **Erkannt in:** `src/assembled_core/pipeline/_tc_execution.py` (run_index final_equity) — Stage-1 risk-execution-reviewer (MAJOR-2) auf dem E-059-#2-Diff; Fix in Commit 69e8f68d (final_equity nur bei echtem Wert, sonst leer; 0.0-Edge-Test).
 **Referenzen:** E-049 (Scope-Trennung um Safety-Writes), Rule 40 (Testehrlichkeit).
+
+## E-063 — Blockierender Netzwerk-Connect in einem "never-blocks"-except ist nicht wirklich geschuetzt
+**Datum:** 2026-07-27
+**Kategorie:** silent-except / latenter-cycle-stall / false-guarantee
+**Was passierte:** Step 7.70 (QuestDB-Write-Through, nach E-059-Reparatur erstmals lauffaehig) wrappt `tick_store.ping()` in `except Exception -> log.debug(skipped)` und gilt damit als "never blocks the cycle". Aber `ping() -> _open_conn() -> _connect_fn()` setzt KEIN connect_timeout: Ein black-holed Host (Firewall-Drop statt Refuse) blockiert den Connect unbegrenzt — ein Haenger ist keine Exception, der except feuert nie. In einem synchronen Zyklus-Step (book_fills) waere das ein Cycle-Stall.
+**Warum falsch:** "In try/except gewrappt" wird routinemaessig als "kann die Pipeline nicht anhalten" gelesen. Das gilt fuer raises, nicht fuer blockierende Syscalls.
+**Wie vermeiden:** Jeder Netzwerk-Client, der aus einem synchronen Trading-Zyklus-Step erreichbar ist, MUSS ein explizites connect/read-Timeout auf Treiber-Ebene setzen; try/except allein begrenzt keine Wall-Clock-Zeit. Vor dem Vertrauen auf den except das Timeout verifizieren. Hier: Feature bleibt config-aus; connect_timeout in tick_store ist dokumentierte Enablement-Precondition (Kommentar am Step 7.70).
+**Erkannt in:** `src/assembled_core/data/tick_store.py` (_get_conn_kwargs ohne Timeout), `src/assembled_core/pipeline/_tc_execution.py` (Step 7.70) — Stage-1 risk-execution-reviewer (H-1) + Stage-2 senior beim E-059-Rest-Review 2026-07-27.
+**Referenzen:** E-059 (Silent-Except-Klasse), Rule 30 (Latenz-/Verfuegbarkeits-Invarianten).
