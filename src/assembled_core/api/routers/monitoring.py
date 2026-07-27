@@ -12,7 +12,7 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
@@ -22,7 +22,12 @@ from src.assembled_core.api.models import (
     QAStatusSummary,
     RiskStatusSummary,
 )
-from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS, get_base_dir
+from src.assembled_core.config import (
+    OUTPUT_DIR,
+    SUPPORTED_FREQS,
+    FreqStr,
+    get_base_dir,
+)
 from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.pipeline.io import load_orders
 from src.assembled_core.qa.metrics import compute_all_metrics
@@ -286,9 +291,10 @@ def get_risk_status_summary(
         from src.assembled_core.qa.risk_metrics import compute_portfolio_risk_metrics
 
         equity_series = equity_df.set_index("timestamp")["equity"].sort_index()
-        # freq is validated against SUPPORTED_FREQS = ("1d", "5min") above.
+        # freq is validated against SUPPORTED_FREQS above; FreqStr is the
+        # central Literal kept in sync with it (config/__init__.py).
         risk_metrics = compute_portfolio_risk_metrics(
-            equity_series, freq=cast(Literal["1d", "5min"], freq)
+            equity_series, freq=cast(FreqStr, freq)
         )
 
         # Compute current drawdown

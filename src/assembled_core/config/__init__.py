@@ -9,13 +9,21 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Literal
 
 _logger = logging.getLogger(__name__)
 
 # --- Core constants (previously in config/config.py) ---
 _BASE_DIR = Path(__file__).resolve().parents[3]
 OUTPUT_DIR = _BASE_DIR / "output"
+# NOTE(sync): SUPPORTED_FREQS MUST stay in sync with FreqStr below — update both together.
 SUPPORTED_FREQS = ("1d", "5min")
+
+# Central static type for supported bar frequencies. Use this instead of
+# re-spelling Literal["1d", "5min"] at cast/annotation sites, so a future
+# frequency extension only has to touch this module.
+# NOTE(sync): FreqStr MUST stay in sync with SUPPORTED_FREQS above — update both together.
+FreqStr = Literal["1d", "5min"]
 
 
 def get_output_path(*parts: str) -> Path:
@@ -32,6 +40,7 @@ def get_base_dir() -> Path:
 __all__ = [
     "OUTPUT_DIR",
     "SUPPORTED_FREQS",
+    "FreqStr",
     "get_base_dir",
     "get_output_path",
 ]

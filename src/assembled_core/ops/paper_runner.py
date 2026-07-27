@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -1237,7 +1237,10 @@ def run_paper_daily_one(
     broker_adapter: Any | None = None,
 ) -> tuple[int, str | None]:
     """Run a single paper/shadow day. Returns (exit_code, reconcile_status or None)."""
-    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_shared import (
+        ExecutionMode,
+        TradingContext,
+    )
     from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
     # Normalize the routing-mode label BEFORE it is frozen into the ctx and
@@ -1291,7 +1294,8 @@ def run_paper_daily_one(
         enable_risk_controls=True,
         # E-059 #2: route the real order-routing mode (sim|broker|dry_run) into
         # the cycle so KPI/manifest/journal/heartbeat consumers see it.
-        execution_mode=execution_mode,
+        # cast is safe: normalized against exactly these values above (F-senior-3).
+        execution_mode=cast(ExecutionMode, execution_mode),
     )
     if mode == "paper" and ledger_state is not None:
         ctx.capital = equity_before

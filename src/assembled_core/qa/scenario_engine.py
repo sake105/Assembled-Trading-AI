@@ -64,6 +64,8 @@ from typing import Literal, cast
 import numpy as np
 import pandas as pd
 
+from src.assembled_core.config import FreqStr
+
 
 @dataclass
 class Scenario:
@@ -529,7 +531,8 @@ def run_scenario_on_equity(
 
     # Compute baseline metrics
     # freq is documented as "1d" | "5min"; cast narrows str for mypy (no-op).
-    freq_lit = cast('Literal["1d", "5min"]', freq)
+    # FreqStr is the central Literal kept in sync with SUPPORTED_FREQS (config/__init__.py).
+    freq_lit = cast(FreqStr, freq)
     baseline_metrics = compute_portfolio_risk_metrics(equity, freq=freq_lit)
 
     # Apply scenario

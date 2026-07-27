@@ -41,6 +41,11 @@ from src.assembled_core.features.ta_features import (
 
 logger = logging.getLogger(__name__)
 
+# Order-routing mode for TradingContext.execution_mode.
+# paper_runner validates raw config strings against exactly these three values
+# (unknown labels fall back to "sim") before the context is constructed.
+ExecutionMode = Literal["sim", "broker", "dry_run"]
+
 
 @dataclass
 class TradingContext:
@@ -134,7 +139,7 @@ class TradingContext:
     - "paper": Paper trading mode - same as eod
     - "live": Live trading mode - same as eod
     """
-    execution_mode: str = "sim"
+    execution_mode: ExecutionMode = "sim"
     """Order-routing mode ("sim" | "broker" | "dry_run").
 
     NOT the same as ``mode`` above (cycle mode eod/backtest/paper/live):

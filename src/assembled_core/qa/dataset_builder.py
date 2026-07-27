@@ -17,9 +17,10 @@ Sprint 7.1 additions:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
 import pandas as pd
+from src.assembled_core.config import FreqStr
 from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.qa.labeling import label_trades
 
@@ -370,7 +371,8 @@ def build_ml_dataset_for_strategy(
     settings = get_settings()
 
     # freq is documented as "1d" | "5min"; cast narrows str for mypy (no-op).
-    freq_lit = cast('Literal["1d", "5min"]', freq)
+    # FreqStr is the central Literal kept in sync with SUPPORTED_FREQS (config/__init__.py).
+    freq_lit = cast(FreqStr, freq)
 
     if price_file:
         logger.info(f"Loading prices from explicit file: {price_file}")
