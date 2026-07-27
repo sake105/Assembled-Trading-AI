@@ -19,7 +19,10 @@ Safety model (mirrors ops_adopt_external_positions.py):
   back to an older backup — a write tool must never promote that state).
 - Post-write verify covers the UNCHANGED fields too (cash/qty/avg_price/hwm).
 - Run OUTSIDE the scheduler window (21:10 Europe/Berlin): the save is
-  file-locked, but load→save is not atomic against a concurrent cycle write.
+  file-locked, but load→save is not atomic against a concurrent cycle write —
+  zusätzlich technisch geguarded: an mtime sentinel (st_mtime_ns) is captured
+  directly before load and re-checked directly before save; any change aborts
+  with [ERROR]/exit 2 without writing (lost-update guard).
 
 Usage:
   python scripts/ops/backfill_position_entry_ts.py --set GLD=2026-07-14T00:00:00+00:00 --set TLT=2026-07-14T00:00:00+00:00
@@ -124,6 +127,16 @@ def main(argv: list[str] | None = None) -> int:
         print("[ERROR] main ledger file has no positions dict — refusing to write")
         return 2
 
+    # Lost-update guard (auditor follow-up): remember the ledger's mtime
+    # directly before load; re-check directly before save. A change means a
+    # concurrent writer (e.g. the 21:10 scheduler cycle) updated the file
+    # after we loaded — saving now would silently overwrite that write.
+    try:
+        _mtime_at_load = ledger_path.stat().st_mtime_ns
+    except OSError as exc:
+        print(f"[ERROR] cannot stat ledger file: {exc}")
+        return 2
+
     try:
         state = load_ledger_state(ledger_path, start_capital=0.0)
     except Exception as exc:  # LedgerCorruptionError etc. (review F-senior-2)
@@ -175,6 +188,21 @@ def main(argv: list[str] | None = None) -> int:
 
     for sym, ts in changes.items():
         positions[sym]["entry_ts"] = ts
+
+    # Lost-update guard: re-check the mtime sentinel captured before load.
+    try:
+        _mtime_at_save = ledger_path.stat().st_mtime_ns
+    except OSError as exc:
+        print(f"[ERROR] cannot stat ledger file before save: {exc}")
+        return 2
+    if _mtime_at_save != _mtime_at_load:
+        print(
+            "[ERROR] ledger file changed on disk between load and save "
+            f"(st_mtime_ns {_mtime_at_load} -> {_mtime_at_save}) — aborting "
+            "without writing (concurrent scheduler write? re-run the tool)"
+        )
+        return 2
+
     save_ledger_state(state, ledger_path)
 
     # Verify by re-reading through the canonical loader (round-trip proof):

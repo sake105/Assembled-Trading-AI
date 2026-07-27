@@ -8,10 +8,12 @@ canonical loader (entry_ts survives _norm_position).
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
+import scripts.ops.backfill_position_entry_ts as backfill_tool
 from scripts.ops.backfill_position_entry_ts import main
 
 pytestmark = pytest.mark.fast
@@ -155,4 +157,33 @@ def test_corrupt_main_file_refused_even_with_readable_backup(tmp_path) -> None:
     assert rc == 2
     assert ledger.read_text(encoding="utf-8") == "{ this is not json", (
         "corrupt main file must stay untouched (no backup promotion)"
+    )
+
+
+def test_concurrent_write_between_load_and_save_aborts(tmp_path, monkeypatch) -> None:
+    """mtime-sentinel lost-update guard: a concurrent write between load and
+    save must abort with exit 2 and leave the ledger byte-identical.
+
+    Deterministic simulation: wrap the tool's module-level load_ledger_state
+    so that AFTER the real load returns, the ledger file's mtime is bumped
+    via os.utime (+1ms in ns, immune to filesystem timestamp granularity) —
+    exactly the load→save window a concurrent scheduler cycle would hit.
+    """
+    ledger = _seed_ledger(tmp_path)
+    before = ledger.read_text(encoding="utf-8")
+    real_load = backfill_tool.load_ledger_state
+
+    def _load_then_touch(path, **kwargs):
+        state = real_load(path, **kwargs)
+        st = ledger.stat()
+        os.utime(ledger, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
+        return state
+
+    monkeypatch.setattr(backfill_tool, "load_ledger_state", _load_then_touch)
+
+    rc = main(["--set", f"GLD={TS}", "--ledger-path", str(ledger), "--apply"])
+
+    assert rc == 2, "changed mtime between load and save must abort"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "aborted run must not write anything (lost-update guard)"
     )

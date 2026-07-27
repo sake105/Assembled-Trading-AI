@@ -258,10 +258,16 @@ def _parse_generated_utc(value: Any) -> datetime | None:
         # cast: pandas resolves as untyped here; to_pydatetime() of a utc
         # Timestamp is a datetime at runtime. Pure type narrowing.
         ts = cast("datetime", pd.to_datetime(value, utc=True).to_pydatetime())
-    except (ValueError, TypeError):
+        # tz handling stays INSIDE the try: for list/array input,
+        # pd.to_datetime returns a DatetimeIndex whose .to_pydatetime() is an
+        # ndarray — the .tzinfo access below then raises AttributeError (not
+        # ValueError/TypeError). Returning None is the established failure
+        # path; the ARMED gate's fail-closed behaviour is unchanged (None =>
+        # cannot prove freshness => block as stale).
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError, AttributeError):
         return None
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
     return ts
 
 

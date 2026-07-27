@@ -311,3 +311,46 @@ def test_stale_guard_disabled_by_default_keeps_old_ok(tmp_path: Path) -> None:
     )
     assert out.blocked is False
     assert out.reason == ""
+
+
+# ---------------------------------------------------------------------------
+# (h) _parse_generated_utc robustness: array-shaped generated_utc
+# ---------------------------------------------------------------------------
+
+
+def test_parse_generated_utc_list_input_returns_none_not_raises() -> None:
+    # For list input, pd.to_datetime returns a DatetimeIndex whose
+    # .to_pydatetime() is an ndarray — the tz handling then raises
+    # AttributeError, which must be swallowed like ValueError/TypeError
+    # (return None = established failure path), not propagate.
+    from src.assembled_core.ops._paper_runner_gates import _parse_generated_utc
+
+    assert _parse_generated_utc(["2026-07-27T00:00:00+00:00"]) is None
+
+
+def test_armed_ok_with_list_generated_utc_blocks_stale_not_raises(
+    tmp_path: Path,
+) -> None:
+    # Artifact with status OK but generated_utc as a JSON array: the stale
+    # guard must treat the timestamp as unparseable (None) and block
+    # fail-closed as reconcile_stale — never raise into the caller.
+    out_dir = tmp_path / "output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "reconcile_latest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "run.reconcile.v1",
+                "generated_utc": [datetime.now(timezone.utc).isoformat()],
+                "status": "OK",
+            }
+        ),
+        encoding="utf-8",
+    )
+    ctx = _StubCtx()
+    out = apply_reconcile_block_gate(
+        ctx,
+        paper_cfg={"reconcile_block": {"enabled": True, "block_if_stale_hours": 36}},
+        root=tmp_path,
+    )
+    assert out.blocked is True
+    assert out.reason == "reconcile_stale"

@@ -22,10 +22,29 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import pytest
+
 from src.assembled_core.execution.unified_paper_engine import (
     UnifiedPaperConfig,
     UnifiedPaperEngine,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_reconcile_audit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Redirect the reconcile SLO audit log into tmp_path.
+
+    Every ``_run_reconciliation`` call below funnels through
+    ``accounting.reconciliation.evaluate_reconcile_slo``, which appends a real
+    ``slo_eval`` line to ``output/ops/reconciliation_audit.jsonl`` unless the
+    ``ASSEMBLED_RECONCILE_AUDIT`` override is set. The override is read at
+    CALL time (``_recon_audit_path()`` does ``os.environ.get`` per append, no
+    import-time constant), so a plain env monkeypatch is sufficient — without
+    it, each test run contaminates the repo's production audit log.
+    """
+    monkeypatch.setenv(
+        "ASSEMBLED_RECONCILE_AUDIT", str(tmp_path / "reconciliation_audit.jsonl")
+    )
 
 
 def _make_engine(tmp_path: Path, **cfg_overrides) -> UnifiedPaperEngine:
