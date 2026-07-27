@@ -16,6 +16,37 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
 
 logger = logging.getLogger(__name__)
 
+# E-059 follow-up (Stage-2 F-senior-6): warn-once dedup for the zombie-killer
+# except swallow. `except Exception: log.debug(...)` is the exact mask that
+# hid the archived shadow_recorder for months (E-059). Now that the path is
+# ACTIVE (zombie_killer enabled), a runtime failure must surface at WARN —
+# but deduped, or a persistent error emits one WARN per bar in backtests
+# (1260+ bars/5y). Same E-018 pattern as _tc_features._warn_once_feature_skip;
+# module-local registry so pipeline stages stay independent. Reset on restart.
+_SIGNAL_STEP_WARN_KEYS: set[tuple[str, str]] = set()
+_WARN_KEY_MAX_CHARS = 200
+_WARN_REGISTRY_MAX_KEYS = 1024
+
+
+def _warn_once_signal_step(
+    prefix: str,
+    exc: BaseException,
+    log_obj: logging.Logger | None = None,
+) -> None:
+    """Emit WARN on first occurrence per (prefix, exc-signature) per process,
+    DEBUG on repeats. Log-level only — the caller keeps its graceful except
+    (no raise). Mirror of ``_tc_features._warn_once_feature_skip`` incl. the
+    bounded-registry failure mode (once full, further distinct keys still WARN
+    but are not registered — more noise instead of silent demotion)."""
+    lg = log_obj or logger
+    key = (prefix, f"{type(exc).__name__}:{str(exc)[:_WARN_KEY_MAX_CHARS]}")
+    if key not in _SIGNAL_STEP_WARN_KEYS:
+        if len(_SIGNAL_STEP_WARN_KEYS) < _WARN_REGISTRY_MAX_KEYS:
+            _SIGNAL_STEP_WARN_KEYS.add(key)
+        lg.warning("%s skipped (first occurrence, repeats at DEBUG): %s", prefix, exc)
+    else:
+        lg.debug("%s skipped (repeat): %s", prefix, exc)
+
 
 def generate_signals(
     features: pd.DataFrame,
@@ -150,7 +181,10 @@ def generate_signals(
                         )
                         signals = pd.concat([signals, zombie_rows], ignore_index=True)
     except Exception as e:
-        log.debug("zombie_killer check skipped: %s", e)
+        # E-059 follow-up: the zombie observation is LIVE — a DEBUG-only
+        # swallow here recreates the shadow_recorder blackout class. WARN
+        # once per exception signature; block stays graceful (no raise).
+        _warn_once_signal_step("zombie_killer check", e, log)
 
     # --- Step 3.1: Intel signal layer ---
     try:

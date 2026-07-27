@@ -16,10 +16,13 @@ These tests pin the restored wiring:
 
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
 import pytest
 
 import src.assembled_core.ops.shadow_recorder as shadow_recorder_module
+import src.assembled_core.pipeline._tc_signals as tc_signals_module
 from src.assembled_core.pipeline._tc_signals import generate_signals
 from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 
@@ -128,3 +131,113 @@ def test_disabled_policy_never_reaches_shadow_recorder(monkeypatch) -> None:
 
     assert calls == []
     assert set(signals["symbol"]) == {"AAPL", "MSFT"}
+
+
+# ---------------------------------------------------------------------------
+# E-059 follow-up (Stage-2 F-senior-6): a runtime failure inside the ACTIVE
+# zombie block must surface at WARN (deduped), not vanish at DEBUG — the exact
+# mask that hid the archived shadow_recorder for months. Cycle must continue.
+# ---------------------------------------------------------------------------
+
+_TC_SIGNALS_LOGGER = "src.assembled_core.pipeline._tc_signals"
+
+
+def _zombie_warn_records(caplog) -> list[logging.LogRecord]:
+    return [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and "zombie_killer check" in r.getMessage()
+    ]
+
+
+def test_zombie_block_failure_warns_and_cycle_continues(monkeypatch, caplog) -> None:
+    # Isolate the process-global warn-once registry for this test.
+    monkeypatch.setattr(tc_signals_module, "_SIGNAL_STEP_WARN_KEYS", set())
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("shadow write exploded")
+
+    monkeypatch.setattr(shadow_recorder_module, "record_shadow", _boom)
+    ctx = _make_ctx(_policy(shadow_only=False))
+
+    with caplog.at_level(logging.DEBUG, logger=_TC_SIGNALS_LOGGER):
+        signals = generate_signals(ctx.prices, ctx)
+
+    # No raise, cycle continued, signals returned unmutated (the raise fires
+    # before any force-flat): both BUYs intact, no appended FLAT row.
+    by_symbol = signals.set_index("symbol")["direction"].to_dict()
+    assert by_symbol == {"AAPL": "BUY", "MSFT": "BUY"}
+
+    warns = _zombie_warn_records(caplog)
+    assert len(warns) == 1, "zombie-block failure must be visible at WARN"
+    assert "shadow write exploded" in warns[0].getMessage()
+
+
+def test_zombie_block_failure_warn_is_deduped(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(tc_signals_module, "_SIGNAL_STEP_WARN_KEYS", set())
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("shadow write exploded")
+
+    monkeypatch.setattr(shadow_recorder_module, "record_shadow", _boom)
+
+    with caplog.at_level(logging.DEBUG, logger=_TC_SIGNALS_LOGGER):
+        ctx1 = _make_ctx(_policy(shadow_only=False))
+        generate_signals(ctx1.prices, ctx1)
+        assert len(_zombie_warn_records(caplog)) == 1
+
+        # Second cycle, same failure signature -> DEBUG repeat, no second WARN.
+        caplog.clear()
+        ctx2 = _make_ctx(_policy(shadow_only=False))
+        generate_signals(ctx2.prices, ctx2)
+
+    assert _zombie_warn_records(caplog) == []
+    repeats = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.DEBUG
+        and "zombie_killer check" in r.getMessage()
+        and "repeat" in r.getMessage()
+    ]
+    assert len(repeats) == 1, "repeat failure must still be traceable at DEBUG"
+
+
+def test_inverse_etf_d4_failure_warns_once_and_cycle_continues(
+    monkeypatch, caplog
+) -> None:
+    """Same E-059 class for the D4 sizing block: its DEBUG-only except was the
+    sole visibility for a failed inverse_etf hedge. Failure must WARN (deduped)
+    and leave target_positions untouched (no raise, no hedge row)."""
+    import src.assembled_core.pipeline._tc_sizing as tc_sizing_module
+
+    monkeypatch.setattr(tc_sizing_module, "_SIZING_STEP_WARN_KEYS", set())
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("shadow write exploded")
+
+    monkeypatch.setattr(shadow_recorder_module, "record_shadow", _boom)
+
+    prices = pd.DataFrame({"timestamp": [AS_OF], "VIX": [30.0]})
+    ctx = TradingContext(prices=prices, capital=10_000.0, as_of=AS_OF)
+    policy = {"inverse_etf": {"enabled": True}}
+    meta = {"crash_prediction": {"crash_probability": 0.9}}
+    tp = pd.DataFrame(
+        {"symbol": ["AAPL"], "target_weight": [1.0], "target_qty": [10.0]}
+    )
+
+    with caplog.at_level(
+        logging.DEBUG, logger="src.assembled_core.pipeline._tc_sizing"
+    ):
+        out1 = tc_sizing_module._sp_apply_inverse_etf(tp.copy(), ctx, policy, meta)
+        out2 = tc_sizing_module._sp_apply_inverse_etf(tp.copy(), ctx, policy, meta)
+
+    # Graceful: no raise, no hedge row appended on either call.
+    assert list(out1["symbol"]) == ["AAPL"]
+    assert list(out2["symbol"]) == ["AAPL"]
+
+    d4_warns = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and "inverse_etf hedge (D4)" in r.getMessage()
+    ]
+    assert len(d4_warns) == 1, "D4 failure must WARN exactly once (dedup)"

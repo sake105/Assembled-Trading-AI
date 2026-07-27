@@ -42,6 +42,38 @@ from src.assembled_core.risk.vol_targeting import compute_vol_targeting_result
 
 logger = logging.getLogger(__name__)
 
+# E-059 follow-up (Stage-2 F-senior-6): warn-once dedup for D-site except
+# swallows whose ONLY visibility is a `log.debug(...)` — the exact mask that
+# hid the archived shadow_recorder for months (E-059). D1/D3 already surface
+# via _record_degraded_step (WARN + meta trail, not doubled here); D4
+# (inverse_etf) had DEBUG-only visibility. WARN must be deduped, or a
+# persistent error emits one WARN per bar in backtests (1260+ bars/5y). Same
+# E-018 pattern as _tc_features._warn_once_feature_skip; module-local registry
+# so pipeline stages stay independent. Reset on process restart.
+_SIZING_STEP_WARN_KEYS: set[tuple[str, str]] = set()
+_WARN_KEY_MAX_CHARS = 200
+_WARN_REGISTRY_MAX_KEYS = 1024
+
+
+def _warn_once_sizing_skip(
+    prefix: str,
+    exc: BaseException,
+    log_obj: logging.Logger | None = None,
+) -> None:
+    """Emit WARN on first occurrence per (prefix, exc-signature) per process,
+    DEBUG on repeats. Log-level only — the caller keeps its graceful except
+    (no raise). Mirror of ``_tc_features._warn_once_feature_skip`` incl. the
+    bounded-registry failure mode (once full, further distinct keys still WARN
+    but are not registered — more noise instead of silent demotion)."""
+    lg = log_obj or logger
+    key = (prefix, f"{type(exc).__name__}:{str(exc)[:_WARN_KEY_MAX_CHARS]}")
+    if key not in _SIZING_STEP_WARN_KEYS:
+        if len(_SIZING_STEP_WARN_KEYS) < _WARN_REGISTRY_MAX_KEYS:
+            _SIZING_STEP_WARN_KEYS.add(key)
+        lg.warning("%s skipped (first occurrence, repeats at DEBUG): %s", prefix, exc)
+    else:
+        lg.debug("%s skipped (repeat): %s", prefix, exc)
+
 
 def _sp_dispatch_sizing(
     signals: pd.DataFrame,
@@ -1253,7 +1285,12 @@ def _sp_apply_inverse_etf(
                     if not _vix_src.empty:
                         vix_val = float(_vix_src["VIX"].iloc[-1])
                 except Exception as _exc:
-                    logger.debug("[_tc_sizing] VIX value parse failed: %s", _exc)
+                    # E-059 follow-up: a persistent VIX-parse failure silently
+                    # disables the whole D4 hedge (outer except never fires) —
+                    # same masked-failure class, so WARN once, then DEBUG.
+                    _warn_once_sizing_skip(
+                        "inverse_etf VIX value parse (D4 gate)", _exc, logger
+                    )
             if (
                 vix_val is not None
                 and vix_val > float(ie_cfg.get("vix_threshold", 25.0))
@@ -1311,7 +1348,9 @@ def _sp_apply_inverse_etf(
                             ignore_index=True,
                         )
     except Exception as e:
-        logger.debug("inverse_etf hedge skipped: %s", e)
+        # E-059 follow-up: D4 shadow recording is live — DEBUG-only swallow
+        # was its sole visibility. WARN once per signature, stays graceful.
+        _warn_once_sizing_skip("inverse_etf hedge (D4)", e, logger)
     return target_positions
 
 
