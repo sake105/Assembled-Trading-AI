@@ -214,16 +214,11 @@ def _sp_dispatch_sizing(
                                 .fillna(0.0)
                                 .items()
                             }
-                    # FIXME(mypy-sweep): OptimizerConfig is passed as the 4th
-                    # POSITIONAL arg = per_symbol_cost_bps, NOT config= — the
-                    # optimizer runs with the default config and these settings
-                    # are silently ignored (path then falls back via except).
-                    # Real fix (config=...) is a behaviour change -> own task.
                     cao_res = optimize_portfolio(
                         mu_cao,
                         sigma_cao,
                         _cur_w,
-                        OptimizerConfig(  # type: ignore[arg-type]
+                        config=OptimizerConfig(
                             risk_aversion=float(sizing_cfg.get("risk_aversion", 1.0)),
                             turnover_penalty=float(
                                 sizing_cfg.get("turnover_penalty", 0.001)
