@@ -703,6 +703,15 @@ def book_fills(
         log.debug("[KPI] kpi_export skipped: %s", e)
 
     # Step 7.70: QuestDB write-through of fill prices (optional, never blocks cycle)
+    # ENABLEMENT PRECONDITIONS (review H-1/H-2/B-2, 2026-07-27 — feature is
+    # config-off everywhere; resolve BEFORE setting questdb.write_through.enabled):
+    # (1) tick_store._get_conn_kwargs has no connect_timeout — a black-holed
+    #     host would HANG the cycle (no except catches a blocking connect);
+    # (2) fills are written into the SAME "trades" table the market-data path
+    #     (seed_questdb_from_csv/query_ohlcv) consumes, with ts=now() instead
+    #     of the fill time — separate the tables / use fill timestamps;
+    # (3) no dedup key: a re-run of book_fills for the same day writes
+    #     duplicate ticks.
     try:
         qs_cfg = (policy.get("questdb") or {}).get("write_through") or {}
         if (
@@ -710,16 +719,22 @@ def book_fills(
             and result.orders_filtered is not None
             and not result.orders_filtered.empty
         ):
-            # FIXME(mypy-sweep): tick_store has NO TickStore class (module-level
-            # functions only) — ImportError here means the QuestDB write-through
-            # silently never runs (enclosing except). Wiring fix = own task.
-            from src.assembled_core.data.tick_store import (  # type: ignore[attr-defined]
-                OHLCVTick,
-                TickStore,
-            )
+            # tick_store is a module-level API (ping/ensure_table/write_ticks),
+            # configured exclusively via QUESTDB_* env vars (HOST/PORT/USER/
+            # PASS/DB) — it accepts no URL/DSN. A policy questdb.write_through
+            # `url` is therefore NOT passed through; warn instead of silently
+            # ignoring it (E-059 #5).
+            from src.assembled_core.data import tick_store
+            from src.assembled_core.data.tick_store import OHLCVTick
 
-            _qs_store = TickStore(url=qs_cfg.get("url", ""))
-            if _qs_store.ping():
+            if qs_cfg.get("url"):
+                log.warning(
+                    "[QUESTDB] write_through.url=%r is set in policy, but "
+                    "tick_store is configured via QUESTDB_* env vars only — "
+                    "the url is ignored",
+                    qs_cfg.get("url"),
+                )
+            if tick_store.ping():
                 _qs_ts = pd.Timestamp.now("UTC")
                 _qs_ticks: list[OHLCVTick] = []
                 for _qs_row in result.orders_filtered.itertuples(index=False):
@@ -737,8 +752,13 @@ def book_fills(
                             )
                         )
                 if _qs_ticks:
-                    written = _qs_store.write_ticks(_qs_ticks)
-                    log.debug("[QUESTDB] wrote %d fill ticks", written)
+                    if tick_store.ensure_table():
+                        written = tick_store.write_ticks(_qs_ticks)
+                        log.debug("[QUESTDB] wrote %d fill ticks", written)
+                    else:
+                        log.debug(
+                            "[QUESTDB] ensure_table failed — write-through skipped"
+                        )
     except Exception as e:
         log.debug("[QUESTDB] write_through skipped: %s", e)
 
