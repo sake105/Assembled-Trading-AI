@@ -391,11 +391,7 @@ def book_fills(
                 ctx=ctx,
                 result=result,
                 policy=policy,
-                # FIXME(mypy-sweep): TradingContext has NO execution_mode
-                # attribute (never assigned anywhere) — this AttributeError is
-                # swallowed by the enclosing except, so the step silently never
-                # runs. Same at the 3 sites below. Wiring fix = own task.
-                mode=ctx.execution_mode,  # type: ignore[attr-defined]
+                mode=ctx.execution_mode,
             )
     except Exception as e:
         log.debug("[KPI] write_run_kpis skipped: %s", e)
@@ -413,8 +409,7 @@ def book_fills(
                 metrics={
                     "n_orders": len(result.orders_filtered),
                     "n_signals": len(result.signals),
-                    # FIXME(mypy-sweep): see execution_mode note above.
-                    "execution_mode": ctx.execution_mode,  # type: ignore[attr-defined]
+                    "execution_mode": ctx.execution_mode,
                 },
                 manifests_dir=ctx.output_dir / "manifests",
             )
@@ -427,15 +422,21 @@ def book_fills(
             from src.assembled_core.ops.run_index import append_run_index
             from src.assembled_core.ops.run_manifest import compute_config_hash
 
+            # NO producer sets ctx.current_equity anywhere yet (repo-wide only
+            # getattr readers exist) — do not fake a "final_equity" from start
+            # capital. Emit final_equity only for a real value; explicit
+            # None-check because 0.0 (total loss) is a valid equity. When
+            # absent, the index.csv column stays empty = honestly unknown.
+            _cur_eq = getattr(ctx, "current_equity", None)
+            _eq_metrics = (
+                {"final_equity": float(_cur_eq)} if _cur_eq is not None else {}
+            )
             append_run_index(
                 run_id=str(ctx.as_of.date()),
                 date=str(ctx.as_of.date()),
                 status="success",
                 metrics={
-                    # FIXME(mypy-sweep): ctx.equity does not exist on
-                    # TradingContext; the eager default evaluation raises
-                    # AttributeError -> enclosing except skips this step.
-                    "final_equity": float(getattr(ctx, "current_equity", ctx.equity)),  # type: ignore[attr-defined, arg-type]
+                    **_eq_metrics,
                     "n_fills": len(result.orders_filtered),
                 },
                 git_sha=result.meta.get("git_sha", ""),
@@ -495,8 +496,7 @@ def book_fills(
                 _tj_fills,
                 signal_context={
                     "regime": result.meta.get("regime", {}).get("regime", ""),
-                    # FIXME(mypy-sweep): see execution_mode note above.
-                    "execution_mode": ctx.execution_mode,  # type: ignore[attr-defined]
+                    "execution_mode": ctx.execution_mode,
                 },
                 run_id=str(ctx.as_of.date()),
                 journal_path=ctx.output_dir / "trade_journal.jsonl",
@@ -537,8 +537,31 @@ def book_fills(
     # E-035 guard: skip the ops-artifact write in backtest mode. A backtest steps
     # historical as_of dates and would otherwise clobber the live output/ heartbeat.
     # Mirrors the mode-guard in _tc_risk.py (getattr(ctx, "mode", ...) != "backtest").
-    # Live/paper behaviour (what is written) is unchanged.
-    if getattr(ctx, "mode", "eod") != "backtest":
+    # Current-date guard (2026-07-27, review MAJOR-1): the heartbeat is a
+    # LIVENESS signal consumed by the dead-man switch and scheduler health
+    # checks. Range backfills and experiment loops run with mode="eod"/"paper"
+    # and a PAST as_of — they must NOT refresh the live heartbeat (that would
+    # mask a real scheduler stall for the duration of the backfill). Only a
+    # cycle processing the current wall-clock UTC date may emit liveness.
+    _hb_is_current = True
+    if ctx.as_of is not None:
+        _hb_now = pd.Timestamp.now("UTC")
+        # Normalize: a tz-naive as_of is interpreted as UTC (F-senior-2).
+        _hb_as_of = (
+            ctx.as_of.tz_convert("UTC")
+            if ctx.as_of.tzinfo is not None
+            else ctx.as_of.tz_localize("UTC")
+        )
+        # Same UTC date, OR within a 2h grace window: a live cycle that
+        # starts just before midnight and books after it must not drop its
+        # liveness beat (midnight-straddle race, review F-senior-1). A
+        # backfill's day-normalized historical as_of stays hours-to-weeks
+        # away from now and remains suppressed.
+        _hb_is_current = (
+            _hb_as_of.date() == _hb_now.date()
+            or abs((_hb_now - _hb_as_of).total_seconds()) <= 2 * 3600
+        )
+    if getattr(ctx, "mode", "eod") != "backtest" and _hb_is_current:
         try:
             from src.assembled_core.ops.heartbeat import write_heartbeat
 
@@ -549,9 +572,7 @@ def book_fills(
                 details={
                     "cycle_date": str(ctx.as_of.date()) if ctx.as_of else "",
                     "n_orders": len(result.orders_filtered),
-                    # FIXME(mypy-sweep): see execution_mode note above —
-                    # kills the heartbeat write on live/paper via the except.
-                    "execution_mode": str(ctx.execution_mode),  # type: ignore[attr-defined]
+                    "execution_mode": str(ctx.execution_mode),
                 },
             )
             result.meta["heartbeat"] = {"status": "ok", "path": str(_hb_path)}

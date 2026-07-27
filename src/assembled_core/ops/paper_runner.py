@@ -1205,6 +1205,18 @@ def run_paper_daily_one(
     from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
     from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
+    # Normalize the routing-mode label BEFORE it is frozen into the ctx and
+    # stamped into KPI/manifest/journal/heartbeat artifacts (F-senior-3):
+    # same validation + sim-fallback as _prd_paper_fills_and_ledger applies
+    # later on its local variable — an unknown label must never masquerade
+    # as a real routing mode in ops artifacts.
+    if execution_mode not in ("sim", "broker", "dry_run"):
+        log.error(
+            "Unknown execution_mode=%r — falling back to sim (label + routing)",
+            execution_mode,
+        )
+        execution_mode = "sim"
+
     paper_cfg = app_cfg.get("paper_runner") or {}
     start_capital = float(paper_cfg.get("start_capital", 100000.0))
 
@@ -1242,6 +1254,9 @@ def run_paper_daily_one(
         capital=start_capital,
         write_outputs=False,
         enable_risk_controls=True,
+        # E-059 #2: route the real order-routing mode (sim|broker|dry_run) into
+        # the cycle so KPI/manifest/journal/heartbeat consumers see it.
+        execution_mode=execution_mode,
     )
     if mode == "paper" and ledger_state is not None:
         ctx.capital = equity_before

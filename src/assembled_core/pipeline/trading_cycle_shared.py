@@ -134,6 +134,17 @@ class TradingContext:
     - "paper": Paper trading mode - same as eod
     - "live": Live trading mode - same as eod
     """
+    execution_mode: str = "sim"
+    """Order-routing mode ("sim" | "broker" | "dry_run").
+
+    NOT the same as ``mode`` above (cycle mode eod/backtest/paper/live):
+    ``execution_mode`` describes how orders are routed/filled, not how the
+    price panel is sliced. Until 2026-07-27 this field did not exist on the
+    dataclass and was only ever injected dynamically by some tests — every
+    consumer in _tc_execution.py (KPI artifact, run manifest, trade journal,
+    heartbeat) raised AttributeError and died silently in its enclosing
+    except (E-059).
+    """
 
     # Feature building
     use_factor_store: bool = True

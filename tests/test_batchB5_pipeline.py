@@ -146,10 +146,11 @@ def test_b_pipe_3_submitted_hook_writes_in_live(monkeypatch, tmp_path) -> None:
 def _book_fills_ctx(mode: str, tmp_path) -> TradingContext:
     """A ctx wired to drive the REAL _tc_execution.book_fills() to its heartbeat
     block: output_dir is a Path (the heartbeat uses ``/``), execution_mode is set
-    (book_fills references it; it is a runtime-injected attr, not a dataclass
-    field), and write_outputs=False so the write_outputs/KPI/manifest steps are
-    skipped and the cycle reaches the heartbeat (which is gated only by
-    ``mode != "backtest"``, NOT by write_outputs)."""
+    (since 2026-07-27 a real dataclass field, default "sim"; overridden here),
+    and write_outputs=False so the write_outputs/KPI/manifest steps are skipped
+    and the cycle reaches the heartbeat (gated by ``mode != "backtest"`` AND —
+    since 2026-07-27 — by as_of being the current UTC date, NOT by
+    write_outputs)."""
     ctx = _make_ctx(mode=mode)
     ctx.output_dir = tmp_path  # Path, not str (heartbeat block uses Path "/")
     ctx.execution_mode = mode
@@ -187,6 +188,10 @@ def test_b_pipe_3_heartbeat_writes_in_live(tmp_path) -> None:
     import src.assembled_core.pipeline._tc_execution as tc_exec
 
     ctx = _book_fills_ctx(mode="live", tmp_path=tmp_path)
+    # Liveness contract (2026-07-27): the heartbeat is only emitted for a
+    # cycle processing the CURRENT UTC date (historical backfills must not
+    # refresh the DMS liveness signal) — give this live ctx a current as_of.
+    ctx.as_of = pd.Timestamp.now("UTC")
     out = tc_exec.book_fills(_book_fills_result(), ctx)
     assert out.status != "error"
     hb_path = tmp_path / "state" / "heartbeat.json"
