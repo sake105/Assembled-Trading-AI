@@ -699,3 +699,21 @@
 **Wie vermeiden:** Vor jedem Ratchet-Bump den Ist-Count am Parent-Commit UND am neuen Commit empirisch messen (git-Blob + exakt die Zaehlmethode des Tests), Delta aus (neu - alt) ableiten, im Kommentar Ist-Counts (nie Cap-Werte) als Start/Ende dokumentieren. Bei Modul-Restores: broad-Substrings im Modul per grep zaehlen, nicht aus dem Gedaechtnis.
 **Erkannt in:** `tests/test_session_2026_05_07_new_items.py` (Ratchet-Kommentar), `src/assembled_core/ops/shadow_recorder.py` (Z.42/45/60) — Stage-2 senior-code-reviewer auf Commit 35b3ea95; Kommentar im Folge-Commit korrigiert.
 **Referenzen:** Rule 40 (Testehrlichkeit), E-059 (shadow_recorder-Restore-Kontext).
+
+## E-061 — call-arg-Mismatch per type-ignore stillgelegt statt als Bug erkannt (totes Safety-Gate)
+**Datum:** 2026-07-27
+**Kategorie:** silent-except / type-ignore-missbrauch / dead-safety-gate
+**Was passierte:** `qa_gates.check_leakage` rief `assert_feature_zero_before_disclosure` mit df=/feature_col=/...-Kwargs auf; die reale Signatur ist `(prices, events, feature_fn, *, as_of_before, as_of_after)` (Re-Computation-Harness). Der TypeError wurde von den except-Klauseln (AssertionError/ValueError/ImportError) NICHT gefangen — das Leakage-Gate war fuer echte Inputs tot. Ein `# type: ignore[call-arg]` hatte den Mismatch vor mypy versteckt.
+**Warum falsch:** Ein Safety-Gate, das fuer echten Input nie BLOCK liefern kann, ist schlimmer als kein Gate — es bewirbt PIT-Schutz, der nicht laeuft. Ein call-arg-Mismatch ist IMMER ein echter Bug, nie ein Typ-Rauschen.
+**Wie vermeiden:** call-arg-Fehler NIE per type-ignore stummschalten — Kwargs, die nicht zur Zielsignatur passen, sind ein Realfehler. Wenn ein Gate einen bestehenden Helper nicht nutzen kann (falsche Input-Form), den Check inline gegen den tatsaechlichen Input implementieren statt eine unpassende API zu rufen und den Typfehler zu ignorieren.
+**Erkannt in:** `src/assembled_core/qa/qa_gates.py` — mypy-Sweep T4 fand den Mismatch (als FIXME markiert), Fix in Commit 3a3ec42f (inline row-wise PIT-Check, fail-closed, 8 E2E-Tests).
+**Referenzen:** E-059 (Silent-Except-Klasse), Rule 30 (keine Lockerung von Safety-Checks).
+
+## E-062 — getattr mit Attribut-Zugriff als Default: eager evaluiert, AttributeError killt den Block
+**Datum:** 2026-07-27
+**Kategorie:** logic-error / eager-default / silent-except
+**Was passierte:** `run_index`-Metrics nutzten `getattr(ctx, "current_equity", ctx.equity)`. `ctx.equity` existiert nicht — das DEFAULT-Argument wird bei getattr IMMER eager evaluiert, der AttributeError flog VOR dem getattr-Fallback und der umschliessende except uebersprang den gesamten run_index-Write. Der Zwischenfix `getattr(...) or ctx.capital` haette zusaetzlich ein legitimes equity==0.0 (Totalverlust) still in Startkapital verwandelt.
+**Warum falsch:** getattr-Defaults sind nicht lazy; ein Attributzugriff als Default hebelt genau den Schutz aus, den getattr geben soll. Und `x or default` kollabiert valide falsy-Werte (0.0) — bei Finanzgroessen ein Ehrlichkeitsfehler.
+**Wie vermeiden:** `getattr(obj, "x", None)` + expliziter `is not None`-Check; NIE einen Attributzugriff als getattr-Default; NIE `or` als Default-Mechanik fuer Numerik, die legitim 0 sein kann.
+**Erkannt in:** `src/assembled_core/pipeline/_tc_execution.py` (run_index final_equity) — Stage-1 risk-execution-reviewer (MAJOR-2) auf dem E-059-#2-Diff; Fix in Commit 69e8f68d (final_equity nur bei echtem Wert, sonst leer; 0.0-Edge-Test).
+**Referenzen:** E-049 (Scope-Trennung um Safety-Writes), Rule 40 (Testehrlichkeit).
