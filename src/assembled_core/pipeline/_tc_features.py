@@ -536,13 +536,16 @@ def build_features(
             snapshots = getattr(ctx, "order_book_snapshots", None)
             if snapshots:
                 from src.assembled_core.features.order_book_imbalance import (
-                    rolling_imbalance_signal,
+                    latest_imbalance_by_symbol,
                 )
 
-                ob_signals = rolling_imbalance_signal(
-                    snapshots,
-                    lookback=int(ob_cfg.get("lookback", 10)),
-                )
+                # E-059 #6: previous code called rolling_imbalance_signal()
+                # (returns list[float]) and then read .items()/.l1_imbalance
+                # — AttributeError swallowed by the enclosing except, so the
+                # merge never ran. latest_imbalance_by_symbol() returns the
+                # intended per-symbol ImbalanceFeatures (latest snapshot);
+                # the old, never-effective "lookback" config key is dropped.
+                ob_signals = latest_imbalance_by_symbol(snapshots)
                 if ob_signals:
                     import pandas as _pd
 
@@ -553,15 +556,29 @@ def build_features(
                                 "ob_imbalance": sig.l1_imbalance,
                                 "ob_vw_imbalance": sig.vw_imbalance,
                             }
-                            # FIXME(mypy-sweep): rolling_imbalance_signal returns
-                            # list[float] — .items()/.l1_imbalance would raise
-                            # AttributeError, swallowed by the enclosing except:
-                            # the OB-imbalance merge silently never runs.
-                            for sym, sig in ob_signals.items()  # type: ignore[attr-defined]
+                            for sym, sig in ob_signals.items()
                         ]
                     )
                     if not ob_df.empty and "symbol" in pwf.columns:
-                        pwf = pwf.merge(ob_df, on="symbol", how="left")
+                        # PIT guard (review H-3): the latest-snapshot imbalance
+                        # is a point-in-time value — merging it onto a
+                        # multi-date panel would broadcast it into HISTORICAL
+                        # rows (look-ahead). Only merge on snapshot/EOD-shaped
+                        # panels (max one timestamp per symbol); skip loudly
+                        # otherwise.
+                        _ob_multi_date = (
+                            "timestamp" in pwf.columns
+                            and int(pwf.groupby("symbol")["timestamp"].nunique().max())
+                            > 1
+                        )
+                        if _ob_multi_date:
+                            log.warning(
+                                "[OB-IMBALANCE] skipped: multi-date panel would "
+                                "leak the latest snapshot into historical rows "
+                                "(PIT guard)"
+                            )
+                        else:
+                            pwf = pwf.merge(ob_df, on="symbol", how="left")
     except Exception as e:
         log.debug("[OB-IMBALANCE] order_book_imbalance skipped: %s", e)
 

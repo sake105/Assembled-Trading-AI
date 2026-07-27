@@ -149,6 +149,35 @@ def imbalance_from_dict(snap_dict: dict[str, Any]) -> ImbalanceFeatures:
     return compute_imbalance_features(snap)
 
 
+def latest_imbalance_by_symbol(
+    snapshots: list[dict[str, Any]],
+) -> dict[str, ImbalanceFeatures]:
+    """Latest per-symbol imbalance features from a stream of snapshot dicts.
+
+    Intended for panel-feature merging (e.g. pipeline Step 2.15): one
+    ImbalanceFeatures per symbol, taken from that symbol's most recent
+    snapshot. Reuses ``imbalance_from_dict`` / ``compute_imbalance_features``
+    — no new imbalance math is introduced here.
+
+    Args:
+        snapshots: List of snapshot dicts (same format as
+            ``imbalance_from_dict``). Order does not need to be sorted;
+            the snapshot with the greatest ``timestamp`` wins per symbol.
+            On equal timestamps, the later list entry wins (matches
+            oldest-first streaming order).
+
+    Returns:
+        Mapping symbol -> ImbalanceFeatures of the latest snapshot.
+    """
+    latest: dict[str, ImbalanceFeatures] = {}
+    for snap_dict in snapshots:
+        feats = imbalance_from_dict(snap_dict)
+        prev = latest.get(feats.symbol)
+        if prev is None or feats.timestamp >= prev.timestamp:
+            latest[feats.symbol] = feats
+    return latest
+
+
 def rolling_imbalance_signal(
     snapshots: list[dict[str, Any]],
     lookback: int = 10,
