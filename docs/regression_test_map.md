@@ -47,7 +47,7 @@ future work live in `KNOWN_ISSUES.md`, not here.
 
 | ID | Finding | File | Fix summary | guard_test | status |
 |----|---------|------|-------------|------------|--------|
-| P4-2 | Look-ahead / leakage was not gated at QA boundary | `qa/qa_gates.py` | `check_leakage()` added as mandatory QA gate | `tests/test_qa_gates_leakage.py` | guarded |
+| P4-2 | Look-ahead / leakage was not gated at QA boundary | `qa/qa_gates.py` | `check_leakage()` added — **NOT mandatory** (label corrected 2026-08-01): since 2026-08-01 part of `evaluate_all_gates`, but fail-open without `feature_df` and no production caller supplies one → visible, not enforcing | `tests/test_qa_gates_leakage.py` | partial (visibility only) |
 | P4-3 | Stale features were not detected → old data silently drove fresh decisions | `data/freshness_monitor.py` | `detect_stale_features()` added | `tests/test_freshness_monitor_stale.py` | guarded |
 | P4-4 | Flash-crash circuit breaker missing | `risk/circuit_breaker.py` (new) | Rolling-window detector class + volatility variant | `tests/test_circuit_breaker.py`, `tests/test_vol_circuit_breaker.py` | guarded |
 | P4-5 | Orders had no lifecycle state tracking → duplicate-fill risk | `execution/order_lifecycle.py` (new) | State machine: pending → submitted → filled/cancelled/rejected | `tests/test_order_lifecycle_state_machine.py` | guarded |

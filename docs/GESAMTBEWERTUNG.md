@@ -134,7 +134,15 @@ DMS **[V]**: Task läuft laut Scheduler, bewusst shadow (26h) — aber `output/o
 **Zustand: reiche Analyse-Bibliothek, unterbrochener Enforcement-Faden.**
 
 - QA-BLOCK im Orchestrator ist nur `logger.error`, kein Abbruch (`pipeline/orchestrator.py:1001-1005`). Der einzige harte Enforcement-Punkt (`pre_trade_checks.py:827-844`) wird von beiden echten Aufrufern mit `qa_status=None` gefüttert (`api/routers/paper_trading.py:143`, `pipeline/trading_cycle_shared.py:1635` — selbst nachgeprüft). **Die QA-BLOCK-Semantik existiert im laufenden Betrieb nicht.** **[V]**
-- `check_leakage` — als „mandatory gate" dokumentiert (`qa_gates.py:516-522`) — hat **keinen einzigen Caller** und ist fail-open (feature_df None → OK). **[V]**
+- `check_leakage` — als „mandatory gate" dokumentiert (`qa_gates.py:516-522`) — hatte **keinen einzigen Caller** und ist fail-open (feature_df None → OK). **[V]**
+  **Teil-erledigt 2026-08-01 (E-059-Follow-up):** jetzt 8. Gate in `evaluate_all_gates`,
+  Skip-Zustand sichtbar (`details["skipped"]`, `skip_kind`, „NOT CHECKED"-reason).
+  Geskippte Gates zählen nicht als bestanden (`QAGatesSummary.skipped_gates`, E-066),
+  `passed_gates` bleibt bei 7.
+  **Weiterhin offen und ausdrücklich NICHT behauptet:** kein Produktions-Caller übergibt
+  einen `feature_df` → das Gate prüft im Betrieb nichts. Restlücke: `pipeline/orchestrator.py:326-328`
+  (+ BLOCK-Logzeile `:1002-1011`) bildet die Counts aus `gate_results` neu und zählt den
+  Skip weiterhin als OK — geschützter Pfad, eigener Step.
 - Reproducibility-Certificate: nur test-referenziert; `verify_certificate` meldet PASS, wenn Artefakte in beiden Läufen fehlen („NOT_FOUND" == „NOT_FOUND", `certify/generator.py:46,246-250`) — tautologisch. **[V]**
 - Die 7 Performance-Gates selbst sind ordentlich gebaut (worst-case-wins), aber „nicht berechenbar" degradiert immer nur zu WARNING. **[V]**
 

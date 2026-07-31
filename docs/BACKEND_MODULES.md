@@ -466,7 +466,8 @@ print(f"MaxDD: {metrics.max_drawdown_pct:.2f}%")
 - `QAGatesSummary` - `overall_result`, `passed_gates`, `warning_gates`, `blocked_gates`, `gate_results`
 
 **Funktionen:**
-- `evaluate_all_gates(metrics, config=None) -> QAGatesSummary`
+- `evaluate_all_gates(metrics, gate_config=None, *, feature_df=None, leakage_feature_col="feature", leakage_disclosure_col="disclosure_date", leakage_timestamp_col="timestamp") -> QAGatesSummary`
+  (seit 2026-08-01: enthält `check_leakage` als 8. Gate; ohne `feature_df` OK + `details["skipped"]` = **nicht geprüft**)
 - `check_sharpe_ratio(metrics, min_sharpe=1.0, warning_sharpe=0.5) -> QAGateResult`
 - `check_max_drawdown(metrics, max_dd_pct_limit=-20.0, warning_dd_pct=-15.0) -> QAGateResult`
 - `check_turnover(metrics, max_turnover=10.0, warning_turnover=5.0) -> QAGateResult`

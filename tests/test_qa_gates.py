@@ -670,7 +670,9 @@ def test_evaluate_all_gates_ok(metrics_good):
     assert summary.overall_result == QAResult.OK
     assert summary.passed_gates > 0
     assert summary.blocked_gates == 0
-    assert len(summary.gate_results) == 7  # 7 gates
+    # 7 metric gates + leakage_detection (wired in 2026-08-01, E-059 follow-up;
+    # OK+skipped without a feature_df, see test_evaluate_all_gates_leakage_*).
+    assert len(summary.gate_results) == 8
 
 
 @pytest.mark.smoke

@@ -11,6 +11,8 @@ QA Gates:
 - Volatility limit
 - Hit rate threshold (if trades available)
 - Profit factor threshold (if trades available)
+- Leakage detection (only checks when the caller supplies a feature frame;
+  otherwise reported as ``details["skipped"]`` — see ``check_leakage``)
 
 Each gate returns a structured result (OK, WARNING, BLOCK) with reasoning.
 """
@@ -57,10 +59,17 @@ class QAGatesSummary:
 
     Attributes:
         overall_result: Overall result (worst case of all gates)
-        passed_gates: Number of gates that passed (OK)
+        passed_gates: Number of gates that actually passed (OK and CHECKED).
+            Gates that returned OK only because they were skipped (no input
+            supplied, ``details["skipped"] is True``) are EXCLUDED — a
+            not-checked gate must never show up as green aggregate evidence
+            (E-066). Those are counted in ``skipped_gates`` instead.
         warning_gates: Number of gates with warnings
         blocked_gates: Number of gates that blocked
         gate_results: List of individual gate results
+        skipped_gates: Number of gates that were NOT checked (OK by
+            fail-open, not by evidence). Trailing default so existing
+            constructions stay valid.
     """
 
     overall_result: QAResult
@@ -68,6 +77,7 @@ class QAGatesSummary:
     warning_gates: int
     blocked_gates: int
     gate_results: list[QAGateResult]
+    skipped_gates: int = 0
 
 
 def check_sharpe_ratio(
@@ -523,15 +533,17 @@ def check_leakage(
 ) -> QAGateResult:
     """Check for look-ahead bias / data leakage.
 
-    HONESTY NOTE (W4/P5, 2026-07-22 GESAMTBEWERTUNG): earlier docs called
-    this a "mandatory gate" — it is NOT. It is wired into no production
-    runner: ``evaluate_all_gates`` does not include it and no caller exists
-    outside tests. It only checks anything when a caller explicitly passes
-    ``feature_df``; with ``feature_df=None`` it returns OK (fail-open by
-    design, because "no altdata features" is a legitimate state — but that
-    also means forgetting to pass the frame silently passes). Callers who
-    want a real leakage gate must invoke this explicitly with the feature
-    frame AND treat the ``details["skipped"]`` flag as "not checked".
+    HONESTY NOTE (W4/P5, 2026-07-22 GESAMTBEWERTUNG; updated 2026-08-01):
+    earlier docs called this a "mandatory gate" — it is NOT, and it still is
+    not. Since 2026-08-01 it IS part of ``evaluate_all_gates`` (E-059
+    follow-up), so its state is at least VISIBLE in every gate summary
+    instead of silently absent. But visibility is not enforcement: the gate
+    only checks anything when the caller passes ``feature_df``; with
+    ``feature_df=None`` it returns OK (fail-open by design, because "no
+    altdata features" is a legitimate state — but that also means forgetting
+    to pass the frame still passes). No production caller supplies a frame
+    today; consumers MUST treat ``details["skipped"] is True`` as "NOT
+    checked", never as "no leakage".
 
     If feature_df is provided, validates row-wise that feature values are
     zero (or NaN, treated as zero) before their disclosure date: any row
@@ -539,8 +551,9 @@ def check_leakage(
     value in ``feature_col``.  Rows with a missing (NaT) disclosure date and
     a non-zero feature value are treated as violations (fail-closed: a value
     without a known disclosure date cannot be proven PIT-safe).  If
-    feature_df is not provided (no altdata features in this backtest),
-    returns OK with ``details["skipped"]``.
+    feature_df is not provided, returns OK with ``details["skipped"]`` —
+    that means "no frame was handed in", NOT "this backtest has no altdata
+    features".
 
     Note: this check is intentionally implemented inline.  The helper
     ``qa.leakage_tests.assert_feature_zero_before_disclosure`` is a
@@ -561,11 +574,26 @@ def check_leakage(
     gate_name = "leakage_detection"
 
     if feature_df is None or feature_df.empty:
+        # The reason string is the ONLY honesty anchor that reaches the
+        # markdown report and the backtest log — both render `reason` but
+        # not `details`. It must therefore say "not checked", never imply
+        # "clean" (Stage-1 MAJOR-1, 2026-08-01). skip_kind distinguishes
+        # "caller passed nothing" from "caller passed an empty frame"
+        # (e.g. a failed altdata load), which are NOT the same finding.
+        skip_kind = "no_frame" if feature_df is None else "empty_frame"
         return QAGateResult(
             gate_name=gate_name,
             result=QAResult.OK,
-            reason="No altdata features to check for leakage",
-            details={"skipped": True},
+            reason=(
+                "leakage NOT CHECKED — "
+                + (
+                    "no feature_df supplied by caller"
+                    if skip_kind == "no_frame"
+                    else "caller supplied an EMPTY feature_df"
+                )
+                + " (absence of evidence, not 'clean')"
+            ),
+            details={"skipped": True, "skip_kind": skip_kind},
         )
 
     missing = [
@@ -639,9 +667,39 @@ def check_leakage(
 
 
 def evaluate_all_gates(
-    metrics: PerformanceMetrics, gate_config: dict[str, dict[str, float]] | None = None
+    metrics: PerformanceMetrics,
+    gate_config: dict[str, dict[str, float]] | None = None,
+    *,
+    feature_df: pd.DataFrame | None = None,
+    leakage_feature_col: str = "feature",
+    leakage_disclosure_col: str = "disclosure_date",
+    leakage_timestamp_col: str = "timestamp",
 ) -> QAGatesSummary:
     """Evaluate all QA gates and return summary.
+
+    Leakage gate (E-059 follow-up, 2026-08-01): ``check_leakage`` is part of
+    the summary so that its state is visible in QA artifacts. Without
+    ``feature_df`` it contributes an OK result carrying
+    ``details["skipped"] = True`` — that means "NOT checked", not "clean".
+    Passing a frame turns it into a real fail-closed PIT check of EXACTLY
+    ONE feature column (a multi-factor store needs one call per column).
+
+    COUNT HONESTY (E-066): a skipped gate is NOT counted in ``passed_gates``
+    — it lands in ``skipped_gates``. So ``passed_gates`` stays at 7 for the
+    metric gates, exactly as before this gate was added; the aggregate never
+    turns green for a check that did not run. Residual gap: the counts in
+    ``pipeline/orchestrator.py:326-328`` and its BLOCK log line
+    (``:1002-1011``) are RE-derived from ``gate_results`` and still count the
+    skipped gate as OK. That file is a protected path — fixing it is a
+    separate, explicitly scoped step.
+
+    HALT FOOTGUN for the first real caller (Stage-1 MAJOR-3): the default
+    column names are generic placeholders. A column-name MISMATCH makes
+    ``check_leakage`` return BLOCK (fail-closed — correct, but it is a schema
+    problem, not a leak). Via ``orchestrator`` -> ``write_qa_block_flag`` that
+    BLOCK writes ``output/ops/qa_block.json``, which makes the live-pilot
+    preflight refuse to trade until an operator runs ``ack_qa_block.py``. Dry-
+    run any new production ``feature_df`` through ``check_leakage`` first.
 
     Args:
         metrics: PerformanceMetrics from qa.metrics
@@ -655,6 +713,10 @@ def evaluate_all_gates(
                 "hit_rate": {"min": 0.50, "warning": 0.40},
                 "profit_factor": {"min": 1.5, "warning": 1.2}
             }
+        feature_df: Optional altdata feature frame for the leakage gate.
+        leakage_feature_col: Feature value column in ``feature_df``.
+        leakage_disclosure_col: Disclosure-date column in ``feature_df``.
+        leakage_timestamp_col: Observation-timestamp column in ``feature_df``.
 
     Returns:
         QAGatesSummary with overall result and individual gate results
@@ -708,10 +770,27 @@ def evaluate_all_gates(
             min_profit_factor=profit_factor_config.get("min", 1.5),
             warning_profit_factor=profit_factor_config.get("warning", 1.2),
         ),
+        check_leakage(
+            feature_df=feature_df,
+            feature_col=leakage_feature_col,
+            disclosure_col=leakage_disclosure_col,
+            timestamp_col=leakage_timestamp_col,
+        ),
     ]
 
-    # Count results
-    passed_gates = sum(1 for r in gate_results if r.result == QAResult.OK)
+    # Count results. A gate that returned OK only because it was SKIPPED
+    # (no input supplied) is not a passed check — counting it as one would
+    # manufacture green aggregate evidence for a no-op (E-066). Aggregate
+    # consumers (API gate_counts, "**Passed:** N" in the daily QA report,
+    # the backtest log line) read passed_gates and never see the reason.
+    skipped_gates = sum(
+        1
+        for r in gate_results
+        if r.result == QAResult.OK and (r.details or {}).get("skipped") is True
+    )
+    passed_gates = (
+        sum(1 for r in gate_results if r.result == QAResult.OK) - skipped_gates
+    )
     warning_gates = sum(1 for r in gate_results if r.result == QAResult.WARNING)
     blocked_gates = sum(1 for r in gate_results if r.result == QAResult.BLOCK)
 
@@ -729,6 +808,7 @@ def evaluate_all_gates(
         warning_gates=warning_gates,
         blocked_gates=blocked_gates,
         gate_results=gate_results,
+        skipped_gates=skipped_gates,
     )
 
 
