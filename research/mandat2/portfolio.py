@@ -110,22 +110,31 @@ class Portfolio:
         self.costs_paid += cost
         self.lots.setdefault(sym, []).append([q, px])
 
+    #: Eine Epsilon-Schwelle je Groesse. Frueher prueften Frueh-Return
+    #: (`qty <= 0`) und Schleife (`rest > 1e-12`) unterschiedlich: Mengen
+    #: zwischen 0 und 1e-12 passierten den Guard, wurden aber nie verkauft —
+    #: das Lot war unsterblich, und ein spaeterer Zwangsverkauf triggerte
+    #: taeglich neu (7.940 Phantom-Trades, E-075).
+    EPS_QTY = 1e-12
+
     def sell(self, sym: str, qty: float, px: float) -> None:
         lots = self.lots.get(sym, [])
         qty = min(qty, sum(q for q, _ in lots))
-        if qty <= 0 or px <= 0:
+        if qty <= self.EPS_QTY or px <= 0:
+            if lots and sum(q for q, _ in lots) <= self.EPS_QTY:
+                del self.lots[sym]  # Staub entsorgen, nicht liegen lassen
             return
         proceeds = qty * px
         cost = proceeds * self.cost_bps / 1e4
         gain = 0.0
         rest = qty
-        while rest > 1e-12 and lots:
+        while rest > self.EPS_QTY and lots:
             lq, lpx = lots[0]
             take = min(rest, lq)
             gain += take * (px - lpx)
             lq -= take
             rest -= take
-            if lq <= 1e-12:
+            if lq <= self.EPS_QTY:
                 lots.pop(0)
             else:
                 lots[0][0] = lq
@@ -135,7 +144,7 @@ class Portfolio:
         self.tax_paid += tax
         self.tax_on_gains += tax
         self.costs_paid += cost
-        if not lots and sym in self.lots:
+        if sym in self.lots and (not lots or sum(q for q, _ in lots) <= self.EPS_QTY):
             del self.lots[sym]
 
     # ------------------------------------------------------------ Dividenden
@@ -196,22 +205,43 @@ class Portfolio:
         Ohne diese Groesse misst die Zielfunktion auf einer
         Mark-to-market-Kurve: der umschichtende Kandidat traegt seine Steuer
         laufend, der Buy-and-Hold-Benchmark nie — und bekommt damit die
-        gesamte Steuerstundung geschenkt (E-071). Naeherung: Grenzsatz auf den
-        Netto-Buchgewinn, ohne Verlusttopf und Freibetrag.
+        gesamte Steuerstundung geschenkt (E-071).
+
+        Gewinne und Verluste werden GETRENNT uebergeben, weil die Regime sie
+        unterschiedlich behandeln: PRIVAT_DE verrechnet sie (und hat zusaetzlich
+        einen Verlusttopf), die GmbH darf Veraeusserungsverluste gar nicht
+        abziehen (§8b Abs. 3 S. 3). Eine blosse Saldierung mit dem Grenzsatz
+        ueberschaetzte PRIVAT_DE um im Median 0,51 % des Portfoliowerts und
+        unterschaetzte die GmbH — beides zugunsten der GmbH, also genau entlang
+        der gemessenen Achse.
         """
-        gewinn = 0.0
+        gewinne, verluste = 0.0, 0.0
         for sym, lots in self.lots.items():
             px = prices.get(sym, np.nan)
             if not np.isfinite(px):
                 continue
             for q, basis in lots:
-                gewinn += q * (float(px) - basis)
-        if gewinn <= 0:
-            return 0.0
-        return gewinn * self.regime.latent_rate(self.asset)
+                delta = q * (float(px) - basis)
+                if delta >= 0:
+                    gewinne += delta
+                else:
+                    verluste += -delta
+        return self.regime.latente_last(gewinne, verluste, self.asset)
 
     def wert_nach_latenter_steuer(self, prices: pd.Series) -> float:
-        return self.value(prices) - self.latente_steuer(prices)
+        """Marktwert abzueglich ALLER latenten Ebenen.
+
+        Auch die Ausschuettungsebene gehoert hierher, nicht nur an den
+        Endpunkt: ``settle_terminal`` schreibt allein ``iloc[-1]``, und die
+        Zielfunktion liest ausschliesslich rollierende Fenster, von denen
+        keines dort endet. Vier von fuenf publizierten Kennzahlen fuer
+        GMBH_AUSSCHUETTUNG waren dadurch bitgleich identisch mit
+        GMBH_THESAURIEREND — sie massen das Regime nicht (E-071, eine Ebene
+        weiter). ``on_terminal`` ist zustandsfrei, der Aufruf hier also
+        unbedenklich.
+        """
+        nach_ebene1 = self.value(prices) - self.latente_steuer(prices)
+        return nach_ebene1 - self.regime.on_terminal(nach_ebene1, self.initial_capital)
 
     def liquidate_all(self, prices: pd.Series) -> None:
         """Alle Lots zum Fensterende verkaufen — Steuer wird real faellig.

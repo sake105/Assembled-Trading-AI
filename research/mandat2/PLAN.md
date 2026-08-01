@@ -1,6 +1,6 @@
 # FORSCHUNGSMANDAT II — Plan
 
-**Status:** ENTWURF, Phase 0 begonnen · **Erstellt:** 2026-08-01 · **Auftraggeber:** Hans
+**Status:** Phase 0 ABGESCHLOSSEN, P1 begonnen (1 von 80+ Familien) · **Erstellt:** 2026-08-01 · **Auftraggeber:** Hans
 **Vorgänger:** `research/mandat/FINAL_REPORT.md` (Mandat I, abgeschlossen 2026-07-12, N=1.964)
 
 ---
@@ -110,7 +110,7 @@ Ohne diese Punkte wäre die Kampagne nur eine Wiederholung:
 
 ## 5. Phasen
 
-### P0 — Fundament (läuft) · *ohne das ist nichts davon messbar*
+### P0 — Fundament ✅ ABGESCHLOSSEN · *ohne das ist nichts davon messbar*
 **Erledigt:**
 - `TaxRegime`-Protokoll + vier Implementierungen, Instrumentenklasse
   (Aktie/Fonds/Derivat), regime-agnostisches Portfolio, Dividenden-Doppelbesteuerung
@@ -119,17 +119,18 @@ Ohne diese Punkte wäre die Kampagne nur eine Wiederholung:
 - Holdout-Sperre + Trial-Zähler als getesteter Code (`data_gate.py`, fail-closed bei
   Ledger-Korruption).
 
-**Noch offen — und deshalb NICHT als „erzwungen" zu bezeichnen:**
-- **Verdrahtung des Datenzugangs.** `data_gate` hat außer seinen Tests noch keinen
-  Konsumenten; `prices_verdict.parquet` (1995–2026) ist für jedes Ad-hoc-Skript weiter
-  offen lesbar. Erzwungen ist die Sperre erst, wenn ein Kampagnen-Lader der einzige
-  Weg zu den Daten ist. **Muss stehen, bevor P1 den ersten Datensatz liest.**
-- `TrialCounter.increment()` wird noch von niemandem gerufen — der Zähler zählt nichts.
-- Margin-/Hebelmodell inkl. Finanzierungskosten, Haltedauer-Parameter, DD-Deckel und
-  10-Jahres-Fenster-Auswertung in der Verdict-Engine.
-- `AssetClass` erreicht die bestehende `research/mandat/verdict_engine.py` nicht (sie
-  kennt nur `ETF_TAX`); beim Bau der Mandat-II-Engine mitziehen, sonst fällt E-069
-  dort erneut an.
+**Zusätzlich erledigt:**
+- `campaign_data.py` ist der **einzige** Datenzugang; die Holdout-Sperre liegt damit
+  im Weg statt im Vorsatz. `TrialCounter` wird von `load_campaign` gerufen.
+- `engine.py`: Margin-/Hebelmodell inkl. Finanzierungskosten (Wirkung per Test belegt),
+  Mindesthaltedauer, Delisting-Zwangsverkauf, End-Liquidation, Netto-Kurve.
+- `metrics.py`: DD-Deckel + rollierende 10-Jahres-Fenster.
+- `dividenden.py`: Rohpfad-Rekonstruktion, extern verifiziert (SPY/KO/JNJ, Fehler
+  0,03–0,07 % gegen EODHD).
+
+**Verbleibend (kein P0-Blocker mehr):**
+- `AssetClass` erreicht die alte `research/mandat/verdict_engine.py` nicht (sie kennt
+  nur `ETF_TAX`) — dort fällt E-069 erneut an, falls sie weiterbenutzt wird.
 - Margin-/Hebelmodell inkl. Finanzierungskosten (Broker-Satz, zeitvariabel) und Margin-Call-Logik.
 - Haltedauer als expliziter Parameter (min/max Haltedauer, Rebalance-Trigger).
 - DD-Deckel + 10-Jahres-Fenster-Auswertung in die Verdict-Engine.

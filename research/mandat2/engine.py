@@ -223,12 +223,18 @@ def run_momentum(
         ff_t = close_ff.loc[t]
         wert = pf.value(ff_t)
         equity.append((t, wert))
-        equity_netto.append((t, wert - pf.latente_steuer(ff_t)))
+        equity_netto.append((t, pf.wert_nach_latenter_steuer(ff_t)))
 
         if t not in monatsenden:
             continue
 
         # ---------------------------------------------------- Rebalance
+        # Reset VOR den Frueh-Continues: sonst behalten geliehen und
+        # max_kredit auf den Pfaden 'keine Mitgliederliste' und 'keine Scores'
+        # den Vorwert — dieselbe Klasse, die schon einmal als behoben galt
+        # (F-senior-7).
+        geliehen = 0.0
+        pf.max_kredit = 0.0
         mitglieder = membership.get(t)
         if mitglieder is None:
             continue
@@ -255,19 +261,13 @@ def run_momentum(
                     continue  # Haltedauer laeuft noch
             pending.append(("sell_all", sym, 0.0))
 
-        # geliehen IMMER neu setzen — vorher behielt es bei leerem Ziel den
-        # Vorwert und Zinsen liefen auf einen Kredit weiter, den es nicht mehr
-        # gab (F-senior-5).
-        investiert = wert * hebel
-        geliehen = max(investiert - wert, 0.0)
-        pf.max_kredit = geliehen
         if ziel:
+            investiert = wert * hebel
+            geliehen = max(investiert - wert, 0.0)
+            pf.max_kredit = geliehen
             je = investiert / len(ziel)
             for sym in ziel:
                 pending.append(("trade_to", sym, je))
-        else:
-            geliehen = 0.0
-            pf.max_kredit = 0.0
 
     letzte = close_ff.iloc[-1]
     pf.liquidate_all(letzte)

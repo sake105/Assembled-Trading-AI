@@ -163,7 +163,24 @@ def load_campaign(
         ValueError: ``holdout=True`` ohne ID/Begruendung.
         HoldoutViolation: zweiter Schuss auf dieselbe ID (ohne ``force``).
     """
-    close = _load_close_raw()
+    close_voll = _load_close_raw()
+    # Der Skalenfaktor adj/raw MUSS auf der vollen Quelle bestimmt werden.
+    # Die Rueckwaerts-Rekursion in dividenden.py verankert am letzten Kurs
+    # ("dort ist adj == raw"). Auf einem GEFENSTERTEN Panel liegt dieser Anker
+    # daneben — die Adjustierung ist ueber die volle Historie normiert.
+    # Gemessen: SPY 1995-01-03 raw = 45,80 auf dem vollen Panel (EODHD-Ist
+    # 45,7813) gegen 41,52 auf dem Suchfenster = 9,3 % daneben, und im
+    # Holdout-Fenster faellt der Anker zufaellig richtig — Suche und Holdout
+    # haetten dann unterschiedlich skalierte Dividenden (E-074).
+    #
+    # KEIN Holdout-Leck: rekonstruiert wird der ROHKURS von 1995, und der war
+    # 1995 bekannt. Die Normierung ist ein Darstellungsartefakt der Quelle,
+    # keine Information ueber die Zukunft. Was gefenstert wird, sind die
+    # Zeilen — nicht die Skala.
+    idx_voll = pd.DatetimeIndex(close_voll.index)
+    div_nominal_voll = _load_div_panel(idx_voll).reindex(index=idx_voll)
+    div_skaliert_voll = auf_panel_skalieren(close_voll, div_nominal_voll)
+    close = close_voll
 
     if holdout:
         if not candidate_id or not begruendung:
@@ -191,12 +208,11 @@ def load_campaign(
     close = close.dropna(axis=1, how="all")
 
     idx = pd.DatetimeIndex(close.index)
-    div_nominal = _load_div_panel(idx).reindex(index=idx).dropna(axis=1, how="all")
-    # Nominale Betraege auf die Panel-Skala bringen. Ohne das ist die
-    # Dividende um raw/adj ueberzeichnet (SPY 1995: 4,01 % statt 2,70 %) —
-    # und die Ueberzeichnung trifft genau die GmbH-Asymmetrie, die gemessen
-    # werden soll. Siehe research/mandat2/dividenden.py.
-    div_panel = auf_panel_skalieren(close, div_nominal)
+    div_panel = (
+        div_skaliert_voll.reindex(index=idx)
+        .reindex(columns=[c for c in div_skaliert_voll.columns if c in close.columns])
+        .dropna(axis=1, how="all")
+    )
     membership = _load_membership(idx)
 
     if trials:

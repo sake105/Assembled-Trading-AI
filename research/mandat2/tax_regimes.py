@@ -118,6 +118,9 @@ class TaxRegime(Protocol):
     def on_terminal(self, final_value: float, initial_capital: float) -> float: ...
     def annual_fixed_costs(self) -> float: ...
     def latent_rate(self, asset: AssetClass) -> float: ...
+    def latente_last(
+        self, gewinne: float, verluste: float, asset: AssetClass
+    ) -> float: ...
 
 
 class ZeroTax:
@@ -148,6 +151,11 @@ class ZeroTax:
         return 0.0
 
     def latent_rate(self, asset: AssetClass = AssetClass.AKTIE) -> float:
+        return 0.0
+
+    def latente_last(
+        self, gewinne: float, verluste: float, asset: AssetClass = AssetClass.AKTIE
+    ) -> float:
         return 0.0
 
 
@@ -208,6 +216,22 @@ class PrivatDE:
 
     def latent_rate(self, asset: AssetClass = AssetClass.AKTIE) -> float:
         return self._satz(asset)
+
+    def latente_last(
+        self, gewinne: float, verluste: float, asset: AssetClass = AssetClass.AKTIE
+    ) -> float:
+        """Verluste verrechnen UND den bestehenden Verlusttopf anrechnen.
+
+        Ohne den Topf wurde PRIVAT_DE systematisch ueberschaetzt (im Median
+        um 0,51 % des Portfoliowerts, bei Topfstaenden bis 322.541) — und
+        zwar genau zugunsten der GmbH, also entlang der gemessenen Achse.
+        Der Freibetrag bleibt bewusst aussen vor: er ist klein (1.000/J) und
+        seine Zuordnung auf einen hypothetischen Stichtag waere willkuerlich.
+        """
+        netto = gewinne - verluste - self.loss_pot
+        if netto <= 0:
+            return 0.0
+        return netto * self._satz(asset)
 
 
 class VvGmbH:
@@ -294,6 +318,21 @@ class VvGmbH:
         if asset is AssetClass.DERIVAT:
             return self.gesamtsatz
         return self.kursgewinn_satz
+
+    def latente_last(
+        self, gewinne: float, verluste: float, asset: AssetClass = AssetClass.AKTIE
+    ) -> float:
+        """Bei AKTIE zaehlen nur die GEWINNE.
+
+        §8b Abs. 3 S. 3: Veraeusserungsverluste bleiben ausser Ansatz. Sie
+        gegen die Gewinne zu rechnen (wie eine blosse Saldierung es tut)
+        unterschaetzte die GmbH-Last — schon wieder zugunsten der GmbH.
+        Fonds und Derivate kennen diese Sperre nicht, dort wird saldiert.
+        """
+        if asset is AssetClass.AKTIE:
+            return max(gewinne, 0.0) * self.kursgewinn_satz
+        netto = gewinne - verluste
+        return max(netto, 0.0) * self.latent_rate(asset)
 
     def on_terminal(self, final_value: float, initial_capital: float) -> float:
         return 0.0  # thesaurierend: keine Entnahme modelliert

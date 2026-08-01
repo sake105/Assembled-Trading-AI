@@ -810,3 +810,39 @@
 **Wie vermeiden:** Fuer jeden neuen Stellparameter im selben Step einen Test schreiben, der die WIRKUNGSseite misst (Exponierung, Positionszahl, Haltedauer) — nicht die Kostenseite; die ist typischerweise der leichtere Teil und wird zuerst fertig. Vorab notierte Ergebniserwartungen ERHOEHEN die Beweislast fuer den Mechanismus, sie senken sie nicht.
 **Erkannt in:** `research/mandat2/engine.py`, `research/mandat2/portfolio.py` — Stage-2 senior-code-reviewer (F-senior-4 MAJOR) 2026-08-01. Fix: `Portfolio.max_kredit` + Test, der bei `hebel=2` reale Mehr-Exponierung nachweist.
 **Referenzen:** E-064 (enabled-Flip ohne Feld-Voraussetzung), E-066.
+
+## E-073 — Plausibilitaetscheck mit dem kontaminierten Wert kalibriert
+**Datum:** 2026-08-01
+**Kategorie:** false-evidence / sanity-check-theater
+**Was passierte:** Die neue Dividendenskalierung wurde mit „SPY-Rendite jetzt 2,59/1,18/2,54/2,37 % — plausible Bandbreite" belegt, und das Toleranzband im Docstring auf „grob 1,3-3,5 %" gesetzt. Die WAHREN Werte sind 2,33/1,05/2,23/2,04 %; die gemeldeten waren der verbliebene 10-20-%-Skalenfehler selbst. Beide Zahlenreihen lagen bequem im selben Band.
+**Warum falsch:** Ein Sanity-Check, dessen Toleranz breiter ist als der Fehler, den er finden soll, erzeugt keine Evidenz, sondern eine Quittung. Er ist GEFAEHRLICHER als kein Check, weil er im Commit-Text als Beleg auftritt und die Frage fuer den naechsten Leser schliesst.
+**Wie vermeiden:** Skalen-Checks gegen eine EXTERNE, unabhaengig bekannte Groesse pinnen (hier: EODHD-Rohkurs 45,7813 fuer SPY am 1995-01-03), nicht gegen ein Erwartungsband. Wenn nur ein Band verfuegbar ist: seine Breite gegen die erwartete Fehlergroesse pruefen und den Check ausdruecklich als schwach kennzeichnen. Und: ein Check ohne Aufrufer ist kein Check — `implizite_jahresrendite` hatte weder Test noch Runner.
+**Erkannt in:** `research/mandat2/dividenden.py`, `research/mandat2/BEFUND_P1_ERSTLAUF.md` — Stage-2 senior-code-reviewer 2026-08-01.
+**Referenzen:** E-066 (Aggregat luegt), E-060 (Cap-Wert statt Ist-Count).
+
+## E-074 — Rueckwaerts-Rekonstruktion auf einem gefensterten Panel: der Anker liegt ausserhalb des Fensters
+**Datum:** 2026-08-01
+**Kategorie:** logic-error / normalisierungs-artefakt / holdout-inkonsistenz
+**Was passierte:** `raw(t-1) = (raw(t)+d_t)*adj(t-1)/adj(t)` wurde korrekt hergeleitet, mit dem korrekten Anker „am letzten Kurs ist adj == raw". Aufgerufen wurde die Funktion aber auf dem BEREITS per Holdout-Gate abgeschnittenen Panel, dessen Adjustierung ueber die volle Historie bis 2026 normiert ist. Gemessen: SPY 1995-01-03 raw = 45,80 auf dem vollen Panel (EODHD-Ist 45,7813, Fehler 0,04 %) gegen 41,52 auf dem Suchfenster (-9,3 %). Folge: Dividendenpanel im Suchfenster in Summe +20,4 % ueberzeichnet, heterogen je Symbol (SPY +10..16 %, KO +19..34 %, XOM +30..51 %) und monoton wachsend zum Fensterrand. Zweiter, schwererer Effekt: im HOLDOUT-Fenster faellt Panelende und Datenende zusammen, dort ist der Anker korrekt — Suche und Holdout liefen auf UNTERSCHIEDLICH skalierten Dividenden, der eine Schuss waere nicht mit der Kalibrierung vergleichbar gewesen.
+**Warum falsch:** Der Anker einer Rueckwaertsrekursion ist eine Eigenschaft der DATENQUELLE, nicht des Auswertungsfensters. Ein Gate, das Zeilen entfernt, verschiebt still den Anker — und weil Renditen von der Normierung unberuehrt bleiben, faellt es in KEINER return-basierten Pruefung auf.
+**Wie vermeiden:** Niveau-abhaengige Groessen (Rohkurse, Dividende je Stueck, Nominalbetraege) auf der VOLLEN Quelle bestimmen und erst danach fenstern. Test: derselbe Faktor muss auf vollem und geschnittenem Panel herauskommen. Und ausdruecklich begruenden, warum das kein Leck ist — der Rohkurs von 1995 war 1995 bekannt; gefenstert werden Zeilen, nicht Skalen.
+**Erkannt in:** `research/mandat2/dividenden.py`, `research/mandat2/campaign_data.py` — Stage-2 senior-code-reviewer (BLOCKER) 2026-08-01.
+**Referenzen:** E-070 (Gate deckte nur den Hauptdatensatz), E-068.
+
+## E-075 — Zwei Epsilon-Schwellen fuer dieselbe Groesse: unsterbliches Lot + nicht terminierender Zwangsverkauf
+**Datum:** 2026-08-01
+**Kategorie:** logic-error / non-termination / metrik-inflation
+**Was passierte:** `Portfolio.sell` prueft `qty <= 0` als Frueh-Return, verkauft aber in `while rest > 1e-12`. Mengen zwischen 0 und 1e-12 passierten den Guard, wurden nie verkauft, das Lot blieb bestehen. Der spaeter eingebaute Delisting-Zwangsverkauf triggert auf „Symbol ist noch in lots" — und lief daraufhin JEDEN TAG neu: 7.986 von 8.001 Delisting-Triggern entfielen auf vier Staublots (PVN 2.841, TXU 2.332, BRL 2.029, TLAB 784), nur 15 waren echte Liquidationen. Der publizierte Trade-Count 16.293 bestand aus ~8.353 echten plus ~7.940 Phantom-Trades; das BEFUND-Dokument argumentierte mit „38.899 EUR Kosten (16.293 Trades)".
+**Warum falsch:** Zwei Schwellen fuer dieselbe Groesse erzeugen ein Fenster, in dem eine Operation als erfolgreich gemeldet wird, ohne stattzufinden. Der Aufrufer glaubt, die Position sei glattgestellt — und ein Retry-Mechanismus darueber terminiert nie. Die Inflation landet in einer publizierten Kennzahl.
+**Wie vermeiden:** Eine Epsilon-Konstante je Groesse (hier `Portfolio.EPS_QTY`), identisch in Frueh-Return, Schleife und Aufraeumzweig. Bei jedem „Zwangs"-Mechanismus einen Terminierungstest: nach der Aktion darf die Ausloesebedingung nicht mehr wahr sein.
+**Erkannt in:** `research/mandat2/portfolio.py`, `research/mandat2/engine.py` — Stage-2 senior-code-reviewer 2026-08-01.
+**Referenzen:** E-072 (Mechanismus sieht im Log lebendig aus), E-066.
+
+## E-076 — Kosten im Fliesstext subtrahiert statt im Lauf gemessen (Zinseszins fehlt)
+**Datum:** 2026-08-01
+**Kategorie:** false-evidence / handrechnung-statt-messung
+**Was passierte:** Der P1-Befund verglich die vermoegensverwaltende GmbH mit dem Privatanleger und schrieb: „Selbst nach 22 Jahren Rechtsformkosten (3.500 EUR/J = 77.000 EUR) bleiben +65.000 EUR." Der Parameter `fixkosten_pa` EXISTIERTE und floss real ab — er wurde nur nicht gesetzt. Mit ihm gemessen: 73.500 EUR eingezahlte Fixkosten (21 Jahreswechsel, nicht 22) kosten ueber die Laufzeit **137.663 EUR** Endvermoegen; die entgangene Verzinsung ist fast so gross wie der Nominalbetrag noch einmal. Der GmbH-Vorsprung schrumpfte von +141.742 auf +4.079 EUR — und auf der GESPERRTEN Zielfunktion (Median ueber rollierende Fenster) war die GmbH mit Fixkosten SCHLECHTER als privat (1,0524 gegen 1,0910). Der publizierte Befund 3 war damit durch die eigene Engine widerlegt. Der eigene Plan hatte es woertlich vorhergesagt: „fuer die Frage 'GmbH oder privat?' muss er gesetzt werden, sonst ist das Ergebnis geschoent."
+**Warum falsch:** Eine Nominalsubtraktion im Text unterschlaegt jeden Pfadeffekt (Zinseszins, Steuerzeitpunkte, Positionsgroessen). Sie sieht aus wie eine Rechnung, ist aber eine Schaetzung — und sie erscheint im Dokument mit derselben Autoritaet wie eine gemessene Zahl. Verschaerfend: der Fehler ging in dieselbe Richtung wie ein bereits einmal gekippter Befund, also genau dorthin, wo die Erwartung lag.
+**Wie vermeiden:** (1) **Keine Zahl in einem Befund-Dokument, die nicht aus dem Ergebnis-Artefakt stammt.** Existiert ein Parameter, wird er GESETZT und gemessen, nicht im Text nachgebildet. (2) Bei Kosten-/Steuerabzuegen ueber lange Zeitraeume den Lauf wiederholen statt zu subtrahieren — bei 20+ Jahren ist der Zinseszins groesser als der Nominalbetrag. (3) Ist ein Befund schon einmal gekippt, die naechste Fassung in derselben Richtung besonders skeptisch pruefen.
+**Erkannt in:** `research/mandat2/BEFUND_P1_ERSTLAUF.md`, `research/mandat2/p1_baseline.py` — Stage-3 task-completion-auditor 2026-08-01, per Gegenrechnung mit der vorhandenen Engine.
+**Referenzen:** E-073 (Sanity-Check mit dem kontaminierten Wert kalibriert), E-060, CLAUDE.md „Keine falsche Sicherheit".

@@ -26,7 +26,21 @@ from research.mandat2.engine import run_buy_and_hold, run_momentum  # noqa: E402
 from research.mandat2.metrics import DD_DECKEL, auswerten  # noqa: E402
 from research.mandat2.tax_regimes import make_regime  # noqa: E402
 
-REGIME = ["ZERO", "PRIVAT_DE", "GMBH_THESAURIEREND", "GMBH_AUSSCHUETTUNG"]
+# (Regime-Name, Kwargs). Die GmbH laeuft ZWEIMAL: einmal ohne Fixkosten
+# (Strategie-gegen-Strategie innerhalb des Regimes) und einmal mit — denn nur
+# die zweite Variante beantwortet Hans' eigentliche Frage "GmbH oder privat?".
+# PLAN.md §2 verlangt das ausdruecklich; die erste Fassung dieses Laufs hat
+# die Fixkosten stattdessen im Fliesstext subtrahiert und dabei den Zinseszins
+# vergessen (E-076).
+FIXKOSTEN_PA = 3_500.0
+LAEUFE = [
+    ("ZERO", {}),
+    ("PRIVAT_DE", {}),
+    ("GMBH_THESAURIEREND", {}),
+    ("GMBH_THESAURIEREND", {"fixkosten_pa": FIXKOSTEN_PA}),
+    ("GMBH_AUSSCHUETTUNG", {}),
+    ("GMBH_AUSSCHUETTUNG", {"fixkosten_pa": FIXKOSTEN_PA}),
+]
 OUT = Path(__file__).resolve().parent / "results"
 
 
@@ -36,26 +50,32 @@ def main() -> int:
     print(d, flush=True)
     ergebnisse = {}
 
-    for name in REGIME:
-        bench = run_buy_and_hold(d, make_regime(name))
-        kand = run_momentum(d, make_regime(name), top_in=20, rank_out=60)
+    for name, kwargs in LAEUFE:
+        schluessel = name + ("+fixkosten" if kwargs.get("fixkosten_pa") else "")
+        bench = run_buy_and_hold(d, make_regime(name, **kwargs))
+        kand = run_momentum(d, make_regime(name, **kwargs), top_in=20, rank_out=60)
         # Ausschuettungsebene erst am Ende, damit die Kurve sie nicht sieht.
         if name == "GMBH_AUSSCHUETTUNG":
+            # Die Ausschuettungsebene steckt bereits durchgehend in
+            # equity_netto (wert_nach_latenter_steuer); hier wird nur noch
+            # die mark-to-market-Kurve fuer die Diagnose nachgezogen.
             for lauf in (bench, kand):
-                netto = lauf.portfolio.settle_terminal(float(lauf.equity.iloc[-1]))
-                lauf.equity.iloc[-1] = netto
-                lauf.equity_netto.iloc[-1] = netto
+                lauf.equity.iloc[-1] = lauf.portfolio.settle_terminal(
+                    float(lauf.equity.iloc[-1])
+                )
         # Auf der NETTO-Kurve auswerten: sonst traegt der umschichtende
         # Kandidat seine Steuer laufend und der Buy-and-Hold-Benchmark nie
         # (E-071).
         a = auswerten(
-            kand.equity_netto, bench.equity_netto, label=f"Momentum vs SPY [{name}]"
+            kand.equity_netto,
+            bench.equity_netto,
+            label=f"Momentum vs SPY [{schluessel}]",
         )
         print(f"\n=== {name} ===", flush=True)
         print("  " + bench.kurz(), flush=True)
         print("  " + kand.kurz(), flush=True)
         print("  " + a.bericht(), flush=True)
-        ergebnisse[name] = {
+        ergebnisse[schluessel] = {
             "benchmark_end": float(bench.equity.iloc[-1]),
             "kandidat_end": float(kand.equity.iloc[-1]),
             "n_fenster": a.n_fenster,
@@ -79,7 +99,9 @@ def main() -> int:
             "div_steuer_kandidat": kand.portfolio.tax_on_dividends,
             "kursgewinn_steuer_kandidat": kand.portfolio.tax_on_gains,
             "nicht_ausfuehrbare_auftraege": kand.nicht_ausfuehrbar,
-            "fixkosten_pa": 0.0,
+            "fixkosten_pa": float(kwargs.get("fixkosten_pa", 0.0)),
+            "fixkosten_gezahlt_kandidat": kand.portfolio.fixed_costs_paid,
+            "trades_kandidat_regime": kand.n_trades,
         }
 
     (OUT / "p1_baseline.json").write_text(
