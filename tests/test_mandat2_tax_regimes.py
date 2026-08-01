@@ -16,6 +16,7 @@ import pytest
 from research.mandat2.portfolio import Portfolio
 from research.mandat2.tax_regimes import (
     PRIVAT_SATZ,
+    AssetClass,
     PrivatDE,
     VvGmbH,
     VvGmbHMitAusschuettung,
@@ -35,6 +36,11 @@ def test_privat_de_reproduziert_mandat_i_exakt():
 
     Verglichen werden Cash, Steuer, Kosten und die Lots — nicht nur der
     Endwert, damit sich keine kompensierenden Fehler verstecken koennen.
+
+    UMFANG, ehrlich (F-senior-3): geprueft wird der TRADE-Pfad. Dividenden und
+    terminal_liquidation liegen in Mandat I nicht in TaxedPortfolio, sondern in
+    verdict_engine.run_backtest — sie sind hier strukturell nicht pruefbar. Bei
+    den Dividenden weicht Mandat II ausserdem BEWUSST ab (E-068).
     """
     from research.mandat.h011_kandidat_a import TaxedPortfolio
 
@@ -63,17 +69,20 @@ def test_privat_de_reproduziert_mandat_i_exakt():
             alt.sell(sym, q, px)
             neu.sell(sym, q, px)
 
-    assert neu.cash == pytest.approx(alt.cash, abs=1e-9)
-    assert neu.tax_paid == pytest.approx(alt.tax_paid, abs=1e-9)
-    assert neu.costs_paid == pytest.approx(alt.costs_paid, abs=1e-9)
-    assert neu.regime.loss_pot == pytest.approx(alt.loss_pot, abs=1e-9)
+    # Exakte Gleichheit, nicht approx: beide fuehren dieselben Operationen in
+    # derselben Reihenfolge aus, also ist Bit-Gleichheit erreichbar — und
+    # "bit-genau" soll auch geprueft werden, wenn es behauptet wird.
+    assert neu.cash == alt.cash
+    assert neu.tax_paid == alt.tax_paid
+    assert neu.costs_paid == alt.costs_paid
+    assert neu.regime.loss_pot == alt.loss_pot
     assert set(neu.lots) == set(alt.lots)
     for sym in alt.lots:
         # Lots sind [[qty, px], ...] — verschachtelt, also Feld fuer Feld.
         assert len(neu.lots[sym]) == len(alt.lots[sym])
         for (nq, npx), (aq, apx) in zip(neu.lots[sym], alt.lots[sym]):
-            assert nq == pytest.approx(aq, abs=1e-9)
-            assert npx == pytest.approx(apx, abs=1e-9)
+            assert nq == aq
+            assert npx == apx
     # Und der Endwert, den ein Backtest tatsaechlich ablesen wuerde:
     prices = pd.Series({s: 70.0 for s in symbols})
     assert neu.value(prices) == pytest.approx(alt.value(prices), abs=1e-9)
@@ -127,20 +136,51 @@ def test_gmbh_streubesitz_dividende_ist_teurer_als_privat():
     Das ist die Richtung, in der die GmbH SCHLECHTER ist — wichtig, damit die
     Kampagne die GmbH nicht pauschal als Gewinner behandelt.
     """
-    gmbh = VvGmbH(beteiligung_ueber_10pct=False)
+    gmbh = VvGmbH()
     privat = PrivatDE()
-    assert gmbh.on_dividend(10_000.0) > privat.on_dividend(10_000.0)
+    assert gmbh.on_dividend(10_000.0, AssetClass.AKTIE) > privat.on_dividend(
+        10_000.0, AssetClass.AKTIE
+    )
 
-    # Ab 10 % Beteiligung kippt es (fuer uns theoretisch, aber der Vertrag
-    # soll stimmen).
-    gross = VvGmbH(beteiligung_ueber_10pct=True)
-    assert gross.on_dividend(10_000.0) < privat.on_dividend(10_000.0)
+
+def test_kst_und_gewst_schachtel_sind_zwei_verschiedene_schwellen():
+    """§8b Abs. 4 KStG greift ab 10 %, §9 Nr. 2a GewStG erst ab 15 %.
+
+    Dazwischen ist die Dividende koerperschaftsteuerlich fast frei, aber
+    gewerbesteuerlich VOLL steuerpflichtig. Eine einzige Flagge fuer beide
+    Schwellen haette dort ~1,5 % statt ~14 % gerechnet (F-senior-6).
+    """
+    streu = VvGmbH()  # < 10 %
+    zwischen = VvGmbH(kst_schachtel=True)  # 10-15 %
+    voll = VvGmbH(kst_schachtel=True, gewst_schachtel=True)  # >= 15 %
+
+    d = 10_000.0
+    assert (
+        voll.on_dividend(d, AssetClass.AKTIE)
+        < zwischen.on_dividend(d, AssetClass.AKTIE)
+        < streu.on_dividend(d, AssetClass.AKTIE)
+    )
+    # Im Zwischenbereich bleibt die GewSt in voller Hoehe stehen.
+    assert zwischen.dividenden_satz > 0.13
 
 
 def test_gmbh_hebesatz_wirkt():
     niedrig = VvGmbH(hebesatz=2.00)
     hoch = VvGmbH(hebesatz=5.00)
     assert niedrig.on_realized_gain(100_000.0) < hoch.on_realized_gain(100_000.0)
+
+
+def test_gmbh_fixkosten_werden_ausgewiesen():
+    """Rechtsformkosten (Buchfuehrung, Abschluss, Berater) — bei 100k
+    Startkapital groesser als der gesamte Steuervorteil (F-senior-5)."""
+    ohne = VvGmbH()
+    mit = VvGmbH(fixkosten_pa=3_500.0)
+    assert ohne.annual_fixed_costs() == 0.0
+    assert mit.annual_fixed_costs() == 3_500.0
+    # Groessenordnungs-Beleg fuer die Warnung: 10 Jahre Fixkosten gegen den
+    # Steuervorteil auf einen kompletten Portfolio-Umschlag mit +50 % Gewinn.
+    steuervorteil = 50_000.0 * (PRIVAT_SATZ - mit.kursgewinn_satz)
+    assert 10 * mit.annual_fixed_costs() > 0.5 * steuervorteil
 
 
 # --------------------------------------------------------------------------
@@ -227,3 +267,227 @@ def test_factory_liefert_frische_instanzen(name):
 def test_factory_lehnt_unbekanntes_regime_ab():
     with pytest.raises(ValueError, match="Unbekanntes Steuerregime"):
         make_regime("SCHWEIZ")
+
+
+# --------------------------------------------------------------------------
+# 7. END-TO-END: effektiver Steuersatz pro Dividenden-Euro
+#
+# Diese Tests haetten den BLOCKER gefangen, den die isolierten Regime-Tests
+# oben durchgelassen haben (E-068): das Regime-Objekt war korrekt, das
+# PORTFOLIO-Verhalten invertiert. Lehre: Ergebnisgroessen messen, nicht nur
+# Komponenten unit-testen.
+# --------------------------------------------------------------------------
+def _dividenden_lauf(regime, jahre: int = 10, div_quote: float = 0.02) -> tuple:
+    """Kauf, N Jahre Dividende, Endverkauf. Kein Kursgewinn, keine Kosten.
+
+    Rueckgabe: (effektiver Satz auf den Dividenden-Euro, Brutto-Dividenden).
+    """
+    import pandas as pd
+
+    p = Portfolio(100_000.0, regime, cost_bps=0.0)
+    px = 100.0
+    p.set_date(pd.Timestamp("2010-01-04"))
+    p.buy("AAA", 100_000.0, px)
+    brutto = 0.0
+    for j in range(jahre):
+        d = pd.Timestamp(f"{2010 + j}-06-01")
+        p.set_date(d)
+        per_share = px * div_quote
+        brutto += p.qty("AAA") * per_share
+        p.book_dividend("AAA", per_share)
+        # Total-Return-Panel: die Bruttodividende steckt im Kurspfad.
+        px += per_share
+    p.set_date(pd.Timestamp(f"{2010 + jahre}-01-04"))
+    p.sell("AAA", p.qty("AAA"), px)
+    return p.tax_paid / brutto, brutto
+
+
+def test_dividende_wird_genau_einmal_besteuert_privat():
+    """PRIVAT_DE: effektiv 26,375 %, nicht 52,75 %.
+
+    Ohne die Basis-Anhebung in book_dividend wurde derselbe Euro zweimal
+    getroffen — am Ex-Tag und noch einmal im Veraeusserungsgewinn.
+    """
+    satz, _ = _dividenden_lauf(PrivatDE(pauschbetrag=0.0))
+    assert satz == pytest.approx(PRIVAT_SATZ, rel=1e-6)
+
+
+def test_dividende_wird_genau_einmal_besteuert_gmbh():
+    """GmbH: effektiv 29,825 % (Streubesitz), nicht 31,3 %."""
+    r = VvGmbH()
+    satz, _ = _dividenden_lauf(r)
+    assert satz == pytest.approx(r.dividenden_satz, rel=1e-6)
+
+
+def test_gmbh_dividende_bleibt_auch_end_to_end_teurer_als_privat():
+    """Die Kernasymmetrie, auf Portfolio-Ebene gemessen.
+
+    Genau hier war das Vorzeichen vorher gedreht: das Modell machte
+    GmbH-Dividenden 41 % BILLIGER, fachlich sind sie 13 % TEURER. Ein gruener
+    Unittest auf dem Regime-Objekt reichte nicht, um das zu sehen.
+    """
+    satz_privat, _ = _dividenden_lauf(PrivatDE(pauschbetrag=0.0))
+    satz_gmbh, _ = _dividenden_lauf(VvGmbH())
+    assert satz_gmbh > satz_privat
+    assert satz_gmbh / satz_privat == pytest.approx(29.825 / 26.375, rel=0.01)
+
+
+def test_basis_anhebung_veraendert_den_kursgewinn_nicht_die_bewertung():
+    """Die Anhebung darf NUR die Steuerbasis bewegen, nicht den Marktwert."""
+    import pandas as pd
+
+    p = Portfolio(100_000.0, ZeroTax(), cost_bps=0.0)
+    p.set_date(pd.Timestamp("2020-01-02"))
+    p.buy("AAA", 100_000.0, 100.0)
+    vor = p.value(pd.Series({"AAA": 100.0}))
+    p.book_dividend("AAA", 2.0)
+    nach = p.value(pd.Series({"AAA": 100.0}))
+    assert nach == pytest.approx(vor)  # ZeroTax: kein Cash-Abfluss
+    assert p.lots["AAA"][0][1] == pytest.approx(102.0)  # Basis angehoben
+
+
+# --------------------------------------------------------------------------
+# 8. Instrumentenklasse — der Benchmark ist ein FONDS, keine Aktie
+# --------------------------------------------------------------------------
+def test_etf_benchmark_zahlt_in_der_gmbh_deutlich_mehr_als_einzelaktien():
+    """§20 InvStG (Teilfreistellung 80 % KSt / 40 % GewSt) statt §8b KStG.
+
+    Mit demselben Satz auf beiden Seiten bekaeme der Einzelaktien-Kandidat
+    rund 10 Prozentpunkte gegenueber SPY geschenkt — ein PASS waere dann ein
+    Rechtsform-Artefakt statt Alpha (F-senior-2).
+    """
+    r = VvGmbH()
+    aktie = r.on_realized_gain(100_000.0, AssetClass.AKTIE)
+    fonds = r.on_realized_gain(100_000.0, AssetClass.FONDS)
+    assert fonds > aktie
+    assert fonds / 100_000.0 == pytest.approx(0.11565, abs=1e-4)
+    assert aktie / 100_000.0 == pytest.approx(0.014913, abs=1e-5)
+    assert (fonds - aktie) / 100_000.0 > 0.09  # ~10 pp geschenkter Vorteil
+
+
+def test_etf_im_privatregime_entspricht_mandat_i_etf_tax():
+    """Teilfreistellung 30 % -> 18,4625 %; Mandat I nutzte ETF_TAX = 0.185."""
+    r = PrivatDE(pauschbetrag=0.0)
+    tax = r.on_realized_gain(100_000.0, AssetClass.FONDS)
+    assert tax / 100_000.0 == pytest.approx(0.184625, abs=1e-6)
+    assert abs(tax / 100_000.0 - 0.185) < 0.001  # Mandat-I-Naeherung
+
+
+def test_default_assetklasse_ist_aktie():
+    """Rueckwaertskompatibilitaet: alte Aufrufe ohne Klasse bleiben §8b/Aktie."""
+    r = VvGmbH()
+    assert r.on_realized_gain(1_000.0) == r.on_realized_gain(1_000.0, AssetClass.AKTIE)
+
+
+# --------------------------------------------------------------------------
+# 9. Deterministische Randfaelle, die die Zufallsfolge NICHT trifft
+#    (F-senior-8: gemessen 0 Treffer fuer Cash-Knappheit und qty-Clamp)
+# --------------------------------------------------------------------------
+def test_kauf_ueber_verfuegbarem_cash_wird_gedeckelt():
+    p = Portfolio(1_000.0, ZeroTax())
+    p.buy("AAA", 999_999.0, 10.0)
+    assert p.cash >= 0.0
+    assert p.qty("AAA") > 0.0
+    assert p.value(__import__("pandas").Series({"AAA": 10.0})) == pytest.approx(
+        1_000.0 - p.costs_paid
+    )
+
+
+def test_verkauf_ueber_bestand_wird_gedeckelt():
+    p = Portfolio(10_000.0, ZeroTax(), cost_bps=0.0)
+    p.buy("AAA", 10_000.0, 100.0)
+    q = p.qty("AAA")
+    p.sell("AAA", q * 5, 100.0)  # deutlich mehr als vorhanden
+    assert p.qty("AAA") == 0.0
+    assert p.cash == pytest.approx(10_000.0)
+
+
+def test_sparerpauschbetrag_wird_jedes_jahr_neu_gewaehrt():
+    """Zwei Jahre mit je > 1.000 EUR Gewinn — Reset explizit, nicht zufaellig."""
+    import pandas as pd
+
+    r = PrivatDE()
+    p = Portfolio(100_000.0, r, cost_bps=0.0)
+    for jahr in (2020, 2021):
+        p.set_date(pd.Timestamp(f"{jahr}-03-02"))
+        p.buy("AAA", 50_000.0, 100.0)
+        p.sell("AAA", p.qty("AAA"), 110.0)  # +5.000 EUR Gewinn
+    # Zwei Jahre -> zweimal 1.000 EUR steuerfrei.
+    erwartet = 2 * (5_000.0 - 1_000.0) * PRIVAT_SATZ
+    assert p.tax_paid == pytest.approx(erwartet, rel=1e-9)
+
+
+# --------------------------------------------------------------------------
+# 10. Fixkosten und End-Liquidation muessen WIRKEN, nicht nur existieren
+# --------------------------------------------------------------------------
+def test_fixkosten_fliessen_wirklich_ab():
+    """Ein Regler, der nichts bewegt, ist gefaehrlicher als sein Fehlen.
+
+    Vorher gab annual_fixed_costs() nur den Konstruktorwert zurueck — niemand
+    belastete ihn. Die Doku sagte gleichzeitig, fuer die Frage „GmbH oder
+    privat?" muesse er gesetzt werden (F-auditor-3).
+    """
+    import pandas as pd
+
+    p = Portfolio(100_000.0, VvGmbH(fixkosten_pa=3_500.0))
+    for jahr in range(2010, 2020):  # 9 Jahreswechsel
+        p.set_date(pd.Timestamp(f"{jahr}-01-04"))
+    assert p.fixed_costs_paid == pytest.approx(9 * 3_500.0)
+    assert p.cash == pytest.approx(100_000.0 - 9 * 3_500.0)
+
+
+def test_kein_abzug_im_ersten_jahr_und_nicht_ohne_parameter():
+    import pandas as pd
+
+    p = Portfolio(100_000.0, VvGmbH(fixkosten_pa=3_500.0))
+    p.set_date(pd.Timestamp("2010-01-04"))
+    p.set_date(pd.Timestamp("2010-12-30"))  # gleiches Jahr
+    assert p.fixed_costs_paid == 0.0
+
+    ohne = Portfolio(100_000.0, VvGmbH())
+    for jahr in (2010, 2011, 2012):
+        ohne.set_date(pd.Timestamp(f"{jahr}-01-04"))
+    assert ohne.fixed_costs_paid == 0.0
+    assert ohne.cash == 100_000.0
+
+
+def test_end_liquidation_realisiert_die_steuer_regimegerecht():
+    """Ohne sie traegt das Endvermoegen unversteuerte Buchgewinne.
+
+    Genau dieser mark-to-market-Fehler drehte in Mandat I das Vorzeichen des
+    Kernbefunds (BUG 2: H-032 low-div mtm 2,006 Mio vs postliq 1,590 Mio vs
+    ETF 1,610 Mio) — F-auditor-4.
+    """
+    import pandas as pd
+
+    preise = pd.Series({"AAA": 200.0})
+
+    def endwert(regime) -> tuple[float, float]:
+        p = Portfolio(100_000.0, regime, cost_bps=0.0)
+        p.set_date(pd.Timestamp("2010-01-04"))
+        p.buy("AAA", 100_000.0, 100.0)
+        mtm = p.value(preise)
+        p.liquidate_all(preise)
+        return mtm, p.value(preise)
+
+    mtm_privat, liq_privat = endwert(PrivatDE(pauschbetrag=0.0))
+    mtm_gmbh, liq_gmbh = endwert(VvGmbH())
+
+    assert mtm_privat == pytest.approx(mtm_gmbh)  # vor Steuer identisch
+    assert liq_privat < mtm_privat  # Steuer wird faellig
+    # Und der Unterschied ist genau der Regimeunterschied — nicht ein
+    # Nebeneffekt: 26,375 % gegen 1,49 % auf 100.000 EUR Buchgewinn.
+    assert (mtm_privat - liq_privat) == pytest.approx(100_000.0 * PRIVAT_SATZ)
+    assert (mtm_gmbh - liq_gmbh) == pytest.approx(100_000.0 * VvGmbH().kursgewinn_satz)
+    assert liq_gmbh > liq_privat
+
+
+def test_end_liquidation_leert_das_depot():
+    import pandas as pd
+
+    p = Portfolio(100_000.0, ZeroTax(), cost_bps=0.0)
+    p.set_date(pd.Timestamp("2010-01-04"))
+    p.buy("AAA", 50_000.0, 100.0)
+    p.buy("BBB", 50_000.0, 50.0)
+    p.liquidate_all(pd.Series({"AAA": 110.0, "BBB": 55.0}))
+    assert p.lots == {}

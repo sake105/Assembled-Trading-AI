@@ -23,7 +23,12 @@ maximize   Median-Endvermögen über ALLE rollierenden 10-Jahres-Fenster
 s.t.       MaxDD >= -35 %   in JEDEM Fenster (nicht nur im Median)
 ```
 
-- **Benchmark:** SPY Total Return, identische Fenster, identisches Steuerregime.
+- **Benchmark:** SPY Total Return, identische Fenster, **gleiche Steuerwelt — aber
+  instrumentengerechte Sätze**. SPY ist ein Investmentfonds (§20 InvStG), keine
+  Kapitalgesellschaftsbeteiligung (§8b KStG). In der GmbH: Kandidat ~1,49 %, Benchmark
+  ~11,57 %. Beiden denselben Satz zu geben wäre kein Fairness-Reflex, sondern würde dem
+  Einzelaktien-Kandidaten ~10 pp schenken — ein PASS wäre dann ein Rechtsform-Artefakt.
+  Mandat I hatte die Unterscheidung (`ETF_TAX = 0.185`); sie bleibt.
 - Der DD-Deckel ist **bindend, nicht advisory**. Ein Kandidat, der ihn in einem einzigen Fenster
   reißt, ist raus. Grund: sonst gewinnt gehebeltes SPY trivial und die Kampagne ist wertlos.
   SPY selbst lag 2007–2009 bei ca. −55 % — der Deckel verlangt vom Kandidaten also **weniger**
@@ -36,7 +41,7 @@ s.t.       MaxDD >= -35 %   in JEDEM Fenster (nicht nur im Median)
 | Regime | Kursgewinn | Verluste | Dividende | Rolle |
 |---|---|---|---|---|
 | `ZERO` | 0 % | voll | 0 % | Referenz: **existiert überhaupt Brutto-Alpha?** |
-| `GMBH_THESAURIEREND` | ~1,5 % (§8b II KStG: 95 % frei) | **NICHT abziehbar** (§8b III) | ~30 % bei Streubesitz <10 % (§8b IV) | **Führend** |
+| `GMBH_THESAURIEREND` | Aktie ~1,49 % (§8b II) · **Fonds ~11,57 %** (§20 InvStG) | **NICHT abziehbar** (§8b III) | ~29,8 % bei Streubesitz <10 % (§8b IV) | **Führend** |
 | `GMBH_AUSSCHUETTUNG` | wie oben + 26,375 % auf die Ausschüttung | " | " | Kontrolle: nutzbares Privatvermögen |
 | `PRIVAT_DE` | 26,375 %, FIFO, Verlusttopf, SPB 1.000 € | Verlusttopf | 26,375 % | Vergleichbarkeit zu Mandat I |
 
@@ -45,6 +50,18 @@ s.t.       MaxDD >= -35 %   in JEDEM Fenster (nicht nur im Median)
 (30 % statt 26,375 %). Das dreht die Optimierungsrichtung um: **Dividendenstrategien werden
 schlechter, Momentum-/Turnover-Strategien deutlich besser.** Genau die Familien, die in Mandat I
 an der Steuer starben, bekommen hier eine echte zweite Chance.
+
+**Nicht modelliert, ausdrücklich benannt:**
+- **Laufende Rechtsformkosten der GmbH** (Buchführung, Jahresabschluss/E-Bilanz,
+  Steuerberater, IHK, Offenlegung) — realistisch 2.000–5.000 €/J. Bei 100.000 €
+  Startkapital sind das 2–5 % p. a. und damit **größer als der gesamte Steuervorteil**.
+  Parameter `fixkosten_pa` existiert; für die Frage „GmbH oder privat?" muss er gesetzt
+  werden, sonst ist das Ergebnis geschönt. Für Strategie-gegen-Strategie *innerhalb*
+  eines Regimes ist 0 korrekt.
+- **Vorabpauschale** auf Fondsanteile. Sie belastet den ETF-Benchmark; ihr Weglassen
+  macht den Benchmark besser — konservativ in unsere Richtung.
+- **Termingeschäft-Sonderregeln** (§15 Abs. 4 EStG): Derivate laufen im Modell zum
+  vollen Satz mit abziehbaren Verlusten.
 
 > **Vorbehalt:** Ich bin kein Steuerberater. Die Sätze oben sind die gängige Lesart von §8b KStG
 > inkl. GewSt-Durchschlag. Bevor daraus eine Strukturentscheidung wird, gehört das fachlich
@@ -94,12 +111,37 @@ Ohne diese Punkte wäre die Kampagne nur eine Wiederholung:
 ## 5. Phasen
 
 ### P0 — Fundament (läuft) · *ohne das ist nichts davon messbar*
-- `TaxRegime`-Protokoll + vier Implementierungen; `TaxedPortfolio` wird regime-agnostisch.
-  Rückwärtskompatibilität: `PRIVAT_DE` muss die Mandat-I-Zahlen **byte-gleich** reproduzieren.
+**Erledigt:**
+- `TaxRegime`-Protokoll + vier Implementierungen, Instrumentenklasse
+  (Aktie/Fonds/Derivat), regime-agnostisches Portfolio, Dividenden-Doppelbesteuerung
+  korrigiert (E-068), End-Liquidation (`liquidate_all`) gegen den mark-to-market-Bias,
+  GmbH-Fixkosten fließen real ab.
+- Holdout-Sperre + Trial-Zähler als getesteter Code (`data_gate.py`, fail-closed bei
+  Ledger-Korruption).
+
+**Noch offen — und deshalb NICHT als „erzwungen" zu bezeichnen:**
+- **Verdrahtung des Datenzugangs.** `data_gate` hat außer seinen Tests noch keinen
+  Konsumenten; `prices_verdict.parquet` (1995–2026) ist für jedes Ad-hoc-Skript weiter
+  offen lesbar. Erzwungen ist die Sperre erst, wenn ein Kampagnen-Lader der einzige
+  Weg zu den Daten ist. **Muss stehen, bevor P1 den ersten Datensatz liest.**
+- `TrialCounter.increment()` wird noch von niemandem gerufen — der Zähler zählt nichts.
+- Margin-/Hebelmodell inkl. Finanzierungskosten, Haltedauer-Parameter, DD-Deckel und
+  10-Jahres-Fenster-Auswertung in der Verdict-Engine.
+- `AssetClass` erreicht die bestehende `research/mandat/verdict_engine.py` nicht (sie
+  kennt nur `ETF_TAX`); beim Bau der Mandat-II-Engine mitziehen, sonst fällt E-069
+  dort erneut an.
 - Margin-/Hebelmodell inkl. Finanzierungskosten (Broker-Satz, zeitvariabel) und Margin-Call-Logik.
 - Haltedauer als expliziter Parameter (min/max Haltedauer, Rebalance-Trigger).
 - DD-Deckel + 10-Jahres-Fenster-Auswertung in die Verdict-Engine.
-- **Gate:** `PRIVAT_DE`-Regression gegen mindestens 3 Mandat-I-Ergebnisse, bevor P1 startet.
+- **Gate, ehrlich abgegrenzt:** `PRIVAT_DE` reproduziert den **Trade-Pfad** von Mandat I
+  bit-genau (FIFO, Kosten, Verlusttopf, Sparerpauschbetrag). Dividenden und
+  `terminal_liquidation` liegen in Mandat I nicht in `TaxedPortfolio`, sondern in
+  `verdict_engine.run_backtest` — sie sind gegen diesen Anker strukturell nicht prüfbar.
+  Bei den Dividenden weicht Mandat II **bewusst** ab (Doppelbesteuerung korrigiert,
+  E-068), reproduziert Mandat I dort also nicht mehr.
+- **Holdout-Sperre ist Code, nicht Vorsatz:** `research/mandat2/data_gate.py` schneidet im
+  Lader ab, protokolliert jeden Holdout-Zugriff append-only und verweigert den zweiten
+  Schuss pro Kandidat. Der Trial-Zähler startet bei 1.964.
 
 ### P1 — Re-Run aller Mandat-I-Familien unter den neuen Regimen
 Beantwortet direkt Hans' Frage „war der Meilenstein falsch gesetzt?". 80+ Familien, jeweils

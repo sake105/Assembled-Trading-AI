@@ -6,48 +6,60 @@ Welten, also muss das Regime ein Parameter werden.
 
 Vertrag jedes Regimes
 ---------------------
-Ein Regime ist ZUSTANDSBEHAFTET (Verlusttopf, Jahresfreibetrag) und wird pro
-Backtest-Lauf frisch instanziiert. Es entscheidet ausschliesslich ueber Steuer —
-Kosten, Lots und Cash bleiben Sache des Portfolios.
+Ein Regime ist ZUSTANDSBEHAFTET (Verlusttopf, Jahresfreibetrag, Fixkosten) und
+wird pro Backtest-Lauf frisch instanziiert. Es entscheidet ausschliesslich ueber
+Steuer — Kosten, Lots und Cash bleiben Sache des Portfolios.
 
-    regime.new_year(2020)              -> Jahreswechsel (Freibetraege scharf)
-    tax = regime.on_realized_gain(g)   -> Steuer auf einen realisierten Gewinn
-    tax = regime.on_dividend(brutto)   -> Steuer auf eine Bruttodividende
-    tax = regime.on_terminal(v, e)     -> Schlussbesteuerung (Ausschuettung)
+    regime.new_year(2020)                    -> Jahreswechsel
+    tax = regime.on_realized_gain(g, klasse) -> Steuer auf realisierten Gewinn
+    tax = regime.on_dividend(brutto, klasse) -> Steuer auf Bruttoausschuettung
+    tax = regime.on_terminal(v, e)           -> Schlussbesteuerung
+    kosten = regime.annual_fixed_costs()     -> laufende Rechtsformkosten
 
-``on_realized_gain`` bekommt den Gewinn NACH Abzug der Transaktionskosten
-(so wie Mandat I es rechnete) und gibt die faellige Steuer zurueck; Verluste
-(negativer Gewinn) geben 0 zurueck und werden regime-intern verbucht.
+INSTRUMENTENKLASSE (F-senior-2, 2026-08-01)
+-------------------------------------------
+Der Satz haengt NICHT nur vom Regime ab, sondern auch davon, WAS gehalten wird.
+Das ist kein Detail: §8b KStG gilt fuer Anteile an Kapitalgesellschaften, ein
+Aktien-ETF faellt dagegen unter §20 InvStG. Wuerde man beiden Seiten denselben
+Satz geben, bekaeme der Einzelaktien-Kandidat rund 10 Prozentpunkte
+Steuervorteil gegenueber dem SPY-Benchmark geschenkt — ein PASS waere dann ein
+Rechtsform-Artefakt, kein Alpha. Mandat I hatte diese Unterscheidung
+(``ETF_TAX = 0.185``); sie darf hier nicht verlorengehen.
 
 Steuerliche Grundlagen (Stand 2026, ohne Kirchensteuer)
 -------------------------------------------------------
-PRIVAT_DE  §20 EStG: 25 % + 5,5 % SolZ = 26,375 %, FIFO, Aktien-Verlusttopf
-           (nur mit Aktiengewinnen verrechenbar), Sparerpauschbetrag 1.000 €/J.
+PRIVAT_DE  §20 EStG: 25 % + 5,5 % SolZ = 26,375 %, FIFO, Aktien-Verlusttopf,
+           Sparerpauschbetrag 1.000 €/J. Aktienfonds: Teilfreistellung 30 %
+           (§20 Abs. 1 InvStG) -> 18,4625 % (= Mandat I ``ETF_TAX``).
 
-GMBH       §8b Abs. 2 KStG: Gewinne aus der Veraeusserung von Anteilen an
-           Kapitalgesellschaften bleiben ausser Ansatz; §8b Abs. 3 S. 1 behandelt
-           5 % davon als nichtabziehbare Betriebsausgabe -> effektiv
-           5 % x Gesamtsatz.
-           §8b Abs. 3 S. 3: Gewinnminderungen (Veraeusserungsverluste) sind
-           NICHT abziehbar -> kein Verlusttopf, kein Steuervorteil aus Verlusten.
-           §8b Abs. 4: Bezuege aus Streubesitz (< 10 % Beteiligung zu Beginn des
-           Kalenderjahres) sind VOLL steuerpflichtig. Ein Aktienportfolio ist
-           immer Streubesitz -> Dividenden zum vollen Satz.
+GMBH       §8b Abs. 2 KStG: Veraeusserungsgewinne aus Anteilen bleiben ausser
+           Ansatz; Abs. 3 S. 1 behandelt 5 % als nichtabziehbare Betriebsausgabe
+           -> effektiv 5 % x Gesamtsatz.
+           Abs. 3 S. 3: VeraeusserungsVERLUSTE sind NICHT abziehbar.
+           Abs. 4: Bezuege aus Streubesitz (< 10 %) sind VOLL steuerpflichtig.
+           Aktienfonds: §20 InvStG Teilfreistellung 80 % KSt / 40 % GewSt.
            Gesamtsatz = KSt 15 % + SolZ 0,825 % + GewSt (3,5 % x Hebesatz).
 
-WICHTIG: Das ist die gaengige Lesart, keine Steuerberatung. Fuer den VERGLEICH
-von Strategien untereinander ist die Modellierung belastbar; bevor daraus eine
-Strukturentscheidung wird, gehoert sie fachlich geprueft.
+BEWUSSTE VEREINFACHUNGEN (benannt, nicht verschwiegen)
+------------------------------------------------------
+- Vorabpauschale auf Fondsanteile ist NICHT modelliert. Sie belastet den
+  ETF-Benchmark, ihr Weglassen macht den Benchmark also BESSER — konservativ
+  in unsere Richtung, weil wir ihn schlagen wollen.
+- Termingeschaefte: voller Satz, Verluste abziehbar. Die Sonderregeln
+  (§15 Abs. 4 EStG) sind nicht abgebildet.
+- Keine Steuerberatung. Fuer den VERGLEICH von Strategien belastbar; vor einer
+  Strukturentscheidung fachlich pruefen lassen.
 """
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from enum import Enum
+from typing import Protocol
 
 # --------------------------------------------------------------- Konstanten
-KST = 0.15  # Koerperschaftsteuer
-SOLZ_AUF_KST = 0.055  # Solidaritaetszuschlag, bemessen auf die KSt
-GEWST_MESSZAHL = 0.035  # Steuermesszahl §11 Abs. 2 GewStG
+KST = 0.15
+SOLZ_AUF_KST = 0.055
+GEWST_MESSZAHL = 0.035  # §11 Abs. 2 GewStG
 HEBESATZ_DEFAULT = 4.00  # 400 % — grober Mittelwert deutscher Grossstaedte
 
 ABGELTUNG = 0.25
@@ -55,33 +67,59 @@ SOLZ_AUF_ABGELTUNG = 0.055
 PRIVAT_SATZ = ABGELTUNG * (1 + SOLZ_AUF_ABGELTUNG)  # 0.26375
 SPARERPAUSCHBETRAG = 1000.0
 
-# §8b Abs. 3 S. 1 / Abs. 5: pauschal 5 % gelten als nichtabziehbare Betriebsausgabe
-NICHTABZIEHBAR_QUOTE = 0.05
+NICHTABZIEHBAR_QUOTE = 0.05  # §8b Abs. 3 S. 1 / Abs. 5
+
+# §20 InvStG Teilfreistellung fuer Aktienfonds (>= 51 % Kapitalbeteiligung)
+TFS_AKTIENFONDS_PRIVAT = 0.30
+TFS_AKTIENFONDS_KST = 0.80
+TFS_AKTIENFONDS_GEWST = 0.40
+
+
+class AssetClass(Enum):
+    """Wovon der Satz abhaengt — nicht nur das Regime entscheidet."""
+
+    AKTIE = "aktie"  # Anteil an einer Kapitalgesellschaft (§8b KStG)
+    FONDS = "fonds"  # Investmentfonds/ETF (§20 InvStG) — der SPY-Benchmark
+    DERIVAT = "derivat"  # Termingeschaeft — weder §8b noch InvStG
+
+
+def kst_mit_solz() -> float:
+    return KST * (1 + SOLZ_AUF_KST)
+
+
+def gewst(hebesatz: float = HEBESATZ_DEFAULT) -> float:
+    return GEWST_MESSZAHL * hebesatz
 
 
 def gmbh_gesamtsatz(hebesatz: float = HEBESATZ_DEFAULT) -> float:
     """KSt + SolZ + GewSt als ein Satz."""
-    return KST * (1 + SOLZ_AUF_KST) + GEWST_MESSZAHL * hebesatz
+    return kst_mit_solz() + gewst(hebesatz)
 
 
-@runtime_checkable
 class TaxRegime(Protocol):
-    """Vertrag, den jedes Steuerregime erfuellt."""
+    """Vertrag, den jedes Steuerregime erfuellt.
+
+    Bewusst NICHT ``runtime_checkable``: ein Protocol mit dem Datenmember
+    ``name`` laesst ``issubclass()`` mit TypeError scheitern, und ``REGIMES``
+    haelt Klassen — ein spaeterer Registry-Check waere genau der erste
+    Aufrufer, der darueber stolpert (F-senior-10).
+    """
 
     name: str
 
     def new_year(self, year: int) -> None: ...
-    def on_realized_gain(self, gain: float) -> float: ...
-    def on_dividend(self, gross: float) -> float: ...
+    def on_realized_gain(self, gain: float, asset: AssetClass) -> float: ...
+    def on_dividend(self, gross: float, asset: AssetClass) -> float: ...
     def on_terminal(self, final_value: float, initial_capital: float) -> float: ...
+    def annual_fixed_costs(self) -> float: ...
 
 
 class ZeroTax:
     """Referenzwelt ohne jede Steuer.
 
-    Zweck: die Frage von Mandat I, Kernbefund 1, sauber isolieren — existiert
-    ueberhaupt BRUTTO-Alpha? Wenn ein Kandidat hier nicht gewinnt, kann kein
-    Steuerregime ihn retten.
+    Zweck: Kernbefund 1 aus Mandat I sauber isolieren — existiert ueberhaupt
+    BRUTTO-Alpha? Wenn ein Kandidat hier nicht gewinnt, kann kein Steuerregime
+    ihn retten.
     """
 
     name = "ZERO"
@@ -89,22 +127,26 @@ class ZeroTax:
     def new_year(self, year: int) -> None:
         return None
 
-    def on_realized_gain(self, gain: float) -> float:
+    def on_realized_gain(
+        self, gain: float, asset: AssetClass = AssetClass.AKTIE
+    ) -> float:
         return 0.0
 
-    def on_dividend(self, gross: float) -> float:
+    def on_dividend(self, gross: float, asset: AssetClass = AssetClass.AKTIE) -> float:
         return 0.0
 
     def on_terminal(self, final_value: float, initial_capital: float) -> float:
         return 0.0
 
+    def annual_fixed_costs(self) -> float:
+        return 0.0
+
 
 class PrivatDE:
-    """Deutscher Privatanleger — identisch zu Mandat I.
+    """Deutscher Privatanleger — Mandat-I-Verhalten fuer Einzelaktien.
 
-    Bewusst 1:1 nachgebaut (inkl. Reihenfolge Verlusttopf -> Pauschbetrag ->
-    Steuer), damit Mandat-II-Zahlen gegen Mandat I regressionsgeprueft werden
-    koennen. Jede Abweichung hier wuerde alle Vergleiche entwerten.
+    Reihenfolge (Verlusttopf -> Pauschbetrag -> Steuer) bewusst 1:1 aus
+    Mandat I uebernommen, damit der Regressionstest greifen kann.
     """
 
     name = "PRIVAT_DE"
@@ -113,23 +155,27 @@ class PrivatDE:
         self,
         satz: float = PRIVAT_SATZ,
         pauschbetrag: float = SPARERPAUSCHBETRAG,
-        dividenden_satz: float | None = None,
     ) -> None:
         self.satz = satz
-        # Dividenden laufen in Mandat I NICHT gegen den Aktien-Verlusttopf und
-        # NICHT gegen den Pauschbetrag (bewusst konservativ) — uebernommen.
-        self.dividenden_satz = satz if dividenden_satz is None else dividenden_satz
         self.pauschbetrag_annual = pauschbetrag
         self.pauschbetrag_left = 0.0
         self.loss_pot = 0.0
         self._cur_year: int | None = None
+
+    def _satz(self, asset: AssetClass) -> float:
+        if asset is AssetClass.FONDS:
+            # Teilfreistellung 30 % -> 18,4625 % (= Mandat I ETF_TAX 0.185)
+            return self.satz * (1 - TFS_AKTIENFONDS_PRIVAT)
+        return self.satz
 
     def new_year(self, year: int) -> None:
         if year != self._cur_year:
             self._cur_year = year
             self.pauschbetrag_left = self.pauschbetrag_annual
 
-    def on_realized_gain(self, gain: float) -> float:
+    def on_realized_gain(
+        self, gain: float, asset: AssetClass = AssetClass.AKTIE
+    ) -> float:
         if gain < 0:
             self.loss_pot += -gain
             return 0.0
@@ -138,27 +184,37 @@ class PrivatDE:
         taxable = gain - offset
         used = min(taxable, self.pauschbetrag_left)
         self.pauschbetrag_left -= used
-        return (taxable - used) * self.satz
+        return (taxable - used) * self._satz(asset)
 
-    def on_dividend(self, gross: float) -> float:
-        return max(gross, 0.0) * self.dividenden_satz
+    def on_dividend(self, gross: float, asset: AssetClass = AssetClass.AKTIE) -> float:
+        # Wie Mandat I: Dividenden laufen NICHT gegen den Aktien-Verlusttopf
+        # und NICHT gegen den Pauschbetrag (bewusst konservativ).
+        return max(gross, 0.0) * self._satz(asset)
 
     def on_terminal(self, final_value: float, initial_capital: float) -> float:
-        return 0.0  # laufend besteuert, keine Schlussebene
+        return 0.0  # laufend besteuert
+
+    def annual_fixed_costs(self) -> float:
+        return 0.0
 
 
 class VvGmbH:
     """Vermoegensverwaltende GmbH, thesaurierend (Kapital bleibt in der GmbH).
 
-    Die drei Asymmetrien gegenueber PRIVAT_DE, die diese Welt interessant
-    machen — und die eine davon, die sie schlechter macht:
+    Die Asymmetrien, um die es geht — zwei zugunsten, zwei zulasten:
 
-      + Kursgewinn effektiv ~1,5 % statt 26,375 %  -> Turnover kostet fast nichts
-      - Veraeusserungsverluste NICHT abziehbar     -> kein Verlusttopf
-      - Streubesitz-Dividenden VOLL steuerpflichtig ~29,8 % statt 26,375 %
+      + Kursgewinn Aktie effektiv ~1,5 % statt 26,375 %  -> Turnover fast gratis
+      - Veraeusserungsverluste NICHT abziehbar           -> kein Verlusttopf
+      - Streubesitz-Dividenden ~29,8 % statt 26,375 %    -> Dividenden teurer
+      - laufende Rechtsformkosten (s. u.)
 
-    Erwartete Folge fuer die Strategiewahl: Momentum/Rotation gewinnt relativ,
-    Dividendenstrategien verlieren relativ. Genau das ist die Hypothese.
+    ``fixkosten_pa``: Buchfuehrung, Jahresabschluss/E-Bilanz, Steuerberater,
+    IHK, Offenlegung. Realistisch 2.000-5.000 EUR p. a. Bei 100.000 EUR
+    Startkapital sind das 2-5 % p. a. und damit GROESSER als der gesamte
+    modellierte Steuervorteil — die Zahl darf nicht auf 0 stehenbleiben, wenn
+    die Frage lautet „GmbH oder privat?" (F-senior-5). Default ist bewusst
+    0.0, damit reine Strategie-gegen-Strategie-Vergleiche innerhalb eines
+    Regimes unverzerrt bleiben; die Kampagne setzt sie explizit.
     """
 
     name = "GMBH_THESAURIEREND"
@@ -166,23 +222,46 @@ class VvGmbH:
     def __init__(
         self,
         hebesatz: float = HEBESATZ_DEFAULT,
-        beteiligung_ueber_10pct: bool = False,
+        kst_schachtel: bool = False,  # >= 10 %: §8b Abs. 4 KStG
+        gewst_schachtel: bool = False,  # >= 15 %: §9 Nr. 2a GewStG
+        fixkosten_pa: float = 0.0,
     ) -> None:
+        self.hebesatz = hebesatz
         self.gesamtsatz = gmbh_gesamtsatz(hebesatz)
         self.kursgewinn_satz = NICHTABZIEHBAR_QUOTE * self.gesamtsatz
-        # §8b Abs. 4: unter 10 % Beteiligung volle Steuerpflicht der Bezuege.
-        # Ein diversifiziertes Aktienportfolio ist immer Streubesitz.
-        self.dividenden_satz = (
-            NICHTABZIEHBAR_QUOTE * self.gesamtsatz
-            if beteiligung_ueber_10pct
-            else self.gesamtsatz
+        # Fondsanteile: Teilfreistellung getrennt fuer KSt und GewSt.
+        self.fonds_satz = (1 - TFS_AKTIENFONDS_KST) * kst_mit_solz() + (
+            1 - TFS_AKTIENFONDS_GEWST
+        ) * gewst(hebesatz)
+        # Dividenden: zwei SEPARATE Schwellen, nicht eine (F-senior-6).
+        # 10 % befreit koerperschaftsteuerlich zu 95 %, 15 % zusaetzlich
+        # gewerbesteuerlich. Dazwischen: KSt fast frei, GewSt voll.
+        kst_teil = (
+            NICHTABZIEHBAR_QUOTE * kst_mit_solz() if kst_schachtel else kst_mit_solz()
         )
-        self.verluste_nicht_abziehbar = 0.0  # nur Buchhaltung/Diagnose
+        gewst_teil = (
+            NICHTABZIEHBAR_QUOTE * gewst(hebesatz)
+            if gewst_schachtel
+            else gewst(hebesatz)
+        )
+        self.dividenden_satz = kst_teil + gewst_teil
+        self.fixkosten_pa = fixkosten_pa
+        self.verluste_nicht_abziehbar = 0.0  # Diagnose
 
     def new_year(self, year: int) -> None:
         return None
 
-    def on_realized_gain(self, gain: float) -> float:
+    def annual_fixed_costs(self) -> float:
+        return self.fixkosten_pa
+
+    def on_realized_gain(
+        self, gain: float, asset: AssetClass = AssetClass.AKTIE
+    ) -> float:
+        if asset is AssetClass.FONDS:
+            # InvStG kennt keine §8b-Verlustsperre: Verluste wirken normal.
+            return max(gain, 0.0) * self.fonds_satz
+        if asset is AssetClass.DERIVAT:
+            return max(gain, 0.0) * self.gesamtsatz
         if gain < 0:
             # §8b Abs. 3 S. 3: Gewinnminderung bleibt ausser Ansatz. Kein
             # Verlusttopf, kein Vortrag, kein Steuervorteil — nur merken.
@@ -190,8 +269,12 @@ class VvGmbH:
             return 0.0
         return gain * self.kursgewinn_satz
 
-    def on_dividend(self, gross: float) -> float:
-        return max(gross, 0.0) * self.dividenden_satz
+    def on_dividend(self, gross: float, asset: AssetClass = AssetClass.AKTIE) -> float:
+        if gross <= 0:
+            return 0.0
+        if asset is AssetClass.FONDS:
+            return gross * self.fonds_satz
+        return gross * self.dividenden_satz
 
     def on_terminal(self, final_value: float, initial_capital: float) -> float:
         return 0.0  # thesaurierend: keine Entnahme modelliert
@@ -200,15 +283,20 @@ class VvGmbH:
 class VvGmbHMitAusschuettung(VvGmbH):
     """GmbH + Durchschau bis ins Privatvermoegen.
 
-    Kontrollrechnung zur thesaurierenden Variante: am Ende wird alles ueber der
-    urspruenglichen Einlage ausgeschuettet und beim Gesellschafter mit
-    Abgeltungsteuer belegt. Beantwortet „wie viel davon kann Hans wirklich
-    ausgeben?" statt „wie viel steht in der GmbH?".
+    Kontrollrechnung: am Ende wird alles ueber der urspruenglichen Einlage
+    ausgeschuettet und beim Gesellschafter besteuert. Beantwortet „wie viel
+    kann Hans wirklich ausgeben?" statt „wie viel steht in der GmbH?".
 
-    Vereinfachung, bewusst und benannt: eine einmalige Schlussausschuettung
-    statt laufender Entnahmen. Das ist die guenstigste Variante fuer die GmbH
-    (maximale Stundung) — die Zahl ist also eine OBERgrenze des Nettovermoegens,
-    keine Punktprognose.
+    Vereinfachung und ihre Grenzen (F-senior-7): eine einmalige
+    Schlussausschuettung statt laufender Entnahmen. Direktional eine
+    OBERgrenze des Nettovermoegens, weil unrealisierte Gewinne bei laufender
+    Entnahme frueher auf Koerperschaftsebene belastet wuerden. NICHT strikt,
+    denn (a) ueber mehrere Jahre gestreckte Ausschuettungen nutzen den
+    Sparerpauschbetrag mehrfach, und (b) laeuft der Zugriff ueber die
+    LIQUIDATION der GmbH und haelt der Gesellschafter >= 1 %, greift §17 EStG
+    Teileinkuenfteverfahren (60 % x persoenlichem Satz) statt Abgeltungsteuer
+    — zahlenmaessig zufaellig fast gleich (0,6 x 44,3 % ~ 26,6 %), rechtlich
+    ein anderer Tatbestand.
     """
 
     name = "GMBH_AUSSCHUETTUNG"
@@ -216,10 +304,12 @@ class VvGmbHMitAusschuettung(VvGmbH):
     def __init__(
         self,
         hebesatz: float = HEBESATZ_DEFAULT,
-        beteiligung_ueber_10pct: bool = False,
+        kst_schachtel: bool = False,
+        gewst_schachtel: bool = False,
+        fixkosten_pa: float = 0.0,
         ausschuettung_satz: float = PRIVAT_SATZ,
     ) -> None:
-        super().__init__(hebesatz, beteiligung_ueber_10pct)
+        super().__init__(hebesatz, kst_schachtel, gewst_schachtel, fixkosten_pa)
         self.ausschuettung_satz = ausschuettung_satz
 
     def on_terminal(self, final_value: float, initial_capital: float) -> float:
