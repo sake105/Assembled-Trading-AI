@@ -1,0 +1,247 @@
+{
+  "pbo": 0.2,
+  "gewinner": "preis>sma/140",
+  "varianz_sharpes": 3.722919594819106e-05,
+  "n_familie": 37,
+  "n_kumuliert": 2144,
+  "kennzahlen": {
+    "ohne Gate": {
+      "median": 2.7373701803338797,
+      "maxdd": -0.6554018080569838,
+      "bestanden": false,
+      "endwert": 1090311.603637114
+    },
+    "preis>sma/100": {
+      "median": 4.470808891103456,
+      "maxdd": -0.3534645988524534,
+      "bestanden": false,
+      "endwert": 1465674.1354548382
+    },
+    "preis>sma/120": {
+      "median": 4.638081402272355,
+      "maxdd": -0.34156520495979104,
+      "bestanden": true,
+      "endwert": 1697009.854961131
+    },
+    "preis>sma/140": {
+      "median": 6.677747234737959,
+      "maxdd": -0.32114074682443483,
+      "bestanden": true,
+      "endwert": 3060546.993647011
+    },
+    "preis>sma/160": {
+      "median": 6.677423732459831,
+      "maxdd": -0.3110293948010594,
+      "bestanden": true,
+      "endwert": 3655439.8448200943
+    },
+    "preis>sma/180": {
+      "median": 4.70776889841002,
+      "maxdd": -0.30453039906451096,
+      "bestanden": true,
+      "endwert": 2432305.6621311107
+    },
+    "preis>sma/200": {
+      "median": 4.124042693750722,
+      "maxdd": -0.30453039906451096,
+      "bestanden": true,
+      "endwert": 2656374.273551623
+    },
+    "preis>sma/220": {
+      "median": 3.811245443908806,
+      "maxdd": -0.26055625776569735,
+      "bestanden": true,
+      "endwert": 1586832.7101184467
+    },
+    "preis>sma/240": {
+      "median": 3.5855116024745204,
+      "maxdd": -0.23680666222845226,
+      "bestanden": true,
+      "endwert": 1460792.915731404
+    },
+    "preis>sma/260": {
+      "median": 3.2610248849633354,
+      "maxdd": -0.2916581522322429,
+      "bestanden": true,
+      "endwert": 1308706.6349188434
+    },
+    "preis>sma/280": {
+      "median": 3.30011232760189,
+      "maxdd": -0.27781323203460684,
+      "bestanden": true,
+      "endwert": 1355745.1784493644
+    },
+    "preis>sma/300": {
+      "median": 3.0307682509128693,
+      "maxdd": -0.34642252892775705,
+      "bestanden": true,
+      "endwert": 1196012.1103236268
+    },
+    "preis>sma/320": {
+      "median": 3.6517385366771347,
+      "maxdd": -0.2903178643465595,
+      "bestanden": true,
+      "endwert": 1607239.7036662565
+    },
+    "sma steigt/100": {
+      "median": 3.0522188567881297,
+      "maxdd": -0.39230052976477936,
+      "bestanden": false,
+      "endwert": 1260721.7153691933
+    },
+    "sma steigt/120": {
+      "median": 3.772955789474678,
+      "maxdd": -0.30320555096144763,
+      "bestanden": true,
+      "endwert": 1656104.0786062262
+    },
+    "sma steigt/140": {
+      "median": 4.751446645080209,
+      "maxdd": -0.38282354570917265,
+      "bestanden": false,
+      "endwert": 2036788.0169698186
+    },
+    "sma steigt/160": {
+      "median": 3.649466077949022,
+      "maxdd": -0.26737227020774745,
+      "bestanden": true,
+      "endwert": 1829161.4752658734
+    },
+    "sma steigt/180": {
+      "median": 3.29984354207329,
+      "maxdd": -0.3151940888570507,
+      "bestanden": true,
+      "endwert": 1771981.1947915547
+    },
+    "sma steigt/200": {
+      "median": 3.5218755645760313,
+      "maxdd": -0.3151940888570507,
+      "bestanden": true,
+      "endwert": 1816457.8611671645
+    },
+    "sma steigt/220": {
+      "median": 3.03833480733034,
+      "maxdd": -0.3151940888570507,
+      "bestanden": true,
+      "endwert": 1425565.704424699
+    },
+    "sma steigt/240": {
+      "median": 3.0024636025670133,
+      "maxdd": -0.38815437708530076,
+      "bestanden": false,
+      "endwert": 1248753.8521684015
+    },
+    "sma steigt/260": {
+      "median": 3.233399741481521,
+      "maxdd": -0.4248443987469106,
+      "bestanden": false,
+      "endwert": 1393683.321081224
+    },
+    "sma steigt/280": {
+      "median": 3.6231134515138606,
+      "maxdd": -0.4053024126350375,
+      "bestanden": false,
+      "endwert": 1604013.8990507545
+    },
+    "sma steigt/300": {
+      "median": 3.0133714194025227,
+      "maxdd": -0.38880055294887383,
+      "bestanden": false,
+      "endwert": 1443726.6353351432
+    },
+    "sma steigt/320": {
+      "median": 3.2786055343206537,
+      "maxdd": -0.40865088566131214,
+      "bestanden": false,
+      "endwert": 1267513.0154746603
+    },
+    "rendite>0/100": {
+      "median": 5.574384477568325,
+      "maxdd": -0.3245474565366002,
+      "bestanden": true,
+      "endwert": 2842779.4275222346
+    },
+    "rendite>0/120": {
+      "median": 4.584933814381451,
+      "maxdd": -0.47202678823631217,
+      "bestanden": false,
+      "endwert": 2199921.6633188343
+    },
+    "rendite>0/140": {
+      "median": 3.7112187825165956,
+      "maxdd": -0.3087110355539958,
+      "bestanden": true,
+      "endwert": 1444289.7021438538
+    },
+    "rendite>0/160": {
+      "median": 4.242953805390522,
+      "maxdd": -0.453788346610866,
+      "bestanden": false,
+      "endwert": 1694751.9046299006
+    },
+    "rendite>0/180": {
+      "median": 3.198398124674167,
+      "maxdd": -0.43630554870060834,
+      "bestanden": false,
+      "endwert": 1326218.2323016066
+    },
+    "rendite>0/200": {
+      "median": 3.090863784180404,
+      "maxdd": -0.3151940888570507,
+      "bestanden": true,
+      "endwert": 1338385.9762360854
+    },
+    "rendite>0/220": {
+      "median": 3.1979576431742034,
+      "maxdd": -0.3714316166323848,
+      "bestanden": false,
+      "endwert": 1355488.29018852
+    },
+    "rendite>0/240": {
+      "median": 2.7139351813395027,
+      "maxdd": -0.4158004736684081,
+      "bestanden": false,
+      "endwert": 994709.4266334802
+    },
+    "rendite>0/260": {
+      "median": 2.9624096269969047,
+      "maxdd": -0.38459559020011935,
+      "bestanden": false,
+      "endwert": 1011247.5344399877
+    },
+    "rendite>0/280": {
+      "median": 3.8630958036026195,
+      "maxdd": -0.4248443987469106,
+      "bestanden": false,
+      "endwert": 1768567.6941058815
+    },
+    "rendite>0/300": {
+      "median": 3.126648933802751,
+      "maxdd": -0.4003523685584123,
+      "bestanden": false,
+      "endwert": 1371016.6200799185
+    },
+    "rendite>0/320": {
+      "median": 2.680915572165048,
+      "maxdd": -0.3631300830986467,
+      "bestanden": false,
+      "endwert": 1186126.3319026316
+    }
+  },
+  "dsr": {
+    "familie": {
+      "n_trials": 37,
+      "sharpe_observed": 0.062294014364747095,
+      "sharpe_threshold": 0.01317025720056151,
+      "dsr_probability": 0.9998619150414411,
+      "passes_5pct": true
+    },
+    "kumuliert": {
+      "n_trials": 2144,
+      "sharpe_observed": 0.062294014364747095,
+      "sharpe_threshold": 0.02114835656236556,
+      "dsr_probability": 0.9988406813393848,
+      "passes_5pct": true
+    }
+  }
+}
