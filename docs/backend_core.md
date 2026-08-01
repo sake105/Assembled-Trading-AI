@@ -401,13 +401,16 @@ Die QA-Gates bewerten Performance-Metriken anhand konfigurierbarer Schwellwerte:
    - Jeder Gate prüft eine spezifische Metrik gegen zwei Schwellwerte (min/max und warning)
    - `evaluate_all_gates()` führt 7 Metrik-Gates aus und aggregiert das Ergebnis
    - Seit 2026-08-01 zusätzlich als 8. Eintrag: `check_leakage` (E-059-Follow-up).
-     **Ehrlich:** ohne `feature_df` liefert es OK mit `details["skipped"]=True` =
+     **Ehrlich:** ohne `feature_df` liefert es `QAResult.SKIPPED` mit `details["skipped"]=True` =
      „NICHT geprüft", nicht „sauber" — und **kein Produktions-Caller übergibt heute
      einen Frame**. Gewonnen ist Sichtbarkeit, keine Durchsetzung.
-   - Geskippte Gates zählen **nicht** als bestanden: `passed_gates` bleibt bei 7,
-     der Skip landet in `QAGatesSummary.skipped_gates` (E-066). Restlücke: die
-     Counts in `pipeline/orchestrator.py:326-328` werden aus `gate_results` neu
-     gebildet und zählen den Skip weiterhin als OK (geschützter Pfad, eigener Step).
+   - Der Skip trägt **`QAResult.SKIPPED`** (eigener Enum-Zustand, kein OK) und zählt in
+     `QAGatesSummary.skipped_gates`, nie in `passed_gates` (E-066). Dadurch zählen ihn
+     auch Konsumenten korrekt, die die Counts aus `gate_results` NEU bilden
+     (`pipeline/orchestrator._gate_result_to_dict` → Run-Manifest → API-`gate_counts`) —
+     ohne dass dieser geschützte Pfad angefasst werden musste. Achtung:
+     `passed + warning + blocked` kann jetzt kleiner sein als `len(gate_results)`;
+     die Counts sind Buckets, keine Partition.
    - Overall-Result ist das schlechteste Ergebnis (BLOCK > WARNING > OK)
 
 3. **Integration in Pipeline:**

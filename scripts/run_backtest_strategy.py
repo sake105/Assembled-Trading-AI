@@ -2887,7 +2887,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
 
         logger.info(f"QA Overall Result: {gate_result.overall_result.value.upper()}")
         logger.info(
-            f"Gates: {gate_result.passed_gates} OK, {gate_result.warning_gates} WARNING, {gate_result.blocked_gates} BLOCK"
+            f"Gates: {gate_result.passed_gates} OK, {gate_result.warning_gates} WARNING, "
+            f"{gate_result.blocked_gates} BLOCK, "
+            f"{getattr(gate_result, 'skipped_gates', 0)} NOT CHECKED"
         )
 
         # Log gate details
@@ -2896,6 +2898,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 status_icon = "✓"
             elif gate.result == QAResult.WARNING:
                 status_icon = "⚠"
+            elif gate.result == QAResult.SKIPPED:
+                # NOT a checkmark: the gate did not run (E-066).
+                status_icon = "?"
             else:
                 status_icon = "✗"
             logger.info(

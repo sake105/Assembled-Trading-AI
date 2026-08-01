@@ -12,9 +12,10 @@ QA Gates:
 - Hit rate threshold (if trades available)
 - Profit factor threshold (if trades available)
 - Leakage detection (only checks when the caller supplies a feature frame;
-  otherwise reported as ``details["skipped"]`` — see ``check_leakage``)
+  otherwise reported as ``QAResult.SKIPPED`` — see ``check_leakage``)
 
-Each gate returns a structured result (OK, WARNING, BLOCK) with reasoning.
+Each gate returns a structured result (OK, WARNING, BLOCK, or SKIPPED =
+"did not run", which is not a verdict) with reasoning.
 """
 
 from __future__ import annotations
@@ -34,6 +35,13 @@ class QAResult(str, Enum):
     OK = "ok"  # Gate passed, no issues
     WARNING = "warning"  # Gate passed but with concerns
     BLOCK = "block"  # Gate failed, should block deployment/production
+    # NOT a verdict: the gate did not run because its input was not supplied.
+    # Its own state, deliberately, so that a consumer which RE-DERIVES the
+    # counts from gate_results (e.g. pipeline/orchestrator) cannot count it
+    # as passed. Modelling this as OK + a details flag produced exactly that
+    # false green (E-066). Does not affect the overall verdict — only BLOCK
+    # and WARNING do.
+    SKIPPED = "skipped"
 
 
 @dataclass
@@ -42,7 +50,7 @@ class QAGateResult:
 
     Attributes:
         gate_name: Name of the gate (e.g., "sharpe_ratio", "max_drawdown")
-        result: QAResult (OK, WARNING, BLOCK)
+        result: QAResult (OK, WARNING, BLOCK, SKIPPED)
         reason: Human-readable reason for the result
         details: Additional details (e.g., actual value, threshold, metric)
     """
@@ -59,11 +67,10 @@ class QAGatesSummary:
 
     Attributes:
         overall_result: Overall result (worst case of all gates)
-        passed_gates: Number of gates that actually passed (OK and CHECKED).
-            Gates that returned OK only because they were skipped (no input
-            supplied, ``details["skipped"] is True``) are EXCLUDED — a
-            not-checked gate must never show up as green aggregate evidence
-            (E-066). Those are counted in ``skipped_gates`` instead.
+        passed_gates: Number of gates that actually passed (result OK).
+            Gates that did not run carry ``QAResult.SKIPPED`` and are counted
+            in ``skipped_gates`` — a not-checked gate must never show up as
+            green aggregate evidence (E-066).
         warning_gates: Number of gates with warnings
         blocked_gates: Number of gates that blocked
         gate_results: List of individual gate results
@@ -539,11 +546,11 @@ def check_leakage(
     follow-up), so its state is at least VISIBLE in every gate summary
     instead of silently absent. But visibility is not enforcement: the gate
     only checks anything when the caller passes ``feature_df``; with
-    ``feature_df=None`` it returns OK (fail-open by design, because "no
-    altdata features" is a legitimate state — but that also means forgetting
-    to pass the frame still passes). No production caller supplies a frame
-    today; consumers MUST treat ``details["skipped"] is True`` as "NOT
-    checked", never as "no leakage".
+    ``feature_df=None`` it returns ``QAResult.SKIPPED`` and does not affect
+    the overall verdict (fail-open by design, because "no altdata features"
+    is a legitimate state — but that also means forgetting to pass the frame
+    still does not block). No production caller supplies a frame today;
+    SKIPPED means "NOT checked", never "no leakage".
 
     If feature_df is provided, validates row-wise that feature values are
     zero (or NaN, treated as zero) before their disclosure date: any row
@@ -551,8 +558,8 @@ def check_leakage(
     value in ``feature_col``.  Rows with a missing (NaT) disclosure date and
     a non-zero feature value are treated as violations (fail-closed: a value
     without a known disclosure date cannot be proven PIT-safe).  If
-    feature_df is not provided, returns OK with ``details["skipped"]`` —
-    that means "no frame was handed in", NOT "this backtest has no altdata
+    feature_df is not provided, returns SKIPPED with ``details["skipped"]``
+    — that means "no frame was handed in", NOT "this backtest has no altdata
     features".
 
     Note: this check is intentionally implemented inline.  The helper
@@ -569,7 +576,9 @@ def check_leakage(
 
     Returns:
         QAGateResult: BLOCK if leakage is detected or the frame cannot be
-        validated (missing columns, unparseable dates), OK otherwise.
+        validated (missing columns, unparseable dates); SKIPPED if no frame
+        was supplied (fail-open, does NOT affect the overall verdict); OK
+        only when a frame was actually checked and is clean.
     """
     gate_name = "leakage_detection"
 
@@ -583,7 +592,7 @@ def check_leakage(
         skip_kind = "no_frame" if feature_df is None else "empty_frame"
         return QAGateResult(
             gate_name=gate_name,
-            result=QAResult.OK,
+            result=QAResult.SKIPPED,
             reason=(
                 "leakage NOT CHECKED — "
                 + (
@@ -679,19 +688,22 @@ def evaluate_all_gates(
 
     Leakage gate (E-059 follow-up, 2026-08-01): ``check_leakage`` is part of
     the summary so that its state is visible in QA artifacts. Without
-    ``feature_df`` it contributes an OK result carrying
-    ``details["skipped"] = True`` — that means "NOT checked", not "clean".
+    ``feature_df`` it contributes a ``QAResult.SKIPPED`` result carrying
+    ``details["skipped"] = True`` — that means "NOT checked", not "clean",
+    and it does not affect ``overall_result``.
     Passing a frame turns it into a real fail-closed PIT check of EXACTLY
     ONE feature column (a multi-factor store needs one call per column).
 
-    COUNT HONESTY (E-066): a skipped gate is NOT counted in ``passed_gates``
-    — it lands in ``skipped_gates``. So ``passed_gates`` stays at 7 for the
-    metric gates, exactly as before this gate was added; the aggregate never
-    turns green for a check that did not run. Residual gap: the counts in
-    ``pipeline/orchestrator.py:326-328`` and its BLOCK log line
-    (``:1002-1011``) are RE-derived from ``gate_results`` and still count the
-    skipped gate as OK. That file is a protected path — fixing it is a
-    separate, explicitly scoped step.
+    COUNT HONESTY (E-066): a skipped gate carries ``QAResult.SKIPPED`` and is
+    counted in ``skipped_gates``, never in ``passed_gates`` — so the metric
+    gates keep exactly the counts they had before this gate existed, and the
+    aggregate never turns green for a check that did not run. The distinct
+    enum state matters: consumers that RE-derive the counts from
+    ``gate_results`` (``pipeline/orchestrator._gate_result_to_dict``, which
+    feeds the run manifest and via it the API ``gate_counts``) filter on
+    ``result.value == "ok"`` and are therefore correct without any change.
+    Note that ``passed + warning + blocked`` may now be smaller than
+    ``len(gate_results)``; treat the counts as buckets, not a partition.
 
     HALT FOOTGUN for the first real caller (Stage-1 MAJOR-3): the default
     column names are generic placeholders. A column-name MISMATCH makes
@@ -778,19 +790,12 @@ def evaluate_all_gates(
         ),
     ]
 
-    # Count results. A gate that returned OK only because it was SKIPPED
-    # (no input supplied) is not a passed check — counting it as one would
-    # manufacture green aggregate evidence for a no-op (E-066). Aggregate
-    # consumers (API gate_counts, "**Passed:** N" in the daily QA report,
-    # the backtest log line) read passed_gates and never see the reason.
-    skipped_gates = sum(
-        1
-        for r in gate_results
-        if r.result == QAResult.OK and (r.details or {}).get("skipped") is True
-    )
-    passed_gates = (
-        sum(1 for r in gate_results if r.result == QAResult.OK) - skipped_gates
-    )
+    # Count results. A skipped gate is not a passed check — counting it as
+    # one would manufacture green aggregate evidence for a no-op (E-066).
+    # QAResult.SKIPPED is its own state precisely so that consumers which
+    # re-derive these counts from gate_results get it right too.
+    skipped_gates = sum(1 for r in gate_results if r.result == QAResult.SKIPPED)
+    passed_gates = sum(1 for r in gate_results if r.result == QAResult.OK)
     warning_gates = sum(1 for r in gate_results if r.result == QAResult.WARNING)
     blocked_gates = sum(1 for r in gate_results if r.result == QAResult.BLOCK)
 

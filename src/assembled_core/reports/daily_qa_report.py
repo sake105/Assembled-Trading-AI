@@ -317,9 +317,20 @@ def _build_report_content(
                 1 for r in gate_result.gate_results if r.result.value == "block"
             )
 
+        # E-066: gates that did not run must not hide behind the three
+        # verdict buckets — otherwise "Passed: 7" sits above a table with 8
+        # rows and the reader assumes everything was checked.
+        skipped = getattr(gate_result, "skipped_gates", None)
+        if skipped is None:
+            skipped = sum(
+                1 for r in gate_result.gate_results if r.result.value == "skipped"
+            )
+
         lines.append(f"- **Passed:** {passed}")
         lines.append(f"- **Warnings:** {warnings}")
         lines.append(f"- **Blocked:** {blocked}")
+        if skipped:
+            lines.append(f"- **Not checked:** {skipped}")
         lines.append("")
 
         # Individual gate results
@@ -329,7 +340,13 @@ def _build_report_content(
         lines.append("|------|--------|--------|")
 
         for gate in gate_result.gate_results:
-            status_emoji_gate = {"ok": "✅", "warning": "⚠️", "block": "❌"}
+            # "skipped" deliberately gets a question mark, not a checkmark.
+            status_emoji_gate = {
+                "ok": "✅",
+                "warning": "⚠️",
+                "block": "❌",
+                "skipped": "❓",
+            }
             emoji_gate = status_emoji_gate.get(gate.result.value, "❓")
             status_str = f"{emoji_gate} {gate.result.value.upper()}"
             reason_short = (

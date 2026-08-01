@@ -459,15 +459,15 @@ print(f"MaxDD: {metrics.max_drawdown_pct:.2f}%")
 **Zweck:** Qualitäts-Gates zur automatisierten Strategie-Evaluierung.
 
 **Enum:**
-- `QAResult` - `OK`, `WARNING`, `BLOCK`
+- `QAResult` - `OK`, `WARNING`, `BLOCK`, `SKIPPED` (seit 2026-08-01: „nicht geprüft", kein Verdict — beeinflusst `overall_result` nicht)
 
 **Dataclasses:**
 - `QAGateResult` - `gate_name`, `result`, `reason`, `details`
-- `QAGatesSummary` - `overall_result`, `passed_gates`, `warning_gates`, `blocked_gates`, `gate_results`
+- `QAGatesSummary` - `overall_result`, `passed_gates`, `warning_gates`, `blocked_gates`, `gate_results`, `skipped_gates` (seit 2026-08-01; nicht geprüfte Gates zählen NICHT in `passed_gates` — Summe passed+warning+blocked kann daher kleiner sein als `len(gate_results)`)
 
 **Funktionen:**
 - `evaluate_all_gates(metrics, gate_config=None, *, feature_df=None, leakage_feature_col="feature", leakage_disclosure_col="disclosure_date", leakage_timestamp_col="timestamp") -> QAGatesSummary`
-  (seit 2026-08-01: enthält `check_leakage` als 8. Gate; ohne `feature_df` OK + `details["skipped"]` = **nicht geprüft**)
+  (seit 2026-08-01: enthält `check_leakage` als 8. Gate; ohne `feature_df` `QAResult.SKIPPED` + `details["skipped"]` = **nicht geprüft**, kein OK)
 - `check_sharpe_ratio(metrics, min_sharpe=1.0, warning_sharpe=0.5) -> QAGateResult`
 - `check_max_drawdown(metrics, max_dd_pct_limit=-20.0, warning_dd_pct=-15.0) -> QAGateResult`
 - `check_turnover(metrics, max_turnover=10.0, warning_turnover=5.0) -> QAGateResult`

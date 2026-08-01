@@ -99,7 +99,10 @@ def test_custom_column_names():
 def test_none_and_empty_stay_fail_open_with_visible_skip():
     for df in (None, pd.DataFrame()):
         res = check_leakage(feature_df=df)
-        assert res.result == QAResult.OK
+        # SKIPPED, not OK (E-066): fail-open is unchanged — SKIPPED does not
+        # affect the overall verdict — but "not checked" must not masquerade
+        # as a passed check for anyone counting gate_results.
+        assert res.result == QAResult.SKIPPED
         assert res.details.get("skipped") is True
 
 
@@ -157,9 +160,9 @@ def _leakage_gate(summary):
 
 
 def test_evaluate_all_gates_includes_leakage_gate_as_visible_skip():
-    """No feature_df -> gate present, OK, and explicitly marked NOT checked."""
+    """No feature_df -> gate present, SKIPPED, explicitly marked NOT checked."""
     gate = _leakage_gate(evaluate_all_gates(_metrics()))
-    assert gate.result == QAResult.OK
+    assert gate.result == QAResult.SKIPPED
     assert gate.details.get("skipped") is True
     assert gate.details.get("skip_kind") == "no_frame"
     # The reason is the only honesty anchor that reaches the markdown report
@@ -200,10 +203,10 @@ def test_evaluate_all_gates_leakage_clean_frame_is_checked_not_skipped():
 def test_skipped_gate_is_not_counted_as_passed():
     """E-066: a not-checked gate must not inflate the green aggregate.
 
-    Aggregate consumers (API gate_counts, '**Passed:** N' in the daily QA
-    report, the backtest log line) read passed_gates and never see the
-    reason string — so the skip has to be subtracted there, not only
-    explained in details.
+    Consumers that read ``summary.passed_gates`` directly — the daily QA
+    report ('**Passed:** N'), the live API routers, the backtest log line —
+    are honest after this, and so is the manifest path — see
+    ``test_orchestrator_manifest_does_not_count_the_skip_as_passed``.
     """
     skipped = evaluate_all_gates(_metrics())
     checked = evaluate_all_gates(_metrics(), feature_df=_make_frame([0.0, 0.0, 1.5]))
@@ -215,6 +218,28 @@ def test_skipped_gate_is_not_counted_as_passed():
     assert checked.passed_gates == skipped.passed_gates + 1
     # Overall verdict must not change just because a gate was skipped.
     assert skipped.overall_result == checked.overall_result
+
+
+def test_orchestrator_manifest_does_not_count_the_skip_as_passed():
+    """The reason QAResult.SKIPPED is its own enum state (E-066).
+
+    ``pipeline/orchestrator._gate_result_to_dict`` RE-derives the counts from
+    gate_results (``result.value == "ok"``) and feeds the run manifest, which
+    the API gate_counts read. Modelling the skip as OK + a details flag made
+    that manifest report a passed check that never ran; a distinct state
+    makes the re-deriving consumer correct without touching it — orchestrator
+    is an Edit-protected path.
+    """
+    from src.assembled_core.pipeline.orchestrator import _gate_result_to_dict
+
+    summary = evaluate_all_gates(_metrics())
+    assert summary.skipped_gates == 1  # precondition
+    manifest = _gate_result_to_dict(summary)
+    assert manifest is not None
+    assert manifest["passed_gates"] == summary.passed_gates
+    # The skipped gate is still VISIBLE in the manifest, just not as a pass.
+    rows = {r["gate_name"]: r["result"] for r in manifest["gate_results"]}
+    assert rows["leakage_detection"] == "skipped"
 
 
 def test_skipped_leakage_gate_writes_no_qa_block_flag(tmp_path):

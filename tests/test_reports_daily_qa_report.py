@@ -184,6 +184,13 @@ def test_generate_qa_report_contains_qa_gates(
     assert "Warnings:" in content
     assert "Blocked:" in content
 
+    # E-066: the leakage gate's reason is the ONLY honesty anchor that reaches
+    # this report (the Gate-Details table renders reason, never details) and it
+    # is truncated at 60 chars — pin that "NOT CHECKED" survives the cut, so a
+    # reworded reason cannot silently push the anchor past it.
+    assert "leakage_detection" in content
+    assert "NOT CHECKED" in content
+
 
 def test_generate_qa_report_qa_status_ok(
     tmp_path, sample_metrics_positive, sample_gate_result_ok

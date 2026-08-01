@@ -27,6 +27,10 @@ pytestmark = pytest.mark.fast
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
     monkeypatch.delenv("QUESTDB_CONNECT_TIMEOUT_S", raising=False)
+    # _WARNED_ONCE is module state that is never cleared by design (warn-once
+    # per process). Without this reset a future caplog assertion on the E-063
+    # warning would pass alone and fail inside the suite.
+    tick_store._WARNED_ONCE.clear()
 
 
 def test_psycopg2_branch_sets_connect_timeout_and_keepalives(monkeypatch):

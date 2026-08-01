@@ -39,5 +39,8 @@ def test_p5_check_leakage_skip_state_is_visible():
     from src.assembled_core.qa.qa_gates import QAResult, check_leakage
 
     res = check_leakage(feature_df=None)
-    assert res.result == QAResult.OK  # fail-open by design (documented)
-    assert res.details.get("skipped") is True  # but visibly NOT-CHECKED
+    # Fail-open by design (documented): SKIPPED does not affect the overall
+    # verdict. Since 2026-08-01 it is its OWN state instead of OK, so that a
+    # consumer counting gate_results cannot report it as passed (E-066).
+    assert res.result == QAResult.SKIPPED
+    assert res.details.get("skipped") is True  # visibly NOT-CHECKED

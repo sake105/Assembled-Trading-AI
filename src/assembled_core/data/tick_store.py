@@ -12,11 +12,13 @@ TIME BOUNDS (E-063) — precise, because the earlier blanket claim "the
 trading cycle is never blocked" was false:
   - CONNECT is bounded in both driver branches (driver-level timeout; the
     surrounding try/except alone bounds raises, not wall-clock time).
-  - QUERY/WRITE on an established connection is bounded under pg8000 (its
-    socket timeout persists), but NOT under psycopg2: libpq has no read
-    timeout, and the keepalives set here only catch a silently dead peer,
-    not a live-but-hung server. Bounding that is an OPEN enablement
-    precondition.
+  - QUERY/WRITE on an established connection is NOT bounded under psycopg2:
+    libpq has no read timeout, and the keepalives set here only catch a
+    silently dead peer, not a live-but-hung server. Under pg8000 it is
+    bounded ACCORDING TO THE DRIVER SOURCE (its socket timeout persists) —
+    not measured here: no driver is installed or declared, so the contract
+    tests skip everywhere including CI. Verify empirically before enabling.
+    Either way this is an OPEN enablement precondition.
   - DNS resolution is bounded in neither branch (getaddrinfo runs before
     the timeout applies) — set QUESTDB_HOST to an IP literal when enabling
     against a remote host.
