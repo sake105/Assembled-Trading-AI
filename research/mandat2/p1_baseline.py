@@ -13,11 +13,17 @@ import json
 import warnings
 from pathlib import Path
 
-warnings.filterwarnings("ignore")
+# Eng begrenzt statt global: ein pauschales filterwarnings("ignore") im
+# Runner, der die entscheidungstragenden Zahlen erzeugt, wuerde genau die
+# Signale schlucken, die bei Panel-Arbeit auf Datenprobleme zeigen
+# (CLAUDE.md: Datenprobleme nicht still verschlucken).
+warnings.filterwarnings(
+    "ignore", message=".*Converting to PeriodArray.*", category=UserWarning
+)
 
 from research.mandat2.campaign_data import load_campaign  # noqa: E402
 from research.mandat2.engine import run_buy_and_hold, run_momentum  # noqa: E402
-from research.mandat2.metrics import auswerten  # noqa: E402
+from research.mandat2.metrics import DD_DECKEL, auswerten  # noqa: E402
 from research.mandat2.tax_regimes import make_regime  # noqa: E402
 
 REGIME = ["ZERO", "PRIVAT_DE", "GMBH_THESAURIEREND", "GMBH_AUSSCHUETTUNG"]
@@ -35,13 +41,16 @@ def main() -> int:
         kand = run_momentum(d, make_regime(name), top_in=20, rank_out=60)
         # Ausschuettungsebene erst am Ende, damit die Kurve sie nicht sieht.
         if name == "GMBH_AUSSCHUETTUNG":
-            bench.equity.iloc[-1] = bench.portfolio.settle_terminal(
-                float(bench.equity.iloc[-1])
-            )
-            kand.equity.iloc[-1] = kand.portfolio.settle_terminal(
-                float(kand.equity.iloc[-1])
-            )
-        a = auswerten(kand.equity, bench.equity, label=f"Momentum vs SPY [{name}]")
+            for lauf in (bench, kand):
+                netto = lauf.portfolio.settle_terminal(float(lauf.equity.iloc[-1]))
+                lauf.equity.iloc[-1] = netto
+                lauf.equity_netto.iloc[-1] = netto
+        # Auf der NETTO-Kurve auswerten: sonst traegt der umschichtende
+        # Kandidat seine Steuer laufend und der Buy-and-Hold-Benchmark nie
+        # (E-071).
+        a = auswerten(
+            kand.equity_netto, bench.equity_netto, label=f"Momentum vs SPY [{name}]"
+        )
         print(f"\n=== {name} ===", flush=True)
         print("  " + bench.kurz(), flush=True)
         print("  " + kand.kurz(), flush=True)
@@ -59,6 +68,18 @@ def main() -> int:
             "steuer_kandidat": kand.portfolio.tax_paid,
             "steuer_benchmark": bench.portfolio.tax_paid,
             "trades_kandidat": kand.n_trades,
+            # Befund 1 muss aus dem Artefakt reproduzierbar sein, nicht nur
+            # aus dem Prosatext (F-senior-9).
+            "benchmark_maxdd_schlimmster": min(f.benchmark_maxdd for f in a.fenster),
+            "benchmark_maxdd_bester": max(f.benchmark_maxdd for f in a.fenster),
+            "benchmark_fenster_deckel_gerissen": sum(
+                1 for f in a.fenster if f.benchmark_maxdd < DD_DECKEL
+            ),
+            "kandidat_fenster_deckel_gerissen": len(a.gerissene_fenster),
+            "div_steuer_kandidat": kand.portfolio.tax_on_dividends,
+            "kursgewinn_steuer_kandidat": kand.portfolio.tax_on_gains,
+            "nicht_ausfuehrbare_auftraege": kand.nicht_ausfuehrbar,
+            "fixkosten_pa": 0.0,
         }
 
     (OUT / "p1_baseline.json").write_text(

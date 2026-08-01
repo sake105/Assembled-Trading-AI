@@ -40,6 +40,7 @@ class Portfolio:
         regime: TaxRegime,
         cost_bps: float = COST_BPS_DEFAULT,
         asset: AssetClass = AssetClass.AKTIE,
+        max_kredit: float = 0.0,
     ) -> None:
         # Instrumentenklasse des Portfolios. Entscheidend fuer den Benchmark:
         # SPY ist ein FONDS (§20 InvStG), kein AKTIE-Anteil (§8b KStG) — mit
@@ -60,6 +61,11 @@ class Portfolio:
         self.tax_terminal = 0.0
         self.fixed_costs_paid = 0.0
         self._last_year: int | None = None
+        # Hoechstbetrag, den das Portfolio auf Kredit investieren darf. 0.0 =
+        # kein Hebel. Ohne dieses Limit deckelte buy() jede Order auf das
+        # vorhandene Cash — der Hebelparameter der Engine zahlte dann Zinsen,
+        # ohne je die Exponierung zu erhoehen (F-senior-4).
+        self.max_kredit = max_kredit
 
     # ------------------------------------------------------------- Kalender
     def set_date(self, date) -> None:
@@ -86,8 +92,16 @@ class Portfolio:
     def buy(self, sym: str, notional: float, px: float) -> None:
         if notional <= 0 or px <= 0:
             return
+        # Die doppelte Kostenberechnung (einmal aufs notional zur Deckelung,
+        # dann erneut auf spend) ist aus Mandat I uebernommen und laesst bei
+        # notional == cash einen winzigen Rest uninvestiert (~100 EUR von
+        # 100.000). BEWUSST beibehalten: sie zu korrigieren wuerde das
+        # Bit-Gate gegen Mandat I brechen, und der Effekt ist common-mode
+        # ueber alle Kandidaten. Vergleichbarkeit ist hier mehr wert als
+        # 0,1 % (F-senior-12, bewusst nicht behoben).
         cost = notional * self.cost_bps / 1e4
-        spend = min(notional, max(self.cash - cost, 0.0))
+        verfuegbar = self.cash + self.max_kredit - cost
+        spend = min(notional, max(verfuegbar, 0.0))
         if spend <= 0:
             return
         cost = spend * self.cost_bps / 1e4
@@ -175,6 +189,29 @@ class Portfolio:
             if np.isfinite(px):
                 v += sum(q for q, _ in lots) * px
         return v
+
+    def latente_steuer(self, prices: pd.Series) -> float:
+        """Steuer, die bei sofortiger Liquidation faellig WAERE.
+
+        Ohne diese Groesse misst die Zielfunktion auf einer
+        Mark-to-market-Kurve: der umschichtende Kandidat traegt seine Steuer
+        laufend, der Buy-and-Hold-Benchmark nie — und bekommt damit die
+        gesamte Steuerstundung geschenkt (E-071). Naeherung: Grenzsatz auf den
+        Netto-Buchgewinn, ohne Verlusttopf und Freibetrag.
+        """
+        gewinn = 0.0
+        for sym, lots in self.lots.items():
+            px = prices.get(sym, np.nan)
+            if not np.isfinite(px):
+                continue
+            for q, basis in lots:
+                gewinn += q * (float(px) - basis)
+        if gewinn <= 0:
+            return 0.0
+        return gewinn * self.regime.latent_rate(self.asset)
+
+    def wert_nach_latenter_steuer(self, prices: pd.Series) -> float:
+        return self.value(prices) - self.latente_steuer(prices)
 
     def liquidate_all(self, prices: pd.Series) -> None:
         """Alle Lots zum Fensterende verkaufen — Steuer wird real faellig.

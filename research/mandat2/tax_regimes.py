@@ -107,11 +107,17 @@ class TaxRegime(Protocol):
 
     name: str
 
+    #: ``latent_rate`` liefert den Grenzsatz fuer eine GEDACHTE Liquidation.
+    #: Bewusste Naeherung: Verlusttopf und Sparerpauschbetrag bleiben
+    #: unberuecksichtigt (sie wuerden die latente Last senken), und der Aufruf
+    #: veraendert KEINEN Regimezustand. Gebraucht wird er, damit die
+    #: Zielfunktion nicht auf einer Mark-to-market-Kurve misst (E-071).
     def new_year(self, year: int) -> None: ...
     def on_realized_gain(self, gain: float, asset: AssetClass) -> float: ...
     def on_dividend(self, gross: float, asset: AssetClass) -> float: ...
     def on_terminal(self, final_value: float, initial_capital: float) -> float: ...
     def annual_fixed_costs(self) -> float: ...
+    def latent_rate(self, asset: AssetClass) -> float: ...
 
 
 class ZeroTax:
@@ -139,6 +145,9 @@ class ZeroTax:
         return 0.0
 
     def annual_fixed_costs(self) -> float:
+        return 0.0
+
+    def latent_rate(self, asset: AssetClass = AssetClass.AKTIE) -> float:
         return 0.0
 
 
@@ -196,6 +205,9 @@ class PrivatDE:
 
     def annual_fixed_costs(self) -> float:
         return 0.0
+
+    def latent_rate(self, asset: AssetClass = AssetClass.AKTIE) -> float:
+        return self._satz(asset)
 
 
 class VvGmbH:
@@ -275,6 +287,13 @@ class VvGmbH:
         if asset is AssetClass.FONDS:
             return gross * self.fonds_satz
         return gross * self.dividenden_satz
+
+    def latent_rate(self, asset: AssetClass = AssetClass.AKTIE) -> float:
+        if asset is AssetClass.FONDS:
+            return self.fonds_satz
+        if asset is AssetClass.DERIVAT:
+            return self.gesamtsatz
+        return self.kursgewinn_satz
 
     def on_terminal(self, final_value: float, initial_capital: float) -> float:
         return 0.0  # thesaurierend: keine Entnahme modelliert

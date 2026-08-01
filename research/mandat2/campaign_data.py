@@ -42,6 +42,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from research.mandat2.dividenden import auf_panel_skalieren
 from research.mandat2.data_gate import (
     SEARCH_CUTOFF,
     TrialCounter,
@@ -87,17 +88,32 @@ def _load_close_raw() -> pd.DataFrame:
 
 
 def _load_div_panel(close_index: pd.DatetimeIndex) -> pd.DataFrame:
-    """Ex-Daten auf den naechsten Handelstag schnappen (wie Mandat I).
+    """Ex-Daten auf den naechsten Handelstag schnappen — NUR im Fenster.
 
-    WICHTIG fuer ``Portfolio.book_dividend``: die Werte sind Dividende je
-    Stueck in derselben Skala wie die Kurse des Panels. Wer eine andere
-    Dividendenquelle anschliesst, muss diese Skalierung selbst sicherstellen —
-    sonst ist die Basis-Anhebung falsch dimensioniert (E-068-Nachbar).
+    Zwei Fallen, die hier beide zugeschlagen haben (E-070):
+
+    1. **Das Gate galt nur fuer die Kurse.** ``dividends.parquet`` reicht bis
+       2027-03-12; 22.507 Zeilen liegen im HOLDOUT. Sie wurden vorher direkt
+       gelesen — an genau der Sperre vorbei, deren Modul das hier ist.
+    2. **``clip`` staucht den Leak zu einer Randspitze.** Alle Holdout-Zeilen
+       landeten gebuendelt auf dem letzten Suchtag: 728 Symbole an einem Tag
+       gegen einen Median von 5, SPY 57,93 statt 1,33. Der Leak sah dadurch
+       aus wie gueltige Daten statt wie ein Index-Ueberlauf.
+
+    Deshalb: Zeilen ausserhalb des Index werden VERWORFEN, nicht geklemmt.
     """
     d = pd.read_parquet(DATA / "dividends.parquet")
-    pos = close_index.searchsorted(pd.DatetimeIndex(d["ex_date"]))
-    pos = np.clip(pos, 0, len(close_index) - 1)
-    d = d.assign(t=close_index[pos])
+    ex = pd.DatetimeIndex(pd.to_datetime(d["ex_date"]))
+    if ex.tz is not None:
+        ex = ex.tz_convert("UTC")
+    idx = close_index
+    if idx.tz is not None and ex.tz is None:
+        ex = ex.tz_localize(idx.tz)
+    elif idx.tz is None and ex.tz is not None:
+        ex = ex.tz_convert("UTC").tz_localize(None)
+    pos = idx.searchsorted(ex)
+    im_fenster = (pos < len(idx)) & (ex >= idx[0])
+    d = d.loc[im_fenster].assign(t=idx[pos[im_fenster]])
     return d.groupby(["t", "symbol"])["dividend"].sum().unstack()
 
 
@@ -175,7 +191,12 @@ def load_campaign(
     close = close.dropna(axis=1, how="all")
 
     idx = pd.DatetimeIndex(close.index)
-    div_panel = _load_div_panel(idx).reindex(index=idx).dropna(axis=1, how="all")
+    div_nominal = _load_div_panel(idx).reindex(index=idx).dropna(axis=1, how="all")
+    # Nominale Betraege auf die Panel-Skala bringen. Ohne das ist die
+    # Dividende um raw/adj ueberzeichnet (SPY 1995: 4,01 % statt 2,70 %) —
+    # und die Ueberzeichnung trifft genau die GmbH-Asymmetrie, die gemessen
+    # werden soll. Siehe research/mandat2/dividenden.py.
+    div_panel = auf_panel_skalieren(close, div_nominal)
     membership = _load_membership(idx)
 
     if trials:

@@ -38,11 +38,17 @@ FINANZIERUNG_PA_DEFAULT = 0.045
 
 @dataclass
 class LaufErgebnis:
-    equity: pd.Series
+    equity: pd.Series  # Mark-to-market (Diagnose)
+    #: Equity ABZUEGLICH der latenten Steuer auf offene Buchgewinne. DAS ist
+    #: die Kurve, auf der die Zielfunktion misst. Ohne sie traegt der
+    #: umschichtende Kandidat seine Steuer laufend, der Buy-and-Hold-Benchmark
+    #: nie — und bekaeme die gesamte Steuerstundung geschenkt (E-071).
+    equity_netto: pd.Series
     portfolio: Portfolio
     label: str
     n_trades: int
     finanzierung_gezahlt: float
+    nicht_ausfuehrbar: int = 0
 
     def kurz(self) -> str:
         p = self.portfolio
@@ -71,6 +77,7 @@ def run_buy_and_hold(
     close = data.close[symbol].dropna()
     pf = Portfolio(START_KAPITAL, regime, asset=asset)
     equity: list[tuple[pd.Timestamp, float]] = []
+    equity_netto: list[tuple[pd.Timestamp, float]] = []
     gekauft = False
     for t in close.index:
         pf.set_date(t)
@@ -83,13 +90,18 @@ def run_buy_and_hold(
             d = div.loc[t]
             if np.isfinite(d) and d > 0:
                 pf.book_dividend(symbol, float(d))
-        equity.append((t, pf.value(pd.Series({symbol: px}))))
+        preise = pd.Series({symbol: px})
+        equity.append((t, pf.value(preise)))
+        equity_netto.append((t, pf.wert_nach_latenter_steuer(preise)))
     letzte = pd.Series({symbol: float(close.iloc[-1])})
     pf.liquidate_all(letzte)
     e = pd.Series(dict(equity)).sort_index()
     e.iloc[-1] = pf.value(letzte)
+    en = pd.Series(dict(equity_netto)).sort_index()
+    en.iloc[-1] = pf.value(letzte)
     return LaufErgebnis(
         equity=e,
+        equity_netto=en,
         portfolio=pf,
         label=label or f"BuyHold({symbol}, {regime.name})",
         n_trades=1,
@@ -129,8 +141,17 @@ def run_momentum(
 
     pf = Portfolio(START_KAPITAL, regime, cost_bps=cost_bps, asset=asset)
     close_ff = close.ffill()
+    # Delisting-Zwangsverkauf (aus Mandat I uebernommen, hier vorher FEHLEND):
+    # 208 von 1.037 Symbolen enden vor dem Panelende. Ohne diesen Schritt
+    # blieb Kapital in toten Namen zu einem eingefrorenen Kurs haengen und
+    # daempfte zugleich den gemessenen MaxDD (F-senior-6). Genau darauf beruft
+    # sich die Truncation-Hygiene in campaign_data.
+    last_valid = close.apply(lambda c: c.last_valid_index())
+    global_last = idx[-1]
+    nicht_ausfuehrbar = 0
     kaufdatum: dict[str, pd.Timestamp] = {}
     equity: list[tuple[pd.Timestamp, float]] = []
+    equity_netto: list[tuple[pd.Timestamp, float]] = []
     pending: list[tuple[str, str, float]] = []
     n_trades = 0
     finanzierung = 0.0
@@ -150,7 +171,14 @@ def run_momentum(
         for aktion, sym, betrag in pending:
             px = px_t.get(sym, np.nan)
             if not np.isfinite(px) or px <= 0:
-                continue
+                # Kein Kurs heute: fuer Verkaeufe auf den letzten gueltigen
+                # ausweichen, statt den Auftrag still zu verschlucken.
+                lv = last_valid.get(sym)
+                if aktion == "sell_all" and lv is not None and lv < t:
+                    px = close.at[lv, sym]
+                if not np.isfinite(px) or px <= 0:
+                    nicht_ausfuehrbar += 1
+                    continue
             if aktion == "sell_all":
                 q = pf.qty(sym)
                 if q > 0:
@@ -165,9 +193,24 @@ def run_momentum(
                     kaufdatum.setdefault(sym, t)
                     n_trades += 1
                 elif delta < -1.0:
+                    kd = kaufdatum.get(sym)
+                    if (
+                        min_haltetage > 0
+                        and kd is not None
+                        and (t - kd).days < min_haltetage
+                    ):
+                        continue  # Haltedauer gilt auch fuer Teilverkaeufe
                     pf.sell(sym, -delta / px, float(px))
                     n_trades += 1
+                    if pf.qty(sym) <= 0:
+                        kaufdatum.pop(sym, None)
         pending = []
+
+        # Delisting: Historie endete und es ist kein blosser Datenausfall.
+        for sym in list(pf.lots):
+            lv = last_valid.get(sym)
+            if lv is not None and lv < t and lv < global_last - pd.Timedelta(days=10):
+                pending.append(("sell_all", sym, 0.0))
 
         # Dividenden
         if t in data.div_panel.index:
@@ -180,6 +223,7 @@ def run_momentum(
         ff_t = close_ff.loc[t]
         wert = pf.value(ff_t)
         equity.append((t, wert))
+        equity_netto.append((t, wert - pf.latente_steuer(ff_t)))
 
         if t not in monatsenden:
             continue
@@ -192,8 +236,12 @@ def run_momentum(
         scores = mom.loc[t, kandidaten].dropna()
         if scores.empty:
             continue
-        rang = scores.rank(ascending=False)
-        ziel = [s for s in sorted(rang.index) if rang[s] <= top_in]
+        # nlargest statt rank(): 'average' bei Gleichstaenden liefert mal
+        # mehr, mal weniger als top_in Namen und veraendert damit still die
+        # Positionsgroesse (F-senior-15). Deterministisch ueber sortierten Index.
+        scores = scores.sort_index()
+        rang = scores.rank(ascending=False, method="first")
+        ziel = sorted(scores.nlargest(top_in, keep="first").index)
 
         for sym in list(pf.lots):
             if sym in ziel:
@@ -207,22 +255,33 @@ def run_momentum(
                     continue  # Haltedauer laeuft noch
             pending.append(("sell_all", sym, 0.0))
 
+        # geliehen IMMER neu setzen — vorher behielt es bei leerem Ziel den
+        # Vorwert und Zinsen liefen auf einen Kredit weiter, den es nicht mehr
+        # gab (F-senior-5).
+        investiert = wert * hebel
+        geliehen = max(investiert - wert, 0.0)
+        pf.max_kredit = geliehen
         if ziel:
-            investiert = wert * hebel
             je = investiert / len(ziel)
             for sym in ziel:
                 pending.append(("trade_to", sym, je))
-            geliehen = max(investiert - wert, 0.0)
+        else:
+            geliehen = 0.0
+            pf.max_kredit = 0.0
 
     letzte = close_ff.iloc[-1]
     pf.liquidate_all(letzte)
     e = pd.Series(dict(equity)).sort_index()
     e.iloc[-1] = pf.value(letzte)
+    en = pd.Series(dict(equity_netto)).sort_index()
+    en.iloc[-1] = pf.value(letzte)
     return LaufErgebnis(
         equity=e,
+        equity_netto=en,
         portfolio=pf,
         label=label
         or f"Mom(top{top_in}/out{rank_out}, hold{min_haltetage}d, x{hebel}, {regime.name})",
         n_trades=n_trades,
         finanzierung_gezahlt=finanzierung,
+        nicht_ausfuehrbar=nicht_ausfuehrbar,
     )
