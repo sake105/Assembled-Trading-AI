@@ -13366,7 +13366,23 @@ class TestExceptPatternBound:
         # justify itself here). Ratchet caught the growth as designed
         # (CI red 2026-07-27 on 38bc4be4). Stage-2 review corrected an
         # earlier +1/1035-start misstatement in this comment (F-senior-1).
-        assert broad <= 1036, f"Too many broad except patterns: {broad}"
+        # Bump 2026-08-01 (documented): the E-063 connect-timeout guard
+        # (commit c870dc01) adds TWO broad-except substrings, both in
+        # data/tick_store.py::_validate_conn_kwargs and both LOUD +
+        # fail-closed, not swallows:
+        # (1) make_dsn(**kwargs) rejected -> WARNING + retry without the
+        #     optional keepalive options,
+        # (2) make_dsn(**base) also rejected -> logger.error + return None,
+        #     i.e. refuse to connect rather than connect unbounded.
+        # Broad on purpose: make_dsn raises psycopg2.ProgrammingError OR
+        # TypeError depending on driver version; narrowing it would be a
+        # behaviour change inside an E-063 safety path and belongs in its
+        # own step. Actual counts measured with this test's method:
+        # 1036 (625f2252, tick_store 10) -> 1038 (c870dc01, tick_store 12),
+        # i.e. +2; cap raised 1036 -> 1038 = exactly the new actual count
+        # (ZERO headroom, as established). Ratchet caught the growth as
+        # designed (CI "Lint & Test" red on BOTH runners for c870dc01).
+        assert broad <= 1038, f"Too many broad except patterns: {broad}"
 
 
 # ---------------------------------------------------------------------------
