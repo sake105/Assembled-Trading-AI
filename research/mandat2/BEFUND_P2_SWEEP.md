@@ -9,7 +9,20 @@ Achsen: `min_haltetage` ∈ {0, 90, 365, 730} · `rank_out` ∈ {30, 60, 200}
 
 ---
 
-## Befund A — Mein P1-Befund 2 war parametrisierungsabhängig. Korrektur.
+> ## ⚠ Befund A ist durch P3 WIDERLEGT
+>
+> Der Kontrolltest (`BEFUND_P3_KONTROLLE.md`) zeigt: eine **Zufallsauswahl** mit
+> derselben Haltedisziplin erreicht Median **2,692** im Mittel über 20 Seeds —
+> Momentum liegt mit 2,737 im **50. Perzentil** dieser Verteilung. Das Signal
+> war austauschbar. Gemessen wurde nicht Momentum-Alpha, sondern der Effekt von
+> 20 gleichgewichteten Namen, lange gehalten, gegen einen kapitalgewichteten
+> Index. Zusätzlich hatten 17 von 20 Zufallsläufen einen **besseren** Drawdown.
+>
+> Befund B (das Optimum wandert nicht zwischen Steuerwelten) und Befund C
+> (0 von 72 halten den DD-Deckel) sind davon **nicht** betroffen — sie hängen
+> nicht an der Signalgüte.
+
+## Befund A — Mein P1-Befund 2 war parametrisierungsabhängig. Korrektur. *(inzwischen selbst widerlegt, s. o.)*
 
 P1 schrieb: *„Momentum verliert in ALLEN vier Steuerwelten, auch ohne Steuer."*
 Das galt für **eine** Kombination (`hold0 / out60`) — die ich nie variiert habe.
@@ -21,8 +34,10 @@ Mit langer Haltedauer und laufengelassenen Gewinnern kippt es:
 | `PRIVAT_DE` | hold730 out200 ×1,0 | **2,168** | 1,870 | 620.869 | 610.752 |
 | `GMBH+FK` | hold730 out200 ×1,0 | **2,095** | 1,862 | 635.135 | 580.266 |
 
-**In allen drei Steuerwelten schlägt Momentum den Index — wenn man aufhört zu
-churnen.** Ungehebelt, im steuerfreien Fall um 50 % Endvermögen (1,09 Mio gegen
+**In allen drei Steuerwelten schlägt diese Parametrisierung den Index.** Dass
+es an *Momentum* liegt, war der Fehlschluss — P3 zeigt, dass Rauschen dasselbe
+leistet. Richtig bleibt: **wenn man aufhört zu churnen**, schlägt eine
+konzentrierte, gleichgewichtete Auswahl den kapitalgewichteten Index. Ungehebelt, im steuerfreien Fall um 50 % Endvermögen (1,09 Mio gegen
 726 k). Die Spannweite über das Gitter ist gewaltig: im `ZERO`-Fall von 278.203 €
 (hold365/out30/×1,5) bis 1.773.450 € (hold730/out200/×1,5) — **Faktor 6,4 allein
 durch die Parametrisierung**, bei identischem Signal und identischen Daten.
@@ -79,14 +94,8 @@ Kandidat hat den Holdout gesehen. Vor einer Aussage „das schlägt SPY" fehlt:
 1. **DSR/PBO** mit dem kumulierten Trial-Zähler (1.988). Bei 12 Kombinationen
    ist die beste per Konstruktion nach oben verzerrt.
 2. **Der Holdout-Schuss** (2017–2026, enthält COVID und 2022).
-3. Eine Erklärung, warum `hold730/out200` ökonomisch sinnvoll ist und nicht nur
-   die günstigste Zelle im Gitter. `out200` heißt faktisch „Buy-and-Hold der
-   Momentum-Auswahl von vor zwei Jahren" — es könnte sein, dass hier gar kein
-   Momentum-Effekt gemessen wird, sondern schlicht weniger Handel.
-
-Punkt 3 ist der wichtigste offene Test: **eine Kontrollgruppe, die dieselbe
-Anzahl Namen zufällig zieht und genauso lange hält.** Schlägt die den Index
-ebenso, ist der Befund kein Momentum-Alpha, sondern ein Turnover-Artefakt.
+3. ~~Eine Kontrollgruppe mit Zufallsauswahl.~~ **Gelaufen — siehe P3. Sie
+   schlägt den Index genauso. Damit ist Befund A erledigt.**
 
 ## Nächster Schritt
 

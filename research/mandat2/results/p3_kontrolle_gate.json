@@ -1,0 +1,184 @@
+{
+  "welt": "ZERO",
+  "mit_gate": true,
+  "params": {
+    "top_in": 20,
+    "rank_out": 200,
+    "min_haltetage": 730,
+    "hebel": 1.0
+  },
+  "momentum": {
+    "endwert": 2656374.273551623,
+    "median": 4.124042693750722,
+    "maxdd": -0.30453039906451096,
+    "n_trades": 3255
+  },
+  "benchmark_median": 1.9479915797080838,
+  "zufall": [
+    {
+      "seed": 0,
+      "endwert": 1319664.064945548,
+      "median_kandidat": 3.5331823560502267,
+      "schlimmster_maxdd": -0.2623273451525987,
+      "n_trades": 3344,
+      "anteil_fenster_geschlagen": 1.0
+    },
+    {
+      "seed": 1,
+      "endwert": 1020971.0231493805,
+      "median_kandidat": 3.432010800691605,
+      "schlimmster_maxdd": -0.29596466588795733,
+      "n_trades": 3356,
+      "anteil_fenster_geschlagen": 0.9930555555555556
+    },
+    {
+      "seed": 2,
+      "endwert": 906665.1307185134,
+      "median_kandidat": 2.9198153653065217,
+      "schlimmster_maxdd": -0.21141355622713454,
+      "n_trades": 3416,
+      "anteil_fenster_geschlagen": 1.0
+    },
+    {
+      "seed": 3,
+      "endwert": 964906.0499822717,
+      "median_kandidat": 2.8646734546360646,
+      "schlimmster_maxdd": -0.22567877313742524,
+      "n_trades": 3356,
+      "anteil_fenster_geschlagen": 0.9652777777777778
+    },
+    {
+      "seed": 4,
+      "endwert": 965439.0179731209,
+      "median_kandidat": 2.8924428651220797,
+      "schlimmster_maxdd": -0.2648826974100933,
+      "n_trades": 3342,
+      "anteil_fenster_geschlagen": 1.0
+    },
+    {
+      "seed": 5,
+      "endwert": 743192.0362159463,
+      "median_kandidat": 2.5125251560649153,
+      "schlimmster_maxdd": -0.20518196958566204,
+      "n_trades": 3347,
+      "anteil_fenster_geschlagen": 0.9236111111111112
+    },
+    {
+      "seed": 6,
+      "endwert": 839442.5720871278,
+      "median_kandidat": 2.5971501286026877,
+      "schlimmster_maxdd": -0.22488955257405396,
+      "n_trades": 3342,
+      "anteil_fenster_geschlagen": 0.9722222222222222
+    },
+    {
+      "seed": 7,
+      "endwert": 989649.6337439843,
+      "median_kandidat": 3.0802669218267296,
+      "schlimmster_maxdd": -0.2199908739621208,
+      "n_trades": 3380,
+      "anteil_fenster_geschlagen": 0.9930555555555556
+    },
+    {
+      "seed": 8,
+      "endwert": 800228.4756861633,
+      "median_kandidat": 2.610067817467686,
+      "schlimmster_maxdd": -0.23392213109284243,
+      "n_trades": 3413,
+      "anteil_fenster_geschlagen": 0.9583333333333334
+    },
+    {
+      "seed": 9,
+      "endwert": 1019990.7229527489,
+      "median_kandidat": 2.8914753224495477,
+      "schlimmster_maxdd": -0.24040877598382038,
+      "n_trades": 3392,
+      "anteil_fenster_geschlagen": 0.9791666666666666
+    },
+    {
+      "seed": 10,
+      "endwert": 812807.6307862829,
+      "median_kandidat": 2.732567645197968,
+      "schlimmster_maxdd": -0.3405480306598063,
+      "n_trades": 3407,
+      "anteil_fenster_geschlagen": 0.9444444444444444
+    },
+    {
+      "seed": 11,
+      "endwert": 1034927.869460039,
+      "median_kandidat": 3.272316588584128,
+      "schlimmster_maxdd": -0.2091841357630453,
+      "n_trades": 3392,
+      "anteil_fenster_geschlagen": 0.9722222222222222
+    },
+    {
+      "seed": 12,
+      "endwert": 746329.221931193,
+      "median_kandidat": 2.794200122059662,
+      "schlimmster_maxdd": -0.2960166077480042,
+      "n_trades": 3353,
+      "anteil_fenster_geschlagen": 0.8888888888888888
+    },
+    {
+      "seed": 13,
+      "endwert": 829301.6848687043,
+      "median_kandidat": 2.8561908449945688,
+      "schlimmster_maxdd": -0.2606597914813126,
+      "n_trades": 3372,
+      "anteil_fenster_geschlagen": 0.9166666666666666
+    },
+    {
+      "seed": 14,
+      "endwert": 782302.0158056167,
+      "median_kandidat": 2.330417733475633,
+      "schlimmster_maxdd": -0.26719189944924315,
+      "n_trades": 3372,
+      "anteil_fenster_geschlagen": 0.7777777777777778
+    },
+    {
+      "seed": 15,
+      "endwert": 918208.9637990372,
+      "median_kandidat": 2.8279001547105826,
+      "schlimmster_maxdd": -0.23405569549184668,
+      "n_trades": 3362,
+      "anteil_fenster_geschlagen": 0.9861111111111112
+    },
+    {
+      "seed": 16,
+      "endwert": 1094578.6734670387,
+      "median_kandidat": 2.8731524351826607,
+      "schlimmster_maxdd": -0.19771369673235184,
+      "n_trades": 3373,
+      "anteil_fenster_geschlagen": 0.9652777777777778
+    },
+    {
+      "seed": 17,
+      "endwert": 1333360.7240457034,
+      "median_kandidat": 3.3986374342528665,
+      "schlimmster_maxdd": -0.2173113328633407,
+      "n_trades": 3353,
+      "anteil_fenster_geschlagen": 1.0
+    },
+    {
+      "seed": 18,
+      "endwert": 1095298.9006991817,
+      "median_kandidat": 2.683976282302001,
+      "schlimmster_maxdd": -0.28204519714098264,
+      "n_trades": 3375,
+      "anteil_fenster_geschlagen": 1.0
+    },
+    {
+      "seed": 19,
+      "endwert": 625243.4645667959,
+      "median_kandidat": 2.218494943602634,
+      "schlimmster_maxdd": -0.22865199070920705,
+      "n_trades": 3364,
+      "anteil_fenster_geschlagen": 0.8333333333333334
+    }
+  ],
+  "zufall_median_mittel": 2.8660732186290385,
+  "zufall_median_p95": 3.4370693784595363,
+  "zufall_median_max": 3.5331823560502267,
+  "momentum_perzentil_in_zufallsverteilung": 100.0,
+  "verdikt_turnover_artefakt": false
+}

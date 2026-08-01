@@ -71,22 +71,39 @@ def run_buy_and_hold(
     *,
     symbol: str = "SPY",
     asset: AssetClass = AssetClass.FONDS,
+    risk_off_gate: pd.Series | None = None,
     label: str | None = None,
 ) -> LaufErgebnis:
-    """Der Benchmark. ``asset=FONDS``, weil SPY ein Fonds ist (§20 InvStG)."""
+    """Der Benchmark. ``asset=FONDS``, weil SPY ein Fonds ist (§20 InvStG).
+
+    ``risk_off_gate`` erlaubt denselben Trendfilter wie bei run_strategy —
+    gebraucht fuer die Kontrollfrage "schafft der reine Index MIT Gate den
+    DD-Deckel?". Das ueber run_strategy zu bauen war ein Fehler: SPY ist ein
+    ETF und steht NICHT in der S&P-Mitgliederliste, die dortige Auswahl
+    verwarf ihn stillschweigend und zog eine beliebige Aktie.
+    """
     close = data.close[symbol].dropna()
     pf = Portfolio(START_KAPITAL, regime, asset=asset)
     equity: list[tuple[pd.Timestamp, float]] = []
     equity_netto: list[tuple[pd.Timestamp, float]] = []
-    gekauft = False
+    monatsenden = _monatsenden(pd.DatetimeIndex(close.index))
     for t in close.index:
         pf.set_date(t)
         px = float(close.loc[t])
-        if not gekauft and px > 0:
+        risk_on = True
+        if risk_off_gate is not None:
+            g = risk_off_gate.get(t)
+            risk_on = bool(g) if g is not None and np.isfinite(float(g)) else True
+        # Gate nur an Rebalance-Tagen auswerten, wie bei run_strategy.
+        if risk_off_gate is not None and t in monatsenden and px > 0:
+            if risk_on and pf.qty(symbol) <= 0:
+                pf.buy(symbol, pf.cash, px)
+            elif not risk_on and pf.qty(symbol) > 0:
+                pf.sell(symbol, pf.qty(symbol), px)
+        elif risk_off_gate is None and pf.qty(symbol) <= 0 and px > 0:
             pf.buy(symbol, pf.cash, px)
-            gekauft = True
         div = data.div_panel.get(symbol)
-        if div is not None and t in div.index:
+        if div is not None and t in div.index and pf.qty(symbol) > 0:
             d = div.loc[t]
             if np.isfinite(d) and d > 0:
                 pf.book_dividend(symbol, float(d))
@@ -109,10 +126,33 @@ def run_buy_and_hold(
     )
 
 
-def run_momentum(
+def momentum_score(close: pd.DataFrame) -> pd.DataFrame:
+    """12-1-Momentum: Rendite von t-252 bis t-21 (letzter Monat ausgelassen)."""
+    return close.shift(21) / close.shift(252) - 1.0
+
+
+def zufalls_score(close: pd.DataFrame, seed: int) -> pd.DataFrame:
+    """Kontrollgruppe: reines Rauschen statt Signal.
+
+    Der entscheidende Test fuer jeden Auswahl-Befund. Wenn eine
+    Zufallsauswahl mit DERSELBEN Haltedisziplin denselben Vorsprung liefert,
+    misst der Backtest nicht die Auswahl, sondern die Haltedauer bzw. den
+    Turnover — und der vermeintliche Alpha-Befund ist ein Artefakt.
+
+    Deterministisch ueber den Seed; jede Zeile ein eigener Zug, damit die
+    Auswahl bei jedem Rebalance neu wuerfelt statt einmal festzustehen.
+    """
+    rng = np.random.default_rng(seed)
+    return pd.DataFrame(
+        rng.standard_normal(close.shape), index=close.index, columns=close.columns
+    )
+
+
+def run_strategy(
     data: CampaignData,
     regime: TaxRegime,
     *,
+    score: pd.DataFrame | None = None,
     top_in: int = 20,
     rank_out: int = 60,
     min_haltetage: int = 0,
@@ -120,11 +160,13 @@ def run_momentum(
     finanzierung_pa: float = FINANZIERUNG_PA_DEFAULT,
     cost_bps: float = COST_BPS_DEFAULT,
     asset: AssetClass = AssetClass.AKTIE,
+    risk_off_gate: pd.Series | None = None,
     label: str | None = None,
 ) -> LaufErgebnis:
-    """12-1-Momentum, monatlich, mit Haltedauer- und Hebelparameter.
+    """Monatliche Auswahl nach einem beliebigen Score, mit Haltedisziplin.
 
     Args:
+        score: (Tag x Symbol), hoeher = besser. None -> 12-1-Momentum.
         top_in: gekauft wird, wer im Rang <= top_in liegt.
         rank_out: verkauft wird erst, wenn der Rang > rank_out faellt
             (Turnover-Bremse aus Mandat I H-012).
@@ -132,10 +174,13 @@ def run_momentum(
             nicht, wenn das Signal es wollte. 0 = keine Sperre.
         hebel: 1.0 = ungehebelt. > 1.0 investiert entsprechend mehr und
             zahlt ``finanzierung_pa`` taeglich auf die geliehene Summe.
+        risk_off_gate: (Tag -> bool). True = investiert, False = alles in Cash.
+            Wird am Rebalance-Tag gelesen. Der einzige Hebel im Modell, der
+            den Drawdown ueberhaupt erreichen kann.
     """
     close = data.close
     idx = pd.DatetimeIndex(close.index)
-    mom = close.shift(21) / close.shift(252) - 1.0
+    mom = momentum_score(close) if score is None else score.reindex_like(close)
     monatsenden = _monatsenden(idx)
     membership = data.membership
 
@@ -229,12 +274,23 @@ def run_momentum(
             continue
 
         # ---------------------------------------------------- Rebalance
+        risk_on = True
+        if risk_off_gate is not None:
+            g = risk_off_gate.get(t)
+            risk_on = bool(g) if g is not None and np.isfinite(float(g)) else True
+
         # Reset VOR den Frueh-Continues: sonst behalten geliehen und
         # max_kredit auf den Pfaden 'keine Mitgliederliste' und 'keine Scores'
         # den Vorwert — dieselbe Klasse, die schon einmal als behoben galt
         # (F-senior-7).
         geliehen = 0.0
         pf.max_kredit = 0.0
+        if not risk_on:
+            # Risk-off: alles glattstellen, nichts Neues kaufen.
+            for sym in list(pf.lots):
+                pending.append(("sell_all", sym, 0.0))
+            continue
+
         mitglieder = membership.get(t)
         if mitglieder is None:
             continue
@@ -280,8 +336,28 @@ def run_momentum(
         equity_netto=en,
         portfolio=pf,
         label=label
-        or f"Mom(top{top_in}/out{rank_out}, hold{min_haltetage}d, x{hebel}, {regime.name})",
+        or (
+            f"Strat(top{top_in}/out{rank_out}, hold{min_haltetage}d, "
+            f"x{hebel}, {regime.name})"
+        ),
         n_trades=n_trades,
         finanzierung_gezahlt=finanzierung,
         nicht_ausfuehrbar=nicht_ausfuehrbar,
     )
+
+
+def run_momentum(data: CampaignData, regime: TaxRegime, **kwargs) -> LaufErgebnis:
+    """Rueckwaertskompatibler Name: 12-1-Momentum ueber run_strategy."""
+    kwargs.setdefault("label", None)
+    return run_strategy(data, regime, score=None, **kwargs)
+
+
+def sma_gate(close: pd.DataFrame, symbol: str = "SPY", fenster: int = 200) -> pd.Series:
+    """Klassisches Trendfilter-Gate: investiert, solange der Index ueber seiner SMA liegt.
+
+    Der einfachste Mechanismus, der den Drawdown ueberhaupt adressiert — und
+    bewusst der einfachste, damit ein Erfolg nicht sofort nach Overfitting
+    aussieht. PIT-sauber: die SMA am Tag t nutzt nur Kurse bis t.
+    """
+    s = close[symbol]
+    return (s > s.rolling(fenster).mean()).astype(float)

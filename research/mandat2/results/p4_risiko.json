@@ -1,0 +1,203 @@
+{
+  "dd_deckel": -0.35,
+  "zeilen": [
+    {
+      "welt": "ZERO",
+      "sma": null,
+      "endwert": 1090311.603637114,
+      "benchmark_endwert": 726197.0166936871,
+      "median_kandidat": 2.7373701803338797,
+      "median_benchmark": 1.9479915797080838,
+      "schlimmster_maxdd": -0.6554018080569838,
+      "gerissene_fenster": 144,
+      "n_fenster": 144,
+      "deckel_eingehalten": false,
+      "bestanden": false,
+      "n_trades": 4743
+    },
+    {
+      "welt": "ZERO",
+      "sma": 100,
+      "endwert": 1465674.1354548382,
+      "benchmark_endwert": 726197.0166936871,
+      "median_kandidat": 4.470808891103456,
+      "median_benchmark": 1.9479915797080838,
+      "schlimmster_maxdd": -0.3534645988524534,
+      "gerissene_fenster": 64,
+      "n_fenster": 144,
+      "deckel_eingehalten": false,
+      "bestanden": false,
+      "n_trades": 3351
+    },
+    {
+      "welt": "ZERO",
+      "sma": 200,
+      "endwert": 2656374.273551623,
+      "benchmark_endwert": 726197.0166936871,
+      "median_kandidat": 4.124042693750722,
+      "median_benchmark": 1.9479915797080838,
+      "schlimmster_maxdd": -0.30453039906451096,
+      "gerissene_fenster": 0,
+      "n_fenster": 144,
+      "deckel_eingehalten": true,
+      "bestanden": true,
+      "n_trades": 3255
+    },
+    {
+      "welt": "ZERO",
+      "sma": 300,
+      "endwert": 1196012.1103236268,
+      "benchmark_endwert": 726197.0166936871,
+      "median_kandidat": 3.0307682509128693,
+      "median_benchmark": 1.9479915797080838,
+      "schlimmster_maxdd": -0.34642252892775705,
+      "gerissene_fenster": 0,
+      "n_fenster": 144,
+      "deckel_eingehalten": true,
+      "bestanden": true,
+      "n_trades": 3322
+    },
+    {
+      "welt": "PRIVAT_DE",
+      "sma": null,
+      "endwert": 620868.7785388811,
+      "benchmark_endwert": 610751.573449115,
+      "median_kandidat": 2.167948575872352,
+      "median_benchmark": 1.870495242027158,
+      "schlimmster_maxdd": -0.6461198645147359,
+      "gerissene_fenster": 144,
+      "n_fenster": 144,
+      "deckel_eingehalten": false,
+      "bestanden": false,
+      "n_trades": 4734
+    },
+    {
+      "welt": "PRIVAT_DE",
+      "sma": 100,
+      "endwert": 776466.6905567837,
+      "benchmark_endwert": 610751.573449115,
+      "median_kandidat": 3.324157399537707,
+      "median_benchmark": 1.870495242027158,
+      "schlimmster_maxdd": -0.33817528939153063,
+      "gerissene_fenster": 0,
+      "n_fenster": 144,
+      "deckel_eingehalten": true,
+      "bestanden": true,
+      "n_trades": 3351
+    },
+    {
+      "welt": "PRIVAT_DE",
+      "sma": 200,
+      "endwert": 1329959.6031749719,
+      "benchmark_endwert": 610751.573449115,
+      "median_kandidat": 3.1710367742524035,
+      "median_benchmark": 1.870495242027158,
+      "schlimmster_maxdd": -0.26496600076492816,
+      "gerissene_fenster": 0,
+      "n_fenster": 144,
+      "deckel_eingehalten": true,
+      "bestanden": true,
+      "n_trades": 3251
+    },
+    {
+      "welt": "PRIVAT_DE",
+      "sma": 300,
+      "endwert": 704193.1023906377,
+      "benchmark_endwert": 610751.573449115,
+      "median_kandidat": 2.4471571487486568,
+      "median_benchmark": 1.870495242027158,
+      "schlimmster_maxdd": -0.3228455566555891,
+      "gerissene_fenster": 0,
+      "n_fenster": 144,
+      "deckel_eingehalten": true,
+      "bestanden": true,
+      "n_trades": 3342
+    },
+    {
+      "welt": "GMBH+FK",
+      "sma": null,
+      "endwert": 635135.2681929342,
+      "benchmark_endwert": 580265.7782780621,
+      "median_kandidat": 2.095463438639964,
+      "median_benchmark": 1.8618872332752807,
+      "schlimmster_maxdd": -0.6966364095679406,
+      "gerissene_fenster": 144,
+      "n_fenster": 144,
+      "deckel_eingehalten": false,
+      "bestanden": false,
+      "n_trades": 4716
+    },
+    {
+      "welt": "GMBH+FK",
+      "sma": 100,
+      "endwert": 1009893.8559626493,
+      "benchmark_endwert": 580265.7782780621,
+      "median_kandidat": 3.922369600591068,
+      "median_benchmark": 1.8618872332752807,
+      "schlimmster_maxdd": -0.37344868752945504,
+      "gerissene_fenster": 64,
+      "n_fenster": 144,
+      "deckel_eingehalten": false,
+      "bestanden": false,
+      "n_trades": 3340
+    },
+    {
+      "welt": "GMBH+FK",
+      "sma": 200,
+      "endwert": 1960044.7710723237,
+      "benchmark_endwert": 580265.7782780621,
+      "median_kandidat": 3.7911182445100033,
+      "median_benchmark": 1.8618872332752807,
+      "schlimmster_maxdd": -0.3085113761035809,
+      "gerissene_fenster": 0,
+      "n_fenster": 144,
+      "deckel_eingehalten": true,
+      "bestanden": true,
+      "n_trades": 3238
+    },
+    {
+      "welt": "GMBH+FK",
+      "sma": 300,
+      "endwert": 794582.7713968477,
+      "benchmark_endwert": 580265.7782780621,
+      "median_kandidat": 2.448272744711517,
+      "median_benchmark": 1.8618872332752807,
+      "schlimmster_maxdd": -0.37193160540757453,
+      "gerissene_fenster": 61,
+      "n_fenster": 144,
+      "deckel_eingehalten": false,
+      "bestanden": false,
+      "n_trades": 3343
+    }
+  ],
+  "spy_kontrolle": [
+    {
+      "sma": null,
+      "schlimmster_maxdd": -0.5517592635955788,
+      "gerissene_fenster": 144,
+      "median": 1.9479915797080838,
+      "endwert": 726197.0166936871
+    },
+    {
+      "sma": 100,
+      "schlimmster_maxdd": -0.3192900162521556,
+      "gerissene_fenster": 0,
+      "median": 1.667555497512605,
+      "endwert": 463576.39277818246
+    },
+    {
+      "sma": 200,
+      "schlimmster_maxdd": -0.19182811215344597,
+      "gerissene_fenster": 0,
+      "median": 2.5250153631439836,
+      "endwert": 810867.2888362075
+    },
+    {
+      "sma": 300,
+      "schlimmster_maxdd": -0.2422075996855012,
+      "gerissene_fenster": 0,
+      "median": 1.964079981359538,
+      "endwert": 543413.9625844536
+    }
+  ]
+}
