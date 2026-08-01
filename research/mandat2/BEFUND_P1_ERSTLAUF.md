@@ -27,7 +27,8 @@
 > gerechnet, der Zinseszins fehlte. Details: E-070 bis E-076 in
 > `docs/CLAUDE_CODING_ERRORS.md`.
 >
-> **Abdeckung:** gelaufen ist **1 von 80+ P1-Familien** (12-1-Momentum).
+> **Abdeckung:** gelaufen ist **1 von 80+ P1-Familien** (12-1-Momentum), und
+> zwar in **einer** von 12 Parametrisierungen — siehe `BEFUND_P2_SWEEP.md`.
 > PLAN.md §5 definiert P1 als Re-Run aller Mandat-I-Familien — das steht aus.
 
 Lauf ausschließlich auf dem SUCH-Fenster (1995-01-03 … 2016-12-30, 1.037
@@ -71,7 +72,16 @@ eine Halbierung des Krisen-Drawdowns gegenüber dem Index, nicht eine
 Verbesserung am Rand. Ab P2 ist gesucht: „bessere Auswahl **plus** ein
 Mechanismus, der durch 2000–2002 und 2008–2009 trägt".
 
-## Befund 2 — Momentum verliert in ALLEN vier Steuerwelten, auch ohne Steuer *(unverändert, Zahlen aktualisiert)*
+## Befund 2 — ~~Momentum verliert in ALLEN vier Steuerwelten~~ **ÜBERHOLT durch P2**
+
+> **Diese Aussage war parametrisierungsabhängig und ist so falsch.** Sie gilt
+> für die hier gefahrene Kombination (`hold0 / out60`), nicht für Momentum als
+> Familie. Der P2-Sweep zeigt: mit `hold730 / out200` schlägt dieselbe Strategie
+> den Index in **allen drei** getesteten Steuerwelten (ZERO 2,737 gegen 1,948;
+> PRIVAT_DE 2,168 gegen 1,870; GMBH+FK 2,095 gegen 1,862). Die Spannweite über
+> das Parametergitter beträgt Faktor 6,4 bei identischem Signal.
+> Siehe `BEFUND_P2_SWEEP.md`. Die Zahlen unten bleiben als Referenzpunkt für
+> genau eine Zelle des Gitters stehen.
 
 | Regime | Momentum | SPY | Median-Faktor Kandidat vs Benchmark | Fenster geschlagen |
 |---|---|---|---|---|
@@ -80,10 +90,11 @@ Mechanismus, der durch 2000–2002 und 2008–2009 trägt".
 | `GMBH_THESAURIEREND` | 572.365 | 653.766 | 1,151× vs 1,900× | 40 % |
 | `GMBH_AUSSCHUETTUNG` | 447.779 | 507.710 | 1,137× vs 1,786× | 40 % |
 
-**Auch bei null Steuer verliert Momentum gegen den Index.** Die Steuer war nicht
-die Ursache. Der Fenster-Median ist mit 1,25× gegen 1,95× deutlich schlechter:
-Momentum gewinnt gelegentlich groß und verliert regelmäßig, der Index liefert
-gleichmäßig.
+**Für diese eine Parametrisierung** verliert Momentum auch bei null Steuer. Der
+Schluss „die Steuer war nicht die Ursache" bleibt richtig — die Ursache war
+aber, wie P2 zeigt, der **Turnover**, und der ist eine Stellschraube, keine
+Eigenschaft der Familie. Was P2 zusätzlich zeigt: das Optimum liegt in allen
+Steuerwelten bei denselben Parametern, die Steuer verschiebt es nicht.
 
 **Einordnung, ehrlich abgegrenzt:** Das *reproduziert* Kernbefund 1 aus
 Mandat I — es *bestätigt* ihn nicht unabhängig. Geteilt mit Mandat I sind
