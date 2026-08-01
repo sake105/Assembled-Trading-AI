@@ -56,14 +56,30 @@ class HoldoutViolation(RuntimeError):
 
 
 # ------------------------------------------------------------------- Laden
-def _as_ts(col: pd.Series | pd.DatetimeIndex) -> pd.Series | pd.DatetimeIndex:
-    return pd.to_datetime(col)
+def _as_ts(col) -> pd.Series:
+    """Auf tz-naive UTC normalisieren.
+
+    Das echte Preispanel (``prices_verdict.parquet``) ist tz-aware (UTC), die
+    Cutoff-Konstanten sind naiv — ein direkter Vergleich wirft TypeError. Die
+    Sperre darf nicht daran scheitern, in welcher Zeitzonen-Repraesentation
+    ein Aufrufer seine Daten haelt; auf Tagesgranularitaet ist die Umrechnung
+    verlustfrei.
+    """
+    ts = pd.to_datetime(col)
+    tz = getattr(getattr(ts, "dt", ts), "tz", None)
+    if tz is not None:
+        ts = (
+            ts.dt.tz_convert("UTC").dt.tz_localize(None)
+            if hasattr(ts, "dt")
+            else (ts.tz_convert("UTC").tz_localize(None))
+        )
+    return ts
 
 
 def _split(df: pd.DataFrame, date_col: str | None) -> tuple[pd.Series, pd.DataFrame]:
     """Gibt (Datumsreihe, df) zurueck — akzeptiert Index- ODER Spaltendatum."""
     if date_col is None:
-        return pd.Series(_as_ts(df.index), index=df.index), df
+        return pd.Series(_as_ts(pd.Series(df.index)).values, index=df.index), df
     return _as_ts(df[date_col]), df
 
 

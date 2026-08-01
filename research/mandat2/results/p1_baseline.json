@@ -1,0 +1,58 @@
+{
+  "ZERO": {
+    "benchmark_end": 726197.0166936871,
+    "kandidat_end": 701759.5991212009,
+    "n_fenster": 144,
+    "median_kandidat": 1.4436191012983914,
+    "median_benchmark": 1.9479915797080838,
+    "anteil_fenster_geschlagen": 0.5208333333333334,
+    "schlimmster_maxdd": -0.6116469430587238,
+    "deckel_eingehalten": false,
+    "bestanden": false,
+    "steuer_kandidat": 0.0,
+    "steuer_benchmark": 0.0,
+    "trades_kandidat": 7937
+  },
+  "PRIVAT_DE": {
+    "benchmark_end": 610751.5734491152,
+    "kandidat_end": 385798.32421624137,
+    "n_fenster": 144,
+    "median_kandidat": 1.2649883168495026,
+    "median_benchmark": 1.909322075114074,
+    "anteil_fenster_geschlagen": 0.4513888888888889,
+    "schlimmster_maxdd": -0.6480992468288289,
+    "deckel_eingehalten": false,
+    "bestanden": false,
+    "steuer_kandidat": 172763.05357155172,
+    "steuer_benchmark": 115445.44324457194,
+    "trades_kandidat": 8111
+  },
+  "GMBH_THESAURIEREND": {
+    "benchmark_end": 653765.7782780621,
+    "kandidat_end": 416823.0199451085,
+    "n_fenster": 144,
+    "median_kandidat": 1.2346779464865514,
+    "median_benchmark": 1.9254195660251443,
+    "anteil_fenster_geschlagen": 0.4305555555555556,
+    "schlimmster_maxdd": -0.6331772211557044,
+    "deckel_eingehalten": false,
+    "bestanden": false,
+    "steuer_kandidat": 148939.6939469045,
+    "steuer_benchmark": 72431.2384156249,
+    "trades_kandidat": 8627
+  },
+  "GMBH_AUSSCHUETTUNG": {
+    "benchmark_end": 507710.05425722327,
+    "kandidat_end": 333260.9484345862,
+    "n_fenster": 144,
+    "median_kandidat": 1.2346779464865514,
+    "median_benchmark": 1.9254195660251443,
+    "anteil_fenster_geschlagen": 0.4305555555555556,
+    "schlimmster_maxdd": -0.6331772211557044,
+    "deckel_eingehalten": false,
+    "bestanden": false,
+    "steuer_kandidat": 232501.76545742687,
+    "steuer_benchmark": 218486.9624364638,
+    "trades_kandidat": 8627
+  }
+}
