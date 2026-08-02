@@ -78,16 +78,34 @@ Die Steuerasymmetrie ist real und groß: Kursgewinnsteuer −76 % (123.827 →
 1,0910). 73.500 € eingezahlte Fixkosten kosten über 22 Jahre 137.663 €
 Endvermögen; der Zinseszins ist fast so groß wie der Nominalbetrag noch einmal.
 
-Bei 100.000 € Startkapital trägt die Struktur nicht. Ab welchem Kapital sie
-kippt, ist offen und wäre ein eigener Sweep.
+**Nachtrag 2026-08-02 (`BEFUND_P10_P11.md`):** Der Break-even ist gerechnet.
+Bei 3.500 €/J Rechtsformkosten lohnt die GmbH für den **aktiv gehandelten**
+Kandidaten bereits ab 100.000 € (knapp, +2,3 %) und ab 250.000 € deutlich
+(+36 bis +64 %). Für den **reinen ETF-Sparer** erst ab 250.000 € — bei
+100.000 € ist sie mit −5,0 % sogar schlechter als das Privatdepot. Muster: je
+mehr realisiert wird, desto früher trägt die Struktur.
+
+Korrektur: die zuvor genannten „+4.079 €" galten für die P1-Parametrisierung,
+nicht für den P2-Gewinner (dort +14.266 €). Beide korrekt, aber nicht
+vergleichbar ohne Angabe des Parametersatzes.
 
 ### 4. Signale sind austauschbar, solange man nicht filtert.
 
 Ohne Trendfilter liegt Momentum im **50. Perzentil** von 20 Zufallsläufen mit
-identischer Haltedisziplin — das Signal ist wertlos, gemessen wird der
-Gleichgewichtungs-Effekt. Mit Filter liegt es im **100. Perzentil**. Das ist
-eine Interaktion, kein additiver Effekt, und der interessanteste unbestätigte
-Befund der Kampagne.
+identischer Haltedisziplin — das Signal ist wertlos. Mit Filter liegt es im
+**100. Perzentil**. Das ist eine Interaktion, kein additiver Effekt, und der
+interessanteste unbestätigte Befund der Kampagne.
+
+### 5. Der Benchmark war ein Drittel des „Vorsprungs" (Nachtrag 2026-08-02)
+
+Die Kampagne maß gleichgewichtete Kandidaten gegen den **kapitalgewichteten**
+SPY. Ein gleichgewichteter Index desselben Universums schlägt SPY allein um
+Faktor 1,33 (Median 2,594 gegen 1,948) — ohne Auswahl, ohne Signal. Der
+Zufallsbefund aus Punkt 4 schrumpft damit von 1,40× auf **1,05×** gegen den
+richtigen Maßstab: er war die Gewichtung. Der Hauptkandidat verliert ein
+Viertel (3,43× → 2,57×), bleibt aber deutlich vorn — er lebt also nicht
+allein davon. Am Verdikt ändert das nichts, weil ein härterer Maßstab ein
+negatives Urteil nur bestätigt. Registriert als **E-079**.
 
 ---
 

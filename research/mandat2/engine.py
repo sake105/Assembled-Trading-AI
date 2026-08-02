@@ -72,6 +72,7 @@ def run_buy_and_hold(
     symbol: str = "SPY",
     asset: AssetClass = AssetClass.FONDS,
     risk_off_gate: pd.Series | None = None,
+    startkapital: float = START_KAPITAL,
     label: str | None = None,
 ) -> LaufErgebnis:
     """Der Benchmark. ``asset=FONDS``, weil SPY ein Fonds ist (§20 InvStG).
@@ -83,7 +84,7 @@ def run_buy_and_hold(
     verwarf ihn stillschweigend und zog eine beliebige Aktie.
     """
     close = data.close[symbol].dropna()
-    pf = Portfolio(START_KAPITAL, regime, asset=asset)
+    pf = Portfolio(startkapital, regime, asset=asset)
     equity: list[tuple[pd.Timestamp, float]] = []
     equity_netto: list[tuple[pd.Timestamp, float]] = []
     monatsenden = _monatsenden(pd.DatetimeIndex(close.index))
@@ -161,6 +162,7 @@ def run_strategy(
     cost_bps: float = COST_BPS_DEFAULT,
     asset: AssetClass = AssetClass.AKTIE,
     risk_off_gate: pd.Series | None = None,
+    startkapital: float = START_KAPITAL,
     label: str | None = None,
 ) -> LaufErgebnis:
     """Monatliche Auswahl nach einem beliebigen Score, mit Haltedisziplin.
@@ -177,6 +179,10 @@ def run_strategy(
         risk_off_gate: (Tag -> bool). True = investiert, False = alles in Cash.
             Wird am Rebalance-Tag gelesen. Der einzige Hebel im Modell, der
             den Drawdown ueberhaupt erreichen kann.
+        startkapital: Entscheidend fuer die GmbH-Frage — laufende
+            Rechtsformkosten sind ein FIXbetrag, ihre relative Last haengt
+            also am Kapital. Bei 100.000 EUR sind 3.500 EUR/J 3,5 % p. a.,
+            bei 1 Mio nur 0,35 %.
     """
     close = data.close
     idx = pd.DatetimeIndex(close.index)
@@ -184,7 +190,7 @@ def run_strategy(
     monatsenden = _monatsenden(idx)
     membership = data.membership
 
-    pf = Portfolio(START_KAPITAL, regime, cost_bps=cost_bps, asset=asset)
+    pf = Portfolio(startkapital, regime, cost_bps=cost_bps, asset=asset)
     close_ff = close.ffill()
     # Delisting-Zwangsverkauf (aus Mandat I uebernommen, hier vorher FEHLEND):
     # 208 von 1.037 Symbolen enden vor dem Panelende. Ohne diesen Schritt

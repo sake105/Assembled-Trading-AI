@@ -1,0 +1,71 @@
+{
+  "spy_end": 726197.0166936871,
+  "ew_index_end": 1263915.648203105,
+  "ew_index_median_vs_spy": 2.5944310784300266,
+  "spy_median": 1.9479915797080838,
+  "ew_index_maxdd": -0.5857138132888442,
+  "zufall": [
+    {
+      "seed": 0,
+      "median": 2.832896887490075,
+      "verhaeltnis_zu_spy": 1.4542654685984828,
+      "verhaeltnis_zu_ew": 1.0919144898635549,
+      "maxdd": -0.5336696851474292
+    },
+    {
+      "seed": 1,
+      "median": 2.247368187050155,
+      "verhaeltnis_zu_spy": 1.1536847543185655,
+      "verhaeltnis_zu_ew": 0.8662277467051118,
+      "maxdd": -0.5789515172978354
+    },
+    {
+      "seed": 2,
+      "median": 2.831712931461377,
+      "verhaeltnis_zu_spy": 1.4536576856691152,
+      "verhaeltnis_zu_ew": 1.0914581447177765,
+      "maxdd": -0.5876801954279841
+    },
+    {
+      "seed": 3,
+      "median": 2.36638166228487,
+      "verhaeltnis_zu_spy": 1.2147802315652125,
+      "verhaeltnis_zu_ew": 0.9121004145991203,
+      "maxdd": -0.6285139778371414
+    },
+    {
+      "seed": 4,
+      "median": 2.865837846188025,
+      "verhaeltnis_zu_spy": 1.4711756847621924,
+      "verhaeltnis_zu_ew": 1.104611284537277,
+      "maxdd": -0.5436857751719504
+    },
+    {
+      "seed": 5,
+      "median": 2.652325382457267,
+      "verhaeltnis_zu_spy": 1.3615692234433228,
+      "verhaeltnis_zu_ew": 1.0223148359995264,
+      "maxdd": -0.56454096937149
+    },
+    {
+      "seed": 6,
+      "median": 2.8378953937478224,
+      "verhaeltnis_zu_spy": 1.4568314479948086,
+      "verhaeltnis_zu_ew": 1.0938411189034645,
+      "maxdd": -0.5126646586895409
+    },
+    {
+      "seed": 7,
+      "median": 3.1564999394561917,
+      "verhaeltnis_zu_spy": 1.6203868498903926,
+      "verhaeltnis_zu_ew": 1.2166443601833088,
+      "maxdd": -0.4996410057746751
+    }
+  ],
+  "mittel_verhaeltnis_spy": 1.3982939182802614,
+  "mittel_verhaeltnis_ew": 1.0498890494386424,
+  "kandidat": {
+    "verhaeltnis_zu_spy": 3.428016478253285,
+    "verhaeltnis_zu_ew": 2.5738772905768914
+  }
+}
