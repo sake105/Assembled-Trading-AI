@@ -1,6 +1,6 @@
 # FORSCHUNGSMANDAT II — Plan
 
-**Status:** Phase 0 ABGESCHLOSSEN, P1 begonnen (1 von 80+ Familien) · **Erstellt:** 2026-08-01 · **Auftraggeber:** Hans
+**Status:** ABGESCHLOSSEN 2026-08-02 — Ergebnis negativ, kein Holdout-Schuss. Siehe `ABSCHLUSS.md` · **Erstellt:** 2026-08-01 · **Auftraggeber:** Hans
 **Vorgänger:** `research/mandat/FINAL_REPORT.md` (Mandat I, abgeschlossen 2026-07-12, N=1.964)
 
 ---
