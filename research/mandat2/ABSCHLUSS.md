@@ -99,11 +99,19 @@ Befund der Kampagne.
 EODHD-Fundamentals sind nicht freigeschaltet. **Beschaffungs-, keine
 Forschungsentscheidung.**
 
-**Unerklärt:** Warum trägt `Preis > SMA`, aber „SMA steigt" und „Rendite > 0"
-nicht? Solange das offen ist, bleibt der Verdacht, dass die spezifische Ein-
-und Ausstiegszeitpunktwahl auf zwei Ereignisse passt. Die Zahl gerissener
-Fenster ist über alle 72 Läufe fast binär (0, 64 oder 69) — der ganze Befund
-hängt an einem einzigen Ereignis.
+**~~Unerklärt~~ — beantwortet am 2026-08-02 (`BEFUND_P9_FORENSIK.md`):** Bei
+Fenster 200 tragen **alle drei** Definitionen (MaxDD −30,5 / −31,5 / −31,5 %);
+sie unterscheiden sich in der Reaktionsgeschwindigkeit — `Preis > SMA` steigt
+bei −8 % SPY-Drawdown aus, `SMA steigt` erst bei −13 bis −16 %, bleibt dafür
+länger draußen.
+
+Der eigentliche Befund ist gravierender: **das Gate trifft über 22 Jahre nur
+12–18 wirksame Entscheidungen**, von denen etwa vier zählen. Die täglichen
+Flips (140 gegen 14) sind irrelevant, weil nur an 264 Monatsenden gelesen wird;
+die drei Definitionen stimmen dort zu 86,4 % überein. Das erklärt die binäre
+Verteilung der gerissenen Fenster ebenso wie den DSR-Wert genau an der
+Schwelle — und es heißt: **der Kandidat ist nicht knapp gescheitert, er war nie
+belastbar genug, um knapp zu sein** (E-078).
 
 **Nicht getestet:** Intraday. „Wenige Stunden Haltedauer" ist mit dem
 EOD-Panel nicht auflösbar; das bräuchte das EODHD-Intraday-Paket (ab ca.
