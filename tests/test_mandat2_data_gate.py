@@ -12,8 +12,6 @@ import json
 import pandas as pd
 import pytest
 
-from tests.mandat2_daten_guard import braucht_kampagnendaten
-
 from research.mandat2.data_gate import (
     HOLDOUT_START,
     SEARCH_CUTOFF,
@@ -43,7 +41,6 @@ def panel() -> pd.DataFrame:
 # --------------------------------------------------------------------------
 # Suchpfad: der Holdout ist physisch nicht da
 # --------------------------------------------------------------------------
-@braucht_kampagnendaten
 def test_suche_sieht_keinen_tag_nach_dem_cutoff(panel):
     such = load_search(panel, date_col="timestamp")
     assert such["timestamp"].max() <= SEARCH_CUTOFF
@@ -52,14 +49,12 @@ def test_suche_sieht_keinen_tag_nach_dem_cutoff(panel):
     assert not (panel["timestamp"] > SEARCH_CUTOFF).loc[such.index].any()
 
 
-@braucht_kampagnendaten
 def test_suche_funktioniert_auch_mit_datum_im_index(panel):
     wide = panel.set_index("timestamp")[["close"]]
     such = load_search(wide)
     assert such.index.max() <= SEARCH_CUTOFF
 
 
-@braucht_kampagnendaten
 def test_such_und_holdout_fenster_ueberlappen_nicht(panel):
     such = load_search(panel, date_col="timestamp")
     hold = load_holdout(

@@ -104,7 +104,6 @@ def test_implizite_rendite_trifft_die_konstruierte_rendite():
     assert 0.015 < r.iloc[0] < 0.025
 
 
-@braucht_kampagnendaten
 def test_symbole_ohne_dividende_bleiben_unveraendert():
     _, adj, divs = _synthetische_tr_reihe()
     close = pd.DataFrame({"AAA": adj, "BBB": adj})
@@ -113,7 +112,6 @@ def test_symbole_ohne_dividende_bleiben_unveraendert():
     assert (skaliert["BBB"] == 0).all()
 
 
-@braucht_kampagnendaten
 def test_leere_reihe_bricht_nicht():
     leer = pd.Series(dtype=float)
     assert rohpfad(leer, leer).empty
