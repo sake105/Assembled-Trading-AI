@@ -131,9 +131,19 @@ Verteilung der gerissenen Fenster ebenso wie den DSR-Wert genau an der
 Schwelle — und es heißt: **der Kandidat ist nicht knapp gescheitert, er war nie
 belastbar genug, um knapp zu sein** (E-078).
 
-**Nicht getestet:** Intraday. „Wenige Stunden Haltedauer" ist mit dem
-EOD-Panel nicht auflösbar; das bräuchte das EODHD-Intraday-Paket (ab ca.
-Okt 2020) und wäre ein eigener Strang.
+**Nicht getestet, aber NICHT blockiert — Korrektur 2026-08-03:** Intraday.
+Meine Aussage „bräuchte das EODHD-Intraday-Paket (ab ca. Okt 2020)" war in
+beiden Teilen falsch. Das Paket ist freigeschaltet und wird bereits genutzt
+(452k 5-Minuten-Bars für 4 ETFs 2020–2026 und 246k 1-Minuten-Bars für 20 Titel
+2024–2026 liegen im Repo). Und „ab Okt 2020" gilt nur für den **1h**-Endpunkt —
+der **1m**-Endpunkt reicht bei Einzelaktien bis **2004** zurück (empirisch
+geprüft: AAPL, MSFT, GE, XOM, KO).
+
+2004–2026 sind 22 Jahre und damit **genug für rollierende 10-Jahres-Fenster**.
+Der Strang ist offen, nicht blockiert. Randbedingungen gemessen: max. 120 Tage
+pro API-Call, SPY erst ab ~2014 (Benchmark bleibt deshalb der tägliche SPY),
+1m-Rohdaten zu groß zum Lagern → Verdichtung auf Stundenbars beim Ingest
+(~80k Bars und 2,4 MB je Symbol über die volle Strecke).
 
 ---
 
