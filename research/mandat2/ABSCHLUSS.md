@@ -10,7 +10,15 @@ rollierenden 10-Jahres-Fenster, unter der bindenden Nebenbedingung
 MaxDD ≥ −35 % in *jedem* Fenster.
 
 **Suchfenster** 1995-01-03 … 2016-12-30 · **Holdout** 2017-01-01 … 2026-07-06,
-**bis heute unangetastet** · **Trials** 2.144 (kumuliert ab Mandat I)
+**bis heute unangetastet** · **Trials** 3.305 (kumuliert ab Mandat I:
+1.964 + 1.341 aus Mandat II, Stand `trials.json`)
+
+> **Korrektur 2026-08-03:** hier stand 2.144. Die Zahl war seit P4 nicht mehr
+> nachgeführt worden und driftete gegen `trials.json` — dieselbe Fehlerklasse
+> wie E-085, nur kampagnenweit statt in einem Befund. In den 1.341 sind
+> **44 Trials aus einem reinen Regenerationslauf** enthalten (E-090); sie
+> werden nicht zurueckgeschrieben, sondern hier offengelegt. Wirkung: der
+> DSR-Haircut ist um diesen Betrag zu streng, also konservativ.
 
 ---
 
