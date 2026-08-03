@@ -10,6 +10,8 @@ Mini-Fixture aus echten Parquet-Dateien.
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -396,3 +398,206 @@ class TestBenchmark:
         panel.loc[panel.index[0], "B"] = np.nan
         bh = buy_and_hold(panel, kosten_bps=0.0)
         assert bh.iloc[-1] / bh.iloc[0] == pytest.approx(200 / 100, rel=1e-12)
+
+
+class TestBefundRenderer:
+    """Der Renderer ist die einzige strukturelle Sperre gegen E-085 — und war
+    selbst ungetestet (Stage-2-Finding F-senior-7).
+
+    Geprueft wird nicht die Prosa, sondern dass die datenABHAENGIGEN Aussagen
+    tatsaechlich von den Daten abhaengen: dreht man die Zahlen um, muss sich der
+    Text mitdrehen. Ein Generator, der immer dasselbe schreibt, waere keine
+    Sperre, sondern eine Attrappe.
+    """
+
+    @pytest.fixture
+    def res(self, tmp_path, monkeypatch):
+        import research.mandat2.render_befund_p12 as rb
+
+        monkeypatch.setattr(rb, "RES", tmp_path)
+        monkeypatch.setattr(rb, "ZIEL", tmp_path / "BEFUND.md")
+        return tmp_path, rb
+
+    @staticmethod
+    def _zeile(bars, name, netto, brutto, zuf_n, zuf_b):
+        return {
+            "halte_bars": bars,
+            "name": name,
+            "rueckblick_bars": 100,
+            "umschichtungen": 10,
+            "netto_end": netto,
+            "brutto_end": brutto,
+            "cagr": 0.1,
+            "maxdd": -0.4,
+            "zufall_end_mittel": zuf_n,
+            "zufall_end_alle": [zuf_n] * 5,
+            "zufall_brutto_mittel": zuf_b,
+            "anteil_cash": 0.0,
+            "kostenlast": 0.2,
+        }
+
+    def _basis(self, netto=1.5, brutto=2.0, zuf_b=3.0):
+        return {
+            "universum": ["A", "B"],
+            "verworfen": {"C": "Abdeckung nur 54.5%"},
+            "fenster": "2006-01-01..2016-12-30",
+            "jahre": 10.5,
+            "warmup_bars": 100,
+            "bars_pro_tag": 7,
+            "kosten_bps": 10.0,
+            "top_k": 5,
+            "roh_spruenge": 16,
+            "rest_spruenge": 8,
+            "split_diagnose": [
+                {"symbol": "A", "zeitpunkt": "2010-01-01 13:00", "roher_sprung": -0.5}
+            ],
+            "buy_and_hold": {"endwert": 3.138, "cagr": 0.115, "maxdd": -0.547},
+            "ew_rebalanciert": {"endwert": 3.244, "cagr": 0.118, "maxdd": -0.616},
+            "familien": {
+                "A_fest": [self._zeile(1, "1 Stunde", netto, brutto, 0.0, zuf_b)]
+            },
+        }
+
+    def _render(self, res, daten):
+        tmp, rb = res
+        (tmp / "p12_intraday_haltedauer.json").write_text(
+            json.dumps(daten), encoding="utf-8"
+        )
+        rb.main()
+        return (tmp / "BEFUND.md").read_text(encoding="utf-8")
+
+    def test_laeuft_ohne_optionale_artefakte(self, res):
+        text = self._render(res, self._basis())
+        assert "P12 — Das kurze Ende" in text
+        # Abschnitts-Ueberschriften, nicht blosse Erwaehnungen: "P12b" kommt
+        # auch im Belastbarkeits-Absatz von Kernaussage 2 vor.
+        assert "## P12b" not in text
+        assert "## P12c" not in text
+        assert "## Artefaktschranke" not in text
+
+    def test_fehlendes_pflicht_artefakt_scheitert_laut(self, res):
+        _, rb = res
+        with pytest.raises(SystemExit):
+            rb.main()
+
+    def test_kernaussage_1_dreht_mit_den_daten(self, res):
+        """Der eigentliche Test: schlaegt das kurze Ende, muss der Text kippen."""
+        schlecht = self._render(res, self._basis(netto=1.5))
+        assert "Das kurze Ende trägt nicht" in schlecht
+        gut = self._render(res, self._basis(netto=9.9))
+        assert "Das kurze Ende trägt nicht" not in gut
+        assert "schlägt das Halten" in gut
+
+    def test_kernaussage_2_dreht_mit_den_daten(self, res):
+        plus = self._render(res, self._basis(brutto=2.0))
+        assert "also im Plus" in plus
+        minus = self._render(res, self._basis(brutto=0.5))
+        assert "verliert schon brutto" in minus
+
+    def test_zaehlt_zufallsvergleich_aus_den_daten(self, res):
+        drunter = self._render(res, self._basis(brutto=2.0, zuf_b=3.0))
+        assert "**1 von 1**" in drunter
+        drueber = self._render(res, self._basis(brutto=4.0, zuf_b=3.0))
+        assert "**0 von 1**" in drueber
+
+    def test_fehlender_schluessel_kracht_statt_zu_luegen(self, res):
+        """E-085-Kern: eine Datenluecke darf keine ueberzeugende Zahl ergeben."""
+        daten = self._basis()
+        del daten["familien"]["A_fest"][0]["zufall_brutto_mittel"]
+        with pytest.raises(KeyError):
+            self._render(res, daten)
+
+    def test_verwurfsgrund_wird_eingedeutscht(self, res):
+        text = self._render(res, self._basis())
+        assert "54,5%" in text
+        assert "54.5%" not in text
+
+    def test_abdeckungsschwelle_nur_wenn_im_artefakt(self, res):
+        ohne = self._render(res, self._basis())
+        assert "noch nicht" in ohne
+        daten = self._basis()
+        daten["min_abdeckung"] = 0.9
+        mit = self._render(res, daten)
+        assert "bis zu 10,0 %" in mit
+
+    @staticmethod
+    def _p12c_zeile(bars, name, brutto, be, bench=3.138, bei_be=None):
+        return {
+            "halte_bars": bars,
+            "name": name,
+            "umschichtungen": 100,
+            "brutto_end": brutto,
+            "brutto_cagr": 0.18,
+            # Der Break-even-Punkt MUSS in der Kurve liegen — der Renderer greift
+            # direkt zu und kracht sonst (bewusst, siehe E-086).
+            # Der Break-even-Punkt MUSS in der Kurve liegen — der Renderer
+            # greift direkt zu und kracht sonst (bewusst, siehe E-086).
+            "kurve": {"0.0": brutto, "10.0": 0.01}
+            | {f"{be}": brutto * 0.5 if bei_be is None else bei_be},
+            "breakeven_kapitalerhalt_bps": 2.0,
+            "breakeven_schlaegt_benchmark_bps": be,
+            "bei_10bps": 0.01,
+            "bench_end": bench,
+        }
+
+    def _mit_p12c(self, res, zeilen, stufig_faktoren):
+        """Legt p12c + p12c_stufig an; stufig_faktoren skaliert brutto je Zeile."""
+        tmp, _ = res
+        (tmp / "p12c_reversal_kostenschwelle.json").write_text(
+            json.dumps({"kosten_raster": [0.0, 1.0, 10.0], "zeilen": zeilen}),
+            encoding="utf-8",
+        )
+        st = [
+            dict(z, brutto_end=z["brutto_end"] * f)
+            for z, f in zip(zeilen, stufig_faktoren)
+        ]
+        (tmp / "p12c_reversal_stufig.json").write_text(
+            json.dumps({"kosten_raster": [0.0, 1.0, 10.0], "zeilen": st}),
+            encoding="utf-8",
+        )
+        return self._render(res, self._basis())
+
+    def test_vorzeichenaussage_dreht_mit_den_daten(self, res):
+        """E-087: `abs()` hatte genau diese Information weggeworfen."""
+        zeilen = [self._p12c_zeile(1, "1 Stunde", 6.0, 1.0)]
+        wechselnd = self._mit_p12c(res, zeilen * 2, [0.97, 1.05])
+        assert "nicht systematisch gerichtet" in wechselnd
+        gleichgerichtet = self._mit_p12c(res, zeilen * 2, [1.05, 1.08])
+        assert "systematisch gerichtet" in gleichgerichtet
+        assert "nicht systematisch gerichtet" not in gleichgerichtet
+        assert "nicht** ausgeschlossen" in gleichgerichtet
+
+    def test_tragende_zeile_ist_die_mit_hoechstem_brutto(self, res):
+        """E-088: Schranke und Break-even müssen aus DERSELBEN Zeile stammen."""
+        zeilen = [
+            self._p12c_zeile(1, "1 Stunde", 6.0, 1.0),
+            self._p12c_zeile(7, "1 Tag", 2.7, 1.0),
+        ]
+        text = self._mit_p12c(res, zeilen, [0.97, 1.12])
+        assert "(**1 Stunde**" in text
+        assert "(**1 Tag**" not in text
+        # Die Schranke muss die der 1-Stunden-Zeile sein (3,0 %), nicht die
+        # groesste ueber alle Zeilen (12,0 %).
+        assert "3,0 %" in text
+        assert "beträgt die Artefaktschranke 12,0 %" not in text
+
+    def test_fehlender_kurvenpunkt_kracht(self, res):
+        """E-086: lieber KeyError als eine überzeugend aussehende Falschzahl."""
+        z = self._p12c_zeile(1, "1 Stunde", 6.0, 1.0)
+        del z["kurve"]["1.0"]
+        with pytest.raises(KeyError):
+            self._mit_p12c(res, [z], [0.97])
+
+    def test_basispunkt_wertung_dreht_mit_den_daten(self, res):
+        """E-089: keine feste Wertung neben einer datengetriebenen Zahl."""
+        # Teuer: Break-even bei 1 bps UND dort ist fast nichts mehr uebrig.
+        teuer = self._mit_p12c(
+            res, [self._p12c_zeile(1, "1 Stunde", 6.0, 1.0, bei_be=3.18)], [0.97]
+        )
+        assert "einzelner Basispunkt" in teuer
+        # Robust: Kante traegt bis 20 bps.
+        robust = self._mit_p12c(
+            res, [self._p12c_zeile(1, "1 Stunde", 6.0, 20.0, bei_be=5.5)], [0.97]
+        )
+        assert "einzelner Basispunkt" not in robust
+        assert "überlebt bis 20 bps" in robust

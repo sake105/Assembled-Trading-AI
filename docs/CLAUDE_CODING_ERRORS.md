@@ -927,3 +927,48 @@
 **Wie vermeiden:** (1) Befund-Tabellen aus dem JSON RENDERN, nicht abschreiben — dann ist Drift strukturell unmoeglich. (2) Wo das nicht praktikabel ist: vor jedem Commit einen maschinellen Abgleich Befund-Zahl gegen JSON-Feld ausfuehren und das Ergebnis melden. (3) Jede Remediation, die einen Lauf wiederholt, hat „Befund neu erzeugen" als TEIL des Fixes, nicht als Folgeaufgabe. (4) Wurden veraltete Zahlen bereits berichtet, gehoert die Korrektur unaufgefordert und explizit an den Empfaenger — nicht stillschweigend in die naechste Version.
 **Erkannt in:** Stage-2-Review (F-senior-1/2/3) zu `research/mandat2/BEFUND_P12_INTRADAY.md` und `p12c_reversal_kostenschwelle.py`.
 **Referenzen:** E-073, E-076, E-081.
+
+## E-086 — Erzeuger gefixt, Artefakt nicht neu erzeugt: Finding gilt als erledigt, Deliverable zeigt den alten Wert
+**Datum:** 2026-08-03
+**Kategorie:** wiring-gap / false-fixed / artefakt-drift
+**Was passierte:** Ein Review-Finding bemaengelte die Formatierung eines Verwurfsgrunds (`Abdeckung nur 54.5%` im deutschen Fliesstext). Ich korrigierte den ERZEUGER (`intraday_data.py`) und meldete das Finding als adressiert. Das committete `results/*.json` und der daraus gerenderte Befund trugen den alten String unveraendert weiter — die Korrektur wirkt erst nach einem Neulauf, der 110 Trials kostet. Wer nur den Diff liest, sieht ein geschlossenes Finding; wer das Dokument liest, sieht den alten Wert. Eine zweite Naht derselben Klasse entstand beim Versuch, eine hartkodierte Schwelle zu entkoppeln: der Renderer importierte die Code-Konstante `MIN_ABDECKUNG` — damit haette ein Rendern gegen ein AELTERES Ergebnis-JSON eine Zahl behauptet, die fuer diesen Lauf nie galt.
+**Warum falsch:** Das ist die Umkehrung von E-085. Dort veraltete die Doku gegen den Lauf, hier veraltet das ARTEFAKT gegen den Code. Beide Male behauptet ein Dokument etwas ueber einen Lauf, das dieser Lauf nicht hergibt. Besonders tueckisch, weil der Fix technisch korrekt ist und im Diff ueberzeugend aussieht — nur seine WIRKUNG fehlt. Und: eine Code-Konstante zu importieren sieht wie Entkopplung aus, ist aber eine neue Kopplung an den jetzigen Stand.
+**Wie vermeiden:** (1) Bei jeder Aenderung an einem Erzeuger pruefen, ob ein committetes Artefakt davon abhaengt — und ob ein Neulauf bezahlbar ist. (2) Ist er es nicht, den Fix in die RENDERschicht legen: der wirkt sofort und rueckwirkend auf Altartefakte. (3) Parameter, die ein Ergebnis erklaeren (Schwellen, Kosten, top_k), gehoeren INS Ergebnis-Artefakt; der Renderer darf nur das Artefakt lesen, nie den Live-Code. (4) Fehlt das Feld im Altartefakt, muss der Renderer das SAGEN, nicht eine Zahl aus dem Code einsetzen. (5) Nie als erledigt melden, was nur im Diff erledigt ist.
+**Erkannt in:** Stage-2-Review (F-senior-1/2) zu `research/mandat2/`.
+**Referenzen:** E-085 (Gegenrichtung), E-073, E-076.
+
+## E-087 — abs() wirft genau die Information weg, auf der die Behauptung beruht
+**Datum:** 2026-08-03
+**Kategorie:** logic-error / unpruefbare-behauptung
+**Was passierte:** Ein Befund behauptete, die Abweichung zwischen Haupt- und Kontrolllauf sei „nicht systematisch gerichtet (das Vorzeichen wechselt)" — und berechnete die zugehoerigen Deltas mit `abs()`. Der Generator konnte seine eigene Kernbehauptung damit nicht pruefen; sie stand fest im Code, waehrend die Zahl daneben aus den Daten kam. Nachgerechnet stimmte sie zufaellig (signierte Deltas -3,0 / +5,4 / -2,4 / +12,0 %), aber nur zufaellig.
+**Warum falsch:** „Nicht systematisch gerichtet" IST eine Aussage ueber Vorzeichen. Eine Kennzahl zu bilden, die das Vorzeichen verwirft, und daneben eine Vorzeichenaussage zu treffen, ist ein Selbstwiderspruch im Datenfluss — die Behauptung ueberlebt jede Datenaenderung unveraendert. Generell: wo eine Aggregation eine Dimension kollabiert (abs, max, mean), darf keine Aussage ueber genau diese Dimension danebenstehen.
+**Wie vermeiden:** (1) Vor jeder Aggregation fragen, welche Aussage sie tragen soll — und ob die Aggregation die dafuer noetige Information erhaelt. (2) Vorzeichenaussagen aus signierten Werten ableiten und im Generator VERZWEIGEN (`min >= 0 or max <= 0`), damit die Gegenaussage bei anderen Daten automatisch erscheint. (3) Faustregel: jede pruefbare Wertung im Text braucht den Ausdruck, der sie prueft, unmittelbar daneben.
+**Erkannt in:** Stage-2-Review (F-senior-3) zu `research/mandat2/render_befund_p12.py`.
+**Referenzen:** E-085, E-089.
+
+## E-088 — Extremwerte aus verschiedenen Zeilen im selben Satz als ein Fall gelesen
+**Datum:** 2026-08-03
+**Kategorie:** false-comparison / scheinpraezision
+**Was passierte:** Ein Befundsatz stellte die Artefaktschranke (`max` ueber alle Zeilen = 12,0 %) neben den Break-even (`min` ueber alle Zeilen = 1 bps) und schloss, beide seien „von derselben Groessenordnung wie der verbleibende Spielraum". Die 12,0 % stammten aus der 1-Tag-Zeile — derjenigen, die gar keinen Break-even hat. Die 1 bps stammten aus den kurzen Zeilen. Fuer die tragende Zeile (1 Stunde) betraegt die Schranke 3,0 %. Der Satz kombinierte zwei nicht zusammengehoerige Extremwerte zu einer Aussage ueber einen Fall, den es nicht gibt. Die vorherige Fassung hatte die Zahl hartkodiert; die „Verbesserung" per `min()`/`max()` zementierte den Fehler und liess ihn zugleich gerechnet aussehen.
+**Warum falsch:** Zwei Aggregate ueber dieselbe Tabelle sind keine zwei Eigenschaften desselben Objekts. `max(A)` und `min(B)` beschreiben im Allgemeinen VERSCHIEDENE Zeilen; sie in einem Satz zu verbinden erzeugt einen Fall, der in den Daten nicht vorkommt. Dass beide Zahlen aus dem JSON kommen, macht die Verbindung nicht wahr — Herkunft ersetzt keinen Zeilenbezug.
+**Wie vermeiden:** (1) Sollen zwei Kennzahlen zusammen gelesen werden, aus DERSELBEN Zeile ziehen und die Zeile im Satz benennen. (2) Die relevante Zeile explizit waehlen (hier: die mit dem hoechsten Bruttowert) statt sie durch `min`/`max` implizit entstehen zu lassen. (3) Alternativ je Zeile ausweisen und auf die Gesamtaussage verzichten. (4) Warnsignal: ein Satz mit zwei Aggregaten unterschiedlicher Richtung.
+**Erkannt in:** Stage-2-Review (F-senior-5) zu `research/mandat2/render_befund_p12.py`.
+**Referenzen:** E-078 (Scheinpraezision), E-079.
+
+## E-089 — Generator schuetzt die Zahlen vor Drift, nicht die Schlussfolgerung
+**Datum:** 2026-08-03
+**Kategorie:** false-evidence / halbe-absicherung
+**Was passierte:** Nach E-085 wurde das Befund-Dokument generiert statt geschrieben, damit keine Zahl gegen ihren Lauf driften kann. Die WERTUNGEN blieben aber feste Strings: „Das kurze Ende traegt nicht", „also im Plus", „der Abstand ist klein gegenueber der Streuung". Nur eine von drei Kernaussagen hatte eine Datenverzweigung. Haetten sich die Ergebnisse umgedreht, waeren die Zahlen korrekt und die Schlussfolgerungen falsch gewesen — dasselbe Dokument, dieselbe Klasse Fehler, gegen die der Generator gebaut wurde.
+**Warum falsch:** Gelesen wird die Schlussfolgerung, nicht die Tabelle. Genau so entstand E-085: nicht die Zahlen waren das Problem, sondern dass zwei von drei Schlussfolgerungen sich umgekehrt hatten. Ein Generator, der nur Zahlen absichert, verlagert das Risiko vom auffaelligen Teil (Tabelle) in den unauffaelligen (Prosa) — und erzeugt zugleich das Vertrauen, das Problem sei geloest.
+**Wie vermeiden:** (1) Jede datenABHAENGIGE Wertung im Generator verzweigen, mit ausformulierter Gegenaussage — nicht nur die Zahl einsetzen. (2) Testen, dass die Verzweigung greift: Eingabedaten umdrehen, pruefen dass der Text kippt. Ein Generator, der immer dasselbe schreibt, ist eine Attrappe. (3) Absolutwertungen ohne Rechengrundlage („klein", „deutlich", „vernachlaessigbar") entweder rechnen oder streichen. (4) Auch tote Zweige testen — der Zweig fuer den umgekehrten Befund feuert genau dann, wenn es darauf ankommt.
+**Erkannt in:** Stage-2-Review (F-senior-6/13) zu `research/mandat2/render_befund_p12.py`.
+**Referenzen:** E-085, E-087, E-073.
+
+## E-090 — Wiederholungslauf zur Artefakt-Hygiene inkrementiert die Mehrfachtest-Buchhaltung
+**Datum:** 2026-08-03
+**Kategorie:** metrik-verwaesserung / statistik-buchhaltung
+**Was passierte:** Ein Ergebnis-JSON war eine Skript-Revision alt (fehlendes Feld, alle Zahlen bit-identisch). Der Neulauf zur Bereinigung erhoehte den Trial-Zaehler um 44 — 44 gezaehlte „Hypothesen" ohne eine einzige neue Hypothese. Ein weiterer faelliger Regenerationslauf haette 110 addiert.
+**Warum falsch:** Der Zaehler steuert den Deflated-Sharpe-Haircut und bedeutet „Zahl gepruefter Hypothesen". Zaehlt er Wiederholungen mit, verliert er genau diese Bedeutung. Die Richtung ist konservativ (der Haircut wird zu streng), das Problem ist die Interpretierbarkeit — und bei routinemaessigen Regenerationen waechst der Fehler mit der Sorgfalt, mit der man Artefakte pflegt. Ein Zaehler, dessen Wert von Hygiene-Massnahmen abhaengt, misst nicht mehr, was er messen soll.
+**Wie vermeiden:** (1) Regenerationslaeufe explizit kennzeichnen (`--regen`) und vom Increment ausnehmen. (2) Den Zaehler NIEMALS still zurueckschreiben — er ist append-only Buchhaltung; stattdessen die faelschlich gezaehlte Differenz offenlegen. (3) Beim Bau eines solchen Zaehlers von Anfang an trennen: Hypothesen zaehlen, nicht Prozessaufrufe.
+**Erkannt in:** Stage-2-Review (F-senior-8) zu `research/mandat2/trials.json`.
+**Referenzen:** E-077, E-078.

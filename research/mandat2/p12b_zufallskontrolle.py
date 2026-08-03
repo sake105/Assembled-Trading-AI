@@ -30,6 +30,7 @@ Der Trial-Zaehler steigt trotzdem, weil Backtests laufen.
 from __future__ import annotations
 
 import json
+import sys
 import warnings
 from pathlib import Path
 
@@ -59,11 +60,19 @@ def main() -> int:
     OUT.mkdir(exist_ok=True)
     d = load_intraday()
     print(d, flush=True)
-    print(
-        f"Trials kumuliert: "
-        f"{TrialCounter().increment(len(LANG) * N_SEEDS, label='P12b Zufallskontrolle')}\n",
-        flush=True,
-    )
+    # --regen: reiner Wiederholungslauf zur Artefakt-Hygiene, KEINE neue
+    # Hypothese. Der Zaehler steuert den DSR-Haircut und bedeutet "Zahl
+    # gepruefter Hypothesen" — zaehlt er Regenerationen mit, verliert er
+    # genau diese Bedeutung (Anti-Pattern E-090).
+    regen = "--regen" in sys.argv
+    if regen:
+        print("[SKIP] Trial-Zaehler: --regen (Wiederholungslauf)", flush=True)
+    else:
+        print(
+            f"Trials kumuliert: "
+            f"{TrialCounter().increment(len(LANG) * N_SEEDS, label='P12b Zufallskontrolle')}\n",
+            flush=True,
+        )
 
     close = d.close.ffill()
     fenster = close.index[WARMUP:]

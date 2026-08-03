@@ -71,7 +71,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 from research.mandat2.data_gate import TrialCounter  # noqa: E402
-from research.mandat2.intraday_data import load_intraday  # noqa: E402
+from research.mandat2.intraday_data import MIN_ABDECKUNG, load_intraday  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "results"
 KOSTEN_BPS = 10.0  # identisch zu Mandat I/II
@@ -276,10 +276,18 @@ def main() -> int:
     if d.verworfen:
         print(f"Verworfene Symbole: {d.verworfen}")
     n_trials = 2 * len(HALTEDAUERN) * (1 + N_SEEDS) + 2
-    print(
-        f"Trials kumuliert: {TrialCounter().increment(n_trials, label='P12 Intraday-Haltedauer (v2)')}\n",
-        flush=True,
-    )
+    # --regen: reiner Wiederholungslauf zur Artefakt-Hygiene, KEINE neue
+    # Hypothese. Der Zaehler steuert den DSR-Haircut und bedeutet "Zahl
+    # gepruefter Hypothesen" — zaehlt er Regenerationen mit, verliert er
+    # genau diese Bedeutung (Anti-Pattern E-090).
+    regen = "--regen" in sys.argv
+    if regen:
+        print("[SKIP] Trial-Zaehler: --regen (Wiederholungslauf)", flush=True)
+    else:
+        print(
+            f"Trials kumuliert: {TrialCounter().increment(n_trials, label='P12 Intraday-Haltedauer (v2)')}\n",
+            flush=True,
+        )
 
     close = d.close.ffill()
     if len(close) <= WARMUP + 100:
@@ -381,6 +389,7 @@ def main() -> int:
         "jahre": jahre,
         "warmup_bars": WARMUP,
         "bars_pro_tag": BARS_PRO_TAG,
+        "min_abdeckung": MIN_ABDECKUNG,
         "stufiger_faktor": stufig,
         "kosten_bps": KOSTEN_BPS,
         "top_k": TOP_K,

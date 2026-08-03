@@ -3,8 +3,11 @@
 > **Dieses Dokument wird generiert** (`render_befund_p12.py`), nicht von Hand
 > geschrieben. Grund: die erste Fassung war beim Schreiben korrekt und nach der
 > Review-Remediation komplett veraltet — zwei von drei Schlussfolgerungen
-> hatten sich umgekehrt (E-085). Jede Zahl unten stammt aus
-> `results/p12*.json`.
+> hatten sich umgekehrt (E-085). Jede Zahl in den Tabellen und Kernaussagen
+> stammt aus `results/p12*.json`. **Nicht** von dort: Kopfdatum, die
+> Spannenangabe der Haltedauern, der Rückblick-Faktor und die im
+> Buchhaltungs-Hinweis genannte Trial-Differenz — diese stehen im Generator
+> und sind damit nicht gegen Drift geschützt.
 
 Der Strang, den ich fälschlich für datenblockiert erklärt hatte (E-080).
 Hans' Frage im Wortlaut: *„Du kannst Aktie auch kürzer halten, nur
@@ -20,7 +23,7 @@ in dieser Schicht nicht vorhanden, nicht bloß ungenutzt.
 - Gemeinsames Fenster: **2006-06-22..2016-12-30** (10,52 Jahre)
 - Warm-up 4.355 Bars, für **alle** Varianten identisch —
   gemessener Cash-Anteil max. 0,0000 %
-- Verworfen: AON (Abdeckung nur 54.5%)
+- Verworfen: AON (Abdeckung nur 54,5%)
 
 **Die Rohdaten sind unbereinigt.** Vor der Bereinigung enthält das Panel
 16 Stundensprünge über 35 %, danach 8.
@@ -107,21 +110,20 @@ Fett = schlägt Buy-and-Hold (3,138×).
 
 ## Was daraus folgt
 
-**1. Das kurze Ende trägt nicht.** Keine Haltedauer bis einschließlich einem
-Tag kommt netto in die Nähe des schlichten Haltens: der beste kurze Wert ist
-1,541× gegen 3,138×. Bei einstündigem
-Halten fallen 18.504 Umschichtungen an.
+**1. Das kurze Ende trägt nicht.** Keine Haltedauer bis einschließlich
+einem Tag: der beste kurze Wert ist 1,541× gegen 3,138×.
+Bei einstündigem Halten fallen 18.504 Umschichtungen an.
 
-**2. Vor Kosten gewinnen die kurzen Haltedauern — aber schlechter als das
-Los.** Brutto liegen sie zwischen 2,291× und 3,236×,
+**2. Vor Kosten gewinnen die kurzen Haltedauern — aber schlechter als
+das Los.** Brutto liegen sie zwischen 2,291× und 3,236×,
 also im Plus. In **5 von 8** kurzen Zeilen
 liegt Momentum brutto jedoch **unter der Zufallsauswahl** — die Rangfolge nach
 jüngster Rendite wählt dort aktiv schlechter als das Los, und zwar bevor eine
 einzige Gebühr anfällt. Ein Brutto-Alpha ist am kurzen Ende also nicht
 nachweisbar; die Kosten verschärfen das Bild zusätzlich.
 
-*Belastbarkeit:* Diese Aussage beruht auf **fünf** Zufallsziehungen je Zeile
-ohne ausgewiesenes Streuungsmaß. Die 60-Seed-Kontrolle (P12b) lief am
+*Belastbarkeit:* Diese Aussage beruht auf **5** Zufallsziehungen je
+Zeile ohne ausgewiesenes Streuungsmaß. Die große Kontrolle (P12b) lief am
 **langen** Ende. Eine 60-Seed-Kontrolle am kurzen Ende ist offener
 Folgeschritt — bis dahin ist Aussage 2 ein Hinweis, kein Beleg.
 
@@ -191,12 +193,20 @@ anderen Zeitraum, E-082).
 Bereinigungsverfahrens aufblähen würde — deshalb ist diese Spalte hier
 Pflicht und nicht Fußnote.
 
-Die Abweichung ist **nicht systematisch gerichtet** (das Vorzeichen
-wechselt), die Bruttokante ist also kein Verfahrensartefakt. Ihre Größe
-reicht aber bis 12,0 %, während der Break-even bei 1 bps
-liegt: die Artefaktschranke ist damit von derselben Größenordnung wie
-der verbleibende Spielraum. Beides zusammen gelesen heißt: die Kante
-ist real, aber die Aussage über ihre exakte Höhe ist es nicht.
+Die Abweichung ist **nicht systematisch gerichtet** (das
+Vorzeichen wechselt), die Bruttokante ist also kein
+Verfahrensartefakt.
+
+Für die tragende Zeile (**1 Stunde**, der höchste Bruttowert)
+beträgt die Artefaktschranke 3,0 %. Ihr Break-even gegen
+Buy-and-Hold liegt bei 1 bps — dort bleiben 3,180×
+gegenüber 6,140× brutto, also 1,4 %
+des Bruttovorsprungs über das schlichte Halten.
+
+Schon **ein einzelner Basispunkt** kostet damit den Großteil
+der Kante.
+Sie ist real, aber die Aussage über ihre exakte Höhe ist es
+nicht.
 
 ## Was dieser Strang nicht beantwortet
 
@@ -208,11 +218,24 @@ ist real, aber die Aussage über ihre exakte Höhe ist es nicht.
   stündlichem Umschlag wäre schlechter, nicht besser.
 - **Gefüllte Bars.** Gerechnet wird auf `close.ffill()`. Eine gefüllte Bar
   erzeugt exakt 0 Rendite und geht in Signal und Umschichtung ein; bei
-  stündlicher Haltedauer ist das nicht vernachlässigbar. Der
-  Abdeckungsfilter lässt strukturell bis zu 10 % gefüllte Bars zu. Die
-  Richtung ist konservativ — es dämpft das kurze Ende, rettet das negative
-  Verdikt also nicht.
+  stündlicher Haltedauer ist das nicht vernachlässigbar.
+  Der Abdeckungsfilter lässt strukturell gefüllte Bars zu; dieses
+  Lauf-Artefakt führt die Schwelle noch nicht, deshalb ist sie hier
+  nicht beziffert.
+  Die Richtung ist konservativ — es dämpft das kurze Ende, rettet das
+  negative Verdikt also nicht.
 - **Der Holdout bleibt versiegelt.** Kein Kandidat aus P12 hat ihn verdient.
+
+## Buchhaltungs-Hinweis zum Trial-Zähler
+
+Ein Wiederholungslauf von P12c zur Artefakt-Hygiene (bit-identische
+Ergebnisse, nur ein fehlendes Metadatenfeld) hat **44 Trials** gezählt,
+ohne eine einzige neue Hypothese zu prüfen. Der Zähler steuert den
+DSR-Haircut und bedeutet „Zahl geprüfter Hypothesen“ — Regenerationen
+gehören nicht hinein. Die Skripte haben dafür jetzt `--regen`; die bereits
+gezählten 44 werden **nicht** stillschweigend zurückgeschrieben, sondern
+hier offengelegt (E-090). Wirkung: der Haircut ist um diesen Betrag zu
+streng, also konservativ.
 
 ## Offene Folgeschritte
 

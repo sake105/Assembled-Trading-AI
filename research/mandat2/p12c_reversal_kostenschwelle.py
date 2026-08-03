@@ -83,11 +83,19 @@ def main() -> int:
     d = load_intraday(stufig=stufig)
     print(d, flush=True)
     n = len(KURZ) * len(KOSTEN_RASTER)
-    print(
-        f"Trials kumuliert: "
-        f"{TrialCounter().increment(n, label='P12c Reversal-Kostenschwelle')}\n",
-        flush=True,
-    )
+    # --regen: reiner Wiederholungslauf zur Artefakt-Hygiene, KEINE neue
+    # Hypothese. Der Zaehler steuert den DSR-Haircut und bedeutet "Zahl
+    # gepruefter Hypothesen" — zaehlt er Regenerationen mit, verliert er
+    # genau diese Bedeutung (Anti-Pattern E-090).
+    regen = "--regen" in sys.argv
+    if regen:
+        print("[SKIP] Trial-Zaehler: --regen (Wiederholungslauf)", flush=True)
+    else:
+        print(
+            f"Trials kumuliert: "
+            f"{TrialCounter().increment(n, label='P12c Reversal-Kostenschwelle')}\n",
+            flush=True,
+        )
 
     close = d.close.ffill()
     fenster = close.index[WARMUP:]

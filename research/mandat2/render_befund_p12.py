@@ -22,6 +22,7 @@ und wird bei jedem Neulauf mit ihnen zusammen neu erzeugt.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 HIER = Path(__file__).resolve().parent
@@ -54,6 +55,19 @@ def tsd(n: int) -> str:
     return f"{n:,}".replace(",", ".")
 
 
+def dezimal_de(text: str) -> str:
+    """Normalisiert Dezimalpunkte in freiem Text auf Komma.
+
+    Bewusst hier und nicht in der Datenschicht: der Verwurfsgrund steht bereits
+    in committeten Artefakten, und ein Fix am Erzeuger wirkt erst nach einem
+    Neulauf — der 110 Trials kostet. Ein Fix in der Renderschicht wirkt sofort
+    und auch rueckwirkend (Anti-Pattern E-086).
+
+    Gezielt nur Ziffer.Ziffer, damit Symbole wie ``BRK.B`` unangetastet bleiben.
+    """
+    return re.sub(r"(\d)\.(\d)", r"\1,\2", text)
+
+
 def tabelle(zeilen: list[dict], bh: float) -> str:
     kopf = (
         "| Haltedauer | Rückblick | Umschicht. | netto | brutto | Zufall netto "
@@ -67,7 +81,7 @@ def tabelle(zeilen: list[dict], bh: float) -> str:
             f"| {z['name']} | {tsd(z['rueckblick_bars'])} | {tsd(z['umschichtungen'])} "
             f"| {f}{fak(z['netto_end'])}{f} | {fak(z['brutto_end'])} "
             f"| {fak(z['zufall_end_mittel'])} "
-            f"| {fak(z.get('zufall_brutto_mittel', 0.0))} "
+            f"| {fak(z['zufall_brutto_mittel'])} "
             f"| {pct(z['maxdd'])} | {pct(z['kostenlast'])} |"
         )
     return kopf + "\n".join(aus)
@@ -95,16 +109,26 @@ def main() -> int:
     verworfen_satz = (
         "Kein Symbol verworfen"
         if not d["verworfen"]
-        else "Verworfen: " + "; ".join(f"{k} ({v})" for k, v in d["verworfen"].items())
+        else "Verworfen: "
+        + "; ".join(f"{k} ({dezimal_de(v)})" for k, v in d["verworfen"].items())
     )
     # Wie oft liegt Momentum BRUTTO unter der Zufallsauswahl? Diese Zahl traegt
     # Kernaussage 2 und wird deshalb gerechnet, nicht geschaetzt.
+    #
+    # Direktzugriff, KEIN .get(..., 0.0): ein fehlender Schluessel wuerde sonst
+    # lautlos "0 von 8" ergeben und damit das Vorzeichen des Befunds umdrehen,
+    # ohne Fehler und ohne Warnung. Eine Datenluecke muss krachen, nicht
+    # ueberzeugend aussehen.
     kurz_unter_zufall = [
         z
         for z in flach
         if z["halte_bars"] <= d["bars_pro_tag"]
-        and z["brutto_end"] < z.get("zufall_brutto_mittel", 0.0)
+        and z["brutto_end"] < z["zufall_brutto_mittel"]
     ]
+    seed_zahlen = {len(z["zufall_end_alle"]) for z in flach}
+    if len(seed_zahlen) != 1:
+        raise SystemExit(f"Uneinheitliche Seed-Zahlen je Zeile: {sorted(seed_zahlen)}")
+    n_seeds = seed_zahlen.pop()
     schlagen = [z for z in flach if z["netto_end"] > bh]
 
     t: list[str] = []
@@ -113,8 +137,11 @@ def main() -> int:
         "> **Dieses Dokument wird generiert** (`render_befund_p12.py`), nicht von Hand\n"
         "> geschrieben. Grund: die erste Fassung war beim Schreiben korrekt und nach der\n"
         "> Review-Remediation komplett veraltet — zwei von drei Schlussfolgerungen\n"
-        "> hatten sich umgekehrt (E-085). Jede Zahl unten stammt aus\n"
-        "> `results/p12*.json`.\n"
+        "> hatten sich umgekehrt (E-085). Jede Zahl in den Tabellen und Kernaussagen\n"
+        "> stammt aus `results/p12*.json`. **Nicht** von dort: Kopfdatum, die\n"
+        "> Spannenangabe der Haltedauern, der Rückblick-Faktor und die im\n"
+        "> Buchhaltungs-Hinweis genannte Trial-Differenz — diese stehen im Generator\n"
+        "> und sind damit nicht gegen Drift geschützt.\n"
     )
     t.append(
         "Der Strang, den ich fälschlich für datenblockiert erklärt hatte (E-080).\n"
@@ -195,25 +222,40 @@ def main() -> int:
     t.append(f"Fett = schlägt Buy-and-Hold ({fak(bh)}).\n")
 
     # ---------------- Interpretation ----------------
+    # Aussage 1 und 2 sind datenABHAENGIGE Wertungen und werden deshalb genauso
+    # verzweigt wie Aussage 3. Ein Generator, der nur Zahlen gegen Drift
+    # schuetzt, schuetzt nicht das, was gelesen wird — die Schlussfolgerung
+    # (E-089). Genau so entstand E-085: nicht die Tabelle war falsch.
     t.append("## Was daraus folgt\n")
+    bestes_kurz = max(z["netto_end"] for z in kurz)
     t.append(
-        "**1. Das kurze Ende trägt nicht.** Keine Haltedauer bis einschließlich einem\n"
-        f"Tag kommt netto in die Nähe des schlichten Haltens: der beste kurze Wert ist\n"
-        f"{fak(max(z['netto_end'] for z in kurz))} gegen {fak(bh)}. Bei einstündigem\n"
-        f"Halten fallen {tsd(max(z['umschichtungen'] for z in kurz))} Umschichtungen an.\n"
+        (
+            "**1. Das kurze Ende trägt nicht.** Keine Haltedauer bis einschließlich\n"
+            if bestes_kurz < bh
+            else "**1. Mindestens eine kurze Haltedauer schlägt das Halten.** Bis\n"
+        )
+        + f"einem Tag: der beste kurze Wert ist {fak(bestes_kurz)} gegen {fak(bh)}.\n"
+        f"Bei einstündigem Halten fallen "
+        f"{tsd(max(z['umschichtungen'] for z in kurz))} Umschichtungen an.\n"
     )
     bruttos = [z["brutto_end"] for z in kurz]
     t.append(
-        "**2. Vor Kosten gewinnen die kurzen Haltedauern — aber schlechter als das\n"
-        f"Los.** Brutto liegen sie zwischen {fak(min(bruttos))} und "
-        f"{fak(max(bruttos))},\n"
-        f"also im Plus. In **{len(kurz_unter_zufall)} von {len(kurz)}** kurzen Zeilen\n"
+        (
+            "**2. Vor Kosten gewinnen die kurzen Haltedauern — aber schlechter als\n"
+            f"das Los.** Brutto liegen sie zwischen {fak(min(bruttos))} und "
+            f"{fak(max(bruttos))},\nalso im Plus. "
+            if min(bruttos) > 1.0
+            else "**2. Ein Teil der kurzen Haltedauern verliert schon brutto.**\n"
+            f"Brutto liegen sie zwischen {fak(min(bruttos))} und "
+            f"{fak(max(bruttos))}.\n"
+        )
+        + f"In **{len(kurz_unter_zufall)} von {len(kurz)}** kurzen Zeilen\n"
         "liegt Momentum brutto jedoch **unter der Zufallsauswahl** — die Rangfolge nach\n"
         "jüngster Rendite wählt dort aktiv schlechter als das Los, und zwar bevor eine\n"
         "einzige Gebühr anfällt. Ein Brutto-Alpha ist am kurzen Ende also nicht\n"
         "nachweisbar; die Kosten verschärfen das Bild zusätzlich.\n\n"
-        "*Belastbarkeit:* Diese Aussage beruht auf **fünf** Zufallsziehungen je Zeile\n"
-        "ohne ausgewiesenes Streuungsmaß. Die 60-Seed-Kontrolle (P12b) lief am\n"
+        f"*Belastbarkeit:* Diese Aussage beruht auf **{n_seeds}** Zufallsziehungen je\n"
+        "Zeile ohne ausgewiesenes Streuungsmaß. Die große Kontrolle (P12b) lief am\n"
         "**langen** Ende. Eine 60-Seed-Kontrolle am kurzen Ende ist offener\n"
         "Folgeschritt — bis dahin ist Aussage 2 ein Hinweis, kein Beleg.\n\n"
         "Eine frühere Fassung dieses Dokuments behauptete hier ein umgekehrtes\n"
@@ -313,25 +355,72 @@ def main() -> int:
                 f"| {f'{be:g} bps' if be is not None else 'nie'} |"
             )
         t.append("")
-        if c_st:
-            deltas = [
-                abs(x["brutto_end"] / z["brutto_end"] - 1.0)
-                for z in c["zeilen"]
-                for x in c_st["zeilen"]
-                if x["halte_bars"] == z["halte_bars"]
-            ]
+        # SIGNIERTE Deltas: das Vorzeichen IST die Aussage („nicht systematisch
+        # gerichtet"). Ein abs() hier würde genau die Information wegwerfen, auf
+        # der der Satz beruht, und die Behauptung unprüfbar machen (E-087).
+        paare = [
+            (z, x)
+            for z in c["zeilen"]
+            for x in (c_st["zeilen"] if c_st else [])
+            if x["halte_bars"] == z["halte_bars"]
+        ]
+        if paare:
             t.append(
                 "*brutto stufig* ist die Gegenprobe mit erzwungen stufigem Tagesfaktor\n"
                 "(E-083). Reversal ist der Fall, den das reversierende Rauschen des\n"
                 "Bereinigungsverfahrens aufblähen würde — deshalb ist diese Spalte hier\n"
-                "Pflicht und nicht Fußnote.\n\n"
-                "Die Abweichung ist **nicht systematisch gerichtet** (das Vorzeichen\n"
-                "wechselt), die Bruttokante ist also kein Verfahrensartefakt. Ihre Größe\n"
-                f"reicht aber bis {pct(max(deltas))}, während der Break-even bei 1 bps\n"
-                "liegt: die Artefaktschranke ist damit von derselben Größenordnung wie\n"
-                "der verbleibende Spielraum. Beides zusammen gelesen heißt: die Kante\n"
-                "ist real, aber die Aussage über ihre exakte Höhe ist es nicht.\n"
+                "Pflicht und nicht Fußnote.\n"
             )
+            signiert = [x["brutto_end"] / z["brutto_end"] - 1.0 for z, x in paare]
+            gerichtet = min(signiert) >= 0 or max(signiert) <= 0
+            t.append(
+                (
+                    "Die Abweichung ist **systematisch gerichtet** (alle Vorzeichen\n"
+                    "gleich) — ein Verfahrensartefakt ist damit **nicht** ausgeschlossen.\n"
+                    if gerichtet
+                    else "Die Abweichung ist **nicht systematisch gerichtet** (das\n"
+                    "Vorzeichen wechselt), die Bruttokante ist also kein\n"
+                    "Verfahrensartefakt.\n"
+                )
+            )
+            # Artefaktschranke und Break-even MÜSSEN aus DERSELBEN Zeile stammen.
+            # Eine frühere Fassung stellte das Maximum der einen Spalte neben das
+            # Minimum der anderen — die 12,0 % kamen aus der 1-Tag-Zeile, die gar
+            # keinen Break-even hat, die 1 bps aus den kurzen Zeilen (E-088).
+            mit_be = [
+                (z, x)
+                for z, x in paare
+                if z["breakeven_schlaegt_benchmark_bps"] is not None
+            ]
+            if mit_be:
+                # Die tragende Zeile ist die mit dem höchsten Bruttowert.
+                z0, x0 = max(mit_be, key=lambda zx: zx[0]["brutto_end"])
+                schranke = abs(x0["brutto_end"] / z0["brutto_end"] - 1.0)
+                be0 = z0["breakeven_schlaegt_benchmark_bps"]
+                # KEIN .get(..., bei_10bps): ein fehlender Schluessel wuerde den
+                # 10-bps-Wert unter der Beschriftung "bei {be0} bps" drucken —
+                # eine ueberzeugend aussehende Falschzahl. Genau die Regel, die
+                # oben fuer `zufall_brutto_mittel` gilt (E-086/E-089).
+                bei_be = z0["kurve"][f"{be0}"]
+                # Wie viel des Vorsprungs ueber Buy-and-Hold ueberlebt den
+                # Break-even? Gerechnet statt als "Grossteil" behauptet (E-089).
+                vorsprung = z0["brutto_end"] - z0["bench_end"]
+                rest = (bei_be - z0["bench_end"]) / vorsprung if vorsprung > 0 else 0.0
+                t.append(
+                    f"Für die tragende Zeile (**{z0['name']}**, der höchste Bruttowert)\n"
+                    f"beträgt die Artefaktschranke {pct(schranke)}. Ihr Break-even gegen\n"
+                    f"Buy-and-Hold liegt bei {be0:g} bps — dort bleiben {fak(bei_be)}\n"
+                    f"gegenüber {fak(z0['brutto_end'])} brutto, also {pct(max(rest, 0.0))}\n"
+                    "des Bruttovorsprungs über das schlichte Halten.\n\n"
+                    + (
+                        "Schon **ein einzelner Basispunkt** kostet damit den Großteil\n"
+                        "der Kante.\n"
+                        if be0 <= 1.0 and rest < 0.5
+                        else f"Die Kante überlebt bis {be0:g} bps je Seite.\n"
+                    )
+                    + "Sie ist real, aber die Aussage über ihre exakte Höhe ist es\n"
+                    "nicht.\n"
+                )
 
     t.append("## Was dieser Strang nicht beantwortet\n")
     t.append(
@@ -343,11 +432,33 @@ def main() -> int:
         "  stündlichem Umschlag wäre schlechter, nicht besser.\n"
         "- **Gefüllte Bars.** Gerechnet wird auf `close.ffill()`. Eine gefüllte Bar\n"
         "  erzeugt exakt 0 Rendite und geht in Signal und Umschichtung ein; bei\n"
-        "  stündlicher Haltedauer ist das nicht vernachlässigbar. Der\n"
-        "  Abdeckungsfilter lässt strukturell bis zu 10 % gefüllte Bars zu. Die\n"
-        "  Richtung ist konservativ — es dämpft das kurze Ende, rettet das negative\n"
-        "  Verdikt also nicht.\n"
+        "  stündlicher Haltedauer ist das nicht vernachlässigbar.\n"
+        # Die Schwelle kommt aus dem LAUF-Artefakt, nicht aus dem Live-Code:
+        # ein Import der Konstante haette das Dokument an den JETZIGEN Stand
+        # gekoppelt und gegen ein aelteres Ergebnis eine Zahl behauptet, die
+        # dort nie galt (E-086, zweite Naht).
+        + (
+            f"  Der Abdeckungsfilter lässt strukturell bis zu "
+            f"{pct(1.0 - d['min_abdeckung'])} gefüllte Bars zu.\n"
+            if "min_abdeckung" in d
+            else "  Der Abdeckungsfilter lässt strukturell gefüllte Bars zu; dieses\n"
+            "  Lauf-Artefakt führt die Schwelle noch nicht, deshalb ist sie hier\n"
+            "  nicht beziffert.\n"
+        )
+        + "  Die Richtung ist konservativ — es dämpft das kurze Ende, rettet das\n"
+        "  negative Verdikt also nicht.\n"
         "- **Der Holdout bleibt versiegelt.** Kein Kandidat aus P12 hat ihn verdient.\n"
+    )
+    t.append(
+        "## Buchhaltungs-Hinweis zum Trial-Zähler\n\n"
+        "Ein Wiederholungslauf von P12c zur Artefakt-Hygiene (bit-identische\n"
+        "Ergebnisse, nur ein fehlendes Metadatenfeld) hat **44 Trials** gezählt,\n"
+        "ohne eine einzige neue Hypothese zu prüfen. Der Zähler steuert den\n"
+        f"DSR-Haircut und bedeutet {AUF}Zahl geprüfter Hypothesen{ZU} — Regenerationen\n"
+        "gehören nicht hinein. Die Skripte haben dafür jetzt `--regen`; die bereits\n"
+        "gezählten 44 werden **nicht** stillschweigend zurückgeschrieben, sondern\n"
+        "hier offengelegt (E-090). Wirkung: der Haircut ist um diesen Betrag zu\n"
+        "streng, also konservativ.\n"
     )
     t.append(
         "## Offene Folgeschritte\n\n"
