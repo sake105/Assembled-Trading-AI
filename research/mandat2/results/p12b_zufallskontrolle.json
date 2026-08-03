@@ -1,0 +1,66 @@
+{
+  "n_seeds": 60,
+  "benchmark_end": 3.1381880956606176,
+  "zeilen": [
+    {
+      "halte_bars": 147,
+      "name": "1 Monat",
+      "rueckblick_bars": 882,
+      "momentum_end": 2.477154603063588,
+      "zufall_median": 2.562285184047062,
+      "zufall_p05": 1.193951199517463,
+      "zufall_p95": 3.628864804053405,
+      "zufall_schlagen_momentum": 32,
+      "n_seeds": 60,
+      "momentum_perzentil": 46.666666666666664,
+      "p_einseitig": 0.5409836065573771,
+      "bench_end": 3.1381880956606176,
+      "zufall_schlagen_bench": 10
+    },
+    {
+      "halte_bars": 441,
+      "name": "1 Quartal",
+      "rueckblick_bars": 882,
+      "momentum_end": 1.9784933863312262,
+      "zufall_median": 2.6679442153248827,
+      "zufall_p05": 1.5893612357817917,
+      "zufall_p95": 4.134383757588394,
+      "zufall_schlagen_momentum": 47,
+      "n_seeds": 60,
+      "momentum_perzentil": 21.666666666666668,
+      "p_einseitig": 0.7868852459016393,
+      "bench_end": 3.1381880956606176,
+      "zufall_schlagen_bench": 12
+    },
+    {
+      "halte_bars": 1764,
+      "name": "1 Jahr",
+      "rueckblick_bars": 882,
+      "momentum_end": 2.380089564605003,
+      "zufall_median": 2.781321065621046,
+      "zufall_p05": 1.5747884198350428,
+      "zufall_p95": 4.305349810775155,
+      "zufall_schlagen_momentum": 43,
+      "n_seeds": 60,
+      "momentum_perzentil": 28.333333333333332,
+      "p_einseitig": 0.7213114754098361,
+      "bench_end": 3.1381880956606176,
+      "zufall_schlagen_bench": 17
+    },
+    {
+      "halte_bars": 3528,
+      "name": "2 Jahre",
+      "rueckblick_bars": 882,
+      "momentum_end": 2.3379279408330205,
+      "zufall_median": 2.636451840166402,
+      "zufall_p05": 1.618781262255736,
+      "zufall_p95": 4.257928262179165,
+      "zufall_schlagen_momentum": 41,
+      "n_seeds": 60,
+      "momentum_perzentil": 31.666666666666664,
+      "p_einseitig": 0.6885245901639344,
+      "bench_end": 3.1381880956606176,
+      "zufall_schlagen_bench": 15
+    }
+  ]
+}

@@ -1,0 +1,404 @@
+{
+  "universum": [
+    "AAPL",
+    "ADBE",
+    "ADI",
+    "ADM",
+    "ADP",
+    "AEP",
+    "AFL",
+    "AIG",
+    "ALL",
+    "AMAT",
+    "AMGN",
+    "APD",
+    "AXP",
+    "BA",
+    "BAC",
+    "BAX",
+    "BDX",
+    "BEN",
+    "BIIB",
+    "MSFT"
+  ],
+  "verworfen": {
+    "AON": "Abdeckung nur 54.5%"
+  },
+  "fenster": "2006-06-22..2016-12-30",
+  "jahre": 10.524298425735797,
+  "warmup_bars": 4355,
+  "bars_pro_tag": 7,
+  "stufiger_faktor": true,
+  "kosten_bps": 10.0,
+  "top_k": 5,
+  "roh_spruenge": 16,
+  "rest_spruenge": 8,
+  "split_diagnose": [
+    {
+      "symbol": "AIG",
+      "zeitpunkt": "2009-07-01 13:00",
+      "roher_sprung": 17.407079646017703
+    },
+    {
+      "symbol": "AAPL",
+      "zeitpunkt": "2014-06-09 13:00",
+      "roher_sprung": -0.8570099292098455
+    },
+    {
+      "symbol": "BEN",
+      "zeitpunkt": "2013-07-26 13:00",
+      "roher_sprung": -0.6691436905340649
+    },
+    {
+      "symbol": "ADBE",
+      "zeitpunkt": "2005-05-24 13:00",
+      "roher_sprung": -0.4994431185361973
+    },
+    {
+      "symbol": "BAC",
+      "zeitpunkt": "2004-08-30 13:00",
+      "roher_sprung": -0.49792204874761314
+    },
+    {
+      "symbol": "BAX",
+      "zeitpunkt": "2015-07-01 13:00",
+      "roher_sprung": -0.46000858491915864
+    },
+    {
+      "symbol": "BIIB",
+      "zeitpunkt": "2005-02-28 14:00",
+      "roher_sprung": -0.4043058648849295
+    }
+  ],
+  "buy_and_hold": {
+    "endwert": 3.1326196460941405,
+    "cagr": 0.11460313171973047,
+    "maxdd": -0.5471749316083194
+  },
+  "ew_rebalanciert": {
+    "endwert": 3.2402171823462154,
+    "cagr": 0.1181854558369797,
+    "maxdd": -0.6163478092350383
+  },
+  "familien": {
+    "A_fester_rueckblick": [
+      {
+        "halte_bars": 1,
+        "name": "1 Stunde",
+        "rueckblick_bars": 882,
+        "umschichtungen": 18504,
+        "netto_end": 0.6881674003151959,
+        "brutto_end": 2.2637657761407133,
+        "cagr": -0.03488740473133056,
+        "maxdd": -0.6134194951536533,
+        "zufall_end_mittel": 2.586061247939989e-12,
+        "zufall_end_alle": [
+          2.5993099185299654e-12,
+          3.513953765229619e-12,
+          1.6400182283351491e-12,
+          1.7611675403786663e-12,
+          3.415856787226546e-12
+        ],
+        "zufall_brutto_mittel": 3.0557589685680626,
+        "anteil_cash": 0.0,
+        "kostenlast": 2.2895568361765735
+      },
+      {
+        "halte_bars": 2,
+        "name": "2 Stunden",
+        "rueckblick_bars": 882,
+        "umschichtungen": 9252,
+        "netto_end": 1.010138655826748,
+        "brutto_end": 2.3333175389033536,
+        "cagr": 0.0009589656316764117,
+        "maxdd": -0.5801783942718008,
+        "zufall_end_mittel": 2.1166273646618664e-06,
+        "zufall_end_alle": [
+          1.389634998214448e-06,
+          2.493740924595191e-06,
+          1.0585088092462795e-06,
+          2.547673966559943e-06,
+          3.0935781246934703e-06
+        ],
+        "zufall_brutto_mittel": 2.3849506840566503,
+        "anteil_cash": 0.0,
+        "kostenlast": 1.3098982752953354
+      },
+      {
+        "halte_bars": 4,
+        "name": "4 Stunden",
+        "rueckblick_bars": 882,
+        "umschichtungen": 4626,
+        "netto_end": 1.4504362936532942,
+        "brutto_end": 2.59869861519757,
+        "cagr": 0.03596554964128296,
+        "maxdd": -0.5527087183688644,
+        "zufall_end_mittel": 0.00335705792982218,
+        "zufall_end_alle": [
+          0.003149482777376781,
+          0.0025410493135714545,
+          0.0016591225694289366,
+          0.003546287954023058,
+          0.00588934703471067
+        ],
+        "zufall_brutto_mittel": 3.4554229818772226,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.7916668429828682
+      },
+      {
+        "halte_bars": 7,
+        "name": "1 Tag",
+        "rueckblick_bars": 882,
+        "umschichtungen": 2644,
+        "netto_end": 1.5615271358468652,
+        "brutto_end": 2.4057453929956463,
+        "cagr": 0.04325561408989498,
+        "maxdd": -0.5608949938612917,
+        "zufall_end_mittel": 0.04853430821434024,
+        "zufall_end_alle": [
+          0.05389875356677524,
+          0.03893341155776276,
+          0.04619285394430719,
+          0.061567524765147076,
+          0.04207899723770896
+        ],
+        "zufall_brutto_mittel": 2.576568335536148,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.5406363026095828
+      },
+      {
+        "halte_bars": 35,
+        "name": "1 Woche",
+        "rueckblick_bars": 882,
+        "umschichtungen": 529,
+        "netto_end": 2.6074683302732327,
+        "brutto_end": 3.1054522720594098,
+        "cagr": 0.09533858957247232,
+        "maxdd": -0.5217396366857094,
+        "zufall_end_mittel": 1.1576868429939557,
+        "zufall_end_alle": [
+          0.6642052122070069,
+          1.1640229170385603,
+          1.5634412016664465,
+          1.2618603698243407,
+          1.1349045142334242
+        ],
+        "zufall_brutto_mittel": 2.5647095977948333,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.1909836970997818
+      },
+      {
+        "halte_bars": 147,
+        "name": "1 Monat",
+        "rueckblick_bars": 882,
+        "umschichtungen": 126,
+        "netto_end": 2.6007614547618103,
+        "brutto_end": 2.8180608418475033,
+        "cagr": 0.09507057251221962,
+        "maxdd": -0.5775102517212309,
+        "zufall_end_mittel": 2.1320928622201536,
+        "zufall_end_alle": [
+          3.0886686687563674,
+          1.1262242758769858,
+          2.402238827137234,
+          2.5086399050202153,
+          1.5346926343099652
+        ],
+        "zufall_brutto_mittel": 2.5737237556334756,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.08355221763527498
+      },
+      {
+        "halte_bars": 441,
+        "name": "1 Quartal",
+        "rueckblick_bars": 882,
+        "umschichtungen": 42,
+        "netto_end": 1.969290525086169,
+        "brutto_end": 2.0628246368448657,
+        "cagr": 0.06650965056532221,
+        "maxdd": -0.5384593517747625,
+        "zufall_end_mittel": 2.3764043934767147,
+        "zufall_end_alle": [
+          2.464780189488352,
+          2.731867900890163,
+          2.7169055995652878,
+          2.376443320124576,
+          1.592024957315195
+        ],
+        "zufall_brutto_mittel": 2.5307069862157037,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.047496349861635645
+      },
+      {
+        "halte_bars": 1764,
+        "name": "1 Jahr",
+        "rueckblick_bars": 882,
+        "umschichtungen": 11,
+        "netto_end": 2.3812775392882357,
+        "brutto_end": 2.4160582252646123,
+        "cagr": 0.08593495619030933,
+        "maxdd": -0.5387531459841519,
+        "zufall_end_mittel": 2.6574094579966188,
+        "zufall_end_alle": [
+          1.5797744110098813,
+          2.4887434668515724,
+          3.880133087609724,
+          2.70066962035257,
+          2.637726704159344
+        ],
+        "zufall_brutto_mittel": 2.6988365335046556,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.014605893434316952
+      },
+      {
+        "halte_bars": 3528,
+        "name": "2 Jahre",
+        "rueckblick_bars": 882,
+        "umschichtungen": 6,
+        "netto_end": 2.332343618754232,
+        "brutto_end": 2.3489816749231855,
+        "cagr": 0.08379461380073816,
+        "maxdd": -0.6135997160152338,
+        "zufall_end_mittel": 2.4490380417572886,
+        "zufall_end_alle": [
+          2.523767156445993,
+          2.5647557710422224,
+          2.281704481790155,
+          2.768686080347261,
+          2.1062767191608125
+        ],
+        "zufall_brutto_mittel": 2.4672580024473145,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.007133621321990358
+      }
+    ],
+    "B_skalierter_rueckblick": [
+      {
+        "halte_bars": 1,
+        "name": "1 Stunde",
+        "rueckblick_bars": 20,
+        "umschichtungen": 18504,
+        "netto_end": 0.004260746959321411,
+        "brutto_end": 2.4607919169858343,
+        "cagr": -0.4046697123235592,
+        "maxdd": -0.9958623255337709,
+        "zufall_end_mittel": 2.586061247939989e-12,
+        "zufall_end_alle": [
+          2.5993099185299654e-12,
+          3.513953765229619e-12,
+          1.6400182283351491e-12,
+          1.7611675403786663e-12,
+          3.415856787226546e-12
+        ],
+        "zufall_brutto_mittel": 3.0557589685680626,
+        "anteil_cash": 0.0,
+        "kostenlast": 576.5494157432323
+      },
+      {
+        "halte_bars": 2,
+        "name": "2 Stunden",
+        "rueckblick_bars": 40,
+        "umschichtungen": 9252,
+        "netto_end": 0.0990673773782034,
+        "brutto_end": 2.5726232610451176,
+        "cagr": -0.19722261597940727,
+        "maxdd": -0.9183682259037217,
+        "zufall_end_mittel": 2.1166273646618664e-06,
+        "zufall_end_alle": [
+          1.389634998214448e-06,
+          2.493740924595191e-06,
+          1.0585088092462795e-06,
+          2.547673966559943e-06,
+          3.0935781246934703e-06
+        ],
+        "zufall_brutto_mittel": 2.3849506840566503,
+        "anteil_cash": 0.0,
+        "kostenlast": 24.968419969610913
+      },
+      {
+        "halte_bars": 4,
+        "name": "4 Stunden",
+        "rueckblick_bars": 80,
+        "umschichtungen": 4626,
+        "netto_end": 0.45445465061103224,
+        "brutto_end": 2.3133731870804257,
+        "cagr": -0.07219786985306809,
+        "maxdd": -0.7554093959047146,
+        "zufall_end_mittel": 0.00335705792982218,
+        "zufall_end_alle": [
+          0.003149482777376781,
+          0.0025410493135714545,
+          0.0016591225694289366,
+          0.003546287954023058,
+          0.00588934703471067
+        ],
+        "zufall_brutto_mittel": 3.4554229818772226,
+        "anteil_cash": 0.0,
+        "kostenlast": 4.090437921517591
+      },
+      {
+        "halte_bars": 7,
+        "name": "1 Tag",
+        "rueckblick_bars": 140,
+        "umschichtungen": 2644,
+        "netto_end": 1.3682266305644326,
+        "brutto_end": 3.4755452330545578,
+        "cagr": 0.030237830445783986,
+        "maxdd": -0.6503300820828448,
+        "zufall_end_mittel": 0.04853430821434024,
+        "zufall_end_alle": [
+          0.05389875356677524,
+          0.03893341155776276,
+          0.04619285394430719,
+          0.061567524765147076,
+          0.04207899723770896
+        ],
+        "zufall_brutto_mittel": 2.576568335536148,
+        "anteil_cash": 0.0,
+        "kostenlast": 1.5401824196484144
+      },
+      {
+        "halte_bars": 35,
+        "name": "1 Woche",
+        "rueckblick_bars": 700,
+        "umschichtungen": 529,
+        "netto_end": 1.81108892307579,
+        "brutto_end": 2.2244916027442887,
+        "cagr": 0.05805678295805383,
+        "maxdd": -0.5653298337265289,
+        "zufall_end_mittel": 1.1576868429939557,
+        "zufall_end_alle": [
+          0.6642052122070069,
+          1.1640229170385603,
+          1.5634412016664465,
+          1.2618603698243407,
+          1.1349045142334242
+        ],
+        "zufall_brutto_mittel": 2.5647095977948333,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.2282619447345593
+      },
+      {
+        "halte_bars": 147,
+        "name": "1 Monat",
+        "rueckblick_bars": 2940,
+        "umschichtungen": 126,
+        "netto_end": 1.8763576090425225,
+        "brutto_end": 1.9784363510974188,
+        "cagr": 0.0616221234566523,
+        "maxdd": -0.5382361354600416,
+        "zufall_end_mittel": 2.1320928622201536,
+        "zufall_end_alle": [
+          3.0886686687563674,
+          1.1262242758769858,
+          2.402238827137234,
+          2.5086399050202153,
+          1.5346926343099652
+        ],
+        "zufall_brutto_mittel": 2.5737237556334756,
+        "anteil_cash": 0.0,
+        "kostenlast": 0.05440260511267114
+      }
+    ]
+  }
+}
