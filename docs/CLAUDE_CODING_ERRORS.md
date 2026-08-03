@@ -1041,3 +1041,52 @@
 **Wie vermeiden:** (1) Vergleicht man zwei Behandlungen EINER Annahme, muss ein Nullfall existieren, in dem beide **identisch** sein muessen — hier: kein Delisting im Universum. Diesen Nullfall als Test schreiben, bevor die Zahlen interpretiert werden. Er faengt den Fehler sofort und ist billig. (2) `r.mean(axis=1).cumprod()` ist NIE Buy-and-Hold. Wer Positionen halten will, simuliert Positionswerte, nicht Renditemittel. (3) Wenn ein Effekt mit einer Groesse skaliert (hier n), die zwischen den verglichenen Faellen variiert, ist er per Konstruktion in der Differenz — vor dem Vergleich pruefen, ob die Kennzahl groessenneutral ist. (4) Entwarnungen sind belegpflichtiger als Warnungen: eine Zahl, die ein Problem kleinredet, verdient die Gegenprobe zuerst.
 **Erkannt in:** Stage-1-Review (F-test-1, BLOCKER) zu `research/mandat2/p12d_survivorship_schranke.py`. Fix: wertbasierte Simulation mit Pro-rata-Verteilung nur am Delisting-Tag; Regressionsanker `test_ohne_delisting_sind_beide_varianten_identisch` gegen die alte Implementierung mutationsgeprueft.
 **Referenzen:** E-079 (Benchmark-Methode), E-089 (Wertung ohne Rechengrundlage), E-095 (Wirkung dem falschen Mechanismus zugeschrieben).
+
+## E-097 — Finding an zwei Fundstellen, nur die genannte korrigiert — und als erledigt gemeldet
+**Datum:** 2026-08-03
+**Kategorie:** wiring-gap / false-fixed
+**Was passierte:** Ein Review-Finding bemaengelte die Behauptung „P1-P11 sind survivorship-frei" als zu stark. Ich habe sie im Generator und im erzeugten Befund sauber umformuliert und das Finding als erledigt gemeldet. Dieselbe Behauptung stand aber noch zweimal im Quellmodul: fett im Modul-Docstring und in einem `print`-Block, der sie bei JEDEM Lauf auf die Bedienkonsole schreibt. Die schwaechere, korrekte Fassung landete im Erzeugnis, die staerkere blieb in der Quelle — und die wirkt autoritativer.
+**Warum falsch:** Der Erledigt-Vermerk deckte die FUNDSTELLE ab, auf die das Finding zeigte, nicht die BEHAUPTUNG. Ein generiertes Dokument schuetzt gegen Zahlendrift (E-085), aber nicht gegen Prosa, die ausserhalb des Generators liegt. Wer spaeter das Modul liest oder den Lauf startet, bekommt die zurueckgenommene Aussage.
+**Wie vermeiden:** (1) Betrifft ein Finding eine BEHAUPTUNG, vor dem Erledigt-Vermerk nach dem WORTLAUT greppen, nicht nach der Zeilennummer. (2) Konsolenausgaben zaehlen als Fundstelle — sie sind das, was der Bediener tatsaechlich liest. (3) Wo Generator-Prosa und Modul-Docstring dieselbe Aussage tragen, gehoert eine davon weg oder auf die andere verwiesen.
+**Erkannt in:** Stage-2-Review (F-senior-1, BLOCKER) zu `research/mandat2/p12d_survivorship_schranke.py`.
+**Referenzen:** E-085, E-086 (Erzeuger gefixt, Artefakt nicht), E-092.
+
+## E-098 — Docstring der ersetzten Implementierung ueberlebt den Rewrite und behauptet das Gegenteil
+**Datum:** 2026-08-03
+**Kategorie:** logic-error / false-mechanism
+**Was passierte:** Nach dem Umbau einer Funktion von renditebasierter auf wertbasierte Simulation blieb der Docstring des zugehoerigen Tests stehen. Er schrieb den Schutz gegen Scheinrenditen `pct_change(fill_method=None)` zu und schloss daraus, der Test fange eine Abschwaechung der expliziten NaN-Maske NICHT. In der neuen Implementierung existiert kein `pct_change` mehr; die Maske IST der Mechanismus, und der Mutationstest zeigt, dass genau dieser Test ihre Entfernung faengt.
+**Warum falsch:** Eine Mechanismus-Aussage, die beim Schreiben stimmte, wird durch einen Rewrite falsch — unbemerkt, weil Docstrings nicht ausgefuehrt werden. Die Richtung ist besonders teuer: der Text redet die eigene Testabdeckung KLEINER, als sie ist. Wer spaeter aufraeumt, haelt den Test fuer wirkungslos und schwaecht oder entfernt ihn. Das ist E-095 mit umgekehrtem Vorzeichen — dort wurde ein Mechanismus zu Unrecht gelobt, hier zu Unrecht abgeschrieben. Verschaerfend: der falsche Docstring stand im selben Commit, der E-095 protokolliert.
+**Wie vermeiden:** (1) Wird eine Funktion ersetzt, gilt ihr gesamter erklaerender Text als ungeprueft, bis er neu belegt ist — auch der in den Tests. (2) Saetze der Form „dieser Test faengt X nicht" sind belegpflichtig wie jede andere Behauptung: per Mutation nachweisen, sonst nicht schreiben. (3) Nach einem Rewrite nach Symbolnamen greppen, die im Text stehen, aber im Code nicht mehr vorkommen.
+**Erkannt in:** Stage-2-Review (F-senior-2) zu `tests/test_mandat2_survivorship.py`.
+**Referenzen:** E-095, E-089.
+
+## E-099 — Fixture mit nur einem Empfaenger kann keine Verteilungsregel pruefen
+**Datum:** 2026-08-03
+**Kategorie:** test-anti-pattern
+**Was passierte:** Ein Test namens `test_erloes_wird_pro_rata_verteilt` prueft „gegen die Handrechnung", dass ein Delisting-Erloes pro rata auf die Ueberlebenden verteilt wird. Im Fixture ueberlebte genau EIN Titel — der bekommt unter Pro-rata, Gleichverteilung und jeder anderen Regel denselben Betrag. Mutation zu Gleichverteilung: alle Tests blieben gruen. Die Handrechnung war korrekt, aber fuer beide Regeln dieselbe Zahl.
+**Warum falsch:** Ein Test unterscheidet nur, was sein Fixture unterscheidet. Der Testname wirkt zugleich wie eine Zusicherung und wird beim spaeteren Lesen als Beleg fuer die Regel genommen. Verwandt mit dem Schwellen-Test desselben Moduls, der seine Fixtures aus der zu pruefenden Konstanten baute und damit gegen deren Aenderung immun war: beide Male war die Groesse, um die es geht, im Fixture gar nicht variiert.
+**Wie vermeiden:** (1) Vor dem Schreiben fragen: welche ALTERNATIVE Regel liefert dieselbe Zahl? Liefert eine, ist das Fixture zu klein. (2) Verteilungsregeln brauchen mindestens zwei Empfaenger mit UNGLEICHEN Anteilen — und eine Bewegung danach, weil sich die Regeln erst im Folgeverlauf unterscheiden. (3) Jede Regel, deren Name im Testtitel steht, per Mutation gegen ihre naechstliegende Alternative pruefen.
+**Erkannt in:** Stage-2-Review (F-senior-3) zu `tests/test_mandat2_survivorship.py`. Fix verifiziert: Mutation zu Gleichverteilung -> Test faellt (2,833 statt 2,917).
+**Referenzen:** E-092, E-072.
+
+## E-100 — Ungleichungs-Schluss ueber zwei Messbasen
+**Datum:** 2026-08-03
+**Kategorie:** false-comparison / unbelegte-belastbarkeit
+**Was passierte:** Die Kernaussage eines Befunds lautete: Verzerrung (2,4-2,9 % p. a.) > Entscheidungsmarge (1,5 % p. a.), also kann der Datensatz die Frage nicht entscheiden. Die Marge stammte aus dem Intraday-Artefakt (Stundenbars), die Verzerrung aus dem Tagespanel. Dasselbe Buy-and-Hold, dieselben 20 Namen, dasselbe Fenster liefert auf beiden Panels 11,48 % gegen 11,06 % — 0,42 Prozentpunkte, also 28 % der Marge. Tabelle und Prosa nannten beide Werte unkommentiert nebeneinander.
+**Warum falsch:** Eine Ungleichung zwischen zwei Groessen aus verschiedenen Quellen traegt nur, wenn die Quellendifferenz klein gegen den Abstand ist. Hier ist sie es nicht offensichtlich, und der Leser bekommt keinen Hinweis — er sieht zwei verschiedene Zahlen fuer dieselbe Sache ohne Erklaerung. Der Schluss selbst haelt (beide Differenzen sind je intern konsistent gerechnet), aber seine Belastbarkeit war nicht ausgewiesen.
+**Wie vermeiden:** (1) Bevor zwei Zahlen in eine Ungleichung gehen, pruefen, ob sie aus derselben Messbasis stammen. (2) Tun sie es nicht, die Basisdifferenz an einer GEMEINSAMEN Groesse messen (hier: identisches Buy-and-Hold auf beiden Panels) und neben den Schluss schreiben. (3) Zwei sichtbar verschiedene Werte fuer dieselbe Groesse im selben Abschnitt sind immer erklaerungspflichtig, auch wenn beide richtig sind.
+**Erkannt in:** Stage-2-Review (F-senior-4) zu `research/mandat2/render_befund_p12.py`.
+**Referenzen:** E-079, E-088 (Extremwerte aus verschiedenen Zeilen), E-078.
+
+## E-101 — Ungleichung behauptet statt gerechnet, im entwarnenden Sinn — und E-097 verschrieb ein Mittel, das den Rueckfall nicht verhindert
+**Datum:** 2026-08-03
+**Kategorie:** false-evidence / entwarnung-ohne-rechnung / register-korrektur
+**Was passierte:** Zwei Rueckfaelle in derselben Runde, in der die zugehoerigen Regeln formuliert wurden.
+
+(1) Die Ueberhoehung eines Benchmarks wurde in zwei Kanaele zerlegt (Dauermitgliedschaft 1,69 pp, Intraday-Verfuegbarkeit 1,21 pp) und dazu geschrieben: „aber der erste Kanal allein ueberschreitet die Marge nicht". Die Marge betraegt 1,47 pp — der erste Kanal ueberschreitet sie also sehr wohl, um 0,23 pp. Beide Zahlen standen gerundet im selben Abschnitt („1,7 %" und „1,5 %"), der Widerspruch war fuer jeden Leser sichtbar. Der Satz war handgeschrieben neben zwei gerechneten Werten und zeigte in die ENTWARNENDE Richtung (E-089, E-096).
+
+(2) E-097 hatte als Gegenmittel formuliert: „nach dem WORTLAUT greppen, nicht nach der Zeilennummer". Genau das habe ich getan — und eine dritte Fundstelle uebersehen, weil sie dieselbe Behauptung in ANDEREN Worten trug („betroffen ist ausschliesslich der Intraday-Strang" statt „P1-P11 sind survivorship-frei"). Sie stand in einem `print`-Block drei Zeilen unter der korrigierten Stelle und widersprach dem Docstring derselben Datei.
+**Warum falsch:** (1) Jede Ungleichung zwischen zwei berechneten Groessen gehoert gerechnet, nicht behauptet — besonders wenn die Behauptung beruhigt. Ein handgeschriebenes „X ueberschreitet Y nicht" neben `X` und `Y` ist die teuerste Form von Prosa: sie sieht belegt aus. (2) Eine Behauptung ist keine Zeichenkette. Wer nach dem Wortlaut sucht, findet Kopien, keine Umformulierungen — und Umformulierungen sind der Normalfall, weil derselbe Gedanke an verschiedenen Stellen anders formuliert wird.
+**Wie vermeiden:** (1) Vergleiche zwischen berechneten Groessen im Generator VERZWEIGEN (`"über" if k > marge else "unter"`), nie ausformulieren. Dann kann der Satz nicht gegen seine eigenen Zahlen laufen. (2) **Korrektur an E-097:** nach der BEHAUPTUNG suchen, nicht nach ihrem Wortlaut — also nach den Traegerbegriffen (hier `P1-P11`, `Intraday-Strang`, `survivorship`) und dann jede Fundstelle lesen. Ein Wortlaut-Grep ist notwendig, aber nicht hinreichend. (3) Konsolenausgaben und Docstrings derselben Datei gegeneinander pruefen: widersprechen sie sich, ist eine der beiden ein Rueckfall.
+**Erkannt in:** Stage-3-Review (F-auditor-1 und F-auditor-2, beide BLOCKER, Verdict FAIL) zu `research/mandat2/`.
+**Referenzen:** E-097 (dessen Lehre hiermit korrigiert wird), E-089, E-096, E-100.

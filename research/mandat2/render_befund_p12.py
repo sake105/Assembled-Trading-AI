@@ -455,6 +455,12 @@ def main() -> int:
             "überlebenden Positionen verteilt wird. Beide Varianten sind\n"
             "Buy-and-Hold und unterscheiden sich nur in dieser einen Annahme.\n"
         )
+        # F-senior-4: Marge und Verzerrung stammen aus VERSCHIEDENEN Kursquellen.
+        # Die Basisdifferenz wird deshalb an derselben Groesse gemessen — dem
+        # identischen Buy-and-Hold der 20 Namen im selben Fenster — und
+        # ausgewiesen, statt zwei Zahlen unkommentiert nebeneinanderzustellen.
+        ip = next(x for x in sv["zeilen"] if x["universum"] == "intraday_p12")
+        basis_diff = d["buy_and_hold"]["cagr"] - ip["halten"]["cagr"]
         t.append(
             "**Konsequenz für das Verdikt — und sie ist unbequem:** der Abstand\n"
             f"zwischen bestem Kandidaten ({fak(bester['netto_end'])}, "
@@ -468,7 +474,45 @@ def main() -> int:
             "Vorsprung des Benchmarks ist kleiner als die bekannte Verzerrung seines\n"
             "Universums. Ein survivorship-freier Intraday-Test wäre nötig — und ist\n"
             "mit dieser Datenquelle nicht baubar, weil der Endpunkt keine delisteten\n"
-            "Ticker führt.\n\n"
+            "Ticker führt.\n"
+        )
+        t.append(
+            "*Belastbarkeit der Ungleichung:* Marge und Verzerrung sind auf\n"
+            "**verschiedenen Kursquellen** gemessen — die Marge am Stundenpanel, die\n"
+            "Verzerrung am Tagespanel. An derselben Größe gemessen (identisches\n"
+            "Buy-and-Hold, dieselben 20 Namen, dasselbe Fenster) unterscheiden sich\n"
+            f"die beiden Panels um {pct(basis_diff)} p. a. — das sind\n"
+            f"{abs(basis_diff / abstand) * 100:.0f} % der Marge. Der Schluss überlebt\n"
+            "das, weil der Abstand zwischen Verzerrung und Marge größer ist als diese\n"
+            "Basisdifferenz; ausgewiesen gehört sie trotzdem.\n"
+        )
+        # F-senior-6: die Ueberhoehung hat ZWEI Kanaele, und die Tabelle trennt
+        # sie bereits — die Prosa tat es nicht.
+        du = next(x for x in sv["zeilen"] if x["universum"] == "durchgehend_2004_2016")
+        pit_ = next(x for x in sv["zeilen"] if x["universum"] == "pit_2004")
+        k1 = du["halten"]["cagr"] - pit_["halten"]["cagr"]
+        k2 = ip["halten"]["cagr"] - du["halten"]["cagr"]
+        t.append(
+            f"*Zerlegung der Überhöhung* (Variante {AUF}Erlös gehalten{ZU}): "
+            f"**{pct(k1)} p. a.**\nentfallen auf das Auswahlkriterium "
+            "Dauermitgliedschaft (PIT → durchgehend),\n"
+            f"**{pct(k2)} p. a.** auf die weitere Verengung auf die 20\n"
+            "intraday-verfügbaren Namen. Beide Kanäle schauen vorwärts, die Summe ist\n"
+            "für die gestellte Frage also die richtige Zahl.\n\n"
+            # NICHT behaupten, welcher Kanal unter der Marge bleibt — rechnen.
+            # Eine frühere Fassung sagte „der erste Kanal überschreitet die Marge
+            # nicht"; tatsächlich tut er es (1,69 gegen 1,47 pp), und der Satz
+            # widersprach damit den Zahlen zwei Absätze weiter oben (E-101).
+            + "Gegen die Marge einzeln gehalten: "
+            + ", ".join(
+                f"**{name}** {pct(k)} "
+                + ("**über**" if k > abstand else "unter")
+                + " der Marge"
+                for name, k in (("Dauermitgliedschaft", k1), ("Intraday-Auswahl", k2))
+            )
+            + f" ({pct(abstand)}).\n"
+        )
+        t.append(
             "*Eine frühere Fassung dieses Abschnitts nannte hier +0,1 % p. a. und\n"
             "schloss daraus, das Verdikt kippe nicht. Diese Zahl stammte aus einer\n"
             "fehlerhaften Vergleichsrechnung — täglich rebalanciertes Portfolio statt\n"

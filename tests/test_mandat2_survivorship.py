@@ -5,14 +5,20 @@ ist, war mir zunächst falsch klar:
 
 Der **Glitch-Filter** ist der Mechanismus, der wirklich trägt: Vendor-Fehler
 wie MEL 7,73 → 141.630 liegen zwischen zwei gültigen Kursen, überleben also
-jede Lücken-Behandlung, und ließen das PIT-Universum im ersten Lauf auf 10^81
-eskalieren. Mutationsgeprüft: Schwelle aushebeln → zwei Tests fallen.
+jede Lücken-Behandlung, und ließen das PIT-Universum im ersten Lauf
+eskalieren (Größenordnung über 10^70; die exakte Potenz ist nicht belegt und
+wird bewusst nur als Schranke genannt). Mutationsgeprüft: Schwelle aushebeln → zwei Tests fallen.
 
-Die **Lückenmaske** ist dagegen redundant — ``pct_change(fill_method=None)``
-liefert über NaN-Strecken hinweg ohnehin NaN. Ein früherer Docstring schrieb
-ihr die Rettung zu; der Mutationstest widerlegte das. Der Test unten prüft
-deshalb das VERHALTEN (keine Scheinrendite nach einer Lücke) und behauptet
-nicht, welche Codezeile es bewirkt.
+Die **Lückenmaske** war in der ersten, renditebasierten Implementierung
+redundant — dort erledigte ``pct_change(fill_method=None)`` die Arbeit. Seit
+dem Umbau auf wertbasierte Simulation gibt es kein ``pct_change`` mehr in
+``buy_and_hold``: die Maske ``lebt & ~isnan(p0) & ~isnan(p1)`` IST jetzt der
+Mechanismus, und ``test_umschichten_rechnet_nicht_ueber_datenluecken`` fängt
+ihre Entfernung (mutationsgeprüft: Maske auf ``lebt`` reduzieren → Test fällt).
+
+Der Docstring hatte den Rewrite überlebt und behauptete anschließend das
+Gegenteil des gemessenen Verhaltens — er redete die eigene Abdeckung klein
+(E-098).
 """
 
 from __future__ import annotations
@@ -112,22 +118,47 @@ class TestBuyAndHold:
         erwartet = 0.5 * (1.03**29) + 0.5 * (0.97**29)
         assert k_h.iloc[-1] == pytest.approx(erwartet, rel=1e-12)
 
-    def test_erloes_wird_pro_rata_verteilt(self):
-        """Gegen die Handrechnung, nicht gegen ein Erwartungsband."""
+    def test_erloes_wird_PRO_RATA_verteilt_nicht_gleich(self):
+        """Muss Pro-rata von Gleichverteilung UNTERSCHEIDEN koennen.
+
+        Die erste Fassung hatte nur EINEN Ueberlebenden — der bekommt unter
+        jeder Verteilungsregel denselben Betrag, und eine Mutation zu
+        Gleichverteilung ueberlebte die ganze Suite (Stage-2-Finding
+        F-senior-3). Ein Test unterscheidet nur, was sein Fixture unterscheidet.
+
+        Hier: ZWEI Ueberlebende mit ungleichen Positionswerten, und eine
+        Bewegung DANACH — denn im Moment der Verteilung sind beide Regeln noch
+        nicht auseinanderzuhalten.
+        """
+        idx = _tage(5)
+        # Start je 1/3. A verdreifacht sich bis zum Delisting-Tag, B bleibt.
+        # C stirbt an Tag 1 mit Wert 1/3.
+        a = pd.Series([100.0, 300.0, 300.0, 600.0, 600.0], index=idx)
+        b = pd.Series([100.0, 100.0, 100.0, 100.0, 100.0], index=idx)
+        c = pd.Series([100.0, 100.0, np.nan, np.nan, np.nan], index=idx)
+        px = pd.DataFrame({"A": a, "B": b, "C": c})
+        k, d = buy_and_hold(px, {"A", "B", "C"}, umschichten=True)
+        assert d["n_delistings_im_fenster"] == 1
+        # An Tag 1: A=1.0, B=1/3, C=1/3. C stirbt, 1/3 pro rata auf A:B = 3:1
+        #   -> A = 1.0 + 1/3*0.75 = 1.25 ; B = 1/3 + 1/3*0.25 = 0.41667
+        # Danach verdoppelt A -> 2.5 ; B unveraendert -> Summe 2.91667
+        assert k.iloc[-1] == pytest.approx(1.25 * 2 + 1 / 3 + 1 / 12, rel=1e-12)
+        # Gegenprobe: bei GLEICHverteilung waere A = 1.0 + 1/6 = 1.16667,
+        # verdoppelt 2.33333, plus B 0.5 -> 2.83333. Der Test trennt beide.
+        assert k.iloc[-1] != pytest.approx(2.83333, rel=1e-4)
+
+    def test_totes_geld_bleibt_liegen(self):
+        """Die Gegenvariante: der Erloes verzinst sich nicht."""
         idx = _tage(4)
-        # B stirbt nach Tag 2 (letzter Kurs 100). A laeuft weiter.
         a = pd.Series([100.0, 100.0, 200.0, 400.0], index=idx)
         b = pd.Series([100.0, 100.0, np.nan, np.nan], index=idx)
         px = pd.DataFrame({"A": a, "B": b})
-        k_u, d = buy_and_hold(px, {"A", "B"}, umschichten=True)
         k_h, _ = buy_and_hold(px, {"A", "B"}, umschichten=False)
-        assert d["n_delistings_im_fenster"] == 1
-        # Tag 1 (Index 1): A=0.5, B=0.5 -> B stirbt, 0.5 wandert auf A.
-        # Danach verdoppelt A zweimal: 1.0 -> 2.0 -> 4.0
-        assert k_u.iloc[-1] == pytest.approx(4.0, rel=1e-12)
-        # Totes Geld: A 0.5 -> 2.0, plus 0.5 liegengeblieben = 2.5
+        k_u, _ = buy_and_hold(px, {"A", "B"}, umschichten=True)
+        # A 0.5 -> 2.0, B als totes Geld konstant 0.5 -> 2.5
         assert k_h.iloc[-1] == pytest.approx(2.5, rel=1e-12)
-        assert k_u.iloc[-1] > k_h.iloc[-1]
+        # Umgeschichtet: die vollen 1.0 laufen mit A -> 4.0
+        assert k_u.iloc[-1] == pytest.approx(4.0, rel=1e-12)
 
     def test_diagnose_meldet_wer_nicht_mitspielt(self):
         """Stille Filterung waere hier besonders teuer (F-test-3)."""
@@ -163,11 +194,11 @@ class TestBuyAndHold:
         assert k.iloc[-1] == pytest.approx(1.5)
 
     def test_umschichten_rechnet_nicht_ueber_datenluecken(self):
-        """Verhalten, nicht Mechanismus: nach einer Luecke keine Scheinrendite.
+        """Nach einer Luecke darf keine Scheinrendite entstehen.
 
-        Bewirkt wird das von ``pct_change(fill_method=None)``, nicht von der
-        expliziten Maske — deshalb faengt dieser Test eine Abschwaechung der
-        Maske auch NICHT. Er sichert die Eigenschaft, nicht ihre Herkunft.
+        Seit dem Umbau auf wertbasierte Simulation traegt die NaN-Maske in
+        ``buy_and_hold`` diesen Schutz — mutationsgeprueft: Maske auf ``lebt``
+        reduzieren laesst genau diesen Test fallen (nan statt 1.0).
         """
         idx = _tage(12)
         a = pd.Series(100.0, index=idx)

@@ -25,9 +25,15 @@ WICHTIG — die Tages-Engine der Kampagne ist bereits PIT-korrekt
 Index-Zusammensetzung ZU DIESEM Zeitpunkt, und haelt delistete Namen ueber
 ``last_valid`` bis zum letzten Kurs. Das PIT-Universum 2004 enthaelt
 nachweislich Pleite-Ticker (EKDKQ = Eastman Kodak, MTLQQ = Motors Liquidation,
-WNDXQ). **P1-P11 sind damit survivorship-frei** — betroffen ist ausschliesslich
-der Intraday-Strang P12, dessen Universum durch die Datenverfuegbarkeit
-vorselektiert ist.
+WNDXQ).
+
+Die **AUSWAHL** von P1-P11 ist damit PIT-korrekt. Eine fruehere Fassung dieses
+Absatzes schloss daraus „P1-P11 sind survivorship-frei" — das ist zu stark und
+zurueckgenommen: die **ABDECKUNG** ist es nicht. Ueber alle Monatsenden haben
+nur 84-96 % der Index-Mitglieder ueberhaupt eine Preisspalte, und die Fehlenden
+sind rund fuenffach mit Index-Austritten angereichert. Richtig ist: *Auswahl
+PIT-korrekt, Abdeckung unvollstaendig, Luecke nicht neutral.* Der
+Intraday-Strang P12 ist davon unabhaengig und deutlich staerker betroffen.
 
 ZWEI BEHANDLUNGEN DES DELISTINGS
 --------------------------------
@@ -69,13 +75,25 @@ GLITCH_SCHWELLE = 2.0  # +200 % an EINEM Tag bei Vortagskurs > 1 USD
 
 
 def glitch_verdaechtig(px: pd.DataFrame, namen: set[str]) -> dict[str, dict]:
-    """Namen mit unmoeglichen Tagesspruengen — Vendor-Fehler, keine Renditen.
+    """Korrumpierte Kursserien — Vendor-Fehler, keine Renditen.
+
+    Die Fundklasse sind NICHT einzelne Ausreisertage, sondern Serien mit zwei
+    ineinander verschraenkten Preisskalen ueber Dutzende Tage: bei MEL liegt das
+    Niveau 2014-11-10..17 abwechselnd bei ~141.000 und ~7,80, wobei der
+    NIEDRIGE Wert der plausible ist. Der Detektor greift den Uebergang, nicht
+    die Anomalie selbst — das genuegt zum Ausschluss, taugt aber nicht als
+    Beschreibung (Stage-1-Finding F-test-4).
+
+    Er sieht ausserdem nur diese eine Morphologie: dauerhafte Niveauspruenge im
+    Band 100-200 % (AYE +170 %, TOY +155 %, HIG +102 %) passieren ungeprueft
+    durch. Ob sie echt sind, ist offen; ihr Ausschluss veraendert das Ergebnis
+    um <= 0,01 Prozentpunkte.
 
     ``campaign_data`` truncatet bereits Mikropreis-Artefakte (Vortag < 1 USD,
     Sprung > 100 %). Diese Regel greift eine Klasse darueber nicht: MEL springt
     2014-11-12 von 7,73 auf 141.630, CIN 2010-12-29 von 3,13 auf 1.774, HPC
     2014-12-04 von 56,61 auf 5.300. Beim Rendite-Produkt eskalieren solche
-    Spitzen; im ersten Lauf lief das PIT-Universum dadurch auf 10^74.
+    Spitzen; im ersten Lauf lief das PIT-Universum dadurch auf ueber 10^70.
 
     Wird hier NICHT stillschweigend korrigiert, sondern gemeldet: die Namen
     kommen ins Ergebnis-Artefakt, damit die Bereinigung nachvollziehbar ist.
@@ -123,6 +141,14 @@ def buy_and_hold(
 
     Hier wird wertbasiert simuliert: Positionen bleiben liegen, Kapital wandert
     nur am Delisting-Tag.
+
+    KONVENTION BEI BINNENLUECKEN
+    ----------------------------
+    Faellt ein Titel mitten in der Serie fuer einige Tage aus, wird die Rendite
+    UEBER die Luecke verworfen (die Maske verlangt zwei aufeinanderfolgende
+    gueltige Kurse). Betroffen sind 334 von 382 PIT-Titeln. Gemessene Wirkung
+    auf die DIFFERENZ zwischen den Universen: <= 0,04 Prozentpunkte p. a. — die
+    Konvention hebt beide Seiten fast gleich.
 
     Rueckgabe
     ---------
@@ -306,16 +332,16 @@ def main() -> int:
 
     print("\n" + "=" * 76)
     print(f"Pleite-Ticker im PIT-Universum (Beleg): {tote_im_pit}")
-    print(
-        "UEBERHOEHUNG des P12-Benchmarks gegenueber dem survivorship-freien Universum:"
-    )
+    print("UEBERHOEHUNG des P12-Benchmarks gegenueber dem PIT-Universum:")
     print(
         f"  {schranke['cagr_halten']:+.2%} p. a. (Delisting-Erloes gehalten)  |  "
         f"{schranke['cagr_umschichten']:+.2%} p. a. (umgeschichtet)"
     )
     print(
-        "Die Tages-Engine (P1-P11) waehlt je Termin aus membership(t) und ist\n"
-        "damit PIT-korrekt — betroffen ist ausschliesslich der Intraday-Strang."
+        "Die Tages-Engine (P1-P11) waehlt je Termin aus membership(t): die AUSWAHL\n"
+        "ist PIT-korrekt. Die ABDECKUNG nicht — 84-96 % der Mitglieder haben eine\n"
+        "Preisspalte, die Fehlenden sind ~5x mit Index-Austritten angereichert.\n"
+        "P12 ist staerker betroffen, aber NICHT als einziger Strang."
     )
     print("=" * 76, flush=True)
     return 0

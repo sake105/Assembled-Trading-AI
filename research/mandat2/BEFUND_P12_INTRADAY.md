@@ -240,6 +240,23 @@ Universums. Ein survivorship-freier Intraday-Test wäre nötig — und ist
 mit dieser Datenquelle nicht baubar, weil der Endpunkt keine delisteten
 Ticker führt.
 
+*Belastbarkeit der Ungleichung:* Marge und Verzerrung sind auf
+**verschiedenen Kursquellen** gemessen — die Marge am Stundenpanel, die
+Verzerrung am Tagespanel. An derselben Größe gemessen (identisches
+Buy-and-Hold, dieselben 20 Namen, dasselbe Fenster) unterscheiden sich
+die beiden Panels um 0,4 % p. a. — das sind
+28 % der Marge. Der Schluss überlebt
+das, weil der Abstand zwischen Verzerrung und Marge größer ist als diese
+Basisdifferenz; ausgewiesen gehört sie trotzdem.
+
+*Zerlegung der Überhöhung* (Variante „Erlös gehalten“): **1,7 % p. a.**
+entfallen auf das Auswahlkriterium Dauermitgliedschaft (PIT → durchgehend),
+**1,2 % p. a.** auf die weitere Verengung auf die 20
+intraday-verfügbaren Namen. Beide Kanäle schauen vorwärts, die Summe ist
+für die gestellte Frage also die richtige Zahl.
+
+Gegen die Marge einzeln gehalten: **Dauermitgliedschaft** 1,7 % **über** der Marge, **Intraday-Auswahl** 1,2 % unter der Marge (1,5 %).
+
 *Eine frühere Fassung dieses Abschnitts nannte hier +0,1 % p. a. und
 schloss daraus, das Verdikt kippe nicht. Diese Zahl stammte aus einer
 fehlerhaften Vergleichsrechnung — täglich rebalanciertes Portfolio statt
