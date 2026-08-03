@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from tests.mandat2_daten_guard import braucht_kampagnendaten
+
 from research.mandat2.dividenden import (
     auf_panel_skalieren,
     implizite_jahresrendite,
@@ -102,6 +104,7 @@ def test_implizite_rendite_trifft_die_konstruierte_rendite():
     assert 0.015 < r.iloc[0] < 0.025
 
 
+@braucht_kampagnendaten
 def test_symbole_ohne_dividende_bleiben_unveraendert():
     _, adj, divs = _synthetische_tr_reihe()
     close = pd.DataFrame({"AAA": adj, "BBB": adj})
@@ -110,11 +113,13 @@ def test_symbole_ohne_dividende_bleiben_unveraendert():
     assert (skaliert["BBB"] == 0).all()
 
 
+@braucht_kampagnendaten
 def test_leere_reihe_bricht_nicht():
     leer = pd.Series(dtype=float)
     assert rohpfad(leer, leer).empty
 
 
+@braucht_kampagnendaten
 @pytest.mark.parametrize("symbol,jahr,band", [("SPY", 1995, (0.020, 0.028))])
 def test_echte_spy_rendite_liegt_im_engen_band(symbol, jahr, band):
     """Regression gegen die ECHTEN Daten — enges Band, nicht 1,3-3,5 %.
