@@ -208,9 +208,76 @@ der Kante.
 Sie ist real, aber die Aussage über ihre exakte Höhe ist es
 nicht.
 
+## Wie stark ist das Universum survivorship-verzerrt? (P12d)
+
+Der Versuch, die Verzerrung durch ein Point-in-Time-Universum zu heilen,
+scheiterte an der Datenquelle: der EODHD-**Intraday**-Endpunkt führt keine
+delisteten Ticker (gemessen an 22 ausgeschiedenen Namen: 18 % Trefferquote
+gegen 92 % bei Überlebenden). Das **Tages**panel enthält die Toten dagegen
+vollständig — dort ist die Verzerrung wenigstens **bezifferbar**.
+
+| Universum | n | B&H (Erlös gehalten) | B&H (umgeschichtet) | CAGR |
+|---|---|---|---|---|
+| intraday_p12 | 20 | 3,017× | 3,017× | 11,1 % |
+| durchgehend_2004_2016 | 259 | 2,689× | 2,689× | 9,9 % |
+| pit_2004 | 382 | 2,283× | 2,407× | 8,2 % |
+| SPY (Referenz) | 1 | 2,183× | — | — |
+
+**Überhöhung des P12-Benchmarks:** 2,9 % p. a., wenn
+der Delisting-Erlös als totes Geld liegen bleibt, und 2,4 % p. a.,
+wenn er pro rata auf die überlebenden Positionen verteilt wird. Beide Varianten sind
+Buy-and-Hold und unterscheiden sich nur in dieser einen Annahme.
+
+**Konsequenz für das Verdikt — und sie ist unbequem:** der Abstand
+zwischen bestem Kandidaten (2,729×, 10,0 % p. a.) und Buy-and-Hold
+(11,5 % p. a.) beträgt **1,5 % p. a.**
+Die Verzerrung liegt mit 2,4 % bis 2,9 % **darüber**.
+
+Das heißt nicht, dass eine Strategie das Halten schlägt. Es heißt, dass
+**dieser Datensatz die Frage nicht entscheiden kann**: der gemessene
+Vorsprung des Benchmarks ist kleiner als die bekannte Verzerrung seines
+Universums. Ein survivorship-freier Intraday-Test wäre nötig — und ist
+mit dieser Datenquelle nicht baubar, weil der Endpunkt keine delisteten
+Ticker führt.
+
+*Eine frühere Fassung dieses Abschnitts nannte hier +0,1 % p. a. und
+schloss daraus, das Verdikt kippe nicht. Diese Zahl stammte aus einer
+fehlerhaften Vergleichsrechnung — täglich rebalanciertes Portfolio statt
+Buy-and-Hold, dessen Rebalancing-Bonus mit der Namenszahl wächst — und
+ist zurückgenommen (E-096).*
+
+**Die Tages-Engine der Kampagne (P1–P11): PIT-korrekt in der Auswahl,
+aber nicht lückenlos.** `engine.run_strategy` wählt je Termin aus
+`membership(t)` und erzwingt über `last_valid` den Delisting-Verkauf; das
+Panel trägt Delistings (208 von 1.037 Symbolen enden vor Panelende), und
+das PIT-Universum enthält nachweislich Pleite-Ticker
+(EKDKQ, MTLQQ, WNDXQ).
+
+Der Restkanal, den ich vorher zu Unrecht wegformuliert hatte: die
+Preisabdeckung der Index-Mitglieder liegt über alle Monatsenden bei
+84–96 %, und die fehlenden Namen sind rund **fünffach mit
+Index-Austritten angereichert**. „Survivorship-frei“ ist zu
+stark — richtig ist: *die Auswahl ist PIT-korrekt, die Abdeckung nicht
+vollständig, und die Lücke ist nicht neutral.* Der Intraday-Strang P12
+ist davon unabhängig und deutlich stärker betroffen.
+
+*Nebenbefund Datenqualität:* 9 Namen des PIT-Universums sind
+korrumpiert und wurden ausgeschlossen. Es handelt sich **nicht** um
+einzelne Ausreißertage, sondern um Serien mit zwei ineinander
+verschränkten Preisskalen über Dutzende Tage — bei MEL etwa liegt das
+Niveau 2014-11-10..17 abwechselnd bei ~141.000 und ~7,80, wobei der
+**niedrige** Wert der plausible ist. Weitere Fälle: **CIN**, **HPC**.
+
+Die Truncation-Regel in `campaign_data` greift nur bei Vortagskursen unter
+1 USD und lässt diese Klasse durch. Der Detektor hier sieht wiederum nur
+diese eine Morphologie: dauerhafte Niveausprünge im Band 100–200 %
+(AYE +170 %, TOY +155 %, HIG +102 %) passieren ungeprüft durch und bleiben
+im Universum — ob sie echt sind, ist **offen**. Ob P1–P11 von den korrupten
+Namen berührt sind, ist ebenfalls offen und ein eigener Prüfschritt.
+
 ## Was dieser Strang nicht beantwortet
 
-- **Absolute Renditen** — Universum survivorship-verzerrt.
+- **Absolute Renditen** — Universum survivorship-verzerrt (beziffert in P12d).
 - **Andere Signale am kurzen Ende.** Getestet wurde Momentum und sein
   Gegenteil, nicht Orderbuch-, Nachrichten- oder Volatilitätssignale. Der
   Befund lautet: dieses Signal trägt dort nicht — nicht: dort ist nichts.

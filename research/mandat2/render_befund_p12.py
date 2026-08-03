@@ -97,6 +97,7 @@ def main() -> int:
     b = lade("p12b_zufallskontrolle.json")
     c = lade("p12c_reversal_kostenschwelle.json")
     c_st = lade("p12c_reversal_stufig.json")
+    sv = lade("p12d_survivorship.json")
 
     bh = d["buy_and_hold"]["endwert"]
     reb = d["ew_rebalanciert"]["endwert"]
@@ -422,9 +423,96 @@ def main() -> int:
                     "nicht.\n"
                 )
 
+    if sv:
+        u = sv["ueberhoehung_cagr"]
+        t.append("## Wie stark ist das Universum survivorship-verzerrt? (P12d)\n")
+        t.append(
+            "Der Versuch, die Verzerrung durch ein Point-in-Time-Universum zu heilen,\n"
+            "scheiterte an der Datenquelle: der EODHD-**Intraday**-Endpunkt führt keine\n"
+            "delisteten Ticker (gemessen an 22 ausgeschiedenen Namen: 18 % Trefferquote\n"
+            "gegen 92 % bei Überlebenden). Das **Tages**panel enthält die Toten dagegen\n"
+            "vollständig — dort ist die Verzerrung wenigstens **bezifferbar**.\n"
+        )
+        t.append(
+            "| Universum | n | B&H (Erlös gehalten) | B&H (umgeschichtet) | CAGR |\n"
+            "|---|---|---|---|---|"
+        )
+        for x in sv["zeilen"]:
+            t.append(
+                f"| {x['universum']} | {x['n']} | {fak(x['halten']['endwert'])} "
+                f"| {fak(x['umschichten']['endwert'])} | {pct(x['halten']['cagr'])} |"
+            )
+        t.append(f"| SPY (Referenz) | 1 | {fak(sv['spy']['endwert'])} | — | — |\n")
+        # Der Entscheidungsabstand wird GERECHNET, nicht geschrieben: er stand
+        # frueher als "rund 1,3 %" fest im Generator, direkt neben zwei aus dem
+        # Artefakt gelesenen Zahlen — und trug die Schlussfolgerung (F-test-7).
+        bester = max(flach, key=lambda z: z["netto_end"])
+        abstand = d["buy_and_hold"]["cagr"] - bester["cagr"]
+        t.append(
+            f"**Überhöhung des P12-Benchmarks:** {pct(u['cagr_halten'])} p. a., wenn\n"
+            "der Delisting-Erlös als totes Geld liegen bleibt, und "
+            f"{pct(u['cagr_umschichten'])} p. a.,\nwenn er pro rata auf die "
+            "überlebenden Positionen verteilt wird. Beide Varianten sind\n"
+            "Buy-and-Hold und unterscheiden sich nur in dieser einen Annahme.\n"
+        )
+        t.append(
+            "**Konsequenz für das Verdikt — und sie ist unbequem:** der Abstand\n"
+            f"zwischen bestem Kandidaten ({fak(bester['netto_end'])}, "
+            f"{pct(bester['cagr'])} p. a.) und Buy-and-Hold\n"
+            f"({pct(d['buy_and_hold']['cagr'])} p. a.) beträgt "
+            f"**{pct(abstand)} p. a.**\nDie Verzerrung liegt mit "
+            f"{pct(u['cagr_umschichten'])} bis {pct(u['cagr_halten'])} "
+            "**darüber**.\n\n"
+            "Das heißt nicht, dass eine Strategie das Halten schlägt. Es heißt, dass\n"
+            "**dieser Datensatz die Frage nicht entscheiden kann**: der gemessene\n"
+            "Vorsprung des Benchmarks ist kleiner als die bekannte Verzerrung seines\n"
+            "Universums. Ein survivorship-freier Intraday-Test wäre nötig — und ist\n"
+            "mit dieser Datenquelle nicht baubar, weil der Endpunkt keine delisteten\n"
+            "Ticker führt.\n\n"
+            "*Eine frühere Fassung dieses Abschnitts nannte hier +0,1 % p. a. und\n"
+            "schloss daraus, das Verdikt kippe nicht. Diese Zahl stammte aus einer\n"
+            "fehlerhaften Vergleichsrechnung — täglich rebalanciertes Portfolio statt\n"
+            "Buy-and-Hold, dessen Rebalancing-Bonus mit der Namenszahl wächst — und\n"
+            "ist zurückgenommen (E-096).*\n"
+        )
+        t.append(
+            "**Die Tages-Engine der Kampagne (P1–P11): PIT-korrekt in der Auswahl,\n"
+            "aber nicht lückenlos.** `engine.run_strategy` wählt je Termin aus\n"
+            "`membership(t)` und erzwingt über `last_valid` den Delisting-Verkauf; das\n"
+            "Panel trägt Delistings (208 von 1.037 Symbolen enden vor Panelende), und\n"
+            "das PIT-Universum enthält nachweislich Pleite-Ticker\n"
+            f"({', '.join(sv['tote_ticker_im_pit_universum'])}).\n\n"
+            "Der Restkanal, den ich vorher zu Unrecht wegformuliert hatte: die\n"
+            "Preisabdeckung der Index-Mitglieder liegt über alle Monatsenden bei\n"
+            "84–96 %, und die fehlenden Namen sind rund **fünffach mit\n"
+            f"Index-Austritten angereichert**. {AUF}Survivorship-frei{ZU} ist zu\n"
+            "stark — richtig ist: *die Auswahl ist PIT-korrekt, die Abdeckung nicht\n"
+            "vollständig, und die Lücke ist nicht neutral.* Der Intraday-Strang P12\n"
+            "ist davon unabhängig und deutlich stärker betroffen.\n"
+        )
+        if sv.get("ausgeschlossene_glitches"):
+            g = sv["ausgeschlossene_glitches"]
+            schlimm = sorted(g.items(), key=lambda kv: -kv[1]["sprung"])[:3]
+            t.append(
+                f"*Nebenbefund Datenqualität:* {len(g)} Namen des PIT-Universums sind\n"
+                "korrumpiert und wurden ausgeschlossen. Es handelt sich **nicht** um\n"
+                "einzelne Ausreißertage, sondern um Serien mit zwei ineinander\n"
+                "verschränkten Preisskalen über Dutzende Tage — bei MEL etwa liegt das\n"
+                "Niveau 2014-11-10..17 abwechselnd bei ~141.000 und ~7,80, wobei der\n"
+                "**niedrige** Wert der plausible ist. Weitere Fälle: "
+                + ", ".join(f"**{s}**" for s, _ in schlimm if s != "MEL")
+                + ".\n\nDie Truncation-Regel in `campaign_data` greift nur bei "
+                "Vortagskursen unter\n1 USD und lässt diese Klasse durch. Der Detektor "
+                "hier sieht wiederum nur\ndiese eine Morphologie: dauerhafte "
+                "Niveausprünge im Band 100–200 %\n(AYE +170 %, TOY +155 %, HIG +102 %) "
+                "passieren ungeprüft durch und bleiben\nim Universum — ob sie echt "
+                "sind, ist **offen**. Ob P1–P11 von den korrupten\nNamen berührt sind, "
+                "ist ebenfalls offen und ein eigener Prüfschritt.\n"
+            )
+
     t.append("## Was dieser Strang nicht beantwortet\n")
     t.append(
-        "- **Absolute Renditen** — Universum survivorship-verzerrt.\n"
+        "- **Absolute Renditen** — Universum survivorship-verzerrt (beziffert in P12d).\n"
         "- **Andere Signale am kurzen Ende.** Getestet wurde Momentum und sein\n"
         "  Gegenteil, nicht Orderbuch-, Nachrichten- oder Volatilitätssignale. Der\n"
         "  Befund lautet: dieses Signal trägt dort nicht — nicht: dort ist nichts.\n"

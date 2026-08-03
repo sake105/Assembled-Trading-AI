@@ -1,0 +1,169 @@
+{
+  "fenster": "2006-06-22..2016-12-30",
+  "jahre": 10.524298425735797,
+  "tote_ticker_im_pit_universum": [
+    "EKDKQ",
+    "MTLQQ",
+    "WNDXQ"
+  ],
+  "glitch_schwelle": 2.0,
+  "ausgeschlossene_glitches": {
+    "CFC": {
+      "zeitpunkt": "2007-01-29",
+      "von": 10.2422,
+      "auf": 365.936,
+      "sprung": 34.728261506317
+    },
+    "CIN": {
+      "zeitpunkt": "2010-12-29",
+      "von": 3.1264,
+      "auf": 1774.02,
+      "sprung": 566.4321903787104
+    },
+    "CPWR": {
+      "zeitpunkt": "2006-12-13",
+      "von": 17.9254,
+      "auf": 69.6332,
+      "sprung": 2.8846106641971727
+    },
+    "HPC": {
+      "zeitpunkt": "2014-12-04",
+      "von": 56.608,
+      "auf": 5300.0,
+      "sprung": 92.62634256642171
+    },
+    "KRI": {
+      "zeitpunkt": "2008-03-27",
+      "von": 1.32,
+      "auf": 12.95,
+      "sprung": 8.810606060606059
+    },
+    "MEL": {
+      "zeitpunkt": "2014-11-12",
+      "von": 7.7337,
+      "auf": 141630.3479,
+      "sprung": 18312.400817202633
+    },
+    "RX": {
+      "zeitpunkt": "2008-12-17",
+      "von": 2.8919,
+      "auf": 14.6343,
+      "sprung": 4.060444690341989
+    },
+    "SLR": {
+      "zeitpunkt": "2013-06-24",
+      "von": 1.02,
+      "auf": 18.0,
+      "sprung": 16.647058823529413
+    },
+    "TIN": {
+      "zeitpunkt": "2009-12-17",
+      "von": 3.8733,
+      "auf": 11.9118,
+      "sprung": 2.075362094338161
+    }
+  },
+  "zeilen": [
+    {
+      "universum": "intraday_p12",
+      "n": 20,
+      "halten": {
+        "endwert": 3.016580676305775,
+        "cagr": 0.11061274201701443,
+        "maxdd": -0.543819066413978
+      },
+      "umschichten": {
+        "endwert": 3.016580676305775,
+        "cagr": 0.11061274201701443,
+        "maxdd": -0.543819066413978
+      },
+      "diagnose": {
+        "n_dabei": 20,
+        "n_ohne_preisspalte": 0,
+        "n_ohne_startkurs": 0,
+        "ohne_startkurs": [],
+        "n_delistings_im_fenster": 0
+      }
+    },
+    {
+      "universum": "durchgehend_2004_2016",
+      "n": 259,
+      "halten": {
+        "endwert": 2.689146736423852,
+        "cagr": 0.09855347176700291,
+        "maxdd": -0.5280365720987832
+      },
+      "umschichten": {
+        "endwert": 2.689146736423852,
+        "cagr": 0.09855347176700291,
+        "maxdd": -0.5280365720987832
+      },
+      "diagnose": {
+        "n_dabei": 259,
+        "n_ohne_preisspalte": 9,
+        "n_ohne_startkurs": 7,
+        "ohne_startkurs": [
+          "ARNC",
+          "BLL",
+          "ESRX",
+          "FE",
+          "RAI",
+          "WMB",
+          "XL"
+        ],
+        "n_delistings_im_fenster": 0
+      }
+    },
+    {
+      "universum": "pit_2004",
+      "n": 382,
+      "halten": {
+        "endwert": 2.283297408704425,
+        "cagr": 0.081608185866203,
+        "maxdd": -0.542829848310663
+      },
+      "umschichten": {
+        "endwert": 2.406848165293579,
+        "cagr": 0.08703761461026494,
+        "maxdd": -0.5662279113161015
+      },
+      "diagnose": {
+        "n_dabei": 382,
+        "n_ohne_preisspalte": 47,
+        "n_ohne_startkurs": 56,
+        "ohne_startkurs": [
+          "ACV",
+          "ARNC",
+          "AT",
+          "AWE",
+          "BLL",
+          "BR",
+          "BSC",
+          "BUD",
+          "CBE",
+          "DELL",
+          "DG",
+          "EC",
+          "EP",
+          "ESRX",
+          "FBF",
+          "FDC",
+          "FE",
+          "G",
+          "GENZ",
+          "HCA"
+        ],
+        "n_delistings_im_fenster": 60
+      }
+    }
+  ],
+  "spy": {
+    "endwert": 2.1830557724576662,
+    "cagr": 0.07700404246544457,
+    "maxdd": -0.551891072765484
+  },
+  "ueberhoehung_cagr": {
+    "cagr_halten": 0.029004556150811434,
+    "cagr_umschichten": 0.023575127406749496
+  }
+}
