@@ -127,26 +127,59 @@ def glitch_verdaechtig(px: pd.DataFrame, namen: set[str]) -> dict[str, dict]:
     return aus
 
 
+#: Wie genau muss eine Gegenbewegung zum Oeffnungsfaktor passen, damit sie als
+#: Rueckkehr gilt? 15 % relative Toleranz.
+PAAR_TOLERANZ = 0.15
+
+#: Ab hier ist es kein Kurs mehr, sondern ein Deckelwert des Datenlieferanten.
+#: Der Sentinel ist exakt 999.999,9999 und steht bei vier Namen ueber insgesamt
+#: 3.799 Tage. Der hoechste ECHTE Kurs im Panel liegt darunter (BKNG), deshalb
+#: trennt die Schwelle sauber. Namen mit Sentinel-Werten sind nicht
+#: rekonstruierbar und werden gemeldet statt bereinigt (F7).
+SENTINEL_KURS = 999_999.0
+
+
 def korruptions_spannen(px: pd.DataFrame, namen: set[str]) -> dict[str, dict]:
     """Zeitraeume, in denen der Kurs auf einer FALSCHEN Skala steht.
 
     WARUM NICHT DIE UEBERGANGSTAGE (Stage-2-Finding F-senior-10)
     ------------------------------------------------------------
-    Die erste Fassung speicherte die Uebergaenge — den Sprung hoch und die
-    Rueckkehr. Das ist nicht dasselbe wie „Kurs ist falsch": GPS hatte zwei
-    Uebergangstage (1996-12-20 und 1997-12-22) und lag DAZWISCHEN ein ganzes
-    Jahr auf der falschen Skala. Wer Uebergaenge zaehlt, unterschaetzt die
-    Reichweite systematisch — und zwar in die beruhigende Richtung, also genau
-    dort, wo die Beweislast am hoechsten ist.
+    Die erste Fassung speicherte nur die Uebergaenge. Das ist nicht dasselbe wie
+    „Kurs ist falsch": GPS hatte zwei Uebergangstage und lag DAZWISCHEN ein
+    ganzes Jahr auf der falschen Skala.
 
-    Hier wird deshalb gepaart: ein Sprung um mehr als ``GLITCH_SCHWELLE`` oeffnet
-    eine Spanne, die passende Gegenbewegung schliesst sie. Bleibt sie offen,
-    laeuft sie bis zum Serienende (dauerhafter Niveaubruch).
+    WARUM DIE GEGENBEWEGUNG ZUM FAKTOR PASSEN MUSS (F-test-1, BLOCKER)
+    ------------------------------------------------------------------
+    Die zweite Fassung schloss eine Spanne bei der ERSTEN Gegenbewegung unter
+    -66,7 %, ohne zu pruefen, ob deren Betrag zum Oeffnungsfaktor passt. Bei
+    YRCW oeffnete ein Sprung mit f = 302,8, geschlossen wurde bei einem realen
+    Kurssturz von -77,2 % — die Division der Spanne durch f ueberkorrigierte den
+    Rand um Faktor 69 und **erzeugte** eine Rendite von +6.802 %. Die
+    „Bereinigung" war dort schlimmer als der Fehler.
 
-    Rueckgabe je Symbol:
-      ``spannen``  Liste (start, ende) mit falschem Kursniveau
-      ``uebergaenge`` die Sprungtage selbst — dort ist die TAGESRENDITE verzerrt
-      ``n_tage_falsch`` Handelstage innerhalb der Spannen
+    Eine Rueckkehr aus einem Sprung um ``f`` ist ein Fall um ``1/f - 1``.
+    Geschlossen wird deshalb nur, wenn ``(1 + r) * f`` nahe 1 liegt. Passt keine
+    Gegenbewegung, ist die Spanne offen (dauerhafter Bruch). Tritt waehrend
+    einer offenen Spanne ein WEITERER Aufwaertssprung auf, sind die Skalen
+    verschraenkt und der Name gilt als **unaufloesbar** — er wird gemeldet und
+    nicht bereinigt, statt still falsch behandelt zu werden (F-test-6).
+
+    BEKANNTE GRENZEN (Stage-1-Findings F12, F13)
+    --------------------------------------------
+    Beide sind auf dem aktuellen Panel nicht wirksam, stehen hier aber, weil ein
+    Detektor, dessen Grenzen niemand kennt, spaeter als Garantie gelesen wird:
+
+    * **NaN-Luecke am Rueckweg.** Faellt die Rueckkehr auf einen Tag ohne Kurs,
+      ist die Rendite dort NaN, der Tag liegt in weder ``hoch`` noch ``runter``,
+      und die Spanne laeuft bis zum Panelende weiter — das bereits korrekte
+      Nachsegment wird dann mitgeteilt. Die Gegenprobe in ``panel_bereinigt``
+      sieht das nicht, weil die Renditen innerhalb der Spanne unveraendert
+      bleiben. Auf dem Kampagnenpanel nicht nachgewiesen.
+    * **Die Abwaertsschwelle haengt nicht von ``f`` ab.** ``runter`` verlangt
+      pauschal ``r < -2/3``, waehrend die Paarung ``|(1+r)*f - 1| <= 0,15``
+      prueft. Fuer ``f`` nahe 3 ist die obere Haelfte des Toleranzbandes damit
+      unerreichbar, die Toleranz also faktisch einseitig. Im aktuellen Lauf
+      marginal, weil das kleinste beobachtete ``f`` bei 3,075 liegt.
     """
     sp = [s for s in sorted(namen) if s in px.columns and px[s].notna().any()]
     t = px[sp]
@@ -161,36 +194,64 @@ def korruptions_spannen(px: pd.DataFrame, namen: set[str]) -> dict[str, dict]:
             continue
         rl = list(t.index[runter[sym].fillna(False)])
         spannen: list[tuple] = []
-        offen = None
+        # Saettigungs-Sentinel: der Vendor liefert fuer vier Namen (COMS, MCIC,
+        # WFT, YRCW) an 3.799 Tagen exakt 999.999,9999 — das ist kein Kurs,
+        # sondern ein Deckelwert, und Konstante-durch-Konstante ist kein
+        # Spleiss. Eine frueher Fassung bereinigte WFT auf dieser Basis ueber
+        # 1.375 Tage und erzeugte dabei einen Ausstiegstag von +14,87 %
+        # (Stage-1-Finding F7). Solche Namen werden gemeldet, nicht repariert.
+        unaufloesbar = bool((t[sym] >= SENTINEL_KURS).any())
+        grund = "sentinel" if unaufloesbar else ""
+        offen_ab = None
+        offen_f = None
         for tag in sorted(set(h) | set(rl)):
-            if tag in h and offen is None:
-                offen = tag
-            elif tag in rl and offen is not None:
-                spannen.append((offen, tag))
-                offen = None
-        if offen is not None:
-            spannen.append((offen, t.index[-1]))
+            if tag in h:
+                if offen_ab is not None:
+                    # Zweiter Sprung in einer offenen Spanne -> verschraenkt.
+                    unaufloesbar = True
+                    grund = "verschraenkt" if not grund else grund + "+verschraenkt"
+                    break
+                offen_ab = tag
+                offen_f = 1.0 + float(r[sym].loc[tag])
+            elif tag in rl and offen_ab is not None:
+                passt = abs((1.0 + float(r[sym].loc[tag])) * offen_f - 1.0)
+                if passt <= PAAR_TOLERANZ:
+                    spannen.append((offen_ab, tag))
+                    offen_ab, offen_f = None, None
+                # Passt die Gegenbewegung nicht, ist sie ein echter Kurssturz —
+                # die Spanne bleibt offen und laeuft weiter.
+        if offen_ab is not None:
+            # Offene Spanne: Ende EINEN Tag hinter das Panelende. Die Masken
+            # arbeiten mit `>= a & < b`; mit `index[-1]` fiele der letzte
+            # Handelstag heraus und behielte seinen Sprung (E-106).
+            spannen.append((offen_ab, t.index[-1] + pd.Timedelta(days=1)))
+
         n_falsch = sum(int(((t.index >= a) & (t.index < b)).sum()) for a, b in spannen)
         i = r[sym].idxmax()
+        # MESSUNG UND REPARIERBARKEIT SIND GETRENNT (Stage-2-Finding F-senior-2)
+        # ----------------------------------------------------------------------
+        # Eine fruehere Fassung leerte `spannen`, `uebergaenge` und
+        # `n_tage_falsch` fuer unaufloesbare Namen, damit die Bereinigung sie
+        # nicht anfasst. Das war doppelt falsch: `bereinige` prueft das Flag
+        # ohnehin selbst, und der ZWEITE Konsument (p12e) misst mit genau diesen
+        # Feldern, WIE STARK das Panel kontaminiert ist. Er bekam fuer die 13
+        # kaputtesten Namen null gemeldet — „nicht heilbar" wurde zu „nicht
+        # krank", und der Ausfall zeigte in die Entwarnungsrichtung.
         aus[sym] = {
             "zeitpunkt": f"{i:%Y-%m-%d}",
             "von": float(t[sym].shift(1).loc[i]),
             "auf": float(t[sym].loc[i]),
             "sprung": float(r[sym].loc[i]),
             "spannen": [[f"{a:%Y-%m-%d}", f"{b:%Y-%m-%d}"] for a, b in spannen],
-            "uebergaenge": [
-                f"{x:%Y-%m-%d}"
-                for x in sorted(set(h) | (set(rl) & _in_spannen(rl, spannen)))
-            ],
+            "uebergaenge": sorted(
+                {f"{a:%Y-%m-%d}" for a, _ in spannen}
+                | {f"{b:%Y-%m-%d}" for _, b in spannen if b <= t.index[-1]}
+            ),
             "n_tage_falsch": n_falsch,
+            "unaufloesbar": unaufloesbar,
+            "unaufloesbar_grund": grund,
         }
     return aus
-
-
-def _in_spannen(tage: list, spannen: list[tuple]) -> set:
-    """Nur Gegenbewegungen, die eine offene Spanne schliessen — nicht jeder
-    Kurssturz in der Historie eines geflaggten Namens (F-senior-11)."""
-    return {b for _, b in spannen if b in tage}
 
 
 def buy_and_hold(

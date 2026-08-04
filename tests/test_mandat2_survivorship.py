@@ -31,6 +31,7 @@ from research.mandat2.p12d_survivorship_schranke import (
     GLITCH_SCHWELLE,
     buy_and_hold,
     glitch_verdaechtig,
+    korruptions_spannen,
     kennzahlen,
 )
 
@@ -230,3 +231,128 @@ class TestKennzahlen:
         assert a["endwert"] == pytest.approx(2.0)
         assert a["cagr"] == pytest.approx(2.0**0.5 - 1.0)
         assert a["maxdd"] == pytest.approx(-0.5)
+
+
+class TestKorruptionsSpannen:
+    """Die Funktion, die den teuersten Fehler dieser Reihe erzeugt hat.
+
+    ``korruptions_spannen`` bestimmt, WELCHE Kurse als falsch gelten — und
+    damit, was die Bereinigung anfasst. Eine frühere Fassung schloss die Spanne
+    bei der ersten Gegenbewegung, ohne deren Betrag zu prüfen; bei YRCW war das
+    ein echter Kurssturz von −77,2 %, und die Division überkorrigierte den Rand
+    zu einer Rendite von **+6.802 %**. Die Bereinigung war dort schlimmer als
+    der Fehler (E-107). Getestet wird deshalb jede Verzweigung einzeln.
+    """
+
+    def _px(self, werte: list[float]) -> pd.DataFrame:
+        return pd.DataFrame({"X": werte}, index=_tage(len(werte)))
+
+    def test_offene_spanne_reicht_HINTER_den_letzten_tag(self):
+        """E-106: mit ``index[-1]`` als Ende fiele der letzte Tag heraus.
+
+        Die Masken arbeiten mit ``>= a & < b``. Endet die Spanne auf dem
+        letzten Handelstag, bleibt genau dieser Tag unbereinigt und behält
+        seinen Sprung — still, weil alle anderen Tage korrekt aussehen.
+        """
+        px = self._px([10.0] * 4 + [100.0] * 4)
+        aus = korruptions_spannen(px, {"X"})
+        ((a, b),) = [tuple(s) for s in aus["X"]["spannen"]]
+        assert pd.Timestamp(b) > px.index[-1].tz_localize(None)
+        # Alle vier Tage ab dem Sprung zaehlen als falsch, inklusive letztem.
+        assert aus["X"]["n_tage_falsch"] == 4
+        assert aus["X"]["unaufloesbar"] is False
+        assert a == f"{px.index[4]:%Y-%m-%d}"
+
+    def test_passende_rueckkehr_schliesst_die_spanne(self):
+        """Ein Sprung um f und ein Fall um 1/f − 1 gehoeren zusammen."""
+        px = self._px([10.0] * 3 + [100.0] * 3 + [10.0] * 3)  # x10, dann -90 %
+        aus = korruptions_spannen(px, {"X"})
+        ((a, b),) = [tuple(s) for s in aus["X"]["spannen"]]
+        assert a == f"{px.index[3]:%Y-%m-%d}"
+        assert b == f"{px.index[6]:%Y-%m-%d}"
+        assert aus["X"]["n_tage_falsch"] == 3
+
+    def test_echter_kurssturz_schliesst_die_spanne_NICHT(self):
+        """Der YRCW-Fall — der eigentliche BLOCKER (F-test-1).
+
+        Der Sprung ist x300; ein Fall um −77 % passt dazu nicht
+        ((1−0,77)·300 = 69, nicht 1). Er ist ein echter Kurssturz auf der
+        falschen Skala. Wird er als Rückkehr gewertet, überkorrigiert die
+        Bereinigung den Rand um Faktor 69.
+        """
+        px = self._px([1.5] * 3 + [450.0] * 3 + [102.6] * 3)  # x300, dann -77,2 %
+        aus = korruptions_spannen(px, {"X"})
+        ((a, b),) = [tuple(s) for s in aus["X"]["spannen"]]
+        assert a == f"{px.index[3]:%Y-%m-%d}"
+        # Spanne laeuft weiter bis hinter das Panelende, statt am Sturz zu enden.
+        assert pd.Timestamp(b) > px.index[-1].tz_localize(None)
+        assert aus["X"]["n_tage_falsch"] == 6
+
+    def test_zweiter_sprung_macht_den_namen_unaufloesbar(self):
+        """Verschraenkte Skalen: melden, nicht raten (F-test-6).
+
+        Bei zwei offenen Spruengen ohne Rueckkehr ist nicht bestimmbar, welcher
+        Kurs auf welcher Skala liegt. Der Name wird gemeldet und NICHT
+        bereinigt — 13 der 25 auffaelligen Namen der Kampagne fallen hierunter
+        (12 verschraenkt, einer ueber den Vendor-Sentinel).
+        """
+        px = self._px([10.0] * 3 + [100.0] * 3 + [1000.0] * 3)
+        aus = korruptions_spannen(px, {"X"})
+        assert aus["X"]["unaufloesbar"] is True
+        assert aus["X"]["unaufloesbar_grund"] == "verschraenkt"
+        # MESSUNG BLEIBT (Stage-2-Finding F-senior-2): „nicht reparierbar" ist
+        # nicht „nicht kaputt". Eine fruehere Fassung leerte hier die Messfelder
+        # — und der Konsument, der die Kontamination BEZIFFERT, bekam fuer die
+        # kaputtesten Namen null gemeldet, also eine Entwarnung.
+        assert aus["X"]["n_tage_falsch"] > 0
+        assert len(aus["X"]["spannen"]) == 1
+
+    def test_ruhiger_name_taucht_gar_nicht_auf(self):
+        px = self._px(list(np.linspace(10.0, 20.0, 12)))
+        assert korruptions_spannen(px, {"X"}) == {}
+
+    def test_mikropreis_sprung_wird_nicht_als_glitch_gewertet(self):
+        """Unter 1 USD sind Verzehnfachungen real — dieselbe Schwelle wie im
+        Glitch-Filter, hier eigenstaendig geprueft."""
+        px = self._px([0.4] * 3 + [40.0] * 3)
+        assert korruptions_spannen(px, {"X"}) == {}
+
+    def test_toleranz_ist_die_stellschraube(self):
+        """Mutationsprobe: ohne die Paarungsbedingung faellt dieser Test.
+
+        Ein Fall knapp ausserhalb der Toleranz darf NICHT schliessen. Bei
+        f = 10 waere die exakte Rueckkehr −90 %; hier sind es −85 %
+        ((1−0,85)·10 = 1,5, Abweichung 0,5 > 0,15).
+        """
+        px = self._px([10.0] * 3 + [100.0] * 3 + [15.0] * 3)
+        aus = korruptions_spannen(px, {"X"})
+        ((_, b),) = [tuple(s) for s in aus["X"]["spannen"]]
+        assert pd.Timestamp(b) > px.index[-1].tz_localize(None)
+
+    def test_saettigungs_sentinel_macht_den_namen_unaufloesbar(self):
+        """F7: 999.999,9999 ist kein Kurs, sondern ein Deckelwert.
+
+        Vier Namen (COMS, MCIC, WFT, YRCW) stehen an 3.799 Tagen exakt auf
+        diesem Wert. Eine frühere Fassung bereinigte WFT darauf über 1.375 Tage
+        — Konstante geteilt durch Konstante — und erzeugte dabei einen
+        Ausstiegstag von +14,87 %. Der höchste echte Kurs im Panel liegt
+        darunter, die Schwelle trennt also sauber.
+        """
+        px = self._px([10.0] * 3 + [999_999.9999] * 3 + [10.0] * 3)
+        aus = korruptions_spannen(px, {"X"})
+        assert aus["X"]["unaufloesbar"] is True
+        assert aus["X"]["unaufloesbar_grund"] == "sentinel"
+        # Auch hier: gemeldet wird der volle Umfang, repariert wird nichts.
+        assert aus["X"]["n_tage_falsch"] > 0
+
+    def test_hoher_aber_echter_kurs_bleibt_bereinigbar(self):
+        """Die Gegenprobe: knapp unter dem Sentinel wird normal behandelt.
+
+        Sonst wäre die Schwelle ein stiller Ausschluss großer Kurse statt eines
+        gezielten Sentinel-Filters.
+        """
+        px = self._px([1_000.0] * 3 + [900_000.0] * 3 + [1_000.0] * 3)
+        aus = korruptions_spannen(px, {"X"})
+        assert aus["X"]["unaufloesbar"] is False
+        assert aus["X"]["unaufloesbar_grund"] == ""
+        assert len(aus["X"]["spannen"]) == 1

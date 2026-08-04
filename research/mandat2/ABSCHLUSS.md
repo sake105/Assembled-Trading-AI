@@ -51,7 +51,7 @@ erhöht N und damit die Schwelle; man kann sich hier nicht mehr freisuchen.
 
 ---
 
-## Was trotzdem gilt — vier belastbare Befunde
+## Was trotzdem gilt — sechs belastbare Befunde
 
 ### 1. Die Steuer war nie die bindende Restriktion. Der Turnover war es.
 
@@ -114,6 +114,67 @@ richtigen Maßstab: er war die Gewichtung. Der Hauptkandidat verliert ein
 Viertel (3,43× → 2,57×), bleibt aber deutlich vorn — er lebt also nicht
 allein davon. Am Verdikt ändert das nichts, weil ein härterer Maßstab ein
 negatives Urteil nur bestätigt. Registriert als **E-079**.
+
+### 6. Die Datenbasis trägt keinen Vergleich gegen SPY (Nachtrag 2026-08-04)
+
+Punkt 5 war der erste Riss; hier ist der ganze Bruch. Vollständige Herleitung
+und alle Zahlen: **[`BEFUND_DATENQUALITAET.md`](./BEFUND_DATENQUALITAET.md)**
+(generiert aus `results/p12d_*.json`, `p12e_*.json`, `p12f_*.json`).
+
+**Survivorship (P12d).** Das Intraday-Universum besteht aus Namen, die heute
+noch handelbar sind. Liegenlassen dieser Namen liefert über 10,5 Jahre
+**2,36 bis 2,90 Prozentpunkte p. a. mehr als ein survivorship-freies
+PIT-Universum — ohne Strategie, ohne Signal.** Die Kampagne entscheidet Fragen
+im Bereich von rund 1,5 pp p. a.; schon der untere Rand der Spanne liegt
+darüber. Die Verzerrung ist also größer als der Effekt, um den gestritten wird.
+
+Der Bezug ist bewusst das PIT-Universum und nicht SPY: gegen SPY wären es
+3,36 pp, aber dort würden Gewichtung und Indexkonstruktion mitgemessen
+(vgl. Befund 5). Die Spanne kommt daher, dass P12d zwei Delisting-Behandlungen
+rechnet — eine einzelne Zahl wäre hier Scheinpräzision.
+
+Verstärkend (P12e): von den Indexmitgliedern **mit** Preisspalte überleben
+46,2 % bis zum Fensterende, von denen **ohne** nur 9,0 % — Anreicherungsfaktor
+**5,15×**. Das Fehlen einer Preisspalte ist kein technischer Zufall, es sagt
+das Ausscheiden voraus. Das Panel verliert bevorzugt die Verlierer.
+
+> **Konsequenz:** Jeder Vergleich gegen SPY oder einen passiven ETF ist auf
+> dieser Datenbasis nicht belastbar — in keine Richtung. Vergleiche *innerhalb*
+> des Universums (Haltedauer gegen Haltedauer, Parametrisierung gegen
+> Parametrisierung) bleiben gültig, weil beide Seiten dieselbe Verzerrung
+> tragen.
+
+**Preisfehler (P12e/P12f).** 25 Namen tragen Skalenbrüche über 48.380
+Handelstage, und sie sind nachweislich in die Ergebnisse eingegangen: GPS wurde
+an 2 Übergangstagen **gehalten** — der eine trug +12,36 % Portfolio-Rendite und
+war damit Rang 2 von 5.548 Handelstagen —, und vier Namen (ABC, CFC, GPS, TWX)
+wurden über kontaminierte Momentum-Beine gewählt (22 von 5.040 Auswahlplätzen,
+0,44 %). Ein Neulauf des P2-Gitters auf dem
+gespleißten Panel zeigt: **das Verdikt dreht in keiner Steuerwelt** — 0 von 24
+Parametrisierungen bestehen Zielfunktion und DD-Deckel, vor wie nach der
+Bereinigung. Auch Befund 1 hält: Mindesthaltedauer 730 und `rank_out` 200
+bleiben in allen Welten und beiden Panels das Optimum; nur die Hebelwahl
+kippt, und die trennte Erst- und Zweitplatzierten ohnehin nur um 0,55 %.
+
+Die Bereinigung selbst ist eine **Untergrenze**: 25 von 458 auffälligen Tagen
+beseitigt (5 %), 13 Namen bewusst unangetastet — 12 mit verschränkten Skalen,
+einer (WFT) mit einem Sättigungs-Sentinel von 999.999,9999, der kein Kurs ist.
+Sie hat **null** neue Ausreißer erzeugt, zweiseitig geprüft und gegen die
+Kursniveaus des *Originalpanels* gemessen.
+
+Bis dahin waren vier Fehlerklassen zu beheben — jede hätte für sich ein
+falsches Ergebnis getragen:
+
+| | Fehler | Wirkung |
+|---|---|---|
+| **E-107** | Spanne am ersten Gegenschlag geschlossen, ohne den Betrag zu prüfen | aus −77 % Kurssturz wurden **+6.802 %** |
+| **E-108** | Wächter filterte nach den Kursen des *bereinigten* Panels | Reparatur schaltete ihre eigene Überwachung an 379 Symbol-Tagen ab |
+| **E-110** | Detektor repariert, Artefakt des zweiten Konsumenten nicht neu erzeugt | Befund mischte zwei Detektorgenerationen (246 gegen 79 Übergangstage) |
+| **E-111** | „nicht reparierbar" als leere Messfelder kodiert | die 13 kaputtesten Namen meldeten **null**; die gemessene Kontamination verdoppelte sich nach dem Fix von 24.123 auf 48.380 Tage |
+
+E-108 verdeckte im konkreten Lauf genau **einen** Tag — der Fehler ist
+strukturell, nicht in seiner hier gemessenen Wirkung. E-111 dagegen hatte die
+Hälfte des Schadens unsichtbar gemacht, und zwar die schlimmere Hälfte.
 
 ---
 

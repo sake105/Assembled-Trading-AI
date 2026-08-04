@@ -1134,3 +1134,106 @@ Er ist trotzdem falsch — fuer den Halte-Kanal. Dieser misst verzerrte TAGESREN
 **Wie vermeiden:** (1) Jeden Review-Befund gegen die Fachlogik pruefen, auch und gerade wenn die vorherigen richtig waren. (2) Widerspruch begruenden und belegen, nicht behaupten — hier: Renditen sind Quotienten, ein konstanter Skalenfaktor kuerzt sich. (3) Trefferquote ist kein Argument fuer den EINZELNEN Befund. (4) Die Richtung des Befunds mitdenken: „mehr Alarm" fuehlt sich sicher an und ist es nicht, wenn die Zahl falsch ist.
 **Erkannt in:** Eigene Pruefung von Stage-2-Finding F-senior-10 zu `research/mandat2/p12e_panel_hygiene.py`. Der Reviewer hatte fuer Kanal B recht (E-104), fuer Kanal A nicht.
 **Referenzen:** E-104, E-102.
+
+## E-106 — Offenes Intervall mit dem letzten Index als Ende: der letzte Tag faellt still heraus
+**Datum:** 2026-08-04
+**Kategorie:** logic-error / off-by-one
+**Was passierte:** Korruptionsspannen wurden als `(start, ende)` gespeichert und ueberall mit der Maske `>= start & < ende` ausgewertet. Fuer eine offene Spanne — ein dauerhafter Skalenbruch, der bis zum Panelende laeuft — setzte ich `ende = index[-1]`. Damit faellt der LETZTE Handelstag aus der Maske: er wird nicht mitbereinigt und behaelt seinen kuenstlichen Sprung, waehrend alles davor gespleisst ist. Die Bereinigung erzeugt an dieser Stelle also selbst einen Sprung, wo vorher keiner war. Betroffen waren die drei Namen mit dauerhaftem Bruch (TWX, SWKS, RHT) und die Zaehlung `n_tage_falsch`, die um je einen Tag zu niedrig lag.
+**Warum falsch:** Ein halboffenes Intervall `[a, b)` braucht als „bis zum Ende" ein `b` HINTER dem letzten Element, nicht das letzte Element selbst. Der Fehler ist unauffaellig, weil er nur ein einziges Datum betrifft — und tueckisch, weil er ausgerechnet den Rand trifft, an dem die Endwerte der Backtests gebildet werden. Im schlimmsten Fall haette die „Bereinigung" den Ergebnisvergleich verzerrt, den sie gerade ermoeglichen sollte.
+**Wie vermeiden:** (1) Bei halboffenen Intervallen das offene Ende explizit als Sentinel hinter dem letzten Element setzen (`index[-1] + 1 Tag`), nicht als letztes Element. (2) Jede „bis zum Ende"-Spanne mit einem Test pruefen, der genau den letzten Eintrag inspiziert — Tests, die die Mitte pruefen, sehen den Fehler nie. (3) Bei Bereinigungsfunktionen zusaetzlich die Gegenprobe fahren: nach dem Eingriff darf die Auffaelligkeit, gegen die bereinigt wurde, nicht mehr messbar sein. Genau diese Gegenprobe hat den Fehler hier gefunden.
+**Erkannt in:** Ein selbst geschriebener Test (`test_renditen_innerhalb_der_spanne_bleiben_exakt`) schlug fehl — nicht wegen eines Testfehlers, sondern weil er den Produktionsfehler traf. `research/mandat2/p12d_survivorship_schranke.py`.
+**Referenzen:** E-104 (Intervallgrenzen beim Umstellen gekippt), E-070 (`clip` statt verwerfen am Rand).
+
+## E-107 — Die Bereinigung erzeugte schlimmere Fehler als die, gegen die sie bereinigte
+**Datum:** 2026-08-04
+**Kategorie:** false-repair / gegenprobe-einseitig
+**Was passierte:** Um zu pruefen, ob Vendor-Preisfehler ein Verdikt drehen, wurden die Skalenbrueche gespleisst: innerhalb einer Korruptionsspanne `[a, b)` werden die Kurse durch den Uebergangsfaktor `f` geteilt. Die Spanne wurde bei der ERSTEN Gegenbewegung unter -66,7 % geschlossen — ohne zu pruefen, ob deren Betrag zu `f` passt.
+
+Bei YRCW oeffnete ein Sprung mit `f = 302,8`. Geschlossen wurde bei einem **echten** Kurssturz von -77,2 %. Die Division der davorliegenden Spanne durch 302,8 zog den Rand um Faktor 69 daneben und **erzeugte** eine Tagesrendite von **+6.802 %** — groesser als jeder Vendor-Fehler im Originalpanel. Dazu skalierte die erste Fassung nur `close`, nicht das abgeleitete `div_panel`: die implizite Dividendenrendite stieg in der Spanne um genau `f`, bei WIN von 26 % auf 274 %. Das Ergebnis lief durch und lieferte ein sauber aussehendes „das Verdikt dreht nicht".
+
+**Warum falsch:** Die Gegenprobe zaehlte nur, was VERSCHWINDET (Sprung weg = Erfolg), nie, was ENTSTEHT. Eine Reparatur ohne Gegenrichtung ist keine Reparatur, sondern eine zweite, unbeobachtete Datenquelle — und zwar eine, die genau dort eingreift, wo die Fragestellung entschieden wird. Verschaerfend: das Ergebnis war das erwartete („dreht nicht"), also gab es keinen Anlass, misstrauisch zu werden. Ein Fehler, der die erwartete Antwort liefert, wird nicht gesucht.
+
+Zweitens: Beim Spleissen sind zwei Groessen betroffen, nicht eine. `div_panel` ist ein aus `close` ABGELEITETES Feld in Panel-Einheiten. Wer nur die primaere Groesse korrigiert, verschiebt still das Verhaeltnis zwischen beiden — hier ausgerechnet auf der Achse Dividende-gegen-Kursgewinn, um die es in der GmbH-Frage geht (29,83 % gegen 1,49 %).
+
+**Wie vermeiden:**
+1. **Jede Datenreparatur braucht eine Gegenprobe in BEIDE Richtungen**, als Code, nicht als Blick: nach dem Eingriff darf die Auffaelligkeit nicht mehr messbar sein UND es darf keine neue entstanden sein. Zweiseitig — ein falscher Faktor verbiegt den Rand nach oben ODER unten, und ein kuenstlicher -80-%-Tag faellt in einem Momentum-Backtest niemandem auf, er verschiebt nur still die Rangliste.
+2. **Fail-closed statt Warnung.** Die Gegenprobe bricht ab, wenn sie anschlaegt. Eine Warnung in einem Lauf mit 144 Backtests liest niemand.
+3. **Paarungsbedingung statt Schwellwert.** Eine Rueckkehr aus einem Sprung um `f` ist ein Fall um `1/f - 1`. Passt der Betrag nicht, ist es ein echter Kurssturz. Geschlossen wird nur bei `|(1+r)*f - 1| <= Toleranz`.
+4. **Nicht aufloesbare Faelle melden, nicht raten.** Bei verschraenkten Skalen (zweiter Sprung in offener Spanne) ist nicht bestimmbar, welcher Kurs auf welcher Skala liegt; dazu kommen Vendor-Sentinels. **13 der 25** auffaelligen Namen fallen darunter. Sie bleiben unberuehrt und stehen im Protokoll. Eine Bereinigung, die **12 statt 25** Namen repariert und das sagt, ist ehrlicher als eine, die 25 „repariert". (Die Zahlen standen hier zunaechst vertauscht — ausgerechnet die, die dieser Schritt korrigiert hat. Stage-2-Finding F-senior-7.)
+5. **Abgeleitete Felder mitfuehren.** Vor jedem Eingriff auflisten, welche anderen Groessen in denselben Einheiten stehen, und die Invariante benennen, die erhalten bleiben muss (hier: Dividende je Kurseinheit).
+6. **Ein Ergebnis, das die erwartete Antwort liefert, ist kein Beleg fuer korrekten Code** — es ist der Fall, in dem am wenigsten geprueft wird.
+
+**Erkannt in:** Stage-1-Review (F-test-1, F-test-3) zu `research/mandat2/panel_bereinigt.py` und `p12f_neulauf_bereinigt.py`. Der Lauf war zu diesem Zeitpunkt bereits durchgelaufen und das Ergebnis formuliert; es wurde zurueckgehalten und nach der Reparatur neu erhoben.
+**Referenzen:** E-106 (Off-by-one am Spannenende, von der Gegenprobe gefunden), E-083 (Bereinigungsverfahren erzeugt den gesuchten Effekt), E-096, E-102.
+
+## E-108 — Der Waechter filterte nach einer Kennzahl, die die Reparatur selbst verschiebt
+**Datum:** 2026-08-04
+**Kategorie:** false-green / waechter-blind / fail-open-im-fail-closed
+**Was passierte:** Der Fail-Closed-Waechter der Panel-Bereinigung meldet neue Ausreisser: `((r > 1.0) | (r < -0.5)) & (df.shift(1) > 1.0)`. Die 1-USD-Schwelle traegt eine fachliche Aussage — unter einem Dollar sind Verzehnfachungen real, dort ist ein Sprung kein Vendor-Fehler. Angewendet wurde sie aber auf das **bereinigte** Panel. Und die Bereinigung teilt Kurse durch den Spleissfaktor: sie schiebt sie systematisch unter die eigene Schwelle.
+
+Im echten Lauf fielen dadurch **379 Symbol-Tage in fuenf Namen** aus dem Blickfeld des Waechters. RHT lag im Original nie unter 3,02 USD und rutschte an 86 Tagen darunter. Reproduziert wurde es mit dem bestehenden Guard-Test, alle Kurse durch 20 geteilt: derselbe Fehler, den der Test bei Kursen ueber 1 USD zuverlaessig faengt, laeuft bei kleineren Kursen still durch — eingefuegt wird eine Rendite von **+2400 %**, gemeldet wird `neu_entstanden: 0`.
+
+Verschaerfend: die Testbegruendung behauptete ausdruecklich, der Detektor arbeite „auf dem ORIGINALPANEL". Fuer den Detektor stimmte das, fuer den Waechter nicht — und die beiden teilen sich die Funktion.
+
+**Warum falsch:** Ein Waechter, der pruefen soll, ob eine Transformation Schaden angerichtet hat, darf seine Filterbedingung nicht aus dem **Ergebnis** der Transformation ziehen. Sonst kann die Transformation ihre eigene Ueberwachung abschalten — und zwar genau dort, wo sie am staerksten eingreift, denn je groesser der Spleissfaktor, desto tiefer rutscht der Kurs unter die Schwelle. Das ist ein Fail-Open im Innern eines Fail-Closed: die Struktur sieht sicher aus, die Richtung des Ausfalls ist Entwarnung.
+
+**Wie vermeiden:**
+1. **Jede Filter- oder Schwellenbedingung eines Waechters gehoert an den UNVERAENDERTEN Zustand.** Konkret: die Frage „war das ein Penny-Stock?" beantwortet der Kurs, wie er wirklich war — nicht der, den die Reparatur daraus gemacht hat. Referenzpanel explizit uebergeben, nicht implizit das Ergebnis nehmen.
+2. **Beim Schreiben eines Waechters durchgehen, welche seiner Eingaenge die ueberwachte Operation veraendert.** Alles, was sie veraendert, ist als Filter disqualifiziert.
+3. **Guards mit veraenderter Groessenordnung testen**, nicht nur mit veraenderter Form. Derselbe Fall mal 1/20 gerechnet haette den Fehler sofort gezeigt — die bestehende Testreihe variierte Morphologien, nie Skalen.
+4. **Mutationsprobe auf die Schwelle selbst.** „Schwelle entfernen" muss einen Test zum Fallen bringen; tut es das nicht, ist die Schwelle unbelegt — hier ueberlebte sie die gesamte Suite.
+**Erkannt in:** Stage-1-Review (F1, BLOCKER) zu `research/mandat2/panel_bereinigt.py`.
+**Referenzen:** E-107 (dieselbe Bereinigung, einseitige Gegenprobe), E-103 (Fail-Open-Richtung nach der Korrektur beibehalten), E-066.
+
+## E-109 — Der Text nannte einen anderen Vergleichsmassstab als der Code rechnete
+**Datum:** 2026-08-04
+**Kategorie:** false-evidence / bezugsgroesse
+**Was passierte:** Die Kernzahl eines Befund-Dokuments lautete „**Ueberhoehung: 2,90 Prozentpunkte p. a.** gegenueber SPY". Gerechnet hatte der Code `intraday.cagr - pit_2004.cagr` — die Differenz zum survivorship-freien PIT-Universum, nicht zu SPY. Gegen SPY waeren es 3,36 pp gewesen. Das Skript selbst druckte korrekt „gegenueber dem PIT-Universum"; der Renderer schrieb SPY, weil SPY in derselben Tabelle stand. Die Zahl wanderte dann handgeschrieben ins Abschlussdokument der Kampagne.
+
+Beide Zahlen sind legitim, aber sie messen Verschiedenes: der PIT-Vergleich isoliert die **Auswahl** (gleiches Verfahren, gleiche Gewichtung, nur Ausscheider mehr), der SPY-Vergleich enthaelt zusaetzlich Gewichtung und Indexkonstruktion — genau der Fehler, den dieselbe Kampagne zwei Tage zuvor als E-079 registriert hatte.
+
+**Warum falsch:** Eine Differenz ohne korrekt benannten Bezug ist keine Messung, sondern eine Zahl. Der Fehler ist besonders zaeh, weil beide Werte plausibel sind und in dieselbe Richtung zeigen — es faellt niemandem auf, und der Befund bleibt „richtig", waehrend seine Begruendung falsch ist. Beim naechsten Lauf mit anderen Daten kann genau das kippen.
+
+**Wie vermeiden:**
+1. **Der Bezug gehoert in denselben Ausdruck wie die Zahl.** Wo eine Differenz berechnet wird, den Namen der Vergleichsgroesse aus den Daten ziehen (`pit["universum"]`), nicht im Fliesstext wiederholen.
+2. **Wenn zwei Bezugsgroessen im Dokument vorkommen, beide ausweisen** und den Unterschied benennen — hier: 2,36–2,90 pp gegen PIT, 3,36 pp gegen SPY, und warum PIT der ehrlichere Massstab ist.
+3. **Bereits registrierte Fehlerklassen gegen den eigenen neuen Text pruefen.** E-079 („der Benchmark war ein Drittel des Vorsprungs") stand im selben Dokument, drei Abschnitte darueber.
+4. **Eine Zahl, die von einem Skript in ein Dokument wandert, braucht denselben Test wie Code** — hier faengt jetzt ein Renderer-Test den Bezugsnamen.
+**Erkannt in:** Stage-1-Review (F4) zu `render_befund_datenqualitaet.py` und `ABSCHLUSS.md`.
+**Referenzen:** E-079, E-085 (Zahlendrift zwischen Quelle und Dokument), E-081.
+
+## E-110 — Ein reparierter Detektor entwertet die Artefakte seines Vorgaengers
+**Datum:** 2026-08-04
+**Kategorie:** wiring-gap / artefakt-drift
+**Was passierte:** `korruptions_spannen` wurde nach einem BLOCKER-Fund repariert (Paarungsbedingung, Sentinel-Erkennung, Verschraenkungs-Guard). Zwei Skripte rufen die Funktion auf. Eines wurde neu ausgefuehrt, das andere nicht — sein Ergebnis-JSON blieb vom alten Lauf stehen. Der generierte Befund zog Abschnitt 2 aus dem alten und Abschnitt 4 aus dem neuen Artefakt: **246 gegen 25 Uebergangstage, 32.332 gegen 48.380 Tage auf falscher Skala**, im selben Dokument, ohne Warnung.
+
+Aufgefallen ist es nur, weil ein Reviewer die Zeitstempel der Dateien mit dem Zeitstempel des Moduls verglich. Das Dokument selbst war syntaktisch einwandfrei, beide Zahlenreihen plausibel, jede einzelne Zahl korrekt gegen ihr Artefakt.
+
+**Warum falsch:** Ein generiertes Dokument garantiert Konsistenz zwischen **Zahl und Satz** — nicht zwischen **Artefakt und Code**. Das ist ein anderer Vertrag, und der Generator kann ihn nicht einhalten, weil er die Artefakte nur liest. Sobald mehrere Skripte dieselbe Analysefunktion aufrufen, ist jede Aenderung an ihr eine **Invalidierung aller ihrer Artefakte**. Ohne Gegenmassnahme wandert der alte Stand still ins Dokument, und zwar in dem Moment, in dem die groesste Sorgfalt herrscht: direkt nach einer Reparatur.
+
+**Wie vermeiden:**
+1. **Nach jeder Aenderung an einer geteilten Analysefunktion die Konsumentenliste bestimmen** (`grep -rn "funktionsname" research/ scripts/`) und deren Artefakte neu erzeugen — vor dem Rendern, nicht danach.
+2. **Artefakte tragen einen Strukturmarker.** Hier reichte es, ein Feld zu verlangen, das nur der neue Detektor schreibt (`unaufloesbar_grund`). Der Renderer bricht ab, wenn es fehlt, statt zu rendern.
+3. **Querbezuege zwischen Artefakten pruefen.** Kennt Lauf B einen Namen als unauflösbar, den Lauf A gar nicht meldet, haben beide verschiedene Panels gesehen — das ist billig zu pruefen und faengt Drift, die kein Einzelfeld zeigt.
+4. **Mtime-Regel als Faustformel:** kein Artefakt darf aelter sein als das Modul, das es erzeugt hat. Taugt zur Diagnose, nicht als alleiniger Guard (Checkouts setzen mtimes neu).
+**Erkannt in:** Stage-2-Review (F-senior-1, BLOCKER) zu `render_befund_datenqualitaet.py` / `results/p12e_panel_hygiene.json`.
+**Referenzen:** E-085 (Zahlendrift zwischen Quelle und Dokument), E-081, E-109.
+
+## E-111 — Reparierbarkeit in die Messung geschrieben: „nicht heilbar" wurde zu „nicht krank"
+**Datum:** 2026-08-04
+**Kategorie:** logic-error / entwarnung-durch-konstruktion
+**Was passierte:** Namen mit verschraenkten Preisskalen oder Vendor-Sentinel sollten von der Bereinigung nicht angefasst werden. Umgesetzt wurde das, indem der Detektor fuer sie `spannen: []`, `uebergaenge: []` und `n_tage_falsch: 0` zurueckgab — die Reparatur findet dann nichts zu tun.
+
+Ein zweiter Konsument misst mit **denselben Feldern**, wie stark das Panel kontaminiert ist. Er bekam fuer die **13 kaputtesten Namen null gemeldet**: WFT mit 1.375 Sentinel-Tagen, YRCW mit 1.456, MCIC mit 844. Nach der Korrektur (Messfelder immer befuellen, nur ein Flag transportiert die Nicht-Reparierbarkeit) sprang die gemessene Kontamination von 24.123 auf **48.380 Tage** — die Haelfte des Schadens war unsichtbar, und zwar exakt die schlimmere Haelfte.
+
+Die Bereinigung selbst brauchte das Leeren nie: sie prueft das Flag ohnehin selbst.
+
+**Warum falsch:** Detektor und Reparatur beantworten verschiedene Fragen — „wie kaputt ist es?" und „was kann ich reparieren?". Wer das Ergebnis der einen benutzt, um die andere zu steuern, koppelt zwei Semantiken aneinander und schaltet die Messung genau dort ab, wo der Schaden am groessten ist. Der Ausfall zeigt dabei immer in die **Entwarnungsrichtung**, denn unbehandelbare Faelle sind typischerweise die schwersten. Ein Befund, der auf so einer Messung steht, ist systematisch zu optimistisch — und wirkt umso solider, je kaputter die Daten sind.
+
+**Wie vermeiden:**
+1. **Nicht-Verarbeitbarkeit immer als eigenes Flag transportieren**, nie durch Leeren der Messfelder. Der Konsument entscheidet, was er damit tut.
+2. **Merksatz fuer den Test:** fuer einen als unbehandelbar markierten Fall muss der gemessene Befund **groesser** sein als null, nicht kleiner. Ein Test, der `n_tage_falsch == 0` fuer einen unauflösbaren Namen fordert, zementiert den Fehler — genau so ein Test existierte hier und musste mitgedreht werden.
+3. **Bei jedem Feld, das zwei Konsumenten hat, die Frage stellen:** beantwortet es fuer beide dieselbe Frage? Wenn nicht, aufspalten.
+4. **Sanity-Summe:** die Gesamtkontamination muss mit der Zahl der betroffenen Namen wachsen, nicht schrumpfen, wenn mehr Namen als unbehandelbar erkannt werden.
+**Erkannt in:** Stage-2-Review (F-senior-2, BLOCKER) zu `p12d_survivorship_schranke.py`.
+**Referenzen:** E-102 (Entwarnung auf Proxy), E-103 (Fail-Open-Richtung), E-083, E-066.
