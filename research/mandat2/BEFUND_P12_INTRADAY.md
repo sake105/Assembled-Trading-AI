@@ -292,6 +292,66 @@ diese eine Morphologie: dauerhafte Niveausprünge im Band 100–200 %
 im Universum — ob sie echt sind, ist **offen**. Ob P1–P11 von den korrupten
 Namen berührt sind, ist ebenfalls offen und ein eigener Prüfschritt.
 
+## Sind die bisherigen Verdicts kontaminiert? (P12e)
+
+P12d ließ zwei Fragen offen, die **alle** Phasen betreffen. Beide sind
+jetzt gemessen — die erste mit einem Ergebnis, das ich zunächst falsch
+hatte.
+
+**Frage 1 — ist ein Preisfehler in eine Rendite eingegangen?** Das Panel
+trägt über das volle Suchfenster **25 korrumpierte Namen** mit zusammen
+**258 korrupten Handelstagen**. Zwei Kanäle können den Fehler in ein
+Ergebnis tragen:
+
+**Kanal A — über einen korrupten Tag gehalten:** 2 Namen an 11 Handelstagen.
+Die größte Portfolio-Tagesrendite an einem solchen Tag beträgt **12,4 %** —
+das ist keine Marktbewegung, sondern ein Vendor-Fehler, der als Gewinn gebucht
+wurde.
+
+| Name | korrupte Tage im Bestand | größte Tageswirkung |
+|---|---|---|
+| CFC | 9 (2007-05-17 … 2007-06-20) | 6,7 % |
+| GPS | 2 (1996-12-20 … 1997-12-22) | 12,4 % |
+
+**Kanal B — im kontaminierten Momentum-Fenster gewählt:** 5 Namen, **27 von 5.040 Auswahlplätzen (0,54 %)**.
+Das Fenster wird in HANDELSTAGEN gerechnet (21…252 nach dem Fehlertag), nicht in
+Kalendertagen.
+
+> **Zurückgenommen:** eine frühere Fassung meldete hier „4 berührt,
+> keiner über den Halte-Kanal, 0,38 %“. Der Halte-Kanal war aus der
+> **Auswahl** abgeleitet statt aus dem **Bestand** — die Engine verkauft
+> aber erst bei `rang > rank_out`, hält also weit über den letzten
+> Top-20-Termin hinaus. An der instrumentierten Engine gemessen ist der
+> Halte-Kanal nicht leer, sondern der wirksamere der beiden (E-102).
+
+Ob das ein Verdikt dreht, ist damit **nicht** gesagt — dafür bräuchte es
+einen Lauf aller Phasen mit bereinigtem Panel. Der Befund grenzt die
+Frage ein, er beantwortet sie nicht.
+
+**Geltungsbereich:** gemessen für **eine** Konfiguration (momentum_score (12-1), top20,
+ungegatet). Phasen mit anderem Score, anderem `top_in` oder einem
+Risk-off-Gate wählen andere Namen — dafür gilt der Befund nicht.
+
+**Die korrumpierten Serien, aus dem Artefakt:**
+
+| Name | Fehlertage | von | auf | Faktor |
+|---|---|---|---|---|
+| MEL | 87 | 7,73 | 141630,35 | 18313,4× |
+| CIN | 39 | 3,13 | 1774,02 | 567,4× |
+| CFC | 21 | 10,24 | 365,94 | 35,7× |
+| HPC | 17 | 56,61 | 5300,00 | 93,6× |
+| KRI | 14 | 1,32 | 12,95 | 9,8× |
+| MCIC | 10 | 17219,70 | 1000000,00 | 58,1× |
+
+**Frage 2 — wie groß ist die Abdeckungslücke?** Jetzt aus dem Artefakt
+statt aus der Prosa (vorher war ausgerechnet die Zahl, die eine
+Einschränkung trägt, die einzige ohne Beleg):
+
+- Anteil der Index-Mitglieder mit Preisspalte: **84,0 % bis 96,2 %**, Median 91,3 %
+- Überlebensquote 1996-01-31 → 2016-12-30: mit Preisspalte **46,2 %**, ohne **9,0 %**
+- Die Lücke ist **5,1-fach** mit Index-Austritten angereichert — sie ist
+  nicht neutral.
+
 ## Was dieser Strang nicht beantwortet
 
 - **Absolute Renditen** — Universum survivorship-verzerrt (beziffert in P12d).

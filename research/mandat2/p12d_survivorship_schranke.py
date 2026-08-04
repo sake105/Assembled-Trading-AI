@@ -102,16 +102,28 @@ def glitch_verdaechtig(px: pd.DataFrame, namen: set[str]) -> dict[str, dict]:
     t = px[sp]
     r = t.pct_change(fill_method=None).where(t.notna() & t.shift(1).notna())
     gross = (r > GLITCH_SCHWELLE) & (t.shift(1) > 1.0)
+    # Gegenbewegung mitzaehlen: bei verschraenkten Skalen folgt auf den Sprung
+    # nach oben regelmaessig einer nach unten. Wer nur `gross` zaehlt, sieht das
+    # halbe Fenster — und wer nur `idxmax` speichert, haelt eine mehrwoechige
+    # Korruption fuer einen einzelnen Tag (Stage-1-Finding F-test-2). CFC hat
+    # 21 korrupte Tage, nicht einen.
+    zurueck = (r < -(GLITCH_SCHWELLE / (1.0 + GLITCH_SCHWELLE))) & (t.shift(1) > 1.0)
     aus = {}
     for sym in sp:
-        if bool(gross[sym].any()):
-            i = r[sym].idxmax()
-            aus[sym] = {
-                "zeitpunkt": f"{i:%Y-%m-%d}",
-                "von": float(t[sym].shift(1).loc[i]),
-                "auf": float(t[sym].loc[i]),
-                "sprung": float(r[sym].loc[i]),
-            }
+        if not bool(gross[sym].any()):
+            continue
+        maske = (gross[sym] | zurueck[sym]).fillna(False)
+        i = r[sym].idxmax()
+        aus[sym] = {
+            # Repraesentant fuer die Anzeige — NICHT als Entscheidungsgrundlage
+            # verwenden: die Korruption ist ein Fenster (siehe `tage`).
+            "zeitpunkt": f"{i:%Y-%m-%d}",
+            "von": float(t[sym].shift(1).loc[i]),
+            "auf": float(t[sym].loc[i]),
+            "sprung": float(r[sym].loc[i]),
+            "tage": [f"{x:%Y-%m-%d}" for x in t.index[maske]],
+            "n_tage": int(maske.sum()),
+        }
     return aus
 
 

@@ -98,6 +98,7 @@ def main() -> int:
     c = lade("p12c_reversal_kostenschwelle.json")
     c_st = lade("p12c_reversal_stufig.json")
     sv = lade("p12d_survivorship.json")
+    ph = lade("p12e_panel_hygiene.json")
 
     bh = d["buy_and_hold"]["endwert"]
     reb = d["ew_rebalanciert"]["endwert"]
@@ -553,6 +554,91 @@ def main() -> int:
                 "sind, ist **offen**. Ob P1–P11 von den korrupten\nNamen berührt sind, "
                 "ist ebenfalls offen und ein eigener Prüfschritt.\n"
             )
+
+    if ph:
+        hk, ak = ph["halte_kanal"], ph["auswahl_kanal"]
+        t.append("## Sind die bisherigen Verdicts kontaminiert? (P12e)\n")
+        t.append(
+            "P12d ließ zwei Fragen offen, die **alle** Phasen betreffen. Beide sind\n"
+            "jetzt gemessen — die erste mit einem Ergebnis, das ich zunächst falsch\n"
+            "hatte.\n"
+        )
+        t.append(
+            "**Frage 1 — ist ein Preisfehler in eine Rendite eingegangen?** Das Panel\n"
+            f"trägt über das volle Suchfenster **{len(ph['korrumpierte_namen'])} "
+            "korrumpierte Namen** mit zusammen\n"
+            f"**{ph['korrupte_handelstage_gesamt']} korrupten Handelstagen**. "
+            "Zwei Kanäle können den Fehler in ein\nErgebnis tragen:\n"
+        )
+        groesste = max((v["groesste_wirkung"] for v in hk.values()), default=0.0)
+        t.append(
+            f"**Kanal A — über einen korrupten Tag gehalten:** {len(hk)} Namen an "
+            f"{sum(v['n_tage'] for v in hk.values())} Handelstagen.\n"
+            "Die größte Portfolio-Tagesrendite an einem solchen Tag beträgt "
+            f"**{pct(groesste)}** —\ndas ist keine Marktbewegung, sondern ein "
+            "Vendor-Fehler, der als Gewinn gebucht\nwurde.\n"
+        )
+        t.append(
+            "| Name | korrupte Tage im Bestand | größte Tageswirkung |\n|---|---|---|"
+        )
+        for sym, v in sorted(hk.items()):
+            t.append(
+                f"| {sym} | {v['n_tage']} ({v['tage'][0]} … {v['tage'][-1]}) "
+                f"| {pct(v['groesste_wirkung'])} |"
+            )
+        t.append("")
+        t.append(
+            f"**Kanal B — im kontaminierten Momentum-Fenster gewählt:** {len(ak)} "
+            f"Namen, **{ph['auswahlplaetze_kanal_b']} von "
+            f"{tsd(ph['auswahlplaetze_gesamt'])} Auswahlplätzen "
+            f"({zahl(ph['anteil_plaetze_kanal_b'] * 100, 2)} %)**.\n"
+            "Das Fenster wird in HANDELSTAGEN gerechnet "
+            f"({ph['momentum_fenster_handelstage'][0]}…"
+            f"{ph['momentum_fenster_handelstage'][1]} nach dem Fehlertag), nicht in\n"
+            "Kalendertagen.\n"
+        )
+        t.append(
+            f"> **Zurückgenommen:** eine frühere Fassung meldete hier {AUF}4 berührt,\n"
+            f"> keiner über den Halte-Kanal, 0,38 %{ZU}. Der Halte-Kanal war aus der\n"
+            "> **Auswahl** abgeleitet statt aus dem **Bestand** — die Engine verkauft\n"
+            "> aber erst bei `rang > rank_out`, hält also weit über den letzten\n"
+            "> Top-20-Termin hinaus. An der instrumentierten Engine gemessen ist der\n"
+            "> Halte-Kanal nicht leer, sondern der wirksamere der beiden (E-102).\n"
+        )
+        t.append(
+            "Ob das ein Verdikt dreht, ist damit **nicht** gesagt — dafür bräuchte es\n"
+            "einen Lauf aller Phasen mit bereinigtem Panel. Der Befund grenzt die\n"
+            "Frage ein, er beantwortet sie nicht.\n"
+        )
+        t.append(
+            "**Geltungsbereich:** gemessen für **eine** Konfiguration "
+            f"({ph['gemessene_konfiguration']['score']}, top{ph['top_in']},\n"
+            "ungegatet). Phasen mit anderem Score, anderem `top_in` oder einem\n"
+            "Risk-off-Gate wählen andere Namen — dafür gilt der Befund nicht.\n"
+        )
+        t.append("**Die korrumpierten Serien, aus dem Artefakt:**\n")
+        t.append("| Name | Fehlertage | von | auf | Faktor |\n|---|---|---|---|---|")
+        for sym, g in sorted(
+            ph["korrumpierte_namen"].items(), key=lambda kv: -kv[1]["n_tage"]
+        )[:6]:
+            t.append(
+                f"| {sym} | {g['n_tage']} | {zahl(g['von'])} | {zahl(g['auf'])} "
+                f"| {zahl(1 + g['sprung'], 1)}× |"
+            )
+        t.append("")
+        ab, an = ph["abdeckung"], ph["austritts_anreicherung"]
+        t.append(
+            "**Frage 2 — wie groß ist die Abdeckungslücke?** Jetzt aus dem Artefakt\n"
+            "statt aus der Prosa (vorher war ausgerechnet die Zahl, die eine\n"
+            "Einschränkung trägt, die einzige ohne Beleg):\n\n"
+            f"- Anteil der Index-Mitglieder mit Preisspalte: **{pct(ab['min'])} bis "
+            f"{pct(ab['max'])}**, Median {pct(ab['median'])}\n"
+            f"- Überlebensquote {an['referenz_start']} → {an['referenz_ende']}: "
+            f"mit Preisspalte **{pct(an['ueberlebensquote_mit_spalte'])}**, ohne "
+            f"**{pct(an['ueberlebensquote_ohne_spalte'])}**\n"
+            f"- Die Lücke ist **{zahl(an.get('anreicherungsfaktor', 0), 1)}-fach** mit "
+            "Index-Austritten angereichert — sie ist\n  nicht neutral.\n"
+        )
 
     t.append("## Was dieser Strang nicht beantwortet\n")
     t.append(
