@@ -127,6 +127,72 @@ def glitch_verdaechtig(px: pd.DataFrame, namen: set[str]) -> dict[str, dict]:
     return aus
 
 
+def korruptions_spannen(px: pd.DataFrame, namen: set[str]) -> dict[str, dict]:
+    """Zeitraeume, in denen der Kurs auf einer FALSCHEN Skala steht.
+
+    WARUM NICHT DIE UEBERGANGSTAGE (Stage-2-Finding F-senior-10)
+    ------------------------------------------------------------
+    Die erste Fassung speicherte die Uebergaenge — den Sprung hoch und die
+    Rueckkehr. Das ist nicht dasselbe wie „Kurs ist falsch": GPS hatte zwei
+    Uebergangstage (1996-12-20 und 1997-12-22) und lag DAZWISCHEN ein ganzes
+    Jahr auf der falschen Skala. Wer Uebergaenge zaehlt, unterschaetzt die
+    Reichweite systematisch — und zwar in die beruhigende Richtung, also genau
+    dort, wo die Beweislast am hoechsten ist.
+
+    Hier wird deshalb gepaart: ein Sprung um mehr als ``GLITCH_SCHWELLE`` oeffnet
+    eine Spanne, die passende Gegenbewegung schliesst sie. Bleibt sie offen,
+    laeuft sie bis zum Serienende (dauerhafter Niveaubruch).
+
+    Rueckgabe je Symbol:
+      ``spannen``  Liste (start, ende) mit falschem Kursniveau
+      ``uebergaenge`` die Sprungtage selbst — dort ist die TAGESRENDITE verzerrt
+      ``n_tage_falsch`` Handelstage innerhalb der Spannen
+    """
+    sp = [s for s in sorted(namen) if s in px.columns and px[s].notna().any()]
+    t = px[sp]
+    r = t.pct_change(fill_method=None).where(t.notna() & t.shift(1).notna())
+    hoch = (r > GLITCH_SCHWELLE) & (t.shift(1) > 1.0)
+    runter = (r < -(GLITCH_SCHWELLE / (1.0 + GLITCH_SCHWELLE))) & (t.shift(1) > 1.0)
+
+    aus: dict[str, dict] = {}
+    for sym in sp:
+        h = list(t.index[hoch[sym].fillna(False)])
+        if not h:
+            continue
+        rl = list(t.index[runter[sym].fillna(False)])
+        spannen: list[tuple] = []
+        offen = None
+        for tag in sorted(set(h) | set(rl)):
+            if tag in h and offen is None:
+                offen = tag
+            elif tag in rl and offen is not None:
+                spannen.append((offen, tag))
+                offen = None
+        if offen is not None:
+            spannen.append((offen, t.index[-1]))
+        n_falsch = sum(int(((t.index >= a) & (t.index < b)).sum()) for a, b in spannen)
+        i = r[sym].idxmax()
+        aus[sym] = {
+            "zeitpunkt": f"{i:%Y-%m-%d}",
+            "von": float(t[sym].shift(1).loc[i]),
+            "auf": float(t[sym].loc[i]),
+            "sprung": float(r[sym].loc[i]),
+            "spannen": [[f"{a:%Y-%m-%d}", f"{b:%Y-%m-%d}"] for a, b in spannen],
+            "uebergaenge": [
+                f"{x:%Y-%m-%d}"
+                for x in sorted(set(h) | (set(rl) & _in_spannen(rl, spannen)))
+            ],
+            "n_tage_falsch": n_falsch,
+        }
+    return aus
+
+
+def _in_spannen(tage: list, spannen: list[tuple]) -> set:
+    """Nur Gegenbewegungen, die eine offene Spanne schliessen — nicht jeder
+    Kurssturz in der Historie eines geflaggten Namens (F-senior-11)."""
+    return {b for _, b in spannen if b in tage}
+
+
 def buy_and_hold(
     px: pd.DataFrame, namen: set[str], *, umschichten: bool
 ) -> tuple[pd.Series, dict]:

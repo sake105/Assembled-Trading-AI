@@ -528,12 +528,14 @@ def main() -> int:
             "das PIT-Universum enthält nachweislich Pleite-Ticker\n"
             f"({', '.join(sv['tote_ticker_im_pit_universum'])}).\n\n"
             "Der Restkanal, den ich vorher zu Unrecht wegformuliert hatte: die\n"
-            "Preisabdeckung der Index-Mitglieder liegt über alle Monatsenden bei\n"
-            "84–96 %, und die fehlenden Namen sind rund **fünffach mit\n"
-            f"Index-Austritten angereichert**. {AUF}Survivorship-frei{ZU} ist zu\n"
-            "stark — richtig ist: *die Auswahl ist PIT-korrekt, die Abdeckung nicht\n"
-            "vollständig, und die Lücke ist nicht neutral.* Der Intraday-Strang P12\n"
-            "ist davon unabhängig und deutlich stärker betroffen.\n"
+            "Preisabdeckung der Index-Mitglieder ist unvollständig, und die\n"
+            "fehlenden Namen sind überproportional mit Index-Austritten\n"
+            f"angereichert. {AUF}Survivorship-frei{ZU} ist zu stark — richtig ist:\n"
+            "*die Auswahl ist PIT-korrekt, die Abdeckung nicht vollständig, und die\n"
+            "Lücke ist nicht neutral.* **Die Zahlen dazu stehen im P12e-Abschnitt,\n"
+            "aus dem Artefakt** — hier stünden sie sonst ein zweites Mal und würden\n"
+            "beim nächsten Datenstand auseinanderlaufen. Der Intraday-Strang P12 ist\n"
+            "davon unabhängig und deutlich stärker betroffen.\n"
         )
         if sv.get("ausgeschlossene_glitches"):
             g = sv["ausgeschlossene_glitches"]
@@ -566,25 +568,28 @@ def main() -> int:
         t.append(
             "**Frage 1 — ist ein Preisfehler in eine Rendite eingegangen?** Das Panel\n"
             f"trägt über das volle Suchfenster **{len(ph['korrumpierte_namen'])} "
-            "korrumpierte Namen** mit zusammen\n"
-            f"**{ph['korrupte_handelstage_gesamt']} korrupten Handelstagen**. "
-            "Zwei Kanäle können den Fehler in ein\nErgebnis tragen:\n"
+            "korrumpierte Namen**.\n"
+            f"Davon sind **{ph['uebergangstage_gesamt']} Übergangstage** — nur dort "
+            "ist die *Tagesrendite* verzerrt.\nAn weiteren "
+            f"**{tsd(ph['tage_auf_falscher_skala_gesamt'])} Tagen** steht der Kurs "
+            "auf einer falschen *Skala*; das ist\nfür Renditen folgenlos, solange "
+            "Vortag und Tag dieselbe Skala teilen, und\nwird nur für die beiden "
+            "Momentum-Stützstellen relevant.\n\n"
+            "Zwei Kanäle können den Fehler in ein Ergebnis tragen:\n"
         )
-        groesste = max((v["groesste_wirkung"] for v in hk.values()), default=0.0)
         t.append(
-            f"**Kanal A — über einen korrupten Tag gehalten:** {len(hk)} Namen an "
+            f"**Kanal A — über einen Übergangstag gehalten:** {len(hk)} Namen an "
             f"{sum(v['n_tage'] for v in hk.values())} Handelstagen.\n"
-            "Die größte Portfolio-Tagesrendite an einem solchen Tag beträgt "
-            f"**{pct(groesste)}** —\ndas ist keine Marktbewegung, sondern ein "
-            "Vendor-Fehler, der als Gewinn gebucht\nwurde.\n"
         )
         t.append(
-            "| Name | korrupte Tage im Bestand | größte Tageswirkung |\n|---|---|---|"
+            "| Name | Tage im Bestand | größte Tageswirkung | Rang unter allen Tagen "
+            "|\n|---|---|---|---|"
         )
         for sym, v in sorted(hk.items()):
             t.append(
                 f"| {sym} | {v['n_tage']} ({v['tage'][0]} … {v['tage'][-1]}) "
-                f"| {pct(v['groesste_wirkung'])} |"
+                f"| {pct(v['groesste_wirkung'])} am {v['groesste_wirkung_tag']} "
+                f"| {v['rang_unter_allen_tagen']} von {tsd(v['n_handelstage'])} |"
             )
         t.append("")
         t.append(
@@ -619,10 +624,11 @@ def main() -> int:
         t.append("**Die korrumpierten Serien, aus dem Artefakt:**\n")
         t.append("| Name | Fehlertage | von | auf | Faktor |\n|---|---|---|---|---|")
         for sym, g in sorted(
-            ph["korrumpierte_namen"].items(), key=lambda kv: -kv[1]["n_tage"]
+            ph["korrumpierte_namen"].items(), key=lambda kv: -kv[1]["n_tage_falsch"]
         )[:6]:
             t.append(
-                f"| {sym} | {g['n_tage']} | {zahl(g['von'])} | {zahl(g['auf'])} "
+                f"| {sym} | {g['n_tage_falsch']} | {len(g['uebergaenge'])} "
+                f"| {zahl(g['von'])} | {zahl(g['auf'])} "
                 f"| {zahl(1 + g['sprung'], 1)}× |"
             )
         t.append("")

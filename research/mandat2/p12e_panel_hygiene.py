@@ -53,7 +53,9 @@ from research.mandat2.campaign_data import load_campaign  # noqa: E402
 from research.mandat2.data_gate import TrialCounter  # noqa: E402
 from research.mandat2.engine import _monatsenden, momentum_score  # noqa: E402
 from research.mandat2.tax_regimes import make_regime  # noqa: E402
-from research.mandat2.p12d_survivorship_schranke import glitch_verdaechtig  # noqa: E402
+from research.mandat2.p12d_survivorship_schranke import (  # noqa: E402
+    korruptions_spannen,
+)
 
 OUT = Path(__file__).resolve().parent / "results"
 TOP_IN = 20  # Parametrisierung der Kampagne (P2-Gewinner)
@@ -183,57 +185,105 @@ def kanal_halten(
     Ein Proxy aus der Auswahlmenge unterschaetzt die Haltedauer und lieferte
     die falsche Entwarnung „keiner ueber den Halte-Kanal" (E-102).
     """
+    if not bestand:
+        raise SystemExit(
+            "Bestandsprotokoll leer — die Instrumentierung hat nicht gegriffen."
+        )
     aus: dict[str, dict] = {}
     for sym, g in glitches.items():
-        tage = [t for t in g["tage"] if sym in bestand.get(t, ())]
+        tage = [t for t in g["uebergaenge"] if sym in bestand.get(t, ())]
         if not tage:
             continue
-        wirkung = {
-            t: float(rendite.get(pd.Timestamp(t, tz="UTC"), float("nan"))) for t in tage
-        }
+        wirkung = {}
+        for t in tage:
+            ts = pd.Timestamp(t, tz="UTC")
+            if ts not in rendite.index:
+                # Fail-loud: ein fehlender Renditewert zu einem GEHALTENEN
+                # korrupten Tag wuerde als 0,0 % gerendert und damit als
+                # Entwarnung gelesen. Die Messung darf nicht in die beruhigende
+                # Richtung ausfallen (E-103).
+                raise SystemExit(
+                    f"{sym}: keine Portfolio-Rendite fuer den gehaltenen "
+                    f"korrupten Tag {t} — Verdrahtung pruefen, nicht ignorieren."
+                )
+            wirkung[t] = float(rendite.loc[ts])
+        # Vorzeichen BEHALTEN: der Extremwert kann ein Verlusttag sein. Eine
+        # frueher gespeicherte abs()-Groesse wurde danach mit "+" formatiert und
+        # als "Gewinn" beschrieben (F-senior-4).
+        extrem = max(wirkung.values(), key=abs, default=0.0)
+        # Rang und Beitrag MESSEN, nicht behaupten: eine fruehere Fassung
+        # schrieb "zweitgroesster Einzeltag der 21 Jahre" und "rein aus einem
+        # Datenfehler" ins permanente Fehler-Log, ohne beides je zu rechnen
+        # (Stage-2-Finding F-senior-9).
+        extrem_tag = max(wirkung, key=lambda k: abs(wirkung[k]))
+        alle = rendite.dropna()
+        rang = int((alle > wirkung[extrem_tag]).sum()) + 1
         aus[sym] = {
             "tage": tage,
             "n_tage": len(tage),
             "portfolio_tagesrendite": wirkung,
-            "groesste_wirkung": max(
-                (abs(v) for v in wirkung.values() if v == v), default=0.0
-            ),
+            "groesste_wirkung": extrem,
+            "groesste_wirkung_betrag": abs(extrem),
+            "groesste_wirkung_tag": extrem_tag,
+            "rang_unter_allen_tagen": rang,
+            "n_handelstage": int(len(alle)),
         }
     return aus
 
 
+def _skala_id(tag: "pd.Timestamp", spannen: list) -> int:
+    """Welche Preisskala gilt an diesem Tag? 0 = Basisskala, sonst Spannen-Nr."""
+    for k, (a, b) in enumerate(spannen, start=1):
+        if a <= tag < b:
+            return k
+    return 0
+
+
 def kanal_auswahl(
-    glitches: dict[str, dict],
+    spannen_je_symbol: dict[str, dict],
     gewaehlt: dict[str, list[str]],
     idx: "pd.DatetimeIndex",
 ) -> dict[str, list[str]]:
-    """Kanal B — welche Auswahltermine lagen im kontaminierten Momentum-Fenster?
+    """Kanal B — welche Auswahltermine hatten einen kontaminierten Score?
 
-    ``momentum_score`` ist ``close.shift(MOM_LAG) / close.shift(MOM_FENSTER)``
-    und rechnet damit in HANDELSTAGEN. Ein Score bei t ist kontaminiert, wenn
-    ein korrupter Tag g im Intervall ``(t-MOM_FENSTER, t-MOM_LAG]`` liegt —
-    umgestellt also fuer t in ``(g+MOM_LAG, g+MOM_FENSTER]``.
+    DIE RICHTIGE BEDINGUNG (und warum beide frueheren Fassungen daneben lagen)
+    -------------------------------------------------------------------------
+    ``momentum_score`` ist ``close.shift(MOM_LAG) / close.shift(MOM_FENSTER)``,
+    also ein Quotient aus GENAU ZWEI Stuetzstellen. Daraus folgt:
 
-    Eine fruehere Fassung nahm „365 Kalendertage ab g": ohne untere Grenze (die
-    ersten ~30 Tage sind gar nicht kontaminiert, beide Beine liegen noch vor g)
-    und oben zu kurz (252 Handelstage sind ~367 Kalendertage). Zufaellig
-    folgenlos, aber nicht hergeleitet (F-test-4).
+    * Es gibt kein „Fenster", in dem ein Fehlertag den Score beruehrt — nur die
+      beiden Beine zaehlen. Meine erste Fassung markierte jeden Termin im
+      Intervall nach einem Fehlertag; bei einem Ein-Tages-Spike sind das
+      ~230 Termine zu viel.
+    * Umgekehrt genuegt es nicht, „ein Bein liegt auf einer falschen Skala" zu
+      pruefen: liegen BEIDE Beine auf DERSELBEN falschen Skala, kuerzt sich der
+      Faktor heraus und der Score ist korrekt.
+
+    Richtig ist deshalb: **der Score ist kontaminiert, wenn die beiden Beine auf
+    VERSCHIEDENEN Skalen liegen.** Das deckt beide Morphologien in einer
+    Bedingung ab — den dauerhaften Niveaubruch (ein Bein davor, eins danach)
+    ebenso wie den Einzelspike (ein Bein faellt genau auf den Spike).
     """
     aus: dict[str, list[str]] = {}
-    for sym, g in glitches.items():
-        betroffen: set[str] = set()
-        for gt in g["tage"]:
-            pos = int(idx.searchsorted(pd.Timestamp(gt, tz="UTC")))
-            von = pos + MOM_LAG
-            if von >= len(idx):
+    pos_von_datum = {d: k for k, d in enumerate(idx)}
+    for sym, info in spannen_je_symbol.items():
+        spannen = [
+            (pd.Timestamp(a, tz="UTC"), pd.Timestamp(b, tz="UTC"))
+            for a, b in info["spannen"]
+        ]
+        if not spannen:
+            continue
+        betroffen: list[str] = []
+        for termin, namen in gewaehlt.items():
+            if sym not in namen:
                 continue
-            bis = min(pos + MOM_FENSTER, len(idx) - 1)
-            for termin, namen in gewaehlt.items():
-                if sym not in namen:
-                    continue
-                ts = pd.Timestamp(termin, tz="UTC")
-                if idx[von] < ts <= idx[bis]:
-                    betroffen.add(termin)
+            p = pos_von_datum.get(pd.Timestamp(termin, tz="UTC"))
+            if p is None or p < MOM_FENSTER:
+                continue
+            bein_kurz = idx[p - MOM_LAG]
+            bein_lang = idx[p - MOM_FENSTER]
+            if _skala_id(bein_kurz, spannen) != _skala_id(bein_lang, spannen):
+                betroffen.append(termin)
         if betroffen:
             aus[sym] = sorted(betroffen)
     return aus
@@ -260,14 +310,20 @@ def main() -> int:
     alle_je_mitglied: set[str] = set()
     for mitglieder in d.membership:
         alle_je_mitglied |= set(mitglieder)
-    glitches = glitch_verdaechtig(d.close, alle_je_mitglied & spalten)
-    korrupte_tage = sum(g["n_tage"] for g in glitches.values())
+    glitches = korruptions_spannen(d.close, alle_je_mitglied & spalten)
+    uebergangstage = sum(len(g["uebergaenge"]) for g in glitches.values())
+    tage_falsch = sum(g["n_tage_falsch"] for g in glitches.values())
     print(
-        f"Korrumpierte Namen im vollen Suchfenster: {len(glitches)} "
-        f"({korrupte_tage} korrupte Handelstage)"
+        f"Korrumpierte Namen im vollen Suchfenster: {len(glitches)}\n"
+        f"  {uebergangstage} Uebergangstage (dort ist die TAGESRENDITE verzerrt)\n"
+        f"  {tage_falsch} Tage auf falscher Preisskala (dort ist nur das NIVEAU\n"
+        "  falsch — fuer Renditen folgenlos, solange Vortag und Tag dieselbe\n"
+        "  Skala teilen; relevant nur fuer die Momentum-Beine)"
     )
-    for sym, g in sorted(glitches.items(), key=lambda kv: -kv[1]["n_tage"])[:6]:
-        print(f"  {sym:<7}{g['n_tage']:>3} Tage  {g['tage'][0]} .. {g['tage'][-1]}")
+    for sym, g in sorted(glitches.items(), key=lambda kv: -kv[1]["n_tage_falsch"])[:5]:
+        print(
+            f"  {sym:<7}{g['n_tage_falsch']:>5} Tage falsch | Spannen {g['spannen'][:2]}"
+        )
 
     # ---- Kanal A: HALTEN ueber einen korrupten Tag ----
     # Aus der ECHTEN Engine, nicht aus der Auswahl abgeleitet. Der frueher
@@ -331,7 +387,8 @@ def main() -> int:
         "n_auswahltermine": len(gewaehlt),
         "auswahlplaetze_gesamt": plaetze_gesamt,
         "korrumpierte_namen": glitches,
-        "korrupte_handelstage_gesamt": korrupte_tage,
+        "uebergangstage_gesamt": uebergangstage,
+        "tage_auf_falscher_skala_gesamt": tage_falsch,
         "halte_kanal": halte_kanal,
         "auswahl_kanal": auswahl_kanal,
         "auswahlplaetze_kanal_b": plaetze_auswahl,
@@ -339,11 +396,18 @@ def main() -> int:
         if plaetze_gesamt
         else 0.0,
         "kontaminiert": bool(halte_kanal or auswahl_kanal),
+        # Vollstaendig, weil genau das die tragende Einschraenkung ist: Steuern
+        # und Kosten veraendern Cash und damit Positionsgroessen und den
+        # Bestandspfad, aus dem Kanal A kommt (F-senior-7). Ein Provenienzfeld,
+        # das die Provenienz nicht dokumentiert, ist wertlos.
         "gemessene_konfiguration": {
             "score": "momentum_score (12-1)",
             "top_in": TOP_IN,
-            "rank_out": "engine-Default",
-            "risk_off_gate": None,
+            "rank_out": 60,
+            "min_haltetage": 0,
+            "hebel": 1.0,
+            "regime": "ZERO (keine Steuern)",
+            "cost_bps": "engine-Default",
         },
         "abdeckung": {
             "min": min(quoten),

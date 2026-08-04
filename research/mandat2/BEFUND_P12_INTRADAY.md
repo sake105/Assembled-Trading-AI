@@ -271,12 +271,14 @@ das PIT-Universum enthält nachweislich Pleite-Ticker
 (EKDKQ, MTLQQ, WNDXQ).
 
 Der Restkanal, den ich vorher zu Unrecht wegformuliert hatte: die
-Preisabdeckung der Index-Mitglieder liegt über alle Monatsenden bei
-84–96 %, und die fehlenden Namen sind rund **fünffach mit
-Index-Austritten angereichert**. „Survivorship-frei“ ist zu
-stark — richtig ist: *die Auswahl ist PIT-korrekt, die Abdeckung nicht
-vollständig, und die Lücke ist nicht neutral.* Der Intraday-Strang P12
-ist davon unabhängig und deutlich stärker betroffen.
+Preisabdeckung der Index-Mitglieder ist unvollständig, und die
+fehlenden Namen sind überproportional mit Index-Austritten
+angereichert. „Survivorship-frei“ ist zu stark — richtig ist:
+*die Auswahl ist PIT-korrekt, die Abdeckung nicht vollständig, und die
+Lücke ist nicht neutral.* **Die Zahlen dazu stehen im P12e-Abschnitt,
+aus dem Artefakt** — hier stünden sie sonst ein zweites Mal und würden
+beim nächsten Datenstand auseinanderlaufen. Der Intraday-Strang P12 ist
+davon unabhängig und deutlich stärker betroffen.
 
 *Nebenbefund Datenqualität:* 9 Namen des PIT-Universums sind
 korrumpiert und wurden ausgeschlossen. Es handelt sich **nicht** um
@@ -299,21 +301,22 @@ jetzt gemessen — die erste mit einem Ergebnis, das ich zunächst falsch
 hatte.
 
 **Frage 1 — ist ein Preisfehler in eine Rendite eingegangen?** Das Panel
-trägt über das volle Suchfenster **25 korrumpierte Namen** mit zusammen
-**258 korrupten Handelstagen**. Zwei Kanäle können den Fehler in ein
-Ergebnis tragen:
+trägt über das volle Suchfenster **25 korrumpierte Namen**.
+Davon sind **246 Übergangstage** — nur dort ist die *Tagesrendite* verzerrt.
+An weiteren **32.332 Tagen** steht der Kurs auf einer falschen *Skala*; das ist
+für Renditen folgenlos, solange Vortag und Tag dieselbe Skala teilen, und
+wird nur für die beiden Momentum-Stützstellen relevant.
 
-**Kanal A — über einen korrupten Tag gehalten:** 2 Namen an 11 Handelstagen.
-Die größte Portfolio-Tagesrendite an einem solchen Tag beträgt **12,4 %** —
-das ist keine Marktbewegung, sondern ein Vendor-Fehler, der als Gewinn gebucht
-wurde.
+Zwei Kanäle können den Fehler in ein Ergebnis tragen:
 
-| Name | korrupte Tage im Bestand | größte Tageswirkung |
-|---|---|---|
-| CFC | 9 (2007-05-17 … 2007-06-20) | 6,7 % |
-| GPS | 2 (1996-12-20 … 1997-12-22) | 12,4 % |
+**Kanal A — über einen Übergangstag gehalten:** 2 Namen an 11 Handelstagen.
 
-**Kanal B — im kontaminierten Momentum-Fenster gewählt:** 5 Namen, **27 von 5.040 Auswahlplätzen (0,54 %)**.
+| Name | Tage im Bestand | größte Tageswirkung | Rang unter allen Tagen |
+|---|---|---|---|
+| CFC | 9 (2007-05-17 … 2007-06-20) | -6,7 % am 2007-06-20 | 5532 von 5.548 |
+| GPS | 2 (1996-12-20 … 1997-12-22) | 12,4 % am 1996-12-20 | 2 von 5.548 |
+
+**Kanal B — im kontaminierten Momentum-Fenster gewählt:** 4 Namen, **22 von 5.040 Auswahlplätzen (0,44 %)**.
 Das Fenster wird in HANDELSTAGEN gerechnet (21…252 nach dem Fehlertag), nicht in
 Kalendertagen.
 
@@ -336,12 +339,12 @@ Risk-off-Gate wählen andere Namen — dafür gilt der Befund nicht.
 
 | Name | Fehlertage | von | auf | Faktor |
 |---|---|---|---|---|
-| MEL | 87 | 7,73 | 141630,35 | 18313,4× |
-| CIN | 39 | 3,13 | 1774,02 | 567,4× |
-| CFC | 21 | 10,24 | 365,94 | 35,7× |
-| HPC | 17 | 56,61 | 5300,00 | 93,6× |
-| KRI | 14 | 1,32 | 12,95 | 9,8× |
-| MCIC | 10 | 17219,70 | 1000000,00 | 58,1× |
+| TWX | 4739 | 1 | 1,62 | 5,70 | 3,5× |
+| SWKS | 4686 | 1 | 1,32 | 4,09 | 3,1× |
+| RHT | 4280 | 1 | 33,06 | 141,25 | 4,3× |
+| WIN | 2564 | 2 | 27,97 | 295,25 | 10,6× |
+| MCIC | 1930 | 9 | 17219,70 | 1000000,00 | 58,1× |
+| RX | 1848 | 5 | 2,89 | 14,63 | 5,1× |
 
 **Frage 2 — wie groß ist die Abdeckungslücke?** Jetzt aus dem Artefakt
 statt aus der Prosa (vorher war ausgerechnet die Zahl, die eine

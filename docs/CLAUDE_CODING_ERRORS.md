@@ -1101,3 +1101,36 @@ Die Engine verkauft nicht beim Verlassen der Top-20, sondern erst bei `rang > ra
 **Wie vermeiden:** (1) Wenn die Frage „wurde X gehalten" lautet, den BESTAND messen, nicht die Auswahl. Die Engine laesst sich ohne Eingriff instrumentieren (`Portfolio.set_date` umschliessen und `lots` je Tag mitschreiben) — das kostet einen Lauf und ersetzt jede Schaetzung. (2) Bei jedem Proxy einmal fragen: welcher Mechanismus koennte Proxy und Zielgroesse auseinandertreiben? Turnover-Bremsen, Mindesthaltedauern und Risk-off-Gates tun genau das. (3) Ereignisse, die sich ueber Tage ziehen, als Intervall speichern, nicht als Extremwert. (4) Eine Kennzahl, die ein Problem kleinredet, braucht die direkte Messung, bevor sie berichtet wird.
 **Erkannt in:** Stage-1-Review (F-test-1 BLOCKER, F-test-2 BLOCKER) zu `research/mandat2/p12e_panel_hygiene.py`. Der Reviewer hat die echte Engine instrumentiert, statt meinem Proxy zu glauben.
 **Referenzen:** E-096 (Entwarnung auf Artefakt), E-072 (Stellparameter ohne Wirkung), E-095, E-101.
+
+## E-103 — Die Korrektur behielt die Fail-Open-Richtung des Fehlers
+**Datum:** 2026-08-04
+**Kategorie:** silent-except / false-green
+**Was passierte:** Nach der Korrektur von E-102 kam der Halte-Kanal aus dem echten Bestand. Der Lookup blieb aber still: `bestand.get(t, ())` und `rendite.get(t, nan)` liefern bei jedem Key-Format- oder tz-Drift die leere Menge bzw. 0,0 %. Das Ergebnis waere erneut „kein korrumpierter Name wurde gehalten" gewesen — dieselbe Entwarnung, nur diesmal aus einem Verdrahtungsfehler statt aus einem Denkfehler. Ein Test hielt das Schweigen sogar als Sollverhalten fest (`test_fehlende_rendite_kippt_nicht`).
+**Warum falsch:** Eine Messung, deren Ausfallmodus die beruhigende Antwort ist, ist keine Messung. Der Fix adressierte den Mechanismus, nicht die RICHTUNG, in die der Code bei Stoerung faellt — und genau die Richtung war das urspruengliche Problem. Ein Test, der „kippt nicht" prueft, zementiert diese Richtung zusaetzlich.
+**Wie vermeiden:** (1) Bei jeder Kennzahl, die ein Risiko beziffert, fragen: was liefert sie, wenn die Verdrahtung bricht? Faellt sie auf „unauffaellig", muss sie fail-loud werden. (2) Konkret: Existenz der Keys pruefen und bei fehlendem Wert zu einem als betroffen erkannten Fall abbrechen statt zu 0 zu degradieren. (3) Tests von „kippt nicht" auf „meldet" umschreiben — ein Test, der Schweigen absichert, ist ein Test gegen die eigene Messung.
+**Erkannt in:** Stage-2-Review (F-senior-1) zu `research/mandat2/p12e_panel_hygiene.py`.
+**Referenzen:** E-102, E-096, E-066.
+
+## E-104 — Zwei-Punkt-Kennzahl als Fenster modelliert; beide Korrekturen lagen daneben
+**Datum:** 2026-08-04
+**Kategorie:** false-mechanism / modell-statt-formel
+**Was passierte:** Zu bestimmen war, welche Auswahltermine einen kontaminierten Momentum-Score hatten. Ich modellierte das als Fenster: „jeder Termin im Intervall nach einem Fehlertag". `momentum_score` ist aber `close.shift(21) / close.shift(252)` — ein Quotient aus GENAU ZWEI Stuetzstellen. Es gibt kein Fenster; nur die beiden Beine zaehlen. Bei einem Ein-Tages-Spike markierte mein Modell ~230 Termine zu viel.
+
+Die naheliegende Korrektur waere ebenfalls falsch gewesen: „ein Bein liegt auf einer falschen Skala" uebersieht, dass sich der Skalenfaktor herauskuerzt, wenn BEIDE Beine auf DERSELBEN falschen Skala liegen. Richtig ist: **kontaminiert, wenn die beiden Beine auf VERSCHIEDENEN Skalen liegen.** Das deckt den dauerhaften Niveaubruch (ein Bein davor, eins danach) und den Einzelspike (ein Bein trifft den Spike) in einer Bedingung ab.
+
+Zusaetzlich hatte ich beim Umstellen der Ungleichung „g in (t-252, t-21]" nach t beide Grenzen gekippt: korrekt ist t in [g+21, g+252), geschrieben hatte ich (g+21, g+252]. Ausgeschlossen wurde damit ausgerechnet der maximal kontaminierte Termin.
+**Warum falsch:** Ein Modell ist keine Formel. Wer „Rueckblickfenster" denkt, wo eine Zwei-Punkt-Kennzahl steht, baut eine plausible Struktur um die falsche Mechanik — und praezisiert sie dann sogar noch (Kalendertage -> Handelstage), ohne die Praemisse zu pruefen. Beim Aufloesen einer Ungleichung nach der anderen Variablen kehren sich offen/geschlossen zusaetzlich um; das sieht wie eine Umbenennung aus und ist eine Rechnung.
+**Wie vermeiden:** (1) Vor jedem Kontaminationsmodell die FORMEL der Kennzahl hinschreiben und fragen, welche Eingaenge sie wirklich hat. Ein Quotient aus zwei Kursen hat zwei Stuetzstellen, kein Fenster. (2) Umgestellte Intervalle als Ungleichungskette ausschreiben, nicht als Prosa. (3) Beide RAENDER testen, nicht „knapp drin / knapp draussen" — die Grenze ist die einzige Stelle, an der ein Randfehler sichtbar wird. (4) Bei einer vorgeschlagenen Korrektur pruefen, ob sie die Formel trifft: hier war auch der Review-Vorschlag („ein Bein falsch") noch nicht richtig.
+**Erkannt in:** Stage-2-Review (F-senior-2, F-senior-3) zu `research/mandat2/p12e_panel_hygiene.py`. Wirkung: Kanal B von 27 auf 22 Auswahlplaetze.
+**Referenzen:** E-102, E-095, E-087.
+
+## E-105 — Review-Befund uebernommen, ohne die Fachlogik zu pruefen (Beinahe-Fall)
+**Datum:** 2026-08-04
+**Kategorie:** ungeprueft-uebernommen
+**Was passierte:** Ein Review-Finding (F-senior-10) lautete, der Halte-Kanal unterschaetze die Reichweite: GPS habe zwei Uebergangstage, aber ein ganzes JAHR auf falscher Skala gelegen, also seien „hunderte Tage" betroffen statt elf. Der Befund klang zwingend und kam von einem Reviewer, der zuvor zwei echte BLOCKER gefunden hatte.
+
+Er ist trotzdem falsch — fuer den Halte-Kanal. Dieser misst verzerrte TAGESRENDITEN. Liegen Vortag und Tag auf derselben (falschen) Skala, kuerzt sich der Faktor im Quotienten heraus und die Rendite ist korrekt. Verzerrt ist ausschliesslich der Uebergangstag. Haette ich den Befund uebernommen, waere die Kennzahl von 11 auf ueber 32.000 Tage gesprungen — eine Alarmzahl ohne Substanz, in einem Dokument, das gerade um Ehrlichkeit ringt.
+**Warum das ein Anti-Pattern ist:** Ein Reviewer mit hoher Trefferquote erzeugt Autoritaetsdruck. Genau dann ist die Versuchung am groessten, einen Befund zu uebernehmen, statt ihn zu pruefen — und ein uebernommener falscher Befund ist schlimmer als ein uebersehener richtiger, weil er mit fremder Autoritaet auftritt und in die scheinbar sichere Richtung (mehr Alarm) zeigt.
+**Wie vermeiden:** (1) Jeden Review-Befund gegen die Fachlogik pruefen, auch und gerade wenn die vorherigen richtig waren. (2) Widerspruch begruenden und belegen, nicht behaupten — hier: Renditen sind Quotienten, ein konstanter Skalenfaktor kuerzt sich. (3) Trefferquote ist kein Argument fuer den EINZELNEN Befund. (4) Die Richtung des Befunds mitdenken: „mehr Alarm" fuehlt sich sicher an und ist es nicht, wenn die Zahl falsch ist.
+**Erkannt in:** Eigene Pruefung von Stage-2-Finding F-senior-10 zu `research/mandat2/p12e_panel_hygiene.py`. Der Reviewer hatte fuer Kanal B recht (E-104), fuer Kanal A nicht.
+**Referenzen:** E-104, E-102.
