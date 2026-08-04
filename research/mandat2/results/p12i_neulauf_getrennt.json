@@ -1,0 +1,2639 @@
+{
+  "dd_deckel": -0.35,
+  "n_getrennt": 29,
+  "fehltreffer_kandidaten": {
+    "n_schnitte": 30,
+    "n_faktor_nahe_eins": 8,
+    "symbole": {
+      "HSH": [
+        0.8
+      ],
+      "MWI": [
+        1.8
+      ],
+      "MYG": [
+        1.15
+      ],
+      "NLC": [
+        0.73
+      ],
+      "RX": [
+        0.59
+      ],
+      "RYC": [
+        1.2
+      ],
+      "WLL": [
+        0.83,
+        0.91
+      ]
+    }
+  },
+  "protokoll": {
+    "STO": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2016-01-04"
+      ],
+      "faktoren": [
+        2.636132862920575
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 223,
+      "weitere": [
+        {
+          "spalte": "STO#2",
+          "ab": "2016-01-04",
+          "n_punkte": 252
+        }
+      ]
+    },
+    "FPC": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2016-05-04"
+      ],
+      "faktoren": [
+        0.047251564409902753
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 737,
+      "weitere": [
+        {
+          "spalte": "FPC#2",
+          "ab": "2016-05-04",
+          "n_punkte": 168
+        }
+      ]
+    },
+    "CGP": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2014-01-23"
+      ],
+      "faktoren": [
+        0.001220125786163522
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 776,
+      "weitere": [
+        {
+          "spalte": "CGP#2",
+          "ab": "2014-01-23",
+          "n_punkte": 1
+        }
+      ]
+    },
+    "MWI": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2014-07-21"
+      ],
+      "faktoren": [
+        1.7993486973947894
+      ],
+      "faktor_nahe_eins": [
+        true
+      ],
+      "n_punkte_erstes": 1548,
+      "weitere": [
+        {
+          "spalte": "MWI#2",
+          "ab": "2014-07-21",
+          "n_punkte": 619
+        }
+      ]
+    },
+    "TOY": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2014-07-14"
+      ],
+      "faktoren": [
+        0.32135377711293944
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 1900,
+      "weitere": [
+        {
+          "spalte": "TOY#2",
+          "ab": "2014-07-14",
+          "n_punkte": 624
+        }
+      ]
+    },
+    "PDG": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2014-07-29"
+      ],
+      "faktoren": [
+        0.24500907441016337
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 2058,
+      "weitere": [
+        {
+          "spalte": "PDG#2",
+          "ab": "2014-07-29",
+          "n_punkte": 476
+        }
+      ]
+    },
+    "RYC": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2007-07-13"
+      ],
+      "faktoren": [
+        1.1967324002289401
+      ],
+      "faktor_nahe_eins": [
+        true
+      ],
+      "n_punkte_erstes": 407,
+      "weitere": [
+        {
+          "spalte": "RYC#2",
+          "ab": "2007-07-13",
+          "n_punkte": 2110
+        }
+      ]
+    },
+    "SMS": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2008-03-17"
+      ],
+      "faktoren": [
+        0.3779262542816844
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 633,
+      "weitere": [
+        {
+          "spalte": "SMS#2",
+          "ab": "2008-03-17",
+          "n_punkte": 1404
+        }
+      ]
+    },
+    "UCM": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2007-11-19"
+      ],
+      "faktoren": [
+        0.35174137522120663
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 709,
+      "weitere": [
+        {
+          "spalte": "UCM#2",
+          "ab": "2007-11-19",
+          "n_punkte": 530
+        }
+      ]
+    },
+    "LDG": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2015-08-12"
+      ],
+      "faktoren": [
+        112.48314781149489
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 2726,
+      "weitere": [
+        {
+          "spalte": "LDG#2",
+          "ab": "2015-08-12",
+          "n_punkte": 351
+        }
+      ]
+    },
+    "BGEN": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2010-03-24"
+      ],
+      "faktoren": [
+        0.017319159968887738
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 1476,
+      "weitere": [
+        {
+          "spalte": "BGEN#2",
+          "ab": "2010-03-24",
+          "n_punkte": 378
+        }
+      ]
+    },
+    "RBD": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2005-05-26"
+      ],
+      "faktoren": [
+        0.0021324232081911263
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 309,
+      "weitere": [
+        {
+          "spalte": "RBD#2",
+          "ab": "2005-05-26",
+          "n_punkte": 79
+        }
+      ]
+    },
+    "UPR": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2006-08-21"
+      ],
+      "faktoren": [
+        0.0035307262569832403
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 640,
+      "weitere": [
+        {
+          "spalte": "UPR#2",
+          "ab": "2006-08-21",
+          "n_punkte": 124
+        }
+      ]
+    },
+    "ONE": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2010-06-17"
+      ],
+      "faktoren": [
+        0.27980392156862743
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 189,
+      "weitere": [
+        {
+          "spalte": "ONE#2",
+          "ab": "2010-06-17",
+          "n_punkte": 1648
+        }
+      ]
+    },
+    "CTXS": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2003-09-11"
+      ],
+      "faktoren": [
+        4.639320373298609
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 514,
+      "weitere": [
+        {
+          "spalte": "CTXS#2",
+          "ab": "2003-09-11",
+          "n_punkte": 3338
+        }
+      ]
+    },
+    "GX": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2006-05-15"
+      ],
+      "faktoren": [
+        159.5744680851064
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 868,
+      "weitere": [
+        {
+          "spalte": "GX#2",
+          "ab": "2006-05-15",
+          "n_punkte": 1649
+        }
+      ]
+    },
+    "NGH": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2004-12-15"
+      ],
+      "faktoren": [
+        0.01002070946623021
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 744,
+      "weitere": [
+        {
+          "spalte": "NGH#2",
+          "ab": "2004-12-15",
+          "n_punkte": 187
+        }
+      ]
+    },
+    "WLL": {
+      "n_segmente": 3,
+      "schnitte": [
+        "2008-12-17",
+        "2014-12-16"
+      ],
+      "faktoren": [
+        0.828536580861771,
+        0.9149697666882589
+      ],
+      "faktor_nahe_eins": [
+        true,
+        true
+      ],
+      "n_punkte_erstes": 252,
+      "weitere": [
+        {
+          "spalte": "WLL#2",
+          "ab": "2008-12-17",
+          "n_punkte": 505
+        },
+        {
+          "spalte": "WLL#3",
+          "ab": "2014-12-16",
+          "n_punkte": 505
+        }
+      ]
+    },
+    "DIGI": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2003-11-19"
+      ],
+      "faktoren": [
+        0.01996007984031936
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 479,
+      "weitere": [
+        {
+          "spalte": "DIGI#2",
+          "ab": "2003-11-19",
+          "n_punkte": 154
+        }
+      ]
+    },
+    "JOS": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2003-09-17"
+      ],
+      "faktoren": [
+        0.005955216769890424
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 595,
+      "weitere": [
+        {
+          "spalte": "JOS#2",
+          "ab": "2003-09-17",
+          "n_punkte": 134
+        }
+      ]
+    },
+    "NVLS": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2015-06-17"
+      ],
+      "faktoren": [
+        0.3693983659321614
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 2200,
+      "weitere": [
+        {
+          "spalte": "NVLS#2",
+          "ab": "2015-06-17",
+          "n_punkte": 390
+        }
+      ]
+    },
+    "RX": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2014-08-13"
+      ],
+      "faktoren": [
+        0.5925
+      ],
+      "faktor_nahe_eins": [
+        true
+      ],
+      "n_punkte_erstes": 3134,
+      "weitere": [
+        {
+          "spalte": "RX#2",
+          "ab": "2014-08-13",
+          "n_punkte": 312
+        }
+      ]
+    },
+    "MYG": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2008-11-18"
+      ],
+      "faktoren": [
+        1.1458020830884255
+      ],
+      "faktor_nahe_eins": [
+        true
+      ],
+      "n_punkte_erstes": 645,
+      "weitere": [
+        {
+          "spalte": "MYG#2",
+          "ab": "2008-11-18",
+          "n_punkte": 42
+        }
+      ]
+    },
+    "CTX": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2012-04-03"
+      ],
+      "faktoren": [
+        2.110289824465508
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 2926,
+      "weitere": [
+        {
+          "spalte": "CTX#2",
+          "ab": "2012-04-03",
+          "n_punkte": 1195
+        }
+      ]
+    },
+    "KSE": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2009-11-05"
+      ],
+      "faktoren": [
+        4.19431279620853
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 2427,
+      "weitere": [
+        {
+          "spalte": "KSE#2",
+          "ab": "2009-11-05",
+          "n_punkte": 1314
+        }
+      ]
+    },
+    "PAS": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2012-05-07"
+      ],
+      "faktoren": [
+        0.005003335557038025
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 3058,
+      "weitere": [
+        {
+          "spalte": "PAS#2",
+          "ab": "2012-05-07",
+          "n_punkte": 921
+        }
+      ]
+    },
+    "HSH": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2016-09-20"
+      ],
+      "faktoren": [
+        0.7962198221092758
+      ],
+      "faktor_nahe_eins": [
+        true
+      ],
+      "n_punkte_erstes": 544,
+      "weitere": [
+        {
+          "spalte": "HSH#2",
+          "ab": "2016-09-20",
+          "n_punkte": 30
+        }
+      ]
+    },
+    "NLC": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2013-12-16"
+      ],
+      "faktoren": [
+        0.7317010309278351
+      ],
+      "faktor_nahe_eins": [
+        true
+      ],
+      "n_punkte_erstes": 1778,
+      "weitere": [
+        {
+          "spalte": "NLC#2",
+          "ab": "2013-12-16",
+          "n_punkte": 333
+        }
+      ]
+    },
+    "WWY": {
+      "n_segmente": 2,
+      "schnitte": [
+        "2010-10-13"
+      ],
+      "faktoren": [
+        0.059598599474803046
+      ],
+      "faktor_nahe_eins": [
+        false
+      ],
+      "n_punkte_erstes": 2708,
+      "weitere": [
+        {
+          "spalte": "WWY#2",
+          "ab": "2010-10-13",
+          "n_punkte": 448
+        }
+      ]
+    }
+  },
+  "welten": {
+    "ZERO": {
+      "original": {
+        "benchmark": 726197.0166936871,
+        "bester": {
+          "welt": "ZERO",
+          "haltetage": 730,
+          "rank_out": 200,
+          "hebel": 1.5,
+          "endwert": 1773449.989891642,
+          "median_kandidat": 3.460479802537323,
+          "median_benchmark": 1.9479915797080838,
+          "schlimmster_maxdd": -0.8162337851080566,
+          "deckel_eingehalten": false,
+          "schlaegt_bench": true,
+          "bestanden": false
+        },
+        "n_schlagen_bench": 6,
+        "n_bestanden": 0,
+        "zeilen": [
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 554781.6854364721,
+            "median_kandidat": 1.2132994418821619,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.648599346009886,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 322669.13584423444,
+            "median_kandidat": 0.7274484962904513,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8289711753885052,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 679935.1046676293,
+            "median_kandidat": 1.250176350032234,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6708034103335381,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 620865.0776575687,
+            "median_kandidat": 0.8837916679516031,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8363111201842656,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 634158.5074064981,
+            "median_kandidat": 1.7397078575384222,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6732327067819551,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 717176.2938891958,
+            "median_kandidat": 1.473429462412561,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8477291553407289,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 543239.1243996418,
+            "median_kandidat": 1.3444184847093195,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6684238635924784,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 374439.1001877562,
+            "median_kandidat": 0.8682598579359684,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8215070009122947,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 651163.7661379371,
+            "median_kandidat": 1.3695263476731272,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6790993143703727,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 650998.0376822788,
+            "median_kandidat": 1.071475220180465,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8348062771398354,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 636902.2535801396,
+            "median_kandidat": 1.6639162651475985,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6699201059430171,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 741595.2720738071,
+            "median_kandidat": 1.4267668147458743,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8496687894321455,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 374223.8527401111,
+            "median_kandidat": 1.286614270005373,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.7168775817128678,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 278202.63070262654,
+            "median_kandidat": 1.068349104210659,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.9288493297859834,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 443289.02148550143,
+            "median_kandidat": 1.487393856677748,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.7028224296834273,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 310424.75175028946,
+            "median_kandidat": 1.1058785097026025,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8983931280201087,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 829404.7042618503,
+            "median_kandidat": 2.1372618318603673,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6663010660640138,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 783826.6084080304,
+            "median_kandidat": 1.5749763457805876,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8277822442578894,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 522433.15131270234,
+            "median_kandidat": 1.8836105669071077,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6727828300170475,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 517789.7174932482,
+            "median_kandidat": 2.093209136731702,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8916862775634118,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 574424.4366331059,
+            "median_kandidat": 2.1472337281470035,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.669176033376929,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 656347.7861837889,
+            "median_kandidat": 2.252791771968646,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8712047074617274,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 1090311.603637114,
+            "median_kandidat": 2.7373701803338797,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6554018080569838,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 1773449.989891642,
+            "median_kandidat": 3.460479802537323,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8162337851080566,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          }
+        ]
+      },
+      "getrennt": {
+        "benchmark": 726197.0166936871,
+        "bester": {
+          "welt": "ZERO",
+          "haltetage": 730,
+          "rank_out": 200,
+          "hebel": 1.5,
+          "endwert": 1773449.9898916425,
+          "median_kandidat": 3.460479802537323,
+          "median_benchmark": 1.9479915797080838,
+          "schlimmster_maxdd": -0.8162337851080566,
+          "deckel_eingehalten": false,
+          "schlaegt_bench": true,
+          "bestanden": false
+        },
+        "n_schlagen_bench": 7,
+        "n_bestanden": 0,
+        "zeilen": [
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 696993.1139701997,
+            "median_kandidat": 1.4004257353262253,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.7133782495962921,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 616560.237364635,
+            "median_kandidat": 0.9886790452722762,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8721218771505124,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 752804.3483669804,
+            "median_kandidat": 1.3109585533743933,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6874097667515702,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 821327.8417275129,
+            "median_kandidat": 1.0165466806063843,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8475132404133849,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 635708.5032031891,
+            "median_kandidat": 1.7433358209322662,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.673236102594374,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 729546.8310335601,
+            "median_kandidat": 1.4940615330973297,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8474235120594167,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 568056.7596456256,
+            "median_kandidat": 1.3467642397726793,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.684621686969664,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 559621.5527884752,
+            "median_kandidat": 1.0754144303057875,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8467265461863035,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 720712.2603451757,
+            "median_kandidat": 1.41528091407788,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6919956836862664,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 808261.4490708277,
+            "median_kandidat": 1.156748701679712,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8452014473876062,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 642321.7859464397,
+            "median_kandidat": 1.673356089852734,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6695668826917986,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 741595.2720738068,
+            "median_kandidat": 1.4267668147458727,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8496687894321455,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 490051.926326835,
+            "median_kandidat": 1.5215245730608926,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6879101104034557,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 357260.6469351475,
+            "median_kandidat": 1.1293177796302252,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.9100612480527328,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 532352.0829687673,
+            "median_kandidat": 1.6972127918569004,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6988895012458008,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 358975.8349441479,
+            "median_kandidat": 1.2301530908188392,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.9033312339181726,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 822454.6079767586,
+            "median_kandidat": 2.133598248665996,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.662499120555257,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 783826.6084080301,
+            "median_kandidat": 1.5749763457805876,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8277822442578893,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 554878.0630184213,
+            "median_kandidat": 1.96692031755425,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6833493385435454,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 517789.7174932482,
+            "median_kandidat": 2.093209136731702,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8916862775634118,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 558021.8320919005,
+            "median_kandidat": 2.0960087013741644,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6907500031381244,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 656347.7861837894,
+            "median_kandidat": 2.2527917719686474,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8712047074617274,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 1090311.603637114,
+            "median_kandidat": 2.7373701803338797,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.6554018080569838,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "ZERO",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 1773449.9898916425,
+            "median_kandidat": 3.460479802537323,
+            "median_benchmark": 1.9479915797080838,
+            "schlimmster_maxdd": -0.8162337851080566,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          }
+        ]
+      },
+      "optimum_wandert": false,
+      "verdikt_dreht": false
+    },
+    "PRIVAT_DE": {
+      "original": {
+        "benchmark": 610751.573449115,
+        "bester": {
+          "welt": "PRIVAT_DE",
+          "haltetage": 730,
+          "rank_out": 200,
+          "hebel": 1.0,
+          "endwert": 620868.7785388811,
+          "median_kandidat": 2.167948575872352,
+          "median_benchmark": 1.870495242027158,
+          "schlimmster_maxdd": -0.6461198645147359,
+          "deckel_eingehalten": false,
+          "schlaegt_bench": true,
+          "bestanden": false
+        },
+        "n_schlagen_bench": 2,
+        "n_bestanden": 0,
+        "zeilen": [
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 317645.9457161714,
+            "median_kandidat": 1.0082362065271626,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6400258296553711,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 169188.77509037082,
+            "median_kandidat": 0.6123412229855609,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8360194612826296,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 430623.19630802446,
+            "median_kandidat": 1.0910399454411754,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6615518157695188,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 340504.7349176227,
+            "median_kandidat": 0.7510343564900899,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.842611706107956,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 434637.5020535123,
+            "median_kandidat": 1.512997512936169,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6609446448881061,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 446828.7844230989,
+            "median_kandidat": 1.20365868274762,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8409874701576217,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 336319.65685282985,
+            "median_kandidat": 1.0774543541164485,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6358762743351696,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 204900.8499007244,
+            "median_kandidat": 0.6959566028641814,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8201619962811487,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 396468.77015974163,
+            "median_kandidat": 1.1439748521383994,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6720127637515673,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 356845.38443536864,
+            "median_kandidat": 0.8858355193685541,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8306236586619081,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 435595.36515899556,
+            "median_kandidat": 1.4480077777435876,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6575090205739851,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 461169.68626745965,
+            "median_kandidat": 1.1844162775007891,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8403501734490959,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 294368.7304087646,
+            "median_kandidat": 1.275990278938534,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6930759049109034,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 204947.03866010212,
+            "median_kandidat": 1.0567700573628196,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.9169898394826096,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 310742.1660897021,
+            "median_kandidat": 1.3729460030279599,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6989756836676979,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 217195.79899075514,
+            "median_kandidat": 1.1058803255753715,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8982238913716258,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 494113.820470787,
+            "median_kandidat": 1.6571627855781874,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6636177420448582,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 438078.08409565274,
+            "median_kandidat": 1.2733083578403952,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8308528655201748,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 365962.4008317898,
+            "median_kandidat": 1.7020441859680886,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6497242922935786,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 313384.0774045581,
+            "median_kandidat": 1.700843173352125,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8846356304334736,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 368895.6260949185,
+            "median_kandidat": 1.8565961544510683,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6706154632562581,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 307205.71904368605,
+            "median_kandidat": 1.705735725042027,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8774357763558381,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 620868.7785388811,
+            "median_kandidat": 2.167948575872352,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6461198645147359,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 650679.4738730747,
+            "median_kandidat": 2.1560425887450037,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8314131205737614,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          }
+        ]
+      },
+      "getrennt": {
+        "benchmark": 610751.573449115,
+        "bester": {
+          "welt": "PRIVAT_DE",
+          "haltetage": 730,
+          "rank_out": 200,
+          "hebel": 1.0,
+          "endwert": 620868.7785388811,
+          "median_kandidat": 2.167948575872352,
+          "median_benchmark": 1.870495242027158,
+          "schlimmster_maxdd": -0.6461198645147359,
+          "deckel_eingehalten": false,
+          "schlaegt_bench": true,
+          "bestanden": false
+        },
+        "n_schlagen_bench": 3,
+        "n_bestanden": 0,
+        "zeilen": [
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 417939.7772513963,
+            "median_kandidat": 1.1815451126370422,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.7098265160886078,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 336817.66520307283,
+            "median_kandidat": 0.8230908286139832,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8694082767898279,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 464912.20826796547,
+            "median_kandidat": 1.1180468365673777,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6809914567888555,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 424718.6956970963,
+            "median_kandidat": 0.8080361671503328,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8446103699161746,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 435254.89239711413,
+            "median_kandidat": 1.514169344246403,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.66127245024234,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 447659.3917088532,
+            "median_kandidat": 1.205947326050339,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8409810799410073,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 373475.34495227976,
+            "median_kandidat": 1.1585888015578232,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6774320643696117,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 312173.02615545277,
+            "median_kandidat": 0.8500345940890592,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8427769800295022,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 437883.82763159665,
+            "median_kandidat": 1.1820654198478,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6876395915736762,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 443896.28386098036,
+            "median_kandidat": 0.9557900472024117,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8398037532639935,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 435716.1659828795,
+            "median_kandidat": 1.449027293659336,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.657939668080123,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 461169.68626745965,
+            "median_kandidat": 1.1844162775007891,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8403501734490959,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 310741.44716846384,
+            "median_kandidat": 1.3417356055887222,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6922414867940532,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 259228.41524258233,
+            "median_kandidat": 1.181778271254112,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8998565042139167,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 342308.57565199083,
+            "median_kandidat": 1.4709054550741993,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6963301541094769,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 266841.029902898,
+            "median_kandidat": 1.1863127828665105,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8999156052536771,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 494113.820470787,
+            "median_kandidat": 1.6571627855781874,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6636177420448582,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 438078.0840956528,
+            "median_kandidat": 1.2733083578403956,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8308528655201748,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 383011.3014041308,
+            "median_kandidat": 1.7511756674064083,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6616622354241869,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 313384.0774045581,
+            "median_kandidat": 1.700843173352125,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8846356304334736,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 379198.1589159357,
+            "median_kandidat": 1.8847964351161028,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6907774331870902,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 307205.71904368605,
+            "median_kandidat": 1.705735725042027,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8774357763558381,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 620868.7785388811,
+            "median_kandidat": 2.167948575872352,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.6461198645147359,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "PRIVAT_DE",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 650679.4738730747,
+            "median_kandidat": 2.1560425887450037,
+            "median_benchmark": 1.870495242027158,
+            "schlimmster_maxdd": -0.8314131205737614,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          }
+        ]
+      },
+      "optimum_wandert": false,
+      "verdikt_dreht": false
+    },
+    "GMBH+FK": {
+      "original": {
+        "benchmark": 580265.7782780621,
+        "bester": {
+          "welt": "GMBH+FK",
+          "haltetage": 730,
+          "rank_out": 200,
+          "hebel": 1.5,
+          "endwert": 853490.0328047152,
+          "median_kandidat": 2.391594877211283,
+          "median_benchmark": 1.8618872332752807,
+          "schlimmster_maxdd": -0.8439921050312889,
+          "deckel_eingehalten": false,
+          "schlaegt_bench": true,
+          "bestanden": false
+        },
+        "n_schlagen_bench": 2,
+        "n_bestanden": 0,
+        "zeilen": [
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 268794.6491855471,
+            "median_kandidat": 0.898023126841174,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6622921140947907,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 138031.86595434262,
+            "median_kandidat": 0.5323147220993731,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8651292059567913,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 434702.1793415716,
+            "median_kandidat": 1.0523843498769405,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6786861735683023,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 368822.95018304174,
+            "median_kandidat": 0.7086409121098118,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8608535496558166,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 410198.75439291785,
+            "median_kandidat": 1.419945796871537,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.686407078375677,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 412824.779163353,
+            "median_kandidat": 1.1496128015979368,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8530006439048081,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 287722.2748650995,
+            "median_kandidat": 1.01677211266191,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.651659185097526,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 155522.8980322245,
+            "median_kandidat": 0.6267136982501704,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8387703115497862,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 398715.3972316808,
+            "median_kandidat": 1.1132355835040963,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6906866831244253,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 402990.9554406364,
+            "median_kandidat": 0.8694201425168545,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8444820714119647,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 404911.43812713504,
+            "median_kandidat": 1.3523120386116725,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6817481636131892,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 454238.6968630288,
+            "median_kandidat": 1.1538792182802462,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8541426288121234,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 204766.20056841255,
+            "median_kandidat": 0.9672653791750747,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7811524890075717,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 111714.45423666817,
+            "median_kandidat": 0.6475808251170168,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.9503234796705453,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 249737.67822081622,
+            "median_kandidat": 1.130431279543583,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7583648456823138,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 126612.40588545571,
+            "median_kandidat": 0.698464022331185,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.928108160327873,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 485834.7843564793,
+            "median_kandidat": 1.6302557742950268,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6751860490379735,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 454725.77655774506,
+            "median_kandidat": 1.2225550833786893,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8357247230815417,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 321742.83004953485,
+            "median_kandidat": 1.5377103070408222,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7075811668194725,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 134868.1668190522,
+            "median_kandidat": 1.065719333978684,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.9378087187940373,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 317964.30133237276,
+            "median_kandidat": 1.6022073494748095,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6891392175890629,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 248482.7027730249,
+            "median_kandidat": 1.3810297475077147,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8874461056569759,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 635135.2681929342,
+            "median_kandidat": 2.095463438639964,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6966364095679406,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 853490.0328047152,
+            "median_kandidat": 2.391594877211283,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8439921050312889,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          }
+        ]
+      },
+      "getrennt": {
+        "benchmark": 580265.7782780621,
+        "bester": {
+          "welt": "GMBH+FK",
+          "haltetage": 730,
+          "rank_out": 200,
+          "hebel": 1.5,
+          "endwert": 853490.0328047152,
+          "median_kandidat": 2.391594877211283,
+          "median_benchmark": 1.8618872332752807,
+          "schlimmster_maxdd": -0.8439921050312889,
+          "deckel_eingehalten": false,
+          "schlaegt_bench": true,
+          "bestanden": false
+        },
+        "n_schlagen_bench": 2,
+        "n_bestanden": 0,
+        "zeilen": [
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 393393.3283270801,
+            "median_kandidat": 1.1214356958949117,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.71855965838979,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 328017.79276115133,
+            "median_kandidat": 0.7359249456270105,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8855635206955151,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 483975.89056070254,
+            "median_kandidat": 1.0932330747597736,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6977134302376768,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 499997.78208872944,
+            "median_kandidat": 0.8047004713992076,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8589149978119398,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 410528.917586674,
+            "median_kandidat": 1.420376197472502,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6866358152465766,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 0,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 412824.779163353,
+            "median_kandidat": 1.1496128015979368,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8530006439048081,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 329779.3309297472,
+            "median_kandidat": 1.0617238774928848,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.694063155301049,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 291595.85928054043,
+            "median_kandidat": 0.7811149198376361,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8523947312668272,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 440676.2052362191,
+            "median_kandidat": 1.1511068299320697,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7077022404240534,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 492044.47859768884,
+            "median_kandidat": 0.9363441409678035,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.853982635520284,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 411007.7240889244,
+            "median_kandidat": 1.3715938603883346,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6813884624656636,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 90,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 454238.6968630295,
+            "median_kandidat": 1.153879218280248,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8541426288121234,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 262701.2056508257,
+            "median_kandidat": 1.1356583189004796,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7557050732369323,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 174366.90627094024,
+            "median_kandidat": 0.8265995523312635,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.9263988496003224,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 302706.8493991844,
+            "median_kandidat": 1.2757127845682867,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7484589623823465,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 209912.82409942293,
+            "median_kandidat": 0.8939594681844577,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.9220174249726122,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 486793.99274124915,
+            "median_kandidat": 1.6694819188856753,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.658155825051993,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 365,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 454725.77655774506,
+            "median_kandidat": 1.2225550833786893,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8357247230815417,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.0,
+            "endwert": 339453.4846817655,
+            "median_kandidat": 1.5789658875289918,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7126927399075964,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 30,
+            "hebel": 1.5,
+            "endwert": 134868.1668190522,
+            "median_kandidat": 1.065719333978684,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.9378087187940373,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.0,
+            "endwert": 324011.288564712,
+            "median_kandidat": 1.6402325933996305,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.7127039499834633,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 60,
+            "hebel": 1.5,
+            "endwert": 248482.7027730249,
+            "median_kandidat": 1.3810297475077147,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8874461056569759,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": false,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.0,
+            "endwert": 635135.2681929342,
+            "median_kandidat": 2.095463438639964,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.6966364095679406,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          },
+          {
+            "welt": "GMBH+FK",
+            "haltetage": 730,
+            "rank_out": 200,
+            "hebel": 1.5,
+            "endwert": 853490.0328047152,
+            "median_kandidat": 2.391594877211283,
+            "median_benchmark": 1.8618872332752807,
+            "schlimmster_maxdd": -0.8439921050312889,
+            "deckel_eingehalten": false,
+            "schlaegt_bench": true,
+            "bestanden": false
+          }
+        ]
+      },
+      "optimum_wandert": false,
+      "verdikt_dreht": false
+    }
+  },
+  "kipp_abstand": {
+    "bester_dd": -0.6358762743351696,
+    "deckel": -0.35,
+    "abstand_pp": 28.58762743351696,
+    "faktor": 4.095608352055478,
+    "max_delta_maxdd": 0.06980068643323667
+  },
+  "zeilen_mit_wechsel": {
+    "ZERO": 1,
+    "PRIVAT_DE": 1
+  }
+}

@@ -171,7 +171,37 @@ def gehaltene_namen(data, **kw) -> tuple[dict[str, set[str]], "pd.Series"]:
         lauf = eng.run_strategy(data, make_regime("ZERO"), **kw)
     finally:
         Portfolio.set_date = original
+    pruefe_protokoll(protokoll, data)
     return protokoll, lauf.equity
+
+
+def pruefe_protokoll(protokoll: dict[str, set[str]], data) -> None:
+    """Hat die Instrumentierung wirklich gemessen?
+
+    Faellt der Monkeypatch aus — Rename, Engine-Refactor, ``set_date`` nicht
+    mehr pro Tag gerufen —, bleibt ``protokoll`` leer. Die Konsumenten liefern
+    dann {} und melden „kein betroffener Name lag im Bestand": die Entwarnung
+    als Ausfallmodus (E-103).
+
+    Geprueft wird deshalb ZWEIERLEI (Stage-1-Finding MAJOR-1): dass fuer jeden
+    Handelstag ein Eintrag existiert UND dass ueberhaupt je ein Name gehalten
+    wurde. Die erste Fassung zaehlte nur die Tage — bei durchweg leeren Mengen
+    haette sie geschwiegen, und genau das ist der Zustand, der eine
+    Wirkungsmessung wertlos macht.
+    """
+    if len(protokoll) != len(data.close.index):
+        raise SystemExit(
+            f"Bestandsprotokoll unvollstaendig: {len(protokoll)} von "
+            f"{len(data.close.index)} Handelstagen. Der Instrumentierungs-Patch "
+            "auf Portfolio.set_date hat nicht fuer jeden Tag gefeuert — jede "
+            "Wirkungsmessung waere hier falsch-negativ."
+        )
+    je_gehalten = set().union(*protokoll.values()) if protokoll else set()
+    if not je_gehalten:
+        raise SystemExit(
+            "Bestandsprotokoll ist an JEDEM Tag leer. Der Patch feuert, misst "
+            "aber nichts — eine Wirkungsmessung darauf entwarnt immer."
+        )
 
 
 def kanal_halten(

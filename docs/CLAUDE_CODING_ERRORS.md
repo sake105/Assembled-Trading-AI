@@ -1275,3 +1275,90 @@ Dieselbe Klasse trifft retroaktive Ticker in Membership-Serien: GOOGL liefert 0 
 4. **Q-Suffix, Punkte im Symbol und retroaktive Umbenennungen** sind die drei bekannten Fallen in US-Indexhistorien.
 **Erkannt in:** Stage-2-Review (F-senior-3, MAJOR) zu `research/mandat2/p12g_pull_bilanz.py`.
 **Referenzen:** E-112, E-080, E-104.
+
+## E-114 — Der Ticker als Schluessel: eine Panel-Spalte fuehrte zwei Unternehmen
+**Datum:** 2026-08-04
+**Kategorie:** false-mechanism / identitaets-annahme
+**Was passierte:** Beim Versuch, die Survivorship-Luecke ueber Tagesdaten zu schliessen, fiel auf: 99 PIT-Mitglieder liegen in der Rohdatei, haben dort aber Kurse **nur ausserhalb des Suchfensters**. Der Grund ist keine Luecke, sondern eine Verwechslung: der Anbieter liefert unter einem Symbol die **heutige** Firma. ABI (Anheuser-Busch, uebernommen 2008) beginnt 2025-06-26; ABS (Albertsons, 2006) beginnt 2018; ALTR (Altera, 2015) beginnt 2017.
+
+Wo die Neuvergabe INNERHALB des Fensters liegt, steht die Historie von Firma A, eine mehrjaehrige Luecke, dann Firma B — in derselben Spalte. Betroffen: **29 Spalten (Schwelle 500 Handelstage), alle 29 waren Index-Mitglieder** (CTXS an 205 Terminen, TOY an 114).
+
+Zwei Schaeden, beide am echten Bestand gemessen:
+
+1. **Kurssprung am Wiedereinstieg.** Die Engine bewertet eine in A gekaufte Position erstmals mit dem Kurs von B: CGP −3,49 % Portfolio-Tagesrendite (Rang 5.419 von 5.548).
+2. **Ausfall der Delisting-Hygiene** — der groessere. Der Zwangsverkauf prueft `last_valid < t`; bei einem recycelten Ticker liegt `last_valid` am Ende der Serie von **B**, die Bedingung ist nie erfuellt. CGP lief **3.264 Handelstage (13 Jahre)** im Bestand weiter, bewertet auf dem eingefrorenen letzten Kurs von 2001. Ueber drei Namen zusammen 5.035 tote Haltetage.
+
+Keiner der bestehenden Detektoren sah das: `korruptions_spannen` arbeitet auf `pct_change(fill_method=None)`, und ueber eine NaN-Luecke ist die Rendite NaN. Der Sprung war fuer die Preisfehler-Pruefung unsichtbar und fuer die Engine (`close_ff`) sichtbar — genau andersherum, als man es braucht.
+
+**Warum falsch:** Ein Ticker ist ein **Zeitreihen-Attribut**, kein Schluessel. Ueber zwei Jahrzehnte werden Symbole neu vergeben, umbenannt und getauscht. Wer sie als Identitaet behandelt, verknuepft Unternehmen — und zwar bevorzugt dort, wo eines verschwunden ist, also genau in der Teilmenge, um die es bei Survivorship geht.
+
+**Wie vermeiden:**
+1. **Vor jeder Panel-Konstruktion pruefen, ob eine Spalte durchgehend dasselbe Unternehmen fuehrt.** Signatur: eine Luecke, nach der die Serie weiterlaeuft. Ein delistetes Unternehmen kommt nicht nach Jahren zurueck.
+2. **Die Delisting-Regel darf nicht am Serienende haengen**, wenn die Serie mehrere Emittenten enthaelt. Besser zusaetzlich: eine Position ohne Kurs ueber N Tage ist nicht haltbar — unabhaengig von der Ursache.
+3. **Detektoren, die auf Renditen arbeiten, sehen keine Luecken.** Wer Preisfehler und Luecken beide sucht, braucht zwei Pruefungen; `pct_change` ueber NaN liefert NaN und schweigt.
+4. **Symbol-Change-Historie des Anbieters nutzen, wo verfuegbar.** Bei EODHD beginnt sie 2022-07-22 und deckt aeltere Fenster NICHT ab (geprueft) — dann ist jede Zuordnung eine dokumentationspflichtige Heuristik.
+**PRAEZISIERT DURCH E-115 UND E-117:** „29 Spalten fuehren zwei Unternehmen" ist die Formulierung nach der VERMUTETEN Ursache. Belegt ist nur die **Signatur** (Luecke >= 500 Handelstage); 8 der 30 Schnitte liegen im Faktorband, in dem der Kurs fortsetzt, und sind wahrscheinliche Fehltreffer. Wer diesen Eintrag zitiert, muss E-117 mitlesen.
+
+**Erkannt in:** eigener Pruefung beim Anschluss an P12g; `research/mandat2/p12h_ticker_recycling.py`.
+**Referenzen:** E-113 (dieselbe Klasse, Intraday), E-112, E-079, **E-115**, **E-117**.
+
+## E-115 — „Unterbrochen" mit „recycelt" verwechselt: die Reparatur zerlegte eine intakte Firma
+**Datum:** 2026-08-04
+**Kategorie:** false-repair / klasse-nicht-getrennt
+**Was passierte:** Der Detektor aus E-114 findet *unterbrochene* Serien. Die erste Trennung behandelte jede Unterbrechung ab 120 Handelstagen als Firmenwechsel. Beim Lauf zeigte sich: **CCE (Coca-Cola Enterprises) hat sechs Unterbrechungen, jaehrlich im November** — die Firma existierte durchgehend, der Feed hat Loecher. Die Trennung haette sie in **sieben Stuecke** zerlegt und damit eine intakte Historie zerstoert, um einen Fehler zu beheben, den sie dort nicht hatte.
+
+Aufgefallen ist es nur, weil die Segmentliste im Lauf ausgegeben wurde und das jaehrliche Muster ins Auge sprang.
+
+Gemessen ueber alle 57 Luecken >= 60 Handelstage, Anteil mit Faktor 0,5..2,0 („Kurs setzt fort"):
+60–120: 100 % · 120–250: 86 % · 250–500: 36 % · 500–1000: 42 % · >= 1000: 17 %.
+
+Unter 250 Tagen dominieren Datenloecher, ab 500 der Firmenwechsel. Die Schwelle liegt jetzt bei 500; der Bereich 120–500 bleibt unangetastet und wird als eigenes, ungeloestes Problem ausgewiesen.
+
+**Warum falsch:** Ein Detektor findet eine **Signatur**, keine **Ursache**. Zwischen beiden liegt eine Klassifikation, und wer sie ueberspringt, behandelt alle Traeger der Signatur gleich. Der Schaden ist dabei asymmetrisch: eine unbehandelte Korruption verfaelscht ein Ergebnis, eine falsch behandelte intakte Serie erzeugt ein neues — und sieht dabei aus wie Sorgfalt.
+
+**Wie vermeiden:**
+1. **Vor jeder Reparatur die Signatur nach Ursachen aufschluesseln** und die Verteilung ausweisen. Hier genuegte eine Tabelle „Lueckenlaenge gegen Kursfaktor", um zwei Klassen sichtbar zu machen.
+2. **Die Schwelle aus den Daten begruenden, nicht aus dem Bauch** — und die Herleitung dorthin schreiben, wo die Konstante steht.
+3. **Faelle im unklaren Bereich NICHT mitbehandeln**, sondern als offen ausweisen. Eine Reparatur, die 29 von 37 Faellen loest und das sagt, ist besser als eine, die 37 „loest".
+4. **Die Segmentliste eines Reparaturlaufs immer ausgeben.** Genau sie hat den Fehler gezeigt; eine stille Reparatur haette ihn nicht.
+**Erkannt in:** eigener Pruefung des ersten P12i-Laufs.
+**Referenzen:** E-107 (Bereinigung schlimmer als der Fehler), E-114, E-083.
+
+## E-116 — Artefakt vor der letzten Kennzahl geschrieben: die Aufloesungszahl war nur stdout
+**Datum:** 2026-08-04
+**Kategorie:** wiring-gap / nicht-persistiert
+**Was passierte:** `p12i_neulauf_getrennt.py` schrieb das Ergebnis-JSON, BEVOR `kipp_abstand` berechnet und an `ergebnis` gehaengt wurde. Der Schluessel landete nie in der Datei; die Zahl existierte ausschliesslich im Terminal.
+
+Folge: im Abschlussdokument stand „kein Kandidat kam dem Deckel je naeher als rund 26 pp" — die Zahl des VORHERIGEN Laufs (P12f). Der aktuelle Lauf ergab **28,6 pp**. Kein Artefakt konnte widersprechen, weil die Kennzahl in keinem stand. Genau die Zahl, die aus „dreht nicht" erst eine Robustheitsaussage macht, war die einzige nicht persistierte.
+
+**Warum falsch:** Ein Ergebnis-Artefakt hat zwei Aufgaben — das Ergebnis zu speichern und **spaetere Behauptungen darueber pruefbar zu machen**. Fehlt eine Kennzahl darin, ist die zweite Aufgabe fuer genau diese Kennzahl nicht erfuellt, und der Fehler faellt erst auf, wenn jemand von Hand nachrechnet. Die Reihenfolge „schreiben, dann weiterrechnen" sieht harmlos aus, weil der Lauf korrekt durchlaeuft und die Konsole alles zeigt.
+
+**Wie vermeiden:**
+1. **Ergebnisdateien immer als LETZTE Anweisung schreiben.** Kein `write_text` mitten in der Funktion, auch nicht „schon mal sichern".
+2. **Regel fuer Befundtexte: was nicht im Artefakt steht, gehoert nicht in den Befund.** Jede Zahl im Dokument muss ueber einen Schluessel im JSON auffindbar sein.
+3. **Beim Uebernehmen einer Kennzahl aus einem anderen Lauf** (hier: dieselbe Funktion in P12f und P12i) pruefen, ob die neue Zahl auch neu berechnet wurde — Zahlen wandern leichter zwischen Dokumenten als zwischen Laeufen.
+**NACHTRAG — die Regel im selben Zug gebrochen:** Nach dem Fix wurden die Befundzahlen erneut aus **stdout eines noch laufenden Prozesses** uebernommen; das Artefakt auf der Platte war zu diesem Zeitpunkt noch die aeltere Fassung ohne `kipp_abstand`. Die Zahlen stimmten am Ende — aber das war nicht garantiert, und nachgeprueft wurde es erst durch die Stage-1-Validierung. Regel 2 gilt also auch fuer den **Zeitpunkt**: erst wenn der Lauf beendet UND das Artefakt geschrieben ist, darf eine Zahl ins Dokument. Eine frisch aufgeschriebene Regel schuetzt nicht davor, sie eine Stunde spaeter zu brechen.
+
+**Erkannt in:** Stage-2-Review (F-senior-1/2) zu `p12i_neulauf_getrennt.py`. Derselbe Defekt bestand in `p12f_neulauf_bereinigt.py`. Der Nachtrag stammt aus der Stage-1-Validierung desselben Steps.
+**Referenzen:** E-085, E-110.
+
+## E-117 — Eindimensionale Regel auf zweidimensionaler Evidenz
+**Datum:** 2026-08-04
+**Kategorie:** logic-error / klassifikation-verkuerzt
+**Was passierte:** Die Trennschwelle fuer recycelte Ticker (500 Handelstage) wurde aus einer Tabelle **Lueckenlaenge gegen Kursfaktor** hergeleitet — zwei Merkmale, weil eines allein die beiden Ursachen (Firmenwechsel gegen Vendor-Datenloch) nicht trennt. Die Regel benutzt danach nur noch die Lueckenlaenge.
+
+Ergebnis: **8 der 30 Schnitte** liegen im Faktorband 0,5–2,0, das dieselbe Herleitung als „Kurs setzt fort" definiert (HSH 0,80 · MWI 1,80 · MYG 1,15 · NLC 0,73 · RX 0,59 · RYC 1,20 · WLL 0,83 und 0,91). Der Befundtext lautete trotzdem „29 Spalten fuehren zwei Unternehmen".
+
+Der Folgeschaden ist **asymmetrisch**: fuer jede falsch getrennte Spalte greift danach der Zwangsverkauf, weil `last_valid` nun am kuenstlichen Segmentende liegt. Die Reparatur erzeugt also ein **fabriziertes Delisting** — bei WLL (Faktor 0,91) waere das 2010, obwohl die Firma weiterlief.
+
+**Praezisierung (Stage-3-Finding F-auditor-3):** Hier stand zunaechst „WLL wird 2010 aus dem Portfolio geworfen" — eine Aussage ueber echtes Portfolioverhalten, die der Lauf nicht stuetzt. Die Instrumentierung derselben Session meldet genau drei je gehaltene Namen (CGP, NGH, NVLS); WLL ist nicht darunter, seine Indexmitgliedschaft endet 2002-01. Ausgerechnet ein Eintrag ueber „mehr behaupten als klassifiziert" behauptete selbst mehr als gemessen. Gemessen gilt: **alle 8 fraglichen Schnitte liegen nach dem letzten Mitgliedschaftstermin** ihres Symbols — der Schaden ist damit auf Namen begrenzt, die zum Schnittzeitpunkt nur noch ueber die Mindesthaltedauer erreichbar waren, und die Richtung ist konservativ (ein Zwangsverkauf kann keinen PASS erzeugen).
+
+**Warum falsch:** Wer zwei Merkmale erhebt, um zwei Klassen zu trennen, und dann nach einem entscheidet, uebernimmt die Fehlerrate des weggelassenen — und verliert das Recht, das Ergebnis als **Klassifikation** zu bezeichnen. Es bleibt eine Signaturliste. Die Verkuerzung ist besonders verfuehrerisch, weil die Herleitung sauber aussieht: die Tabelle steht da, sie ist richtig gerechnet, und trotzdem geht die Haelfte ihrer Information beim Uebergang zur Regel verloren.
+
+**Wie vermeiden:**
+1. **Benutzt die Herleitung zwei Achsen, muss die Regel beide benutzen** — oder die zweite Achse als bezifferte Restfehlerquelle ausweisen, je Fall, im Artefakt.
+2. **Das Ergebnis nach der Signatur benennen, nicht nach der vermuteten Ursache.** „Spalten mit Luecke >= 500", nicht „Spalten mit zwei Unternehmen".
+3. **Bei asymmetrischem Schaden** — wenn die Reparatur selbst Ereignisse erzeugt — die wahrscheinlichen Fehltreffer explizit zaehlen und in den Befund schreiben. Eine Reparatur, die 22 von 30 Faellen richtig trifft und das sagt, ist besser als eine, die 30 „loest".
+4. **Die Merkmale, die in die Entscheidung eingehen, gehoeren ins Protokoll** — nicht nur in den Kommentar ueber der Konstante.
+**Erkannt in:** Stage-2-Review (F-senior-3) zu `panel_getrennt.py` und `ABSCHLUSS.md`.
+**Referenzen:** E-115 (dieselbe Klasse, eine Stufe grober), E-107, E-083.

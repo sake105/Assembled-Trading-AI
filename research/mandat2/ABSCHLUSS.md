@@ -51,7 +51,7 @@ erhöht N und damit die Schwelle; man kann sich hier nicht mehr freisuchen.
 
 ---
 
-## Was trotzdem gilt — sechs belastbare Befunde
+## Was trotzdem gilt — sieben belastbare Befunde
 
 ### 1. Die Steuer war nie die bindende Restriktion. Der Turnover war es.
 
@@ -199,9 +199,97 @@ E-108 verdeckte im konkreten Lauf genau **einen** Tag — der Fehler ist
 strukturell, nicht in seiner hier gemessenen Wirkung. E-111 dagegen hatte die
 Hälfte des Schadens unsichtbar gemacht, und zwar die schlimmere Hälfte.
 
+### 7. Der Ticker war als Schlüssel behandelt worden (Nachtrag 2026-08-04)
+
+Beim Anschluss an Befund 6 — Tagesdaten statt Intraday — fiel eine eigene
+Fehlerklasse auf: **der Datenlieferant gibt unter einem Symbol die *heutige*
+Firma zurück.** ABI (Anheuser-Busch, 2008 übernommen) beginnt 2025-06-26;
+ABS (Albertsons, 2006) beginnt 2018; ALTR (Altera, 2015) beginnt 2017. Von 133
+im Panel fehlenden PIT-Mitgliedern liegen 99 in der Rohdatei — ausschließlich
+mit Kursen *nach* dem Suchfenster.
+
+Belastbar ist dabei nicht „keine Kurse im Fenster" — das wiederholt nur die
+Filterregel des Panels, die Spalten ohne jeden Kurs im Fenster ohnehin
+verwirft —, sondern dass die Serie **erst danach beginnt**. Das gilt für
+**99 von 99** der betroffenen Namen, alle gemessen, nicht gestichprobt.
+
+Wo die Neuvergabe **innerhalb** des Fensters liegt, führt eine Panel-Spalte
+zwei Unternehmen. Gefunden werden sie über eine **Signatur**: eine Lücke von
+mindestens 500 Handelstagen, nach der die Serie weiterläuft. **29 Spalten**
+tragen sie, alle 29 waren Index-Mitglieder — CTXS an 205 Terminen, TOY an 114.
+TOY war einer der Namen, die P12d als „Niveausprung 100–200 %, Ursache offen"
+markiert hatte; die Ursache ist damit gefunden.
+
+> **Signatur ist nicht Ursache.** Die Schwelle wurde aus zwei Merkmalen
+> hergeleitet — Lückenlänge *und* Kursfaktor —, entscheidet aber nur nach dem
+> ersten. **8 der 30 Schnitte** liegen im Faktorband 0,5–2,0, in dem der Kurs
+> fortsetzt (HSH, MWI, MYG, NLC, RX, RYC, WLL zweimal): dort ist die Trennung
+> wahrscheinlich falsch und erzeugt ein *fabriziertes* Delisting. Die Liste
+> steht im Artefakt, nicht im Fließtext. Registriert als **E-117**.
+>
+> Die Schranke dazu liegt in denselben Artefakten: **alle 8 Schnitte liegen
+> nach dem letzten Mitgliedschaftstermin** des jeweiligen Symbols (MWI 2014-07
+> gegen 1999-04, RYC 2007-07 gegen 1999-07, WLL 2008-12 und 2014-12 gegen
+> 2002-01; RX, MYG, HSH, NLC ebenso). Bei membership-getriebener Auswahl sind
+> diese Namen zum Zeitpunkt des fabrizierten Delistings nur noch über die
+> Mindesthaltedauer erreichbar — und die Richtung ist konservativ, weil ein
+> Zwangsverkauf keinen PASS erzeugen kann.
+
+Zwei Schäden, beide am echten Bestand gemessen (`p12h_ticker_recycling.py`,
+Engine instrumentiert über `Portfolio.set_date`). **Gemessen für EINE
+Konfiguration:** 12-1-Momentum, `top_in=20`, Steuerwelt ZERO, Engine-Defaults
+für Haltedauer und `rank_out` — nicht für das Kampagnen-Optimum aus Befund 1
+(730 Tage / `rank_out` 200). Die Zahlen sind konfigurationsabhängig:
+
+| | |
+|---|---|
+| Kurssprung am Wiedereinstieg | CGP **−3,49 %** Portfolio-Tagesrendite (Rang 5.419/5.548), NGH −1,21 %, NVLS +0,24 % |
+| **Ausfall der Delisting-Hygiene** | 3 Namen, zusammen **5.035 Handelstage** im Bestand ohne echten Kurs — CGP allein 3.264 (13 Jahre) |
+
+Der zweite ist der strukturelle: der Zwangsverkauf prüft `last_valid < t`, und
+bei einem recycelten Ticker liegt `last_valid` am Ende der Serie von Firma B.
+Für diese Namen greift er **nie**; die Position läuft auf dem eingefrorenen
+letzten Kurs weiter. Keiner der bisherigen Detektoren sah das —
+`pct_change(fill_method=None)` liefert über eine NaN-Lücke NaN, der Sprung war
+für die Preisfehler-Prüfung unsichtbar.
+
+**Ein Neulauf des P2-Gitters auf getrenntem Panel dreht kein Verdikt**
+(`p12i_neulauf_getrennt.py`): 0 von 24 Parametrisierungen bestehen in beiden
+Panels, der Median des besten Kandidaten ist in allen drei Steuerwelten
+**identisch**, das Optimum wandert nicht.
+
+> Auch hier gilt die Einschränkung aus Befund 6, mit den Zahlen dieses Laufs:
+> der beste schlimmste Drawdown liegt bei **−63,6 %** gegen einen Deckel von
+> −35 %, also **28,6 pp** daneben; die Trennung verschiebt den Drawdown um
+> höchstens **6,98 pp**. Sie hätte rund **4-mal stärker** wirken müssen, um
+> eine einzige Zeile über den Deckel zu heben. Der Test konnte an dieser Stelle
+> nicht kippen — die Aussage ist „ohne Wirkung auf das Verdikt", nicht „ohne
+> Wirkung".
+
+Das schwächere Kriterium reagiert nämlich sehr wohl: ohne Drawdown-Deckel
+wechseln einzelne Parametrisierungen ihren Status (ZERO 6 → 7, PRIVAT_DE
+2 → 3 von 24). Die Trennung ist messbar, sie bewegt nur nichts an der
+bindenden Nebenbedingung.
+
+Registriert als **E-114**. Der erste Reparaturversuch hätte bei einer Schwelle
+von 120 Handelstagen Coca-Cola Enterprises — sechs jährliche Vendor-Datenlöcher,
+Firma durchgehend existent — in sieben Stücke zerlegt (**E-115**). Die Schwelle
+liegt jetzt bei 500 und ist aus der Verteilung hergeleitet; der Bereich
+120–500 bleibt unangetastet und offen.
+
 ---
 
 ## Was offen bleibt
+
+**Tagesdaten mit Delisting-Kursen sind weiterhin nicht beschafft.** Befund 6
+nennt sie als den Weg, auf dem die SPY-Frage überhaupt entscheidbar wäre; P12g
+hat ausschließlich den **Intraday**-Endpunkt sondiert und dort belegt, dass er
+Ausscheider nicht führt. Für den **EOD**-Endpunkt ist Delisted-Coverage
+grundsätzlich verifiziert (SIVB, BBBY), für das Suchfenster 1995–2016 aber
+ungeprüft. Der Anlauf dazu förderte stattdessen Befund 7 zutage — der Fehler
+musste vor dem Pull gefunden werden, sonst hätte ein Tagespull über 1.011
+Symbole denselben Ticker-als-Schlüssel-Fehler in größerem Maßstab geerbt.
+Beschaffungs-, keine Forschungsfrage.
 
 **Datenblockiert:** Der Fundamentalfaktor. PIT-korrekte XBRL-Daten beginnen
 2009-04-15, das Suchfenster endet 2016 — kein einziges vollständiges

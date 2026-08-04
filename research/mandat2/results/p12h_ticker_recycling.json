@@ -1,0 +1,903 @@
+{
+  "fenster": "SUCHE",
+  "trennschwelle": 500,
+  "n_ab_trennschwelle": 29,
+  "rohdaten_lage": {
+    "n_pit_mitglieder": 1011,
+    "n_im_panel": 878,
+    "n_fehlt_im_panel": 133,
+    "n_fehlt_aber_in_rohdatei": 99,
+    "n_fehlt_ueberall": 34,
+    "n_ohne_punkte_im_fenster": 99,
+    "n_serie_beginnt_erst_nach_dem_fenster": 99,
+    "hinweis_tautologie": "n_ohne_punkte_im_fenster wiederholt die Panel-Filterregel (dropna how=all) und belegt sie nicht. Aussagekraeftig ist n_serie_beginnt_erst_nach_dem_fenster.",
+    "beispiele": {
+      "ABI": {
+        "erste_zeile": "2025-06-26",
+        "letzte_zeile": "2026-07-06",
+        "n": 257,
+        "im_suchfenster": 0
+      },
+      "ABS": {
+        "erste_zeile": "2018-08-28",
+        "letzte_zeile": "2019-06-07",
+        "n": 195,
+        "im_suchfenster": 0
+      },
+      "ABX": {
+        "erste_zeile": "2020-09-14",
+        "letzte_zeile": "2026-07-06",
+        "n": 1458,
+        "im_suchfenster": 0
+      },
+      "ADCT": {
+        "erste_zeile": "2020-05-15",
+        "letzte_zeile": "2026-07-06",
+        "n": 1541,
+        "im_suchfenster": 0
+      },
+      "ADT": {
+        "erste_zeile": "2018-01-19",
+        "letzte_zeile": "2026-07-06",
+        "n": 2125,
+        "im_suchfenster": 0
+      },
+      "AGC": {
+        "erste_zeile": "2020-12-01",
+        "letzte_zeile": "2021-12-01",
+        "n": 253,
+        "im_suchfenster": 0
+      },
+      "ALTR": {
+        "erste_zeile": "2017-11-01",
+        "letzte_zeile": "2025-03-25",
+        "n": 1858,
+        "im_suchfenster": 0
+      },
+      "AM": {
+        "erste_zeile": "2017-05-04",
+        "letzte_zeile": "2026-07-06",
+        "n": 2304,
+        "im_suchfenster": 0
+      },
+      "ANV": {
+        "erste_zeile": "2026-02-03",
+        "letzte_zeile": "2026-07-06",
+        "n": 105,
+        "im_suchfenster": 0
+      },
+      "APC": {
+        "erste_zeile": "2026-02-12",
+        "letzte_zeile": "2026-07-06",
+        "n": 98,
+        "im_suchfenster": 0
+      },
+      "AS": {
+        "erste_zeile": "2024-02-01",
+        "letzte_zeile": "2026-07-06",
+        "n": 607,
+        "im_suchfenster": 0
+      },
+      "ASO": {
+        "erste_zeile": "2020-10-02",
+        "letzte_zeile": "2026-07-06",
+        "n": 1444,
+        "im_suchfenster": 0
+      },
+      "AV": {
+        "erste_zeile": "2026-05-12",
+        "letzte_zeile": "2026-07-06",
+        "n": 37,
+        "im_suchfenster": 0
+      },
+      "BAY": {
+        "erste_zeile": "2026-05-06",
+        "letzte_zeile": "2026-07-06",
+        "n": 41,
+        "im_suchfenster": 0
+      },
+      "BEAM": {
+        "erste_zeile": "2020-02-06",
+        "letzte_zeile": "2026-07-06",
+        "n": 1610,
+        "im_suchfenster": 0
+      },
+      "BFI": {
+        "erste_zeile": "2018-03-26",
+        "letzte_zeile": "2024-09-20",
+        "n": 1357,
+        "im_suchfenster": 0
+      },
+      "BHGE": {
+        "erste_zeile": "2017-07-05",
+        "letzte_zeile": "2019-10-23",
+        "n": 580,
+        "im_suchfenster": 0
+      },
+      "BNL": {
+        "erste_zeile": "2020-09-17",
+        "letzte_zeile": "2026-07-06",
+        "n": 1455,
+        "im_suchfenster": 0
+      },
+      "BOAT": {
+        "erste_zeile": "2021-08-04",
+        "letzte_zeile": "2026-07-06",
+        "n": 1234,
+        "im_suchfenster": 0
+      },
+      "CA": {
+        "erste_zeile": "2023-12-14",
+        "letzte_zeile": "2026-05-26",
+        "n": 612,
+        "im_suchfenster": 0
+      },
+      "CAM": {
+        "erste_zeile": "2025-10-06",
+        "letzte_zeile": "2026-07-06",
+        "n": 187,
+        "im_suchfenster": 0
+      },
+      "CBH": {
+        "erste_zeile": "2017-06-28",
+        "letzte_zeile": "2024-09-10",
+        "n": 1810,
+        "im_suchfenster": 0
+      },
+      "CCB": {
+        "erste_zeile": "2018-07-18",
+        "letzte_zeile": "2026-07-06",
+        "n": 2001,
+        "im_suchfenster": 0
+      },
+      "CEG": {
+        "erste_zeile": "2022-01-19",
+        "letzte_zeile": "2026-07-06",
+        "n": 1118,
+        "im_suchfenster": 0
+      },
+      "CHA": {
+        "erste_zeile": "2025-04-16",
+        "letzte_zeile": "2026-07-06",
+        "n": 305,
+        "im_suchfenster": 0
+      },
+      "CHIR": {
+        "erste_zeile": "2018-12-07",
+        "letzte_zeile": "2024-03-05",
+        "n": 1318,
+        "im_suchfenster": 0
+      },
+      "CR": {
+        "erste_zeile": "2023-03-29",
+        "letzte_zeile": "2026-07-06",
+        "n": 819,
+        "im_suchfenster": 0
+      },
+      "DEC": {
+        "erste_zeile": "2018-10-22",
+        "letzte_zeile": "2026-07-06",
+        "n": 1468,
+        "im_suchfenster": 0
+      },
+      "DI": {
+        "erste_zeile": "2017-03-27",
+        "letzte_zeile": "2017-03-31",
+        "n": 5,
+        "im_suchfenster": 0
+      },
+      "DNB": {
+        "erste_zeile": "2020-07-01",
+        "letzte_zeile": "2025-08-25",
+        "n": 1294,
+        "im_suchfenster": 0
+      },
+      "DO": {
+        "erste_zeile": "2022-03-30",
+        "letzte_zeile": "2024-09-04",
+        "n": 611,
+        "im_suchfenster": 0
+      },
+      "DOW": {
+        "erste_zeile": "2019-03-20",
+        "letzte_zeile": "2026-07-06",
+        "n": 1833,
+        "im_suchfenster": 0
+      },
+      "DYN": {
+        "erste_zeile": "2020-09-17",
+        "letzte_zeile": "2026-07-06",
+        "n": 1455,
+        "im_suchfenster": 0
+      },
+      "ECO": {
+        "erste_zeile": "2020-03-30",
+        "letzte_zeile": "2026-07-06",
+        "n": 757,
+        "im_suchfenster": 0
+      },
+      "EMC": {
+        "erste_zeile": "2023-05-15",
+        "letzte_zeile": "2026-07-06",
+        "n": 787,
+        "im_suchfenster": 0
+      },
+      "EQ": {
+        "erste_zeile": "2018-10-12",
+        "letzte_zeile": "2026-07-06",
+        "n": 1940,
+        "im_suchfenster": 0
+      },
+      "ETS": {
+        "erste_zeile": "2025-08-21",
+        "letzte_zeile": "2026-07-06",
+        "n": 218,
+        "im_suchfenster": 0
+      },
+      "FB": {
+        "erste_zeile": "2025-06-26",
+        "letzte_zeile": "2026-07-06",
+        "n": 257,
+        "im_suchfenster": 0
+      },
+      "FG": {
+        "erste_zeile": "2022-11-22",
+        "letzte_zeile": "2026-07-06",
+        "n": 905,
+        "im_suchfenster": 0
+      },
+      "FOX": {
+        "erste_zeile": "2019-03-13",
+        "letzte_zeile": "2026-07-06",
+        "n": 1838,
+        "im_suchfenster": 0
+      }
+    }
+  },
+  "wirkung": {
+    "CGP": {
+      "gehalten_am_vortag": true,
+      "wiedereinstieg": "2014-01-23",
+      "kurssprung": 0.001220125786163522,
+      "portfolio_tagesrendite": -0.0348584620115957,
+      "rang_unter_allen_tagen": 5419,
+      "n_handelstage": 5548
+    },
+    "NGH": {
+      "gehalten_am_vortag": true,
+      "wiedereinstieg": "2004-12-15",
+      "kurssprung": 0.01002070946623021,
+      "portfolio_tagesrendite": -0.012108735833828543,
+      "rang_unter_allen_tagen": 4675,
+      "n_handelstage": 5548
+    },
+    "NVLS": {
+      "gehalten_am_vortag": true,
+      "wiedereinstieg": "2015-06-17",
+      "kurssprung": 0.3693983659321614,
+      "portfolio_tagesrendite": 0.0023807260758279547,
+      "rang_unter_allen_tagen": 2392,
+      "n_handelstage": 5548
+    }
+  },
+  "tote_haltedauer": {
+    "CGP": {
+      "tote_haltetage": 3264,
+      "von": "2001-01-30",
+      "bis": "2014-01-22",
+      "letzter_echter_kurs": "2001-01-29"
+    },
+    "NGH": {
+      "tote_haltetage": 1005,
+      "von": "2000-12-12",
+      "bis": "2004-12-14",
+      "letzter_echter_kurs": "2000-12-11"
+    },
+    "NVLS": {
+      "tote_haltetage": 766,
+      "von": "2012-06-05",
+      "bis": "2015-06-16",
+      "letzter_echter_kurs": "2012-06-04"
+    }
+  },
+  "min_luecke_handelstage": 120,
+  "n_spalten": 1037,
+  "n_unterbrochen": 37,
+  "n_unterbrochen_und_mitglied": 37,
+  "treffer": [
+    {
+      "symbol": "STO",
+      "luecke_handelstage": 4316,
+      "letzter_kurs_am": "1998-11-17",
+      "naechster_kurs_am": "2016-01-04",
+      "kurs_vor": 4.6484,
+      "kurs_nach": 12.2538,
+      "faktor": 2.636132862920575,
+      "n_punkte_vor": 223,
+      "n_punkte_nach": 252
+    },
+    {
+      "symbol": "FPC",
+      "luecke_handelstage": 3886,
+      "letzter_kurs_am": "2000-11-30",
+      "naechster_kurs_am": "2016-05-04",
+      "kurs_vor": 54.813,
+      "kurs_nach": 2.59,
+      "faktor": 0.047251564409902753,
+      "n_punkte_vor": 737,
+      "n_punkte_nach": 168
+    },
+    {
+      "symbol": "CGP",
+      "luecke_handelstage": 3265,
+      "letzter_kurs_am": "2001-01-29",
+      "naechster_kurs_am": "2014-01-23",
+      "kurs_vor": 79.5,
+      "kurs_nach": 0.097,
+      "faktor": 0.001220125786163522,
+      "n_punkte_vor": 776,
+      "n_punkte_nach": 1
+    },
+    {
+      "symbol": "MWI",
+      "luecke_handelstage": 2616,
+      "letzter_kurs_am": "2004-02-27",
+      "naechster_kurs_am": "2014-07-21",
+      "kurs_vor": 19.96,
+      "kurs_nach": 35.915,
+      "faktor": 1.7993486973947894,
+      "n_punkte_vor": 1548,
+      "n_punkte_nach": 619
+    },
+    {
+      "symbol": "TOY",
+      "luecke_handelstage": 2259,
+      "letzter_kurs_am": "2005-07-21",
+      "naechster_kurs_am": "2014-07-14",
+      "kurs_vor": 26.74,
+      "kurs_nach": 8.593,
+      "faktor": 0.32135377711293944,
+      "n_punkte_vor": 1900,
+      "n_punkte_nach": 624
+    },
+    {
+      "symbol": "PDG",
+      "luecke_handelstage": 2112,
+      "letzter_kurs_am": "2006-03-08",
+      "naechster_kurs_am": "2014-07-29",
+      "kurs_vor": 22.04,
+      "kurs_nach": 5.4,
+      "faktor": 0.24500907441016337,
+      "n_punkte_vor": 2058,
+      "n_punkte_nach": 476
+    },
+    {
+      "symbol": "RYC",
+      "luecke_handelstage": 1990,
+      "letzter_kurs_am": "1999-08-12",
+      "naechster_kurs_am": "2007-07-13",
+      "kurs_vor": 38.438,
+      "kurs_nach": 46.0,
+      "faktor": 1.1967324002289401,
+      "n_punkte_vor": 407,
+      "n_punkte_nach": 2110
+    },
+    {
+      "symbol": "SMS",
+      "luecke_handelstage": 1934,
+      "letzter_kurs_am": "2000-07-05",
+      "naechster_kurs_am": "2008-03-17",
+      "kurs_vor": 62.0375,
+      "kurs_nach": 23.4456,
+      "faktor": 0.3779262542816844,
+      "n_punkte_vor": 633,
+      "n_punkte_nach": 1404
+    },
+    {
+      "symbol": "UCM",
+      "luecke_handelstage": 1778,
+      "letzter_kurs_am": "2000-10-20",
+      "naechster_kurs_am": "2007-11-19",
+      "kurs_vor": 54.813,
+      "kurs_nach": 19.28,
+      "faktor": 0.35174137522120663,
+      "n_punkte_vor": 709,
+      "n_punkte_nach": 530
+    },
+    {
+      "symbol": "LDG",
+      "luecke_handelstage": 1711,
+      "letzter_kurs_am": "2008-10-30",
+      "naechster_kurs_am": "2015-08-12",
+      "kurs_vor": 71.51,
+      "kurs_nach": 8043.6699,
+      "faktor": 112.48314781149489,
+      "n_punkte_vor": 2726,
+      "n_punkte_nach": 351
+    },
+    {
+      "symbol": "BGEN",
+      "luecke_handelstage": 1600,
+      "letzter_kurs_am": "2003-11-12",
+      "naechster_kurs_am": "2010-03-24",
+      "kurs_vor": 38.57,
+      "kurs_nach": 0.668,
+      "faktor": 0.017319159968887738,
+      "n_punkte_vor": 1476,
+      "n_punkte_nach": 378
+    },
+    {
+      "symbol": "RBD",
+      "luecke_handelstage": 1553,
+      "letzter_kurs_am": "1999-03-24",
+      "naechster_kurs_am": "2005-05-26",
+      "kurs_vor": 36.625,
+      "kurs_nach": 0.0781,
+      "faktor": 0.0021324232081911263,
+      "n_punkte_vor": 309,
+      "n_punkte_nach": 79
+    },
+    {
+      "symbol": "UPR",
+      "luecke_handelstage": 1533,
+      "letzter_kurs_am": "2000-07-14",
+      "naechster_kurs_am": "2006-08-21",
+      "kurs_vor": 22.375,
+      "kurs_nach": 0.079,
+      "faktor": 0.0035307262569832403,
+      "n_punkte_vor": 640,
+      "n_punkte_nach": 124
+    },
+    {
+      "symbol": "ONE",
+      "luecke_handelstage": 1502,
+      "letzter_kurs_am": "2004-06-30",
+      "naechster_kurs_am": "2010-06-17",
+      "kurs_vor": 1275.0,
+      "kurs_nach": 356.75,
+      "faktor": 0.27980392156862743,
+      "n_punkte_vor": 189,
+      "n_punkte_nach": 1648
+    },
+    {
+      "symbol": "CTXS",
+      "luecke_handelstage": 1187,
+      "letzter_kurs_am": "1998-12-18",
+      "naechster_kurs_am": "2003-09-11",
+      "kurs_vor": 3.2253,
+      "kurs_nach": 14.9632,
+      "faktor": 4.639320373298609,
+      "n_punkte_vor": 514,
+      "n_punkte_nach": 3338
+    },
+    {
+      "symbol": "GX",
+      "luecke_handelstage": 1080,
+      "letzter_kurs_am": "2002-01-30",
+      "naechster_kurs_am": "2006-05-15",
+      "kurs_vor": 0.094,
+      "kurs_nach": 15.0,
+      "faktor": 159.5744680851064,
+      "n_punkte_vor": 868,
+      "n_punkte_nach": 1649
+    },
+    {
+      "symbol": "NGH",
+      "luecke_handelstage": 1006,
+      "letzter_kurs_am": "2000-12-11",
+      "naechster_kurs_am": "2004-12-15",
+      "kurs_vor": 29.938,
+      "kurs_nach": 0.3,
+      "faktor": 0.01002070946623021,
+      "n_punkte_vor": 744,
+      "n_punkte_nach": 187
+    },
+    {
+      "symbol": "WLL",
+      "luecke_handelstage": 1005,
+      "letzter_kurs_am": "2010-12-17",
+      "naechster_kurs_am": "2014-12-16",
+      "kurs_vor": 22346.6422,
+      "kurs_nach": 20446.502,
+      "faktor": 0.9149697666882589,
+      "n_punkte_vor": 757,
+      "n_punkte_nach": 505
+    },
+    {
+      "symbol": "DIGI",
+      "luecke_handelstage": 900,
+      "letzter_kurs_am": "2000-04-19",
+      "naechster_kurs_am": "2003-11-19",
+      "kurs_vor": 100.2,
+      "kurs_nach": 2.0,
+      "faktor": 0.01996007984031936,
+      "n_punkte_vor": 479,
+      "n_punkte_nach": 154
+    },
+    {
+      "symbol": "JOS",
+      "luecke_handelstage": 841,
+      "letzter_kurs_am": "2000-05-10",
+      "naechster_kurs_am": "2003-09-17",
+      "kurs_vor": 25.188,
+      "kurs_nach": 0.15,
+      "faktor": 0.005955216769890424,
+      "n_punkte_vor": 595,
+      "n_punkte_nach": 134
+    },
+    {
+      "symbol": "NVLS",
+      "luecke_handelstage": 767,
+      "letzter_kurs_am": "2012-06-04",
+      "naechster_kurs_am": "2015-06-17",
+      "kurs_vor": 161.56,
+      "kurs_nach": 59.68,
+      "faktor": 0.3693983659321614,
+      "n_punkte_vor": 2200,
+      "n_punkte_nach": 390
+    },
+    {
+      "symbol": "RX",
+      "luecke_handelstage": 666,
+      "letzter_kurs_am": "2011-12-16",
+      "naechster_kurs_am": "2014-08-13",
+      "kurs_vor": 4.0,
+      "kurs_nach": 2.37,
+      "faktor": 0.5925,
+      "n_punkte_vor": 3134,
+      "n_punkte_nach": 312
+    },
+    {
+      "symbol": "MYG",
+      "luecke_handelstage": 664,
+      "letzter_kurs_am": "2006-03-31",
+      "naechster_kurs_am": "2008-11-18",
+      "kurs_vor": 21.2665,
+      "kurs_nach": 24.3672,
+      "faktor": 1.1458020830884255,
+      "n_punkte_vor": 645,
+      "n_punkte_nach": 42
+    },
+    {
+      "symbol": "CTX",
+      "luecke_handelstage": 662,
+      "letzter_kurs_am": "2009-08-18",
+      "naechster_kurs_am": "2012-04-03",
+      "kurs_vor": 8.0497,
+      "kurs_nach": 16.9872,
+      "faktor": 2.110289824465508,
+      "n_punkte_vor": 2926,
+      "n_punkte_nach": 1195
+    },
+    {
+      "symbol": "KSE",
+      "luecke_handelstage": 555,
+      "letzter_kurs_am": "2007-08-24",
+      "naechster_kurs_am": "2009-11-05",
+      "kurs_vor": 42.2,
+      "kurs_nach": 177.0,
+      "faktor": 4.19431279620853,
+      "n_punkte_vor": 2427,
+      "n_punkte_nach": 1314
+    },
+    {
+      "symbol": "PAS",
+      "luecke_handelstage": 553,
+      "letzter_kurs_am": "2010-02-26",
+      "naechster_kurs_am": "2012-05-07",
+      "kurs_vor": 29.98,
+      "kurs_nach": 0.15,
+      "faktor": 0.005003335557038025,
+      "n_punkte_vor": 3058,
+      "n_punkte_nach": 921
+    },
+    {
+      "symbol": "HSH",
+      "luecke_handelstage": 527,
+      "letzter_kurs_am": "2014-08-28",
+      "naechster_kurs_am": "2016-09-20",
+      "kurs_vor": 62.96,
+      "kurs_nach": 50.13,
+      "faktor": 0.7962198221092758,
+      "n_punkte_vor": 544,
+      "n_punkte_nach": 30
+    },
+    {
+      "symbol": "NLC",
+      "luecke_handelstage": 512,
+      "letzter_kurs_am": "2011-12-01",
+      "naechster_kurs_am": "2013-12-16",
+      "kurs_vor": 38.8,
+      "kurs_nach": 28.39,
+      "faktor": 0.7317010309278351,
+      "n_punkte_vor": 1778,
+      "n_punkte_nach": 333
+    },
+    {
+      "symbol": "WWY",
+      "luecke_handelstage": 509,
+      "letzter_kurs_am": "2008-10-06",
+      "naechster_kurs_am": "2010-10-13",
+      "kurs_vor": 79.97,
+      "kurs_nach": 4.7661,
+      "faktor": 0.059598599474803046,
+      "n_punkte_vor": 2708,
+      "n_punkte_nach": 448
+    },
+    {
+      "symbol": "PGL",
+      "luecke_handelstage": 490,
+      "letzter_kurs_am": "2007-02-21",
+      "naechster_kurs_am": "2009-01-30",
+      "kurs_vor": 47.38,
+      "kurs_nach": 3.3373,
+      "faktor": 0.0704368932038835,
+      "n_punkte_vor": 2298,
+      "n_punkte_nach": 1994
+    },
+    {
+      "symbol": "USS",
+      "luecke_handelstage": 437,
+      "letzter_kurs_am": "1998-10-01",
+      "naechster_kurs_am": "2000-06-26",
+      "kurs_vor": 13.649,
+      "kurs_nach": 95.4548,
+      "faktor": 6.993537988130999,
+      "n_punkte_vor": 190,
+      "n_punkte_nach": 223
+    },
+    {
+      "symbol": "MIL",
+      "luecke_handelstage": 308,
+      "letzter_kurs_am": "2010-07-14",
+      "naechster_kurs_am": "2011-09-30",
+      "kurs_vor": 266154.5934,
+      "kurs_nach": 18042.2702,
+      "faktor": 0.06778868615235403,
+      "n_punkte_vor": 1723,
+      "n_punkte_nach": 1099
+    },
+    {
+      "symbol": "SRR",
+      "luecke_handelstage": 253,
+      "letzter_kurs_am": "2008-12-16",
+      "naechster_kurs_am": "2009-12-17",
+      "kurs_vor": 0.0475,
+      "kurs_nach": 0.2042,
+      "faktor": 4.298947368421053,
+      "n_punkte_vor": 2505,
+      "n_punkte_nach": 904
+    },
+    {
+      "symbol": "HPC",
+      "luecke_handelstage": 252,
+      "letzter_kurs_am": "2012-12-14",
+      "naechster_kurs_am": "2013-12-16",
+      "kurs_vor": 48.67,
+      "kurs_nach": 57.82,
+      "faktor": 1.1880008218615163,
+      "n_punkte_vor": 3446,
+      "n_punkte_nach": 767
+    },
+    {
+      "symbol": "CCE",
+      "luecke_handelstage": 247,
+      "letzter_kurs_am": "1997-11-14",
+      "naechster_kurs_am": "1998-11-09",
+      "kurs_vor": 8.9818,
+      "kurs_nach": 11.7951,
+      "faktor": 1.313222293972255,
+      "n_punkte_vor": 5,
+      "n_punkte_nach": 3384
+    },
+    {
+      "symbol": "SMI",
+      "luecke_handelstage": 237,
+      "letzter_kurs_am": "2015-12-31",
+      "naechster_kurs_am": "2016-12-08",
+      "kurs_vor": 147.4757,
+      "kurs_nach": 3.69,
+      "faktor": 0.025021071268012292,
+      "n_punkte_vor": 260,
+      "n_punkte_nach": 17
+    },
+    {
+      "symbol": "MAY",
+      "luecke_handelstage": 142,
+      "letzter_kurs_am": "2005-12-16",
+      "naechster_kurs_am": "2006-07-13",
+      "kurs_vor": 0.0444,
+      "kurs_nach": 0.0493,
+      "faktor": 1.1103603603603602,
+      "n_punkte_vor": 1983,
+      "n_punkte_nach": 46
+    }
+  ],
+  "mitgliedschaft": {
+    "BGEN": {
+      "n_termine_mitglied": 46,
+      "erstes": "2000-01-31",
+      "letztes": "2003-10-31"
+    },
+    "CCE": {
+      "n_termine_mitglied": 211,
+      "erstes": "1998-10-30",
+      "letztes": "2016-04-29"
+    },
+    "CGP": {
+      "n_termine_mitglied": 60,
+      "erstes": "1996-01-31",
+      "letztes": "2000-12-29"
+    },
+    "CTX": {
+      "n_termine_mitglied": 163,
+      "erstes": "1996-01-31",
+      "letztes": "2009-07-31"
+    },
+    "CTXS": {
+      "n_termine_mitglied": 205,
+      "erstes": "1999-12-31",
+      "letztes": "2016-12-30"
+    },
+    "DIGI": {
+      "n_termine_mitglied": 31,
+      "erstes": "1996-01-31",
+      "letztes": "1998-07-31"
+    },
+    "FPC": {
+      "n_termine_mitglied": 18,
+      "erstes": "1999-06-30",
+      "letztes": "2000-11-30"
+    },
+    "GX": {
+      "n_termine_mitglied": 25,
+      "erstes": "1999-09-30",
+      "letztes": "2001-09-28"
+    },
+    "HPC": {
+      "n_termine_mitglied": 154,
+      "erstes": "1996-01-31",
+      "letztes": "2008-10-31"
+    },
+    "HSH": {
+      "n_termine_mitglied": 197,
+      "erstes": "1996-01-31",
+      "letztes": "2012-05-31"
+    },
+    "JOS": {
+      "n_termine_mitglied": 52,
+      "erstes": "1996-01-31",
+      "letztes": "2000-04-28"
+    },
+    "KSE": {
+      "n_termine_mitglied": 84,
+      "erstes": "2000-08-31",
+      "letztes": "2007-07-31"
+    },
+    "LDG": {
+      "n_termine_mitglied": 66,
+      "erstes": "1996-01-31",
+      "letztes": "2001-06-29"
+    },
+    "MAY": {
+      "n_termine_mitglied": 115,
+      "erstes": "1996-01-31",
+      "letztes": "2005-07-29"
+    },
+    "MIL": {
+      "n_termine_mitglied": 174,
+      "erstes": "1996-01-31",
+      "letztes": "2010-06-30"
+    },
+    "MWI": {
+      "n_termine_mitglied": 40,
+      "erstes": "1996-01-31",
+      "letztes": "1999-04-30"
+    },
+    "MYG": {
+      "n_termine_mitglied": 123,
+      "erstes": "1996-01-31",
+      "letztes": "2006-03-31"
+    },
+    "NGH": {
+      "n_termine_mitglied": 27,
+      "erstes": "1998-09-30",
+      "letztes": "2000-11-30"
+    },
+    "NLC": {
+      "n_termine_mitglied": 43,
+      "erstes": "1996-01-31",
+      "letztes": "1999-07-30"
+    },
+    "NVLS": {
+      "n_termine_mitglied": 144,
+      "erstes": "2000-06-30",
+      "letztes": "2012-05-31"
+    },
+    "ONE": {
+      "n_termine_mitglied": 102,
+      "erstes": "1996-01-31",
+      "letztes": "2004-06-30"
+    },
+    "PAS": {
+      "n_termine_mitglied": 24,
+      "erstes": "1996-01-31",
+      "letztes": "1997-12-31"
+    },
+    "PDG": {
+      "n_termine_mitglied": 78,
+      "erstes": "1996-01-31",
+      "letztes": "2002-06-28"
+    },
+    "PGL": {
+      "n_termine_mitglied": 133,
+      "erstes": "1996-01-31",
+      "letztes": "2007-01-31"
+    },
+    "RBD": {
+      "n_termine_mitglied": 38,
+      "erstes": "1996-01-31",
+      "letztes": "1999-02-26"
+    },
+    "RX": {
+      "n_termine_mitglied": 159,
+      "erstes": "1996-11-29",
+      "letztes": "2010-01-29"
+    },
+    "RYC": {
+      "n_termine_mitglied": 43,
+      "erstes": "1996-01-31",
+      "letztes": "1999-07-30"
+    },
+    "SMI": {
+      "n_termine_mitglied": 59,
+      "erstes": "1996-01-31",
+      "letztes": "2000-11-30"
+    },
+    "SMS": {
+      "n_termine_mitglied": 53,
+      "erstes": "1996-01-31",
+      "letztes": "2000-05-31"
+    },
+    "SRR": {
+      "n_termine_mitglied": 21,
+      "erstes": "1996-01-31",
+      "letztes": "1997-09-30"
+    },
+    "STO": {
+      "n_termine_mitglied": 34,
+      "erstes": "1996-01-31",
+      "letztes": "1998-10-30"
+    },
+    "TOY": {
+      "n_termine_mitglied": 114,
+      "erstes": "1996-01-31",
+      "letztes": "2005-06-30"
+    },
+    "UCM": {
+      "n_termine_mitglied": 57,
+      "erstes": "1996-01-31",
+      "letztes": "2000-09-29"
+    },
+    "UPR": {
+      "n_termine_mitglied": 45,
+      "erstes": "1996-10-31",
+      "letztes": "2000-06-30"
+    },
+    "USS": {
+      "n_termine_mitglied": 33,
+      "erstes": "1996-01-31",
+      "letztes": "1998-09-30"
+    },
+    "WLL": {
+      "n_termine_mitglied": 73,
+      "erstes": "1996-01-31",
+      "letztes": "2002-01-31"
+    },
+    "WWY": {
+      "n_termine_mitglied": 153,
+      "erstes": "1996-01-31",
+      "letztes": "2008-09-30"
+    }
+  }
+}
