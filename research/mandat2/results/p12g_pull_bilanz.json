@@ -1,0 +1,90 @@
+{
+  "bilanz": {
+    "hinweis": "Beschreibt die Zusammensetzung der Anfrageliste des bisherigen Pulls, NICHT das Verhalten des Endpunkts \u2014 dafuer siehe api_probe.",
+    "fenster": "2006-06-01..2016-12-31",
+    "referenz_start": "2006-06-30",
+    "referenz_ende": "2016-12-30",
+    "n_dateien": 298,
+    "n_pit_mitglieder": 748,
+    "n_mit_datei": 294,
+    "abdeckung": 0.393048128342246,
+    "n_referenz_mit": 294,
+    "n_referenz_ohne": 203,
+    "ueberlebensquote_mit_datei": 0.8605442176870748,
+    "ueberlebensquote_ohne_datei": 0.28078817733990147,
+    "anreicherungsfaktor": 3.0647451963241434,
+    "maximal_verzerrt": false
+  },
+  "api_probe": {
+    "ausscheider": {
+      "LEH": {
+        "name": "Lehman Brothers",
+        "q_ticker": "LEHMQ",
+        "probefenster": "2008-03",
+        "bars_mitgliedschaftssymbol": 0,
+        "bars_q_ticker": 0
+      },
+      "WM": {
+        "name": "Washington Mutual",
+        "q_ticker": "WAMUQ",
+        "probefenster": "2008-03",
+        "bars_mitgliedschaftssymbol": 0,
+        "bars_q_ticker": 0
+      },
+      "EK": {
+        "name": "Eastman Kodak",
+        "q_ticker": "EKDKQ",
+        "probefenster": "2011-06",
+        "bars_mitgliedschaftssymbol": 0,
+        "bars_q_ticker": 0
+      },
+      "GM": {
+        "name": "General Motors",
+        "q_ticker": "MTLQQ",
+        "probefenster": "2008-06",
+        "bars_mitgliedschaftssymbol": 0,
+        "bars_q_ticker": 0
+      },
+      "CC": {
+        "name": "Circuit City",
+        "q_ticker": "CCTYQ",
+        "probefenster": "2008-03",
+        "bars_mitgliedschaftssymbol": 0,
+        "bars_q_ticker": 0
+      },
+      "BSC": {
+        "name": "Bear Stearns",
+        "q_ticker": null,
+        "probefenster": "2007-09",
+        "bars_mitgliedschaftssymbol": 0,
+        "bars_q_ticker": null
+      }
+    },
+    "kontrolle": {
+      "AMZN": 7992,
+      "GILD": 7521,
+      "VRSN": 7381,
+      "ADBE": 7414,
+      "NVDA": 7954,
+      "COST": 7402,
+      "ROST": 7008,
+      "PAYX": 7217
+    }
+  },
+  "verdikt": {
+    "n_stumm": 6,
+    "n_ausscheider": 6,
+    "stumm": [
+      "Lehman Brothers",
+      "Washington Mutual",
+      "Eastman Kodak",
+      "General Motors",
+      "Circuit City",
+      "Bear Stearns"
+    ],
+    "n_kontrolle_lebt": 8,
+    "n_kontrolle": 8,
+    "fehler": [],
+    "status": "weg_zu"
+  }
+}

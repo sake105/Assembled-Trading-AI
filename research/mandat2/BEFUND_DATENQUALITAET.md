@@ -1,6 +1,6 @@
 # Befund — Trägt der Datensatz die Verdikte?
 
-*Erzeugt von `render_befund_datenqualitaet.py` aus `results/p12d_*.json`, `p12e_*.json`, `p12f_*.json`. Nicht von Hand bearbeiten — Änderungen gehen beim nächsten Lauf verloren.*
+*Erzeugt von `render_befund_datenqualitaet.py` aus `results/p12d_*.json`, `p12e_*.json`, `p12f_*.json`, `p12g_*.json`. Nicht von Hand bearbeiten — Änderungen gehen beim nächsten Lauf verloren.*
 
 ---
 
@@ -250,6 +250,50 @@ Erst- und Zweitplatzierter trennten dort 0,55 %.
 Eine Rangfolge an dieser Marge kippt bei jeder Störung — sie
 sagt nichts über den Hebel, sondern über die Auflösung der
 Messung.
+
+---
+
+## 5. Kann der Intraday-Endpunkt die Lücke überhaupt schließen?
+
+Nach Abschnitt 1 lag der Schluss nahe, einfach mehr Symbole zu ziehen.
+Genau das ist geschehen — 298 Dateien liegen
+inzwischen vor. Ob das zum Ziel führt, beantwortet aber nicht das
+Dateiverzeichnis, sondern nur eine Abfrage.
+
+Geprüft wurden Ausscheider des Suchfensters — jeweils unter dem Symbol,
+unter dem sie **damals im Index standen**, und zusätzlich unter dem
+Post-Insolvenz-Ticker. Das ist nicht dasselbe: die Q-Ticker entstehen
+erst mit dem Chapter-11-Handel, ein Negativbefund auf ihnen ist fast
+garantiert und beweist nichts (E-113). Gezählt werden **Minutenbars**.
+
+| Name | Symbol damals | Bars | Q-Ticker | Bars |
+|---|---|---:|---|---:|
+| Lehman Brothers | LEH | 0 | LEHMQ | 0 |
+| Washington Mutual | WM | 0 | WAMUQ | 0 |
+| Eastman Kodak | EK | 0 | EKDKQ | 0 |
+| General Motors | GM | 0 | MTLQQ | 0 |
+| Circuit City | CC | 0 | CCTYQ | 0 |
+| Bear Stearns | BSC | 0 | — | — |
+
+**Kontrollgruppe:** dieselbe Abfrage für Überlebende — 8 von 8 liefern Bars (7.008–7.992 im Probefenster).
+Der Aufruf funktioniert also; das Schweigen bei den Ausscheidern ist
+kein Fehler der Abfrage. Die Kontrolle liegt zudem im **früheren**
+Fenster als alle Ausscheider — eine reine Datumsgrenze scheidet damit
+als Erklärung aus.
+
+> **Alle 6 geprüften Ausscheider liefern keine
+> einzige Bar** — auch nicht unter ihrem Handelssymbol vor der
+> Insolvenz. Für die Survivorship-Korrektur ist dieser Weg zu.
+
+Mehr Anfragen erhöhen also die **Abdeckung** des Universums (viele
+Überlebende sind schlicht noch nicht gezogen), aber nicht seine
+**Unverzerrtheit**: die geprüften Ausscheider sind bei dieser Quelle
+nicht zu haben. Dafür braucht es Tagesdaten mit Delisting-Kursen.
+
+*Der Stand des bisherigen Pulls (39,3 % der
+PIT-Mitglieder) beschreibt die Zusammensetzung der bisherigen
+Anfrageliste, nicht den Endpunkt — er wird hier bewusst nicht als
+Verzerrungsmaß ausgewiesen (Stage-2-Findings F-senior-1/7).*
 
 ---
 

@@ -119,7 +119,8 @@ negatives Urteil nur bestätigt. Registriert als **E-079**.
 
 Punkt 5 war der erste Riss; hier ist der ganze Bruch. Vollständige Herleitung
 und alle Zahlen: **[`BEFUND_DATENQUALITAET.md`](./BEFUND_DATENQUALITAET.md)**
-(generiert aus `results/p12d_*.json`, `p12e_*.json`, `p12f_*.json`).
+(generiert aus `results/p12d_*.json`, `p12e_*.json`, `p12f_*.json`,
+`p12g_*.json`).
 
 **Survivorship (P12d).** Das Intraday-Universum besteht aus Namen, die heute
 noch handelbar sind. Liegenlassen dieser Namen liefert über 10,5 Jahre
@@ -143,6 +144,28 @@ das Ausscheiden voraus. Das Panel verliert bevorzugt die Verlierer.
 > des Universums (Haltedauer gegen Haltedauer, Parametrisierung gegen
 > Parametrisierung) bleiben gültig, weil beide Seiten dieselbe Verzerrung
 > tragen.
+
+**Und die Quelle kann die Lücke nicht schließen (P12g).** Der naheliegende
+Ausweg war, das Intraday-Universum zu verbreitern — von 21 auf 298 Symbole.
+Ob das zum Ziel führt, beantwortet eine **API-Probe**, nicht das
+Dateiverzeichnis: sechs Ausscheider des Suchfensters, jeweils unter dem
+Symbol geprüft, unter dem sie **damals im Index standen** — LEH, WM, EK, GM,
+CC, BSC — liefern **null Bars**, ebenso ihre Post-Insolvenz-Ticker. Eine
+Kontrollgruppe aus acht Überlebenden liefert im selben Fenster 7.008–7.992
+Bars; der Aufruf funktioniert also.
+
+Mehr Anfragen erhöhen damit die **Abdeckung** (viele Überlebende sind schlicht
+noch nicht gezogen), aber nicht die **Unverzerrtheit** — sechs geprüft, sechs
+stumm; die Ausscheider sind bei dieser Quelle nicht zu haben. Gezählt wurden
+Minutenbars. Für einen belastbaren Vergleich gegen einen
+passiven Index braucht es Tagesdaten mit Delisting-Kursen.
+
+> Eine erste Fassung dieses Absatzes las die Verfügbarkeit aus fehlenden
+> Dateien und meldete einen „Anreicherungsfaktor 3,06". Das war falsch: acht
+> von acht geprüften Namen der vermeintlichen Fehlgruppe (AMZN, GILD, VRSN,
+> ADBE, NVDA, COST, ROST, PAYX) liefern Bars — sie waren nie angefragt worden.
+> Registriert als **E-112**; der Härtetest lief zusätzlich unter den falschen
+> Symbolen (**E-113**).
 
 **Preisfehler (P12e/P12f).** 25 Namen tragen Skalenbrüche über 48.380
 Handelstage, und sie sind nachweislich in die Ergebnisse eingegangen: GPS wurde

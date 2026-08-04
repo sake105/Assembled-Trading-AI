@@ -1237,3 +1237,41 @@ Die Bereinigung selbst brauchte das Leeren nie: sie prueft das Flag ohnehin selb
 4. **Sanity-Summe:** die Gesamtkontamination muss mit der Zahl der betroffenen Namen wachsen, nicht schrumpfen, wenn mehr Namen als unbehandelbar erkannt werden.
 **Erkannt in:** Stage-2-Review (F-senior-2, BLOCKER) zu `p12d_survivorship_schranke.py`.
 **Referenzen:** E-102 (Entwarnung auf Proxy), E-103 (Fail-Open-Richtung), E-083, E-066.
+
+## E-112 — Abwesenheit im Dateisystem als Eigenschaft des Datenanbieters ausgegeben
+**Datum:** 2026-08-04
+**Kategorie:** false-evidence / ls-statt-call
+**Was passierte:** Nach einem Datenpull sollte gemessen werden, ob der Intraday-Endpunkt die Survivorship-Luecke schliessen kann. Gemessen wurde: welche Symbole haben eine Parquet-Datei? Daraus entstand ein „Anreicherungsfaktor 3,06" — wer eine Datei hat, ueberlebt dreimal so haeufig — und der Schluss „mehr Anfragen erhoehen die Praezision, nicht die Unverzerrtheit".
+
+Eine Stichprobe gegen dieselbe API widerlegte das in einem Zug: **AMZN, GILD, VRSN, ADBE, NVDA, COST, ROST und PAYX — acht von acht Namen aus genau der Fehlgruppe — liefern 7.000–8.000 Bars im Suchfenster.** Sie waren nie angefragt worden. `intraday_pull.py` schreibt bei Leerergebnis weder Datei noch Protokoll; damit sind „nie angefragt", „angefragt und leer" und „Anfrage fehlgeschlagen" auf der Platte ununterscheidbar.
+
+Der Faktor mass also die Zusammensetzung einer **nicht protokollierten Anfrageliste** — und die stammte mit hoher Wahrscheinlichkeit aus dem Tagespanel, dessen eigene Abdeckungsluecke dieselbe Kampagne zwei Abschnitte weiter oben als survivorship-behaftet ausweist. Die Kennzahl mass teilweise die Verzerrung ihrer eigenen Quelle.
+
+**Warum falsch:** Ein `ls` beantwortet keine Frage ueber einen Anbieter. Die Abwesenheit einer Datei hat mindestens drei Ursachen, und genau eine davon ist die behauptete. Verschaerfend: derselbe Anti-Pattern steht seit drei Tagen als **E-080** im selben Katalog („Datenverfuegbarkeit aus dem Gedaechtnis behauptet statt an der API geprueft") — die Wiederholung kam zustande, weil die Evidenzquelle diesmal *lokal und konkret* aussah. Ein Verzeichnis fuehlt sich wie eine Messung an; es ist eine.
+
+**Wie vermeiden:**
+1. **Jeder Ingest schreibt ein Anfrage-Protokoll** — Symbol, Fenster, HTTP-Status, Bar-Zahl —, auch und gerade fuer Leerergebnisse. Ohne das ist jede spaetere Abdeckungsaussage unbelegbar.
+2. **Abdeckungskennzahlen nur ueber ANGEFRAGTE Symbole bilden.** Wer die Anfrageliste nicht kennt, kann keine Aussage ueber den Anbieter treffen — hoechstens eine ueber den eigenen Pull, und die muss dann auch so heissen.
+3. **Aussagen ueber einen Anbieter brauchen einen Call**, und der Call braucht eine **Kontrollgruppe**: ohne Namen, die liefern, ist ein Negativbefund nicht von einem kaputten Aufruf zu unterscheiden. Hier: 6 Ausscheider mit 0 Bars gegen 8 Ueberlebende mit 7.000+.
+4. **Bei jeder „X liefert nicht"-Aussage fragen: habe ich X gefragt?** Die Antwort steht im Zweifel nicht auf der Platte.
+**Erkannt in:** Stage-2-Review (F-senior-1/2, BLOCKER) zu `research/mandat2/p12g_pull_bilanz.py`.
+**Referenzen:** E-080 (dieselbe Klasse, drei Tage zuvor), E-109, E-111.
+
+## E-113 — Delisting-Coverage unter dem Post-Insolvenz-Ticker geprueft
+**Datum:** 2026-08-04
+**Kategorie:** logic-error / test-kann-nicht-widerlegen
+**Was passierte:** Der Haertetest fuer „fuehrt die Quelle Ausscheider?" fragte CCTYQ, EKDKQ, LEHMQ, MTLQQ und WAMUQ ab — alle mit 0 Bars, was als Beleg gewertet wurde. Diese Q-Symbole entstehen aber **erst mit dem Chapter-11-Handel**. Waehrend der Index-Mitgliedschaft hiessen die Namen LEH, WM, EK, GM, CC.
+
+Ein Negativbefund auf dem Q-Ticker ist damit fast garantiert, unabhaengig davon, ob der Anbieter die Historie des Namens fuehrt. Der Test konnte die These **nicht widerlegen** — also stuetzte er sie auch nicht. (Die Nachpruefung unter den richtigen Symbolen ergab ebenfalls 0 Bars: das Verdikt hielt, der Beleg fehlte.)
+
+Dieselbe Klasse trifft retroaktive Ticker in Membership-Serien: GOOGL liefert 0 Bars fuer 2006, GOOG 20.340 — der Name stand damals unter einem anderen Symbol im Index. Ebenso TPR (vorher COH) und BF.B (HTTP 404 wegen des Punkts). Solche Faelle erzeugen **Scheinluecken**, die wie Anbieter-Grenzen aussehen.
+
+**Warum falsch:** Ein Test, dessen Ergebnis unabhaengig vom geprueften Sachverhalt feststeht, ist kein Test. Er hat dieselbe Struktur wie eine gesaettigte Messung (vgl. den Kipp-Abstand in P12f): das Ergebnis ist richtig und die Begruendung leer.
+
+**Wie vermeiden:**
+1. **Coverage immer unter dem zum `as_of` gueltigen Handelssymbol pruefen.** Der Ticker ist ein Zeitreihen-Attribut, kein Schluessel.
+2. **Symbol-Change-Historie mitfuehren** (EODHD: `get_symbol_change_history`), wenn ein Universum ueber Jahrzehnte laeuft. Wo sie fehlt, beide Kandidaten pruefen und beide Zahlen ausweisen.
+3. **Vor jedem Negativtest fragen: unter welchen Umstaenden waere das Ergebnis anders?** Faellt die Antwort schwer, misst der Test nichts.
+4. **Q-Suffix, Punkte im Symbol und retroaktive Umbenennungen** sind die drei bekannten Fallen in US-Indexhistorien.
+**Erkannt in:** Stage-2-Review (F-senior-3, MAJOR) zu `research/mandat2/p12g_pull_bilanz.py`.
+**Referenzen:** E-112, E-080, E-104.

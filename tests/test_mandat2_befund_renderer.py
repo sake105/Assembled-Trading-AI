@@ -843,3 +843,188 @@ class TestZeilenWechsel:
             _p12f({"ZERO": _welt(0, 0, False, n_schlagen=5)}),
         )
         assert "einzelne Parametrisierungen" not in text
+
+
+def _p12g(*, mit_probe: bool = True, ausscheider_stumm: bool = True) -> dict:
+    """P12g-Artefakt. Kern ist die API-PROBE, nicht das Dateiverzeichnis."""
+    bars_aus = 0 if ausscheider_stumm else 4200
+    probe = {
+        "ausscheider": {
+            "LEH": {
+                "name": "Lehman Brothers",
+                "q_ticker": "LEHMQ",
+                "probefenster": "2008-03",
+                "bars_mitgliedschaftssymbol": bars_aus,
+                "bars_q_ticker": bars_aus,
+            },
+            "BSC": {
+                "name": "Bear Stearns",
+                "q_ticker": None,
+                "probefenster": "2007-09",
+                "bars_mitgliedschaftssymbol": bars_aus,
+                "bars_q_ticker": None,
+            },
+        },
+        "kontrolle": {"AMZN": 7992, "GILD": 7521, "VRSN": 7381},
+    }
+    return {
+        "bilanz": {
+            "hinweis": "Anfrageliste, nicht Endpunkt.",
+            "n_dateien": 298,
+            "n_pit_mitglieder": 748,
+            "n_mit_datei": 294,
+            "abdeckung": 0.393,
+            "ueberlebensquote_mit_datei": 0.861,
+            "ueberlebensquote_ohne_datei": 0.281,
+            "anreicherungsfaktor": 3.06,
+            "maximal_verzerrt": False,
+        },
+        "api_probe": probe if mit_probe else None,
+    }
+
+
+class TestAbschnittPullBilanz:
+    """Abschnitt 5 muss aus einer ABFRAGE stammen, nicht aus einem `ls`.
+
+    Die erste Fassung las die Verfuegbarkeit aus fehlenden Dateien und lag
+    falsch — acht von acht geprueften Namen der vermeintlichen Fehlgruppe
+    lieferten Bars (E-112).
+    """
+
+    def _mit_g(self, tmp_path, monkeypatch, g: dict) -> str:
+        res = tmp_path / "results"
+        res.mkdir()
+        for name, obj in (
+            ("p12d_survivorship", _p12d(2.90)),
+            ("p12e_panel_hygiene", _p12e()),
+            ("p12f_neulauf_bereinigt", _p12f({"ZERO": _welt(0, 0, False)})),
+            ("p12g_pull_bilanz", g),
+        ):
+            (res / f"{name}.json").write_text(json.dumps(obj), encoding="utf-8")
+        ziel = tmp_path / "BEFUND.md"
+        monkeypatch.setattr(R, "RES", res)
+        monkeypatch.setattr(R, "ZIEL", ziel)
+        assert R.main() == 0
+        return " ".join(ziel.read_text(encoding="utf-8").split())
+
+    def test_stumme_ausscheider_schliessen_den_weg(self, tmp_path, monkeypatch):
+        text = self._mit_g(tmp_path, monkeypatch, _p12g())
+        assert "Alle 2 geprüften Ausscheider liefern keine > einzige Bar" in text
+        assert "Tagesdaten mit Delisting-Kursen" in text
+        # Die Unterscheidung, die vorher fehlte:
+        assert "erhöhen also die **Abdeckung**" in text
+        assert "nicht seine **Unverzerrtheit**" in text
+
+    def test_beide_symbole_stehen_in_der_tabelle(self, tmp_path, monkeypatch):
+        """E-113: der Q-Ticker allein beweist nichts."""
+        text = self._mit_g(tmp_path, monkeypatch, _p12g())
+        assert "| Lehman Brothers | LEH | 0 | LEHMQ | 0 |" in text
+        assert "unter dem sie **damals im Index standen**" in text
+
+    def test_kontrollgruppe_belegt_dass_der_aufruf_geht(self, tmp_path, monkeypatch):
+        text = self._mit_g(tmp_path, monkeypatch, _p12g())
+        assert "3 von 3 liefern Bars (7.381–7.992" in text
+        assert "kein Fehler der Abfrage" in text
+
+    def test_liefernde_ausscheider_kehren_die_aussage_um(self, tmp_path, monkeypatch):
+        text = self._mit_g(tmp_path, monkeypatch, _p12g(ausscheider_stumm=False))
+        assert "der Weg über mehr Anfragen ist gangbar" in text
+        assert "liefern keine einzige" not in text
+
+    def test_ohne_probe_wird_KEINE_aussage_gemacht(self, tmp_path, monkeypatch):
+        """Der wichtigste Test: kein Beleg -> kein Befund."""
+        text = self._mit_g(tmp_path, monkeypatch, _p12g(mit_probe=False))
+        assert "Ohne API-Probe ist hier nichts auszusagen" in text
+        assert "liefern keine einzige" not in text
+        assert "Tagesdaten mit Delisting-Kursen" not in text
+
+    def test_abdeckung_wird_nicht_als_verzerrungsmass_ausgewiesen(
+        self, tmp_path, monkeypatch
+    ):
+        """F-senior-1/7: die 39,3 % beschreiben die Anfrageliste."""
+        text = self._mit_g(tmp_path, monkeypatch, _p12g())
+        assert "beschreibt die Zusammensetzung der bisherigen Anfrageliste" in text
+        assert "bewusst nicht als Verzerrungsmaß" in text
+        # In ABSCHNITT 5 taucht der frueher prominente Faktor nicht mehr auf.
+        # (In Abschnitt 3 steht er weiterhin — dort ist er korrekt, weil er
+        # aus dem Tagespanel stammt und nicht aus einem Dateiverzeichnis.)
+        abschnitt5 = text.split("## 5.")[1]
+        assert "Anreicherungsfaktor" not in abschnitt5
+        assert "3,06" not in abschnitt5
+
+    def test_ohne_p12g_faellt_der_abschnitt_ersatzlos_weg(self, tmp_path, monkeypatch):
+        text = _rendere(
+            tmp_path,
+            monkeypatch,
+            _p12d(2.90),
+            _p12e(),
+            _p12f({"ZERO": _welt(0, 0, False)}),
+        )
+        assert "Kann der Intraday-Endpunkt" not in text
+        assert "Trägt der Datensatz die Verdikte?" in text
+
+
+class TestAbschnittFolgtDerEvidenz:
+    """F-auditor-1/2 auf der Dokumentseite.
+
+    Der Renderer entschied getrennt vom Skript und kam bei unvollständiger
+    Evidenz zu einem Befund. Jetzt speist eine gemeinsame Funktion beide.
+    """
+
+    def _mit_g(self, tmp_path, monkeypatch, g: dict) -> str:
+        res = tmp_path / "results"
+        res.mkdir()
+        for name, obj in (
+            ("p12d_survivorship", _p12d(2.90)),
+            ("p12e_panel_hygiene", _p12e()),
+            ("p12f_neulauf_bereinigt", _p12f({"ZERO": _welt(0, 0, False)})),
+            ("p12g_pull_bilanz", g),
+        ):
+            (res / f"{name}.json").write_text(json.dumps(obj), encoding="utf-8")
+        ziel = tmp_path / "BEFUND.md"
+        monkeypatch.setattr(R, "RES", res)
+        monkeypatch.setattr(R, "ZIEL", ziel)
+        assert R.main() == 0
+        return " ".join(ziel.read_text(encoding="utf-8").split())
+
+    def test_fehlgeschlagene_abfragen_ergeben_keinen_befund(
+        self, tmp_path, monkeypatch
+    ):
+        g = _p12g()
+        for v in g["api_probe"]["ausscheider"].values():
+            v["bars_mitgliedschaftssymbol"] = "ERR:HTTPError"
+            v["bars_q_ticker"] = "ERR:HTTPError"
+        text = self._mit_g(tmp_path, monkeypatch, g)
+        assert "Die Probe ist unvollständig" in text
+        assert "Für die Survivorship-Korrektur ist dieser Weg zu" not in text
+
+    def test_tote_kontrollgruppe_ergibt_keinen_befund(self, tmp_path, monkeypatch):
+        g = _p12g()
+        g["api_probe"]["kontrolle"] = {"AMZN": 0, "GILD": 0, "VRSN": 0}
+        text = self._mit_g(tmp_path, monkeypatch, g)
+        assert "Die Probe ist unvollständig" in text
+        assert "liefert 0 von 3" in text
+
+    def test_leere_kontrollgruppe_kracht_nicht(self, tmp_path, monkeypatch):
+        """F-auditor-2: `min()` auf leerer Sequenz warf einen ValueError."""
+        g = _p12g()
+        g["api_probe"]["kontrolle"] = {}
+        text = self._mit_g(tmp_path, monkeypatch, g)
+        assert "Die Probe ist unvollständig" in text
+
+    def test_teilweise_stumm_verallgemeinert_nicht(self, tmp_path, monkeypatch):
+        g = _p12g()
+        g["api_probe"]["ausscheider"]["BSC"]["bars_mitgliedschaftssymbol"] = 4200
+        text = self._mit_g(tmp_path, monkeypatch, g)
+        assert "1 von 2 geprüften Ausscheidern**" in text
+        assert "nicht pauschal blind" in text
+        assert "Für die Survivorship-Korrektur ist dieser Weg zu" not in text
+
+    def test_minutenbars_werden_benannt(self, tmp_path, monkeypatch):
+        """F-auditor-4: „Bars" neben Stundenbar-Zahlen war missverständlich."""
+        text = self._mit_g(tmp_path, monkeypatch, _p12g())
+        assert "Gezählt werden **Minutenbars**" in text
+
+    def test_kontrollfenster_wird_als_argument_genannt(self, tmp_path, monkeypatch):
+        text = self._mit_g(tmp_path, monkeypatch, _p12g())
+        assert "eine reine Datumsgrenze scheidet damit als Erklärung aus" in text

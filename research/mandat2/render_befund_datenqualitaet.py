@@ -170,6 +170,110 @@ def zeilen_mit_wechsel(f: dict, feld: str) -> dict[str, int]:
     return aus
 
 
+def abschnitt_g(g: dict) -> list[str]:
+    """Kann der Endpunkt die Lücke überhaupt schließen? — API-Probe, kein ``ls``.
+
+    Das Verdikt kommt aus ``p12g_pull_bilanz.verdikt`` — derselben Funktion, die
+    auch das Skript benutzt. Vorher entschieden beide getrennt, und beide
+    keyten auf „mindestens ein stummer Name" statt auf „Evidenz vollständig":
+    bei lauter fehlgeschlagenen Abfragen meldete das eine „der Weg ist gangbar",
+    bei einem stummen von sechs das andere „die Ausscheider sind nicht zu
+    haben" (Stage-3-Finding F-auditor-1).
+    """
+    from research.mandat2.p12g_pull_bilanz import verdikt
+
+    p = g.get("api_probe")
+    b = g.get("bilanz") or {}
+    v = verdikt(p)
+    zeilen = [
+        "## 5. Kann der Intraday-Endpunkt die Lücke überhaupt schließen?",
+        "",
+        "Nach Abschnitt 1 lag der Schluss nahe, einfach mehr Symbole zu ziehen.",
+        f"Genau das ist geschehen — {tsd(b.get('n_dateien', 0))} Dateien liegen",
+        "inzwischen vor. Ob das zum Ziel führt, beantwortet aber nicht das",
+        "Dateiverzeichnis, sondern nur eine Abfrage.",
+        "",
+    ]
+    if v["status"] == "keine_probe":
+        return zeilen + [
+            "**Ohne API-Probe ist hier nichts auszusagen.** Ein fehlender",
+            "Datensatz auf der Platte kann bedeuten: nie angefragt, angefragt",
+            "und leer, oder Anfrage fehlgeschlagen — drei Zustände, die das",
+            "Verzeichnis nicht unterscheidet (E-112).",
+        ]
+    if v["status"] == "unvollstaendig":
+        return zeilen + [
+            "**Die Probe ist unvollständig — es wird kein Befund berichtet.**",
+            f"Fehlgeschlagene Abfragen: {v['fehler'] or 'keine'}; Kontrollgruppe",
+            f"liefert {v['n_kontrolle_lebt']} von {v['n_kontrolle']}. Ein",
+            "Negativbefund wäre hier nicht von einem kaputten Aufruf zu",
+            "unterscheiden, und ein Fehlerstring ist keine Messung.",
+        ]
+
+    aus = p["ausscheider"]
+    kontrolle = p["kontrolle"]
+    lebt = [n for n in kontrolle.values() if isinstance(n, int) and n > 0]
+    zeilen += [
+        "Geprüft wurden Ausscheider des Suchfensters — jeweils unter dem Symbol,",
+        "unter dem sie **damals im Index standen**, und zusätzlich unter dem",
+        "Post-Insolvenz-Ticker. Das ist nicht dasselbe: die Q-Ticker entstehen",
+        "erst mit dem Chapter-11-Handel, ein Negativbefund auf ihnen ist fast",
+        "garantiert und beweist nichts (E-113). Gezählt werden **Minutenbars**.",
+        "",
+        "| Name | Symbol damals | Bars | Q-Ticker | Bars |",
+        "|---|---|---:|---|---:|",
+    ]
+    for sym, x in aus.items():
+        qt = x["q_ticker"] or "—"
+        qb = "—" if x["bars_q_ticker"] is None else tsd(x["bars_q_ticker"])
+        zeilen.append(
+            f"| {x['name']} | {sym} | {tsd(x['bars_mitgliedschaftssymbol'])} | "
+            f"{qt} | {qb} |"
+        )
+    zeilen += [
+        "",
+        f"**Kontrollgruppe:** dieselbe Abfrage für Überlebende — "
+        f"{v['n_kontrolle_lebt']} von {v['n_kontrolle']} liefern Bars "
+        f"({tsd(min(lebt))}–{tsd(max(lebt))} im Probefenster).",
+        "Der Aufruf funktioniert also; das Schweigen bei den Ausscheidern ist",
+        "kein Fehler der Abfrage. Die Kontrolle liegt zudem im **früheren**",
+        "Fenster als alle Ausscheider — eine reine Datumsgrenze scheidet damit",
+        "als Erklärung aus.",
+        "",
+    ]
+    if v["status"] == "weg_zu":
+        zeilen += [
+            f"> **Alle {v['n_ausscheider']} geprüften Ausscheider liefern keine",
+            "> einzige Bar** — auch nicht unter ihrem Handelssymbol vor der",
+            "> Insolvenz. Für die Survivorship-Korrektur ist dieser Weg zu.",
+            "",
+            "Mehr Anfragen erhöhen also die **Abdeckung** des Universums (viele",
+            "Überlebende sind schlicht noch nicht gezogen), aber nicht seine",
+            "**Unverzerrtheit**: die geprüften Ausscheider sind bei dieser Quelle",
+            "nicht zu haben. Dafür braucht es Tagesdaten mit Delisting-Kursen.",
+        ]
+    elif v["status"] == "teilweise":
+        zeilen += [
+            f"**{v['n_stumm']} von {v['n_ausscheider']} geprüften Ausscheidern**",
+            "liefern nichts — die übrigen schon. Die Quelle ist also nicht",
+            "pauschal blind; welche Namen sie führt, ist einzeln zu prüfen. Ein",
+            "verallgemeinernder Schluss wäre hier nicht gedeckt.",
+        ]
+    else:
+        zeilen += [
+            "Alle geprüften Ausscheider liefern Bars — der Weg über mehr",
+            "Anfragen ist gangbar.",
+        ]
+    zeilen += [
+        "",
+        f"*Der Stand des bisherigen Pulls ({pp(b.get('abdeckung', 0.0), 1)} % der",
+        "PIT-Mitglieder) beschreibt die Zusammensetzung der bisherigen",
+        "Anfrageliste, nicht den Endpunkt — er wird hier bewusst nicht als",
+        "Verzerrungsmaß ausgewiesen (Stage-2-Findings F-senior-1/7).*",
+    ]
+    return zeilen
+
+
 def ueberhoehung(d: dict) -> tuple[float, float]:
     """Die Survivorship-Ueberhoehung als SPANNE in Prozentpunkten p. a.
 
@@ -661,6 +765,7 @@ def main() -> int:
         lade("p12e_panel_hygiene"),
         lade("p12f_neulauf_bereinigt"),
     )
+    g = lade("p12g_pull_bilanz")  # optional: Bilanz des breiteren Pulls
     fehlt = [n for n, v in (("p12d", d), ("p12e", e), ("p12f", f)) if v is None]
     if fehlt:
         print(f"[ERROR] Ergebnisse fehlen: {', '.join(fehlt)} — erst die Läufe.")
@@ -682,7 +787,8 @@ def main() -> int:
         "# Befund — Trägt der Datensatz die Verdikte?",
         "",
         "*Erzeugt von `render_befund_datenqualitaet.py` aus "
-        "`results/p12d_*.json`, `p12e_*.json`, `p12f_*.json`. Nicht von Hand "
+        "`results/p12d_*.json`, `p12e_*.json`, `p12f_*.json`, `p12g_*.json`. "
+        "Nicht von Hand "
         "bearbeiten — Änderungen gehen beim nächsten Lauf verloren.*",
         "",
         "---",
@@ -744,6 +850,7 @@ def main() -> int:
         + abschnitt_e_abdeckung(e)
         + ["", "---", ""]
         + abschnitt_f(f)
+        + (["", "---", ""] + abschnitt_g(g) if g else [])
         + [
             "",
             "---",
