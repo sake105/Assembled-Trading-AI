@@ -1,0 +1,26 @@
+{
+  "fama_french": {
+    "status": "OK",
+    "beschreibung": "US-Marktfaktor taeglich ab 1926 (CRSP, Dartmouth)",
+    "datei": "fama_french_daily.parquet",
+    "von": "1926-07-01",
+    "bis": "2026-06-30",
+    "zeilen": 26274
+  },
+  "vix": {
+    "status": "OK",
+    "beschreibung": "CBOE VIX-Historie ab 1990",
+    "datei": "vix_history.parquet",
+    "von": "1990-01-02",
+    "bis": "2026-08-04",
+    "zeilen": 9243
+  },
+  "sp500_mitglieder": {
+    "status": "OK",
+    "beschreibung": "S&P-500-Zusammensetzung ab 1996 (extern)",
+    "datei": "sp500_members_extern.parquet",
+    "von": "1996-01-02",
+    "bis": "2026-06-30",
+    "zeilen": 2718
+  }
+}
