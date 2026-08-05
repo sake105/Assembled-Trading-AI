@@ -310,7 +310,7 @@ aus `results/p13*.json`). Kurzfassung:
 | Fenster-Band, steuerfrei (Schnitt beider Läufe) | 9/12, 11/12, 9/12 · längste lückenlose Kette **9 / 11 / 4** | ✅ |
 | andere Trend-Definitionen | alle drei bestehen, aber `rendite>0` nur lückig (Kette 4) | ⚠️ |
 | Ausführung einen Tag später | Band bleibt, teils breiter | ✅ |
-| Zufalls-Timing, 60 Ziehungen | 0/60 erreichen den Filter, p = 0,016 | ✅ |
+| Zufalls-Timing, 60 Ziehungen | 0/60 erreichen den Filter, p = 0,016 — aber die Kontrolle schaltet an den Buchungsterminen häufiger (19–37 gegen 18) und trägt damit mehr Kosten | ⚠️ |
 | Steuerwelt PRIVAT_DE | 5/12 bis 7/12 | ⚠️ |
 | Steuerwelt GmbH + 3.500 €/J Fixkosten | 0/12 bis 2/12 | ❌ |
 | **Ereignisunabhängigkeit** | **0 von 144 Fenstern ohne Bärenmarkt** | ⚠️ |

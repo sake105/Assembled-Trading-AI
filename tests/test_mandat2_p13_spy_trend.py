@@ -22,7 +22,12 @@ from research.mandat2.p13b_ausfuehrungsverzoegerung import (
     verzoegertes_gate,
 )
 from research.mandat2.p13c_ereignisabhaengigkeit import KRISEN_DD, gruppiere
-from research.mandat2.p13d_zufallstiming import bloecke, gemischtes_gate, p_wert
+from research.mandat2.p13d_zufallstiming import (
+    bloecke,
+    gemischtes_gate,
+    p_wert,
+    wirksame_schaltungen,
+)
 from research.mandat2.portfolio import Portfolio
 from research.mandat2.render_befund_p13 import (
     MINDEST_KETTE,
@@ -352,6 +357,66 @@ def test_befund_p_wert_stimmt_mit_dem_artefakt() -> None:
         pytest.skip("Befund noch nicht gerendert")
     z = laden("p13d_zufallstiming.json")["ZERO"]
     assert f"p = {z['p_wert']:.3f}" in befund.read_text(encoding="utf-8")
+
+
+# ------------------------------------------- Spiegelung der Engine-Semantik
+# Drei Funktionen bilden inzwischen Engine-Verhalten nach, statt es aufzurufen.
+# Getestet wird hier, dass sie dieselben Termine und dieselbe NaN-Konvention
+# benutzen wie `run_buy_and_hold` — bricht das still, wandert der Fehler
+# unbemerkt in die Kennzahl (F-auditor-7).
+def _panel(spy: list[float], start: str = "2000-01-03", ende: str = "2000-04-28"):
+    idx = pd.bdate_range(start, ende)
+    assert len(spy) == len(idx), "Testdaten passen nicht zum Kalender"
+    return idx, pd.DataFrame({"SPY": spy, "AAA": [1.0] * len(idx)}, index=idx)
+
+
+def test_wirksame_schaltungen_zaehlt_nur_an_monatsenden() -> None:
+    """Ein Ausschlag mitten im Monat wird nie gebucht, zaehlt also nicht."""
+    idx, close = _panel([1.0] * len(pd.bdate_range("2000-01-03", "2000-04-28")))
+    gate = pd.Series(1.0, index=idx)
+    gate.iloc[5] = 0.0  # 2000-01-10, kein Monatsende
+    assert wirksame_schaltungen(close, gate) == 0
+
+
+def test_wirksame_schaltungen_folgt_dem_instrument_nicht_dem_panel() -> None:
+    """Dieselbe Falle wie F-senior-11, eine Funktion weiter.
+
+    SPY handelt am letzten Bankarbeitstag des Januars NICHT. Das Monatsende
+    von SPY ist damit der Vortag. Wer den Panel-Index nimmt, liest den Gate-Wert
+    des Lochtags und zaehlt eine Schaltung, die nie gebucht wurde.
+    """
+    idx = pd.bdate_range("2000-01-03", "2000-04-28")
+    spy = [1.0] * len(idx)
+    loch = idx.get_loc(pd.Timestamp("2000-01-31"))
+    spy[loch] = float("nan")
+    close = pd.DataFrame({"SPY": spy, "AAA": [1.0] * len(idx)}, index=idx)
+    gate = pd.Series(1.0, index=idx)
+    gate.iloc[loch] = 0.0
+    assert wirksame_schaltungen(close, gate) == 0
+
+
+def test_wirksame_schaltungen_liest_nan_als_risk_on() -> None:
+    """Konvention der Engine: nicht-endlicher Gate-Wert bedeutet investiert."""
+    idx, close = _panel([1.0] * len(pd.bdate_range("2000-01-03", "2000-04-28")))
+    gate = pd.Series(1.0, index=idx)
+    gate.loc[pd.Timestamp("2000-01-31")] = float("nan")
+    assert wirksame_schaltungen(close, gate) == 0
+
+
+def test_wirksame_schaltungen_zaehlt_echte_wechsel() -> None:
+    idx, close = _panel([1.0] * len(pd.bdate_range("2000-01-03", "2000-04-28")))
+    gate = pd.Series(1.0, index=idx)
+    gate.loc["2000-02-01":"2000-02-29"] = 0.0
+    assert wirksame_schaltungen(close, gate) == 2, "aus dem Markt und zurueck"
+
+
+def test_warmlauf_block_ist_in_sich_konsistent() -> None:
+    """Die getippten 15 Monate waren hier falsch (F-auditor-2)."""
+    w = laden("p13c_ereignisabhaengigkeit.json")["warmlauf"]
+    assert w["fenster_klein"] < w["fenster_gross"]
+    assert w["erster_gueltiger_klein"] < w["erster_gueltiger_gross"]
+    assert w["differenz_tage"] > 0
+    assert w["differenz_monate"] == pytest.approx(w["differenz_tage"] / 30.44, abs=0.05)
 
 
 # --------------------------------------------------- Mehrfachtest-Korrektur
