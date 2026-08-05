@@ -30,6 +30,29 @@ from src.assembled_core.data.edgar_form4_ingest import classify_transaction_code
 GRATIS = Path(__file__).resolve().parents[1] / "research/mandat2/data_gratis"
 DERA = Path(__file__).resolve().parents[1] / "research/mandat/data/form4_dera"
 
+#: Kopf einer Git-LFS-Zeigerdatei. `.gitattributes` schickt jede `*.parquet`
+#: durch LFS; der CI-Checkout holt die Objekte nicht. Dort liegt also eine
+#: ~130 Byte grosse Textdatei am Pfad der Daten — `exists()` sagt True, und
+#: `read_parquet` scheitert. Genau daran ist CI gerissen, nachdem die
+#: Artefakte committet wurden.
+LFS_KOPF = b"version https://git-lfs"
+
+
+def parquet_oder_skip(pfad: Path) -> pd.DataFrame:
+    """Parquet laden, oder den Test ueberspringen statt ihn zu brechen.
+
+    Zwei Faelle, die beide kein Testfehler sind: die Datei fehlt (Daten nicht
+    gezogen), oder sie ist eine LFS-Zeigerdatei (CI ohne `lfs: true`). Ein
+    reiner `exists()`-Guard faengt nur den ersten — der zweite sieht wie eine
+    vorhandene Datei aus und laesst den Test mit einem Parser-Fehler platzen.
+    """
+    if not pfad.exists():
+        pytest.skip(f"{pfad.name} nicht vorhanden — Quelle noch nicht gezogen")
+    with open(pfad, "rb") as fh:
+        if fh.read(len(LFS_KOPF)) == LFS_KOPF:
+            pytest.skip(f"{pfad.name} ist eine LFS-Zeigerdatei (Checkout ohne lfs)")
+    return pd.read_parquet(pfad)
+
 
 # ------------------------------------------------------------- Quartalsfolge
 def test_quartalsfolge_beginnt_bei_der_ersten_verfuegbaren_periode() -> None:
@@ -285,17 +308,11 @@ def test_ff_parser_faengt_den_fehlwert_sentinel() -> None:
 # ------------------------------------------------- Fama-French-Kursreihe
 @pytest.fixture(scope="module")
 def ff() -> pd.DataFrame:
-    p = GRATIS / "fama_french_daily.parquet"
-    if not p.exists():
-        pytest.skip("Fama-French noch nicht gezogen")
-    return pd.read_parquet(p)
+    return parquet_oder_skip(GRATIS / "fama_french_daily.parquet")
 
 
 def ff_spalten() -> list[str]:
-    p = GRATIS / "fama_french_daily.parquet"
-    if not p.exists():
-        pytest.skip("Fama-French noch nicht gezogen")
-    return list(pd.read_parquet(p).columns)
+    return list(parquet_oder_skip(GRATIS / "fama_french_daily.parquet").columns)
 
 
 def test_ff_deckt_ein_jahrhundert_ab(ff: pd.DataFrame) -> None:
@@ -353,10 +370,7 @@ def test_ff_enthaelt_die_bekannten_crashs(ff: pd.DataFrame) -> None:
 # ------------------------------------------------------ DERA-Plausibilitaet
 @pytest.fixture(scope="module")
 def dera() -> pd.DataFrame:
-    p = DERA / "2006q1.parquet"
-    if not p.exists():
-        pytest.skip("DERA-Bestand noch nicht gezogen")
-    return pd.read_parquet(p)
+    return parquet_oder_skip(DERA / "2006q1.parquet")
 
 
 def test_dera_markiert_unmoegliche_transaktionsdaten(dera: pd.DataFrame) -> None:
