@@ -1248,7 +1248,7 @@ laut eigenem Vorbehalt die These nicht getestet hat — ein Verdikt auf ungetest
 kein Verdikt ueber diese These. Ob das ein zweiter Schuss auf dieselbe Frage ist oder der erste
 echte, ist eine Entscheidung, keine Rechnung. Das Gate steht unabhaengig davon fest.
 
-## Welle 47 (registriert 2026-08-05, VOR Lauf) — H-086: Traegt der Trendfilter auch ohne Dauerkrise?
+## Welle 47 (registriert 2026-08-05, VOR Lauf) — H-087: Traegt der Trendfilter auch ohne Dauerkrise?
 
 ### Die Frage, die P13 prinzipiell nicht beantworten konnte
 

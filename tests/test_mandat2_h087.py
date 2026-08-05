@@ -1,4 +1,4 @@
-"""Tests fuer H-086 — Traegt der Trendfilter auch ohne Dauerkrise?
+"""Tests fuer H-087 — Traegt der Trendfilter auch ohne Dauerkrise?
 
 Geprueft wird die Aufspaltung nach Krisen- und krisenfreien Fenstern. Sie
 traegt das Verdikt: der Gesamtmedian ist ausdruecklich NICHT die
@@ -15,13 +15,13 @@ import pandas as pd
 import pytest
 
 from research.mandat2.campaign_data import CampaignData
-from research.mandat2.h086_trendfilter_lang import aufspalten
+from research.mandat2.h087_trendfilter_lang import aufspalten
 from research.mandat2.metrics import FensterErgebnis
 from research.mandat2.p13c_ereignisabhaengigkeit import KRISEN_DD
 
 ARTEFAKT = (
     Path(__file__).resolve().parents[1]
-    / "research/mandat2/results/h086_trendfilter_lang.json"
+    / "research/mandat2/results/h087_trendfilter_lang.json"
 )
 
 
@@ -83,6 +83,50 @@ def test_gewonnen_zaehlt_nur_echte_siege() -> None:
     assert s["krisenfreie_fenster"]["n"] == 3
 
 
+def test_je_block_summiert_sich_zur_gruppe() -> None:
+    """Die Blockaufteilung traegt das Verdikt — ohne Test waere sie ungesichert.
+
+    Die 10*365-Grenze steht jetzt an zwei Stellen (in `bloecke()` und in der
+    je_block-Schleife); nichts ausser diesem Test haelt sie zusammen.
+    """
+    fenster = [
+        _f("1950-01-01", -0.1, 2.0, 1.5),
+        _f("1950-06-01", -0.1, 1.0, 1.5),
+        _f("1990-01-01", -0.1, 2.0, 1.5),
+    ]
+    g = aufspalten(fenster, "t")["krisenfreie_fenster"]
+    assert len(g["je_block"]) == g["disjunkte_bloecke"] == 2
+    assert sum(b["n"] for b in g["je_block"]) == g["n"] == 3
+    assert sum(b["gewonnen"] for b in g["je_block"]) == g["gewonnen"] == 2
+
+
+def test_leere_gruppe_liefert_je_block_none() -> None:
+    """Sonst KeyError statt None — und die leere krisenfreie Gruppe ist der
+    P13-Befund im alten Suchfenster, kein Randfall."""
+    g = aufspalten([_f("1950-01-01", -0.5, 2.0, 1.5)], "t")["krisenfreie_fenster"]
+    assert g["je_block"] is None
+
+
+def test_deckelbrueche_beider_seiten_werden_gezaehlt() -> None:
+    """Die Zielfunktion zaehlt nur den Kandidaten. Ohne die Benchmark-Zahl ist
+    'der Vorsprung war Krisenvermeidung' aus dem Artefakt nicht belegbar."""
+    from research.mandat2.metrics import DD_DECKEL
+
+    fenster = [
+        FensterErgebnis(
+            start=pd.Timestamp("1950-01-01"),
+            ende=pd.Timestamp("1960-01-01"),
+            kandidat_faktor=2.0,
+            benchmark_faktor=1.5,
+            kandidat_maxdd=-0.2,
+            benchmark_maxdd=DD_DECKEL - 0.01,
+        )
+    ]
+    g = aufspalten(fenster, "t")["krisenfenster"]
+    assert g["deckel_gerissen_kandidat"] == 0
+    assert g["deckel_gerissen_benchmark"] == 1
+
+
 def test_unsortierte_fenster_brechen_laut() -> None:
     """Bei negativen Differenzen greift die Abstandspruefung nie und Episoden
     verschmelzen still — [1990, 1950, 1951] ergaebe 1 statt 2 Bloecke."""
@@ -100,7 +144,7 @@ def test_taegliche_auswertung_stellt_die_engine_wieder_her() -> None:
     stehen, liefe JEDER spaetere Lauf der Kampagne mit taeglichem Rebalancing —
     ein stiller Regimewechsel quer durch alle Ergebnisse."""
     from research.mandat2 import engine as _engine
-    from research.mandat2.h086_trendfilter_lang import SYMBOL, _taeglich_gegatet
+    from research.mandat2.h087_trendfilter_lang import SYMBOL, _taeglich_gegatet
 
     original = _engine._monatsenden
     idx = pd.bdate_range("2000-01-03", periods=400)
@@ -122,7 +166,7 @@ def test_taegliche_auswertung_stellt_die_engine_wieder_her() -> None:
 def test_taegliche_auswertung_handelt_oefter_als_monatlich() -> None:
     """Sonst waere die Sensitivitaet eine Kopie der Hauptrechnung."""
     from research.mandat2.engine import run_buy_and_hold
-    from research.mandat2.h086_trendfilter_lang import SYMBOL, _taeglich_gegatet
+    from research.mandat2.h087_trendfilter_lang import SYMBOL, _taeglich_gegatet
     from research.mandat2.tax_regimes import make_regime
 
     idx = pd.bdate_range("2000-01-03", periods=400)
@@ -148,7 +192,7 @@ def test_taegliche_auswertung_handelt_oefter_als_monatlich() -> None:
 def test_artefakt_traegt_das_verdikt() -> None:
     """Das Verdikt darf nicht gegen die eigenen Zahlen stehen (E-085)."""
     if not ARTEFAKT.exists():
-        pytest.skip("H-086 noch nicht gelaufen")
+        pytest.skip("H-087 noch nicht gelaufen")
     d = json.loads(ARTEFAKT.read_text(encoding="utf-8"))
     kf = d["aufspaltung"]["krisenfreie_fenster"]
     traegt = d["verdikt"]["traegt_ohne_krise"]

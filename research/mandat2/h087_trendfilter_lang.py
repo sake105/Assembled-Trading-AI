@@ -1,4 +1,4 @@
-"""H-086 — Trägt der Trendfilter auch in krisenfreien Jahrzehnten?
+"""H-087 — Trägt der Trendfilter auch in krisenfreien Jahrzehnten?
 
 Registriert als Welle 47 VOR diesem Lauf. Die Pass/Fail-Kriterien stehen dort
 und werden hier nicht neu erfunden.
@@ -55,7 +55,7 @@ from research.mandat2.tax_regimes import make_regime  # noqa: E402
 
 HIER = Path(__file__).resolve().parent
 GRATIS = HIER / "data_gratis"
-ZIEL = HIER / "results" / "h086_trendfilter_lang.json"
+ZIEL = HIER / "results" / "h087_trendfilter_lang.json"
 
 #: Der a-priori-Parameter aus P13c. NICHT aus einem Raster gewaehlt.
 FENSTER = 200
@@ -188,6 +188,10 @@ def aufspalten(fenster_liste, label: str) -> dict:
                 "median_benchmark": None,
                 "vorsprung_pp": None,
                 "gewonnen": None,
+                # Auch hier None statt Weglassen: ein Leser von ['je_block']
+                # bekaeme sonst KeyError statt None — und die leere
+                # krisenfreie Gruppe ist genau der P13-Befund, kein Randfall.
+                "je_block": None,
                 # None wie alle anderen Felder: eine 0 saehe wie ein
                 # gemessener Wert aus. Das war die einzige Stelle, an der die
                 # leere Gruppe eine Zahl lieferte (E-103).
@@ -228,6 +232,18 @@ def aufspalten(fenster_liste, label: str) -> dict:
         return {
             "name": name,
             "n": len(gruppe),
+            # Deckelbrueche BEIDER Seiten. `Auswertung.gerissene_fenster` zaehlt
+            # nur den Kandidaten — damit ist aus dem Artefakt nicht zu sehen, ob
+            # der Benchmark in derselben Gruppe die Nebenbedingung ueberhaupt
+            # einhaelt. Genau daran haengt der Satz "der Vorsprung war
+            # Krisenvermeidung": er ist erst belegt, wenn der Benchmark in den
+            # Krisenfenstern reihenweise reisst und der Kandidat nicht (E-131).
+            "deckel_gerissen_kandidat": sum(
+                1 for f in gruppe if f.kandidat_maxdd < DD_DECKEL
+            ),
+            "deckel_gerissen_benchmark": sum(
+                1 for f in gruppe if f.benchmark_maxdd < DD_DECKEL
+            ),
             "je_block": je_block,
             "median_kandidat": round(k, 4),
             "median_benchmark": round(b, 4),
@@ -264,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"CRSP-Reihe: {d.close.index.min().date()} .. {d.close.index.max().date()}")
     # `args.regen` MUSS hier gelesen werden. Der erste Entwurf deklarierte das
     # Flag, band `parse_args` an `args` und las es nie — der Zaehler lief
-    # unbedingt, und der Regenerationslauf zaehlte H-086 ein zweites Mal
+    # unbedingt, und der Regenerationslauf zaehlte H-087 ein zweites Mal
     # (1566 -> 1567), waehrend die Commit-Message "KEIN zusaetzlicher Trial"
     # behauptete. Ein Flag, das im Hilfetext eine Garantie gibt und sie nicht
     # einloest, ist schlimmer als keins (E-129).
@@ -277,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(
             f"Trials kumuliert: "
-            f"{TrialCounter().increment(1, label='H-086 Trendfilter lang')}\n",
+            f"{TrialCounter().increment(1, label='H-087 Trendfilter lang')}\n",
             flush=True,
         )
 
@@ -328,7 +344,7 @@ def main(argv: list[str] | None = None) -> int:
     traegt = bool(kf["n"] and kf["vorsprung_pp"] is not None and kf["vorsprung_pp"] > 0)
 
     ergebnis = {
-        "hypothese": "H-086",
+        "hypothese": "H-087",
         "registriert": "Welle 47, VOR dem Lauf",
         "reihe": "CRSP value-weighted (Ken French), taeglich — NICHT SPY",
         "konfiguration": f"preis>SMA{FENSTER} (a priori)",

@@ -1,5 +1,5 @@
 {
-  "hypothese": "H-086",
+  "hypothese": "H-087",
   "registriert": "Welle 47, VOR dem Lauf",
   "reihe": "CRSP value-weighted (Ken French), taeglich — NICHT SPY",
   "konfiguration": "preis>SMA200 (a priori)",
@@ -14,6 +14,8 @@
     "krisenfenster": {
       "name": "mit Rueckgang <= 30 %",
       "n": 742,
+      "deckel_gerissen_kandidat": 153,
+      "deckel_gerissen_benchmark": 507,
       "je_block": [
         {
           "start_jahr": 1926,
@@ -40,6 +42,8 @@
     "krisenfreie_fenster": {
       "name": "ohne solchen Rueckgang",
       "n": 338,
+      "deckel_gerissen_kandidat": 0,
+      "deckel_gerissen_benchmark": 0,
       "je_block": [
         {
           "start_jahr": 1940,
@@ -87,6 +91,8 @@
       "krisenfenster": {
         "name": "mit Rueckgang <= 30 %",
         "n": 742,
+        "deckel_gerissen_kandidat": 84,
+        "deckel_gerissen_benchmark": 507,
         "je_block": [
           {
             "start_jahr": 1926,
@@ -113,6 +119,8 @@
       "krisenfreie_fenster": {
         "name": "ohne solchen Rueckgang",
         "n": 338,
+        "deckel_gerissen_kandidat": 0,
+        "deckel_gerissen_benchmark": 0,
         "je_block": [
           {
             "start_jahr": 1940,
@@ -162,6 +170,8 @@
       "krisenfenster": {
         "name": "mit Rueckgang <= 30 %",
         "n": 783,
+        "deckel_gerissen_kandidat": 153,
+        "deckel_gerissen_benchmark": 592,
         "je_block": [
           {
             "start_jahr": 1926,
@@ -188,6 +198,8 @@
       "krisenfreie_fenster": {
         "name": "ohne solchen Rueckgang",
         "n": 297,
+        "deckel_gerissen_kandidat": 0,
+        "deckel_gerissen_benchmark": 0,
         "je_block": [
           {
             "start_jahr": 1940,

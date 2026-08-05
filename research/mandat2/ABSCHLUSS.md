@@ -351,7 +351,7 @@ kann „Trendfolge wirkt" nicht von „Trendfolge hat 2000–2002 und 2008 umgan
 trennen. Die effektive Stichprobe für den Mechanismus sind zwei Ereignisse,
 nicht 144 Fenster.
 
-### Nachtrag 2026-08-05 — die Frage ist beantwortet, negativ (H-086)
+### Nachtrag 2026-08-05 — die Frage ist beantwortet, negativ (H-087)
 
 Die kostenlose CRSP-Marktreihe (Ken French, täglich ab 1926-07) enthält, was
 das Suchfenster nicht hatte: **338 von 1.080 rollierenden 10-Jahres-Fenstern
@@ -391,6 +391,12 @@ gemessen und stehen im Artefakt:
 | täglich ausgewertet, Cash 0 % | 22/338 | −65,5 pp | 84 |
 | monatlich, Cash zum risikolosen Satz | 3/297 | −55,9 pp | 153 |
 
+Die dritte Zeile vergleicht **nicht dieselbe Fenstermenge**: auf der
+Überschussreihe verschiebt sich die Krisenklassifikation (der 1974er Block
+zählt dort als Krise), es bleiben 297 statt 338 krisenfreie Fenster in 3 statt
+4 Blöcken. Der abweichende Nenner steht in der Tabelle, die abweichende
+Partition hier.
+
 Die Engine liest das Gate nur an Monatsenden — Konvention der ganzen Kampagne,
 nicht für dieses Ergebnis gewählt. Und sie verzinst Cash nicht, während der
 Filter an 28 % der Termine draußen ist: über 1926–2026 ein **einseitiger**
@@ -416,12 +422,35 @@ kein Mechanismus. Gemessen, Hauptkonvention:
 
 Null in **allen vier** Blöcken. Das Kriterium ist nicht knapp erfüllt.
 
+**Und hier ist die Krisenvermeidung, gemessen statt behauptet.** Der
+DD-Deckel wird in der Zielfunktion nur für den Kandidaten gezählt; erst der
+Vergleich beider Seiten macht den Satz belegbar:
+
+| Gruppe | Deckel gerissen: Kandidat | Benchmark |
+|---|---:|---:|
+| Krisenfenster (742) | **153** | **507** |
+| krisenfreie Fenster (338) | 0 | 0 |
+
+In Krisenfenstern hält der Filter den Deckel dreieinhalbmal so oft wie der
+ungefilterte Index — das ist sein einziger realer Beitrag. In ruhigen
+Jahrzehnten reißt **keine Seite** den Deckel; dort entscheidet allein der
+Median, und dort verliert er jedes einzelne Fenster. Genau das meint „der
+P13-Vorsprung war Krisenvermeidung".
+
+Eine Einschränkung, die dazugehört: die krisenfreie Gruppe ist per
+Konstruktion der Zustand, in dem ein Sturzvermeider nicht helfen *kann*. Das
+ist der Zweck des Tests, macht die Aussage aber näher an tautologisch, als
+„0 von 338" klingt. Und die vier Blöcke sind sehr ungleich groß (241/40/41/16)
+— drei davon entsprechen jeweils etwa einer überlappenden Episode.
+
 Gegen vier weitere Gegenproben ist der Befund stabil: ohne die vom Warmlauf
 berührten Fenster, mit risk-on statt Cash im Warmlauf, kostenfrei gerechnet
-und gegen eine unabhängige Zweitimplementierung — jeweils 0/338.
+und gegen eine unabhängige Zweitimplementierung — jeweils 0/338. **Diese vier
+wurden im Stage-1-Review gerechnet und liegen nicht als Skript im Repo**; sie
+sind hier zitiert, nicht reproduzierbar (E-085).
 
 **Buchhaltungs-Offenlegung:** Der Trial-Zähler steht bei **3.531**, nicht bei
-3.530. H-086 wurde versehentlich zweimal gezählt, weil der `--regen`-Schalter
+3.530. H-087 wurde versehentlich zweimal gezählt, weil der `--regen`-Schalter
 zwar deklariert, sein Ergebnis aber nie gelesen wurde — das Increment lief
 unbedingt. Der Zähler ist append-only und wird nicht zurückgeschrieben; der
 Fehler steht hier, statt korrigiert zu werden (E-090, E-129).

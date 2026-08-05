@@ -1593,9 +1593,9 @@ Die billigere Loesung lag eine Ebene tiefer: die drei Dateien aus LFS **herausne
 ## E-129 — CLI-Flag deklariert, nie ausgewertet: der Schutzmechanismus war eine Attrappe
 **Datum:** 2026-08-05
 **Kategorie:** wiring-gap / false-green
-**Was passierte:** `h086_trendfilter_lang.py` deklarierte `--regen` mit dem Hilfetext „Artefakt neu erzeugen, OHNE den Trial-Zaehler zu erhoehen (E-090)". Das Ergebnis von `parse_args` wurde an `args` gebunden und **nie gelesen**; `TrialCounter().increment(1)` lief unbedingt.
+**Was passierte:** `h087_trendfilter_lang.py` deklarierte `--regen` mit dem Hilfetext „Artefakt neu erzeugen, OHNE den Trial-Zaehler zu erhoehen (E-090)". Das Ergebnis von `parse_args` wurde an `args` gebunden und **nie gelesen**; `TrialCounter().increment(1)` lief unbedingt.
 
-Folge: der Regenerationslauf zaehlte H-086 ein zweites Mal (`trials.json` 1566 -> 1567), waehrend die Commit-Message desselben Commits „KEIN zusaetzlicher Trial" behauptete. Die Schwestern-Skripte (p13, p13b, p12*) verdrahten das Flag korrekt — dieses war der einzige Ausreisser.
+Folge: der Regenerationslauf zaehlte H-087 ein zweites Mal (`trials.json` 1566 -> 1567), waehrend die Commit-Message desselben Commits „KEIN zusaetzlicher Trial" behauptete. Die Schwestern-Skripte (p13, p13b, p12*) verdrahten das Flag korrekt — dieses war der einzige Ausreisser.
 
 **Warum falsch:** Ein Flag, das im Hilfetext eine Garantie gibt und sie nicht einloest, ist schlimmer als kein Flag: es erzeugt genau die falsche Sicherheit, gegen die der zitierte Eintrag geschrieben wurde. Es faellt in keinem Test auf, weil die **Abwesenheit** von Verhalten keine Fehlermeldung erzeugt, und die Behauptung in der Commit-Message wirkt wie eine Verifikation. Besonders bitter: es war E-090s eigenes Vermeidungsmuster, das hier zur Attrappe wurde.
 
@@ -1606,13 +1606,13 @@ Linter helfen nicht: `args` sieht formal benutzt aus (es wird zugewiesen), also 
 2. **Jedes Flag, das eine Buchhaltung beeinflusst, braucht eine Ausgabezeile** („[REGEN] Zaehler unveraendert bei N") — dann ist die Wirkung im Laufprotokoll sichtbar statt nur im Quelltext behauptet.
 3. **Behauptungen ueber Zaehlerstaende gegen die tatsaechliche Diff-Zeile pruefen**, nicht gegen die Absicht. `git diff -- trials.json` kostet eine Sekunde.
 4. **Append-only-Zaehler nicht zurueckschreiben.** Der falsch gezaehlte Trial bleibt stehen und wird offengelegt — eine stille Korrektur waere ein zweiter Fehler.
-**Erkannt in:** Stage-2-Review (F-senior-1, BLOCKER) zu `h086_trendfilter_lang.py`.
+**Erkannt in:** Stage-2-Review (F-senior-1, BLOCKER) zu `h087_trendfilter_lang.py`.
 **Referenzen:** E-090 (dessen Massnahme hier zur Attrappe wurde), E-085, E-119.
 
 ## E-130 — Cash zu 0 % im Timing-Backtest: einseitiger Nachteil, die Zinsreihe lag eine Spalte daneben
 **Datum:** 2026-08-05
 **Kategorie:** logic-error / konvention-unbenannt
-**Was passierte:** H-086 vergleicht ueber 1926–2026 einen Trendfilter gegen dieselbe Reihe ohne Filter. Der Filter ist an **28 % der Auswertungstermine in Cash** und bekommt dafuer 0 %. Die Spalte `rf` liegt in genau der Parquet-Datei, aus der die Kursreihe gelesen wird — `pd.read_parquet(p)["index_crsp_vw"]` verwirft sie. `Portfolio` verzinst Cash nirgends (nur Kredit).
+**Was passierte:** H-087 vergleicht ueber 1926–2026 einen Trendfilter gegen dieselbe Reihe ohne Filter. Der Filter ist an **28 % der Auswertungstermine in Cash** und bekommt dafuer 0 %. Die Spalte `rf` liegt in genau der Parquet-Datei, aus der die Kursreihe gelesen wird — `pd.read_parquet(p)["index_crsp_vw"]` verwirft sie. `Portfolio` verzinst Cash nirgends (nur Kredit).
 
 Ueber den Zeitraum ist das nicht neutral: RF-Median 2,55 % p. a., Maximum 14,66 %, und die Hochzinsphasen (1974er, 1987er) fallen ausgerechnet in die krisenfreien Bloecke, gegen die der Befund argumentiert. Gemessen: mit Cash zum risikolosen Satz schrumpft der Rueckstand von −97,6 auf −55,9 pp.
 
@@ -1639,5 +1639,5 @@ Das Artefakt berichtete die **Blockzahl** (4) und aggregierte Kennzahlen ueber a
 1. **Beim Schreiben des Laufskripts die Pass/Fail-Saetze der Registrierung durchgehen** und je Satz fragen: liefert das Artefakt das Feld, das ihn entscheidet?
 2. **Gruppierungskriterien muessen die Kennzahlen MITFUEHREN, nicht nur gezaehlt werden.** Eine Blockzahl ohne Ergebnis je Block ist eine Zahl ueber die Daten, keine ueber den Befund.
 3. **Faustregel:** steht in der Registrierung ein „massgeblich ist X", muss X ein Schluessel im Ergebnis-JSON sein.
-**Erkannt in:** Stage-2-Review (F-senior-3) zu `h086_trendfilter_lang.py` und `registry.md` Welle 47.
+**Erkannt in:** Stage-2-Review (F-senior-3) zu `h087_trendfilter_lang.py` und `registry.md` Welle 47.
 **Referenzen:** E-078, E-085, E-116.
