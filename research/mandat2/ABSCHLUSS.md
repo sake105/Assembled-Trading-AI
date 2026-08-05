@@ -349,8 +349,38 @@ Selbst ein bestandener PBO hätte den Strang nicht entschieden. Das mildeste
 der 144 rollierenden Fenster enthält einen Rückgang von 47,5 %; die Stichprobe
 kann „Trendfolge wirkt" nicht von „Trendfolge hat 2000–2002 und 2008 umgangen"
 trennen. Die effektive Stichprobe für den Mechanismus sind zwei Ereignisse,
-nicht 144 Fenster. Ein besserer Test bräuchte Daten vor 1995 oder andere
-Märkte — Beschaffungs-, keine Forschungsfrage.
+nicht 144 Fenster.
+
+### Nachtrag 2026-08-05 — die Frage ist beantwortet, negativ (H-086)
+
+Die kostenlose CRSP-Marktreihe (Ken French, täglich ab 1926-07) enthält, was
+das Suchfenster nicht hatte: **338 von 1.080 rollierenden 10-Jahres-Fenstern
+sind krisenfrei**, verteilt auf vier disjunkte Blöcke. Damit wurde der
+a-priori-Parameter `preis > SMA200` gegen dieselbe Reihe ohne Filter gerechnet
+— kein ETF-Vergleich, also kein E-079. Registriert als Welle 47 **vor** dem
+Lauf.
+
+| | Kandidat | Benchmark | Vorsprung | gewonnen |
+|---|---:|---:|---:|---:|
+| Krisenfenster (742, 2 Blöcke) | 2,095x | 2,281x | −18,6 pp | 272/742 |
+| **krisenfreie Fenster (338, 4 Blöcke)** | **3,088x** | **4,065x** | **−97,6 pp** | **0/338** |
+| gesamt (1.080) | 2,349x | 2,852x | — | — |
+
+**In krisenfreien Jahrzehnten gewinnt der Filter kein einziges Fenster.** Über
+das volle Jahrhundert liegt er unter Buy-and-Hold und reißt den −35-%-Deckel in
+153 von 1.080 Fenstern — er ist dort nicht einmal das Risikoinstrument, als das
+er in P13 auftrat.
+
+Damit ist der P13-Vorsprung genau das, was der Einwand behauptet hat:
+Krisenvermeidung in einer Stichprobe, die nur aus Krise bestand. Der Strang ist
+nicht mehr offen, und er ist es aus einem inhaltlichen Grund, nicht nur wegen
+einer Korrekturschwelle.
+
+**Einschränkung:** Mechanismus-Labor, kein Deployability-Test. Vor den 1970ern
+gab es keine Indexfonds, und die Kosten lagen um Größenordnungen über den
+angesetzten. Und es ist eine andere Reihe als SPY — wertgewichtet über alle
+CRSP-Firmen. Die Aussage lautet: der Effekt existiert **nicht** ohne
+Dauerkrise; sie lautet nicht, man hätte ihn früher verdienen können.
 
 Das Ergebnis zur GmbH ist unabhängig davon verwertbar und bestätigt Befund 3
 aus anderer Richtung: Ein Filter, der über das Raster 6 bis 62 Buchungen

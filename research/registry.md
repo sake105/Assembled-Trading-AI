@@ -1154,3 +1154,131 @@ verfügbar sind.
 ---
 
 ---
+
+## Welle 46 (registriert 2026-08-05, VOR jedem Lauf) — Liquiditaets-Gate fuer den §4.6.1-Nachtest
+
+**Dies ist eine GATE-Registrierung, kein Hypothesen-Schuss.** Sie legt fest, unter welchen
+Bedingungen ein Nachtest der §4.6.1-These ueberhaupt gerechnet werden darf. Der Lauf selbst ist
+eine separate Operator-Entscheidung (siehe „Offene Frage" unten). N unveraendert.
+
+### Warum die Frage ueberhaupt wieder aufkommt
+
+H-053 (Welle 24) hat die Patrone verschossen und FAIL geliefert. Der Vorbehalt im eigenen
+Registry-Eintrag entwertet dieses Verdikt aber fuer genau die These, um die es ging:
+
+> „nur 723 Symbole Form-4 (S&P-Historie, NICHT echtes Small-Cap-Universum → §4.6.1-These
+> ‚kleine Firmen' ungetestet)"
+
+Die Preisseite lag breit vor, die Signalseite nicht. Getestet wurde nochmal S&P. Seit dem
+DERA-Pull (2026-08-05) liegt die Signalseite breit vor: 17.134 Emittenten, 2006–2026,
+universumsunabhaengig und damit survivorship-frei fuer `as_of >= 2006-01-01`.
+
+### Der Fehlschluss, gegen den das Gate schuetzt
+
+H-035/H-036 sind daran gescheitert, dass „Size" ein **Illiquiditaets-Artefakt** war. Gemessen am
+neuen Universum (`liquiditaet_smallcap.json`, 7.804 Namen mit plausiblem Kaufsignal und Kurs):
+
+| Gruppe | n | Median-ADV | < 1 Mio $ | < 200k $ |
+|---|---:|---:|---:|---:|
+| nie im S&P-Panel (neu) | 7.182 | **2,27 Mio $** | 37 % | 16 % |
+| jemals im S&P-Panel (alt) | 622 | 56,06 Mio $ | 4 % | 2 % |
+
+Faktor 25 im Median. Ohne Gate wiederholt ein Nachtest den bekannten Fehlschluss garantiert.
+
+### Das Gate — VOR dem Lauf festgelegt
+
+**Primaer (entscheidend):** Kurs ≥ **5 USD** UND rollierendes **ADV60 ≥ 1 Mio USD**, geprueft
+**je `as_of`**, nicht einmalig ueber die Gesamthistorie. Die Schwelle ist NICHT neu gewaehlt: sie
+steht woertlich schon in den Pass/Fail-Kriterien von H-053 (Welle 24). Damit ist sie nicht an das
+neue Ergebnis anpassbar.
+
+**Sekundaer (wird berichtet, ist NICHT entscheidend):** ADV60 ≥ 5 Mio USD. Zweck: sichtbar machen,
+ob ein Befund von den duennsten Ueberlebenden des Primaergates getragen wird. Die Reihenfolge steht
+hier fest, damit hinterher nicht die passendere Schwelle zur Hauptaussage erklaert wird.
+
+**PIT-Pflicht:** Ein einmalig ueber die Gesamthistorie gerechnetes Gate waehlt Titel danach aus, ob
+sie SPAETER liquide wurden — ein Survivorship-artiger Lookahead. Das rollierende Fenster ist Teil
+des Gates, keine Implementierungsfreiheit.
+
+**Signal-Verfuegbarkeit:** `available_at = FILING_DATE + 1 Tag` (DERA fuehrt keine
+ACCEPTANCE-Minute). Zeilen mit `datum_plausibel = False` (0,18 %) duerfen NICHT eingehen.
+Zaehlungen ueber `RPTOWNERCIK.nunique()`, Stueck-/Wertsummen erst nach
+`drop_duplicates('NONDERIV_TRANS_SK')` — roh sind sie 37,8 % zu hoch (E-124).
+
+**Fenster:** 2006-01 bis 2026-03 (Beginn des DERA-Bestands), nicht 2005–2026.
+
+### Falls gelaufen wird: Familie und Kriterien, ebenfalls vorab
+
+Genau **zwei** Varianten, wie in H-053: (a) alle opportunistischen Kaeufe; (b) Cluster ≥ 2 Insider
+je Titel. Steuerwelt PRIVAT_DE entscheidend, ZERO nur berichtet. Kumulatives N: **+2**.
+
+Bestehen verlangt ALLE: (1) Median ueber die rollierenden Fenster > SPY-ETF-Pfad; (2) Sharpe >
+No-Signal-Kontrollkorb aus demselben gegateten Universum (sonst misst man nur den Small-Cap-Effekt);
+(3) DSR besteht mit **heterogen** geschaetztem V und kumuliertem N — NICHT mit Klonfamilien-Varianz
+(E-077); (4) MaxDD nicht schlechter als SPY; (5) das Ergebnis kippt nicht zwischen Primaer- und
+Sekundaergate.
+
+### Prior — ehrlich
+
+H-031 FAIL (S&P). H-053 FAIL (breite Preise, schmale Signale). Fable H1: auf Survivor-Daten nicht
+von der Baseline trennbar. Kein Kandidat dieser Kampagne hat je die vollstaendige
+Mehrfachtest-Korrektur bestanden. Die Erwartung ist FAIL.
+
+### Offene Frage — Operator-Entscheidung
+
+Das Insider-Feld gilt nach H-031/H-053 als **verschossen**. Dagegen steht, dass H-053s Verdikt
+laut eigenem Vorbehalt die These nicht getestet hat — ein Verdikt auf ungetesteter Grundlage ist
+kein Verdikt ueber diese These. Ob das ein zweiter Schuss auf dieselbe Frage ist oder der erste
+echte, ist eine Entscheidung, keine Rechnung. Das Gate steht unabhaengig davon fest.
+
+## Welle 47 (registriert 2026-08-05, VOR Lauf) — H-086: Traegt der Trendfilter auch ohne Dauerkrise?
+
+### Die Frage, die P13 prinzipiell nicht beantworten konnte
+
+Der SPY-Trendfilter besteht die Zielfunktion breit, ueberlebt Ausfuehrungsverzoegerung und schlaegt
+60 von 60 Zufalls-Timing-Kontrollen — und scheitert an beiden Haelften der Mehrfachtest-Korrektur
+(DSR 0,7838, PBO 68,6 %). Unabhaengig davon blieb ein Einwand, der im Suchfenster **nicht**
+aufloesbar war: von 144 rollierenden 10-Jahres-Fenstern 1995–2016 ist **kein einziges** krisenfrei,
+das mildeste hat −49,2 % Rueckgang. „Trendfolge wirkt" liess sich nicht von „Trendfolge hat
+2000–2002 und 2008 umgangen" trennen.
+
+Die kostenlose CRSP-Marktreihe (Ken French, taeglich ab 1926-07) enthaelt beides:
+**338 von 1.080 Fenstern sind krisenfrei** — verteilt auf **4 disjunkte Bloecke**
+(`krisenfreie_fenster.json`).
+
+### Was gerechnet wird — genau eine Konfiguration
+
+`preis > SMA200`, **a priori** und nicht aus einem Raster gewaehlt (Lehrbuchwert, schon in P4s
+Kontrollblock). Kandidat gegen **dieselbe Reihe ohne Filter** — kein ETF-Vergleich, damit E-079
+gar nicht erst greifen kann. Steuerwelt ZERO: fuer eine Mechanismusfrage ist die Steuer Rauschen.
+
+Entscheidende Auswertung ist **nicht** der Gesamtmedian, sondern die **Aufspaltung**: Vorsprung in
+Krisenfenstern gegen Vorsprung in krisenfreien Fenstern. Kumulatives N: **+1**.
+
+### Pass/Fail — vorab
+
+* **TRAEGT:** In den 338 krisenfreien Fenstern schlaegt der Filter die ungefilterte Reihe im Median
+  UND der DD-Deckel −35 % wird in keinem Fenster gerissen. Dann misst er nicht nur Crash-Vermeidung.
+* **TRAEGT NICHT:** In krisenfreien Fenstern liegt der Filter im Median gleichauf oder darunter.
+  Dann ist der P13-Vorsprung genau das, was der Einwand behauptet hat — Krisenvermeidung, sonst
+  Kosten.
+* **Massgeblich sind die 4 disjunkten Bloecke, nicht die 338 Fenster** (E-078). Ein Ergebnis, das
+  nur in einem Block auftritt, ist eine Episode, kein Mechanismus, und wird so berichtet.
+
+### Was dieser Lauf ausdruecklich NICHT ist
+
+**Kein Deployability-Test.** Vor den 1970ern gab es keine Indexfonds; Transaktionskosten lagen um
+Groessenordnungen hoeher als die hier angesetzten `cost_bps`. Die Reihe ist ein
+**Mechanismus-Labor**, kein handelbares Instrument. Ein „bestanden" hiesse: der Effekt existiert
+auch ohne Dauerkrise — nicht: man haette ihn verdienen koennen.
+
+**Kein Ersatz fuer den gescheiterten PBO.** P13 bleibt an der Mehrfachtest-Korrektur gescheitert.
+Dieser Lauf beantwortet eine andere Frage und macht das Verdikt nicht rueckgaengig.
+
+**Kein Holdout.** Das Fenster 2017-01 bis 2026-07 der Kampagnendaten bleibt versiegelt; die
+CRSP-Reihe ist eine andere Datenquelle und beruehrt es nicht.
+
+### Prior
+
+Offen. Der Zufalls-Timing-Test (0/60, p = 0,016) spricht dafuer, dass das Timing Information
+traegt; die Ereignisabhaengigkeit spricht dagegen. Das ist der Grund, den Lauf ueberhaupt zu machen.

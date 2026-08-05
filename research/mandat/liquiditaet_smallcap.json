@@ -1,0 +1,95 @@
+{
+  "namen_mit_kaufsignal": 15863,
+  "davon_im_preispanel": 7804,
+  "gesamt": {
+    "label": "alle mit Signal + Kurs",
+    "n": 7804,
+    "median_adv": 2921143.0,
+    "median_kurs": 15.539449691772461,
+    "unter_adv": {
+      "100000": 734,
+      "200000": 1137,
+      "500000": 1982,
+      "1000000": 2705,
+      "5000000": 4505
+    },
+    "unter_adv_anteil": {
+      "100000": 0.0941,
+      "200000": 0.1457,
+      "500000": 0.254,
+      "1000000": 0.3466,
+      "5000000": 0.5773
+    },
+    "unter_kurs": {
+      "1.0": 141,
+      "3.0": 470,
+      "5.0": 959
+    },
+    "unter_kurs_anteil": {
+      "1.0": 0.0181,
+      "3.0": 0.0602,
+      "5.0": 0.1229
+    }
+  },
+  "neu_erschlossen": {
+    "label": "nie im S&P-Panel (neu)",
+    "n": 7182,
+    "median_adv": 2265352.0,
+    "median_kurs": 14.567500114440918,
+    "unter_adv": {
+      "100000": 726,
+      "200000": 1125,
+      "500000": 1963,
+      "1000000": 2681,
+      "5000000": 4456
+    },
+    "unter_adv_anteil": {
+      "100000": 0.1011,
+      "200000": 0.1566,
+      "500000": 0.2733,
+      "1000000": 0.3733,
+      "5000000": 0.6204
+    },
+    "unter_kurs": {
+      "1.0": 136,
+      "3.0": 462,
+      "5.0": 944
+    },
+    "unter_kurs_anteil": {
+      "1.0": 0.0189,
+      "3.0": 0.0643,
+      "5.0": 0.1314
+    }
+  },
+  "bereits_abgedeckt": {
+    "label": "jemals im S&P-Panel (alt)",
+    "n": 622,
+    "median_adv": 56057596.0,
+    "median_kurs": 28.197101593017578,
+    "unter_adv": {
+      "100000": 8,
+      "200000": 12,
+      "500000": 19,
+      "1000000": 24,
+      "5000000": 49
+    },
+    "unter_adv_anteil": {
+      "100000": 0.0129,
+      "200000": 0.0193,
+      "500000": 0.0305,
+      "1000000": 0.0386,
+      "5000000": 0.0788
+    },
+    "unter_kurs": {
+      "1.0": 5,
+      "3.0": 8,
+      "5.0": 15
+    },
+    "unter_kurs_anteil": {
+      "1.0": 0.008,
+      "3.0": 0.0129,
+      "5.0": 0.0241
+    }
+  },
+  "pit_hinweis": "Mediane sind Beschreibung, kein Filter. Ein Gate im Backtest muss die Handelbarkeit je as_of rollierend pruefen — sonst waehlt es Titel danach aus, ob sie SPAETER liquide wurden (Lookahead)."
+}

@@ -1,0 +1,40 @@
+{
+  "hypothese": "H-086",
+  "registriert": "Welle 47, VOR dem Lauf",
+  "reihe": "CRSP value-weighted (Ken French), taeglich — NICHT SPY",
+  "konfiguration": "preis>SMA200 (a priori)",
+  "n_fenster": 1080,
+  "median_kandidat_gesamt": 2.3489,
+  "median_benchmark_gesamt": 2.8517,
+  "schlimmster_maxdd": -0.5574,
+  "gerissene_fenster": 153,
+  "dd_deckel": -0.35,
+  "aufspaltung": {
+    "label": "preis>SMA200 auf CRSP 1926-2026",
+    "krisenfenster": {
+      "name": "mit Rueckgang <= 30 %",
+      "n": 742,
+      "median_kandidat": 2.095,
+      "median_benchmark": 2.2807,
+      "vorsprung_pp": -18.58,
+      "gewonnen": 272,
+      "disjunkte_bloecke": 2,
+      "schlimmster_kandidat_maxdd": -0.5574
+    },
+    "krisenfreie_fenster": {
+      "name": "ohne solchen Rueckgang",
+      "n": 338,
+      "median_kandidat": 3.0883,
+      "median_benchmark": 4.0646,
+      "vorsprung_pp": -97.62,
+      "gewonnen": 0,
+      "disjunkte_bloecke": 4,
+      "schlimmster_kandidat_maxdd": -0.2714
+    }
+  },
+  "verdikt": {
+    "traegt_ohne_krise": false,
+    "begruendung": "kein Vorsprung in krisenfreien Fenstern — der P13-Effekt ist Krisenvermeidung"
+  },
+  "einschraenkung": "Mechanismus-Labor, kein Deployability-Test: vor den 1970ern keine Indexfonds, Kosten um Groessenordnungen hoeher als angesetzt. Massgeblich sind die disjunkten Bloecke, nicht die Fensterzahl (E-078)."
+}
