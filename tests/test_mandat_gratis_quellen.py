@@ -24,7 +24,8 @@ from research.mandat.pull_form4_dera import (
     aufbereiten,
     quartale,
 )
-from research.mandat2.pull_gratis_quellen import parse_ff_text
+from research.mandat2.pull_gratis_quellen import datumsspalte, parse_ff_text
+from src.assembled_core.data.edgar_form4_ingest import classify_transaction_code
 
 GRATIS = Path(__file__).resolve().parents[1] / "research/mandat2/data_gratis"
 DERA = Path(__file__).resolve().parents[1] / "research/mandat/data/form4_dera"
@@ -82,8 +83,8 @@ def test_ff_parser_baut_den_index_aus_der_gesamtrendite() -> None:
     """`mkt_rf` statt `mkt` waere die Ueberrendite — eine andere Groesse."""
     df = parse_ff_text(FF_ROH)
     erwartet = (1.0 + df["mkt"]).cumprod() * 100.0
-    assert (df["index"] - erwartet).abs().max() < 1e-12
-    assert df["index"].iloc[0] != pytest.approx(
+    assert (df["index_crsp_vw"] - erwartet).abs().max() < 1e-12
+    assert df["index_crsp_vw"].iloc[0] != pytest.approx(
         ((1.0 + df["mkt_rf"]).cumprod() * 100.0).iloc[0]
     )
 
@@ -122,6 +123,7 @@ def _dera_tabellen(
     trans = pd.DataFrame(
         {
             "ACCESSION_NUMBER": ["a1"],
+            "NONDERIV_TRANS_SK": ["sk1"],
             "TRANS_DATE": [trans_datum],
             "TRANS_CODE": [code],
             "TRANS_SHARES": ["100"],
@@ -169,7 +171,7 @@ def test_uralte_transaktion_ist_unplausibel() -> None:
 
 def test_verfuegbarkeit_liegt_einen_tag_nach_der_meldung() -> None:
     df = aufbereiten(*_dera_tabellen("14-MAR-2006", "15-MAR-2006"), 2006, 1)
-    assert df["available_at"].iloc[0] == pd.Timestamp("2006-03-16")
+    assert df["available_at"].iloc[0] == pd.Timestamp("2006-03-16", tz="UTC")
 
 
 def test_fehlender_ticker_wird_nicht_zum_symbol_nan() -> None:
@@ -200,6 +202,72 @@ def test_mehrere_meldepflichtige_werden_nicht_dedupliziert() -> None:
     assert len(aufbereiten(sub, trans, owner, 2006, 1)) == 2
 
 
+def test_transaktionscodes_kommen_aus_dem_core_ingester() -> None:
+    """E-123: gleicher Spaltenname, andere Wertemenge = zweite Wahrheit.
+
+    Der erste Entwurf mappte auf {"buy","sell"}, waehrend der bestehende
+    Bestand {"P","S"} fuehrt. Sechs Konsumenten filtern hart auf "P" und
+    haetten still null Zeilen geliefert — ein leeres Ergebnis ist im Research
+    nicht von einem echten Null-Befund zu unterscheiden.
+    """
+    for code in ("P", "S", "A", "M", "G", "F"):
+        sub, trans, owner = _dera_tabellen("14-MAR-2006", "15-MAR-2006", code=code)
+        df = aufbereiten(sub, trans, owner, 2006, 1)
+        assert df["transaction_type"].iloc[0] == classify_transaction_code(code)
+    assert classify_transaction_code("P") == "P", "keine Umbenennung nach 'buy'"
+
+
+def test_verfuegbarkeit_ist_utc_wie_im_core_bestand() -> None:
+    """Naiv gegen tz-aware unter demselben Spaltennamen ergibt beim concat
+    eine object-Spalte und einen stillen Objektvergleich (F-senior-5)."""
+    df = aufbereiten(*_dera_tabellen("14-MAR-2006", "15-MAR-2006"), 2006, 1)
+    assert str(df["available_at"].dtype) == "datetime64[ns, UTC]"
+    assert df["available_at_basis"].iloc[0] == "filing_date+1d"
+
+
+def test_primaerschluessel_macht_den_fanout_rueckgaengig() -> None:
+    """Ohne NONDERIV_TRANS_SK ist die Aufblaehung nicht reversibel (E-124).
+
+    Deduplizieren ueber die Fachspalten wuerde echte Mehrfachausfuehrungen
+    mitkollabieren — deshalb der Schluessel.
+    """
+    sub, trans, owner = _dera_tabellen("14-MAR-2006", "15-MAR-2006")
+    owner = pd.concat([owner, owner.assign(RPTOWNERCIK="888")], ignore_index=True)
+    df = aufbereiten(sub, trans, owner, 2006, 1)
+    assert len(df) == 2, "Cluster-Signal bleibt erhalten"
+    assert len(df.drop_duplicates("NONDERIV_TRANS_SK")) == 1, "Summen entblaehbar"
+
+
+def test_berichtigungen_werden_markiert_nicht_gefiltert() -> None:
+    """Eine 4/A wiederholt den Transaktionssatz — Filtern waere ein stiller
+    Eingriff, Verschweigen eine Doppelzaehlung (F-senior-3)."""
+    sub, trans, owner = _dera_tabellen("14-MAR-2006", "15-MAR-2006")
+    sub.loc[0, "DOCUMENT_TYPE"] = "4/A"
+    df = aufbereiten(sub, trans, owner, 2006, 1)
+    assert len(df) == 1
+    assert bool(df["ist_berichtigung"].iloc[0]) is True
+
+
+# ------------------------------------------------- Datumsspalte / Fehlwerte
+def test_datumsspalte_wird_namentlich_gefunden() -> None:
+    df = pd.DataFrame({"OPEN": [1.0], "DATE": ["2020-01-02"]})
+    assert datumsspalte(df, ("DATE", "Date")) == "DATE", "nicht positionell"
+
+
+def test_datumsspalte_faellt_auf_die_erste_zurueck() -> None:
+    df = pd.DataFrame({"zeitpunkt": ["2020-01-02"], "wert": [1.0]})
+    assert datumsspalte(df, ("DATE", "Date")) == "zeitpunkt"
+
+
+def test_ff_parser_faengt_den_fehlwert_sentinel() -> None:
+    """-99.99 waere nach der Division eine Tagesrendite von -99,99 % und
+    wuerde jedes dropna passieren (F-senior-9)."""
+    text = ",Mkt-RF,SMB,HML,RF\n19260701,-99.99,0.10,0.10,0.009\n19260702,0.45,0.1,0.1,0.009\n"
+    df = parse_ff_text(text)
+    assert len(df) == 1, "die Sentinel-Zeile faellt raus"
+    assert df.index[0] == pd.Timestamp("1926-07-02")
+
+
 # ------------------------------------------------- Fama-French-Kursreihe
 @pytest.fixture(scope="module")
 def ff() -> pd.DataFrame:
@@ -207,6 +275,13 @@ def ff() -> pd.DataFrame:
     if not p.exists():
         pytest.skip("Fama-French noch nicht gezogen")
     return pd.read_parquet(p)
+
+
+def ff_spalten() -> list[str]:
+    p = GRATIS / "fama_french_daily.parquet"
+    if not p.exists():
+        pytest.skip("Fama-French noch nicht gezogen")
+    return list(pd.read_parquet(p).columns)
 
 
 def test_ff_deckt_ein_jahrhundert_ab(ff: pd.DataFrame) -> None:
@@ -238,8 +313,16 @@ def test_ff_kein_kopf_oder_fussblock_durchgerutscht(ff: pd.DataFrame) -> None:
 
 def test_ff_index_ist_kumulierte_marktrendite(ff: pd.DataFrame) -> None:
     erwartet = (1.0 + ff["mkt"]).cumprod() * 100.0
-    assert (ff["index"] - erwartet).abs().max() < 1e-6
-    assert ff["index"].iloc[0] > 0
+    assert (ff["index_crsp_vw"] - erwartet).abs().max() < 1e-6
+    assert ff["index_crsp_vw"].iloc[0] > 0
+
+
+def test_spaltenname_warnt_vor_der_benchmark_verwechslung() -> None:
+    """Der Name IST der Guard (F-senior-7): ein Konsument, der das Parquet
+    liest, sieht den Docstring nie. "index" haette wie ein Kursindex
+    ausgesehen und waere gegen einen ETF gestellt worden (E-079)."""
+    assert "index" not in ff_spalten(), "generischer Name lockt zum ETF-Vergleich"
+    assert "index_crsp_vw" in ff_spalten()
 
 
 def test_ff_marktrendite_ist_ueberrendite_plus_zins(ff: pd.DataFrame) -> None:
@@ -276,13 +359,15 @@ def test_dera_markiert_unmoegliche_transaktionsdaten(dera: pd.DataFrame) -> None
 def test_dera_verfuegbarkeit_liegt_nach_dem_meldedatum(dera: pd.DataFrame) -> None:
     """Konservativ, weil DERA keine ACCEPTANCE-DATETIME fuehrt."""
     d = dera.dropna(subset=["filing_date"])
-    assert (d["available_at"] > d["filing_date"]).all()
+    # available_at ist UTC-lokalisiert (dtype-kompatibel zum Core-Bestand),
+    # filing_date naiv — fuer den Vergleich muss man das gleichziehen.
+    assert (d["available_at"] > d["filing_date"].dt.tz_localize("UTC")).all()
 
 
 def test_dera_klassifiziert_nur_open_market_gerichtet(dera: pd.DataFrame) -> None:
     """Zuteilungen und Ausuebungen duerfen nicht zu Kaeufen umgedeutet werden."""
-    assert set(dera.loc[dera["TRANS_CODE"] == "P", "transaction_type"]) == {"buy"}
-    assert set(dera.loc[dera["TRANS_CODE"] == "S", "transaction_type"]) == {"sell"}
+    assert set(dera.loc[dera["TRANS_CODE"] == "P", "transaction_type"]) == {"P"}
+    assert set(dera.loc[dera["TRANS_CODE"] == "S", "transaction_type"]) == {"S"}
     andere = dera[~dera["TRANS_CODE"].isin(["P", "S"])]
     if len(andere):
         assert set(andere["transaction_type"]) == {"unknown"}

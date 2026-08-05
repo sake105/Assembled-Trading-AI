@@ -112,13 +112,22 @@ def parse_ff_text(text: str) -> pd.DataFrame:
     # Faktor 100 zu gross — die Kursreihe saehe monoton steigend trotzdem
     # plausibel aus.
     for c in ("mkt_rf", "smb", "hml", "rf"):
-        df[c] = pd.to_numeric(df[c], errors="coerce") / 100.0
+        werte = pd.to_numeric(df[c], errors="coerce")
+        # Die Quelle kodiert Fehlwerte als -99.99 / -999. Nach der Division
+        # waere daraus eine Tagesrendite von -99,99 % geworden, die jedes
+        # dropna passiert. Aktuell 0 Vorkommen — der Guard kostet nichts und
+        # faengt es, falls die Quelle je nachliefert (F-senior-9).
+        df[c] = werte.mask(werte <= -99.0) / 100.0
     df = df.dropna(subset=["mkt_rf", "rf"]).set_index("datum").sort_index()
 
     # Marktrendite = Ueberrendite + risikoloser Satz; daraus eine Indexreihe,
     # damit die bestehende Engine sie wie einen Kurs behandeln kann.
     df["mkt"] = df["mkt_rf"] + df["rf"]
-    df["index"] = (1.0 + df["mkt"]).cumprod() * 100.0
+    # Name als Guard (F-senior-7): ein Konsument, der das Parquet liest, sieht
+    # den Docstring nie. "index" haette wie ein Kursindex ausgesehen und waere
+    # gegen einen ETF gestellt worden — das ist genau E-079. Der Name sagt
+    # jetzt, was es ist: CRSP, value-weighted, NICHT SPY.
+    df["index_crsp_vw"] = (1.0 + df["mkt"]).cumprod() * 100.0
     return df
 
 
@@ -150,9 +159,23 @@ def fama_french() -> dict:
     }
 
 
+def datumsspalte(df: pd.DataFrame, erwartet: tuple[str, ...]) -> str:
+    """Datumsspalte namentlich suchen, positionell nur als Rueckfall.
+
+    Rein positionell (`df.columns[0]`) wird bei einer Spaltenumordnung der
+    Quelle ALLES zu NaT, der Frame ist leer, und `to_parquet` schreibt ihn
+    trotzdem — ein stiller Totalausfall, der als Erfolg protokolliert wird
+    (F-senior-8, dieselbe Fail-Open-Richtung wie E-103).
+    """
+    for name in erwartet:
+        if name in df.columns:
+            return name
+    return df.columns[0]
+
+
 def vix() -> dict:
     df = pd.read_csv(io.BytesIO(hole(VIX)))
-    spalte = df.columns[0]
+    spalte = datumsspalte(df, ("DATE", "Date", "date"))
     df[spalte] = pd.to_datetime(df[spalte], errors="coerce")
     df = df.dropna(subset=[spalte]).set_index(spalte).sort_index()
     return {
@@ -166,7 +189,7 @@ def vix() -> dict:
 
 def sp500_mitglieder() -> dict:
     df = pd.read_csv(io.BytesIO(hole(SP500_MEMBERS, timeout=180)))
-    spalte = df.columns[0]
+    spalte = datumsspalte(df, ("date", "Date", "DATE"))
     df[spalte] = pd.to_datetime(df[spalte], errors="coerce")
     df = df.dropna(subset=[spalte]).sort_values(spalte)
     return {
@@ -206,8 +229,21 @@ def main(argv: list[str] | None = None) -> int:
             protokoll[name] = {"status": "FEHLER", "fehler": f"{type(e).__name__}: {e}"}
             continue
         df = ergebnis.pop("df")
+        if ergebnis["zeilen"] == 0:
+            # Sonst meldet das Protokoll "OK, 0 Zeilen" und main() gibt 0
+            # zurueck — ein Totalausfall als Erfolg (F-senior-8).
+            print(f"[FEHLER] {name}: leeres Ergebnis", flush=True)
+            protokoll[name] = {"status": "FEHLER", "fehler": "0 Zeilen geparst"}
+            continue
         df.to_parquet(ZIEL / ergebnis["datei"])
         protokoll[name] = {"status": "OK", "beschreibung": beschreibung, **ergebnis}
+        if name == "fama_french":
+            protokoll[name]["benchmark_warnung"] = (
+                "index_crsp_vw ist der CRSP-VALUE-WEIGHTED Gesamtmarkt (NYSE, "
+                "AMEX, NASDAQ) — NICHT SPY. Gegen einen ETF gestellt misst man "
+                "die Universums- und Gewichtungsdifferenz mit (E-079). Fuer "
+                "'Filter gegen kein Filter auf demselben Basiswert' sauber."
+            )
         print(
             f"[OK] {name}: {ergebnis['zeilen']} Zeilen "
             f"{ergebnis['von']}..{ergebnis['bis']} -> {ergebnis['datei']}",

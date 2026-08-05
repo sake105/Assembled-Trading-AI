@@ -1,0 +1,10 @@
+{
+  "quelle": "research/mandat/data/form4_dera (SEC DERA, ab 2006Q1)",
+  "emittenten_cik": 17134,
+  "ticker_im_bestand": 21860,
+  "zeilen_ohne_ticker": 49271,
+  "ziel_universum": 8876,
+  "ziel_getroffen_roher_ticker": 6146,
+  "ziel_quote_roher_ticker": 0.6924,
+  "warnung": "Der Abgleich ist ein ROHER TICKER-STRING-VERGLEICH und in beide Richtungen unbeschraenkt: zu niedrig durch EODHD-Suffixe (_old), zu hoch durch recycelte Ticker (Befund 7). KEINE Deckungsaussage. Belastbar ist nur 'emittenten_cik'."
+}

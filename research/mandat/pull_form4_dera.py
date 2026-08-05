@@ -30,10 +30,24 @@ Die SEC veroeffentlicht die Form 3/4/5 seit **2006Q1** als strukturierte
 Quartalsdatensaetze (DERA, "Insider Transactions Data Sets"): ~15 MB je
 Quartal, mit `ISSUERTRADINGSYMBOL` direkt im SUBMISSION-File. Damit
 * entfaellt jede Ticker-CIK-Aufloesung — der Emittent steht im Datensatz,
-* ist der Bestand **universumsunabhaengig** und damit survivorship-frei per
-  Konstruktion: jede jemals eingereichte Form 4 ist enthalten, auch von
-  Firmen, die spaeter verschwunden sind,
+* ist der Bestand **universumsunabhaengig**: er enthaelt auch Firmen, die
+  spaeter verschwunden sind, weil nicht ueber eine Liste heutiger Namen
+  ausgewaehlt wird,
 * kostet der Vollbestand ~81 Downloads statt Millionen Einzelabrufe.
+
+WIE WEIT DIE SURVIVORSHIP-FREIHEIT REICHT — UND WO SIE ENDET
+------------------------------------------------------------
+Nur fuer `as_of >= 2006-01-01`. Form 4 ist seit 2003-06-30 elektronisch
+pflichtig; die Filings 2003-06 bis 2005-12 existieren auf EDGAR, fehlen diesem
+Bestand aber, weil die DERA-Reihe erst 2006Q1 beginnt.
+
+Gemessen am eigenen Preispanel (`prices_verdict.parquet`, 1.167 Symbole,
+1995–2026): **39 Symbole (3,3 %) haben keinen einzigen Kurs ab 2006-01-01** und
+koennen strukturell nie ein Form-4-Signal bekommen — genau die
+Vor-2006-Ausscheider. Das ist Survivorship auf der Signalseite, kleiner als
+beim verworfenen `company_tickers.json`-Ansatz, aber nicht abwesend. Ein
+frueherer Entwurf schrieb hier "jede jemals eingereichte Form 4" — das war
+falsch (F-senior-4).
 
 PIT — UND WO DIESE QUELLE GROEBER IST
 -------------------------------------
@@ -55,9 +69,16 @@ TRANSAKTIONSCODES
 -----------------
 Nur `P` (Open-Market-Kauf) und `S` (Open-Market-Verkauf) gelten als gerichtet.
 Alles andere — Zuteilungen, Ausuebungen, Schenkungen, Steuereinbehalt — wird
-als `unknown` gefuehrt und NICHT zu einem Richtungssignal umgedeutet. Das ist
-dieselbe Konvention wie im bestehenden Ingester; sie hier zu lockern wuerde
-zwei Wahrheiten erzeugen.
+als `unknown` gefuehrt und NICHT zu einem Richtungssignal umgedeutet.
+
+Die Klassifikation wird dafuer aus dem Core-Ingester **importiert**
+(`classify_transaction_code`), nicht nachgebaut. Der erste Entwurf behauptete
+an dieser Stelle "dieselbe Konvention wie im bestehenden Ingester" und mappte
+trotzdem auf `{"buy","sell"}`, waehrend der bestehende Bestand `{"P","S"}`
+unter demselben Spaltennamen fuehrt. Sechs vorhandene Konsumenten filtern hart
+auf `"P"` — sie haetten auf diesem Bestand still **null Zeilen** geliefert, und
+ein leeres Ergebnis ist im Research nicht von einem echten Null-Befund zu
+unterscheiden (E-123).
 
 KEIN TRIAL
 ----------
@@ -83,6 +104,14 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
+# Die Klassifikation wird IMPORTIERT, nicht nachgebaut. Der erste Entwurf
+# mappte auf {"buy","sell"}, der bestehende Bestand fuehrt {"P","S"} unter
+# demselben Spaltennamen — sechs vorhandene Konsumenten filtern hart auf "P"
+# und haetten auf diesem Bestand still null Zeilen geliefert (E-123).
+from src.assembled_core.data.edgar_form4_ingest import (  # noqa: E402
+    classify_transaction_code,
+)
 
 DATA = Path(__file__).resolve().parent / "data"
 OUT_DIR = DATA / "form4_dera"
@@ -111,6 +140,12 @@ SUB_SPALTEN = [
 ]
 TRANS_SPALTEN = [
     "ACCESSION_NUMBER",
+    # Primaerschluessel der Transaktionstabelle. Ohne ihn ist der Fan-out des
+    # one-to-many-Merges mit den Meldepflichtigen NICHT rueckgaengig zu machen:
+    # 2 % der Filings haben mehrere Owner, das blaeht die Stueckzahlsumme um
+    # 49,7 % auf, und drop_duplicates ueber die Fachspalten wuerde echte
+    # Mehrfachausfuehrungen mitkollabieren (E-124).
+    "NONDERIV_TRANS_SK",
     "TRANS_DATE",
     "TRANS_CODE",
     "TRANS_SHARES",
@@ -209,7 +244,12 @@ def aufbereiten(
         df["TRANS_DATE"], format="%d-%b-%Y", errors="coerce"
     )
     # Konservativ: Verfuegbarkeit erst am Folgetag (siehe Modul-Docstring).
-    df["available_at"] = df["filing_date"] + pd.Timedelta(days=1)
+    # UTC-lokalisiert, weil der Core-Ingester (form4_rows_to_dataframe) das
+    # ebenfalls tut. Naiv gegen tz-aware unter demselben Spaltennamen ergaebe
+    # bei einem concat eine object-Spalte und einen stillen Objektvergleich.
+    df["available_at"] = (df["filing_date"] + pd.Timedelta(days=1)).dt.tz_localize(
+        "UTC"
+    )
     # Ein Transaktionsdatum NACH dem Meldedatum ist unmoeglich — man meldet
     # nach dem Handel. In 2006Q1 stehen Transaktionsdaten von 1982 bis 2020;
     # das sind Tippfehler in den Filings. Sie werden NICHT still entfernt
@@ -221,9 +261,7 @@ def aufbereiten(
         & (df["transaction_date"] <= df["filing_date"])
         & (df["transaction_date"] >= df["filing_date"] - pd.Timedelta(days=3 * 365))
     )
-    df["transaction_type"] = (
-        df["TRANS_CODE"].map({"P": "buy", "S": "sell"}).fillna("unknown")
-    )
+    df["transaction_type"] = df["TRANS_CODE"].map(classify_transaction_code)
     for c in ("TRANS_SHARES", "TRANS_PRICEPERSHARE"):
         df[c.lower()] = pd.to_numeric(df[c], errors="coerce")
     # `astype(str)` macht aus fehlenden Werten die Strings "nan"/"None" — die
@@ -233,6 +271,16 @@ def aufbereiten(
     # NA 32, N/A 9). Fehlend bleibt hier fehlend; ISSUERCIK traegt den Fall.
     sym = df["ISSUERTRADINGSYMBOL"].astype("string").str.strip().str.upper()
     df["symbol"] = sym.mask(sym.isin(["NAN", "NONE", "NA", "N/A", ""]))
+    # Berichtigungen (4/A, rund 3,3 %) wiederholen in der Regel den vollen
+    # Transaktionssatz — dieselbe oekonomische Transaktion steht dann zweimal
+    # im Bestand, und die Berichtigung kann in einem SPAETEREN Quartal liegen.
+    # Hier wird markiert, nicht gefiltert: ein Filter waere ein stiller Eingriff.
+    df["ist_berichtigung"] = df["DOCUMENT_TYPE"].eq("4/A")
+    # Welche Verfuegbarkeitsdefinition in dieser Zeile steckt. Der Core-Ingester
+    # schreibt unter demselben Spaltennamen die ACCEPTANCE-Minute (tz-aware).
+    # Ohne diese Spalte kann ein Konsument, der beide Bestaende mischt, die
+    # beiden Zeitachsen nicht auseinanderhalten (F-senior-5).
+    df["available_at_basis"] = "filing_date+1d"
     df["quartal"] = f"{jahr}Q{quartal}"
     return df
 
@@ -301,8 +349,33 @@ def main(argv: list[str] | None = None) -> int:
                     "duerfen NICHT in ein Signal eingehen (Lookahead)"
                 ),
                 "survivorship": (
-                    "universumsunabhaengig — enthaelt Emittenten, die spaeter "
-                    "delistet wurden; keine Ticker-CIK-Aufloesung noetig"
+                    "survivorship-frei fuer as_of >= 2006-01-01; davor KEINE "
+                    "Abdeckung (Form 4 ist seit 2003-06-30 elektronisch "
+                    "pflichtig, DERA beginnt 2006Q1). Vor-2006-Delistings "
+                    "bekommen strukturell nie ein Signal — im eigenen "
+                    "Preispanel betrifft das 39 von 1.167 Symbolen (3,3 %)."
+                ),
+                "transaction_type": (
+                    "aus classify_transaction_code() des Core-Ingesters — "
+                    "Werte {'P','S','unknown'} wie im bestehenden Bestand"
+                ),
+                "available_at_basis": (
+                    "filing_date+1d (UTC). Der Core-Ingester schreibt unter "
+                    "demselben Spaltennamen die ACCEPTANCE-Minute; wer beide "
+                    "Bestaende mischt, MUSS auf available_at_basis gruppieren "
+                    "und darf die groebere Definition nur nach oben runden."
+                ),
+                "berichtigungen": (
+                    "4/A koexistiert mit dem Original (rund 3,3 %) und ist als "
+                    "ist_berichtigung markiert, NICHT gefiltert. Aufloesung "
+                    "muss quartalsuebergreifend erfolgen."
+                ),
+                "fan_out": (
+                    "Transaktionen sind je Meldepflichtigem dupliziert "
+                    "(Cluster-Signal). Zaehlungen ueber RPTOWNERCIK.nunique(); "
+                    "Stueck- und Wertsummen ERST nach "
+                    "drop_duplicates('NONDERIV_TRANS_SK') — roh sind sie rund "
+                    "50 % zu hoch."
                 ),
             },
             indent=2,

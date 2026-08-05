@@ -5,7 +5,8 @@
     "datei": "fama_french_daily.parquet",
     "von": "1926-07-01",
     "bis": "2026-06-30",
-    "zeilen": 26274
+    "zeilen": 26274,
+    "benchmark_warnung": "index_crsp_vw ist der CRSP-VALUE-WEIGHTED Gesamtmarkt (NYSE, AMEX, NASDAQ) — NICHT SPY. Gegen einen ETF gestellt misst man die Universums- und Gewichtungsdifferenz mit (E-079). Fuer 'Filter gegen kein Filter auf demselben Basiswert' sauber."
   },
   "vix": {
     "status": "OK",
