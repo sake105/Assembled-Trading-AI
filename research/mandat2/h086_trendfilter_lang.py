@@ -30,6 +30,7 @@ gescheiterten PBO. Kein Holdout — die Kampagnendaten bleiben unberührt.
 
 from __future__ import annotations
 
+import argparse
 import json
 import statistics
 import sys
@@ -47,7 +48,7 @@ sys.path.insert(0, str(ROOT))
 
 from research.mandat2.campaign_data import CampaignData  # noqa: E402
 from research.mandat2.data_gate import TrialCounter  # noqa: E402
-from research.mandat2.engine import run_buy_and_hold  # noqa: E402
+from research.mandat2.engine import run_buy_and_hold, sma_gate  # noqa: E402
 from research.mandat2.metrics import DD_DECKEL, auswerten  # noqa: E402
 from research.mandat2.p13c_ereignisabhaengigkeit import KRISEN_DD  # noqa: E402
 from research.mandat2.tax_regimes import make_regime  # noqa: E402
@@ -96,9 +97,31 @@ def panel() -> CampaignData:
     )
 
 
-def gate(close: pd.DataFrame, fenster: int) -> pd.Series:
-    s = close[SYMBOL]
-    return (s > s.rolling(fenster).mean()).astype(float)
+# KEIN eigenes Gate: `engine.sma_gate` tut bit-identisch dasselbe. Der erste
+# Entwurf hatte es nachgebaut — eine zweite Wahrheit ohne Not (Rule 50), die
+# der Stage-1-Review als `.equals() is True` nachgewiesen hat.
+
+
+def _taeglich_gegatet(d: CampaignData, gate: pd.Series):
+    """Denselben Lauf mit TAEGLICHER Gate-Auswertung statt nur an Monatsenden.
+
+    Die Engine liest `risk_off_gate` bewusst nur an Monatsenden — das ist die
+    Konvention der ganzen Kampagne. Fuer die Sensitivitaet wird hier jeder
+    Handelstag zum Auswertungstermin gemacht, indem die Engine auf einem
+    Kalender laeuft, dessen Monatsenden alle Tage sind. Umgesetzt ueber ein
+    temporaeres Umschreiben von `_monatsenden` — eine Messung, KEIN zweiter
+    Backtest-Pfad: gebucht wird weiterhin von `run_buy_and_hold` (E-102).
+    """
+    from research.mandat2 import engine as _engine
+
+    original = _engine._monatsenden
+    _engine._monatsenden = lambda idx: set(idx)  # type: ignore[assignment]
+    try:
+        return run_buy_and_hold(
+            d, make_regime("ZERO"), symbol=SYMBOL, risk_off_gate=gate
+        )
+    finally:
+        _engine._monatsenden = original  # type: ignore[assignment]
 
 
 def aufspalten(fenster_liste, label: str) -> dict:
@@ -112,6 +135,11 @@ def aufspalten(fenster_liste, label: str) -> dict:
     ruhig = [f for f in fenster_liste if f.benchmark_maxdd > KRISEN_DD]
 
     def bloecke(gruppe) -> int:
+        # Aufsteigend sortiert ist Vorbedingung: bei negativen Differenzen
+        # greift die Abstandspruefung nie und Episoden verschmelzen still
+        # ([1990, 1950, 1951] ergaebe 1 statt 2 Bloecke).
+        starts = [f.start for f in gruppe]
+        assert starts == sorted(starts), "Fenster muessen aufsteigend sortiert sein"
         n, letzter = 0, None
         for f in gruppe:
             if letzter is None or (f.start - letzter).days > 10 * 365:
@@ -130,7 +158,10 @@ def aufspalten(fenster_liste, label: str) -> dict:
                 "median_benchmark": None,
                 "vorsprung_pp": None,
                 "gewonnen": None,
-                "disjunkte_bloecke": 0,
+                # None wie alle anderen Felder: eine 0 saehe wie ein
+                # gemessener Wert aus. Das war die einzige Stelle, an der die
+                # leere Gruppe eine Zahl lieferte (E-103).
+                "disjunkte_bloecke": None,
                 "schlimmster_kandidat_maxdd": None,
             }
         k = statistics.median(f.kandidat_faktor for f in gruppe)
@@ -157,7 +188,17 @@ def aufspalten(fenster_liste, label: str) -> dict:
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--regen",
+        action="store_true",
+        help=(
+            "Artefakt neu erzeugen, OHNE den Trial-Zaehler zu erhoehen — fuer "
+            "Wiederholungen nach einem Bugfix (E-090)."
+        ),
+    )
+    args = ap.parse_args(argv)
     (HIER / "results").mkdir(exist_ok=True)
     d = panel()
     print(f"CRSP-Reihe: {d.close.index.min().date()} .. {d.close.index.max().date()}")
@@ -168,10 +209,29 @@ def main() -> int:
 
     bench = run_buy_and_hold(d, make_regime("ZERO"), symbol=SYMBOL)
     r = run_buy_and_hold(
-        d, make_regime("ZERO"), symbol=SYMBOL, risk_off_gate=gate(d.close, FENSTER)
+        d,
+        make_regime("ZERO"),
+        symbol=SYMBOL,
+        risk_off_gate=sma_gate(d.close, symbol=SYMBOL, fenster=FENSTER),
     )
     a = auswerten(r.equity_netto, bench.equity_netto, label=f"CRSP/preis>sma{FENSTER}")
     spalt = aufspalten(a.fenster, f"preis>SMA{FENSTER} auf CRSP 1926-2026")
+
+    # SENSITIVITAET — die Engine liest das Gate nur an Monatsenden. Das ist
+    # die Konvention der gesamten Kampagne und deshalb entscheidend; sie ist
+    # NICHT fuer dieses Ergebnis gewaehlt worden. Ein taeglich ausgewertetes
+    # Gate bewegt die Effektgroesse aber erheblich, und das gehoert ins
+    # Artefakt statt in eine Fussnote (Stage-1-Befund).
+    #
+    # KEIN zusaetzlicher Trial: hier wird nichts ausgewaehlt. Beide Konventionen
+    # liefern dasselbe Verdikt (kein Vorsprung ohne Krise) — es gibt also keine
+    # Variante, die man behalten koennte, und damit keine Suche (E-090).
+    # P13b zaehlte, WEIL dort eine Auswahl moeglich gewesen waere.
+    taeglich = _taeglich_gegatet(d, sma_gate(d.close, symbol=SYMBOL, fenster=FENSTER))
+    a_tag = auswerten(
+        taeglich.equity_netto, bench.equity_netto, label="CRSP/taeglich ausgewertet"
+    )
+    spalt_tag = aufspalten(a_tag.fenster, "dasselbe Gate, taeglich ausgewertet")
 
     kf = spalt["krisenfreie_fenster"]
     kr = spalt["krisenfenster"]
@@ -189,6 +249,18 @@ def main() -> int:
         "gerissene_fenster": len(a.gerissene_fenster),
         "dd_deckel": DD_DECKEL,
         "aufspaltung": spalt,
+        "sensitivitaet_taegliche_auswertung": {
+            "hinweis": (
+                "Die Engine liest das Gate nur an Monatsenden (Kampagnen-"
+                "Konvention, entscheidend). Taeglich ausgewertet aendert sich "
+                "die Effektgroesse erheblich, das Verdikt nicht. Kein "
+                "zusaetzlicher Trial: keine Auswahl moeglich, beide Konventionen "
+                "fallen gleich aus (E-090)."
+            ),
+            "median_kandidat_gesamt": round(a_tag.median_kandidat, 4),
+            "gerissene_fenster": len(a_tag.gerissene_fenster),
+            "aufspaltung": spalt_tag,
+        },
         "verdikt": {
             "traegt_ohne_krise": traegt,
             "begruendung": (

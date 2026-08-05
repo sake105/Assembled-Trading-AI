@@ -1,5 +1,25 @@
 *.parquet filter=lfs diff=lfs merge=lfs -text
 
+# Ausnahme: die drei Referenzreihen unter research/mandat2/data_gratis/
+# (Fama-French ab 1926, CBOE-VIX, S&P-500-Mitglieder) liegen NICHT in LFS.
+# Zusammen 0,97 MiB — dafuer zahlt sich LFS nirgends aus, und die Kopplung
+# waere teuer erkauft: das Repo ist oeffentlich, LFS-Bandbreite wird dem
+# Eigentuemer gebucht und ist von aussen erschoepfbar. Bei Erschoepfung
+# sperrt GitHub LFS repo-weit — dann scheitert der CHECKOUT hart, statt dass
+# Tests weich ueberspringen. Ohne LFS lesen alle Workflows und jeder Clone
+# die Dateien direkt; `lfs: true` im Checkout wird nicht gebraucht.
+#
+# `-filter` ist zwingend und reicht `binary` NICHT nach: das Makro `binary`
+# expandiert nur zu `-diff -merge -text` und laesst `filter=lfs` stehen. Ohne
+# das explizite `-filter` landen weiterhin 131-Byte-Zeigerdateien im Index —
+# nachgemessen, bevor diese Zeile so aussah.
+#
+# `binary` bleibt trotzdem PFLICHT, nicht Kosmetik: ohne die text-Ausnahme
+# koennte core.autocrlf auf dem windows-latest-Runner CRLF in die Binaerdatei
+# schreiben und die Parquets korrumpieren — und zwar nur auf einem der beiden
+# Matrix-Jobs.
+research/mandat2/data_gratis/*.parquet -filter -diff -merge binary
+
 # R6 fix: force LF line endings on text files to prevent Windows CRLF↔LF
 # hook loop in pre-commit (ruff-format/black reformat CRLF→LF, autocrlf
 # converts back, infinite loop). See audit commits fe21a6b/b87e091/d2e5f83

@@ -376,11 +376,25 @@ Krisenvermeidung in einer Stichprobe, die nur aus Krise bestand. Der Strang ist
 nicht mehr offen, und er ist es aus einem inhaltlichen Grund, nicht nur wegen
 einer Korrekturschwelle.
 
-**Einschränkung:** Mechanismus-Labor, kein Deployability-Test. Vor den 1970ern
-gab es keine Indexfonds, und die Kosten lagen um Größenordnungen über den
-angesetzten. Und es ist eine andere Reihe als SPY — wertgewichtet über alle
+**Einschränkung 1 — Mechanismus-Labor, kein Deployability-Test.** Vor den
+1970ern gab es keine Indexfonds, und die Kosten lagen um Größenordnungen über
+den angesetzten. Und es ist eine andere Reihe als SPY — wertgewichtet über alle
 CRSP-Firmen. Die Aussage lautet: der Effekt existiert **nicht** ohne
 Dauerkrise; sie lautet nicht, man hätte ihn früher verdienen können.
+
+**Einschränkung 2 — die Schärfe hängt an der Auswertungskonvention.** Die
+Engine liest das Gate nur an Monatsenden; das ist die Konvention der gesamten
+Kampagne und deshalb entscheidend, nicht für dieses Ergebnis gewählt. Wertet
+man dasselbe Gate **täglich** aus, gewinnt der Filter in krisenfreien Fenstern
+22 von 338 statt 0, der Rückstand schrumpft von −97,6 auf −65,5 pp, und der
+DD-Deckel reißt in 84 statt 153 Fenstern. **Das Verdikt kippt nicht** — auch
+täglich ausgewertet gewinnt er in 94 % der krisenfreien Fenster nicht —, aber
+„0 von 338" ist eine Aussage über die Monatsend-Konvention, nicht über den
+Mechanismus an sich. Beide Zahlen stehen im Artefakt.
+
+Gegen vier unabhängige Gegenproben ist der Befund stabil: ohne die vom
+Warmlauf berührten Fenster, mit risk-on statt Cash im Warmlauf, kostenfrei
+gerechnet und gegen eine unabhängige Zweitimplementierung — jeweils 0/338.
 
 Das Ergebnis zur GmbH ist unabhängig davon verwertbar und bestätigt Befund 3
 aus anderer Richtung: Ein Filter, der über das Raster 6 bis 62 Buchungen

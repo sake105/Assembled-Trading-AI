@@ -1566,3 +1566,26 @@ Verschaerfend kam eine zweite Verdeckung dazu: der gruene Job `backend-ci.yml` i
 5. **Ein gruener Nachbarjob ist kein Beleg.** Unterschiedliche Jobs koennen unterschiedliche Testmengen mit unterschiedlichen Abhaengigkeiten fahren.
 **Erkannt in:** CI-Lauf zu `64266967`, reproduziert in einer nachgebauten CI-Umgebung.
 **Referenzen:** E-126 (derselbe Lauf, anderer Mechanismus), E-103, Rule 40.
+
+## E-128 — Symptom im CI geflickt statt die Ursache entfernt; dabei einen weichen Fehler gegen einen harten getauscht
+**Datum:** 2026-08-05
+**Kategorie:** false-fix / abhaengigkeit-eingebaut
+**Was passierte:** Nachdem LFS-Zeigerdateien Tests in CI zum Ueberspringen brachten (E-126), lautete meine Empfehlung: `lfs: true` in den Checkout von `ci.yml`. Ich hatte die Seiteneffekte sogar geprueft — 3 Objekte, 1,0 MiB, zwei Matrix-Jobs, also ~2 MB Traffic pro Lauf — und daraus "unbedenklich" geschlossen.
+
+Uebersehen hatte ich das Entscheidende: **das Repo ist oeffentlich.** GitHub bucht LFS-Bandbreite dem Eigentuemer, auch bei anonymen Clones, und sperrt LFS bei Erschoepfung repo-weit statt zu drosseln. Damit haette `lfs: true` aus einem **weichen** Fehler (Pointer -> Test skippt) einen **harten** gemacht: der Checkout-Step scheitert, beide Jobs sind rot, bevor ein Test laeuft — ausgeloest durch Traffic, den das Repo nicht kontrolliert. Dazu: `actions/checkout@v4` cached keine LFS-Objekte, die Regel `*.parquet filter=lfs` gilt repo-weit, der Traffic waere still mitgewachsen.
+
+Die billigere Loesung lag eine Ebene tiefer: die drei Dateien aus LFS **herausnehmen**. 0,97 MiB — dafuer zahlt sich LFS nirgends aus. Das wirkt fuer jeden Workflow und jeden Clone, braucht den permissions-geschuetzten Pfad `.github/workflows/` gar nicht und beseitigt die Fehlerklasse an der Quelle, statt sie in jedem Leser einzeln abzufangen.
+
+**Zwei Fallen dabei, beide gemessen statt vermutet:**
+1. **`binary` setzt `filter=lfs` NICHT zurueck.** Das Makro expandiert zu `-diff -merge -text`. Nach `git rm --cached` + `git add` lagen weiterhin 131-Byte-Zeiger im Index. Noetig ist explizit `-filter -diff -merge binary`.
+2. **`binary` ist trotzdem Pflicht.** Ohne die text-Ausnahme kann `core.autocrlf` auf dem windows-latest-Runner CRLF in die Binaerdatei schreiben — Korruption auf genau einem der beiden Matrix-Jobs.
+
+**Warum falsch:** Ein Fix, der CI an eine externe, erschoepfbare und von Dritten beeinflussbare Ressource koppelt, ist teurer als er aussieht — und der Preis faellt zu einem Zeitpunkt an, den niemand waehlt. Meine Seiteneffekt-Pruefung war nicht falsch, sondern zu eng: ich hatte das Volumen gemessen und die Sichtbarkeit des Repos nicht.
+
+**Wie vermeiden:**
+1. **Bei jedem CI-Fix fragen: koppele ich hier an eine Ressource, die ausgehen kann?** Quoten, Rate-Limits, externe Endpunkte. Wenn ja: was passiert im Erschoepfungsfall — weich oder hart?
+2. **Ursache vor Symptom.** Bevor eine Pipeline etwas nachladen soll, pruefen, ob das Artefakt ueberhaupt dort liegen muss, wo es liegt.
+3. **Repo-Sichtbarkeit ist ein Sicherheits- UND ein Kostenparameter.** Bei oeffentlichen Repos ist jeder verbrauchbare Kontingentposten von aussen ausloesbar.
+4. **`.gitattributes`-Aenderungen am Index verifizieren, nicht am Arbeitsverzeichnis:** `git cat-file -s $(git rev-parse :pfad)` und `git check-attr filter diff merge text -- pfad`. Ein Zeiger im Index sieht im Working Tree wie die echte Datei aus.
+**Erkannt in:** Stage-1-Review (`ci-debugger`, F-ci-1/2/4/5) zur Frage, ob `lfs: true` die richtige Loesung ist. Meine Empfehlung war die teuerste der drei moeglichen.
+**Referenzen:** E-126 (der Ausloeser), E-127 (derselbe CI-Lauf), Rule 40.

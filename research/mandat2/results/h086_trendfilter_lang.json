@@ -32,6 +32,34 @@
       "schlimmster_kandidat_maxdd": -0.2714
     }
   },
+  "sensitivitaet_taegliche_auswertung": {
+    "hinweis": "Die Engine liest das Gate nur an Monatsenden (Kampagnen-Konvention, entscheidend). Taeglich ausgewertet aendert sich die Effektgroesse erheblich, das Verdikt nicht. Kein zusaetzlicher Trial: keine Auswahl moeglich, beide Konventionen fallen gleich aus (E-090).",
+    "median_kandidat_gesamt": 2.5169,
+    "gerissene_fenster": 84,
+    "aufspaltung": {
+      "label": "dasselbe Gate, taeglich ausgewertet",
+      "krisenfenster": {
+        "name": "mit Rueckgang <= 30 %",
+        "n": 742,
+        "median_kandidat": 2.2471,
+        "median_benchmark": 2.2807,
+        "vorsprung_pp": -3.36,
+        "gewonnen": 281,
+        "disjunkte_bloecke": 2,
+        "schlimmster_kandidat_maxdd": -0.369
+      },
+      "krisenfreie_fenster": {
+        "name": "ohne solchen Rueckgang",
+        "n": 338,
+        "median_kandidat": 3.4094,
+        "median_benchmark": 4.0646,
+        "vorsprung_pp": -65.52,
+        "gewonnen": 22,
+        "disjunkte_bloecke": 4,
+        "schlimmster_kandidat_maxdd": -0.2414
+      }
+    }
+  },
   "verdikt": {
     "traegt_ohne_krise": false,
     "begruendung": "kein Vorsprung in krisenfreien Fenstern — der P13-Effekt ist Krisenvermeidung"
