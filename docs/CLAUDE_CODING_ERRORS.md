@@ -1459,3 +1459,58 @@ Die einzige Zahl, die tatsaechlich gegen die Artefakte driftete, lag im ungeschu
 4. **Drift-Guard ueber den Fliesstext ausdehnen** oder die Kopfzusicherung auf das einschraenken, was tatsaechlich geprueft wird.
 **Erkannt in:** Stage-2-Review (F-senior-5) zu `render_befund_p13.py` und `ABSCHLUSS.md`.
 **Referenzen:** E-085, E-116, E-117.
+
+## E-123 — Gleicher Spaltenname, andere Wertemenge: zweite Wahrheit ohne Schemabruch
+**Datum:** 2026-08-05
+**Kategorie:** wiring-gap / stille-nullkante
+**Was passierte:** Ein zweiter Form-4-Bestand (`pull_form4_dera.py`) schrieb `transaction_type` als `{"buy","sell","unknown"}`. Der bestehende Bestand `form4_broad` fuehrt unter DEMSELBEN Spaltennamen `{"P","S","unknown"}`, weil er `classify_transaction_code()` des Core-Ingesters benutzt.
+
+Schema, dtype und Spaltenzahl waren identisch — kein Import-, Lade- oder Typfehler. Sechs vorhandene Konsumenten filtern hart auf `transaction_type == "P"` (`fable_exploration/experiment/engine.py`, `insider_congress_recheck.py`, `mill/insider_buy_mill.py`, `mill/insider_timing_mill.py`, zwei Scratch-Proben). Jeder haette auf dem neuen Bestand **null Zeilen** geliefert.
+
+Verschaerfend: der Modul-Docstring behauptete an genau dieser Stelle woertlich „Das ist dieselbe Konvention wie im bestehenden Ingester; sie hier zu lockern wuerde zwei Wahrheiten erzeugen." Die Absicht war formuliert, die Umsetzung widersprach ihr.
+
+**Warum falsch:** Ein leeres Filterergebnis ist im Research nicht von einem echten Null-Befund zu unterscheiden. Der Fehler bleibt unsichtbar, bis jemand eine Nullkante als Ergebnis meldet — und dann sieht er aus wie eine Erkenntnis. Rule 50 („keine zweite Wahrheit") wird ueblicherweise als Schutz vor divergierenden IMPLEMENTIERUNGEN gelesen; hier war die Implementierung getrennt und die WERTEMENGE das Problem.
+
+**Wie vermeiden:**
+1. **Uebernimmt ein neuer Bestand einen bestehenden Spaltennamen, die Klassifikationsfunktion IMPORTIEREN statt nachzubauen.** Ein Inline-`map` ist genau dann verlockend, wenn er trivial aussieht.
+2. **Bei bewusst anderer Semantik den SPALTENNAMEN aendern, nicht die Werte.** Ein `transaction_side` neben `transaction_type` bricht laut, ein anderer Wert bricht still.
+3. **Fuer jede enum-artige Spalte ein Test, der die Wertemenge gegen den bestehenden Bestand vergleicht** — nicht gegen eine im Test wiederholte Literalliste.
+4. **Eine Konventionsbehauptung im Docstring ist eine Zusicherung und braucht eine Assertion.** Wer sie hinschreibt, ohne sie zu pruefen, erzeugt falsche Sicherheit statt Klarheit.
+**Erkannt in:** Stage-2-Review (F-senior-1, BLOCKER) zu `research/mandat/pull_form4_dera.py`.
+**Referenzen:** E-109, E-119, Rule 50.
+
+## E-124 — One-to-many-Merge ohne Primaerschluessel macht den Fan-out irreversibel
+**Datum:** 2026-08-05
+**Kategorie:** pandas-pitfall / informationsverlust
+**Was passierte:** Transaktionen (`NONDERIV_TRANS`) wurden per Left-Merge mit den Meldepflichtigen (`REPORTINGOWNER`) verbunden. Hat ein Filing N Insider, wird jede Transaktionszeile N-fach kopiert. Das war **bewusst so gewollt** — die Zahl der Insider je Titel ist genau das Cluster-Signal, um das es fachlich ging.
+
+Nicht mitgezogen wurde der Primaerschluessel der Transaktionstabelle (`NONDERIV_TRANS_SK`). Damit war die Aufblaehung nicht mehr rueckgaengig zu machen. Storeweit ueber alle 81 Quartale gemessen (8.310.850 Zeilen gegen 7.086.284 verschiedene Transaktionen): **2,87 %** der Filings haben mehrere Owner (max 10), die Zeilenzahl liegt **17,3 %**, die Stueckzahlsumme **37,8 %** ueber der echten — und bei den KAUFzeilen, um die es fachlich geht, sind es **52,7 %** (1.278.080 Zeilen gegen 837.272 verschiedene Kauftransaktionen). Ein `drop_duplicates` ueber die Fachspalten (Accession, Datum, Code, Stueck, Preis) waere kein Ausweg — es kollabiert auch echte Mehrfachausfuehrungen und ueberkorrigiert auf 52,1 %.
+
+**Nachtrag zur eigenen Messdisziplin:** Die erste Fassung dieses Eintrags nannte 21,7 % und 2 %. Beide Werte stammten aus **2006Q1 allein** und wurden storeweit generalisiert. Die Streuung ueber die Quartale ist gross (2015Q1: +69,5 %), die Verallgemeinerung war also nicht nur ungenau, sondern methodisch falsch — derselbe Fehler wie E-078 in klein: eine Stichprobe fuer die Grundgesamtheit genommen.
+
+**Warum falsch:** Aus einer bewussten Entscheidung wurde ein irreversibler Informationsverlust. Der Zaehl-Anwendungsfall war korrekt bedient, der Summen-Anwendungsfall war ohne Neuziehen nicht mehr herstellbar — und beim naechsten Leser haette nichts darauf hingedeutet, weil Zeilenzahl und Schema unauffaellig sind. Bemerkenswert ist auch die Groessenordnung: 11 % mehr ZEILEN waren 22 % mehr VOLUMEN, weil die Filings mit vielen Insidern die grossen sind.
+
+**Wie vermeiden:**
+1. **Vor jedem one-to-many-Merge den Primaerschluessel der „einen" Seite in die Spaltenauswahl aufnehmen** — auch wenn er fuer den aktuellen Zweck nutzlos wirkt. Er kostet eine Spalte und rettet den Bestand.
+2. **Merge-Ergebnisse mit `validate=` oder einem Zeilenzahl-Assert absichern.** Ein unbeabsichtigter Fan-out sieht sonst wie mehr Daten aus.
+3. **Aufblaehung immer auf der WERT-Summe messen, nicht auf der Zeilenzahl** — hier waren 17 % mehr Zeilen 38 % mehr Volumen, weil die Filings mit vielen Insidern die grossen sind.
+4. **Ueber den GANZEN Bestand messen, nicht ueber die erste Partition.** Eine Quartalszahl als Storezahl auszugeben ist eine Verallgemeinerung ohne Beleg.
+5. **Wenn Duplizierung gewollt ist, gehoert die Entblaehungsanleitung ins Manifest** — welcher Schluessel, fuer welche Kennzahl. Ein Kommentar im Code erreicht den Datenkonsumenten nicht.
+**Erkannt in:** Stage-2-Review (F-senior-2, BLOCKER) zu `research/mandat/pull_form4_dera.py`.
+**Referenzen:** E-116, E-122.
+
+## E-125 — Zahl nur in der Commit-Message, kein erzeugender Code im Repo
+**Datum:** 2026-08-05
+**Kategorie:** test-anti-pattern / nicht-reproduzierbar
+**Was passierte:** „Abdeckung des handelbaren Ziel-Universums 723 -> 6.146 von 8.876 (69,2 %)" stand als Ergebnis in einer Commit-Message. Ein `grep` nach der Zahl im Repo fand keinen erzeugenden Code; die Zwischendatei lag unter dem gitignorten `research/mandat/data/`.
+
+Inhaltlich war die Zahl zusaetzlich in BEIDE Richtungen unbeschraenkt, weil sie ein roher Ticker-String-Vergleich war: zu niedrig, weil das Preispanel Vendor-Suffixe fuehrt (`AAC_old2`), die im SEC-Bestand nie so heissen; zu hoch, weil recycelte Ticker falsch matchen — Panel-Ticker X (Firma A, 2003–2008) gegen SEC-Ticker X (Firma B, 2015) zaehlte als abgedeckt. Das ist exakt Befund 7, und zwar in demselben Modul, das den ersten Pull-Ansatz mit genau dieser Begruendung verworfen hatte.
+
+**Warum falsch:** Eine Zahl, die kein Skript reproduziert, ist keine Messung, sondern eine Erinnerung. Sie wird spaeter zitiert, obwohl niemand sie nachrechnen kann, und ihre Fehlerrichtung ist unbekannt. Commit-Messages sind append-only und werden nie korrigiert — eine falsche Zahl dort ueberlebt jede spaetere Berichtigung im Code.
+
+**Wie vermeiden:**
+1. **Jede Zahl, die in eine Commit-Message oder ein Befund-Dokument geht, muss von committetem Code erzeugt werden.** Sonst gehoert sie mit ihrer Fehlerrichtung gekennzeichnet oder gar nicht genannt.
+2. **Liegt die Datengrundlage unter einem gitignorten Pfad, muss wenigstens das ERGEBNIS-Artefakt committet sein** (hier: `abdeckung_form4.json`).
+3. **Bei jedem Abgleich ueber Ticker die Fehlerrichtung mitschreiben** — und wo vorhanden den stabilen Schluessel danebenstellen (hier: 17.134 Emittenten ueber CIK statt 21.860 Ticker).
+**Erkannt in:** Stage-2-Review (F-senior-6) zu `research/mandat/pull_form4_dera.py`.
+**Referenzen:** E-085, E-116, E-122, Befund 7.

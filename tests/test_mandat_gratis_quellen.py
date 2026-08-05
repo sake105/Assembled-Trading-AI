@@ -217,6 +217,20 @@ def test_transaktionscodes_kommen_aus_dem_core_ingester() -> None:
     assert classify_transaction_code("P") == "P", "keine Umbenennung nach 'buy'"
 
 
+def test_kaufcode_passt_zur_klassifikation() -> None:
+    """Der Zaehler im Laufprotokoll blieb nach dem Umstieg auf die
+    Core-Klassifikation auf `"buy"` stehen und meldete 81 Quartale lang
+    "0 Kaeufe", waehrend der Bestand 1,28 Mio Kaufzeilen enthielt — die
+    Silent-Zero-Klasse aus E-123, eine Schicht tiefer (F-auditor-1).
+    """
+    from research.mandat.pull_form4_dera import KAUF_CODE
+
+    assert KAUF_CODE == classify_transaction_code("P")
+    sub, trans, owner = _dera_tabellen("14-MAR-2006", "15-MAR-2006", code="P")
+    df = aufbereiten(sub, trans, owner, 2006, 1)
+    assert (df["transaction_type"] == KAUF_CODE).sum() == 1, "Zaehler faende nichts"
+
+
 def test_verfuegbarkeit_ist_utc_wie_im_core_bestand() -> None:
     """Naiv gegen tz-aware unter demselben Spaltennamen ergibt beim concat
     eine object-Spalte und einen stillen Objektvergleich (F-senior-5)."""

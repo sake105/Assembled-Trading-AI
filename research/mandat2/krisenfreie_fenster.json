@@ -1,0 +1,28 @@
+{
+  "quelle": "Ken French Data Library (CRSP value-weighted), taeglich",
+  "voll": {
+    "label": "1926-2026 (voll)",
+    "von": "1926-07-01",
+    "bis": "2026-06-30",
+    "n_fenster": 1080,
+    "krisenfrei": 338,
+    "krisenfrei_anteil": 0.313,
+    "disjunkte_bloecke": 4,
+    "mildester_rueckgang": -0.1662,
+    "schlimmster_rueckgang": -0.8407,
+    "schwelle": -0.3
+  },
+  "suchfenster": {
+    "label": "1995-2016 (Suche)",
+    "von": "1995-01-03",
+    "bis": "2016-12-30",
+    "n_fenster": 144,
+    "krisenfrei": 0,
+    "krisenfrei_anteil": 0.0,
+    "disjunkte_bloecke": 0,
+    "mildester_rueckgang": -0.4923,
+    "schlimmster_rueckgang": -0.5457,
+    "schwelle": -0.3
+  },
+  "einordnung": "Die krisenfreien Fenster ueberlappen monatlich; massgeblich fuer die effektive Stichprobe ist 'disjunkte_bloecke', nicht 'krisenfrei' (E-078)."
+}

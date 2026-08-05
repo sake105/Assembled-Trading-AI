@@ -46,12 +46,23 @@ QUELLEN
 -------
 * **Ken French Data Library** (Dartmouth) — taegliche Faktoren ab 1926-07,
   akademischer Standard, aus CRSP.
-* **Shiller** (Yale) — monatliche S&P-Kurse, Dividenden und Gewinne ab 1871.
-  Grobkoerniger, dafuer noch laenger; taugt als unabhaengige Gegenprobe.
 * **CBOE VIX-Historie** — ab 1990, fuer Regime-/Vol-Fragen.
 * **fja05680/sp500** (GitHub) — historische S&P-500-Zusammensetzung ab 1996.
   Unabhaengige Gegenprobe zur eigenen Membership-Reihe, an der Befund 7
   (Ticker als Schluessel) haengt.
+
+NICHT GEZOGEN, UND WARUM
+------------------------
+**Shiller** (Yale, monatliche S&P-Kurse und Dividenden ab 1871) waere die
+laengste verfuegbare Reihe und ist gratis. Die Quelle liefert aber nur `.xls`,
+und der dafuer noetige Leser (`xlrd`) steht **weder in `requirements.txt` noch
+in `pyproject.toml`** — er ist lokal zufaellig vorhanden. Ein Pull liefe hier
+und braeche in CI: genau die Dependency-Drift, vor der Rule 40 warnt. Ein
+frueherer Entwurf dieses Docstrings listete Shiller unter den Quellen, obwohl
+der Code ihn nie gezogen hat (F-auditor-6).
+
+Nachholbar, sobald `xlrd` deklariert ist — als eigene Beschaffung mit eigener
+Pruefung, nicht nebenbei.
 """
 
 from __future__ import annotations

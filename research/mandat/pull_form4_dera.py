@@ -80,6 +80,16 @@ auf `"P"` — sie haetten auf diesem Bestand still **null Zeilen** geliefert, un
 ein leeres Ergebnis ist im Research nicht von einem echten Null-Befund zu
 unterscheiden (E-123).
 
+VERHAELTNIS ZUM BESTEHENDEN `form4_broad`-BESTAND
+--------------------------------------------------
+`transaction_type` ist jetzt angeglichen (beide `{"P","S","unknown"}`), die
+uebrigen Spaltennamen sind es NICHT: dort `shares`, `price`, `issuer_cik`,
+`transaction_code`, hier `trans_shares`, `trans_pricepershare`, `ISSUERCIK`,
+`TRANS_CODE`. Ein Store-Tausch scheitert deshalb mit **KeyError** — laut, nicht
+still. Das ist der Grund, warum die Konsolidierung ein Follow-up bleiben darf
+und keine Voraussetzung ist; die Behauptung "die Vertraege sind angeglichen"
+galt nur fuer eine Spalte (F-auditor-7).
+
 KEIN TRIAL
 ----------
 Reine Datenbeschaffung (E-090). Ob die §4.6.1-Patrone erneut angefasst wird,
@@ -125,6 +135,13 @@ UA = "Assembled-Trading-AI hans.oertel2@gmail.com"
 #: liefern 404, 2006Q1 liefert 200.
 START_JAHR, START_QUARTAL = 2006, 1
 
+#: Code fuer den Open-Market-Kauf, wie ihn `classify_transaction_code` liefert.
+#: Als Konstante, weil das Literal im Laufprotokoll nach dem Umstieg auf die
+#: Core-Klassifikation stehen blieb und still 0 zaehlte — alle 81 Quartale
+#: meldeten "0 Kaeufe", waehrend der Bestand 1,28 Mio Kaufzeilen enthielt.
+#: Genau die Silent-Zero-Klasse aus E-123, eine Schicht tiefer.
+KAUF_CODE = "P"
+
 #: SEC-Fair-Access: hoeflicher Abstand zwischen Downloads. Die Dateien sind
 #: gross, ein aggressiver Takt bringt hier nichts und riskiert eine Sperre.
 ABSTAND_S = 1.0
@@ -142,9 +159,11 @@ TRANS_SPALTEN = [
     "ACCESSION_NUMBER",
     # Primaerschluessel der Transaktionstabelle. Ohne ihn ist der Fan-out des
     # one-to-many-Merges mit den Meldepflichtigen NICHT rueckgaengig zu machen:
-    # 2 % der Filings haben mehrere Owner, das blaeht die Stueckzahlsumme um
-    # 49,7 % auf, und drop_duplicates ueber die Fachspalten wuerde echte
-    # Mehrfachausfuehrungen mitkollabieren (E-124).
+    # 2,87 % der Filings haben mehrere Owner. Storeweit gemessen blaeht das die
+    # Zeilenzahl um 17,3 % und die Stueckzahlsumme um 37,8 % auf; bei den
+    # KAUFzeilen sind es sogar 52,7 %. drop_duplicates ueber die Fachspalten
+    # waere kein Ausweg — es kollabiert echte Mehrfachausfuehrungen mit
+    # (ueberkorrigiert auf 52,1 %). Nur der Schluessel macht es umkehrbar (E-124).
     "NONDERIV_TRANS_SK",
     "TRANS_DATE",
     "TRANS_CODE",
@@ -271,7 +290,7 @@ def aufbereiten(
     # NA 32, N/A 9). Fehlend bleibt hier fehlend; ISSUERCIK traegt den Fall.
     sym = df["ISSUERTRADINGSYMBOL"].astype("string").str.strip().str.upper()
     df["symbol"] = sym.mask(sym.isin(["NAN", "NONE", "NA", "N/A", ""]))
-    # Berichtigungen (4/A, rund 3,3 %) wiederholen in der Regel den vollen
+    # Berichtigungen (4/A, storeweit 2,20 %) wiederholen in der Regel den vollen
     # Transaktionssatz — dieselbe oekonomische Transaktion steht dann zweimal
     # im Bestand, und die Berichtigung kann in einem SPAETEREN Quartal liegen.
     # Hier wird markiert, nicht gefiltert: ein Filter waere ein stiller Eingriff.
@@ -316,12 +335,15 @@ def main(argv: list[str] | None = None) -> int:
             continue
         df.to_parquet(OUT_DIR / f"{j}q{q}.parquet", index=False)
         zeilen += len(df)
-        kaeufe = int((df["transaction_type"] == "buy").sum())
+        kauf = df[df["transaction_type"] == KAUF_CODE]
+        kaeufe = len(kauf)
+        kauf_txn = int(kauf["NONDERIV_TRANS_SK"].nunique())
         unplausibel = int((~df["datum_plausibel"]).sum())
         unplausibel_gesamt.append(unplausibel)
         print(
             f"[OK] {j}Q{q}: {len(df):>7} Zeilen | {df['symbol'].nunique():>5} Symbole "
-            f"| {kaeufe:>6} Kaeufe | {unplausibel:>5} Datum unplausibel "
+            f"| {kaeufe:>6} Kaufzeilen ({kauf_txn} Txn) "
+            f"| {unplausibel:>5} Datum unplausibel "
             f"| {time.monotonic() - t0:.0f}s",
             flush=True,
         )
@@ -366,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
                     "und darf die groebere Definition nur nach oben runden."
                 ),
                 "berichtigungen": (
-                    "4/A koexistiert mit dem Original (rund 3,3 %) und ist als "
+                    "4/A koexistiert mit dem Original (storeweit 2,20 %) und ist als "
                     "ist_berichtigung markiert, NICHT gefiltert. Aufloesung "
                     "muss quartalsuebergreifend erfolgen."
                 ),
@@ -374,8 +396,10 @@ def main(argv: list[str] | None = None) -> int:
                     "Transaktionen sind je Meldepflichtigem dupliziert "
                     "(Cluster-Signal). Zaehlungen ueber RPTOWNERCIK.nunique(); "
                     "Stueck- und Wertsummen ERST nach "
-                    "drop_duplicates('NONDERIV_TRANS_SK') — roh sind sie rund "
-                    "50 % zu hoch."
+                    "drop_duplicates('NONDERIV_TRANS_SK'). Storeweit gemessen "
+                    "sind roh: Zeilen +17,3 %, Stueckzahl +37,8 %, KAUFzeilen "
+                    "+52,7 % (1.278.080 Zeilen gegen 837.272 verschiedene "
+                    "Kauftransaktionen)."
                 ),
             },
             indent=2,
