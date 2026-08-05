@@ -1514,3 +1514,55 @@ Inhaltlich war die Zahl zusaetzlich in BEIDE Richtungen unbeschraenkt, weil sie 
 3. **Bei jedem Abgleich ueber Ticker die Fehlerrichtung mitschreiben** — und wo vorhanden den stabilen Schluessel danebenstellen (hier: 17.134 Emittenten ueber CIK statt 21.860 Ticker).
 **Erkannt in:** Stage-2-Review (F-senior-6) zu `research/mandat/pull_form4_dera.py`.
 **Referenzen:** E-085, E-116, E-122, Befund 7.
+
+## E-126 — Ein Artefakt zu committen erzeugte einen zweiten Fehlzustand, den der Guard nicht kannte
+**Datum:** 2026-08-05
+**Kategorie:** false-green / guard-unvollstaendig / ci-only
+**Was passierte:** Testfixtures schuetzten sich mit dem naheliegenden Guard:
+
+```python
+if not p.exists():
+    pytest.skip("Daten noch nicht gezogen")
+return pd.read_parquet(p)
+```
+
+Lokal und in CI gruen — solange die Parquets **nicht** committet waren. Mit dem Commit der Artefakte kippte CI auf beiden Plattformen: `.gitattributes` schickt jede `*.parquet` durch Git LFS, und der CI-Checkout holt die LFS-Objekte nicht (kein `lfs: true`). Am Pfad der Daten liegt dort eine rund 130 Byte grosse Textdatei mit dem Kopf `version https://git-lfs.github.com/spec/v1`.
+
+`Path.exists()` sagt True, der Guard laesst durch, `pd.read_parquet` platzt am Pointer. Der Fehler existiert ausschliesslich in CI und ist lokal nicht reproduzierbar, weil dort die echten Objekte liegen.
+
+**Warum falsch:** Der Guard war fuer die Zustaende korrekt, die es zum Zeitpunkt seines Entwurfs gab — „Datei da" oder „Datei fehlt". Das **Committen des Artefakts** hat einen dritten Zustand eingefuehrt: „Datei da, aber nicht die Datei". Eine Aenderung an der Versionierung hat damit die Gueltigkeit einer Annahme im Testcode gebrochen, ohne den Testcode zu beruehren — genau die Art Kopplung, die man beim Review nicht sieht, weil beide Seiten fuer sich richtig aussehen.
+
+Verschaerfend: `exists()` ist der Standardgriff und fuehlt sich vollstaendig an. Er prueft aber nur die Existenz eines Pfades, nicht die Brauchbarkeit des Inhalts.
+
+**Wie vermeiden:**
+1. **Bei einem Guard fragen, welche Zustaende die Datei annehmen kann** — nicht nur „da/nicht da". Bei LFS-verwalteten Pfaden gehoert „Zeigerdatei" dazu, bei Downloads „halb geschrieben", bei Netzlaufwerken „nicht lesbar".
+2. **Wenn ein Artefakt neu unter Versionskontrolle kommt, `.gitattributes` pruefen.** Ein LFS-Filter aendert, was in CI ankommt, ohne dass ein Diff im Code das zeigt.
+3. **Den Fehlzustand simulieren, statt auf den naechsten CI-Lauf zu warten**: eine echte Zeigerdatei an die Stelle des Artefakts legen, Tests laufen lassen, per Pruefsumme zuruecksetzen. Das kostet eine Minute und ersetzt einen roten Lauf.
+4. **Faustregel: ein Guard, der aus einem harten Fehler ein `skip` machen soll, muss den Inhalt anfassen, nicht nur den Pfad.**
+5. **Kein Erfolg melden, bevor CI durch ist.** Der rote Lauf kam nach der Meldung „alles gepusht" — die Meldung war zum Zeitpunkt des Schreibens ungedeckt.
+**Erkannt in:** CI-Lauf zu `2d2ca2e6` (Lint & Test, ubuntu-latest und windows-latest, Schritt „Run fast tests").
+**Referenzen:** E-103 (Fail-Open-Richtung), E-085, Rule 40.
+
+## E-127 — Assertion auf die Repraesentation statt auf die Invariante: lokal gruen, CI rot
+**Datum:** 2026-08-05
+**Kategorie:** false-green / dependency-drift / test-fragil
+**Was passierte:** Ein Test sollte sicherstellen, dass `available_at` **zeitzonenbehaftet** ist — die Invariante, die verhindert, dass ein `concat` mit dem Core-Bestand still eine object-Spalte erzeugt. Geschrieben wurde `assert str(df["available_at"].dtype) == "datetime64[ns, UTC]"`.
+
+Lokal gruen, in CI rot auf beiden Plattformen: `AssertionError: assert 'datetime64[us, UTC]' == 'datetime64[ns, UTC]'`.
+
+Ursache ist die Dependency-Drift aus Rule 40, hier im Test statt im Code: `ci.yml` installiert `pip install -e ".[dev]"`, und die Ranges in `pyproject.toml` sind offen — CI zieht **pandas 3.0.5**, dessen Standardaufloesung **Mikrosekunden** ist. Lokal pinnt `requirements.txt` **pandas 2.2.3**, also Nanosekunden.
+
+Der Test prueft damit die **Aufloesung**, obwohl es um die **Zeitzone** ging. Die Aufloesung gleicht pandas beim `concat` an; naiv gegen tz-aware gleicht es NICHT an — genau das war der Punkt. Die Assertion war also nicht nur fragil, sie mass die falsche Eigenschaft.
+
+Verschaerfend kam eine zweite Verdeckung dazu: der gruene Job `backend-ci.yml` installiert aus `requirements.txt` und laeuft nur `-m "fast and not slow"`. Die neue Testdatei hat **keinen Marker** und laeuft deshalb ausschliesslich im roten Job — mit der abweichenden Installation. Zwei Unterschiede fielen zusammen, und der gruene Nachbarjob vermittelte falsche Sicherheit.
+
+**Warum falsch:** Eine Assertion auf einen `repr`- oder `str`-Wert testet die Darstellung eines Objekts, nicht seine Eigenschaft. Darstellungen sind Implementierungsdetails der Bibliothek und aendern sich zwischen Versionen; Eigenschaften nicht. In einem Repo mit dokumentierter Drift zwischen Pins und Ranges ist das kein theoretisches Risiko, sondern ein Termin.
+
+**Wie vermeiden:**
+1. **Die Eigenschaft pruefen, nicht ihren Text.** Hier: `df[c].dt.tz is not None` und `str(tz) == "UTC"` statt eines dtype-Strings. Analog `is_numeric_dtype()` statt `== "float64"`.
+2. **Vor dem Schreiben fragen, welche Eigenschaft die Invariante wirklich ist.** Wer die Frage beantwortet, schreibt die fragile Assertion gar nicht erst.
+3. **Neue Testdateien laufen in einem anderen Job als gedacht**, wenn sie keinen Marker tragen. Marker bewusst setzen — oder wissen, welcher Job die Datei aufsammelt und mit welcher Installation.
+4. **Bei Verdacht auf Drift die CI-Installation nachbauen** (`python -m venv` plus `pip install -e ".[dev]"` im Klon) statt gegen die lokale zu testen. Das kostet Minuten und ersetzt Rateschleifen: hier zeigte es pandas 3.0.5 gegen 2.2.3 sofort.
+5. **Ein gruener Nachbarjob ist kein Beleg.** Unterschiedliche Jobs koennen unterschiedliche Testmengen mit unterschiedlichen Abhaengigkeiten fahren.
+**Erkannt in:** CI-Lauf zu `64266967`, reproduziert in einer nachgebauten CI-Umgebung.
+**Referenzen:** E-126 (derselbe Lauf, anderer Mechanismus), E-103, Rule 40.

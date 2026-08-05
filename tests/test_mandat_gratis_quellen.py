@@ -256,9 +256,24 @@ def test_kaufcode_passt_zur_klassifikation() -> None:
 
 def test_verfuegbarkeit_ist_utc_wie_im_core_bestand() -> None:
     """Naiv gegen tz-aware unter demselben Spaltennamen ergibt beim concat
-    eine object-Spalte und einen stillen Objektvergleich (F-senior-5)."""
+    eine object-Spalte und einen stillen Objektvergleich (F-senior-5).
+
+    Geprueft wird die **Zeitzonen-Behaftung**, nicht die Aufloesung. Die erste
+    Fassung verglich `str(dtype) == "datetime64[ns, UTC]"` und riss in CI:
+    dort installiert `pip install -e ".[dev]"` pandas 3.0.5 (die Ranges in
+    pyproject sind offen), und dessen Standardaufloesung ist **Mikrosekunden**
+    — `datetime64[us, UTC]`. Lokal liefert der requirements-Pin pandas 2.2.3
+    und damit Nanosekunden, der Test war also lokal gruen und in CI rot: die
+    Dependency-Drift aus Rule 40, im Test statt im Code.
+
+    Die Aufloesung ist fuer die Invariante egal — pandas gleicht sie beim
+    concat an. Naiv gegen tz-aware gleicht es NICHT an, und genau das ist der
+    Punkt.
+    """
     df = aufbereiten(*_dera_tabellen("14-MAR-2006", "15-MAR-2006"), 2006, 1)
-    assert str(df["available_at"].dtype) == "datetime64[ns, UTC]"
+    tz = df["available_at"].dt.tz
+    assert tz is not None, "naiv gegen tz-aware ergibt beim concat object"
+    assert str(tz) == "UTC"
     assert df["available_at_basis"].iloc[0] == "filing_date+1d"
 
 
