@@ -1299,3 +1299,38 @@ CRSP-Reihe ist eine andere Datenquelle und beruehrt es nicht.
 
 Offen. Der Zufalls-Timing-Test (0/60, p = 0,016) spricht dafuer, dass das Timing Information
 traegt; die Ereignisabhaengigkeit spricht dagegen. Das ist der Grund, den Lauf ueberhaupt zu machen.
+
+### Ergebnis H-088 (2026-08-05, N=3.533) — **FAIL. Das Insider-Feld ist endgueltig zu.**
+
+Ausgefuehrt unter den Bedingungen von Welle 46. Signalquelle: DERA-Bestand
+(1.252.964 Open-Market-Kaeufe, davon 1.173.076 opportunistisch, 15.835 Symbole).
+Nach Gate: **12.015 handelbare Namen, 750.953 Kaufereignisse** — die
+Mindestgroesse ist um Groessenordnungen ueberschritten, das Verdikt ist also
+aussagefaehig und nicht datenbedingt.
+
+| Kriterium | Wert | |
+|---|---|---|
+| k1 Endwert > ETF-Pfad | 3.217.548 vs 722.313 | ✅ |
+| **k2 Sharpe > No-Signal-Kontrollkorb** | **0,302 vs 0,369** | ❌ |
+| k3 DSR (heterogenes V, N=3.533) | p = 0,0004 | ❌ |
+| k4 MaxDD nicht schlechter als SPY | −94,3 % vs −55,2 % | ❌ |
+| k5 kein Kippen zwischen den Gates | Endwert Faktor 8,5 | ❌ |
+
+**Der entscheidende Befund ist k2** — und er war in H-031/H-053 nie geprueft
+worden, weil dort gegen den SPY-Sharpe verglichen wurde statt gegen einen Korb
+aus demselben Universum. Zwanzig Zufallskoerbe mit identischer monatlicher
+Korbgroesse aus dem gegateten Universum erreichen einen Median-Sharpe von
+0,369; das Insider-Signal kommt auf 0,302 und liegt damit **unter** dem Zufall.
+Das Signal misst die Universumsauswahl, nicht Insider-Information.
+
+k4 und k5 zeigen dasselbe aus anderer Richtung: ein Endwert von 3,2 Mio bei
+−94,3 % Drawdown ist kein Ergebnis, sondern ein Illiquiditaets-Artefakt — genau
+der Fehlschluss, an dem H-035/H-036 gescheitert sind, gegen den das Gate
+gebaut war und den es bei 1 Mio USD ADV offenbar nicht vollstaendig abfaengt.
+Unter dem Sekundaergate (5 Mio) faellt der Endwert auf 379.197 und der Drawdown
+auf −60 %.
+
+**Damit greift die Stopp-Regel dieser Welle:** das Insider-Feld ist geschlossen.
+Eine Wiederaufnahme verlangt eine neue DATENQUELLE, nicht eine neue Auslegung
+dieses Verdikts. Die §4.6.1-These ist auf echten Small Caps getestet worden —
+der Vorbehalt aus H-053 ist ausgeraeumt, und die Antwort ist negativ.

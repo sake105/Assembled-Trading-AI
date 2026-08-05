@@ -467,6 +467,41 @@ hätte jede Neugenerierung der Artefakte erneut 216 Trials addiert.
 
 ---
 
+## Die letzte offene Tür: geschlossen (Nachtrag 2026-08-05, H-088)
+
+Der §4.6.1-Insider-Nachtest ist gelaufen — auf dem echten Small-Cap-Universum,
+das dem alten Verdikt gefehlt hatte. **FAIL auf vier von fünf Kriterien.**
+
+| Kriterium | Wert | |
+|---|---|---|
+| Endwert > ETF-Pfad | 3.217.548 vs 722.313 | ✅ |
+| **Sharpe > No-Signal-Kontrollkorb** | **0,302 vs 0,369** | ❌ |
+| DSR (heterogenes V, N = 3.533) | p = 0,0004 | ❌ |
+| MaxDD nicht schlechter als SPY | −94,3 % vs −55,2 % | ❌ |
+| kein Kippen zwischen den Gates | Endwert Faktor 8,5 | ❌ |
+
+**Ein Zufallskorb aus demselben gegateten Universum schlägt das Signal.**
+Zwanzig Körbe ohne jede Insider-Information, mit identischer monatlicher
+Korbgröße, erreichen Median-Sharpe 0,369 — das Signal kommt auf 0,302. Es misst
+die Universumsauswahl, nicht Insider.
+
+Genau dieser Test fehlte in H-031 und H-053: dort wurde gegen den SPY-Sharpe
+verglichen, und damit gegen einen Maßstab, der den Small-Cap-Effekt nicht
+neutralisiert. Der einzige bestandene Punkt — der Endwert — ist bei −94,3 %
+Drawdown bedeutungslos und selbst ein Illiquiditäts-Artefakt: unter dem
+strengeren Gate (ADV ≥ 5 Mio) fällt er auf 379.197 bei −60 %.
+
+Die Datenlage war dabei nicht der Engpass: 12.015 gegatete Namen und 750.953
+opportunistische Kaufereignisse überschreiten die vorab registrierte
+Mindestgröße um Größenordnungen. Das Verdikt ist aussagefähig, nicht
+datenbedingt — der Vorbehalt aus H-053 ist ausgeräumt.
+
+**Damit greift die Stopp-Regel aus Welle 46: das Insider-Feld ist endgültig
+geschlossen.** Eine Wiederaufnahme verlangt eine neue Datenquelle, nicht eine
+neue Auslegung dieses Verdikts.
+
+---
+
 ## Was offen bleibt
 
 **Der EODHD-Zugang besteht nicht mehr** (Stand 2026-08-05). Damit ist jede

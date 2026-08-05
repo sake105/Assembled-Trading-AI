@@ -1,0 +1,70 @@
+{
+  "hypothese": "H-088",
+  "registriert": "Welle 46, VOR dem Lauf",
+  "quelle": "SEC DERA Form 4, 2006Q1-2026Q1",
+  "signal_start": "2006-01-01",
+  "gate_primaer": {
+    "preis": 5.0,
+    "adv60": 1000000.0
+  },
+  "gate_sekundaer": {
+    "preis": 5.0,
+    "adv60": 5000000.0
+  },
+  "namen_gegated": 12015,
+  "opportunistische_ereignisse": 750953,
+  "aussagefaehig": true,
+  "laeufe": {
+    "primaer/all_opp": {
+      "signalmonate": 242,
+      "median_namen_je_monat": 477,
+      "endwert": 3217548,
+      "cagr_netto": 0.1751,
+      "sharpe_netto": 0.302,
+      "maxdd_netto": -0.9432
+    },
+    "primaer/cluster2": {
+      "signalmonate": 242,
+      "median_namen_je_monat": 202,
+      "endwert": 2905934,
+      "cagr_netto": 0.1696,
+      "sharpe_netto": 0.295,
+      "maxdd_netto": -0.9657
+    },
+    "sekundaer/all_opp": {
+      "signalmonate": 242,
+      "median_namen_je_monat": 322,
+      "endwert": 379197,
+      "cagr_netto": 0.0639,
+      "sharpe_netto": 0.336,
+      "maxdd_netto": -0.6002
+    },
+    "sekundaer/cluster2": {
+      "signalmonate": 242,
+      "median_namen_je_monat": 125,
+      "endwert": 274597,
+      "cagr_netto": 0.0481,
+      "sharpe_netto": 0.31,
+      "maxdd_netto": -0.6265
+    }
+  },
+  "benchmark": {
+    "etf_netto_pfad": 722313,
+    "spy_sharpe": 0.643,
+    "spy_maxdd": -0.5519,
+    "kontrollkorb_sharpe_median": 0.369
+  },
+  "verdikt": {
+    "bester_lauf": "all_opp",
+    "k1_ueber_etf_pfad": true,
+    "k2_sharpe_ueber_kontrollkorb": false,
+    "k3_dsr_heterogen": {
+      "p": 0.0004,
+      "n_trials": 3533,
+      "pass": false
+    },
+    "k4_maxdd_nicht_schlechter_als_spy": false,
+    "k5_kein_kippen_zwischen_gates": false,
+    "PASS": false
+  }
+}
