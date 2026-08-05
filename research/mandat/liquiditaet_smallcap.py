@@ -91,6 +91,15 @@ def main() -> int:
     med_kurs = close[gemeinsam].median()
     neu = [c for c in gemeinsam if c not in sp]
     alt = [c for c in gemeinsam if c in sp]
+    # Fail-loud: die S&P-Zuordnung haengt an einer Dateinamen-Konvention. Bricht
+    # sie, landet alles in `neu`, `alt` hat n=0, die Druckschleife ueberspringt
+    # die Gruppe kommentarlos — und der "Faktor 25", auf dem die ganze
+    # Gate-Begruendung von Welle 46 ruht, verschwaende geraeuschlos (E-103).
+    if not alt or not neu:
+        raise SystemExit(
+            f"[ERROR] S&P-Zuordnung unplausibel (alt={len(alt)}, neu={len(neu)}) — "
+            f"Dateinamen-Konvention in form4_broad/ vermutlich gebrochen."
+        )
 
     def gruppe(namen: list[str], label: str) -> dict:
         if not namen:

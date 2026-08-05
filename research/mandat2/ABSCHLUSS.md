@@ -10,8 +10,8 @@ rollierenden 10-Jahres-Fenster, unter der bindenden Nebenbedingung
 MaxDD ≥ −35 % in *jedem* Fenster.
 
 **Suchfenster** 1995-01-03 … 2016-12-30 · **Holdout** 2017-01-01 … 2026-07-06,
-**bis heute unangetastet** · **Trials** 3.305 (kumuliert ab Mandat I:
-1.964 + 1.341 aus Mandat II, Stand `trials.json`)
+**bis heute unangetastet** · **Trials** 3.531 (kumuliert ab Mandat I:
+1.964 + 1.567 aus Mandat II, Stand `trials.json`)
 
 > **Korrektur 2026-08-03:** hier stand 2.144. Die Zahl war seit P4 nicht mehr
 > nachgeführt worden und driftete gegen `trials.json` — dieselbe Fehlerklasse
@@ -382,19 +382,49 @@ den angesetzten. Und es ist eine andere Reihe als SPY — wertgewichtet über al
 CRSP-Firmen. Die Aussage lautet: der Effekt existiert **nicht** ohne
 Dauerkrise; sie lautet nicht, man hätte ihn früher verdienen können.
 
-**Einschränkung 2 — die Schärfe hängt an der Auswertungskonvention.** Die
-Engine liest das Gate nur an Monatsenden; das ist die Konvention der gesamten
-Kampagne und deshalb entscheidend, nicht für dieses Ergebnis gewählt. Wertet
-man dasselbe Gate **täglich** aus, gewinnt der Filter in krisenfreien Fenstern
-22 von 338 statt 0, der Rückstand schrumpft von −97,6 auf −65,5 pp, und der
-DD-Deckel reißt in 84 statt 153 Fenstern. **Das Verdikt kippt nicht** — auch
-täglich ausgewertet gewinnt er in 94 % der krisenfreien Fenster nicht —, aber
-„0 von 338" ist eine Aussage über die Monatsend-Konvention, nicht über den
-Mechanismus an sich. Beide Zahlen stehen im Artefakt.
+**Einschränkung 2 — die Schärfe hängt an zwei Konventionen.** Beide sind
+gemessen und stehen im Artefakt:
 
-Gegen vier unabhängige Gegenproben ist der Befund stabil: ohne die vom
-Warmlauf berührten Fenster, mit risk-on statt Cash im Warmlauf, kostenfrei
-gerechnet und gegen eine unabhängige Zweitimplementierung — jeweils 0/338.
+| Konvention | krisenfrei gewonnen | Vorsprung | DD-Deckel gerissen |
+|---|---:|---:|---:|
+| monatlich, Cash 0 % (Hauptrechnung) | 0/338 | −97,6 pp | 153 |
+| täglich ausgewertet, Cash 0 % | 22/338 | −65,5 pp | 84 |
+| monatlich, Cash zum risikolosen Satz | 3/297 | −55,9 pp | 153 |
+
+Die Engine liest das Gate nur an Monatsenden — Konvention der ganzen Kampagne,
+nicht für dieses Ergebnis gewählt. Und sie verzinst Cash nicht, während der
+Filter an 28 % der Termine draußen ist: über 1926–2026 ein **einseitiger**
+Nachteil, der nur den Kandidaten trifft und in den Hochzinsblöcken 1974/1987
+besonders teuer ist. Die dritte Zeile rechnet deshalb auf der
+Überschussreihe, wo „nicht investiert" per Definition „zum risikolosen Satz
+angelegt" heißt.
+
+**Das Verdikt kippt in keiner Konvention** — auch großzügig gerechnet verliert
+der Filter 90 bis 99 % der krisenfreien Fenster. Aber „0 von 338" ist eine
+Aussage über die Hauptkonvention, nicht über den Mechanismus an sich.
+
+**Was das Verdikt trägt, ist die Blockaufteilung.** Die Registrierung legte
+vorab fest: ein Ergebnis, das nur in einem Block auftritt, ist eine Episode,
+kein Mechanismus. Gemessen, Hauptkonvention:
+
+| Block ab | Fenster | gewonnen |
+|---|---:|---:|
+| 1940 | 241 | **0** |
+| 1974 | 40 | **0** |
+| 1987 | 41 | **0** |
+| 2008 | 16 | **0** |
+
+Null in **allen vier** Blöcken. Das Kriterium ist nicht knapp erfüllt.
+
+Gegen vier weitere Gegenproben ist der Befund stabil: ohne die vom Warmlauf
+berührten Fenster, mit risk-on statt Cash im Warmlauf, kostenfrei gerechnet
+und gegen eine unabhängige Zweitimplementierung — jeweils 0/338.
+
+**Buchhaltungs-Offenlegung:** Der Trial-Zähler steht bei **3.531**, nicht bei
+3.530. H-086 wurde versehentlich zweimal gezählt, weil der `--regen`-Schalter
+zwar deklariert, sein Ergebnis aber nie gelesen wurde — das Increment lief
+unbedingt. Der Zähler ist append-only und wird nicht zurückgeschrieben; der
+Fehler steht hier, statt korrigiert zu werden (E-090, E-129).
 
 Das Ergebnis zur GmbH ist unabhängig davon verwertbar und bestätigt Befund 3
 aus anderer Richtung: Ein Filter, der über das Raster 6 bis 62 Buchungen

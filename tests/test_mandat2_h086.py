@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from research.mandat2.campaign_data import CampaignData
 from research.mandat2.h086_trendfilter_lang import aufspalten
 from research.mandat2.metrics import FensterErgebnis
 from research.mandat2.p13c_ereignisabhaengigkeit import KRISEN_DD
@@ -80,6 +81,68 @@ def test_gewonnen_zaehlt_nur_echte_siege() -> None:
     )
     assert s["krisenfreie_fenster"]["gewonnen"] == 1
     assert s["krisenfreie_fenster"]["n"] == 3
+
+
+def test_unsortierte_fenster_brechen_laut() -> None:
+    """Bei negativen Differenzen greift die Abstandspruefung nie und Episoden
+    verschmelzen still — [1990, 1950, 1951] ergaebe 1 statt 2 Bloecke."""
+    unsortiert = [
+        _f("1990-01-01", -0.1, 2.0, 1.5),
+        _f("1950-01-01", -0.1, 2.0, 1.5),
+        _f("1951-01-01", -0.1, 2.0, 1.5),
+    ]
+    with pytest.raises(AssertionError):
+        aufspalten(unsortiert, "t")
+
+
+def test_taegliche_auswertung_stellt_die_engine_wieder_her() -> None:
+    """`_taeglich_gegatet` patcht `engine._monatsenden` global. Bliebe der Patch
+    stehen, liefe JEDER spaetere Lauf der Kampagne mit taeglichem Rebalancing —
+    ein stiller Regimewechsel quer durch alle Ergebnisse."""
+    from research.mandat2 import engine as _engine
+    from research.mandat2.h086_trendfilter_lang import SYMBOL, _taeglich_gegatet
+
+    original = _engine._monatsenden
+    idx = pd.bdate_range("2000-01-03", periods=400)
+    close = pd.DataFrame({SYMBOL: range(1, len(idx) + 1)}, index=idx, dtype=float)
+    d = CampaignData(
+        close=close,
+        div_panel=pd.DataFrame(index=idx),
+        membership=pd.Series(dtype=object),
+        fenster="test",
+        von=idx.min(),
+        bis=idx.max(),
+    )
+    gate = pd.Series(1.0, index=idx)
+    gate.iloc[100:150] = 0.0
+    _taeglich_gegatet(d, gate)
+    assert _engine._monatsenden is original, "Patch nicht zurueckgenommen"
+
+
+def test_taegliche_auswertung_handelt_oefter_als_monatlich() -> None:
+    """Sonst waere die Sensitivitaet eine Kopie der Hauptrechnung."""
+    from research.mandat2.engine import run_buy_and_hold
+    from research.mandat2.h086_trendfilter_lang import SYMBOL, _taeglich_gegatet
+    from research.mandat2.tax_regimes import make_regime
+
+    idx = pd.bdate_range("2000-01-03", periods=400)
+    close = pd.DataFrame({SYMBOL: range(1, len(idx) + 1)}, index=idx, dtype=float)
+    d = CampaignData(
+        close=close,
+        div_panel=pd.DataFrame(index=idx),
+        membership=pd.Series(dtype=object),
+        fenster="test",
+        von=idx.min(),
+        bis=idx.max(),
+    )
+    # Ein Ausschlag MITTEN im Monat: monatlich unsichtbar, taeglich wirksam.
+    gate = pd.Series(1.0, index=idx)
+    gate.iloc[5:12] = 0.0
+    monatlich = run_buy_and_hold(
+        d, make_regime("ZERO"), symbol=SYMBOL, risk_off_gate=gate
+    )
+    taeglich = _taeglich_gegatet(d, gate)
+    assert taeglich.portfolio.costs_paid > monatlich.portfolio.costs_paid
 
 
 def test_artefakt_traegt_das_verdikt() -> None:

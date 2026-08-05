@@ -1192,9 +1192,12 @@ Faktor 25 im Median. Ohne Gate wiederholt ein Nachtest den bekannten Fehlschluss
 steht woertlich schon in den Pass/Fail-Kriterien von H-053 (Welle 24). Damit ist sie nicht an das
 neue Ergebnis anpassbar.
 
-**Sekundaer (wird berichtet, ist NICHT entscheidend):** ADV60 ≥ 5 Mio USD. Zweck: sichtbar machen,
-ob ein Befund von den duennsten Ueberlebenden des Primaergates getragen wird. Die Reihenfolge steht
-hier fest, damit hinterher nicht die passendere Schwelle zur Hauptaussage erklaert wird.
+**Sekundaer:** ADV60 ≥ 5 Mio USD. Es kann nur **verschaerfen, nie lockern** — ein Ergebnis, das
+nur unter dem Primaergate haelt, gilt als FAIL. Zweck: sichtbar machen, ob ein Befund von den
+duennsten Ueberlebenden des Primaergates getragen wird. Die Reihenfolge steht hier fest, damit
+hinterher nicht die passendere Schwelle zur Hauptaussage erklaert wird. (Die erste Fassung nannte
+es "NICHT entscheidend" — das widersprach Pass-Kriterium 5 und war nachtraeglich in beide
+Richtungen lesbar.)
 
 **PIT-Pflicht:** Ein einmalig ueber die Gesamthistorie gerechnetes Gate waehlt Titel danach aus, ob
 sie SPAETER liquide wurden — ein Survivorship-artiger Lookahead. Das rollierende Fenster ist Teil
@@ -1217,6 +1220,20 @@ No-Signal-Kontrollkorb aus demselben gegateten Universum (sonst misst man nur de
 (3) DSR besteht mit **heterogen** geschaetztem V und kumuliertem N — NICHT mit Klonfamilien-Varianz
 (E-077); (4) MaxDD nicht schlechter als SPY; (5) das Ergebnis kippt nicht zwischen Primaer- und
 Sekundaergate.
+
+### Stopp-Regel und Mindestgroesse — vorab, weil sie sonst nie kommen
+
+**Stopp:** Ein FAIL schliesst das Insider-Feld **endgueltig**. Eine Wiederaufnahme verlangt eine
+neue DATENQUELLE, nicht eine neue Auslegung eines alten Verdikts. Das Argument, das diesen dritten
+Anlauf rechtfertigt ("H-053s Verdikt hat die These nicht getestet"), waere nach einem FAIL
+unveraendert wieder verfuegbar — genau deshalb wird es hier verbraucht und steht kuenftig nicht
+mehr zur Verfuegung.
+
+**Mindestgroesse:** Bleiben nach dem Gate weniger als **300 handelbare Namen** oder weniger als
+**2.000 opportunistische Kaufereignisse** uebrig, wird **kein Verdikt** gefaellt, sondern
+"nicht aussagefaehig" berichtet. Ohne diese Schwelle liesse sich ein schwaches Ergebnis
+nachtraeglich als Datenproblem statt als FAIL lesen — und umgekehrt ein FAIL auf zu duenner Basis
+als Befund verkaufen.
 
 ### Prior — ehrlich
 

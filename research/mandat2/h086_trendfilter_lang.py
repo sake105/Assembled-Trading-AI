@@ -102,6 +102,36 @@ def panel() -> CampaignData:
 # der Stage-1-Review als `.equals() is True` nachgewiesen hat.
 
 
+def excess_panel() -> CampaignData:
+    """Dieselbe Reihe, aber als UEBERSCHUSSRENDITE ueber den risikolosen Satz.
+
+    Antwort auf einen einseitigen Nachteil: der gefilterte Lauf haelt an 28 %
+    der Auswertungstermine Cash und bekommt dafuer 0 %, waehrend der Benchmark
+    immer investiert ist. Ueber 1926-2026 ist das nicht neutral — der RF-Median
+    liegt bei 2,55 % p. a., das Maximum bei 14,66 %, und die Hochzinsphasen
+    (1974er, 1987er) fallen in die krisenfreien Bloecke.
+
+    Statt die Engine um eine Cash-Verzinsung zu erweitern — das waere eine
+    Verhaltensaenderung fuer JEDES Kampagnenergebnis — laeuft derselbe Test auf
+    `mkt_rf`. In Ueberschuss-Rechnung ist "nicht investiert" per Definition
+    "zum risikolosen Satz angelegt". Beide Seiten liegen im selben Raum, die
+    Engine bleibt unberuehrt (Rule 50).
+    """
+    p = GRATIS / "fama_french_daily.parquet"
+    df = pd.read_parquet(p)
+    ueberschuss = (1.0 + df["mkt_rf"]).cumprod() * 100.0
+    close = pd.DataFrame({SYMBOL: ueberschuss})
+    leer = pd.DataFrame(index=close.index)
+    return CampaignData(
+        close=close,
+        div_panel=leer,
+        membership=pd.Series(dtype=object),
+        fenster="CRSP-1926 Ueberschuss (Cash = RF)",
+        von=close.index.min(),
+        bis=close.index.max(),
+    )
+
+
 def _taeglich_gegatet(d: CampaignData, gate: pd.Series):
     """Denselben Lauf mit TAEGLICHER Gate-Auswertung statt nur an Monatsenden.
 
@@ -166,9 +196,39 @@ def aufspalten(fenster_liste, label: str) -> dict:
             }
         k = statistics.median(f.kandidat_faktor for f in gruppe)
         b = statistics.median(f.benchmark_faktor for f in gruppe)
+        # Ergebnis JE BLOCK. Die Registrierung (Welle 47) macht die disjunkten
+        # Bloecke zum Entscheidungskriterium ("nur in einem Block = Episode,
+        # kein Mechanismus") — ohne diese Aufschluesselung ist genau das aus
+        # dem Artefakt heraus nicht pruefbar (E-131).
+        je_block: list[dict] = []
+        letzter = None
+        for f in gruppe:
+            if letzter is None or (f.start - letzter).days > 10 * 365:
+                je_block.append(
+                    {
+                        "start_jahr": f.start.year,
+                        "n": 0,
+                        "gewonnen": 0,
+                        "kandidat": [],
+                        "benchmark": [],
+                    }
+                )
+            # NICHT `b` als Namen: das ueberschriebe den Benchmark-Median
+            # dieser Funktion und liess `round(b, 4)` auf einem dict landen.
+            blk = je_block[-1]
+            blk["n"] += 1
+            blk["gewonnen"] += int(f.kandidat_faktor > f.benchmark_faktor)
+            blk["kandidat"].append(f.kandidat_faktor)
+            blk["benchmark"].append(f.benchmark_faktor)
+            letzter = f.start
+        for blk in je_block:
+            blk["median_kandidat"] = round(statistics.median(blk.pop("kandidat")), 4)
+            blk["median_benchmark"] = round(statistics.median(blk.pop("benchmark")), 4)
+
         return {
             "name": name,
             "n": len(gruppe),
+            "je_block": je_block,
             "median_kandidat": round(k, 4),
             "median_benchmark": round(b, 4),
             "vorsprung_pp": round((k - b) * 100.0, 2),
@@ -202,10 +262,24 @@ def main(argv: list[str] | None = None) -> int:
     (HIER / "results").mkdir(exist_ok=True)
     d = panel()
     print(f"CRSP-Reihe: {d.close.index.min().date()} .. {d.close.index.max().date()}")
-    print(
-        f"Trials kumuliert: {TrialCounter().increment(1, label='H-086 Trendfilter lang')}\n",
-        flush=True,
-    )
+    # `args.regen` MUSS hier gelesen werden. Der erste Entwurf deklarierte das
+    # Flag, band `parse_args` an `args` und las es nie — der Zaehler lief
+    # unbedingt, und der Regenerationslauf zaehlte H-086 ein zweites Mal
+    # (1566 -> 1567), waehrend die Commit-Message "KEIN zusaetzlicher Trial"
+    # behauptete. Ein Flag, das im Hilfetext eine Garantie gibt und sie nicht
+    # einloest, ist schlimmer als keins (E-129).
+    if args.regen:
+        print(
+            f"[REGEN] Trial-Zaehler UNVERAENDERT bei {TrialCounter().total()} — "
+            f"dieselbe Frage zaehlt nicht zweimal (E-090).\n",
+            flush=True,
+        )
+    else:
+        print(
+            f"Trials kumuliert: "
+            f"{TrialCounter().increment(1, label='H-086 Trendfilter lang')}\n",
+            flush=True,
+        )
 
     bench = run_buy_and_hold(d, make_regime("ZERO"), symbol=SYMBOL)
     r = run_buy_and_hold(
@@ -232,6 +306,22 @@ def main(argv: list[str] | None = None) -> int:
         taeglich.equity_netto, bench.equity_netto, label="CRSP/taeglich ausgewertet"
     )
     spalt_tag = aufspalten(a_tag.fenster, "dasselbe Gate, taeglich ausgewertet")
+
+    # SENSITIVITAET 2 — Cash zum risikolosen Satz statt zu 0 %. Der gefilterte
+    # Lauf ist an 28 % der Termine draussen; ueber 1926-2026 ist Nullzins ein
+    # EINSEITIGER Nachteil (nur der Kandidat haelt Cash) und in den
+    # Hochzinsbloecken 1974/1987 besonders teuer. Kein Trial: es wird nichts
+    # ausgewaehlt, alle Konventionen fallen gleich aus.
+    de = excess_panel()
+    b_ex = run_buy_and_hold(de, make_regime("ZERO"), symbol=SYMBOL)
+    r_ex = run_buy_and_hold(
+        de,
+        make_regime("ZERO"),
+        symbol=SYMBOL,
+        risk_off_gate=sma_gate(de.close, symbol=SYMBOL, fenster=FENSTER),
+    )
+    a_ex = auswerten(r_ex.equity_netto, b_ex.equity_netto, label="CRSP/Ueberschuss")
+    spalt_ex = aufspalten(a_ex.fenster, "Cash zum risikolosen Satz")
 
     kf = spalt["krisenfreie_fenster"]
     kr = spalt["krisenfenster"]
@@ -260,6 +350,19 @@ def main(argv: list[str] | None = None) -> int:
             "median_kandidat_gesamt": round(a_tag.median_kandidat, 4),
             "gerissene_fenster": len(a_tag.gerissene_fenster),
             "aufspaltung": spalt_tag,
+        },
+        "sensitivitaet_cash_zu_rf": {
+            "hinweis": (
+                "Gerechnet auf der UEBERSCHUSSREIHE (mkt_rf): dort bedeutet "
+                "'nicht investiert' per Definition 'zum risikolosen Satz "
+                "angelegt'. Die Engine bleibt unveraendert (Rule 50). Der "
+                "Nullzins der Hauptrechnung ist ein EINSEITIGER Nachteil — nur "
+                "der Kandidat haelt Cash, der Benchmark ist immer investiert."
+            ),
+            "median_kandidat_gesamt": round(a_ex.median_kandidat, 4),
+            "median_benchmark_gesamt": round(a_ex.median_benchmark, 4),
+            "gerissene_fenster": len(a_ex.gerissene_fenster),
+            "aufspaltung": spalt_ex,
         },
         "verdikt": {
             "traegt_ohne_krise": traegt,

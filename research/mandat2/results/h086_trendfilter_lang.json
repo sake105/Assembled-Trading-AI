@@ -14,6 +14,22 @@
     "krisenfenster": {
       "name": "mit Rueckgang <= 30 %",
       "n": 742,
+      "je_block": [
+        {
+          "start_jahr": 1926,
+          "n": 166,
+          "gewonnen": 52,
+          "median_kandidat": 1.516,
+          "median_benchmark": 1.945
+        },
+        {
+          "start_jahr": 1960,
+          "n": 576,
+          "gewonnen": 220,
+          "median_kandidat": 2.2481,
+          "median_benchmark": 2.414
+        }
+      ],
       "median_kandidat": 2.095,
       "median_benchmark": 2.2807,
       "vorsprung_pp": -18.58,
@@ -24,6 +40,36 @@
     "krisenfreie_fenster": {
       "name": "ohne solchen Rueckgang",
       "n": 338,
+      "je_block": [
+        {
+          "start_jahr": 1940,
+          "n": 241,
+          "gewonnen": 0,
+          "median_kandidat": 3.1585,
+          "median_benchmark": 3.8371
+        },
+        {
+          "start_jahr": 1974,
+          "n": 40,
+          "gewonnen": 0,
+          "median_kandidat": 2.5789,
+          "median_benchmark": 4.2621
+        },
+        {
+          "start_jahr": 1987,
+          "n": 41,
+          "gewonnen": 0,
+          "median_kandidat": 3.4408,
+          "median_benchmark": 4.9923
+        },
+        {
+          "start_jahr": 2008,
+          "n": 16,
+          "gewonnen": 0,
+          "median_kandidat": 2.3693,
+          "median_benchmark": 3.6339
+        }
+      ],
       "median_kandidat": 3.0883,
       "median_benchmark": 4.0646,
       "vorsprung_pp": -97.62,
@@ -41,6 +87,22 @@
       "krisenfenster": {
         "name": "mit Rueckgang <= 30 %",
         "n": 742,
+        "je_block": [
+          {
+            "start_jahr": 1926,
+            "n": 166,
+            "gewonnen": 130,
+            "median_kandidat": 2.3135,
+            "median_benchmark": 1.945
+          },
+          {
+            "start_jahr": 1960,
+            "n": 576,
+            "gewonnen": 151,
+            "median_kandidat": 2.2122,
+            "median_benchmark": 2.414
+          }
+        ],
         "median_kandidat": 2.2471,
         "median_benchmark": 2.2807,
         "vorsprung_pp": -3.36,
@@ -51,12 +113,110 @@
       "krisenfreie_fenster": {
         "name": "ohne solchen Rueckgang",
         "n": 338,
+        "je_block": [
+          {
+            "start_jahr": 1940,
+            "n": 241,
+            "gewonnen": 22,
+            "median_kandidat": 3.4089,
+            "median_benchmark": 3.8371
+          },
+          {
+            "start_jahr": 1974,
+            "n": 40,
+            "gewonnen": 0,
+            "median_kandidat": 3.139,
+            "median_benchmark": 4.2621
+          },
+          {
+            "start_jahr": 1987,
+            "n": 41,
+            "gewonnen": 0,
+            "median_kandidat": 3.7865,
+            "median_benchmark": 4.9923
+          },
+          {
+            "start_jahr": 2008,
+            "n": 16,
+            "gewonnen": 0,
+            "median_kandidat": 2.0819,
+            "median_benchmark": 3.6339
+          }
+        ],
         "median_kandidat": 3.4094,
         "median_benchmark": 4.0646,
         "vorsprung_pp": -65.52,
         "gewonnen": 22,
         "disjunkte_bloecke": 4,
         "schlimmster_kandidat_maxdd": -0.2414
+      }
+    }
+  },
+  "sensitivitaet_cash_zu_rf": {
+    "hinweis": "Gerechnet auf der UEBERSCHUSSREIHE (mkt_rf): dort bedeutet 'nicht investiert' per Definition 'zum risikolosen Satz angelegt'. Die Engine bleibt unveraendert (Rule 50). Der Nullzins der Hauptrechnung ist ein EINSEITIGER Nachteil — nur der Kandidat haelt Cash, der Benchmark ist immer investiert.",
+    "median_kandidat_gesamt": 1.6746,
+    "median_benchmark_gesamt": 2.0183,
+    "gerissene_fenster": 153,
+    "aufspaltung": {
+      "label": "Cash zum risikolosen Satz",
+      "krisenfenster": {
+        "name": "mit Rueckgang <= 30 %",
+        "n": 783,
+        "je_block": [
+          {
+            "start_jahr": 1926,
+            "n": 166,
+            "gewonnen": 52,
+            "median_kandidat": 1.5014,
+            "median_benchmark": 1.9394
+          },
+          {
+            "start_jahr": 1960,
+            "n": 617,
+            "gewonnen": 288,
+            "median_kandidat": 1.5583,
+            "median_benchmark": 1.7857
+          }
+        ],
+        "median_kandidat": 1.5389,
+        "median_benchmark": 1.7981,
+        "vorsprung_pp": -25.92,
+        "gewonnen": 340,
+        "disjunkte_bloecke": 2,
+        "schlimmster_kandidat_maxdd": -0.5618
+      },
+      "krisenfreie_fenster": {
+        "name": "ohne solchen Rueckgang",
+        "n": 297,
+        "je_block": [
+          {
+            "start_jahr": 1940,
+            "n": 240,
+            "gewonnen": 3,
+            "median_kandidat": 2.9644,
+            "median_benchmark": 3.421
+          },
+          {
+            "start_jahr": 1987,
+            "n": 41,
+            "gewonnen": 0,
+            "median_kandidat": 1.9973,
+            "median_benchmark": 3.0871
+          },
+          {
+            "start_jahr": 2008,
+            "n": 16,
+            "gewonnen": 0,
+            "median_kandidat": 2.5336,
+            "median_benchmark": 3.4744
+          }
+        ],
+        "median_kandidat": 2.8008,
+        "median_benchmark": 3.3601,
+        "vorsprung_pp": -55.92,
+        "gewonnen": 3,
+        "disjunkte_bloecke": 3,
+        "schlimmster_kandidat_maxdd": -0.2714
       }
     }
   },
