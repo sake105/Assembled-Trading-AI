@@ -1362,3 +1362,100 @@ Der Folgeschaden ist **asymmetrisch**: fuer jede falsch getrennte Spalte greift 
 4. **Die Merkmale, die in die Entscheidung eingehen, gehoeren ins Protokoll** — nicht nur in den Kommentar ueber der Konstante.
 **Erkannt in:** Stage-2-Review (F-senior-3) zu `panel_getrennt.py` und `ABSCHLUSS.md`.
 **Referenzen:** E-115 (dieselbe Klasse, eine Stufe grober), E-107, E-083.
+
+## E-118 — Kontrollgruppe zerstoerte zwei Dinge und sollte nur eines pruefen
+**Datum:** 2026-08-05
+**Kategorie:** false-control / zwei-ursachen
+**Was passierte:** Die Zufallskontrolle zu `preis>SMA200` sollte genau eine Frage beantworten: zaehlt das TIMING der Marktpausen, oder nur die Zeit ausserhalb? Dafuer wurden die An/Aus-Bloecke des echten Gates genommen und ihre Reihenfolge permutiert.
+
+Beim Permutieren koennen zwei gleichwertige Bloecke nebeneinander landen und **verschmelzen**. Die Kontrollgruppe bekam dadurch weniger und laengere Episoden als das echte Gate — die Laengenmultimenge `[1,1,1,2,3,3,...]` wurde zu `[1,3,3,3,4,4]`. Der investierte Anteil blieb exakt gleich, die Episodenstruktur nicht.
+
+Der Begleittext im Befund behauptete trotzdem woertlich „gleiche Zahl Episoden, gleiche Laengenverteilung, nur anderes Timing". Zwei der drei Zusicherungen waren falsch.
+
+**Warum falsch:** Eine Kontrollgruppe ist nur dann eine Kontrolle, wenn sie sich in **genau einer** Eigenschaft vom Kandidaten unterscheidet. Aendert sie zwei, misst die Differenz beide gleichzeitig und laesst sich keiner Ursache zuordnen. Besonders tueckisch ist der Fall hier, weil die Richtung des zweiten Effekts unklar ist: laengere Pausen koennen die Kontrolle staerker oder schwaecher machen: das Ergebnis war also weder konservativ noch optimistisch, sondern uninterpretierbar.
+
+Die korrigierte Fassung (Wertfolge behalten, nur die Laengen INNERHALB jeder Wertklasse permutieren) erhaelt Anteil, Episodenzahl und Laengenverteilung exakt und verschiebt ausschliesslich, wann die langen und kurzen Episoden liegen. Sie fiel schaerfer aus als die fehlerhafte (0/60 statt 1/60 erreichen den Kandidaten) — der Fehler hatte also gegen den Kandidaten gewirkt, was ihn nicht harmloser macht, nur zufaellig unauffaellig.
+
+**Wie vermeiden:**
+1. **Die erhaltenen Groessen einer Kontrolle als Zusicherung TESTEN**, nicht im Docstring behaupten. Ein Test auf „Anteil, Anzahl und Laengenverteilung unveraendert" hat den Fehler hier gefunden, bevor die Zahl in ein Dokument wanderte.
+2. **Bei jeder Permutation fragen, ob benachbarte Elemente verschmelzen koennen.** Laufkodierte Daten (Runs, Bloecke, Segmente) tun das fast immer.
+3. **Formulieren, was die Kontrolle NICHT veraendert, und jedes Element der Liste einzeln pruefen.** Wer drei Dinge zusichert, braucht drei Assertions.
+4. **Ein Fehler, der gegen den eigenen Kandidaten wirkt, ist kein kleinerer Fehler** — er faellt nur nicht durch ein zu gutes Ergebnis auf.
+**Erkannt in:** eigenem Test `test_mischen_erhaelt_anteil_anzahl_und_laengen` waehrend der Testerstellung zu P13d.
+**Referenzen:** E-083 (Bereinigung erzeugt den gesuchten Effekt), E-107, E-079.
+
+## E-119 — Ein Rueckgabefeld, das wie ein Messwert heisst und eine Konstante ist
+**Datum:** 2026-08-05
+**Kategorie:** false-evidence / konstante-als-messwert
+**Was passierte:** `run_buy_and_hold` in `research/mandat2/engine.py` gibt `n_trades=1` **fest verdrahtet** zurueck — die Schwesterfunktion `run_strategy` zaehlt an derselben Stelle echt mit. Der erste Entwurf von P13 uebernahm `r.n_trades` in Ausgabe und Artefakt.
+
+Im Trockenlauf stand deshalb „Trades 1" unter einem SMA200-Filter ueber 22 Jahre, der nachweislich neunmal kauft und neunmal verkauft. Die Zahl war nicht falsch gerundet oder ungenau, sie war ueberhaupt keine Messung.
+
+**Warum falsch:** Ein benanntes Feld in einem Ergebnisobjekt ist eine Zusicherung. Wer es uebernimmt, berichtet eine Konstante als Befund, und niemand sieht es dem Artefakt spaeter an. Die Konstante ist im Kontext ihrer eigenen Funktion sogar vertretbar (Buy-and-Hold kauft einmal) — sie wird erst falsch, sobald dieselbe Funktion einen optionalen Parameter bekommt, der das Verhalten aendert (`risk_off_gate`). Das Feld ist mit dem Parameter nicht mitgewachsen.
+
+**Wie vermeiden:**
+1. **Vor der Uebernahme eines Rueckgabefelds einmal die Quelle lesen.** Ein `grep` auf den Feldnamen in der erzeugenden Funktion kostet Sekunden.
+2. **Plausibilitaet gegen die Fachlogik pruefen:** ein Trendfilter mit einem einzigen Trade ueber 22 Jahre ist kein Trendfilter. Auffaellige Werte sind billiger zu pruefen als stille.
+3. **Statt die Logik nachzubauen, die Engine instrumentieren** (E-102): den Bestand vor und nach dem Aufruf vergleichen. Eine Nachbildung waere eine zweite Buchungswahrheit gewesen und haette die internen Frueh-Returns (`notional <= 0`, `EPS_QTY`) nicht gekannt.
+4. **Optionale Parameter, die das Verhalten aendern, verpflichten zur Pruefung aller Rueckgabefelder** — nicht nur derer, die man gerade braucht.
+**Erkannt in:** Trockenlauf vor dem eigentlichen P13-Lauf (auffaellige Zahl, dann Quelle gelesen).
+**Referenzen:** E-102 (instrumentieren statt schaetzen), E-109 (Text nennt anderen Massstab als der Code).
+
+## E-120 — Ueberholte Methodik kopiert, weil sie das naechstliegende Geschwistermodul war
+**Datum:** 2026-08-05
+**Kategorie:** logic-error / verworfene-methode-verlaengert
+**Was passierte:** `p13e_dsr_pbo_spy.py` wurde bewusst als Kopie von `p7_dsr_pbo.py` gebaut, mit der ausdruecklichen Begruendung im eigenen Docstring: „ein eigener Weg waere hier eine dritte Wahrheit und wuerde die Vergleichbarkeit zerstoeren".
+
+P7 war zu diesem Zeitpunkt bereits durch `p8_dsr_heterogen.py` ersetzt und im eigenen Fehlerlog als **E-077** protokolliert: Varianz aus der Klonfamilie, CSCV auf Klonspalten. Die Kopie erbte exakt den Fehler, der die Kampagne drei Tage zuvor davon abgehalten hatte, den Holdout-Schuss auszuloesen — und veroeffentlichte darauf ein „DSR bestanden ✅, p = 0,9974".
+
+Auf dem gueltigen Schaetzer (heterogenes V aus P8, 1,328e-04 statt 1,503e-05) steigt die Schwelle von 0,0140 auf 0,0415 und p faellt auf **0,7838** — durchgefallen. Die Klonvarianz war 8,8-fach zu klein.
+
+Verschaerfend: Der Befundtext stellte die eigenen 0,9974 aus der Klonfamilie neben die 0,9512 des Aktien-Kandidaten aus der HETEROGENEN Familie und leitete daraus eine „Symmetrie" ab („jeder hat eine Haelfte bestanden"). Zwei verschiedene Schaetzer, verglichen zugunsten des eigenen Kandidaten. Auf gleichem Fundament liegt der neue Kandidat schlechter.
+
+**Warum falsch:** Vergleichbarkeit mit einem frueheren Lauf ist nur dann ein Wert, wenn der fruehere Lauf noch gilt. Rule 50 („keine zweite Wahrheit") schuetzt vor divergierenden **Implementierungen**, nicht vor der Wiederverwendung einer verworfenen **Methode**. Wer den ueberholten Stand kopiert, erzeugt keine Konsistenz, sondern verlaengert einen bekannten Fehler in einen neuen Befund — und tarnt ihn als Disziplin. Die Begruendung klingt dabei genau wie die richtige.
+
+**Wie vermeiden:**
+1. **Vor dem Kopieren eines Moduls das Fehlerlog nach dem Dateinamen greppen** (`Erkannt in:`-Zeilen). Ein Treffer ist ein Stoppschild, kein Hinweis.
+2. **Pruefen, ob ein Nachfolgemodul existiert** (`p7` -> `p8`) und ob dessen Docstring eine Entscheidungsregel festschreibt. Die gilt dann auch fuer den neuen Kandidaten.
+3. **Bei Korrekturverfahren muessen `n_trials` und `variance_across_trials` dieselbe Bezugsgroesse haben.** Das ist eine Eigenschaft der FAMILIE, nicht des Kandidaten, und wird beim Kopieren nicht automatisch mitgeprueft.
+4. **Kennzahlen zweier Kandidaten nur zitieren, wenn sie mit demselben Schaetzer entstanden sind.** Sonst ist der Vergleich eine Aussage ueber die Schaetzer.
+5. **Bei Zweifel alle Varianten rechnen und die konservativste als Entscheidungsgrundlage kennzeichnen** — hier: drei Schaetzer im Artefakt, `entscheidungsfaehig` als Flag je Eintrag.
+**Erkannt in:** Stage-2-Review (F-senior-1, BLOCKER) zu `p13e_dsr_pbo_spy.py`.
+**Referenzen:** E-077 (der geerbte Fehler), E-078, Rule 50.
+
+## E-121 — Invariante auf der Signalebene getestet, auf der Portfolioebene behauptet
+**Datum:** 2026-08-05
+**Kategorie:** test-anti-pattern / ebenenwechsel
+**Was passierte:** Nach E-118 wurde die Zufallskontrolle korrigiert und mit einem Test abgesichert, der Anteil, Blockzahl und Laengenverteilung der GATE-Serie prueft. Der Befundtext uebernahm die Zusicherung woertlich fuer die Strategie: „Exakt erhalten bleiben Anteil investierter Tage, Zahl der Episoden und deren Laengenverteilung."
+
+Die Engine liest das Gate aber nur an Monatsenden. Zwischen Signal und Wirkung liegt ein Sampling-Schritt, der die Erhaltung nicht durchreicht. Nachgemessen (Instrumentierung von `Portfolio.set_date`): der echte Filter war an 66,3 % der Tage investiert, die 60 Zufallslaeufe an 62,4–67,3 %. Die Groesse streut also um rund 5 pp, statt exakt zu sein.
+
+Der Befund wurde daraufhin getrennt: „auf Signalebene exakt erhalten" gegen „auf Portfolioebene gemessen 62,4–67,3 %". Inhaltlich stuetzt die Messung das Ergebnis sogar — der echte Filter ist MEHR im Markt als der typische Zufallslauf, sein Vorsprung stammt also nicht aus zusaetzlicher Abwesenheit. Das war vorher aber nicht gewusst, sondern angenommen.
+
+**Warum falsch:** Eine Invariante gilt an der Stelle, an der sie gemessen wurde. Ein Test, der die Zusicherung eine Ebene unterhalb der Behauptung prueft, erzeugt Sicherheit fuer eine Aussage, die er nicht deckt — schaedlicher als gar kein Test, weil er den Vorbehalt aktiv verdraengt. Genau dieselbe Klasse wie E-118, eine Ebene tiefer.
+
+**Wie vermeiden:**
+1. **Die Zusicherung dort messen, wo sie im Text steht.** Bei Portfolio-Aussagen die realisierte Groesse aus dem Lauf ins Artefakt schreiben, nicht die Signalgroesse.
+2. **Bei jeder Kontrollgruppe die Kette Signal -> Konsum -> Wirkung durchgehen** und fragen, an welcher Stelle ein Sampling, ein Guard oder ein Frueh-Return die Erhaltung bricht. Rebalance-Termine, Mindesthaltedauern und Kostenschwellen tun das regelmaessig.
+3. **Faustregel: steht im Befund „exakt erhalten", muss es genau dafuer eine Assertion auf DERSELBEN Ebene geben.** Sonst heisst es „auf Ebene X erhalten" — mit Nennung von X.
+**Erkannt in:** Stage-2-Review (F-senior-4) zu `p13d_zufallstiming.py`.
+**Referenzen:** E-118 (dieselbe Klasse, eine Ebene hoeher), E-078, E-102.
+
+## E-122 — Halb generiertes Dokument: Tabelle nachgerechnet, Fliesstext getippt
+**Datum:** 2026-08-05
+**Kategorie:** other / falsche-zusicherung
+**Was passierte:** `BEFUND_SPY_TREND.md` wird generiert und traegt im Kopf die Zusicherung „jede Zahl hier hat einen Schluessel dort". Ein starker Drift-Guard rechnet die Bandtabelle Zeile fuer Zeile aus den Artefakten nach.
+
+Im Fliesstext daneben standen handgetippte Zahlen: „12 bis 56 Buchungen" (Artefakte: 6…56 ohne, 6…62 mit Verzoegerung — die getippte Spanne war die einer einzigen Definition, waehrend die Schlussfolgerung ueber alle drei lief), „144" viermal, „acht der zwoelf" obwohl `MINDEST_KETTE` eigens als Konstante extrahiert worden war, und „3.529" direkt neben dem gerenderten Feld mit demselben Wert. Zusaetzlich las das Dokument den LIVE-Trial-Zaehler statt des im Artefakt eingefrorenen.
+
+Die einzige Zahl, die tatsaechlich gegen die Artefakte driftete, lag im ungeschuetzten Teil — und war von dort bereits nach `ABSCHLUSS.md` weiterkopiert worden.
+
+**Warum falsch:** Ein Dokument mit Generierungs-Kopfzeile und Drift-Guard sagt dem Leser: hier ist nichts von Hand. Trifft das nur fuer einen Teil zu, ist die Zusicherung schlechter als keine — sie lenkt die Pruefung genau auf den bereits geschuetzten Bereich. Fliesstextzahlen wandern zudem erfahrungsgemaess in Zusammenfassungen weiter, wo sie keinen Guard mehr haben.
+
+**Wie vermeiden:**
+1. **Im Renderer keine Ziffer als Literal** — auch nicht „144", nicht als Wort („acht") und nicht als Tausenderpunkt-Duplikat einer bereits gerenderten Zahl.
+2. **Abgeleitete Groessen ableiten, nicht tippen:** Fensterzahl aus dem Artefakt, Ueberlappung aus `FENSTER_JAHRE * 12`, Spannen aus `min`/`max` ueber die Zeilen.
+3. **Live gelesene Zustaende gehoeren nicht in ein Dokument, das aus Artefakten reproduzierbar sein soll.** Ein Zaehler, der zwischen Lauf und Rendern weiterlaeuft, macht das Dokument unreproduzierbar.
+4. **Drift-Guard ueber den Fliesstext ausdehnen** oder die Kopfzusicherung auf das einschraenken, was tatsaechlich geprueft wird.
+**Erkannt in:** Stage-2-Review (F-senior-5) zu `render_befund_p13.py` und `ABSCHLUSS.md`.
+**Referenzen:** E-085, E-116, E-117.

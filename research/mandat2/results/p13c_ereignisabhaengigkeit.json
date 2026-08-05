@@ -1,0 +1,58 @@
+{
+  "fenster_apriori": 200,
+  "schwelle": -0.3,
+  "warmlauf": {
+    "fenster_klein": 100,
+    "fenster_gross": 320,
+    "erster_gueltiger_klein": "1995-05-24",
+    "erster_gueltiger_gross": "1996-04-08",
+    "differenz_tage": 320,
+    "differenz_monate": 10.5
+  },
+  "ZERO": {
+    "krisenfenster": {
+      "n": 144,
+      "median_kandidat": 2.5250153631439836,
+      "median_benchmark": 1.9479915797080838,
+      "median_vorsprung_pp": 57.70237834358998,
+      "gewonnen": 140
+    },
+    "ruhige_fenster": {
+      "n": 0,
+      "median_kandidat": null,
+      "median_benchmark": null,
+      "median_vorsprung_pp": null,
+      "gewonnen": null
+    },
+    "schwelle": -0.3,
+    "benchmark_dd_verteilung": {
+      "schlimmster": -0.5517592635955788,
+      "mildester": -0.47502300877500925,
+      "median": -0.5517592635955788
+    },
+    "n_fenster": 144
+  },
+  "PRIVAT_DE": {
+    "krisenfenster": {
+      "n": 144,
+      "median_kandidat": 2.1957487739780923,
+      "median_benchmark": 1.870495242027158,
+      "median_vorsprung_pp": 32.525353195093444,
+      "gewonnen": 138
+    },
+    "ruhige_fenster": {
+      "n": 0,
+      "median_kandidat": null,
+      "median_benchmark": null,
+      "median_vorsprung_pp": null,
+      "gewonnen": null
+    },
+    "schwelle": -0.3,
+    "benchmark_dd_verteilung": {
+      "schlimmster": -0.5234785609492206,
+      "mildester": -0.4472545400709549,
+      "median": -0.5234785609492206
+    },
+    "n_fenster": 144
+  }
+}

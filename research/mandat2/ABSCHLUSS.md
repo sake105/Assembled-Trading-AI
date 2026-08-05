@@ -49,6 +49,14 @@ durchfällt.
 Damit ist die Kampagne auf diesem Suchraum beendet. Jedes weitere Nachjustieren
 erhöht N und damit die Schwelle; man kann sich hier nicht mehr freisuchen.
 
+> **Nachtrag 2026-08-05:** Ein *anderer* Suchraum wurde seither geprüft und
+> ebenfalls geschlossen — SPY mit Trendfilter, ohne jede Namensauswahl. Er
+> besteht alle Robustheitstests, an denen der Kandidat oben gescheitert ist —
+> scheitert aber an beiden Hälften der Mehrfachtest-Korrektur (DSR 0,7838 auf
+> dem gültigen Schätzer, PBO 68,6 %). Kein Holdout-Schuss. Siehe „Der letzte
+> Strang" weiter unten. Damit hat **kein** Kandidat der Kampagne die
+> Mehrfachtest-Korrektur bestanden.
+
 ---
 
 ## Was trotzdem gilt — sieben belastbare Befunde
@@ -279,7 +287,89 @@ liegt jetzt bei 500 und ist aus der Verteilung hergeleitet; der Bereich
 
 ---
 
+## Der letzte Strang: SPY mit Trendfilter — an DSR und PBO gescheitert (Nachtrag 2026-08-05)
+
+**Das reaktiviert den Aktien-Kandidaten nicht.** Er bleibt an der DSR
+gescheitert, und der Suchraum „20 Namen aus dem S&P" bleibt geschlossen. Was
+hier geöffnet wird, ist ein **anderer** Suchraum, und zwar der einzige, den
+die Befunde 6 und 7 nicht entwerten: auf beiden Seiten steht derselbe
+Basiswert. SPY mit Filter gegen SPY ohne — keine Auswahl, also kein
+Survivorship, kein Ticker-Recycling, keine Gewichtungsfrage.
+
+Anlass war die Datenlage: Der EODHD-Zugang besteht nicht mehr, Tagesdaten mit
+Delisting-Kursen sind auf absehbare Zeit nicht beschaffbar (siehe unten). Die
+Frage war also, welcher Strang **ohne neue Daten** überhaupt noch entscheidbar
+ist. P4 hatte die Antwort seit Wochen in einem Kontrollblock stehen, ohne sie
+als Kandidaten zu behandeln.
+
+Vollständige Zahlen und alle Einschränkungen: `BEFUND_SPY_TREND.md` (generiert
+aus `results/p13*.json`). Kurzfassung:
+
+| Test | Ergebnis | |
+|---|---|---|
+| Fenster-Band, steuerfrei (Schnitt beider Läufe) | 9/12, 11/12, 9/12 · längste lückenlose Kette **9 / 11 / 4** | ✅ |
+| andere Trend-Definitionen | alle drei bestehen, aber `rendite>0` nur lückig (Kette 4) | ⚠️ |
+| Ausführung einen Tag später | Band bleibt, teils breiter | ✅ |
+| Zufalls-Timing, 60 Ziehungen | 0/60 erreichen den Filter, p = 0,016 | ✅ |
+| Steuerwelt PRIVAT_DE | 5/12 bis 7/12 | ⚠️ |
+| Steuerwelt GmbH + 3.500 €/J Fixkosten | 0/12 bis 2/12 | ❌ |
+| **Ereignisunabhängigkeit** | **0 von 144 Fenstern ohne Bärenmarkt** | ⚠️ |
+| **DSR, heterogenes V (Regel aus P8), N = 3.529** | Sharpe 0,0522 gegen Schwelle 0,0415 → **p = 0,7838** | ❌ |
+| DSR, IID-Gegenprobe | p = 0,6105 | ❌ |
+| ~~DSR, V aus der Klonfamilie~~ | ~~p = 0,9974~~ — **nicht entscheidungsfähig (E-077)** | — |
+| **PBO (CSCV, 8 Blöcke, 70 Splits)** | **68,6 %** | ❌ |
+| Holdout | **kein Schuss** — beide Korrekturen gerissen | — |
+
+Der Filter besteht die Zielfunktion nicht knapp, sondern deutlich, und keine
+der billigen Widerlegungen greift. Er scheitert trotzdem an **beiden** Hälften
+der Mehrfachtest-Korrektur.
+
+Der erste Entwurf von `p13e` war eine Kopie von `p7_dsr_pbo.py` — dem Modul,
+das in diesem Repo als **E-077** verworfen und durch `p8_dsr_heterogen.py`
+ersetzt wurde. Er schätzte die Varianz aus 37 Fast-Klonen derselben Strategie,
+senkte damit die Schwelle von 0,0415 auf 0,0140 und meldete „DSR bestanden".
+Auf dem gültigen Schätzer fällt p von 0,9974 auf **0,7838**. Rule 50 schützt
+vor divergierenden Implementierungen, nicht vor der Wiederverwendung einer
+verworfenen Methode.
+
+Damit ist auch der Vergleich mit dem Aktien-Kandidaten geklärt, und er fällt
+zu Ungunsten dieses Kandidaten aus: Auf demselben Schätzer kam jener auf
+0,9512 (formal bestanden, Münzwurf am Rand) und starb erst an der
+IID-Gegenprobe; dieser liegt mit 0,7838 deutlich darunter. Eine frühere
+Fassung dieses Nachtrags stellte 0,9974 aus der Klonfamilie neben jene 0,9512
+aus der heterogenen Familie und leitete daraus eine „Symmetrie" ab — zwei
+verschiedene Schätzer, verglichen zugunsten des eigenen Kandidaten.
+
+PBO ist zudem nach unten verzerrt: E-077 hält fest, dass CSCV heterogene
+Spalten voraussetzt und bei Fast-Klonen zu niedrige Werte liefert. 68,6 %
+unter dieser Verzerrung ist ein deutlicherer Fehlschlag, als die Zahl
+nahelegt. Die Regel stand vor dem Lauf — alle Kriterien oder keines.
+
+Selbst ein bestandener PBO hätte den Strang nicht entschieden. Das mildeste
+der 144 rollierenden Fenster enthält einen Rückgang von 47,5 %; die Stichprobe
+kann „Trendfolge wirkt" nicht von „Trendfolge hat 2000–2002 und 2008 umgangen"
+trennen. Die effektive Stichprobe für den Mechanismus sind zwei Ereignisse,
+nicht 144 Fenster. Ein besserer Test bräuchte Daten vor 1995 oder andere
+Märkte — Beschaffungs-, keine Forschungsfrage.
+
+Das Ergebnis zur GmbH ist unabhängig davon verwertbar und bestätigt Befund 3
+aus anderer Richtung: Ein Filter, der über das Raster 6 bis 62 Buchungen
+erzeugt, trägt die Fixkosten der Rechtsform bei diesem Kapitaleinsatz nicht.
+
+Trial-Stand nach P13/P13b: **3.529** kampagnenweit (+216). P13c (Zerlegung),
+P13d (Kontrollgruppe) und P13e (Korrektur) zählen nicht mit — keines davon ist
+eine Suche (E-090). Für Wiederholungsläufe nach einem Bugfix haben P13 und
+P13b jetzt einen `--regen`-Schalter, der das Increment überspringt; ohne ihn
+hätte jede Neugenerierung der Artefakte erneut 216 Trials addiert.
+
+---
+
 ## Was offen bleibt
+
+**Der EODHD-Zugang besteht nicht mehr** (Stand 2026-08-05). Damit ist jede
+Beschaffungsfrage unten bis auf Weiteres blockiert — nicht durch eine
+Forschungsentscheidung, sondern durch fehlenden Datenzugang. Was ohne neue
+Daten noch entscheidbar war, ist im P13-Strang oben abgearbeitet.
 
 **Tagesdaten mit Delisting-Kursen sind weiterhin nicht beschafft.** Befund 6
 nennt sie als den Weg, auf dem die SPY-Frage überhaupt entscheidbar wäre; P12g
