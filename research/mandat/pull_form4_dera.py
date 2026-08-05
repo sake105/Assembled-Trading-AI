@@ -170,10 +170,28 @@ def lade_quartal(jahr: int, quartal: int) -> pd.DataFrame | None:
             )
         return df[spalten]
 
-    sub = lies("SUBMISSION.tsv", SUB_SPALTEN)
+    return aufbereiten(
+        lies("SUBMISSION.tsv", SUB_SPALTEN),
+        lies("NONDERIV_TRANS.tsv", TRANS_SPALTEN),
+        lies("REPORTINGOWNER.tsv", OWNER_SPALTEN),
+        jahr,
+        quartal,
+    )
+
+
+def aufbereiten(
+    sub: pd.DataFrame,
+    trans: pd.DataFrame,
+    owner: pd.DataFrame,
+    jahr: int,
+    quartal: int,
+) -> pd.DataFrame:
+    """Die drei TSV-Tabellen zu gerichteten Transaktionen verbinden.
+
+    Als reine Funktion herausgezogen: die Tests pruefen sonst nur die fertigen
+    Parquets, nicht den Code, der sie erzeugt (Stage-1-Befund).
+    """
     sub = sub[sub["DOCUMENT_TYPE"].isin(["4", "4/A"])]
-    trans = lies("NONDERIV_TRANS.tsv", TRANS_SPALTEN)
-    owner = lies("REPORTINGOWNER.tsv", OWNER_SPALTEN)
 
     df = trans.merge(sub, on="ACCESSION_NUMBER", how="inner")
     # Ein Filing kann mehrere Meldepflichtige haben (Cluster-Kaeufe!). Die
@@ -208,7 +226,13 @@ def lade_quartal(jahr: int, quartal: int) -> pd.DataFrame | None:
     )
     for c in ("TRANS_SHARES", "TRANS_PRICEPERSHARE"):
         df[c.lower()] = pd.to_numeric(df[c], errors="coerce")
-    df["symbol"] = df["ISSUERTRADINGSYMBOL"].astype(str).str.strip().str.upper()
+    # `astype(str)` macht aus fehlenden Werten die Strings "nan"/"None" — die
+    # sehen wie Ticker aus, werden als Symbole mitgezaehlt und wuerden bei
+    # jedem Join Zehntausende Zeilen unter einem Phantom-Ticker sammeln.
+    # Gemessen ueber alle 81 Quartale: 49.271 Zeilen (NONE 36.772, NAN 12.458,
+    # NA 32, N/A 9). Fehlend bleibt hier fehlend; ISSUERCIK traegt den Fall.
+    sym = df["ISSUERTRADINGSYMBOL"].astype("string").str.strip().str.upper()
+    df["symbol"] = sym.mask(sym.isin(["NAN", "NONE", "NA", "N/A", ""]))
     df["quartal"] = f"{jahr}Q{quartal}"
     return df
 

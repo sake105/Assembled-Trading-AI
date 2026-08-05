@@ -16,6 +16,22 @@ kostenlos. Das sind zusaetzlich 1929, 1937, 1973/74 und 1987 — vier weitere
 unabhaengige Baerenmaerkte, und zwar aus CRSP-Daten, also konstruktionsbedingt
 survivorship-frei. Kein Retail-Anbieter verkauft das guenstiger als gratis.
 
+WIE WEIT DIE ZAHL 338 TRAEGT — UND WIE WEIT NICHT
+--------------------------------------------------
+Gemessen auf dieser Reihe: ueber 1926–2026 sind **338 von 1.080** rollierenden
+10-Jahres-Fenstern krisenfrei (Rueckgang schwaecher als 30 %), im Suchfenster
+1995–2016 dagegen **0 von 144**. Beides unabhaengig nachgerechnet.
+
+Die 338 sind aber **monatlich ueberlappend** und stammen aus nur vier
+zusammenhaengenden Bloecken (grob 1940–1960, 1974–1977, 1987–1991,
+2008–2010). Nicht-ueberlappend bleiben rund **fuenf** krisenfreie Fenster.
+
+Was die Zahl also traegt: dass 1995–2016 ein Sonderfall ist und die lange
+Reihe ueberhaupt krisenfreie Perioden enthaelt. Was sie NICHT traegt:
+"338 unabhaengige Belege". Wer daraus Signifikanz ableitet, wiederholt
+E-078 — die effektive Stichprobe ist die Zahl der unabhaengigen Ereignisse,
+nicht die der Fenster.
+
 WAS HIER NICHT PASSIERT
 -----------------------
 Kein Test, keine Hypothese, kein Trial-Increment (E-090). Das hier beschafft
@@ -73,21 +89,18 @@ def hole(url: str, timeout: int = 90) -> bytes:
         return r.read()
 
 
-def fama_french() -> dict:
-    """Taegliche Marktrendite ab 1926 als Kursreihe.
+def parse_ff_text(text: str) -> pd.DataFrame:
+    """Rohtext der Fama-French-CSV in eine Kursreihe uebersetzen.
 
-    Die CSV hat einen mehrzeiligen Kopf und am Ende einen zweiten Block mit
-    Jahresdaten. Beides wird abgeschnitten, indem nur Zeilen mit achtstelligem
-    Datum uebernommen werden — robuster als eine feste Zeilenzahl, die sich mit
-    jedem Update verschiebt.
+    Als reine Funktion herausgezogen, weil die Tests sonst nur die fertigen
+    Parquets pruefen und der Parser selbst ungetestet bliebe — eine Aenderung
+    hier waere dann regressionsfrei moeglich, solange niemand neu zieht
+    (Stage-1-Befund: sechs von neun Code-Mutationen ueberlebten aus genau
+    diesem Grund).
     """
-    roh = hole(FF_TAEGLICH)
-    with zipfile.ZipFile(io.BytesIO(roh)) as z:
-        text = z.read(z.namelist()[0]).decode("latin-1")
-
     zeilen = []
-    for z_ in text.splitlines():
-        teile = [t.strip() for t in z_.split(",")]
+    for zeile in text.splitlines():
+        teile = [t.strip() for t in zeile.split(",")]
         if len(teile) >= 5 and teile[0].isdigit() and len(teile[0]) == 8:
             zeilen.append(teile[:5])
     if not zeilen:
@@ -95,6 +108,9 @@ def fama_french() -> dict:
 
     df = pd.DataFrame(zeilen, columns=["datum", "mkt_rf", "smb", "hml", "rf"])
     df["datum"] = pd.to_datetime(df["datum"], format="%Y%m%d")
+    # Die Quelle liefert PROZENT. Ohne die Division waere jede Tagesrendite um
+    # Faktor 100 zu gross — die Kursreihe saehe monoton steigend trotzdem
+    # plausibel aus.
     for c in ("mkt_rf", "smb", "hml", "rf"):
         df[c] = pd.to_numeric(df[c], errors="coerce") / 100.0
     df = df.dropna(subset=["mkt_rf", "rf"]).set_index("datum").sort_index()
@@ -103,6 +119,28 @@ def fama_french() -> dict:
     # damit die bestehende Engine sie wie einen Kurs behandeln kann.
     df["mkt"] = df["mkt_rf"] + df["rf"]
     df["index"] = (1.0 + df["mkt"]).cumprod() * 100.0
+    return df
+
+
+def fama_french() -> dict:
+    """Taegliche Marktrendite ab 1926 als Kursreihe.
+
+    Die CSV hat einen mehrzeiligen Kopf, der abgeschnitten wird, indem nur
+    Zeilen mit achtstelligem Ziffern-Datum uebernommen werden — robuster als
+    eine feste Zeilenzahl, die sich mit jedem Update verschiebt.
+
+    KORREKTUR (Stage-1-Review): Ein frueherer Kommentar behauptete hier
+    zusaetzlich einen angehaengten JAHRES-Block. Das ist fuer diese Datei
+    **falsch** — nachgemessen liefern lockerer und strenger Filter exakt
+    dieselben 26.274 Zeilen. Der Jahresblock steckt in der MONATLICHEN
+    Variante der Quelle, nicht in der taeglichen. Der Filter bleibt trotzdem
+    streng: er kostet nichts und schuetzt, falls die Quelle das Format
+    angleicht.
+    """
+    roh = hole(FF_TAEGLICH)
+    with zipfile.ZipFile(io.BytesIO(roh)) as z:
+        text = z.read(z.namelist()[0]).decode("latin-1")
+    df = parse_ff_text(text)
     return {
         "datei": "fama_french_daily.parquet",
         "df": df,
