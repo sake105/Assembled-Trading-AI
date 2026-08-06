@@ -1334,3 +1334,62 @@ auf −60 %.
 Eine Wiederaufnahme verlangt eine neue DATENQUELLE, nicht eine neue Auslegung
 dieses Verdikts. Die §4.6.1-These ist auf echten Small Caps getestet worden —
 der Vorbehalt aus H-053 ist ausgeraeumt, und die Antwort ist negativ.
+
+## Welle 48 (registriert 2026-08-06, VOR Datenbeschaffung und VOR jeder Kursbetrachtung) — Geopolitik/Akteurs-Ereignisse: Universum und Regel
+
+**Auftrag Hans (2026-08-06):** Handel auf schnelle, gerichtete Aussagen einzelner Akteure neu
+untersuchen — ausdruecklich als Wiedervorlage, nachdem H-039 (News-VOLUMEN-Proxy, monatlich,
+Sektorkorb) etwas anderes gemessen hatte als die These meint.
+
+**Schritt 0 (erledigt, `research/geopolitik/schritt0_praemissen.json`):** Beide Anker-Beispiele
+verifiziert. Dell: Ereignistage +1,9 % / +13,1 % (Folgetag −5,2 %), die erinnerten +271 % sind
+ueberwiegend fundamental. Iran: +1,10 % Schluss-zu-Schluss ueber die Ankuendigungsnacht, Folgetag
++0,06 % — nach dem ersten handelbaren Kurs praktisch nichts. Praemisse teilweise bestaetigt;
+Erinnerung selektiert nachweislich Treffer. Deshalb hier: erinnerungsfreies Universum.
+
+### Datenquelle (Schritt 1, KEIN Trial — reine Beschaffung)
+
+`trumpstruth.org` — oeffentliches Volltext-Archiv ALLER Truth-Social-Posts des Akteurs, ~40.600
+Stueck, fortlaufende IDs, minutengenaue Zeitstempel. robots.txt: alles erlaubt. Vollscrape ueber
+ID-Walk, resumefaehig, ~1,2 s Abstand. Es wird ALLES gezogen — keine Stichwortauswahl beim Pull,
+sonst waere die Erinnerungs-Selektion nur in die Query verschoben.
+
+**Offene Verifikation vor jeder Analyse:** Zeitzone der Archiv-Zeitstempel (vermutlich ET) gegen
+ein extern dokumentiertes Ereignis pruefen (Waffenruhe-Post 23.06.2025 ~18 Uhr ET).
+
+### Die Ereignis-Regel — mechanisch, aus dem Posttext allein, HIER fixiert
+
+**Regel A (Einzeltitel):** Ein Post ist ein Ereignis auf Ticker T, wenn der Text den Namen genau
+EINES Unternehmens aus der vorab fixierten Namensliste enthaelt (Liste = S&P-500-Mitglieder
+2022–2026 aus dem Verdict-Panel plus deren gebraeuchliche Kurznamen; wird als Artefakt committet,
+BEVOR Kurse angelegt werden). Richtung +1, wenn mindestens ein Wort aus
+{buy, invest, great, best, tremendous, incredible, deal, approved, winner} enthalten ist und KEIN
+Wort aus {tariff, tariffs, sue, suing, investigate, investigation, boycott, against, fire, fired,
+crooked, failing}; Richtung −1 im Spiegelfall; bei Mischung oder keinem Treffer: KEIN Ereignis.
+Keine nachtraeglichen Wortlisten-Aenderungen — die Listen stehen hier und sind damit verbraucht.
+
+**Regel B (Makro):** Ein Post ist ein Ereignis auf SPY, wenn er mindestens ein Wort aus der
+Deeskalationsliste {ceasefire, peace deal, end the war, truce, agreement reached} (Richtung +1)
+ODER der Eskalationsliste {strike, strikes, attack, bombing, tariff, tariffs, sanctions, blockade}
+(Richtung −1) enthaelt; bei Woertern aus beiden Listen: KEIN Ereignis.
+
+**Beide Regeln bewusst grob.** Der Zweck ist Erinnerungsfreiheit und Vorab-Fixierung, nicht
+Eleganz. Eine bessere Klassifikation waere eine NEUE Registrierung mit neuem N — nicht eine
+stille Verbesserung dieser.
+
+### Was daraus folgt (Schritt 2/3, separat, erst nach dem Pull)
+
+Schritt 2: je Ereignis erster handelbarer Kurs NACH dem Zeitstempel (Boersenkalender; Posts
+ausserhalb der Handelszeit -> naechste Eroeffnung; Eroeffnungsluecke wird als NICHT handelbar
+ausgewiesen). Schritt 3: Ereignisstudie, Ueberrendite gegen SPY (Regel A) bzw. gegen 0 (Regel B)
+ueber 1 T / 5 T (Tagesdaten; 1 h erst, wenn je Intraday-Daten vorhanden), t-Statistik,
+Kontrollgruppe aus zufaelligen Zeitpunkten desselben Tickers.
+
+**Abbruchkriterium (vorab):** In Schritt 3 signierte Ueberrendite nicht > 0 mit t > 2 in
+mindestens einem der zwei Horizonte, in beiden Regel-Klassen -> These tot, kein Schritt 4, Feld
+zu. Trials: Schritt 1/2 = 0. Schritt 3 = +2 (eine je Regel-Klasse), gebucht VOR dem Lauf.
+
+**Prior — ehrlich:** H-039 FAIL, Fable R5 (GPR) NULL, Short-Seite ohnehin zu (Guardrail 4 +
+„Short zahlt nie"). Schritt 0 zeigt handelbare Reste nahe null beim Makro-Fall und
+Nicht-Reproduzierbarkeit beim Einzeltitel-Fall. Die Erwartung ist FAIL; der Wert des Laufs ist,
+dass erstmals die AUSSAGEN selbst (nicht News-Volumen) mit Minutenstempel getestet werden.
