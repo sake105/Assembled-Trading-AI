@@ -1,0 +1,57 @@
+{
+  "registriert": "Welle 48, Abbruchkriterium vorab",
+  "A": {
+    "regel": "A",
+    "n_ereignisse": 165,
+    "gap_nicht_handelbar_median": 0.00044,
+    "gap_nicht_handelbar_mittel": -0.00036,
+    "horizonte": {
+      "1T": {
+        "n": 164,
+        "mittel_pp": 0.074,
+        "t": 0.52,
+        "kontrolle_mittel_pp": 0.063,
+        "kontrolle_n": 3300,
+        "pass_t2": false
+      },
+      "5T": {
+        "n": 159,
+        "mittel_pp": -0.409,
+        "t": -1.03,
+        "kontrolle_mittel_pp": -0.017,
+        "kontrolle_n": 3299,
+        "pass_t2": false
+      }
+    }
+  },
+  "B": {
+    "regel": "B",
+    "n_ereignisse": 367,
+    "gap_nicht_handelbar_median": -0.00115,
+    "gap_nicht_handelbar_mittel": -0.00073,
+    "horizonte": {
+      "1T": {
+        "n": 366,
+        "mittel_pp": -0.062,
+        "t": -1.04,
+        "kontrolle_mittel_pp": -0.056,
+        "kontrolle_n": 7340,
+        "pass_t2": false
+      },
+      "5T": {
+        "n": 365,
+        "mittel_pp": -0.141,
+        "t": -1.17,
+        "kontrolle_mittel_pp": -0.207,
+        "kontrolle_n": 7340,
+        "pass_t2": false
+      }
+    }
+  },
+  "verdikt": {
+    "a_besteht": false,
+    "b_besteht": false,
+    "these_lebt": false,
+    "regel_text": "Abbruch, wenn KEINE Klasse in mindestens einem Horizont signierte Ueberrendite > 0 mit t > 2 zeigt."
+  }
+}

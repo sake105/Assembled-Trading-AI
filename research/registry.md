@@ -1427,3 +1427,30 @@ AAPL/"Apple" als echte Mehrdeutigkeiten. Traegt die Kontrollgruppe, so registrie
 
 Schritt 2/3 (erster handelbarer Kurs, Ereignisstudie mit Kontrollgruppe) = naechster Schritt,
 +2 Trials werden VOR dem Lauf gebucht, Abbruchkriterium steht in der Hauptregistrierung.
+
+### Ergebnis Welle 48 (2026-08-07, N=3.537) — **FAIL in beiden Klassen. Feld zu.**
+
+Ereignisstudie auf dem erinnerungsfreien Universum, Einstieg = erster Schluss nach dem Post,
+signierte Ueberrendite, Kontrollgruppe = 20 Zufallstage desselben Tickers je Ereignis:
+
+| Klasse | n | 1T | 5T | Kontrolle 1T |
+|---|---:|---|---|---|
+| A (Einzeltitel) | 165 | +0,074 pp (t=0,52) | −0,409 pp (t=−1,03) | +0,063 pp |
+| B (Makro/SPY) | 367 | −0,062 pp (t=−1,04) | −0,141 pp (t=−1,17) | −0,056 pp |
+
+**Der entscheidende Vergleich: Posttage sind von Zufallstagen nicht zu unterscheiden.**
+Regel A 1T: +0,074 pp nach dem Ereignis gegen +0,063 pp an beliebigen Tagen desselben Tickers.
+Kein Horizont erreicht t > 2, mehrere haben das falsche Vorzeichen. Auch der NICHT handelbare
+Teil (Gap bis zum Einstiegsschluss) ist im Median winzig (+0,04 % / −0,12 %) — der
+durchschnittliche Post bewegt schon vor dem ersten handelbaren Kurs fast nichts. Die erinnerten
+Grossereignisse (Dell +13 %, Waffenruhe) sind reale Ausreisser in einem Universum, dessen
+Durchschnitt Rauschen ist — exakt die Selektionsverzerrung, die Schritt 0 vorhergesagt hat.
+
+Das vorab registrierte Abbruchkriterium greift: **kein Schritt 4, das Feld ist zu.** Eine
+Wiederaufnahme braeuchte Intraday-Daten UND eine neue, engere Ereignisdefinition — als NEUE
+Registrierung mit neuem N, nicht als Nachbesserung dieser.
+
+**Buchungs-Offenlegung:** Der Erstlauf buchte +2 und brach an einem tz-Fehler ab; der
+Reparatur-Patch meldete Erfolg, aber der main()-Ersatz griff nicht (stiller
+str.replace-No-Match) — der Neulauf buchte erneut +2. Stand 3.537 statt 3.535; append-only,
+nicht zurueckgeschrieben. Dieselbe Klasse wie E-129, diesmal im Patch-Werkzeug.
