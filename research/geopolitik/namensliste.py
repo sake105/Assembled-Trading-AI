@@ -90,10 +90,16 @@ def suchnamen(firmenname: str) -> list[str]:
     if not woerter:
         return []
     voll = " ".join(woerter)
+    # REVISION 2026-08-07, VOR jedem Kurskontakt (Welle 48 Nachtrag):
+    # Die erste Fassung erzeugte zusaetzlich das ERSTE WORT als Alias.
+    # Ergebnis auf dem Vollarchiv: "America First" -> First Solar (357),
+    # "Deep State" -> State Street (351), "Fake News" -> News Corp (318),
+    # "the best" -> Best Buy (262), "Witch Hunt" -> J.B. Hunt (94).
+    # Alltagswoerter als Alias sind keine Firmennennungen. Es bleibt NUR der
+    # volle bereinigte Name; Einwort-Namen (Dell, Apple, Nvidia) bleiben,
+    # weil der volle Name selbst ein Wort ist. Die Restambiguitaet echter
+    # Einwort-Namen (Apple, Target) bleibt dokumentiertes Rauschen.
     aus = [voll]
-    # Erstes Wort allein, wenn lang genug und nicht generisch
-    if len(woerter) > 1 and len(woerter[0]) >= MIN_LAENGE:
-        aus.append(woerter[0])
     return [a for a in aus if len(a) >= MIN_LAENGE or a in AUSNAHMEN]
 
 
@@ -137,6 +143,34 @@ def main() -> int:
                 namen_map = {n: t for n, t in namen_map.items() if n.lower() != k}
             else:
                 namen_map[s] = str(z["symbol"])
+    # REVISION 2026-08-07 Teil 2, weiterhin VOR jedem Kurskontakt:
+    # Suffix-Bereinigung reduziert manche Firmennamen auf Alltagswoerter
+    # ("American International Group" -> "American": 1.086 Fake-Treffer;
+    # "News Corporation" -> "News": 450; "Southern Company" -> "Southern").
+    # Kursblindes Kriterium: Einwort-Namen, die zu den 500 haeufigsten
+    # Woertern des ARCHIVS selbst gehoeren, sind Sprachgebrauch, keine
+    # Firmennennung. Schwelle 500 hier einmalig fixiert. Das Kriterium nutzt
+    # nur Posttexte, keine Kurse — es bleibt ergebnisblind.
+    import glob as _glob
+    import re as _re
+    from collections import Counter
+
+    chunks = sorted(_glob.glob(str(HIER / "data" / "trumpstruth" / "chunk_*.parquet")))
+    if chunks:
+        texte = pd.concat(
+            [pd.read_parquet(c, columns=["text"]) for c in chunks], ignore_index=True
+        )["text"].fillna("")
+        haeufig = Counter()
+        for t in texte:
+            haeufig.update(_re.findall(r"[a-z']+", t.lower()))
+        top500 = {w for w, _ in haeufig.most_common(500)}
+        vorher = len(namen_map)
+        entfernt = [n for n in namen_map if " " not in n and n.lower() in top500]
+        namen_map = {n: t for n, t in namen_map.items() if n not in entfernt}
+        print(
+            f"Top-500-Filter: {vorher - len(namen_map)} Einwort-Namen entfernt "
+            f"({', '.join(sorted(entfernt)[:8])}...)"
+        )
     for k, v in AUSNAHMEN.items():
         if v:
             namen_map[k] = v

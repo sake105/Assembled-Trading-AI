@@ -1,0 +1,40 @@
+{
+  "posts": 40631,
+  "mit_text": 30730,
+  "a_firmentreffer": 800,
+  "a_mehrere_firmen": 25,
+  "a_ohne_richtung": 474,
+  "a_gemischt": 49,
+  "a_ereignisse": 252,
+  "b_treffer": 894,
+  "b_beide_listen": 24,
+  "b_ereignisse": 870,
+  "zeitraum": [
+    "2022-02-14 10:54:00",
+    "2026-08-06 22:17:00"
+  ],
+  "a_richtung_pos": 180,
+  "a_richtung_neg": 72,
+  "a_ticker_unique": 39,
+  "a_top_ticker": {
+    "SO": 114,
+    "POOL": 17,
+    "COO": 12,
+    "INTC": 10,
+    "TGT": 9,
+    "BA": 8,
+    "AAPL": 8,
+    "XYZ": 7,
+    "WMB": 7,
+    "MCD": 6
+  },
+  "b_richtung_pos": 59,
+  "b_richtung_neg": 811,
+  "ereignisse_je_jahr": {
+    "2022": 41,
+    "2023": 147,
+    "2024": 202,
+    "2025": 467,
+    "2026": 265
+  }
+}

@@ -1393,3 +1393,37 @@ zu. Trials: Schritt 1/2 = 0. Schritt 3 = +2 (eine je Regel-Klasse), gebucht VOR 
 „Short zahlt nie"). Schritt 0 zeigt handelbare Reste nahe null beim Makro-Fall und
 Nicht-Reproduzierbarkeit beim Einzeltitel-Fall. Die Erwartung ist FAIL; der Wert des Laufs ist,
 dass erstmals die AUSSAGEN selbst (nicht News-Volumen) mit Minutenstempel getestet werden.
+
+### Welle 48 — Nachtrag (2026-08-07): Schritt 1 abgeschlossen, zwei Revisionen VOR Kurskontakt
+
+**Scrape komplett:** 40.631 Posts, 2022-02-14 bis 2026-08-06, 0 echte Luecken (die 19
+protokollierten sind noch nicht vergebene IDs am oberen Rand). **Zeitzone verifiziert:** der
+Waffenruhe-Post (Status 31624) traegt "June 23, 2025, 6:02 PM" — extern dokumentiert 18:02 ET,
+minutengenau. Alle Archiv-Stempel sind ET. (Praezisierung zu Schritt 0: der Post kam 18:02 ET,
+zwei Stunden nach Boersenschluss — nicht 1 Uhr nachts; das war das Inkrafttreten. Fazit
+unveraendert: ausserhalb der Handelszeit.)
+
+**Zwei Revisionen der Namensliste, beide VOR jedem Kurskontakt und beide kursblind:**
+1. Der Erstes-Wort-Alias erzeugte Muell aus Alltagswoertern ("America First" -> First Solar 357,
+   "Deep State" -> State Street 351, "Fake News" -> News Corp 318, "Witch Hunt" -> J.B. Hunt 94).
+   Alias gestrichen; nur der volle bereinigte Name zaehlt.
+2. Suffix-Bereinigung reduziert manche Namen selbst auf Alltagswoerter ("American International
+   Group" -> "American": 1.086 Fake-Treffer). Kursblinder Filter: Einwort-Namen, die zu den 500
+   haeufigsten Woertern des Archivs gehoeren, fliegen raus (traf genau "American" und "News").
+   Schwelle 500 einmalig fixiert.
+
+**Bekanntes Restrauschen, dokumentiert und BEWUSST nicht weiter wegrevidiert** (jede weitere
+Anpassung waere Tuning): SO/"Southern" (114 Treffer, ueberwiegend "Southern Border"), TGT/"Target",
+AAPL/"Apple" als echte Mehrdeutigkeiten. Traegt die Kontrollgruppe, so registriert.
+
+**Das Universum (ereignisse.parquet, 1.122 Ereignisse):**
+* Regel A (Einzeltitel): 252 — davon 180 positiv, 72 negativ, 39 Ticker. Top: SO 114 (Rauschen),
+  POOL 17, COO 12, INTC 10, TGT 9, BA 8, AAPL 8.
+* Regel B (Makro/SPY): 870 — davon nur 59 positiv (Deeskalation), 811 negativ (Eskalation:
+  strike/tariff/attack). **Deployability-Hinweis vorab: die negative Seite verlangt Shorts, und
+  die Short-Seite ist zu (Guardrail 4). Die Ereignisstudie misst trotzdem beide Richtungen —
+  Analyse ist nicht Handel.**
+* Je Jahr: 2022: 41+, 2023: 147+, 2024: 202+, 2025: 467+, 2026: 265+ (Regel A; B analog steigend).
+
+Schritt 2/3 (erster handelbarer Kurs, Ereignisstudie mit Kontrollgruppe) = naechster Schritt,
++2 Trials werden VOR dem Lauf gebucht, Abbruchkriterium steht in der Hauptregistrierung.
