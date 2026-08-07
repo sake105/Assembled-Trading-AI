@@ -1,0 +1,84 @@
+{
+  "registriert": "Welle 48b, post-hoc auf Auftrag, +2 vorab",
+  "hinweis_e078": "250-Tage-Fenster desselben Tickers ueberlappen massiv; t-Werte sind nach oben verzerrt. Ein Bestehen waere eine NEUE Hypothese, kein Wiederaufleben von Welle 48.",
+  "A": {
+    "regel": "A",
+    "n_ereignisse": 165,
+    "gap_nicht_handelbar_median": 0.00044,
+    "gap_nicht_handelbar_mittel": -0.00036,
+    "horizonte": {
+      "20T": {
+        "n": 154,
+        "mittel_pp": -0.303,
+        "t": -0.42,
+        "kontrolle_mittel_pp": 0.312,
+        "kontrolle_n": 3300,
+        "pass_t2": false
+      },
+      "60T": {
+        "n": 138,
+        "mittel_pp": 1.423,
+        "t": 1.02,
+        "kontrolle_mittel_pp": 0.621,
+        "kontrolle_n": 3300,
+        "pass_t2": false
+      },
+      "120T": {
+        "n": 128,
+        "mittel_pp": 2.992,
+        "t": 1.26,
+        "kontrolle_mittel_pp": 1.422,
+        "kontrolle_n": 3300,
+        "pass_t2": false
+      },
+      "250T": {
+        "n": 100,
+        "mittel_pp": -0.868,
+        "t": -0.28,
+        "kontrolle_mittel_pp": 3.724,
+        "kontrolle_n": 3299,
+        "pass_t2": false
+      }
+    }
+  },
+  "B": {
+    "regel": "B",
+    "n_ereignisse": 367,
+    "gap_nicht_handelbar_median": -0.00115,
+    "gap_nicht_handelbar_mittel": -0.00073,
+    "horizonte": {
+      "20T": {
+        "n": 357,
+        "mittel_pp": -1.164,
+        "t": -5.1,
+        "kontrolle_mittel_pp": -0.77,
+        "kontrolle_n": 7340,
+        "pass_t2": false
+      },
+      "60T": {
+        "n": 335,
+        "mittel_pp": -4.835,
+        "t": -13.65,
+        "kontrolle_mittel_pp": -2.212,
+        "kontrolle_n": 7340,
+        "pass_t2": false
+      },
+      "120T": {
+        "n": 302,
+        "mittel_pp": -9.605,
+        "t": -19.82,
+        "kontrolle_mittel_pp": -4.49,
+        "kontrolle_n": 7340,
+        "pass_t2": false
+      },
+      "250T": {
+        "n": 232,
+        "mittel_pp": -19.335,
+        "t": -24.1,
+        "kontrolle_mittel_pp": -9.855,
+        "kontrolle_n": 7340,
+        "pass_t2": false
+      }
+    }
+  }
+}

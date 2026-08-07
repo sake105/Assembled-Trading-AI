@@ -1454,3 +1454,42 @@ Registrierung mit neuem N, nicht als Nachbesserung dieser.
 Reparatur-Patch meldete Erfolg, aber der main()-Ersatz griff nicht (stiller
 str.replace-No-Match) — der Neulauf buchte erneut +2. Stand 3.537 statt 3.535; append-only,
 nicht zurueckgeschrieben. Dieselbe Klasse wie E-129, diesmal im Patch-Werkzeug.
+
+### Welle 48b (registriert 2026-08-07, VOR dem Lauf) — Post-hoc-Horizonterweiterung auf Auftrag
+
+**Auftrag Hans:** auch mittel- und langfristige Wirkungen pruefen. Das ist eine POST-HOC-
+Erweiterung nach gefallenem Abbruchkriterium und wird so behandelt: dieselben Ereignisse,
+dieselben Konventionen, Horizonte **20 / 60 / 120 / 250 Handelstage**. Kumulatives N: **+2**
+(eine je Regel-Klasse), gebucht VOR dem Lauf.
+
+**Was ein Bestehen hier bedeuten wuerde — und was nicht:** Das Feld bleibt unter der
+urspruenglichen Registrierung ZU. Ein t > 2 auf langen Horizonten waere eine NEUE Hypothese
+("Aussagen wirken verzoegert"), die eine eigene Registrierung mit eigener Validierung braucht —
+kein Wiederaufleben der alten. Das steht hier, BEVOR die Zahlen existieren.
+
+**Bekannte Schwaeche vorab (E-078):** Bei 250-Tage-Fenstern ueberlappen die Ereignisse desselben
+Tickers massiv; die t-Statistiken sind dann nach oben verzerrt. Ausgewiesen wird deshalb
+zusaetzlich die Zahl nicht-ueberlappender Ereignisse je Horizont. Panel endet 2026-07-08 —
+lange Horizonte verlieren die juengsten Ereignisse, n je Horizont wird ausgewiesen.
+
+### Ergebnis Welle 48b (2026-08-07, N=3.539) — FAIL auf allen Horizonten; die grossen t-Werte sind Artefakte
+
+| Klasse | 20T | 60T | 120T | 250T |
+|---|---|---|---|---|
+| A (n bis 154) | −0,30 pp (t=−0,4) | +1,42 pp (t=1,0) | +2,99 pp (t=1,3) | −0,87 pp (t=−0,3) |
+| B (n bis 357) | −1,16 pp (t=−5,1) | −4,84 pp (t=−13,7) | −9,61 pp (t=−19,8) | −19,34 pp (t=−24,1) |
+
+**Regel A:** nirgends t > 2; die positiven Mittelwerte bei 60/120T liegen nahe der Kontrolle
+(Markt-Drift), 250T dreht negativ. Kein verzoegerter Effekt.
+
+**Regel B — Warnung vor Fehldeutung:** Die spektakulaeren |t|-Werte sind DOPPELT verzerrt.
+(1) E-078 wie vorab registriert: 232 Ereignisse mit 250-Tage-Fenstern in 4,5 Jahren ueberlappen
+massiv — effektiv sind das eine Handvoll Makro-Episoden, nicht 232 Beobachtungen. (2) Die
+Eskalations-Posts clustern 2025 (Zoelle); danach kam der Absturz UND die kraeftige Erholung.
+Das negative Vorzeichen heisst uebersetzt: **wer auf Eskalations-Posts hin den Markt verliess
+oder short ging, verlor ueber Monate massiv — SPY stieg nach Zoll-Posts staerker als nach
+Zufallstagen.** Das als konträres Kaufsignal zu lesen waere eine NEUE, post-hoc gedrehte
+Hypothese aus genau einer Episode — sie wird hier benannt und NICHT verfolgt.
+
+Unter dem registrierten Kriterium (signiert > 0, t > 2): FAIL ueberall. Das Feld bleibt zu —
+jetzt auch fuer die Langfrist-Lesart.
