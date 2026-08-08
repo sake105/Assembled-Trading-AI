@@ -1641,3 +1641,44 @@ Das Artefakt berichtete die **Blockzahl** (4) und aggregierte Kennzahlen ueber a
 3. **Faustregel:** steht in der Registrierung ein „massgeblich ist X", muss X ein Schluessel im Ergebnis-JSON sein.
 **Erkannt in:** Stage-2-Review (F-senior-3) zu `h087_trendfilter_lang.py` und `registry.md` Welle 47.
 **Referenzen:** E-078, E-085, E-116.
+
+## E-132 — Der Guard schloss einen Ausfallpfad und liess die gleichgerichteten Nachbarn offen
+**Datum:** 2026-08-08
+**Kategorie:** silent-except / fail-open-nachbarn
+**Was passierte:** Im Odd-Lot-Scanner wurde ein still beruhigender Ausfallmodus geschlossen (HTTP 200 ohne `hits` → SystemExit statt „[OK] 0 Treffer"). In derselben Funktion blieben zwei Pfade mit identischer Fail-Richtung offen: die 100er-Deckelung der EDGAR-Antwort (`hits.total.value` wurde nie gelesen — live gemessen: 273 Treffer vorhanden, 100 geliefert, Ausgabe waere „[OK] 100 Treffer") und das ungedeckte Zeitfenster bei einem Lauf-Aussetzer laenger als `RUECKBLICK_TAGE` (`stand` wurde geschrieben, aber nie gelesen).
+
+**Warum falsch:** Ein Guard gegen einen konkreten Ausfall erzeugt den Eindruck, die Fehlerklasse sei erledigt. Erledigt ist nur der Pfad, den der ausloesende Vorfall beleuchtet hat. Ausfallmodi, die auf „unauffaellig" fallen, treten selten einzeln auf — sie teilen die Ursache (unvalidierte Fremdantwort, implizite Betriebsannahme).
+
+**Wie vermeiden:**
+1. Beim Schliessen eines Fail-Open-Pfades die **uebrigen Ausgaenge derselben Funktion durchzaehlen** und je Ausgang fragen: welche Ausgabe entsteht bei Stoerung?
+2. Jede Zaehlgroesse gegen die **vom Anbieter gemeldete Gesamtzahl** pruefen (total vs. geliefert).
+3. Jedes geschriebene Zustandsfeld **entweder auch lesen oder nicht schreiben**.
+**Erkannt in:** Stage-2-Review (F-senior-1/2) zu `scripts/ops/oddlot_forward_scanner.py`.
+**Referenzen:** E-103.
+
+## E-133 — Erzaehlung committet, Zaehlerstand nicht: die Zahl ist im Repo nicht herleitbar
+**Datum:** 2026-08-08
+**Kategorie:** wiring-gap / zaehler-uncommittet
+**Was passierte:** Commit `b0bc8b8c` schrieb „Welle 48b … N=3.539" in Registry und Commit-Message, liess aber `research/mandat2/trials.json` (die erzeugende Zaehlerdatei) uncommittet. Ein Folge-Commit uebernahm 3.539 in den Ledger als Autoritaetsaussage. Im committeten Stand stand der Zaehler auf 3.533.
+
+**Warum falsch:** Bei einem monoton wachsenden Zaehler ist der **Dateizustand** die Wahrheit, nicht der Prosatext. Bleibt er uncommittet, divergieren beide lautlos, und ein Verwerfen des Working Tree vergibt bereits benutzte Nummern erneut — dieselbe Kollisionsklasse (H-086), gegen die der betroffene Ledger-Nachtrag gerade die Regel festschrieb.
+
+**Wie vermeiden:**
+1. Zaehler-, Sequenz- und Manifestdateien gehoeren **in denselben Commit** wie jede daraus zitierte Zahl.
+2. Vor dem Committen einer abgeleiteten Zahl den Zaehlerstand **aus dem INDEX lesen** (`git show HEAD:pfad`), nicht aus dem Working Tree.
+**Erkannt in:** Stage-2-Review (F-senior-4) zu `research/ledger.md` + `research/mandat2/trials.json`.
+**Referenzen:** E-090, E-125, E-129.
+
+## E-134 — Entwarnung im Freigabe-Dokument, ohne das zitierte Audit-Artefakt zu oeffnen
+**Datum:** 2026-08-08
+**Kategorie:** false-evidence / erinnerung-als-befund
+**Was passierte:** Der Pilot-Umstellungsplan erklaerte 12 Reconcile-FAILs als „unterhalb des Schwellen-Gates, bekanntes Verhalten". `output/ops/reconciliation_audit.jsonl` enthaelt 431 fail-Zeilen mit Werten AUF oder UEBER den Fail-Schwellen (cash_diff_bps bis 526,3 gegen Gate 25,0; max_qty_diff 15,0 gegen 10,0; `reconciliation.py:66-69`); die Zahl 12 kommt darin nicht vor, und der zitierte saubere SLO-Eval war drei Tage aelter als das Dokument.
+
+**Warum falsch:** Die Formulierung stammte aus einer **korrekten Projekt-Erinnerung** („Reconcile-CLI-FAILED ist nicht das Halt-Kriterium", Juli-Vorfall) und wurde auf einen neuen, ungeprueften Sachverhalt uebertragen. Ein plausibles Muster aus dem Gedaechtnis liest sich wie ein Befund, ist aber keiner — und in einem Dokument, das jemand unterschreiben soll, wird aus der Erinnerung eine Zusicherung. Genau die Entwarnung ohne Evidenz, die CLAUDE.md („Keine falsche Sicherheit") verbietet.
+
+**Wie vermeiden:**
+1. Jede Entwarnung ueber ein Gate nennt **drei Dinge aus der Datei**: Zeitstempel der juengsten Auswertung, gemessenen Wert, geltenden Schwellwert mit Fundstelle im Code.
+2. Faellt eines davon aus, wird die Lage als **offen** beschrieben, nicht als „bekannt".
+3. Erinnerungen (Memory, fruehere Sessions) sind Hypothesen ueber den Ist-Zustand — vor dem Zitieren in Freigabe-Dokumenten **gegen das aktuelle Artefakt pruefen**.
+**Erkannt in:** Stage-2-Review (F-senior-3, BLOCKER) zu `docs/PILOT_UMSTELLUNG_PLAN.md`.
+**Referenzen:** E-085, E-122.

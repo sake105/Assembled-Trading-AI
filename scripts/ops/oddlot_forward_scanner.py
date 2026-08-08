@@ -23,8 +23,8 @@ Operator-Entscheidung, nicht Teil dieses Skripts).
 from __future__ import annotations
 
 import json
+import os
 import sys
-import time
 import urllib.parse
 import urllib.request
 from datetime import date, timedelta
@@ -53,6 +53,24 @@ def suche(von: str, bis: str) -> list[dict]:
     req = urllib.request.Request(f"{BASIS}?{q}", headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=60) as h:  # noqa: S310
         d = json.loads(h.read().decode("utf-8"))
+    total = d.get("hits", {}).get("total", {}).get("value")
+    geliefert = len(d.get("hits", {}).get("hits", []))
+    if total is not None and total > geliefert:
+        # EDGAR deckelt bei 100 Treffern. Ohne diesen Abgleich fiele der Rest
+        # still weg und die Ausgabe bliebe "[OK] 100 Treffer" — dieselbe
+        # Fail-Open-Richtung wie der Drossel-Pfad darunter (E-132).
+        raise SystemExit(
+            f"[ERROR] EDGAR meldet {total} Treffer, liefert aber nur "
+            f"{geliefert} — Fenster verkleinern oder paginieren."
+        )
+    if "hits" not in d:
+        # HTTP 200 mit Fehler-/Drossel-JSON sah sonst aus wie ein leerer
+        # Markt — ein wochenlang gedrosselter Scanner meldete "[OK] 0
+        # Treffer" (E-103). Ein ECHTES leeres hits-Array bleibt gueltig.
+        raise SystemExit(
+            f"[ERROR] EDGAR-Antwort ohne 'hits'-Feld — vermutlich gedrosselt "
+            f"oder Schema geaendert: {str(d)[:200]}"
+        )
     aus = []
     for t in d.get("hits", {}).get("hits", []):
         s = t.get("_source", {})
@@ -71,13 +89,41 @@ def suche(von: str, bis: str) -> list[dict]:
 def main() -> int:
     ZIEL.parent.mkdir(parents=True, exist_ok=True)
     bekannt: dict = {}
+    alter_stand: str | None = None
     if ZIEL.exists():
-        bekannt = json.loads(ZIEL.read_text(encoding="utf-8")).get("faelle", {})
+        alt = json.loads(ZIEL.read_text(encoding="utf-8"))
+        bekannt = alt.get("faelle", {})
+        alter_stand = alt.get("stand")
 
     bis = date.today()
     von = bis - timedelta(days=RUECKBLICK_TAGE)
-    treffer = suche(von.isoformat(), bis.isoformat())
-    time.sleep(0.5)  # SEC-Hoeflichkeit
+    # "stand" wurde frueher geschrieben und nie gelesen — ein Aussetzer
+    # laenger als das Rueckblickfenster verlor Filings dauerhaft und lautlos
+    # (E-132). Jetzt: Fenster rueckwirkend ab dem letzten Stand oeffnen.
+    if alter_stand:
+        letzter = date.fromisoformat(alter_stand)
+        if (bis - letzter).days > RUECKBLICK_TAGE:
+            von = letzter
+            print(
+                f"[WARN] Scanner lief zuletzt {alter_stand} — Fenster "
+                f"rueckwirkend geoeffnet ({von}..{bis}). Bei >100 Treffern "
+                f"bricht der Deckel-Guard laut ab.",
+                flush=True,
+            )
+    # In Scheiben <= RUECKBLICK_TAGE abfragen: ein rueckwirkend geoeffnetes
+    # Fenster koennte sonst >100 Treffer haben -> Deckel-Guard -> Abbruch VOR
+    # dem Write -> "stand" bliebe alt -> jeder Folgelauf braeche wieder ab
+    # (selbstverstaerkend, Stage-3-Fund zu E-132). Scheiben halten jede
+    # Einzelantwort unter dem Deckel (Basisrate ~18 Filings/60 Tage).
+    treffer, gesehen_acc = [], set()
+    start = von
+    while start < bis:
+        ende = min(start + timedelta(days=RUECKBLICK_TAGE), bis)
+        for t in suche(start.isoformat(), ende.isoformat()):
+            if t["accession"] not in gesehen_acc:  # Scheibengrenzen ueberlappen
+                gesehen_acc.add(t["accession"])
+                treffer.append(t)
+        start = ende
 
     neu = 0
     for t in treffer:
@@ -88,7 +134,11 @@ def main() -> int:
             bekannt[acc] = t
             neu += 1
 
-    ZIEL.write_text(
+    # Atomar schreiben: die Watchlist ist gitignored und der EINZIGE
+    # Speicherort der manuellen geprueft-Flags. Ein Abbruch mitten im Write
+    # wuerde sie sonst irreversibel verstuemmeln.
+    tmp = ZIEL.with_suffix(".tmp")
+    tmp.write_text(
         json.dumps(
             {
                 "hinweis": (
@@ -104,6 +154,7 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
+    os.replace(tmp, ZIEL)
     offen = sum(1 for f in bekannt.values() if not f.get("geprueft"))
     print(
         f"[OK] {len(treffer)} Treffer im Fenster, {neu} neu, "

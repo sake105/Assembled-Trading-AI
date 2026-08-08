@@ -11,7 +11,7 @@ Konsument versehentlich den falschen liest (Follow-up aus dem Stage-3-Audit zu
 |---|---|---|---|
 | **DERA (autoritativ)** | `research/mandat/data/form4_dera/` | 17.134 Emittenten, 2006Q1–2026Q1, 8,31 Mio Zeilen | **maßgeblich** für alle neuen Arbeiten |
 | form4_broad (legacy) | `research/mandat/data/form4_broad/` | 921 Symbole (S&P-Historie), 2012–2026 | **nicht autoritativ** — zeitlich und universumsseitig vollständig in DERA enthalten |
-| Core-Ingester-Bestand | `data/raw/insider_congress/form4_insider_full.parquet` | 180 Symbole, ab 2003 | Produktionspfad des Core-Ingesters; einzige Quelle mit **ACCEPTANCE-Minute** |
+| Core-Ingester-Bestand | `data/raw/insider_congress/form4_insider_full.parquet` | 260 distinkte Symbole im Parquet (Pull-Universum war 195, Manifest: 180 gezogen; die Differenz sind Cross-Issuer-Zeilen und spaetere Ergaenzungen), ab 2003 | Produktionspfad des Core-Ingesters; einzige Quelle mit **ACCEPTANCE-Minute** |
 
 ## Warum form4_broad nicht gelöscht wird
 
