@@ -1598,3 +1598,28 @@ Result-JSONs; Kopien `results/h029_results.fix_seed0/42.json`, `h031_results.fix
   PASS bleibt in beiden Fällen false (DSR-Fail). E-051 damit für ALLE Verdict-Screens vollständig
   geschlossen: keine bekannte PYTHONHASHSEED-Abhängigkeit mehr. `h029_results.json`/
   `h031_results.json` = neuer deterministischer Stand (byte-gleich zu beiden Seed-Läufen).
+
+---
+
+## NACHTRAG 2026-08-08 — Mandat II im Ledger + Autoritaet der H-Nummernvergabe
+
+**Warum dieser Eintrag existiert:** Der Ledger endete bei Welle 45 und kannte Mandat II nicht.
+Genau daraus entstand am 2026-08-05 die **H-086-Kollision**: wer die naechste freie Nummer in
+`registry.md` suchte, sah H-085 und uebersah das hier vergebene H-086 (Vorabpauschale). Die neue
+Trendfilter-Hypothese musste nachtraeglich auf H-087 umbenannt werden.
+
+**Regel ab jetzt (Autoritaet):** H-Nummern werden GEGEN BEIDE Dateien geprueft —
+`grep -ohE "H-0[0-9]{2}" research/registry.md research/ledger.md | sort -u | tail` liefert die
+hoechste vergebene Nummer. Vergeben sind bis heute: **H-001..H-088** (H-086 = Vorabpauschale,
+2026-07-22; H-087 = Trendfilter-Langzeit; H-088 = Insider-DERA).
+
+**Mandat II in Kurzform (Detail: `research/mandat2/ABSCHLUSS.md`, append-only dort):**
+- P1–P13e, Wellen 46–48b, Trials 1.964 -> 3.539 kumuliert.
+- Kein Kandidat bestand die Mehrfachtest-Korrektur. Holdout unangetastet.
+- Felder geschlossen: Aktienauswahl (DSR), SPY-Trendfilter (DSR+PBO; H-087: verliert ohne
+  Dauerkrise 0 von 338 Fenstern), Insider (H-088: unter Zufallskorb), Geopolitik/Akteurs-Posts
+  (Welle 48/48b: Posttage = Zufallstage, Langfrist-Anti-Signal aus einer Episode).
+- Sieben Befunde in ABSCHLUSS.md, darunter: Datenbasis traegt keinen SPY-Vergleich
+  (Survivorship 2,36–2,90 pp bei 1,5 pp Marge); Ticker ist kein Schluessel (Befund 7).
+- Neue Datenbestaende: SEC-DERA Form 4 (17.134 Emittenten, 2006–2026), CRSP-Marktreihe ab 1926,
+  Truth-Social-Vollarchiv (40.631 Posts). Anti-Patterns E-107..E-131.

@@ -35,3 +35,18 @@
 
 **Aktuelle Nr.-1-Beobachtung: Staatl. Mineralbrunnen (positiver Spread — vor HV; Deal-Break-Risiko
 beachten, HV-Beschluss abwarten wäre die konservative Variante, kostet vermutlich den Spread).**
+
+---
+
+## Nachtrag 2026-08-08 — Termin-Update (Kurse NICHT aktualisierbar: EODHD-Zugang beendet)
+
+* **Staatl. Mineralbrunnen AG: HV am 20.08.2026 bestaetigt** (in 12 Tagen; Quelle:
+  spruchverfahren-direkt.de, badbrueckenauer.de). Barabfindung 46,00 EUR unveraendert.
+  Das Lehrbuch-Setup aus dem Juli-Eintrag steht damit unmittelbar an — WENN der Kurs
+  weiterhin unter 46 liegt. **Kurspruefung vor jeder Entscheidung noetig** (XETRA/Frankfurt,
+  manuell — wir haben keinen Kursfeed mehr). Nach HV-Beschluss: Eintragung ins
+  Handelsregister abwarten (Wochen), dann Auszahlung + automatische Nachbesserungs-Option
+  via Spruchverfahren.
+* HHLA / capsensixx: keine Termin-Updates recherchiert; Kurse ebenfalls nicht pruefbar.
+* **Operative Luecke benannt:** Ohne Kursfeed ist die Watchlist nur noch termin-, nicht mehr
+  spread-faehig. Deutsche Kurse manuell pruefen oder guenstigen Feed beschaffen.
