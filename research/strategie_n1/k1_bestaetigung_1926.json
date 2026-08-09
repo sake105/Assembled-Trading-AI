@@ -1,0 +1,47 @@
+{
+  "registriert": "K1-Bestaetigung: E1 (gradueller Trend-Dial) auf 1926-1995 — EIN Versuch.\n\nREGISTRIERUNG (+1 Trial, vorab): Das K1-Beinahe-Ergebnis (E1 nur_trend:\nMDD -30..39 % fuer 0.3-1.2 pp CAGR auf SPY 1996-2016) wird auf VOELLIG\nDISJUNKTEN Daten geprueft: CRSP-VW-Index 1926-01..1995-12 (fama_french_\ndaily.parquet; kein Ueberlapp mit K1-Fenster oder Holdout). E-130-konform\nauf UEBERSCHUSSRENDITEN (mkt_rf): nicht investiert = risikoloser Satz.\nRegel identisch K1/E1: R = 1 wenn Kurs < 200T-Schnitt sonst 0;\nExposure = 1 - 0.6*R, 1 Tag Lag, 5 bps je Umschichtungseinheit.\nKRITERIUM (identisch K1): MDD >= 25 % besser als Buy-and-Hold UND\nCAGR-Abgabe <= 1.0 pp p.a., in GESAMT und BEIDEN Haelften\n(1926-1960 / 1961-1995). Ein FAIL hier = K1/E1 gilt als nicht bestaetigt;\nKEIN weiterer Versuch auf diesen Daten.\n",
+  "fenster": {
+    "gesamt": {
+      "strategie": {
+        "cagr_pct": 7.99,
+        "mdd_pct": -58.23
+      },
+      "buy_and_hold": {
+        "cagr_pct": 6.33,
+        "mdd_pct": -84.86
+      },
+      "mdd_verbesserung_pct": 31.4,
+      "cagr_abgabe_pp": -1.66,
+      "besteht": true
+    },
+    "h1": {
+      "strategie": {
+        "cagr_pct": 10.18,
+        "mdd_pct": -58.23
+      },
+      "buy_and_hold": {
+        "cagr_pct": 8.1,
+        "mdd_pct": -84.86
+      },
+      "mdd_verbesserung_pct": 31.4,
+      "cagr_abgabe_pp": -2.08,
+      "besteht": true
+    },
+    "h2": {
+      "strategie": {
+        "cagr_pct": 5.9,
+        "mdd_pct": -32.71
+      },
+      "buy_and_hold": {
+        "cagr_pct": 4.64,
+        "mdd_pct": -56.2
+      },
+      "mdd_verbesserung_pct": 41.8,
+      "cagr_abgabe_pp": -1.26,
+      "besteht": true
+    }
+  },
+  "verdikt": {
+    "bestaetigt": true
+  }
+}

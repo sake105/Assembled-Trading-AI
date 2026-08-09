@@ -1,0 +1,362 @@
+{
+  "registriert": "Kampagne K1 — Komposit-Risiko-Dial auf dem SPY-Kern (defensive Fusion).\n\nAUFTRAG (Hans, 2026-08-09): weg von Einsignal-Strategien — Mischungen mit\nunterschiedlichen Gewichtungen, aggressiv testen, aber diszipliniert.\n\nMOTIVATION: Die einzige je belegte positive Wirkung im Haus (H-087) war\nKRISENVERMEIDUNG — als binaeres Alles-oder-nichts-Timing aber zu teuer\n(0/338 CAGR-Siege). K1 testet die Fusion-These in dieser Richtung: drei\nRisiko-Komponenten, GEMISCHT und GRADUELL, als Exposure-Regler.\n\nREGISTRIERUNG (vor Datenkontakt fixiert; +8 Trials = 8 Gewichts-Configs;\nalle berichtet):\nKOMPONENTEN (taeglich, SPY, PIT via shift(1)):\n  R1 Trend    = 1 wenn Close < 200T-Schnitt, sonst 0\n  R2 Vol      = clip(z(20T-Realvol vs 180T), 0, 3) / 3\n  R3 Drawdown = clip(DD-Tiefe / 20 %, 0, 1)\nRISIKO = w1*R1 + w2*R2 + w3*R3;  EXPOSURE = 1 - 0.6*RISIKO  (in [0.4, 1]).\nAnwendung mit 1 Tag Verzoegerung auf SPY-Tagesrenditen; Kosten 5 bps je\nEinheit Exposure-Umschichtung.\nGEWICHTS-RASTER (fix): E1 nur_trend(1,0,0) E2 nur_vol(0,1,0)\n  E3 nur_dd(0,0,1) E4 gleich(1/3) E5 trend50(.5,.25,.25)\n  E6 vol50(.25,.5,.25) E7 dd50(.25,.25,.5) E8 trend_vol(.5,.5,0).\n  E1-E3 sind bewusst die Einsignal-Referenzen, E4-E8 die Fusion.\nFENSTER: 1996-01-01..2016-12-31 (vor dem versiegelten Holdout).\nERFOLG (vorab, DEFENSIV — nicht CAGR-Sieg): gegen Buy-and-Hold SPY:\n  (a) MaxDrawdown um >= 25 % verbessert UND (b) CAGR-Abgabe <= 1.0 pp\n  p.a. UND (c) beides haelt in BEIDEN Haelften (1996-2006 / 2007-2016)\n  separat. Bonferroni-Hinweis: 8 Configs — Sharpe-Aussagen nur mit\n  t > 2.74 zitierfaehig.\n",
+  "buy_and_hold": {
+    "gesamt": {
+      "cagr_pct": 8.21,
+      "mdd_pct": -55.19,
+      "sharpe": 0.501
+    },
+    "h1": {
+      "cagr_pct": 9.45,
+      "mdd_pct": -47.52,
+      "sharpe": 0.582
+    },
+    "h2": {
+      "cagr_pct": 6.9,
+      "mdd_pct": -55.19,
+      "sharpe": 0.424
+    }
+  },
+  "configs": {
+    "E1_nur_trend": {
+      "gewichte": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 7.42,
+          "mdd_pct": -33.62,
+          "sharpe": 0.586
+        },
+        "h1": {
+          "cagr_pct": 8.22,
+          "mdd_pct": -33.21,
+          "sharpe": 0.626
+        },
+        "h2": {
+          "cagr_pct": 6.58,
+          "mdd_pct": -33.62,
+          "sharpe": 0.541
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 39.1,
+          "cagr_abgabe_pp": 0.79,
+          "besteht": true
+        },
+        "h1": {
+          "mdd_verbesserung_pct": 30.1,
+          "cagr_abgabe_pp": 1.23,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 39.1,
+          "cagr_abgabe_pp": 0.32,
+          "besteht": true
+        }
+      },
+      "besteht": false
+    },
+    "E2_nur_vol": {
+      "gewichte": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 6.86,
+          "mdd_pct": -48.17,
+          "sharpe": 0.492
+        },
+        "h1": {
+          "cagr_pct": 6.36,
+          "mdd_pct": -48.17,
+          "sharpe": 0.467
+        },
+        "h2": {
+          "cagr_pct": 7.44,
+          "mdd_pct": -47.01,
+          "sharpe": 0.519
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 12.7,
+          "cagr_abgabe_pp": 1.35,
+          "besteht": false
+        },
+        "h1": {
+          "mdd_verbesserung_pct": -1.4,
+          "cagr_abgabe_pp": 3.09,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 14.8,
+          "cagr_abgabe_pp": -0.54,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    },
+    "E3_nur_dd": {
+      "gewichte": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 5.53,
+          "mdd_pct": -34.16,
+          "sharpe": 0.496
+        },
+        "h1": {
+          "cagr_pct": 6.5,
+          "mdd_pct": -31.97,
+          "sharpe": 0.564
+        },
+        "h2": {
+          "cagr_pct": 4.5,
+          "mdd_pct": -34.16,
+          "sharpe": 0.421
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 38.1,
+          "cagr_abgabe_pp": 2.68,
+          "besteht": false
+        },
+        "h1": {
+          "mdd_verbesserung_pct": 32.7,
+          "cagr_abgabe_pp": 2.95,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 38.1,
+          "cagr_abgabe_pp": 2.4,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    },
+    "E4_gleich": {
+      "gewichte": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 6.69,
+          "mdd_pct": -38.15,
+          "sharpe": 0.538
+        },
+        "h1": {
+          "cagr_pct": 7.11,
+          "mdd_pct": -37.96,
+          "sharpe": 0.563
+        },
+        "h2": {
+          "cagr_pct": 6.26,
+          "mdd_pct": -38.15,
+          "sharpe": 0.511
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 30.9,
+          "cagr_abgabe_pp": 1.52,
+          "besteht": false
+        },
+        "h1": {
+          "mdd_verbesserung_pct": 20.1,
+          "cagr_abgabe_pp": 2.34,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 30.9,
+          "cagr_abgabe_pp": 0.64,
+          "besteht": true
+        }
+      },
+      "besteht": false
+    },
+    "E5_trend50": {
+      "gewichte": [
+        0.5,
+        0.25,
+        0.25
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 6.88,
+          "mdd_pct": -37.02,
+          "sharpe": 0.552
+        },
+        "h1": {
+          "cagr_pct": 7.39,
+          "mdd_pct": -36.78,
+          "sharpe": 0.581
+        },
+        "h2": {
+          "cagr_pct": 6.35,
+          "mdd_pct": -37.02,
+          "sharpe": 0.521
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 32.9,
+          "cagr_abgabe_pp": 1.33,
+          "besteht": false
+        },
+        "h1": {
+          "mdd_verbesserung_pct": 22.6,
+          "cagr_abgabe_pp": 2.06,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 32.9,
+          "cagr_abgabe_pp": 0.55,
+          "besteht": true
+        }
+      },
+      "besteht": false
+    },
+    "E6_vol50": {
+      "gewichte": [
+        0.25,
+        0.5,
+        0.25
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 6.76,
+          "mdd_pct": -40.56,
+          "sharpe": 0.528
+        },
+        "h1": {
+          "cagr_pct": 6.95,
+          "mdd_pct": -40.56,
+          "sharpe": 0.54
+        },
+        "h2": {
+          "cagr_pct": 6.58,
+          "mdd_pct": -40.36,
+          "sharpe": 0.517
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 26.5,
+          "cagr_abgabe_pp": 1.45,
+          "besteht": false
+        },
+        "h1": {
+          "mdd_verbesserung_pct": 14.6,
+          "cagr_abgabe_pp": 2.5,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 26.9,
+          "cagr_abgabe_pp": 0.32,
+          "besteht": true
+        }
+      },
+      "besteht": false
+    },
+    "E7_dd50": {
+      "gewichte": [
+        0.25,
+        0.25,
+        0.5
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 6.41,
+          "mdd_pct": -37.13,
+          "sharpe": 0.53
+        },
+        "h1": {
+          "cagr_pct": 6.97,
+          "mdd_pct": -36.49,
+          "sharpe": 0.565
+        },
+        "h2": {
+          "cagr_pct": 5.83,
+          "mdd_pct": -37.13,
+          "sharpe": 0.493
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 32.7,
+          "cagr_abgabe_pp": 1.8,
+          "besteht": false
+        },
+        "h1": {
+          "mdd_verbesserung_pct": 23.2,
+          "cagr_abgabe_pp": 2.48,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 32.7,
+          "cagr_abgabe_pp": 1.07,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    },
+    "E8_trend_vol": {
+      "gewichte": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "kennzahlen": {
+        "gesamt": {
+          "cagr_pct": 7.21,
+          "mdd_pct": -40.84,
+          "sharpe": 0.547
+        },
+        "h1": {
+          "cagr_pct": 7.35,
+          "mdd_pct": -40.84,
+          "sharpe": 0.554
+        },
+        "h2": {
+          "cagr_pct": 7.08,
+          "mdd_pct": -40.2,
+          "sharpe": 0.541
+        }
+      },
+      "kriterium": {
+        "gesamt": {
+          "mdd_verbesserung_pct": 26.0,
+          "cagr_abgabe_pp": 1.0,
+          "besteht": false
+        },
+        "h1": {
+          "mdd_verbesserung_pct": 14.1,
+          "cagr_abgabe_pp": 2.1,
+          "besteht": false
+        },
+        "h2": {
+          "mdd_verbesserung_pct": 27.2,
+          "cagr_abgabe_pp": -0.18,
+          "besteht": true
+        }
+      },
+      "besteht": false
+    }
+  },
+  "verdikt": {
+    "bestehende_configs": [],
+    "kriterium": "MDD >= 25% besser UND CAGR-Abgabe <= 1pp, in gesamt+h1+h2 (vorab fixiert)"
+  }
+}
