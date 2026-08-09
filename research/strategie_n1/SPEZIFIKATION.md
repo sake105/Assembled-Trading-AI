@@ -199,3 +199,47 @@ BEIDES besteht.
 - Welches „The Global Eye"? (it-Think-Tank / FB-Magazin / Sintelix-Tool)
 - Was ist „Tabz"? (exakter Handle/URL noetig)
 - Hebraeisch-/arabischsprachige Quellen ja/nein?
+
+---
+
+## 9. Telegram-Addendum eingearbeitet (2026-08-09, zweite Recherche Hans)
+
+**Identifikation geloest:** „Tabz" = @tabzlive (63,7k Abo), „The Global Eye"
+= @tglobaleye (11,2k) — beides Telegram-OSINT-Kanaele; dazu @ClashReport
+(110k). Alle drei im Sammler (Tier C, `single_source_trigger_allowed:
+false`); The Global Eye zusaetzlich ueber die **Bluesky-AT-Protocol-API**
+(rechtlich sauberster Zugang; Spiegel-Treue zu Telegram noch zu messen).
+
+**Schritt A (sofort ausgefuehrt): BESTANDEN.** t.me/robots.txt = 404 (kein
+Verbot). Roh-HTML traegt volle ISO-Zeitstempel MIT Zeitzone
+(`<time datetime="2026-08-09T12:21:15+00:00">`) — die Preview-Route ist
+fuer Latenzmessung brauchbar. Message-IDs sauber extrahierbar; die Probe
+zeigte live eine ID-Luecke (97987->97989) = funktionierendes
+Delete-Signal.
+
+**Konstruktionsregeln (nicht verhandelbar, aus Retraction-Nachweis
+tabzlive/97959):**
+1. Edit-/Delete-Erkennung Pflicht: Dedupe-Schluessel ist (msg_id,
+   text_hash) — ein Edit erzeugt bewusst eine NEUE Archivzeile, der
+   Verlauf ist das Signal; ID-Luecken = Retraction.
+2. Telegram allein ist NIE Evidenz — mindestens eine unabhaengige
+   RSS-/GDELT-Bestaetigung.
+3. Sizing muss das Retraction-Risiko einpreisen (kein Einzelsignal-Trade).
+
+**Messprogramm (laeuft passiv im Archiv mit):**
+- B Unabhaengigkeit: forwarded_from + Texthash-Naeheduplikate ueber die 3
+  Kanaele; Anker: >30 % Forwards/Duplikate -> zaehlt als EINE Quelle.
+- C Retraction-Rate: Edits (Hashwechsel je msg_id) + ID-Luecken ueber 7
+  Tage; Anker: >3 % -> nur defensive Nutzung, >8 % -> reines WATCH.
+- D Vorlauf vs. RSS: gleiche Ereignisse, Zeitdifferenz Telegram vs.
+  BBC/investing; Anker: Median <3 min -> RSS reicht, Risiko nicht bezahlt.
+Erst nach B-D darf Telegram in eine Trigger-Logik.
+
+**Latenz-Korrektur:** Mit Telegram im Mix ist die 20-60-min-These aus
+Abschnitt 8 nicht mehr haltbar — der Engpass verschiebt sich von Latenz
+zu Signalqualitaet (messbar, siehe C/D). Die +2pp bleiben ambitioniert.
+
+**Dauerbetrieb:** HTML-Preview = Erstbetrieb + Backfill (Pagination
+`?before=<id>` ermoeglicht historische Daten!); fuer den Dauerbetrieb
+MTProto/Telethon (Operator: api_id/api_hash via my.telegram.org —
+liefert Edits/Deletes als Push statt Polling-Diff).

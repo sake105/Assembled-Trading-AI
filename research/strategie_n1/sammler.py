@@ -112,8 +112,21 @@ QUELLEN: list[tuple[str, str, str]] = [
     # Primaerquellen Zentralbanken
     ("ezb_presse", "https://www.ecb.europa.eu/rss/press.html", "rss"),
     ("fed_presse", "https://www.federalreserve.gov/feeds/press_all.xml", "rss"),
-    # Social: Telegram-Mirror (Clash Report; Tier C/D, nie alleinige Evidenz)
+    # Social: Telegram-Mirrors (Tier C, single_source_trigger_allowed=false;
+    # Addendum 2026-08-09: Retraction bei tabzlive/97959 nachgewiesen —
+    # Telegram allein ist NIE Evidenz; ID-Luecken = Delete-Signal).
+    # t.me/robots.txt: 404 (kein Verbot, geprueft 2026-08-09). Dauerbetrieb
+    # perspektivisch via MTProto/Telethon (Operator: api_id/api_hash).
     ("tg_clashreport", "https://t.me/s/ClashReport", "telegram"),
+    ("tg_tabzlive", "https://t.me/s/tabzlive", "telegram"),
+    ("tg_globaleye", "https://t.me/s/tglobaleye", "telegram"),
+    # Bluesky (AT-Protocol, offiziell dokumentierte offene API — rechtlich
+    # sauberster Social-Zugang; Spiegel-Treue zu Telegram noch zu messen)
+    (
+        "bsky_globaleye",
+        "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=theglobaleye.bsky.social&limit=30",
+        "bluesky",
+    ),
 ]
 
 
@@ -152,24 +165,63 @@ def _rss_eintraege(roh: bytes) -> list[dict]:
     return aus
 
 
-_TG_MSG = re.compile(r'class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', re.S)
-_TG_ZEIT = re.compile(r'datetime="([^"]+)"')
+_TG_BLOCK = re.compile(r'data-post="([^"]+)"(.*?)(?=data-post="|\Z)', re.S)
+_TG_TEXT = re.compile(r'class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', re.S)
+_TG_ZEIT = re.compile(r'<time datetime="([^"]+)"')
+_TG_VIEWS = re.compile(r'tgme_widget_message_views">([^<]+)<')
+_TG_FWD = re.compile(r"tgme_widget_message_forwarded_from_name[^>]*>([^<]+)<")
 _TAGS = re.compile(r"<[^>]+>")
 
 
 def _telegram_eintraege(roh: bytes) -> list[dict]:
+    """Je Nachricht: ID, ISO-Zeit(+TZ), Text, Views, forwarded_from, edited.
+
+    Diese Felder tragen die Addendum-Messungen (Unabhaengigkeit via
+    forwarded_from/Texthash, Retraction via Edit-Hashwechsel + ID-Luecken,
+    Vorlauf via ISO-Zeit). Dedupe-Schluessel ist (msg_id, text_hash):
+    ein Edit erzeugt bewusst eine NEUE Zeile — der Verlauf ist das Signal.
+    """
     html = roh.decode("utf-8", errors="replace")
-    texte = [_TAGS.sub(" ", t).strip() for t in _TG_MSG.findall(html)]
-    zeiten = _TG_ZEIT.findall(html)
     aus = []
-    for i, t in enumerate(texte):
-        if not t:
+    for msg_id, block in _TG_BLOCK.findall(html):
+        m_text = _TG_TEXT.search(block)
+        text = _TAGS.sub(" ", m_text.group(1)).strip() if m_text else ""
+        if not text:
+            continue
+        m_zeit = _TG_ZEIT.search(block)
+        m_views = _TG_VIEWS.search(block)
+        m_fwd = _TG_FWD.search(block)
+        text_hash = hashlib.sha1(text.encode()).hexdigest()[:16]
+        aus.append(
+            {
+                "titel": text[:500],
+                "link": f"{msg_id}#{text_hash}",
+                "quelle_datum": m_zeit.group(1) if m_zeit else "",
+                "msg_id": msg_id,
+                "text_hash": text_hash,
+                "views": m_views.group(1) if m_views else None,
+                "forwarded_from": m_fwd.group(1) if m_fwd else None,
+                "edited": ">edited<" in block,
+            }
+        )
+    return aus
+
+
+def _bluesky_eintraege(roh: bytes) -> list[dict]:
+    """AT-Protocol getAuthorFeed — createdAt ist volle ISO-Zeit."""
+    d = json.loads(roh.decode("utf-8", errors="replace"))
+    aus = []
+    for p in d.get("feed", []):
+        post = p.get("post", {})
+        rec = post.get("record", {})
+        text = (rec.get("text") or "").strip()
+        if not text:
             continue
         aus.append(
             {
-                "titel": t[:500],
-                "link": hashlib.sha1(t.encode()).hexdigest()[:16],
-                "quelle_datum": zeiten[i] if i < len(zeiten) else "",
+                "titel": text[:500],
+                "link": post.get("uri", hashlib.sha1(text.encode()).hexdigest()[:16]),
+                "quelle_datum": rec.get("createdAt", ""),
             }
         )
     return aus
@@ -194,11 +246,12 @@ def main() -> int:
         for name, url, typ in QUELLEN:
             try:
                 roh = _hole(url)
-                eintraege = (
-                    _telegram_eintraege(roh)
-                    if typ == "telegram"
-                    else _rss_eintraege(roh)
-                )
+                if typ == "telegram":
+                    eintraege = _telegram_eintraege(roh)
+                elif typ == "bluesky":
+                    eintraege = _bluesky_eintraege(roh)
+                else:
+                    eintraege = _rss_eintraege(roh)
                 neu = 0
                 fetched = datetime.now(timezone.utc).isoformat()
                 for e in eintraege:
