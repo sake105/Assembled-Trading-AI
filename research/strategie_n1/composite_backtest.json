@@ -1,0 +1,502 @@
+{
+  "registriert": "Strategie N1 — KOMBINATIONS-Backtest (Geo + Finanz + TA) mit Gewichtsraster.\n\nAUFTRAG (Hans, 2026-08-09): nicht ein Strang, sondern das ZUSAMMENSPIEL —\nund an den Gewichten drehen (Beispiel: TA 50 %, Geo/Finanz abgesenkt).\n\nREGISTRIERUNG (vor Datenkontakt fixiert; +6 Trials = 6 Gewichts-Configs;\nALLE sechs werden berichtet, die beste muss Bonferroni-korrigiert t > 2,64\nschlagen — sonst gilt das Raster als FAIL):\n\nTEILSCORES (taeglich, PIT wie geo_backtest: Signal T nutzt Daten bis T-1):\n  GEO = max(z_me, z_gl) der QuadClass-4-Artikel (wie geo_backtest.py).\n  FIN = -z(globaler AvgTone-Mittelwert)  — Finanz-Stress-Proxy aus dem\n        GDELT-Korpus (FAZ/WSJ etc. haben keine Historie; OFFENGELEGT:\n        das ist Nachrichten-Ton, kein reiner Finanz-Feed).\n  TA  = z(20-Handelstage-Momentum des jeweiligen Instrument-Baskets,\n        rollierend 180T) — TA hier als KOMPONENTE (Auftrag), nicht nur Veto.\n  SOC = vor 2022 nicht existent -> Gewicht 0, OFFENGELEGT; volle 4er-Fusion\n        nur im Forward-Shadow moeglich.\n  z-Normierung je Teilscore: rolling 180 T (min 120), shift(1).\n\nKOMPOSIT je Instrument: K = w_geo*GEO + w_fin*FIN + w_ta*TA.\nGEWICHTS-RASTER (fix, keine weiteren Kombinationen):\n  W1 gleich        (1/3, 1/3, 1/3)\n  W2 ta50          (0.25, 0.25, 0.50)   <- Hans' Beispiel\n  W3 ta60          (0.20, 0.20, 0.60)\n  W4 geo_dominant  (0.50, 0.25, 0.25)\n  W5 fin_dominant  (0.25, 0.50, 0.25)\n  W6 ohne_ta       (0.50, 0.50, 0.00)\nENTRY: K(T-1) >= rollierendes 98%-Perzentil von K (252 T, min 120,\n  shift(1)) -> Kauf zum naechsten Close (wie geo_backtest, close-basiert).\nINSTRUMENTE/EXITS/KOSTEN/KONTROLLE: identisch zu geo_backtest.py\n  (GLD, Defense-Basket, Oel-Majors-Basket; Zerfall K < halbes Entry-\n  Niveau ersetzt den Score-Zerfall; 15 T; -5 %; Trailing +3 %/2 %;\n  10 bps RT; 100 Zufalls-Entries je Instrument, Seed 52).\nFENSTER: 2015-01-01..2016-12-31 (Holdout versiegelt).\nVERDIKT (vorab): Raster besteht nur, wenn MINDESTENS EINE Config gepoolt\n  netto > 0 UND t > 2,64 UND PF > 1 UND klar ueber der Kontrolle liegt.\n",
+  "configs": {
+    "W1_gleich": {
+      "gewichte_geo_fin_ta": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "instrumente": {
+        "GLD": {
+          "n_signaltage": 3,
+          "signal": {
+            "n_trades": 3,
+            "mittel_pp": 1.3987,
+            "t": 1.23,
+            "trefferquote": 0.667,
+            "profit_faktor": 5.94,
+            "summe_pct": 4.2
+          },
+          "kontrolle": {
+            "n_trades": 51,
+            "mittel_pp": 0.1572,
+            "t": 0.62,
+            "trefferquote": 0.49,
+            "profit_faktor": 1.278,
+            "summe_pct": 8.01
+          }
+        },
+        "DEFENSE": {
+          "n_signaltage": 2,
+          "signal": {
+            "n_trades": 2,
+            "mittel_pp": 0.066,
+            "t": null,
+            "trefferquote": 1.0,
+            "profit_faktor": null,
+            "summe_pct": 0.13
+          },
+          "kontrolle": {
+            "n_trades": 51,
+            "mittel_pp": 0.4413,
+            "t": 1.93,
+            "trefferquote": 0.627,
+            "profit_faktor": 2.004,
+            "summe_pct": 22.5
+          }
+        },
+        "OEL_MAJORS": {
+          "n_signaltage": 3,
+          "signal": {
+            "n_trades": 2,
+            "mittel_pp": 0.5328,
+            "t": null,
+            "trefferquote": 1.0,
+            "profit_faktor": null,
+            "summe_pct": 1.07
+          },
+          "kontrolle": {
+            "n_trades": 56,
+            "mittel_pp": 0.0084,
+            "t": 0.02,
+            "trefferquote": 0.464,
+            "profit_faktor": 1.008,
+            "summe_pct": 0.47
+          }
+        }
+      },
+      "gepoolt_signal": {
+        "n_trades": 7,
+        "mittel_pp": 0.7705,
+        "t": 1.55,
+        "trefferquote": 0.857,
+        "profit_faktor": 7.349,
+        "summe_pct": 5.39
+      },
+      "gepoolt_kontrolle": {
+        "n_trades": 158,
+        "mittel_pp": 0.1961,
+        "t": 1.08,
+        "trefferquote": 0.525,
+        "profit_faktor": 1.278,
+        "summe_pct": 30.99
+      }
+    },
+    "W2_ta50": {
+      "gewichte_geo_fin_ta": [
+        0.25,
+        0.25,
+        0.5
+      ],
+      "instrumente": {
+        "GLD": {
+          "n_signaltage": 7,
+          "signal": {
+            "n_trades": 5,
+            "mittel_pp": 1.065,
+            "t": 1.6,
+            "trefferquote": 0.8,
+            "profit_faktor": 7.269,
+            "summe_pct": 5.33
+          },
+          "kontrolle": {
+            "n_trades": 47,
+            "mittel_pp": -0.1404,
+            "t": -0.47,
+            "trefferquote": 0.383,
+            "profit_faktor": 0.821,
+            "summe_pct": -6.6
+          }
+        },
+        "DEFENSE": {
+          "n_signaltage": 2,
+          "signal": {
+            "n_trades": 2,
+            "mittel_pp": 0.4059,
+            "t": null,
+            "trefferquote": 1.0,
+            "profit_faktor": null,
+            "summe_pct": 0.81
+          },
+          "kontrolle": {
+            "n_trades": 48,
+            "mittel_pp": 0.4679,
+            "t": 1.33,
+            "trefferquote": 0.542,
+            "profit_faktor": 1.8,
+            "summe_pct": 22.46
+          }
+        },
+        "OEL_MAJORS": {
+          "n_signaltage": 4,
+          "signal": {
+            "n_trades": 2,
+            "mittel_pp": 0.5319,
+            "t": null,
+            "trefferquote": 1.0,
+            "profit_faktor": null,
+            "summe_pct": 1.06
+          },
+          "kontrolle": {
+            "n_trades": 53,
+            "mittel_pp": 0.1391,
+            "t": 0.27,
+            "trefferquote": 0.491,
+            "profit_faktor": 1.117,
+            "summe_pct": 7.37
+          }
+        }
+      },
+      "gepoolt_signal": {
+        "n_trades": 9,
+        "mittel_pp": 0.8001,
+        "t": 2.11,
+        "trefferquote": 0.889,
+        "profit_faktor": 9.477,
+        "summe_pct": 7.2
+      },
+      "gepoolt_kontrolle": {
+        "n_trades": 148,
+        "mittel_pp": 0.157,
+        "t": 0.67,
+        "trefferquote": 0.473,
+        "profit_faktor": 1.181,
+        "summe_pct": 23.23
+      }
+    },
+    "W3_ta60": {
+      "gewichte_geo_fin_ta": [
+        0.2,
+        0.2,
+        0.6
+      ],
+      "instrumente": {
+        "GLD": {
+          "n_signaltage": 6,
+          "signal": {
+            "n_trades": 5,
+            "mittel_pp": 0.7874,
+            "t": 0.87,
+            "trefferquote": 0.6,
+            "profit_faktor": 2.868,
+            "summe_pct": 3.94
+          },
+          "kontrolle": {
+            "n_trades": 44,
+            "mittel_pp": 0.0472,
+            "t": 0.14,
+            "trefferquote": 0.432,
+            "profit_faktor": 1.061,
+            "summe_pct": 2.08
+          }
+        },
+        "DEFENSE": {
+          "n_signaltage": 8,
+          "signal": {
+            "n_trades": 2,
+            "mittel_pp": 1.1374,
+            "t": null,
+            "trefferquote": 1.0,
+            "profit_faktor": null,
+            "summe_pct": 2.27
+          },
+          "kontrolle": {
+            "n_trades": 45,
+            "mittel_pp": -0.017,
+            "t": -0.05,
+            "trefferquote": 0.467,
+            "profit_faktor": 0.978,
+            "summe_pct": -0.76
+          }
+        },
+        "OEL_MAJORS": {
+          "n_signaltage": 6,
+          "signal": {
+            "n_trades": 2,
+            "mittel_pp": 0.2658,
+            "t": null,
+            "trefferquote": 0.5,
+            "profit_faktor": 1.249,
+            "summe_pct": 0.53
+          },
+          "kontrolle": {
+            "n_trades": 45,
+            "mittel_pp": -0.059,
+            "t": -0.12,
+            "trefferquote": 0.467,
+            "profit_faktor": 0.953,
+            "summe_pct": -2.65
+          }
+        }
+      },
+      "gepoolt_signal": {
+        "n_trades": 9,
+        "mittel_pp": 0.7493,
+        "t": 1.14,
+        "trefferquote": 0.667,
+        "profit_faktor": 2.588,
+        "summe_pct": 6.74
+      },
+      "gepoolt_kontrolle": {
+        "n_trades": 134,
+        "mittel_pp": -0.01,
+        "t": -0.04,
+        "trefferquote": 0.455,
+        "profit_faktor": 0.989,
+        "summe_pct": -1.34
+      }
+    },
+    "W4_geo_dominant": {
+      "gewichte_geo_fin_ta": [
+        0.5,
+        0.25,
+        0.25
+      ],
+      "instrumente": {
+        "GLD": {
+          "n_signaltage": 3,
+          "signal": {
+            "n_trades": 3,
+            "mittel_pp": 1.3987,
+            "t": 1.23,
+            "trefferquote": 0.667,
+            "profit_faktor": 5.94,
+            "summe_pct": 4.2
+          },
+          "kontrolle": {
+            "n_trades": 44,
+            "mittel_pp": 0.3878,
+            "t": 1.12,
+            "trefferquote": 0.455,
+            "profit_faktor": 1.588,
+            "summe_pct": 17.06
+          }
+        },
+        "DEFENSE": {
+          "n_signaltage": 3,
+          "signal": {
+            "n_trades": 3,
+            "mittel_pp": -0.8826,
+            "t": -0.93,
+            "trefferquote": 0.667,
+            "profit_faktor": 0.047,
+            "summe_pct": -2.65
+          },
+          "kontrolle": {
+            "n_trades": 41,
+            "mittel_pp": 0.2705,
+            "t": 0.72,
+            "trefferquote": 0.561,
+            "profit_faktor": 1.386,
+            "summe_pct": 11.09
+          }
+        },
+        "OEL_MAJORS": {
+          "n_signaltage": 4,
+          "signal": {
+            "n_trades": 4,
+            "mittel_pp": -1.5237,
+            "t": -1.03,
+            "trefferquote": 0.5,
+            "profit_faktor": 0.179,
+            "summe_pct": -6.09
+          },
+          "kontrolle": {
+            "n_trades": 52,
+            "mittel_pp": -0.0104,
+            "t": -0.02,
+            "trefferquote": 0.462,
+            "profit_faktor": 0.991,
+            "summe_pct": -0.54
+          }
+        }
+      },
+      "gepoolt_signal": {
+        "n_trades": 10,
+        "mittel_pp": -0.4547,
+        "t": -0.58,
+        "trefferquote": 0.6,
+        "profit_faktor": 0.589,
+        "summe_pct": -4.55
+      },
+      "gepoolt_kontrolle": {
+        "n_trades": 137,
+        "mittel_pp": 0.2016,
+        "t": 0.88,
+        "trefferquote": 0.489,
+        "profit_faktor": 1.23,
+        "summe_pct": 27.62
+      }
+    },
+    "W5_fin_dominant": {
+      "gewichte_geo_fin_ta": [
+        0.25,
+        0.5,
+        0.25
+      ],
+      "instrumente": {
+        "GLD": {
+          "n_signaltage": 3,
+          "signal": {
+            "n_trades": 3,
+            "mittel_pp": 1.3987,
+            "t": 1.23,
+            "trefferquote": 0.667,
+            "profit_faktor": 5.94,
+            "summe_pct": 4.2
+          },
+          "kontrolle": {
+            "n_trades": 44,
+            "mittel_pp": -0.0698,
+            "t": -0.21,
+            "trefferquote": 0.386,
+            "profit_faktor": 0.918,
+            "summe_pct": -3.07
+          }
+        },
+        "DEFENSE": {
+          "n_signaltage": 1,
+          "signal": {
+            "n_trades": 1,
+            "mittel_pp": 0.0543,
+            "t": null,
+            "trefferquote": 1.0,
+            "profit_faktor": null,
+            "summe_pct": 0.05
+          },
+          "kontrolle": {
+            "n_trades": 48,
+            "mittel_pp": 0.1591,
+            "t": 0.52,
+            "trefferquote": 0.562,
+            "profit_faktor": 1.257,
+            "summe_pct": 7.64
+          }
+        },
+        "OEL_MAJORS": {
+          "n_signaltage": 3,
+          "signal": {
+            "n_trades": 2,
+            "mittel_pp": 0.5328,
+            "t": null,
+            "trefferquote": 1.0,
+            "profit_faktor": null,
+            "summe_pct": 1.07
+          },
+          "kontrolle": {
+            "n_trades": 54,
+            "mittel_pp": -0.1582,
+            "t": -0.29,
+            "trefferquote": 0.444,
+            "profit_faktor": 0.897,
+            "summe_pct": -8.55
+          }
+        }
+      },
+      "gepoolt_signal": {
+        "n_trades": 6,
+        "mittel_pp": 0.886,
+        "t": 1.55,
+        "trefferquote": 0.833,
+        "profit_faktor": 7.258,
+        "summe_pct": 5.32
+      },
+      "gepoolt_kontrolle": {
+        "n_trades": 146,
+        "mittel_pp": -0.0273,
+        "t": -0.11,
+        "trefferquote": 0.466,
+        "profit_faktor": 0.973,
+        "summe_pct": -3.98
+      }
+    },
+    "W6_ohne_ta": {
+      "gewichte_geo_fin_ta": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "instrumente": {
+        "GLD": {
+          "n_signaltage": 4,
+          "signal": {
+            "n_trades": 4,
+            "mittel_pp": 0.9447,
+            "t": 1.03,
+            "trefferquote": 0.5,
+            "profit_faktor": 3.983,
+            "summe_pct": 3.78
+          },
+          "kontrolle": {
+            "n_trades": 50,
+            "mittel_pp": -0.3614,
+            "t": -1.24,
+            "trefferquote": 0.42,
+            "profit_faktor": 0.616,
+            "summe_pct": -18.07
+          }
+        },
+        "DEFENSE": {
+          "n_signaltage": 4,
+          "signal": {
+            "n_trades": 4,
+            "mittel_pp": -0.6583,
+            "t": -0.93,
+            "trefferquote": 0.75,
+            "profit_faktor": 0.053,
+            "summe_pct": -2.63
+          },
+          "kontrolle": {
+            "n_trades": 48,
+            "mittel_pp": 0.1104,
+            "t": 0.43,
+            "trefferquote": 0.542,
+            "profit_faktor": 1.19,
+            "summe_pct": 5.3
+          }
+        },
+        "OEL_MAJORS": {
+          "n_signaltage": 4,
+          "signal": {
+            "n_trades": 4,
+            "mittel_pp": -1.7264,
+            "t": -1.23,
+            "trefferquote": 0.25,
+            "profit_faktor": 0.126,
+            "summe_pct": -6.91
+          },
+          "kontrolle": {
+            "n_trades": 49,
+            "mittel_pp": -0.3218,
+            "t": -0.61,
+            "trefferquote": 0.388,
+            "profit_faktor": 0.777,
+            "summe_pct": -15.77
+          }
+        }
+      },
+      "gepoolt_signal": {
+        "n_trades": 12,
+        "mittel_pp": -0.48,
+        "t": -0.75,
+        "trefferquote": 0.5,
+        "profit_faktor": 0.518,
+        "summe_pct": -5.76
+      },
+      "gepoolt_kontrolle": {
+        "n_trades": 147,
+        "mittel_pp": -0.1941,
+        "t": -0.89,
+        "trefferquote": 0.449,
+        "profit_faktor": 0.804,
+        "summe_pct": -28.54
+      }
+    }
+  },
+  "verdikt": {
+    "bestehende_configs": [],
+    "raster_besteht": false,
+    "kriterium": "je Config: netto>0 & t>2.64 (Bonferroni, 6 Tests) & PF>1 & ueber Kontrolle; ALLE Configs berichtet (vorab fixiert)"
+  }
+}
