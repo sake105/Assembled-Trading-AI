@@ -424,22 +424,19 @@ def book_fills(
 
             # Seit 2026-08-09 setzt der Paper-Runner ctx.current_equity =
             # Mark-to-Market-Equity am ZYKLUSSTART (DD-Treppen-Verdrahtung).
-            # EIGENER Schluessel statt "final_equity" (F-senior-6/E-137):
-            # unified_paper_engine schreibt in dieselbe run_index.csv-Spalte
-            # final_equity die POST-Fill-Equity — zwei Semantiken in einem
-            # Feldnamen waeren ohne Kenntnis des Schreibers nicht
-            # interpretierbar. final_equity bleibt hier leer = ehrlich
-            # unbekannt; explizite None-Pruefung, weil 0.0 gueltig ist.
-            _cur_eq = getattr(ctx, "current_equity", None)
-            _eq_metrics = (
-                {"equity_start_of_cycle": float(_cur_eq)} if _cur_eq is not None else {}
-            )
+            # Der Run-Index bekommt davon NICHTS (F-senior-6/E-137):
+            # final_equity in run_index.csv gehoert der unified_paper_engine
+            # mit POST-Fill-Semantik, und das Index-Schema (INDEX_COLUMNS)
+            # ist fix — ein eigener Schluessel wuerde still verworfen
+            # (CI-Fund zu bb19531d). Die Start-of-Cycle-Equity liegt
+            # stattdessen in run_kpis.json (kpi_artifacts.write_run_kpis,
+            # schemafrei, neben der auto_dd_kill_switch-Spur). final_equity
+            # bleibt hier leer = ehrlich unbekannt.
             append_run_index(
                 run_id=str(ctx.as_of.date()),
                 date=str(ctx.as_of.date()),
                 status="success",
                 metrics={
-                    **_eq_metrics,
                     "n_fills": len(result.orders_filtered),
                 },
                 git_sha=result.meta.get("git_sha", ""),

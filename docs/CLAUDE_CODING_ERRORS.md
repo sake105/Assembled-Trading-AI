@@ -1723,3 +1723,17 @@ Das Artefakt berichtete die **Blockzahl** (4) und aggregierte Kennzahlen ueber a
 2. Weicht die Semantik ab: **neues Feld, nicht Umdeutung.**
 **Erkannt in:** Stage-2-Review (F-senior-6) zu `pipeline/_tc_execution.py` vs. `execution/unified_paper_engine.py`.
 **Referenzen:** E-122, E-133.
+
+## E-138 — Schemafixe Senke verwirft den neuen Schluessel still (korrigiert E-137 „Wie vermeiden")
+**Datum:** 2026-08-09
+**Kategorie:** wiring-gap / schema-fixe-senke
+**Was passierte:** Die E-137-Remediation gab der Start-of-Cycle-Equity korrekt einen eigenen Schluessel `equity_start_of_cycle` — schrieb ihn aber in das metrics-Dict von `append_run_index`. `run_index.csv` hat mit `INDEX_COLUMNS` ein fixes Schema und mappt nur bekannte Keys; der neue Key wurde ohne Warnung fallengelassen. Doppelt maskiert: der Aufruf liegt in `except Exception: log.debug(...)`. Sichtbar wurde es nur, weil ein bestehender Test auf der alten (falschen) Semantik bestand und CI auf `bb19531d` rot lief. Fix: Wert liegt jetzt in `run_kpis.json` (schemafrei), der Run-Index bekommt vom Pipeline-Pfad gar nichts, und der Pipeline-Level-Test assertet den Wert in der NEUEN Senke.
+
+**Warum falsch:** „Neues Feld statt Umdeutung" (E-137) setzt voraus, dass die Senke neue Felder aufnehmen KANN. CSV/Parquet/Manifest mit Spaltenkonstante nehmen sie nicht auf und melden das nicht — der Schreibvorgang meldet Erfolg, der Wert existiert nicht.
+
+**Wie vermeiden:**
+1. Vor dem Schreiben eines neuen Keys pruefen, ob die Senke eine **Spalten-/Feldkonstante** fuehrt (`INDEX_COLUMNS`, dtype-Schema, `schema_version`). Wenn ja: Schema bewusst erweitern oder eine schemafreie Senke (JSON) waehlen.
+2. Neuen Artefakt-Wert **dort assertieren, wo der Produktionspfad ihn erzeugt** (Pipeline-/Runner-Level), nicht nur im Unit-Test des Writers.
+3. Wandert ein Wert von Senke A nach Senke B, **wandert der Wiring-Test mit** — ein Test, der nur noch Abwesenheit in A prueft, laesst B ungeschuetzt.
+**Erkannt in:** CI-Rot auf `bb19531d`; Kompakt-Review (F-senior-1/2, E-NEW-1) zu `_tc_execution.py`/`run_index.py`/`kpi_artifacts.py`.
+**Referenzen:** E-137 (dessen „Wie vermeiden #2" ist hiermit um die Schema-Vorpruefung ergaenzt), E-047, E-136.

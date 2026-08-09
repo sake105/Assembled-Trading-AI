@@ -132,3 +132,43 @@ def test_shadow_mode_does_not_execute_orders() -> None:
     # shadow mode does not call any external fill/ledger simulation.
     out = maybe_execute_orders("shadow", orders)
     pd.testing.assert_frame_equal(out, orders)
+
+
+def test_run_kpis_carries_equity_start_of_cycle_and_auto_dd(tmp_path) -> None:
+    """2026-08-09: start-of-cycle equity + the auto-DD trace live in
+    run_kpis.json (NOT in the run index — its final_equity column has
+    post-fill semantics, E-137). 0.0 stays valid (no `or`-swallowing) and
+    without a producer the key is explicitly None (E-047 contract)."""
+
+    class _Ctx:
+        current_equity = 0.0
+
+    class _Result:
+        meta = {"auto_dd_kill_switch": {"level": "soft", "applied": True}}
+        target_positions = None
+
+    p = write_run_kpis(
+        output_dir=tmp_path, ctx=_Ctx(), result=_Result(), policy={}, mode="paper"
+    )
+    d = json.loads(p.read_text(encoding="utf-8"))
+    assert d["equity_start_of_cycle"] == 0.0
+    assert d["auto_dd_kill_switch"]["level"] == "soft"
+    assert d["auto_dd_kill_switch"]["applied"] is True
+
+    class _CtxOhneEquity:
+        pass
+
+    class _ResultLeer:
+        meta: dict = {}
+        target_positions = None
+
+    p2 = write_run_kpis(
+        output_dir=tmp_path / "no_producer",
+        ctx=_CtxOhneEquity(),
+        result=_ResultLeer(),
+        policy={},
+        mode="paper",
+    )
+    d2 = json.loads(p2.read_text(encoding="utf-8"))
+    assert d2["equity_start_of_cycle"] is None
+    assert d2["auto_dd_kill_switch"] is None

@@ -247,9 +247,16 @@ def test_run_index_has_no_fake_final_equity(monkeypatch, tmp_path) -> None:
     ), "final_equity must stay empty without a real equity producer"
 
 
-def test_run_index_uses_real_current_equity_when_present(monkeypatch, tmp_path) -> None:
-    """A real (dynamically injected) current_equity lands in final_equity —
-    including the valid 0.0 edge case (explicit None-check, no `or`)."""
+def test_run_index_final_equity_stays_empty_despite_current_equity(
+    monkeypatch, tmp_path
+) -> None:
+    """Since 2026-08-09 ctx.current_equity HAS a producer (paper_runner,
+    START-of-cycle equity). The final_equity column in the run index belongs
+    to unified_paper_engine with POST-fill semantics (E-137) — the pipeline
+    path must leave it empty even WITH current_equity set. The start-of-cycle
+    value must instead land in run_kpis.json, asserted HERE at the pipeline
+    level because Step 7.6 swallows write_run_kpis errors (log.debug) — a
+    unit test of the writer alone would not catch a silently dead wiring."""
     _capture_journal_calls(monkeypatch)
     ctx = _make_ctx(tmp_path, mode="eod")
     ctx.current_equity = 0.0  # total loss is a VALID equity value
@@ -259,7 +266,14 @@ def test_run_index_uses_real_current_equity_when_present(monkeypatch, tmp_path) 
 
     assert out.status != "error"
     df = pd.read_csv(Path(ctx.output_dir) / "manifests" / "index.csv")
-    assert float(df["final_equity"].iloc[0]) == 0.0
+    assert (
+        df["final_equity"].isna().all()
+        or (df["final_equity"].astype(str).str.strip() == "").all()
+    ), "final_equity in the pipeline path must stay empty (post-fill semantics)"
+    kpis = json.loads(_kpi_path(ctx).read_text(encoding="utf-8"))
+    assert kpis["equity_start_of_cycle"] == 0.0, (
+        "start-of-cycle equity must reach run_kpis.json end-to-end"
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -72,6 +72,12 @@ def write_run_kpis(
     # gefeuerter Throttle nur in Logs sichtbar, und daily_pilot_review liest
     # Artefakte, nicht Logs (E-135-Lehre: sichtbare Spur im Normalbetrieb).
     auto_dd_meta = (getattr(result, "meta", {}) or {}).get("auto_dd_kill_switch") or {}
+    # Start-of-Cycle-Equity (Producer: paper_runner, 2026-08-09). Liegt HIER
+    # statt im run_index: dessen final_equity-Spalte gehoert der
+    # unified_paper_engine mit Post-Fill-Semantik, und das Index-Schema ist
+    # fix (E-137). None-sicher via _safe_float; 0.0 (Totalverlust) bleibt
+    # ein gueltiger Wert.
+    equity_start_of_cycle = _safe_float(getattr(ctx, "current_equity", None))
 
     # Item 41: use Decimal for multiplier product to avoid float compounding error
     final_exposure_mult = float(
@@ -126,6 +132,7 @@ def write_run_kpis(
         "turnover_budget": turnover_meta or None,
         "profit_lock": profit_lock_meta or None,
         "auto_dd_kill_switch": auto_dd_meta or None,
+        "equity_start_of_cycle": equity_start_of_cycle,
         "triggers_summary": triggers_summary,
         "top_triggers": top_triggers,
         "targets_summary": {
