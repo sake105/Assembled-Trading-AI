@@ -122,3 +122,12 @@ arch==8.0.0
 # signals/pairs_trading, signals/recession_probability, features/residual_momentum.
 # Previously only transitively available; now declared explicitly.
 statsmodels==0.14.6
+
+# soupsieve + wheel gepinnt (2026-08-09): zwei frisch publizierte Advisories
+# drehten den pip-audit-Gate rot ohne Repo-Aenderung (gleiche Klasse wie
+# setuptools 2026-07-23): PYSEC-2026-3071 (soupsieve<2.8.4, Selector-DoS;
+# transitiv via yfinance->beautifulsoup4) und CVE-2026-24049 (wheel<0.46.2,
+# Path-Traversal in wheel unpack; runner-/cache-seitig vorhanden). Exakte
+# Pins statt Waiver — echte Fixes sind released.
+soupsieve==2.8.4
+wheel==0.46.2
