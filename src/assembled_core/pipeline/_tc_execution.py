@@ -422,14 +422,17 @@ def book_fills(
             from src.assembled_core.ops.run_index import append_run_index
             from src.assembled_core.ops.run_manifest import compute_config_hash
 
-            # NO producer sets ctx.current_equity anywhere yet (repo-wide only
-            # getattr readers exist) — do not fake a "final_equity" from start
-            # capital. Emit final_equity only for a real value; explicit
-            # None-check because 0.0 (total loss) is a valid equity. When
-            # absent, the index.csv column stays empty = honestly unknown.
+            # Seit 2026-08-09 setzt der Paper-Runner ctx.current_equity =
+            # Mark-to-Market-Equity am ZYKLUSSTART (DD-Treppen-Verdrahtung).
+            # EIGENER Schluessel statt "final_equity" (F-senior-6/E-137):
+            # unified_paper_engine schreibt in dieselbe run_index.csv-Spalte
+            # final_equity die POST-Fill-Equity — zwei Semantiken in einem
+            # Feldnamen waeren ohne Kenntnis des Schreibers nicht
+            # interpretierbar. final_equity bleibt hier leer = ehrlich
+            # unbekannt; explizite None-Pruefung, weil 0.0 gueltig ist.
             _cur_eq = getattr(ctx, "current_equity", None)
             _eq_metrics = (
-                {"final_equity": float(_cur_eq)} if _cur_eq is not None else {}
+                {"equity_start_of_cycle": float(_cur_eq)} if _cur_eq is not None else {}
             )
             append_run_index(
                 run_id=str(ctx.as_of.date()),

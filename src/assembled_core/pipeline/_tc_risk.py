@@ -35,7 +35,8 @@ def check_risk(
       - Copula tail dep: scale orders qty if avg_lower_tail_dep > 0.5
       - Step 6: _apply_risk_controls_default (kill switch, position limits)
       - Step 6.35: Parametric VaR exposure gate (clears orders_filtered)
-      - Step 6.4: Auto-drawdown kill-switch trigger (activates KS, may clear)
+      - Step 6.4: Auto-DD staircase (soft/hard = zustandslose qty-Drossel,
+        kill = persistenter Kill-Switch + clear; seit 2026-08-09)
       - Step 6.45: Intraday circuit breaker (clears orders_filtered)
       - Step 6.6: Anti-churn deadzone + min-notional filters
       - Step 6.7: Fat-finger guard (hard notional + qty-multiple cap)
@@ -204,23 +205,68 @@ def check_risk(
         _rej_counts["var_gate_error"] = len(result.orders_filtered)
         result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
 
-    # Step 6.4: Auto-DD kill switch
+    # Step 6.4: Auto-DD staircase (2026-08-09, Auftrag Hans / DD-03):
+    # soft/hard sind eine ZUSTANDSLOSE In-Batch-Drossel (qty * throttle,
+    # gleiche Semantik wie guard_orders_with_kill_switch) — kein persistenter
+    # Kill-Switch-State, dadurch automatische Erholung sobald dd sich bessert
+    # und kein Vollblock der boolean-Konsumenten (broker_execution prueft nur
+    # engaged). NUR das kill-Level (-20 %) aktiviert weiterhin den
+    # persistenten, OPERATOR_KILL_TOKEN-gated Kill-Switch und blockt alles.
+    # Vorher aktivierte auch soft den persistenten Switch -> im broker-Pfad
+    # de-facto Vollstopp ab -10 % statt 50 %-Drossel (inert bis zur
+    # ctx-Equity-Verdrahtung am selben Tag, daher nie beobachtet).
     try:
         dd_decision = _evaluate_auto_dd_kill_switch(ctx, result, policy)
         if dd_decision is not None:
-            from src.assembled_core.execution.kill_switch import (
-                activate_kill_switch,
-            )
-
-            activate_kill_switch(
-                throttle_pct=dd_decision["throttle_allowed_pct"],
-                reason=dd_decision["reason"],
-                actor="trading_cycle_v2_auto_dd",
-            )
             result.meta["auto_dd_kill_switch"] = dd_decision
             if dd_decision["level"] == "kill":
+                from src.assembled_core.execution.kill_switch import (
+                    activate_kill_switch,
+                )
+
+                activate_kill_switch(
+                    throttle_pct=dd_decision["throttle_allowed_pct"],
+                    reason=dd_decision["reason"],
+                    actor="trading_cycle_v2_auto_dd",
+                )
+                result.meta["auto_dd_kill_switch"]["applied"] = True
                 _rej_counts["auto_dd_kill_switch"] = len(result.orders_filtered)
                 result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
+            else:
+                if result.orders_filtered.empty:
+                    # soft/hard bei bereits leerem Batch: nichts zu drosseln —
+                    # applied=False, damit der Kontrakt des Flags vollstaendig
+                    # ist (F-auditor-3); kein Log noetig, kein Order betroffen.
+                    result.meta["auto_dd_kill_switch"]["applied"] = False
+                elif "qty" not in result.orders_filtered.columns:
+                    # Fail-CLOSED (F-senior-3/E-059): eine Drossel, die nicht
+                    # anwendbar ist, darf nicht still zur Nicht-Drossel werden
+                    # waehrend meta "soft/hard" meldet. Ohne qty-Spalte ist der
+                    # Batch nicht skalierbar -> blocken statt durchwinken.
+                    log.error(
+                        "[RISK] auto-DD %s level: orders have no 'qty' column — "
+                        "cannot throttle, FAIL-CLOSED blocking %d orders",
+                        dd_decision["level"],
+                        len(result.orders_filtered),
+                    )
+                    result.meta["auto_dd_kill_switch"]["applied"] = False
+                    _rej_counts["auto_dd_unthrottleable"] = len(result.orders_filtered)
+                    result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
+                else:
+                    _throttle = float(dd_decision["throttle_allowed_pct"])
+                    result.orders_filtered = result.orders_filtered.copy()
+                    result.orders_filtered["qty"] = (
+                        result.orders_filtered["qty"] * _throttle
+                    )
+                    result.meta["auto_dd_kill_switch"]["applied"] = True
+                    log.warning(
+                        "[RISK] auto-DD %s level: throttling %d orders to "
+                        "%.0f%% qty (stateless, recovers with dd): %s",
+                        dd_decision["level"],
+                        len(result.orders_filtered),
+                        _throttle * 100,
+                        dd_decision["reason"],
+                    )
     except Exception as e:
         # Fail-CLOSED (R2-1): if the drawdown kill-switch evaluation raised we
         # cannot confirm the account is under its drawdown limit. Block this

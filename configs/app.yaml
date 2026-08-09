@@ -1,7 +1,8 @@
 paper_runner:
   mode: "paper"           # shadow|paper
   start_capital: 87874.90 # 2026-07-02 reset: baseline = Alpaca equity at reactivation (was 100000.0)
-  dd_stop_pct: 0.10       # soft-halt at -10% of start_capital (writes ack_halt flag); default 0.30 if absent
+  dd_stop_pct: 0.20       # 2026-08-09 (Hans): ack-Halt auf Kill-Level der DD-Treppe (-20% von start_capital). Treppe (policy.yaml drawdown_policy, vs. HWM seit hwm_since): -10% -> Order-QTY x0.5 (zustandslos, erholt sich mit dd), -15% -> x0.2, -20% -> persistenter Kill-Switch (OPERATOR_KILL_TOKEN) + dieser ack-Halt. Vorher 0.10 (02.07.); default 0.30 if absent. Gilt nur fuer mode=paper (shadow hat keinen Ledger -> Treppe inert). BEWUSSTE Eigenschaften der Drossel: (a) seitenagnostisch — auch De-Risking-SELLs werden skaliert (identisch zur Kill-Switch-Guard-Semantik); (b) gedrosselte Orders durchlaufen weiterhin deadzone/min_notional 500 -> einzelne kleine Orders koennen ganz entfallen; ein komplett leergefilterter Batch wird NICHT ausgefuehrt (der fruehere Fallback auf den ungefilterten Batch ist entfernt, F-senior-1/E-136)
+  hwm_since: "2026-07-02" # HWM-Basis der DD-Treppe: Ledger-Kurvenpunkte vor diesem Datum zaehlen nicht (Baseline-Reset-Governance vom 02.07.; Alt-Peak 99036 vom 06.05. wuerde sonst sofort die Treppe ausloesen). Peak startet nie unter start_capital.
   output_dir: "output/runs"
   include_news_pipeline: false
   as_of: null             # optional timestamp override

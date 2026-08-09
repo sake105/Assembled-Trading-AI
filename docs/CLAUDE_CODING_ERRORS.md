@@ -1682,3 +1682,44 @@ Das Artefakt berichtete die **Blockzahl** (4) und aggregierte Kennzahlen ueber a
 3. Erinnerungen (Memory, fruehere Sessions) sind Hypothesen ueber den Ist-Zustand — vor dem Zitieren in Freigabe-Dokumenten **gegen das aktuelle Artefakt pruefen**.
 **Erkannt in:** Stage-2-Review (F-senior-3, BLOCKER) zu `docs/PILOT_UMSTELLUNG_PLAN.md`.
 **Referenzen:** E-085, E-122.
+
+## E-135 — Feature auf einem Mechanismus gebaut, ohne zu pruefen, ob er je gefeuert hat
+**Datum:** 2026-08-09
+**Kategorie:** wiring-gap / inerter-schutz
+**Was passierte:** Die DD-Treppe -10/-15/-20 galt seit Monaten als aktiver Pilot-Schutz (policy.yaml, Statusdokumente, Review-Sprache). Erst beim Umstellen des aeusseren Halts fiel auf: `_evaluate_auto_dd_kill_switch` liest seine Equity per getattr, und im Paper-Pfad setzte NIEMAND `ctx.current_equity` — dd war immer None, die Treppe hat nie ausgeloest. Zusaetzlich haette die damalige soft-Stufe den persistenten Kill-Switch aktiviert, also im Broker-Pfad einen Vollstopp statt einer 50-%-Drossel bedeutet — unbemerkt, weil der Mechanismus inert war.
+
+**Warum falsch:** Ein konfigurierter Schwellwert ist kein Beweis, dass der Codepfad erreichbar ist. getattr-Leser mit None-Fallback verschlucken fehlende Verdrahtung geraeuschlos: der Schutz „existiert", produziert aber nie ein Log, nie ein meta-Feld, nie einen Testfall — und niemand vermisst etwas.
+
+**Wie vermeiden:**
+1. Bei jeder Aussage „Schutz X ist aktiv": den **Produzenten der Eingangsgroesse benennen** (grep auf Zuweisung, nicht auf Lesen).
+2. Mindestens eine **im Normalbetrieb sichtbare Spur** verlangen (Log der ausgewerteten Groesse oder meta-Feld auch im Nicht-Ausloesefall).
+3. `getattr(ctx, X, None)` in Risk-Pfaden ist ein Verdachtsmoment, kein Komfort.
+**Erkannt in:** DD-Umbau 2026-08-09 (`trading_cycle_shared.py`, `paper_runner.py`).
+**Referenzen:** E-059, E-121.
+
+## E-136 — Der Leerlauf-Fallback verkehrte die neue Drossel in Vollgas
+**Datum:** 2026-08-09
+**Kategorie:** logic-error / fail-open-fallback
+**Was passierte:** `paper_runner.py`: `orders_for_fills = orders_filtered if not orders_filtered.empty else orders`. Der Ausdruck deutete „leer" als „nicht befuellt" und fiel auf den ungefilterten Batch zurueck. Jede Gate-Stufe, die orders_filtered auf null filtert (VaR-Gate, Circuit Breaker, min_notional, fail-closed-excepts, neu: DD-Drossel + min_notional), lieferte damit das GEGENTEIL ihrer Absicht — die neue qty-Drossel machte den Fall wahrscheinlicher, je staerker sie griff. Gefunden im Stage-2-Review, einen Commit bevor die Drossel den Pfad erstmals real haette treffen koennen.
+
+**Warum falsch:** „Leer" und „nicht gesetzt" sind zwei verschiedene Zustaende. Ein Guard, der bei totaler Filterung auf die Rohmenge zurueckfaellt, ist fail-open in genau dem Moment, fuer den er gebaut wurde. Verschaerfend: `meta["risk_gate_error"]` wird an fuenf Stellen gesetzt und repo-weit von niemandem gelesen — das Blocken hing allein am Leeren des DataFrames, das der Fallback rueckgaengig machte.
+
+**Wie vermeiden:**
+1. Nicht-Vorhandensein per **None** modellieren, nie per empty.
+2. Beim Einbau eines neuen Filters/Skalierers den **Weg der gefilterten Menge bis zur Ausfuehrung abgehen** und den Grenzfall „filtert alles weg" mit einem Test fixieren.
+3. Fail-closed-Flags brauchen einen Konsumenten, sonst sind sie Dekoration.
+**Erkannt in:** Stage-2-Review (F-senior-1) zu `ops/paper_runner.py` + `pipeline/_tc_risk.py`.
+**Referenzen:** E-103, E-132.
+
+## E-137 — Eine Artefakt-Spalte, zwei Produzenten, zwei Bedeutungen
+**Datum:** 2026-08-09
+**Kategorie:** wiring-gap / artefakt-semantik
+**Was passierte:** `run_index.csv` fuehrt `final_equity`. `unified_paper_engine` schrieb dort die Post-Fill-Equity; der Pipeline-Pfad fuellte dieselbe Spalte im ersten Wurf mit der Start-of-Cycle-Equity, weil dort erstmals ueberhaupt ein Wert verfuegbar war. Der Code-Kommentar war ehrlich, das Artefakt nicht: eine Zeile war ohne Kenntnis des Schreibers nicht interpretierbar. Fix: eigener Schluessel `equity_start_of_cycle`, `final_equity` bleibt im Pipeline-Pfad leer.
+
+**Warum falsch:** Eine frei gewordene Spalte ist keine Einladung, sie mit der naechstbesten verfuegbaren Groesse zu befuellen. Ehrlichkeit im Kommentar ersetzt keine Ehrlichkeit im Feldnamen — der Kommentar reist nicht mit dem Artefakt.
+
+**Wie vermeiden:**
+1. Vor dem Befuellen eines bestehenden Artefaktfelds die **anderen Produzenten greppen**.
+2. Weicht die Semantik ab: **neues Feld, nicht Umdeutung.**
+**Erkannt in:** Stage-2-Review (F-senior-6) zu `pipeline/_tc_execution.py` vs. `execution/unified_paper_engine.py`.
+**Referenzen:** E-122, E-133.

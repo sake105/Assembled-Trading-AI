@@ -17,6 +17,23 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _orders_for_execution(result: Any) -> pd.DataFrame:
+    """Der auszufuehrende Order-Batch ist IMMER orders_filtered.
+
+    Frueher stand hier ein Fallback auf result.orders bei leerem
+    orders_filtered — der deutete "leer" als "nicht befuellt" und lieferte
+    den UNGEFILTERTEN Batch an Fills/Artefakte, sobald ein Gate (VaR, CB,
+    min_notional, DD-Drossel + min_notional, fail-closed-except) alles
+    weggefiltert hatte: fail-open im Ernstfall (F-senior-1/E-136).
+    "Nicht befuellt" ist per Konvention None und wird in _tc_execution
+    (Ensure-Block) vor diesem Punkt normalisiert — leer heisst hier also
+    immer "bewusst auf null gefiltert".
+    """
+    if result.orders_filtered is None:  # defensiv; normalisiert in _tc_execution
+        return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+    return result.orders_filtered
+
+
 def _prd_load_paper_state(
     mode: str,
     app_cfg: dict[str, Any],
@@ -110,13 +127,29 @@ def _prd_load_paper_state(
         else pd.DataFrame(columns=["symbol", "qty", "target_qty"])
     )
     curve = ledger_state.get("equity_curve") or []
+    equity_series: pd.Series | None = None
+    equity_curve_index: int | None = None
     if curve:
-        _series = pd.Series([float(c.get("equity", 0)) for c in curve], dtype=float)
-        equity_series: pd.Series | None = _series
-        equity_curve_index: int | None = len(_series) - 1
-    else:
-        equity_series = None
-        equity_curve_index = None
+        # Unparsebare Punkte (equity fehlt oder null) werden UEBERSPRUNGEN,
+        # nicht als 0.0 fabriziert (F-senior-5): equity_series speist als
+        # ctx.equity_curve die Vol-Targeting-/Profit-Lock-Rechnung — ein
+        # 0.0-Punkt erzeugte dort ein -100%/+inf-Renditepaar. float(None)
+        # crashte frueher den ganzen Lauf (DD2-06); die alte Missing-Key-
+        # Semantik (-> 0.0) hatte dieselbe Giftwirkung.
+        _vals = []
+        for c in curve:
+            _eq = c.get("equity")
+            if isinstance(_eq, (int, float)):
+                _vals.append(float(_eq))
+            else:
+                log.warning(
+                    "[paper_runner] equity_curve-Punkt ohne numerische equity, "
+                    "uebersprungen: %r",
+                    c,
+                )
+        if _vals:
+            equity_series = pd.Series(_vals, dtype=float)
+            equity_curve_index = len(_vals) - 1
 
     return (
         ledger_state,
@@ -580,9 +613,7 @@ def _prd_paper_fills_and_ledger(
         write_reconcile_artifact,
     )
 
-    orders_for_fills = (
-        result.orders_filtered if not result.orders_filtered.empty else result.orders
-    )
+    orders_for_fills = _orders_for_execution(result)
     prices_for_fills = result.prices_filtered
     if prices_for_fills.empty:
         prices_for_fills = result.prices_with_features
@@ -886,14 +917,11 @@ def _prd_write_artifacts(
     )
 
     if execution_mode == "sim":
-        _ = maybe_execute_orders(
-            mode,
-            (
-                result.orders_filtered
-                if not result.orders_filtered.empty
-                else result.orders
-            ),
-        )
+        # F-auditor-1: dieselbe E-136-Fallback-Form wie an den zwei bereits
+        # ersetzten Stellen. Heute No-op (maybe_execute_orders gibt orders nur
+        # zurueck), aber der Docstring deklariert die Stelle als kuenftigen
+        # Einbaupunkt — ohne Fix stuende dort ein vorinstalliertes fail-open.
+        _ = maybe_execute_orders(mode, _orders_for_execution(result))
 
     policy = load_policy()
     kpis_path = write_run_kpis(
@@ -902,9 +930,7 @@ def _prd_write_artifacts(
     write_targets_artifact(
         output_dir=output_dir, target_positions=result.target_positions
     )
-    orders_df = (
-        result.orders_filtered if not result.orders_filtered.empty else result.orders
-    )
+    orders_df = _orders_for_execution(result)
     write_orders_artifact(output_dir=output_dir, orders=orders_df)
     write_reasons_artifact(
         output_dir=output_dir, ctx=ctx, result=result, policy=policy, mode=mode
@@ -1304,6 +1330,69 @@ def run_paper_daily_one(
         )
         ctx.equity_curve = equity_series
         ctx.equity_curve_index = equity_curve_index
+        # 2026-08-09 (Auftrag Hans): DD-Treppen-Verdrahtung. Vorher setzte
+        # niemand Equity-Attribute am ctx — die Treppe (policy.yaml
+        # drawdown_policy: -10/-15/-20) war im Paper-/Pilot-Pfad still inert
+        # (dd=None). BEWUSST hwm_equity statt peak_equity: peak_equity wuerde
+        # zusaetzlich Step-0-Exposure-Caps (-5 % hartkodiert), das 30 %-
+        # check_drawdown_kill_switch und den pre-trade de-risk scharf schalten
+        # (DD-04) — hwm_equity armt exakt die Treppe, sonst nichts.
+        # HWM-Basis: Baseline-Reset-Governance (2026-07-02) — Kurvenpunkte vor
+        # paper_runner.hwm_since zaehlen nicht (der reale Ledger traegt noch
+        # den Alt-Peak 99.036 vom 06.05.; dagegen stuende der Pilot heute bei
+        # dd -12,8 % und die Treppe feuerte sofort, DD-02). Peak startet beim
+        # Reset-Startkapital, nie darunter.
+        ctx.current_equity = float(equity_before)
+        _hwm = max(float(equity_before), float(start_capital))
+        _hwm_quelle = (
+            "start_capital" if _hwm == float(start_capital) else "equity_before"
+        )
+        if equity_series is not None and len(equity_series) > 0:
+            _since = str(paper_cfg.get("hwm_since") or "")
+            if not _since:
+                # F-senior-4: ohne hwm_since zaehlt die VOLLE Kurve inkl.
+                # moeglicher Alt-Peaks aus der Zeit vor einem Baseline-Reset —
+                # ein fehlender/vertippter Config-Key darf nicht still in
+                # Dauer-Drossel kippen.
+                log.warning(
+                    "[paper_runner] paper_runner.hwm_since nicht gesetzt — "
+                    "volle Equity-Kurve als HWM-Basis (Alt-Peaks vor einem "
+                    "Baseline-Reset zaehlen mit)"
+                )
+            _vals = equity_series
+            if _since and ledger_state is not None:
+                _curve = ledger_state.get("equity_curve") or []
+                # Nur parsebare Punkte zaehlen (DD2-06): utc muss ein String
+                # sein (str(None)="None" verglich sonst lexikografisch True
+                # und liesse Alt-Peaks durch), equity numerisch (float(None)
+                # crashte den ganzen Lauf). Unparsebares wird laut uebersprungen.
+                _post = []
+                for c in _curve:
+                    _utc, _eq = c.get("utc"), c.get("equity")
+                    if not isinstance(_utc, str) or not isinstance(_eq, (int, float)):
+                        log.warning(
+                            "[paper_runner] equity_curve-Punkt unparsebar, "
+                            "fuer HWM uebersprungen: %r",
+                            c,
+                        )
+                        continue
+                    if _utc[:10] >= _since:
+                        _post.append(float(_eq))
+                _vals = pd.Series(_post, dtype=float) if _post else None
+            if _vals is not None and len(_vals) > 0 and float(_vals.max()) > _hwm:
+                _hwm = float(_vals.max())
+                _hwm_quelle = f"kurve(hwm_since={_since or 'VOLL'})"
+        ctx.hwm_equity = _hwm
+        # F-senior-4: die tatsaechlich verwendete DD-Basis pro Zyklus sichtbar
+        # machen — sonst ist eine falsche HWM-Quelle erst am Drossel-Verhalten
+        # erkennbar.
+        log.info(
+            "[paper_runner] DD-Basis: hwm=%.2f (quelle=%s) current=%.2f dd=%.2f%%",
+            _hwm,
+            _hwm_quelle,
+            float(equity_before),
+            (float(equity_before) - _hwm) / _hwm * 100 if _hwm > 0 else 0.0,
+        )
 
     intel_sim_cfg = paper_cfg.get("intel_sim") or {}
     if (

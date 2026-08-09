@@ -67,6 +67,12 @@ def write_run_kpis(
     turnover_meta = (getattr(result, "meta", {}) or {}).get("turnover_budget") or {}
     turnover_scale = _safe_float(turnover_meta.get("scale_factor")) or 1.0
 
+    # F-auditor-4 (2026-08-09): die Auto-DD-Drossel ist der dritte
+    # qty-Skalierer neben profit_lock/turnover — ohne Artefakt-Spur waere ein
+    # gefeuerter Throttle nur in Logs sichtbar, und daily_pilot_review liest
+    # Artefakte, nicht Logs (E-135-Lehre: sichtbare Spur im Normalbetrieb).
+    auto_dd_meta = (getattr(result, "meta", {}) or {}).get("auto_dd_kill_switch") or {}
+
     # Item 41: use Decimal for multiplier product to avoid float compounding error
     final_exposure_mult = float(
         Decimal(str(georisk_mult)) * Decimal(str(profit_lock_mult))
@@ -119,6 +125,7 @@ def write_run_kpis(
         },
         "turnover_budget": turnover_meta or None,
         "profit_lock": profit_lock_meta or None,
+        "auto_dd_kill_switch": auto_dd_meta or None,
         "triggers_summary": triggers_summary,
         "top_triggers": top_triggers,
         "targets_summary": {

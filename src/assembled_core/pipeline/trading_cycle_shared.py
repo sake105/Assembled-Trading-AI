@@ -151,6 +151,28 @@ class TradingContext:
     except (E-059).
     """
 
+    current_equity: float | None = None
+    """Mark-to-market equity at cycle start (set by the paper runner).
+
+    Arms the auto-DD staircase (Step 6.4, ``_evaluate_auto_dd_kill_switch``)
+    together with ``hwm_equity``, and overrides the pre-trade sizing equity
+    base (same value as ``capital`` in the paper path). Until 2026-08-09 no
+    producer set this — the staircase was silently inert (dd=None).
+    """
+
+    hwm_equity: float | None = None
+    """High-water mark for the auto-DD staircase (set by the paper runner).
+
+    DELIBERATE naming: the staircase reads ``peak_equity`` OR ``hwm_equity``;
+    the broader risk_controls path (_apply_risk_controls_default -> Step-0
+    graduated exposure caps at -5/-10/-15 %, check_drawdown_kill_switch 30 %,
+    pre-trade de-risk) reads ONLY ``peak_equity``. Setting ``hwm_equity``
+    arms EXACTLY the policy-configured staircase (-10/-15/-20) and leaves
+    those parallel hardcoded mechanisms as inert as they were before the
+    2026-08-09 wiring. Setting ``peak_equity`` instead would arm all of
+    them at once — do that only as an explicit, reviewed decision.
+    """
+
     # Feature building
     use_factor_store: bool = True
     factor_store_root: Path | None = None
@@ -1196,19 +1218,30 @@ def _evaluate_auto_dd_kill_switch(
     """Sprint 1 / C7 — evaluate auto-drawdown kill-switch staircase.
 
     Returns a decision dict when a threshold is breached, otherwise ``None``.
-    The caller is responsible for engaging the kill-switch and clearing
-    orders. Pure function: no side effects, easy to unit-test.
+    Pure function: no side effects, easy to unit-test. The caller (Step 6.4
+    in ``_tc_risk.check_risk``) acts on the decision — seit 2026-08-09:
+    soft/hard = zustandslose In-Batch-qty-Drossel (KEIN Kill-Switch), NUR
+    ``level == "kill"`` aktiviert den persistenten Kill-Switch und leert den
+    Batch.
 
-    Staircase (``throttle_allowed_pct`` is the fraction of orders ALLOWED):
-        dd ≤ kill (-18%) → 0.0  (block all)
-        dd ≤ hard (-12%) → 0.2  (20% allowed)
-        dd ≤ soft (-8%)  → 0.5  (50% allowed)
+    Staircase (``throttle_allowed_pct`` is the fraction of qty ALLOWED;
+    levels come from ``policy drawdown_policy.levels`` — the numbers below
+    are only the FALLBACK when the policy carries no levels; configs/
+    policy.yaml sets -0.10/-0.15/-0.20):
+        dd ≤ kill (fallback -18%) → 0.0  (block all, persistent kill switch)
+        dd ≤ hard (fallback -12%) → 0.2  (qty x0.2, stateless)
+        dd ≤ soft (fallback  -8%) → 0.5  (qty x0.5, stateless)
     """
     dd_cfg = (policy or {}).get("drawdown_policy") or {}
     if not dd_cfg.get("auto_kill_enabled", True):
         return None
 
     current_equity = getattr(ctx, "current_equity", None)
+    # ACHTUNG Attributwahl (F-senior-8): peak_equity armt ZUSAETZLICH die
+    # parallelen DD-Mechanismen in risk_controls/pre_trade_checks (Step-0-Caps
+    # ab -5 %, 30 %-Kill-Pfade); hwm_equity armt NUR diese Treppe. Der
+    # Paper-Runner setzt deshalb bewusst hwm_equity — siehe TradingContext-
+    # Docstring, bevor du hier peak_equity verdrahtest.
     peak_equity = getattr(ctx, "peak_equity", None) or getattr(ctx, "hwm_equity", None)
 
     dd: float | None = None
