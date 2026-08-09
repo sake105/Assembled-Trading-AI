@@ -1,0 +1,101 @@
+{
+  "registriert": "Strategie N1 — Backtest der GEO-Komponente auf GDELT 2015-2016.\n\nREGISTRIERUNG (vor jedem Datenkontakt fixiert, +2 Trials; Aenderung = neue\nRegistrierung). Getestet wird NUR die GEO-Komponente der N1-Spez auf\nTagesbasis — nicht die Fusion, nicht Intraday, nicht die Latenz. Fenster\n2015-01-01..2016-12-31 gemaess Spez §6 (Holdout 2017..2026-07 versiegelt).\n\nSCORE (taeglich, PIT: GDELT-1.0-Tagesdatei ist am Folgetag verfuegbar ->\nSignal am Tag T nutzt Events bis T-1):\n  X_me     = Summe NumArticles ueber Events mit QuadClass=4 (material\n             conflict) und ActionGeo-Land in NAHOST = {IR,IZ,SA,SY,YM,IS,\n             LE,EG,TU,QA,KU,BA,AE,MU,JO} (FIPS-Codes)\n  X_global = dito ohne Laenderfilter\n  z_*      = (X - Mittel_180T) / Std_180T (rollierend, nur Vergangenheit)\n  geo_score = max(z_me, z_global)\nENTRY: geo_score(T-1) >= 3.0 (fix, kein Tuning) -> Kauf zum OPEN von T,\n  gleichgewichtet in die 3 Instrumente; eine offene Position je Instrument.\nINSTRUMENTE (Eskalation -> long) — ABWEICHUNG VON DER REGISTRIERUNG,\n  verfuegbarkeitsgetrieben und VOR jedem Ergebnis-Blick fixiert (Stooq\n  liefert JS-Challenge, yfinance gedrosselt, lokal nur Close-Panel):\n  GLD (wie registriert); Defense-Basket LMT/NOC/GD/RTN gleichgewichtet\n  (Ersatz fuer ITA); Oel-Majors-Basket XOM/CVX/COP (Ersatz fuer USO —\n  Aktien-Beta statt Crude, SCHWAECHERER Proxy). USO/ITA selbst bleiben\n  UNGETESTET. Kurse: prices_verdict.parquet (nur Close).\nEXITS (erster gewinnt; Spez §4) — CLOSE-BASIERT (kein OHLC verfuegbar;\n  konservativ: Entry erst am naechsten CLOSE nach dem Signal, Exits zum\n  Folge-Close): (1) Score-Zerfall geo_score < 1.5; (2) Zeit 15 Handels-\n  tage; (3) Risiko: Close <= Entry -5 % -> Exit Folge-Close; Trailing ab\n  +3 % Peak-Close mit 2 % Abstand.\nKOSTEN: 2 bps Fee + 3 bps Slippage je Seite (liquide ETFs) = 10 bps\n  Roundtrip.\nKONTROLLE: je Instrument 100 Zufalls-Entry-Tage (Seed 51), gleiche Exits\n  mit dem realen geo_score fuer den Zerfalls-Exit.\nVERDIKT (vorab): interessant nur bei Netto-Mittel > 0 UND t > 2 UND\n  PF > 1 gepoolt UND klarer Abstand zur Kontrolle. Sonst FAIL.\nOFFENGELEGT: die z-Schwelle 3.0 ist eine Vorab-Setzung ohne Shadow-\n  Verteilung (die existiert erst nach Wochen Sammelbetrieb); das Fenster\n  2015-16 enthaelt u. a. Syrien/Jemen-Eskalationen und den Oel-Crash —\n  Regime-Abhaengigkeit ist NICHT pruefbar mit 2 Jahren.\n",
+  "instrumente": {
+    "GLD": {
+      "basket": [
+        "GLD"
+      ],
+      "handelstage": 504,
+      "n_signaltage": 27,
+      "signal": {
+        "n_trades": 16,
+        "mittel_pp": -0.0292,
+        "t": -0.06,
+        "trefferquote": 0.438,
+        "profit_faktor": 0.96,
+        "summe_pct": -0.47
+      },
+      "kontrolle": {
+        "n_trades": 66,
+        "mittel_pp": -0.2299,
+        "t": -1.39,
+        "trefferquote": 0.439,
+        "profit_faktor": 0.632,
+        "summe_pct": -15.17
+      }
+    },
+    "DEFENSE": {
+      "basket": [
+        "LMT",
+        "NOC",
+        "GD",
+        "RTN"
+      ],
+      "handelstage": 504,
+      "n_signaltage": 27,
+      "signal": {
+        "n_trades": 16,
+        "mittel_pp": -0.4175,
+        "t": -1.17,
+        "trefferquote": 0.562,
+        "profit_faktor": 0.406,
+        "summe_pct": -6.68
+      },
+      "kontrolle": {
+        "n_trades": 63,
+        "mittel_pp": 0.0138,
+        "t": 0.08,
+        "trefferquote": 0.46,
+        "profit_faktor": 1.03,
+        "summe_pct": 0.87
+      }
+    },
+    "OEL_MAJORS": {
+      "basket": [
+        "XOM",
+        "CVX",
+        "COP"
+      ],
+      "handelstage": 504,
+      "n_signaltage": 27,
+      "signal": {
+        "n_trades": 16,
+        "mittel_pp": -0.4007,
+        "t": -0.53,
+        "trefferquote": 0.562,
+        "profit_faktor": 0.686,
+        "summe_pct": -6.41
+      },
+      "kontrolle": {
+        "n_trades": 64,
+        "mittel_pp": -0.3584,
+        "t": -1.3,
+        "trefferquote": 0.406,
+        "profit_faktor": 0.646,
+        "summe_pct": -22.94
+      }
+    }
+  },
+  "gepoolt": {
+    "signal": {
+      "n_trades": 48,
+      "mittel_pp": -0.2825,
+      "t": -0.91,
+      "trefferquote": 0.521,
+      "profit_faktor": 0.687,
+      "summe_pct": -13.56
+    },
+    "kontrolle": {
+      "n_trades": 193,
+      "mittel_pp": -0.193,
+      "t": -1.59,
+      "trefferquote": 0.435,
+      "profit_faktor": 0.724,
+      "summe_pct": -37.24
+    }
+  },
+  "verdikt": {
+    "besteht": false,
+    "kriterium": "netto>0 & t>2 & PF>1 gepoolt + Abstand zur Kontrolle (vorab)"
+  }
+}
