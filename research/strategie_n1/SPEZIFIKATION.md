@@ -35,7 +35,25 @@ Bruttokante lag bei ~0,6 pp/Trade. +2 pp ist das Ziel, nicht die Erwartung —
 das Erfolgskriterium der Evaluation ist vorab „netto > 0 mit t > 2 gegen
 Zufalls-Kontrolle", NICHT die 2 pp; sonst belügen wir uns beim ersten Lauf.
 
-## 2. Quellen-Machbarkeit (Probe 2026-08-09, HTTP-Status, keine Inhalte)
+## 2a. Quellen-Stand nach Runde 2 (2026-08-09, Hans: Reddit ja, NYT-API-Key entfaellt)
+
+**AKTIV im PIT-Sammler (`sammler.py`, 20 Quellen, Erstlauf 732 Eintraege):**
+Geopolitik: Reuters (Google-News-Proxy), NYT-RSS (ohne Key), BBC, Al Jazeera,
+Guardian, DW, Tagesschau, Anadolu. Finanz: FAZ, CNBC, MarketWatch + WSJ
+(offizielle Dow-Jones-Feeds), Handelsblatt, n-tv, wallstreet-online, **EZB- und
+Fed-Pressemitteilungen (Primaerquellen)**. Social: Reddit r/geopolitics +
+r/worldnews (RSS, OHNE App/OAuth; 429 heilt sich pro Lauf), **Clash Report via
+offenem Telegram-Mirror (t.me/s/)** — Hans' Wunschquelle.
+Ablage: `archiv/YYYY-MM-DD.jsonl` (gitignored), jeder Eintrag mit
+`fetched_utc` = PIT-Verfuegbarkeit. Betrieb: 1-2x/Std (Task-Scheduler =
+Operator-Entscheidung; bis dahin manuell/Session-getrieben).
+
+**Geprueft und (vorerst) NICHT nutzbar:** Tasnim (DNS), PressTV (kaputtes
+TLS-Zertifikat), ReliefWeb-API (410), Bluesky-Such-API (403 — andere Endpoints
+spaeter pruefbar), finanzen.net (403), Bloomberg (Paywall/ToS), X/Twitter
+(API kostenpflichtig — Clash Report kommt stattdessen ueber Telegram).
+
+## 2b. Urspruengliche Machbarkeitsprobe (Runde 1, HTTP-Status, keine Inhalte)
 
 | Quelle (Hans' Liste) | Zugang | Status |
 |---|---|---|
@@ -114,12 +132,14 @@ Rendite.
 
 ## 7. Nächste Schritte (Reihenfolge)
 
-1. **Operator (Hans):** NYT-API-Key (gratis) ja/nein; Reddit-App ja/nein;
-   X-API-Budget ja/nein; EODHD-Abo klären; Finnhub-Key-Status.
+1. **Operator (Hans):** ERLEDIGT teilweise (Reddit ja via RSS ohne App;
+   NYT-API entfaellt, RSS reicht). OFFEN: X-Budget (optional, Telegram-Mirror
+   deckt Clash Report), EODHD-Abo, Finnhub-Key-Status, Scheduler-Task fuer
+   den Sammler.
 2. Wortlisten + Ereignisklassen→Instrument-Tabelle schreiben (preisblind,
    Registrierung).
-3. RSS-Sammler bauen (Reuters-Proxy/NYT/FAZ + GDELT-Poller), ab sofort
-   PIT-archivieren — jeder Tag ohne Sammler ist ein Tag weniger Shadow-Daten.
+3. ERLEDIGT (2026-08-09): `sammler.py` archiviert 20 Quellen PIT-gestempelt.
+   Offen: Task-Scheduler-Registrierung (Operator) + GDELT-Poller separat.
 4. GDELT-Backtest der GEO-Komponente (erst nach 2., mit Trials-Buchung).
 5. Score-Fusion + Shadow-Runner (separater Codepfad, kein Pilot-Kontakt).
 

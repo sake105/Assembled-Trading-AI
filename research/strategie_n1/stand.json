@@ -1,0 +1,25 @@
+{
+  "letzter_lauf_utc": "2026-08-09T11:25:08.151700+00:00",
+  "quellen": {
+    "reuters_gnews": "ok:100/neu:0",
+    "nyt_world": "ok:56/neu:0",
+    "bbc_world": "ok:26/neu:0",
+    "aljazeera": "ok:25/neu:0",
+    "guardian_world": "ok:45/neu:0",
+    "dw_world": "ok:11/neu:0",
+    "tagesschau": "ok:62/neu:0",
+    "anadolu": "ok:30/neu:0",
+    "faz_finanzen": "ok:29/neu:0",
+    "cnbc_world": "ok:30/neu:0",
+    "marketwatch": "ok:10/neu:0",
+    "wsj_markets": "ok:61/neu:0",
+    "handelsblatt": "ok:50/neu:0",
+    "ntv_wirtschaft": "ok:30/neu:0",
+    "wallstreet_online": "ok:101/neu:0",
+    "ezb_presse": "ok:15/neu:0",
+    "fed_presse": "ok:20/neu:0",
+    "reddit_geopolitics": "ok:25/neu:0",
+    "reddit_worldnews": "FEHLER:HTTPError",
+    "tg_clashreport": "ok:16/neu:0"
+  }
+}
