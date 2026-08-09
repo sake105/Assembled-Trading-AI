@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -16,9 +17,18 @@ HOOK_PATH = REPO_ROOT / ".claude" / "hooks" / "stop_review_chain.py"
 def _run_hook(
     stdin_payload: dict, env_overrides: dict | None = None
 ) -> subprocess.CompletedProcess:
+    # F-senior-3 (2026-08-09): Ohne Default-Overrides loeste der Hook
+    # .claude/.review_skip gegen das ECHTE Repo auf — ein Testlauf hat den
+    # One-Shot-Skip des Operators konsumiert (Vollsuite-FAIL) und schrieb
+    # Test-Eintraege ins echte .review_skip_log.jsonl. Defaults zeigen auf
+    # ein frisches Temp-Verzeichnis; die Skip-Tests ueberschreiben sie
+    # weiterhin explizit.
+    _iso = Path(tempfile.mkdtemp(prefix="stop_hook_test_"))
     env = {
         **os.environ,
         "PYTHONIOENCODING": "utf-8",
+        "CLAUDE_HOOKS_SKIP_FILE": str(_iso / ".review_skip"),
+        "CLAUDE_HOOKS_SKIP_LOG": str(_iso / ".review_skip_log.jsonl"),
         **(env_overrides or {}),
     }
     return subprocess.run(

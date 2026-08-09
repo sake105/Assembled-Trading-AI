@@ -113,6 +113,35 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
             continue  # minimal env — module (and thus its writers) unavailable
         monkeypatch.setattr(_mod, _attr, _target)
 
+    # 2026-08-09: Kill-Switch-Stores in dieselbe Isolation. Ein Testlauf hat
+    # den REALEN output/ops/kill_switch_state.json engagiert (auto_dd_kill,
+    # dd=-90% aus Test-Equity) — der naechste Pilot-Zyklus waere geblockt
+    # gewesen, Aufraeumen nur per OPERATOR_KILL_TOKEN. Gleiche
+    # Kontaminationsklasse wie oben; kill_switch.py loest seine Pfade ueber
+    # diese Env-Vars auf (Lock haengt am State-Verzeichnis mit dran).
+    monkeypatch.setenv(
+        "ASSEMBLED_KILL_SWITCH_STATE", str(tmp_path / "kill_switch_state.json")
+    )
+    monkeypatch.setenv(
+        "ASSEMBLED_KILL_SWITCH_SENTINEL", str(tmp_path / ".kill_switch_active")
+    )
+    monkeypatch.setenv(
+        "ASSEMBLED_KILL_SWITCH_AUDIT", str(tmp_path / "kill_switch_audit.jsonl")
+    )
+    # TR-4: dieselbe Verteidigungslinie fuer die zwei restlichen Env-Vars —
+    # ein extern gesetztes ASSEMBLED_KILL_SWITCH=1 saehe sonst JEDEN Test als
+    # engaged, ein externer Lock-Pfad umginge die tmp_path-Ableitung. Tests,
+    # die die Vars selbst setzen, laufen NACH dieser Fixture und gewinnen.
+    monkeypatch.delenv("ASSEMBLED_KILL_SWITCH", raising=False)
+    monkeypatch.delenv("ASSEMBLED_KILL_SWITCH_LOCK", raising=False)
+    # F-senior-4 (Stage 2, 2026-08-09): gleiche Klasse — Reconcile-Fixtures
+    # schrieben synthetische severity=fail-Zeilen ins REALE
+    # output/ops/reconciliation_audit.jsonl (accounting/reconciliation.py:25
+    # liest diese Env-Var).
+    monkeypatch.setenv(
+        "ASSEMBLED_RECONCILE_AUDIT", str(tmp_path / "reconciliation_audit.jsonl")
+    )
+
 
 @pytest.fixture
 def golden_mini_backtest_data():

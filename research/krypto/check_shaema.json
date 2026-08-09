@@ -1,0 +1,209 @@
+{
+  "registriert": "Check der \"SHAEMA\"-Strategie (E-Mail-Vorschlag, via Hans 2026-08-09).\n\nRegeln laut Mail (Long-Setup; Short war im Screenshot nicht enthalten):\n  Indikatoren: Smoothed Heiken Ashi (Inputs EMA-50 geglaettet, HA gerechnet,\n  Output nochmal EMA-50 geglaettet — \"TheBacktestGuy\"-Variante) + EMA 50.\n  1. SHA-Kerze gruen. 2. EMA 50 OBERHALB der SHA-Dochte (h2). 3. Echte Kerze\n  kreuzt EMA 50 bullish von unten. 4. Entry zum Open der naechsten Kerze.\n  5. SL knapp unter den Docht (Low) der aktuellen SHA-Kerze. 6. TP = 1,5 R.\n\nVORAB REGISTRIERT (+1 Trial, vor Datenkontakt fixiert):\n  Daten: Binance-Spot 5m, BTC/ETH/SOL/XRP/ADA-USDT, ~590 Tage (Cache).\n  Session-Regeln der Mail (Fr-20-Uhr etc.) sind FX-spezifisch und entfallen\n  fuer 24/7-Krypto — offengelegte Abweichung, keine weitere.\n  Ausfuehrung: Entry Open t+1; eine Position je Paar; Intrabar pessimistisch\n  SL vor TP; Zeit-Exit nach 5 Tagen (1440 Bars) zum Close. Trades mit\n  SL >= Entry (synthetisches Low ueber Entry) werden verworfen und gezaehlt.\n  Kosten: 0,10 % Fee + 0,05 % Slippage je Seite.\n  Kontrolle: 200 Zufalls-Entries je Paar, gleiche Exit-Maschinerie mit dem\n  jeweils aktuellen SHA-Low als SL (Seed 50).\n  Verdikt (vorab): interessant nur bei Netto-Mittel > 0, t > 2 UND\n  Profit-Faktor > 1 gepoolt — UND klarer Abstand zur Zufalls-Kontrolle.\n\nASSET-KLASSEN-VORBEHALT: Die Mail handelt FX/Rohstoff-CFDs im 5m; hier wird\ndie MECHANIK auf Krypto geprueft. Ein FAIL hier widerlegt die Mail nicht\nformal — ein \"Signal = Zufall\"-Befund ist aber ein starkes Indiz, dass die\nKante nicht in der Regel steckt.\n",
+  "quelle": "Binance Spot REST /api/v3/klines, nativ 5m",
+  "paare": {
+    "BTCUSDT": {
+      "bars_5m": 169920,
+      "zeitraum": [
+        "2024-12-27 08:10:00+00:00",
+        "2026-08-09 08:05:00+00:00"
+      ],
+      "n_signale": 1995,
+      "signal": {
+        "n_trades": 949,
+        "mittel_pp": -0.3207,
+        "t": -18.18,
+        "trefferquote": 0.306,
+        "profit_faktor": 0.268,
+        "summe_pct": -304.3
+      },
+      "signal_exit_gruende": {
+        "sl": 643,
+        "tp": 306,
+        "zeit": 0
+      },
+      "signal_sl_verworfen": 0,
+      "kontrolle": {
+        "n_trades": 113,
+        "mittel_pp": -0.4545,
+        "t": -4.99,
+        "trefferquote": 0.239,
+        "profit_faktor": 0.276,
+        "summe_pct": -51.36
+      },
+      "kontrolle_exit_gruende": {
+        "sl": 80,
+        "tp": 33,
+        "zeit": 0
+      },
+      "kontrolle_sl_verworfen": 78
+    },
+    "ETHUSDT": {
+      "bars_5m": 169920,
+      "zeitraum": [
+        "2024-12-27 08:10:00+00:00",
+        "2026-08-09 08:05:00+00:00"
+      ],
+      "n_signale": 1955,
+      "signal": {
+        "n_trades": 943,
+        "mittel_pp": -0.2759,
+        "t": -10.4,
+        "trefferquote": 0.372,
+        "profit_faktor": 0.461,
+        "summe_pct": -260.2
+      },
+      "signal_exit_gruende": {
+        "sl": 587,
+        "tp": 356,
+        "zeit": 0
+      },
+      "signal_sl_verworfen": 0,
+      "kontrolle": {
+        "n_trades": 112,
+        "mittel_pp": -0.3458,
+        "t": -3.1,
+        "trefferquote": 0.277,
+        "profit_faktor": 0.455,
+        "summe_pct": -38.73
+      },
+      "kontrolle_exit_gruende": {
+        "sl": 79,
+        "tp": 33,
+        "zeit": 0
+      },
+      "kontrolle_sl_verworfen": 80
+    },
+    "SOLUSDT": {
+      "bars_5m": 169920,
+      "zeitraum": [
+        "2024-12-27 08:10:00+00:00",
+        "2026-08-09 08:05:00+00:00"
+      ],
+      "n_signale": 1984,
+      "signal": {
+        "n_trades": 955,
+        "mittel_pp": -0.256,
+        "t": -8.06,
+        "trefferquote": 0.385,
+        "profit_faktor": 0.555,
+        "summe_pct": -244.49
+      },
+      "signal_exit_gruende": {
+        "sl": 586,
+        "tp": 369,
+        "zeit": 0
+      },
+      "signal_sl_verworfen": 0,
+      "kontrolle": {
+        "n_trades": 113,
+        "mittel_pp": -0.368,
+        "t": -2.78,
+        "trefferquote": 0.31,
+        "profit_faktor": 0.502,
+        "summe_pct": -41.58
+      },
+      "kontrolle_exit_gruende": {
+        "sl": 77,
+        "tp": 35,
+        "zeit": 1
+      },
+      "kontrolle_sl_verworfen": 80
+    },
+    "XRPUSDT": {
+      "bars_5m": 169920,
+      "zeitraum": [
+        "2024-12-27 08:15:00+00:00",
+        "2026-08-09 08:10:00+00:00"
+      ],
+      "n_signale": 1933,
+      "signal": {
+        "n_trades": 939,
+        "mittel_pp": -0.2932,
+        "t": -9.62,
+        "trefferquote": 0.371,
+        "profit_faktor": 0.481,
+        "summe_pct": -275.31
+      },
+      "signal_exit_gruende": {
+        "sl": 589,
+        "tp": 350,
+        "zeit": 0
+      },
+      "signal_sl_verworfen": 0,
+      "kontrolle": {
+        "n_trades": 118,
+        "mittel_pp": -0.471,
+        "t": -3.82,
+        "trefferquote": 0.28,
+        "profit_faktor": 0.393,
+        "summe_pct": -55.58
+      },
+      "kontrolle_exit_gruende": {
+        "sl": 81,
+        "tp": 37,
+        "zeit": 0
+      },
+      "kontrolle_sl_verworfen": 76
+    },
+    "ADAUSDT": {
+      "bars_5m": 169920,
+      "zeitraum": [
+        "2024-12-27 08:20:00+00:00",
+        "2026-08-09 08:15:00+00:00"
+      ],
+      "n_signale": 1889,
+      "signal": {
+        "n_trades": 901,
+        "mittel_pp": -0.3555,
+        "t": -10.1,
+        "trefferquote": 0.344,
+        "profit_faktor": 0.473,
+        "summe_pct": -320.35
+      },
+      "signal_exit_gruende": {
+        "sl": 591,
+        "tp": 310,
+        "zeit": 0
+      },
+      "signal_sl_verworfen": 0,
+      "kontrolle": {
+        "n_trades": 109,
+        "mittel_pp": -0.4741,
+        "t": -3.45,
+        "trefferquote": 0.257,
+        "profit_faktor": 0.43,
+        "summe_pct": -51.67
+      },
+      "kontrolle_exit_gruende": {
+        "sl": 78,
+        "tp": 31,
+        "zeit": 0
+      },
+      "kontrolle_sl_verworfen": 81
+    }
+  },
+  "gepoolt": {
+    "signal": {
+      "n_trades": 4687,
+      "mittel_pp": -0.2997,
+      "t": -23.23,
+      "trefferquote": 0.356,
+      "profit_faktor": 0.457,
+      "summe_pct": -1404.66
+    },
+    "kontrolle": {
+      "n_trades": 565,
+      "mittel_pp": -0.4229,
+      "t": -7.89,
+      "trefferquote": 0.273,
+      "profit_faktor": 0.414,
+      "summe_pct": -238.92
+    }
+  },
+  "verdikt": {
+    "besteht": false,
+    "kriterium": "mittel>0 & t>2 & PF>1 gepoolt + Abstand zur Kontrolle (vorab fixiert)",
+    "praezisierung": "FAIL belegt: die ENTRY-Regel bringt unter DIESER Exit-Maschinerie nichts ueber die Kosten. sha_low lag nie in Entry-Naehe (0 SL-verworfen) — der getestete Stop ist strukturell weit weg, nicht der 'knapp unter den Docht' der Mail; Exit-Gruende je Paar im Artefakt."
+  }
+}

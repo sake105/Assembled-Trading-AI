@@ -142,6 +142,14 @@ def test_paper_run_ema_produces_trades(
                 "ema_fast": 20,
                 "ema_slow": 60,
                 "equal_weight": True,
+                # 2026-08-09: Im steilen 1%/Tag-Synthetik-Trend emittiert das
+                # Sizing ~138k Brutto-Notional auf 100k Kapital — das
+                # pre-trade max_gross_exposure-Gate (1.2x) blockt den Batch
+                # komplett. Der Test war frueher nur gruen, weil ein
+                # Fail-open-Fallback den UNGEFILTERTEN Batch an Fills/
+                # Artefakte reichte (E-136, entfernt in 81bfb6c8-Nachfolge).
+                # 0.7 haelt das Szenario ehrlich unter dem Gate.
+                "target_invested_pct": 0.7,
             },
             "ledger_path": str(tmp_path / "ledger_state.json"),
         },
@@ -149,6 +157,7 @@ def test_paper_run_ema_produces_trades(
     }
     root = get_base_dir()
     total_orders = 0
+    days_with_orders = 0
     for d in dates:
         day_ts = pd.Timestamp(d).tz_localize("UTC")
         out_dir = tmp_path / d.isoformat()
@@ -162,6 +171,15 @@ def test_paper_run_ema_produces_trades(
             data = json.loads(orders_file.read_text(encoding="utf-8"))
             items = data.get("items") or []
             total_orders += len(items)
+            days_with_orders += int(bool(items))
+    # TR-2: nicht nur "irgendein Order irgendwann" — ein kuenftiger
+    # Sizing-Drift Richtung max_gross-Gate soll LAUT werden, bevor er fast
+    # alle Tage still blockt. Nicht jeder Tag hat Orders: nach den
+    # Erstkaeufen unterdrueckt die anti-churn-Deadzone konvergierte
+    # Rebalance-Deltas (beobachtet: 4/10 Tage mit Orders).
+    assert days_with_orders >= 3, (
+        f"Expected orders on several days (Referenz-Beobachtung 2026-08-09: 4/10), got {days_with_orders}/10"
+    )
     assert total_orders > 0, (
         "Expected at least one order over 10 days with EMA strategy"
     )

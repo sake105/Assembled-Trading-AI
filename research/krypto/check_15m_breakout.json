@@ -1,0 +1,247 @@
+{
+  "registriert": "Check der User-Strategie \"FifteenMinuteBreakout_TrailingRSI\" (Freqtrade, Krypto).\n\nAUFTRAG (Hans, 2026-08-09): \"check die mal durch und lass ein paar test laufen\".\nFreqtrade ist hier nicht installiert — die Logik wird nachgebaut und auf echten\nNATIVEN 15m-Daten der oeffentlichen Binance-Spot-API simuliert (QUELLEN-WECHSEL\n2026-08-09, preisblind: EODHD-Token tot, 401 auch fuer Aktien; urspruenglich\nregistriert war EODHD 5m->15m — Regeln unveraendert). SANITY-PRUEFUNG, keine\nFreqtrade-Replikation (kein Orderbuch, aggregierter Preis-Feed).\n\nVORAB REGISTRIERT (vor jedem Datenkontakt fixiert, +2 Trials):\n  Variante A \"wie beabsichtigt\": Struktur-Stop auf prev_low (ratchet nur nach\n    oben), Trailing (aktiv ab +2 % Peak, 1,5 % Abstand), TP +3 %.\n  Variante B \"wie der Code real laeuft\": KEIN Struktur-Stop (der Custom-Stop\n    faellt nachweislich in den except-Pfad -> return 1 = kein Stop),\n    Trailing + TP aktiv (best case fuer den Code; ob Freqtrade Engine-Trailing\n    bei use_custom_stoploss=True ueberhaupt anwendet, ist versionsabhaengig —\n    B ist damit die WOHLWOLLENDSTE Lesart).\n  Paare: BTC/ETH/SOL/XRP/ADA (USDT-Spot, Binance), nativ 15m, ~590 Tage.\n  Ausfuehrung: Signal auf 15m-Kerze t -> Entry zum OPEN von t+1 (Freqtrade-\n    Konvention). Eine Position je Paar. Intrabar-Prioritaet PESSIMISTISCH:\n    Stop vor Trailing vor TP.\n  Kosten: 0,10 % Taker-Fee + 0,05 % Slippage JE SEITE (0,30 % Roundtrip).\n  Kontrolle: identische Maschinerie auf 200 Zufalls-Entries je Paar (Seed 49).\n  Verdikt-Kriterium (vorab): interessant nur, wenn Netto-Erwartungswert je\n    Trade > 0 mit t > 2 UND Profit-Faktor > 1 nach Kosten, gepoolt ueber\n    alle Paare, in der jeweiligen Variante. Sonst FAIL.\n\nSignal (PIT-sauber, alles shift(1)-basiert wie im Original):\n  close[t] > high[t-1]  UND  RSI14[t] < 62  UND  close[t-1] <= high[t-2]\n",
+  "quelle": "Binance Spot REST /api/v3/klines, nativ 15m",
+  "abruf_hinweis": "Parquet-Cache research/krypto/data (gitignored); Zeitraum je Paar unten",
+  "vergleichs_hinweis": "A und B sind KEINE vergleichbaren Stichproben (A stoppt binnen Bars aus -> ~20x mehr Trades); jede Variante NUR gegen die eigene Kontrolle lesen",
+  "paare": {
+    "BTCUSDT": {
+      "bars_15m": 56640,
+      "zeitraum": [
+        "2024-12-27 08:00:00+00:00",
+        "2026-08-09 07:45:00+00:00"
+      ],
+      "n_signale": 7520,
+      "A_mit_stop": {
+        "n_trades": 6445,
+        "mittel_pp": -0.301,
+        "t": -82.97,
+        "trefferquote": 0.083,
+        "profit_faktor": 0.096,
+        "summe_pct": -1940.06
+      },
+      "B_ohne_stop": {
+        "n_trades": 226,
+        "mittel_pp": -0.458,
+        "t": -1.95,
+        "trefferquote": 0.628,
+        "profit_faktor": 0.7,
+        "summe_pct": -103.51
+      },
+      "kontrolle_A": {
+        "n_trades": 199,
+        "mittel_pp": -0.3069,
+        "t": -15.22,
+        "trefferquote": 0.07,
+        "profit_faktor": 0.08,
+        "summe_pct": -61.07
+      },
+      "kontrolle_B": {
+        "n_trades": 106,
+        "mittel_pp": -0.3055,
+        "t": -0.91,
+        "trefferquote": 0.613,
+        "profit_faktor": 0.786,
+        "summe_pct": -32.39
+      }
+    },
+    "ETHUSDT": {
+      "bars_15m": 56640,
+      "zeitraum": [
+        "2024-12-27 08:00:00+00:00",
+        "2026-08-09 07:45:00+00:00"
+      ],
+      "n_signale": 7243,
+      "A_mit_stop": {
+        "n_trades": 6261,
+        "mittel_pp": -0.2973,
+        "t": -52.53,
+        "trefferquote": 0.128,
+        "profit_faktor": 0.193,
+        "summe_pct": -1861.62
+      },
+      "B_ohne_stop": {
+        "n_trades": 304,
+        "mittel_pp": -0.5548,
+        "t": -2.09,
+        "trefferquote": 0.734,
+        "profit_faktor": 0.687,
+        "summe_pct": -168.66
+      },
+      "kontrolle_A": {
+        "n_trades": 199,
+        "mittel_pp": -0.2798,
+        "t": -10.58,
+        "trefferquote": 0.116,
+        "profit_faktor": 0.174,
+        "summe_pct": -55.69
+      },
+      "kontrolle_B": {
+        "n_trades": 128,
+        "mittel_pp": -0.1835,
+        "t": -0.45,
+        "trefferquote": 0.797,
+        "profit_faktor": 0.876,
+        "summe_pct": -23.49
+      }
+    },
+    "SOLUSDT": {
+      "bars_15m": 56640,
+      "zeitraum": [
+        "2024-12-27 08:00:00+00:00",
+        "2026-08-09 07:45:00+00:00"
+      ],
+      "n_signale": 7045,
+      "A_mit_stop": {
+        "n_trades": 6115,
+        "mittel_pp": -0.306,
+        "t": -46.03,
+        "trefferquote": 0.147,
+        "profit_faktor": 0.229,
+        "summe_pct": -1871.25
+      },
+      "B_ohne_stop": {
+        "n_trades": 360,
+        "mittel_pp": -0.2597,
+        "t": -1.07,
+        "trefferquote": 0.789,
+        "profit_faktor": 0.842,
+        "summe_pct": -93.5
+      },
+      "kontrolle_A": {
+        "n_trades": 199,
+        "mittel_pp": -0.2708,
+        "t": -8.49,
+        "trefferquote": 0.141,
+        "profit_faktor": 0.222,
+        "summe_pct": -53.88
+      },
+      "kontrolle_B": {
+        "n_trades": 132,
+        "mittel_pp": -0.424,
+        "t": -1.04,
+        "trefferquote": 0.758,
+        "profit_faktor": 0.76,
+        "summe_pct": -55.97
+      }
+    },
+    "XRPUSDT": {
+      "bars_15m": 56640,
+      "zeitraum": [
+        "2024-12-27 08:00:00+00:00",
+        "2026-08-09 07:45:00+00:00"
+      ],
+      "n_signale": 7218,
+      "A_mit_stop": {
+        "n_trades": 6273,
+        "mittel_pp": -0.3077,
+        "t": -48.5,
+        "trefferquote": 0.137,
+        "profit_faktor": 0.209,
+        "summe_pct": -1930.44
+      },
+      "B_ohne_stop": {
+        "n_trades": 301,
+        "mittel_pp": -0.719,
+        "t": -2.82,
+        "trefferquote": 0.701,
+        "profit_faktor": 0.623,
+        "summe_pct": -216.4
+      },
+      "kontrolle_A": {
+        "n_trades": 199,
+        "mittel_pp": -0.234,
+        "t": -6.72,
+        "trefferquote": 0.176,
+        "profit_faktor": 0.288,
+        "summe_pct": -46.57
+      },
+      "kontrolle_B": {
+        "n_trades": 116,
+        "mittel_pp": -0.9444,
+        "t": -2.09,
+        "trefferquote": 0.681,
+        "profit_faktor": 0.547,
+        "summe_pct": -109.54
+      }
+    },
+    "ADAUSDT": {
+      "bars_15m": 56640,
+      "zeitraum": [
+        "2024-12-27 08:00:00+00:00",
+        "2026-08-09 07:45:00+00:00"
+      ],
+      "n_signale": 6913,
+      "A_mit_stop": {
+        "n_trades": 6064,
+        "mittel_pp": -0.3167,
+        "t": -43.0,
+        "trefferquote": 0.165,
+        "profit_faktor": 0.252,
+        "summe_pct": -1920.51
+      },
+      "B_ohne_stop": {
+        "n_trades": 361,
+        "mittel_pp": -0.7378,
+        "t": -2.74,
+        "trefferquote": 0.77,
+        "profit_faktor": 0.629,
+        "summe_pct": -266.36
+      },
+      "kontrolle_A": {
+        "n_trades": 198,
+        "mittel_pp": -0.3191,
+        "t": -9.51,
+        "trefferquote": 0.096,
+        "profit_faktor": 0.182,
+        "summe_pct": -63.19
+      },
+      "kontrolle_B": {
+        "n_trades": 132,
+        "mittel_pp": -0.1481,
+        "t": -0.37,
+        "trefferquote": 0.795,
+        "profit_faktor": 0.904,
+        "summe_pct": -19.55
+      }
+    }
+  },
+  "gepoolt": {
+    "A": {
+      "n_trades": 31158,
+      "mittel_pp": -0.3057,
+      "t": -113.55,
+      "trefferquote": 0.132,
+      "profit_faktor": 0.199,
+      "summe_pct": -9523.88
+    },
+    "B": {
+      "n_trades": 1552,
+      "mittel_pp": -0.5467,
+      "t": -4.72,
+      "trefferquote": 0.733,
+      "profit_faktor": 0.693,
+      "summe_pct": -848.43
+    },
+    "kontrolle_A": {
+      "n_trades": 994,
+      "mittel_pp": -0.2821,
+      "t": -21.11,
+      "trefferquote": 0.12,
+      "profit_faktor": 0.189,
+      "summe_pct": -280.4
+    },
+    "kontrolle_B": {
+      "n_trades": 614,
+      "mittel_pp": -0.3924,
+      "t": -2.17,
+      "trefferquote": 0.735,
+      "profit_faktor": 0.764,
+      "summe_pct": -240.94
+    }
+  },
+  "verdikt": {
+    "A_besteht": false,
+    "B_besteht": false,
+    "kriterium": "mittel>0 & t>2 & PF>1 nach Kosten, gepoolt (vorab fixiert)"
+  }
+}

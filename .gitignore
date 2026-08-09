@@ -88,6 +88,7 @@ datensammlungen/**/*.parquet
 # bzw. fable mill scripts) and stay out of git (~4.1 GB in mandat/data alone).
 research/mandat/data/
 research/fable_exploration/**/*.parquet
+research/krypto/data/
 research/**/__pycache__/
 
 # Legacy singular config/ dir — merged into configs/ on 2026-04-25

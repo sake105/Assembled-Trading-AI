@@ -1737,3 +1737,31 @@ Das Artefakt berichtete die **Blockzahl** (4) und aggregierte Kennzahlen ueber a
 3. Wandert ein Wert von Senke A nach Senke B, **wandert der Wiring-Test mit** — ein Test, der nur noch Abwesenheit in A prueft, laesst B ungeschuetzt.
 **Erkannt in:** CI-Rot auf `bb19531d`; Kompakt-Review (F-senior-1/2, E-NEW-1) zu `_tc_execution.py`/`run_index.py`/`kpi_artifacts.py`.
 **Referenzen:** E-137 (dessen „Wie vermeiden #2" ist hiermit um die Schema-Vorpruefung ergaenzt), E-047, E-136.
+
+## E-139 — Test-Isolation gegen Betriebsstores wird immer nur um die Datei erweitert, die gerade zugebissen hat
+**Datum:** 2026-08-09
+**Kategorie:** test-anti-pattern / reaktive-isolation
+**Was passierte:** Die autouse-Fixture `_isolate_operational_stores` dokumentiert in ihrem eigenen Docstring drei Vorfaelle (intent_store 2026-07-24, order_lifecycle 2026-07-22, crisis_alpha_state) und wurde am 2026-08-09 zum vierten Mal erweitert — nachdem ein Testlauf den REALEN persistenten Kill-Switch scharfgeschaltet hatte (auto_dd_kill, dd=-90 % aus Test-Equity; entschaerfbar nur per OPERATOR_KILL_TOKEN, Pilot waere geblockt gewesen). Noch im selben Review wurden zwei weitere offene Kanaele derselben Klasse belegt: `output/ops/reconciliation_audit.jsonl` bekam synthetische severity=fail-Eintraege aus einem Verifikationslauf, und `tests/hooks/test_stop_hook.py` konsumierte den echten One-Shot-Skip `.claude/.review_skip` und schrieb ins echte Skip-Audit-Log.
+
+**Warum falsch:** Jede Erweiterung war korrekt und jede war zu klein. Der Fehler ist nicht die einzelne fehlende Zeile, sondern die reaktiv gefuehrte Liste: isoliert wird, was schon einmal geblutet hat. Die Eskalation ist qualitativ — von stoerendem Residuum zu Testlaeufen, die Sicherheitsmechanismen SCHARFSCHALTEN und Audit-Trails verunreinigen, auf die sich Freigabeentscheidungen stuetzen. Ein Audit-Eintrag, dem man Testherkunft nicht ansieht, entwertet das ganze Log.
+
+**Wie vermeiden:**
+1. Die Liste einmal vollstaendig ERZEUGEN statt fortschreiben: alle Default-Schreibpfade unter `output/ops` und `.claude` enumerieren (grep auf `Path("output/ops...` und die `_*_path()`-Resolver) und jeden isolieren oder mit Begruendung als bewusst-real markieren.
+2. Harte Grenze: **Ein Test darf keinen Zustand erzeugen, dessen Aufraeumen ein Operator-Secret braucht.** Ab da ist Isolation nicht optional.
+3. Regressionsschutz statt Gedaechtnis: ein Wachhund-Test, der `output/ops` und `.claude` vor/nach einem Suite-Lauf per mtime+size vergleicht, faengt die naechste Wiederholung selbst.
+**Erkannt in:** Stage-2-Review 2026-08-09 (`tests/conftest.py`, `accounting/reconciliation.py`, `tests/hooks/test_stop_hook.py`).
+**Referenzen:** E-135; conftest-Docstring-Historie 2026-07-22/24.
+
+## E-140 — Der Registrierungstext im Forschungsartefakt beschreibt einen anderen Lauf als den gelaufenen
+**Datum:** 2026-08-09
+**Kategorie:** false-evidence / registrierung-drift
+**Was passierte:** `check_15m_breakout.json` archivierte als „registriert" den Docstring-Kopf mit „EODHD 5m -> 15m resampled" und „-USD.CC"-Paaren. Gelaufen ist native Binance-15m auf USDT-Paaren; der (preisblinde, legitime) Quellenwechsel stand nur als Code-KOMMENTAR unterhalb des Docstrings — und reiste damit nicht ins Artefakt. Verschaerfend schnitt in beiden Krypto-Skripten ein `__doc__.split(...)` genau die Teile weg, die man spaeter braucht: einmal die Signaldefinition, einmal den Asset-Klassen-Vorbehalt. Beide Laeufe waren bereits im Trial-Zaehler gebucht.
+
+**Warum falsch:** Die Vorabregistrierung ist der einzige Schutz gegen nachtraegliches Zurechtruecken — sie ist nur so viel wert, wie sie den tatsaechlichen Lauf beschreibt. Ein Docstring-Split ist eine stille Schere: er wirkt wie Kuratierung, entfernt aber genau den Vorbehalt bzw. die Regel, ohne die das Verdikt spaeter breiter zitiert wird, als es traegt. Ein Kommentar reist nicht mit dem Artefakt.
+
+**Wie vermeiden:**
+1. Aenderungen an Quelle, Frequenz, Symbolen, Zeitraum gehoeren **in den Docstring** (das, was gebucht wird), nicht in einen Kommentar daneben.
+2. Kein `__doc__.split()` fuer Artefaktfelder — ganzen Docstring schreiben oder explizit benannte Felder (registrierung/signal/vorbehalte).
+3. Vor dem Buchen das erzeugte JSON einmal LESEN und gegen die tatsaechlich verwendeten Konstanten pruefen (Symbolliste und Intervall stehen im selben File).
+**Erkannt in:** Stage-2-Review (F-senior-1/2) zu `research/krypto/check_*_userstrategie.py`; Fix ohne Neubuchung via `--regen`, Verdicts unveraendert FAIL.
+**Referenzen:** E-085, E-090, E-131.
