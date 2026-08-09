@@ -30,39 +30,69 @@ UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Forschung-N1"
 
 #: (name, url, typ) — typ: rss | telegram. Reihenfolge = Abrufreihenfolge.
 QUELLEN: list[tuple[str, str, str]] = [
-    # Geopolitik
-    (
-        "reuters_gnews",
-        "https://news.google.com/rss/search?q=site:reuters.com%20(geopolitics%20OR%20war%20OR%20sanctions)&hl=en",
-        "rss",
-    ),
+    # v2 (2026-08-09): Bestand per feed_probe.py verifiziert (Status ok UND
+    # robots.txt nicht verbietend; "?" = robots unlesbar -> zugelassen, im
+    # CSV dokumentiert). ENTFERNT wegen robots-Verbot: Google-News-Reuters-
+    # Proxy, CNBC, Reddit-RSS (legaler Reddit-Weg = OAuth-App, Operator-
+    # Entscheidung). Reuters-Inhalte kommen jetzt via investing_com
+    # (<author>Reuters</author>; pubDate TZ-NAIV -> beim Parsen festnageln).
+    # Geopolitik International
     ("nyt_world", "https://rss.nytimes.com/services/xml/rss/nyt/World.xml", "rss"),
+    ("nyt_me", "https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml", "rss"),
     ("bbc_world", "https://feeds.bbci.co.uk/news/world/rss.xml", "rss"),
+    ("bbc_me", "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml", "rss"),
     ("aljazeera", "https://www.aljazeera.com/xml/rss/all.xml", "rss"),
     ("guardian_world", "https://www.theguardian.com/world/rss", "rss"),
+    ("guardian_israel", "https://www.theguardian.com/world/israel/rss", "rss"),
     ("dw_world", "https://rss.dw.com/rdf/rss-en-world", "rss"),
+    ("france24_me", "https://www.france24.com/en/middle-east/rss", "rss"),
+    ("cnn_me", "http://rss.cnn.com/rss/edition_meast.rss", "rss"),
     ("tagesschau", "https://www.tagesschau.de/index~rss2.xml", "rss"),
     ("anadolu", "https://www.aa.com.tr/en/rss/default?cat=guncel", "rss"),
-    # Finanz
-    ("faz_finanzen", "https://www.faz.net/rss/aktuell/finanzen/", "rss"),
     (
-        "cnbc_world",
-        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362",
+        "un_news_me",
+        "https://news.un.org/feed/subscribe/en/news/region/middle-east/feed/rss.xml",
         "rss",
     ),
-    (
-        "marketwatch",
-        "https://feeds.content.dowjones.io/public/rss/mw_topstories",
-        "rss",
-    ),
+    ("foreignpolicy", "https://foreignpolicy.com/feed/", "rss"),
+    # Geopolitik Think-Tank/OSINT (langsam, hohe Qualitaet)
+    ("crisisgroup", "https://www.crisisgroup.org/rss/91", "rss"),
+    ("bellingcat", "https://www.bellingcat.com/feed/", "rss"),
+    ("ecfr", "https://www.ecfr.eu/feed/", "rss"),
+    ("atlanticcouncil", "https://www.atlanticcouncil.org/feed/", "rss"),
+    # Regionale Medien (Bias je Quelle im Tier-Modell dokumentieren)
+    ("jpost", "https://rss.jpost.com/rss/rssfeedsfrontpage.aspx", "rss"),
+    ("middleeasteye", "https://www.middleeasteye.net/rss", "rss"),
+    ("al_monitor", "https://www.al-monitor.com/rss", "rss"),
+    # Finanz EN
     (
         "wsj_markets",
         "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain",
         "rss",
     ),
+    ("wsj_usbusiness", "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml", "rss"),
     (
-        "handelsblatt",
+        "marketwatch",
+        "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+        "rss",
+    ),
+    ("investing_com", "https://www.investing.com/rss/news.rss", "rss"),
+    ("yahoo_finance", "https://finance.yahoo.com/news/rssindex", "rss"),
+    ("seekingalpha", "https://seekingalpha.com/market_currents.xml", "rss"),
+    ("fortune", "https://fortune.com/feed", "rss"),
+    ("ft", "https://www.ft.com/?format=rss", "rss"),
+    ("politico_playbook", "https://rss.politico.com/playbook.xml", "rss"),
+    # Finanz DE
+    ("faz_finanzen", "https://www.faz.net/rss/aktuell/finanzen/", "rss"),
+    ("faz_wirtschaft", "https://www.faz.net/rss/aktuell/wirtschaft/", "rss"),
+    (
+        "handelsblatt_top",
         "https://www.handelsblatt.com/contentexport/feed/schlagzeilen",
+        "rss",
+    ),
+    (
+        "handelsblatt_fin",
+        "https://www.handelsblatt.com/contentexport/feed/finanzen",
         "rss",
     ),
     ("ntv_wirtschaft", "https://www.n-tv.de/wirtschaft/rss", "rss"),
@@ -71,12 +101,18 @@ QUELLEN: list[tuple[str, str, str]] = [
         "https://www.wallstreet-online.de/rss/nachrichten-alle.xml",
         "rss",
     ),
+    ("zeit_wirtschaft", "https://newsfeed.zeit.de/wirtschaft/index", "rss"),
+    ("manager_magazin", "https://www.manager-magazin.de/news/index.rss", "rss"),
+    ("spiegel_wirtschaft", "https://www.spiegel.de/wirtschaft/index.rss", "rss"),
+    (
+        "tagesschau_wirtschaft",
+        "https://www.tagesschau.de/wirtschaft/index~rss2.xml",
+        "rss",
+    ),
+    # Primaerquellen Zentralbanken
     ("ezb_presse", "https://www.ecb.europa.eu/rss/press.html", "rss"),
     ("fed_presse", "https://www.federalreserve.gov/feeds/press_all.xml", "rss"),
-    # Social (Reddit-RSS ohne App; 429 = im naechsten Lauf wieder da)
-    ("reddit_geopolitics", "https://www.reddit.com/r/geopolitics/new/.rss", "rss"),
-    ("reddit_worldnews", "https://www.reddit.com/r/worldnews/new/.rss", "rss"),
-    # Telegram-Mirror (Hans' Quelle Clash Report); HTML-Snapshot, Parse spaeter
+    # Social: Telegram-Mirror (Clash Report; Tier C/D, nie alleinige Evidenz)
     ("tg_clashreport", "https://t.me/s/ClashReport", "telegram"),
 ]
 

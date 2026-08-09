@@ -145,3 +145,57 @@ Rendite.
 
 *Nichts hiervon berührt den Paper-Piloten oder Schutzzonen, bis Shadow-Evidenz
 vorliegt und Hans die Verdrahtung explizit freigibt.*
+
+---
+
+## 8. Einarbeitung der externen Quellen-Recherche (Hans, 2026-08-09)
+
+Hans lieferte eine unabhaengige, sandbox-getestete Quellen-Recherche. Deltas
+gegen unseren Stand, mit Aufloesung:
+
+**Was wir uebernehmen (korrigiert uns):**
+1. **Google-News-Reuters-Proxy ist robots-verboten** → fliegt aus dem
+   Sammler (ToS-Disziplin; war unsere Reuters-Bruecke). Ersatz:
+   `investing.com/rss/news.rss` — fuehrt Reuters-Artikel mit
+   `<author>Reuters</author>`. ACHTUNG dessen pubDate ist TZ-NAIV → beim
+   Parsen hart festnageln, sonst stiller 2h-Bug in der Event-Zeitachse.
+2. **GPR-Index (Caldara/Iacoviello, CC-BY)**: Daily wird nur MONTAGS
+   publiziert → als Live-Trigger strukturell unbrauchbar. Verwendung NUR
+   fuer (a) Backtest-/Regime-Labeling, (b) Validierungsanker: unser
+   geo_score muss ueber 24 Monate mit dem offiziellen GPR korrelieren
+   (Anker: r >= 0.4, sonst misst der Score etwas anderes und wird NICHT
+   verdrahtet). Echtzeitfaehiger Weg: GDELT-basierter GPR-Proxy
+   (Tone x Coverage-Anteil Militaer/Gewalt + Sanktionen/Krise).
+3. **Latenz-Falsifikationsanker**: 7 Tage lang je Event ts_published vs.
+   fetched_utc loggen (unser Archiv traegt BEIDE Felder bereits). Wenn
+   p95 > 45 min: Event-getriebenes Intraday mit +2pp-Ziel ist mit
+   RSS-Latenz nicht baubar → dann nur die defensive Variante
+   (Exposure-Reduktion) — die ohnehin zu unserer Welle-48-Anti-Lektion
+   passt.
+4. **Sizing vor Exit**: Bei Fat-Tail-News-Trades ist der Exit via
+   Triple-Barrier loesbar; das eigentliche Problem ist die
+   Positionsgroesse (Whipsaw-Ueberleben). Im Repo vorhanden:
+   `features/triple_barrier.py`, `portfolio/kelly_robust.py`
+   (Verdrahtungsstatus vor Nutzung pruefen). Spez-Aenderung: Abschnitt 4
+   (Exit) bekommt Triple-Barrier als Kandidat, Abschnitt 5 bekommt
+   Sizing-Frage als ERSTES Risiko-Thema.
+5. **Tier/Gewichts-Modell** je Quelle uebernehmen (A=amtlich/1.0 …
+   D=Agenda-Blogs/nur Sentiment-Rohstoff); Bias gehoert als Feld an jede
+   Quelle (z. B. Tasnim IRGC-nah = max Tier D; Clash Report =
+   tuerkische Redaktion mit Agenda, kein neutraler OSINT-Aggregator —
+   bleibt drin, aber Tier C/D und nie alleinige Evidenz).
+6. **wallstreet_online-Werbefilter**: id==0 / utm_source /
+   Fremddomain-Links verwerfen, sonst verseucht Werbung die
+   Burst-Baseline.
+
+**Wo unsere Messung der Recherche widerspricht (beides dokumentiert):**
+CNBC, MarketWatch (dowjones-CDN) und NYT-RSS waren dort BLOCKED/FAIL-BOT —
+bei uns liefern alle drei nachweislich (deren Fetcher-Blockliste bzw.
+Anthropic-UA, nicht die Quelle). `feed_probe.py` prueft jetzt beides:
+Erreichbarkeit UND robots.txt je Pfad; in den Sammler kommt nur, was
+BEIDES besteht.
+
+**Offene Fragen an Hans (aus der Recherche, weiter offen):**
+- Welches „The Global Eye"? (it-Think-Tank / FB-Magazin / Sintelix-Tool)
+- Was ist „Tabz"? (exakter Handle/URL noetig)
+- Hebraeisch-/arabischsprachige Quellen ja/nein?
