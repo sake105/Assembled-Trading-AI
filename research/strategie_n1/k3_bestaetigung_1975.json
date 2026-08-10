@@ -1,0 +1,45 @@
+{
+  "registriert": "K3-Bestaetigung: a100_g100 (\"Gold statt Cash\") auf 1975-2004 — EIN Versuch.\n\nREGISTRIERUNG (+1 Trial, vorab): Die einzige bestehende K2/K3-Config\n(100% Aktien; bei Trendbruch wandern 60% des Aktiengewichts VOLL in Gold)\nwird auf disjunkten Daten geprueft: FF-Marktindex (Total Return) + LBMA-\nGold-PM-Fixing USD, 1975-01..2004-10 (freier Goldmarkt; endet vor dem\nK3-Fenster 2005-2016). Haelften 1975-1989 / 1990-2004. Kein Cash-Bein\n-> Total-Return-Vergleich zulaessig. Kosten 5 bps je Umschichtungseinheit.\nOFFENGELEGT: Fixing ist kein handelbares Produkt (keine Lager-/Spread-\nkosten), Marktindex vor 1993 nicht direkt handelbar.\nKRITERIUM (identisch K1/K3): vs 100% Aktien-Buy-and-Hold: MDD >= 25 %\nbesser UND CAGR-Abgabe <= 1.0 pp p.a., in gesamt + BEIDEN Haelften.\nFAIL = K3-Kandidat gilt als nicht bestaetigt; kein weiterer Versuch.\n",
+  "checks": {
+    "gesamt": {
+      "strategie": {
+        "cagr_pct": 13.24,
+        "mdd_pct": -33.36
+      },
+      "benchmark": {
+        "cagr_pct": 13.65,
+        "mdd_pct": -49.23
+      },
+      "mdd_verbesserung_pct": 32.2,
+      "cagr_abgabe_pp": 0.41,
+      "besteht": true
+    },
+    "h1": {
+      "strategie": {
+        "cagr_pct": 15.83,
+        "mdd_pct": -28.83
+      },
+      "benchmark": {
+        "cagr_pct": 16.89,
+        "mdd_pct": -33.11
+      },
+      "mdd_verbesserung_pct": 12.9,
+      "cagr_abgabe_pp": 1.06,
+      "besteht": false
+    },
+    "h2": {
+      "strategie": {
+        "cagr_pct": 10.53,
+        "mdd_pct": -33.36
+      },
+      "benchmark": {
+        "cagr_pct": 10.3,
+        "mdd_pct": -49.23
+      },
+      "mdd_verbesserung_pct": 32.2,
+      "cagr_abgabe_pp": -0.23,
+      "besteht": true
+    }
+  },
+  "bestaetigt": false
+}

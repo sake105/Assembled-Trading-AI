@@ -1,0 +1,543 @@
+{
+  "registriert": "K2+K3 — Feinstruktur des bestaetigten E1-Dials + Cross-Asset-Variante.\n\nREGISTRIERUNG (vor Datenkontakt fixiert; +12 Trials = 12 Configs; alle\nberichtet; Auftrag Hans 2026-08-10 \"na dann los geht's\" auf Basis\nINDIKATOR_AUDIT.md K2/K3):\n\nK2 — E1-DIAL-FEINSTRUKTUR (SPY, 1996-2016, Haelften 1996-2006/2007-2016):\n  Signalform: (a) binaer  R = 1 wenn Close < MA200 (wie E1)\n              (b) graduell R = clip((MA200-Close)/MA200, 0, 0.10)/0.10\n  Dial-Tiefe D in {0.4, 0.6, 0.8}; EXPOSURE = 1 - D*R; 1 Tag Lag;\n  5 bps je Umschichtungseinheit. -> 6 Configs (K2_bin40..K2_grad80).\n  K2_bin60 = E1 aus K1 (Referenz, bewusst enthalten).\nKRITERIUM (identisch K1, vorab): vs Buy-and-Hold SPY: MDD >= 25 % besser\n  UND CAGR-Abgabe <= 1.0 pp p.a., in GESAMT und BEIDEN Haelften.\nBESTAETIGUNG: jede bestehende K2-Config bekommt EINEN Versuch auf\n  1926-1995 (CRSP-VW, Ueberschussrechnung, wie k1_bestaetigung) — je +1\n  Trial, im Skript mitgebucht NUR falls Bestehen (Ansage vorab: maximal\n  +6 zusaetzlich; tatsaechliche Zahl wird ausgewiesen).\n\nK3 — CROSS-ASSET-DIAL (SPY+GLD; GLD erst ab 2004-11 -> Fenster\n  2005-07-01..2016-12-31, Haelften 2005-07..2011-03 / 2011-04..2016-12;\n  OFFENGELEGT: kuerzer und nur ein Boersenzyklus):\n  Basis-Allokation A in {100/0, 70/30} (SPY/GLD, taeglich rebalanciert\n  ueber die Gewichte — vereinfachend, Kosten auf Gewichtsdrift).\n  Risiko R = binaerer SPY-Trend (wie E1). Freigesetztes SPY-Gewicht\n  (D=0.6 fix) geht zu Anteil g in {0 (Cash), 0.5, 1.0} nach GLD.\n  -> 6 Configs (K3_a100_g0.. K3_a70_g100). K3_a100_g0 = E1 im kurzen\n  Fenster (Referenz).\nKRITERIUM: vs statisches Buy-and-Hold DERSELBEN Basis-Allokation:\n  MDD >= 25 % besser UND CAGR-Abgabe <= 1.0 pp, gesamt + beide Haelften.\nKEINE historische Bestaetigung moeglich (Gold-Preisgeschichte vor 1975\n  reguliert) — Bestehen hiesse nur \"Kandidat fuer Forward-Shadow\".\n",
+  "K2": {
+    "K2_bin40": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 7.78,
+            "mdd_pct": -41.03
+          },
+          "benchmark": {
+            "cagr_pct": 8.21,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 25.7,
+          "cagr_abgabe_pp": 0.43,
+          "besteht": true
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 8.7,
+            "mdd_pct": -38.07
+          },
+          "benchmark": {
+            "cagr_pct": 9.45,
+            "mdd_pct": -47.52
+          },
+          "mdd_verbesserung_pct": 19.9,
+          "cagr_abgabe_pp": 0.75,
+          "besteht": false
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 6.81,
+            "mdd_pct": -41.03
+          },
+          "benchmark": {
+            "cagr_pct": 6.9,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 25.7,
+          "cagr_abgabe_pp": 0.09,
+          "besteht": true
+        }
+      },
+      "besteht_1996_2016": false
+    },
+    "K2_bin60": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 7.42,
+            "mdd_pct": -33.62
+          },
+          "benchmark": {
+            "cagr_pct": 8.21,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 39.1,
+          "cagr_abgabe_pp": 0.79,
+          "besteht": true
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 8.22,
+            "mdd_pct": -33.21
+          },
+          "benchmark": {
+            "cagr_pct": 9.45,
+            "mdd_pct": -47.52
+          },
+          "mdd_verbesserung_pct": 30.1,
+          "cagr_abgabe_pp": 1.23,
+          "besteht": false
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 6.58,
+            "mdd_pct": -33.62
+          },
+          "benchmark": {
+            "cagr_pct": 6.9,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 39.1,
+          "cagr_abgabe_pp": 0.32,
+          "besteht": true
+        }
+      },
+      "besteht_1996_2016": false
+    },
+    "K2_bin80": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 6.96,
+            "mdd_pct": -29.72
+          },
+          "benchmark": {
+            "cagr_pct": 8.21,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 46.1,
+          "cagr_abgabe_pp": 1.25,
+          "besteht": false
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 7.67,
+            "mdd_pct": -29.72
+          },
+          "benchmark": {
+            "cagr_pct": 9.45,
+            "mdd_pct": -47.52
+          },
+          "mdd_verbesserung_pct": 37.5,
+          "cagr_abgabe_pp": 1.78,
+          "besteht": false
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 6.22,
+            "mdd_pct": -25.87
+          },
+          "benchmark": {
+            "cagr_pct": 6.9,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 53.1,
+          "cagr_abgabe_pp": 0.68,
+          "besteht": true
+        }
+      },
+      "besteht_1996_2016": false
+    },
+    "K2_grad40": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 7.68,
+            "mdd_pct": -44.66
+          },
+          "benchmark": {
+            "cagr_pct": 8.21,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 19.1,
+          "cagr_abgabe_pp": 0.53,
+          "besteht": false
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 8.68,
+            "mdd_pct": -44.66
+          },
+          "benchmark": {
+            "cagr_pct": 9.45,
+            "mdd_pct": -47.52
+          },
+          "mdd_verbesserung_pct": 6.0,
+          "cagr_abgabe_pp": 0.77,
+          "besteht": false
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 6.61,
+            "mdd_pct": -44.36
+          },
+          "benchmark": {
+            "cagr_pct": 6.9,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 19.6,
+          "cagr_abgabe_pp": 0.29,
+          "besteht": false
+        }
+      },
+      "besteht_1996_2016": false
+    },
+    "K2_grad60": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 7.3,
+            "mdd_pct": -44.49
+          },
+          "benchmark": {
+            "cagr_pct": 8.21,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 19.4,
+          "cagr_abgabe_pp": 0.91,
+          "besteht": false
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 8.23,
+            "mdd_pct": -44.49
+          },
+          "benchmark": {
+            "cagr_pct": 9.45,
+            "mdd_pct": -47.52
+          },
+          "mdd_verbesserung_pct": 6.4,
+          "cagr_abgabe_pp": 1.22,
+          "besteht": false
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 6.33,
+            "mdd_pct": -38.66
+          },
+          "benchmark": {
+            "cagr_pct": 6.9,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 30.0,
+          "cagr_abgabe_pp": 0.57,
+          "besteht": true
+        }
+      },
+      "besteht_1996_2016": false
+    },
+    "K2_grad80": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 6.87,
+            "mdd_pct": -44.54
+          },
+          "benchmark": {
+            "cagr_pct": 8.21,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 19.3,
+          "cagr_abgabe_pp": 1.34,
+          "besteht": false
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 7.74,
+            "mdd_pct": -44.54
+          },
+          "benchmark": {
+            "cagr_pct": 9.45,
+            "mdd_pct": -47.52
+          },
+          "mdd_verbesserung_pct": 6.3,
+          "cagr_abgabe_pp": 1.71,
+          "besteht": false
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 5.94,
+            "mdd_pct": -32.86
+          },
+          "benchmark": {
+            "cagr_pct": 6.9,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 40.5,
+          "cagr_abgabe_pp": 0.96,
+          "besteht": true
+        }
+      },
+      "besteht_1996_2016": false
+    }
+  },
+  "K3": {
+    "K3_a100_g0": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 6.91,
+            "mdd_pct": -33.62
+          },
+          "benchmark": {
+            "cagr_pct": 7.78,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 39.1,
+          "cagr_abgabe_pp": 0.87,
+          "besteht": true
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 4.66,
+            "mdd_pct": -33.62
+          },
+          "benchmark": {
+            "cagr_pct": 3.91,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 39.1,
+          "cagr_abgabe_pp": -0.75,
+          "besteht": true
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 9.14,
+            "mdd_pct": -14.14
+          },
+          "benchmark": {
+            "cagr_pct": 11.72,
+            "mdd_pct": -18.61
+          },
+          "mdd_verbesserung_pct": 24.0,
+          "cagr_abgabe_pp": 2.58,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    },
+    "K3_a100_g50": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 7.67,
+            "mdd_pct": -35.34
+          },
+          "benchmark": {
+            "cagr_pct": 7.78,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 36.0,
+          "cagr_abgabe_pp": 0.11,
+          "besteht": true
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 4.91,
+            "mdd_pct": -35.34
+          },
+          "benchmark": {
+            "cagr_pct": 3.91,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 36.0,
+          "cagr_abgabe_pp": -1.0,
+          "besteht": true
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 10.42,
+            "mdd_pct": -13.59
+          },
+          "benchmark": {
+            "cagr_pct": 11.72,
+            "mdd_pct": -18.61
+          },
+          "mdd_verbesserung_pct": 27.0,
+          "cagr_abgabe_pp": 1.3,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    },
+    "K3_a100_g100": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 8.26,
+            "mdd_pct": -39.5
+          },
+          "benchmark": {
+            "cagr_pct": 7.78,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 28.4,
+          "cagr_abgabe_pp": -0.48,
+          "besteht": true
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 4.9,
+            "mdd_pct": -39.5
+          },
+          "benchmark": {
+            "cagr_pct": 3.91,
+            "mdd_pct": -55.19
+          },
+          "mdd_verbesserung_pct": 28.4,
+          "cagr_abgabe_pp": -0.99,
+          "besteht": true
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 11.64,
+            "mdd_pct": -13.52
+          },
+          "benchmark": {
+            "cagr_pct": 11.72,
+            "mdd_pct": -18.61
+          },
+          "mdd_verbesserung_pct": 27.4,
+          "cagr_abgabe_pp": 0.08,
+          "besteht": true
+        }
+      },
+      "besteht": true
+    },
+    "K3_a70_g0": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 7.99,
+            "mdd_pct": -22.11
+          },
+          "benchmark": {
+            "cagr_pct": 8.87,
+            "mdd_pct": -38.08
+          },
+          "mdd_verbesserung_pct": 41.9,
+          "cagr_abgabe_pp": 0.88,
+          "besteht": true
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 10.53,
+            "mdd_pct": -22.11
+          },
+          "benchmark": {
+            "cagr_pct": 10.4,
+            "mdd_pct": -38.08
+          },
+          "mdd_verbesserung_pct": 41.9,
+          "cagr_abgabe_pp": -0.13,
+          "besteht": true
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 5.49,
+            "mdd_pct": -9.66
+          },
+          "benchmark": {
+            "cagr_pct": 7.34,
+            "mdd_pct": -11.49
+          },
+          "mdd_verbesserung_pct": 15.9,
+          "cagr_abgabe_pp": 1.85,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    },
+    "K3_a70_g50": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 8.42,
+            "mdd_pct": -26.16
+          },
+          "benchmark": {
+            "cagr_pct": 8.87,
+            "mdd_pct": -38.08
+          },
+          "mdd_verbesserung_pct": 31.3,
+          "cagr_abgabe_pp": 0.45,
+          "besteht": true
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 10.56,
+            "mdd_pct": -26.16
+          },
+          "benchmark": {
+            "cagr_pct": 10.4,
+            "mdd_pct": -38.08
+          },
+          "mdd_verbesserung_pct": 31.3,
+          "cagr_abgabe_pp": -0.16,
+          "besteht": true
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 6.31,
+            "mdd_pct": -10.67
+          },
+          "benchmark": {
+            "cagr_pct": 7.34,
+            "mdd_pct": -11.49
+          },
+          "mdd_verbesserung_pct": 7.1,
+          "cagr_abgabe_pp": 1.03,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    },
+    "K3_a70_g100": {
+      "checks": {
+        "gesamt": {
+          "strategie": {
+            "cagr_pct": 8.78,
+            "mdd_pct": -31.28
+          },
+          "benchmark": {
+            "cagr_pct": 8.87,
+            "mdd_pct": -38.08
+          },
+          "mdd_verbesserung_pct": 17.9,
+          "cagr_abgabe_pp": 0.09,
+          "besteht": false
+        },
+        "h1": {
+          "strategie": {
+            "cagr_pct": 10.46,
+            "mdd_pct": -31.28
+          },
+          "benchmark": {
+            "cagr_pct": 10.4,
+            "mdd_pct": -38.08
+          },
+          "mdd_verbesserung_pct": 17.9,
+          "cagr_abgabe_pp": -0.06,
+          "besteht": false
+        },
+        "h2": {
+          "strategie": {
+            "cagr_pct": 7.1,
+            "mdd_pct": -13.08
+          },
+          "benchmark": {
+            "cagr_pct": 7.34,
+            "mdd_pct": -11.49
+          },
+          "mdd_verbesserung_pct": -13.8,
+          "cagr_abgabe_pp": 0.24,
+          "besteht": false
+        }
+      },
+      "besteht": false
+    }
+  },
+  "verdikt": {
+    "K2_bestanden_1996_2016": [],
+    "K2_bestaetigt_1926_1995": [],
+    "K3_bestanden": [
+      "K3_a100_g100"
+    ],
+    "kriterium": "MDD>=25% besser UND CAGR-Abgabe<=1pp, gesamt+h1+h2 (vorab fixiert)"
+  }
+}
