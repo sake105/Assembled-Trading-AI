@@ -23,7 +23,11 @@ KOMBINATION: fuer jede k-Teilmenge (k=2..5) ist RISIKO = Mittelwert der
 Mitglieder (gleichgewichteter Chor; die Gewichtung ueber den Raum entsteht
 durch die Zusammensetzung). EXPOSURE = 1 - 0.6*RISIKO, 1 Tag Lag, 5 bps je
 Umschichtungseinheit — identische Mechanik wie K1/E1.
-RAUM: C(10,2)+C(10,3)+C(10,4)+C(10,5) = 45+120+210+252 = 627 Kombis,
+RAUM (NACHTRAG 2026-08-10, Auftrag Hans "vollstaendig, nicht Stichprobe":
+  erweitert auf ALLE k=1..10 — der komplette Potenzraum, 1023 Teilmengen
+  je Asset; Erstlauf deckte k=2..5 = 627 ab, Nachtragslauf ergaenzt
+  k=1 und k=6..10 = 396 weitere; Buchung entsprechend):
+  urspruenglich C(10,2)+C(10,3)+C(10,4)+C(10,5) = 627 Kombis,
   je auf SPY (1996-2016, Haelften 1996-2006/2007-2016) und GLD
   (2005-07..2016-12, Haelften wie K3) = 1.254 Configs.
 KRITERIUM je Config (identisch K1, vorab): vs Buy-and-Hold des Assets:
@@ -128,7 +132,7 @@ def sweep(px: pd.Series, fenster: dict, label: str) -> dict:
     ind = indikatoren(px)
     rt = px.pct_change()
     aus = {}
-    kombis = [k for groesse in (2, 3, 4, 5) for k in combinations(ind.columns, groesse)]
+    kombis = [k for groesse in range(1, 11) for k in combinations(ind.columns, groesse)]
     for i, kombi in enumerate(kombis):
         risiko = ind[list(kombi)].mean(axis=1)
         kurve = dial_kurve(rt, risiko)
