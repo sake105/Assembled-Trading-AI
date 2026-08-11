@@ -986,17 +986,26 @@ def _sp_apply_trailing_stops(
                 pos_map: dict[str, dict] = {}
                 if _price_priority:
                     _cpd = current_positions_df.copy()
-                    _cpd["_sym"] = _cpd["symbol"].astype(str).str.upper()
+                    # KEINE Unterstrich-Spaltennamen: itertuples benennt
+                    # Bezeichner mit fuehrendem "_" positional um (_0, _1, ...)
+                    # — row._sym/row._entry warfen deshalb IMMER
+                    # AttributeError und der DEGRADED-Pfad uebersprang die
+                    # Trailing-Stops in jeder Runde, in jedem Env (Fund via
+                    # CI-Log 2026-08-11; in beiden pandas-Versionen
+                    # reproduziert).
+                    _cpd["sym_norm"] = _cpd["symbol"].astype(str).str.upper()
                     # Coalesce price columns in priority order (first non-null wins)
-                    _cpd["_entry"] = pd.to_numeric(
+                    _cpd["entry_px"] = pd.to_numeric(
                         _cpd[_price_priority].bfill(axis=1).iloc[:, 0], errors="coerce"
                     )
-                    _cpd = _cpd[_cpd["_sym"].str.len() > 0].dropna(subset=["_entry"])
+                    _cpd = _cpd[_cpd["sym_norm"].str.len() > 0].dropna(
+                        subset=["entry_px"]
+                    )
                     _qty_col = "qty" if "qty" in _cpd.columns else None
                     _wt_col = "weight" if "weight" in _cpd.columns else None
                     for row in _cpd.itertuples(index=False):
-                        pos_map[row._sym] = {
-                            "entry_price": float(row._entry),
+                        pos_map[row.sym_norm] = {
+                            "entry_price": float(row.entry_px),
                             "qty": (
                                 float(getattr(row, _qty_col, 0.0) or 0.0)
                                 if _qty_col

@@ -1765,3 +1765,45 @@ Das Artefakt berichtete die **Blockzahl** (4) und aggregierte Kennzahlen ueber a
 3. Vor dem Buchen das erzeugte JSON einmal LESEN und gegen die tatsaechlich verwendeten Konstanten pruefen (Symbolliste und Intervall stehen im selben File).
 **Erkannt in:** Stage-2-Review (F-senior-1/2) zu `research/krypto/check_*_userstrategie.py`; Fix ohne Neubuchung via `--regen`, Verdicts unveraendert FAIL.
 **Referenzen:** E-085, E-090, E-131.
+
+## E-141 — itertuples-Attributzugriff auf selbstgebaute Unterstrich-Hilfsspalten wirft IMMER
+**Datum:** 2026-08-11
+**Kategorie:** pandas-pitfall / itertuples-underscore
+**Was passierte:** In `_sp_apply_trailing_stops` wurden Hilfsspalten `_sym`/`_entry` angelegt und per `row._sym` gelesen. `DataFrame.itertuples` benennt jeden Bezeichner mit fuehrendem Unterstrich positional um (`_1`, `_2`, ...). `row._sym` warf in jeder Runde AttributeError; der umschliessende except-Pfad machte daraus einen DEGRADED-Log — ein konfiguriertes Risk-Overlay lief seit Einfuehrung NIE (beide pandas-Versionen, `_fields=('_0','_1')` reproduziert).
+
+**Warum falsch:** Der Unterstrich-Praefix ist im Repo die uebliche Konvention fuer temporaere Hilfsspalten — genau diese Konvention ist mit itertuples-Attributzugriff unvereinbar. Der Fehler ist weder versions- noch datenabhaengig: er trifft bei jedem Aufruf, in jedem Env.
+
+**Wie vermeiden:**
+1. Hilfsspalten, die per itertuples gelesen werden, NIE mit `_` praefixen (`sym_norm` statt `_sym`).
+2. Besser gleich `zip(df[a], df[b])` statt itertuples-Attributzugriff.
+3. Review-grep: `itertuples` im Diff -> pruefen, ob eine gelesene Spalte mit `_` beginnt (Repo-Sweep 2026-08-11: alle 68 uebrigen Aufrufe sauber).
+**Erkannt in:** CI-Log-Fund nach gh-Auth (`pipeline/_tc_sizing.py`).
+**Referenzen:** E-059, E-135.
+
+## E-142 — Lautstaerke ohne Konsument ist Stille: der DEGRADED-Log lief monatelang ins Leere
+**Datum:** 2026-08-11
+**Kategorie:** wiring-gap / loudness-ohne-leser
+**Was passierte:** Der E-141-Fehler war NICHT still — `_record_degraded_step` schrieb pro Runde ein WARN `[DEGRADED] trailing_stops skipped` plus `meta['degraded_steps']`, exakt die nach E-059 eingebaute Loudness. Gefunden wurde er trotzdem erst, als gh-Auth die CI-Logs erstmals lesbar machte.
+
+**Warum falsch:** Ein WARN ohne Leser und ein meta-Feld ohne Gate sind operativ identisch mit einem debug-Log. Ein degraded_step, der in JEDER Runde erscheint, erzeugt nie ein Delta — genau deshalb bemerkt ihn niemand.
+
+**Wie vermeiden:**
+1. Fuer jedes `meta['degraded_steps']` einen benannten Konsumenten (QA-Gate, Report-Zeile, Alert).
+2. Dauer-Degradation-Check: gleicher Step in N aufeinanderfolgenden Laeufen degraded = Bug, kein fail-soft.
+3. Bei neu erschlossener Log-Sichtbarkeit zuerst die WIEDERHOLTEN Meldungen auswerten, nicht die auffaelligen.
+**Erkannt in:** Kompakt-Review 2026-08-11.
+**Referenzen:** E-059, E-135.
+
+## E-143 — Exception behoben ist nicht Feature wirksam: der Konsument fehlte am anderen Ende
+**Datum:** 2026-08-11
+**Kategorie:** wiring-gap / ausgang-ohne-konsument
+**Was passierte:** Nach dem itertuples-Fix lief das Trailing-Stops-Overlay durch und reduzierte `target_weight` (verifiziert 0.5 -> 0.125). Die Ordergenerierung liest aber ausschliesslich `target_qty` — die Reduktion erreichte keine einzige Order. Zusaetzlich ist der Trigger-Pfad ohne `prior_states`/`current_bar` strukturell unerreichbar (bars_since_entry immer 0 < grace_period).
+
+**Warum falsch:** E-135 beschreibt fehlende Verdrahtung am EINGANG; das hier ist das Spiegelbild am AUSGANG. Ein behobener Stacktrace fuehlt sich wie ein reaktiviertes Feature an und ist es nicht — die Versuchung, „Risk-Feature wieder scharf" zu melden, ist maximal genau dann, wenn die Evidenz am duennsten ist.
+
+**Wie vermeiden:**
+1. Beim Reaktivieren eines toten Pfades die Wirkung am KONSUMENTEN messen (Order/qty/Fill), nicht an der Fix-Stelle.
+2. Der Regressionstest muss die WIRKUNG mitfuehren, nicht nur die Erreichbarkeit.
+3. Overlays, die `target_weight` aendern, muessen `target_qty` synchron halten (Nachbar-Overlays im selben Modul tun das) — jede Ausnahme ist begruendungspflichtig.
+**Erkannt in:** Kompakt-Review 2026-08-11 (F-senior-1/2).
+**Referenzen:** E-135, E-136.
