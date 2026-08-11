@@ -1493,3 +1493,34 @@ Hypothese aus genau einer Episode — sie wird hier benannt und NICHT verfolgt.
 
 Unter dem registrierten Kriterium (signiert > 0, t > 2): FAIL ueberall. Das Feld bleibt zu —
 jetzt auch fuer die Langfrist-Lesart.
+
+## Welle 49 (registriert 2026-08-09/10, Läufe abgeschlossen 2026-08-11) — H-089: TS-Momentum-Dial / Trend-Chor (defensives Index-Overlay)
+
+**Herkunft:** Komposit-Kampagne K1–K10 (Auftrag Hans: Gewichtungs-/Kombinations-
+Exploration, `research/strategie_n1/`). Vollständige Potenzraum-Enumeration
+(alle 1.023 Teilmengen aus 10 W33-Indikatoren als gradueller Risiko-Chor im
+Exposure-Dial, je SPY+GLD) + Einzelaktien-Sweep (627×780, survivorship-frei)
++ Robustheitsbatterie (14 Varianten).
+
+**Kandidat:** `EXPOSURE = 1 − 0.6·RISIKO` auf Index-Ebene; RISIKO = mom12
+(252T-Rendite < 0) solo ODER 3er-Chor (trend200 + 50/200-Kreuz + mom12)/3.
+1 Tag Lag, 5 bps/Umschichtungseinheit.
+
+**Evidenz (alle Kriterien vorab; Doppel-Kriterium MDD ≥25 % besser UND
+CAGR-Abgabe ≤1 pp, je gesamt+h1+h2):**
+- SPY 1996–2016: Chor 39–45 % MDD-Verb., Abgabe −0,03..−0,47 pp (Gewinn); mom12 solo 41–43 %, −1,7..+0,33 pp. BESTANDEN.
+- CRSP-VW 1926–1995 (Überschussrechnung): Chor 26–39 %, −0,95..−0,19 pp; solo 28–32 %, −1,39..+0,25 pp. BESTANDEN (5 Configs von 20 geprüften Überlebenden; alle enthalten mom12).
+- Robustheit V1–V14: 7/14 bestehen beide Epochen; **beide Originale überleben 2× Kosten**; Grenzen: Lookback <252 und Tiefe <0,6 fallen. Teil-robust.
+- **Negativ-Karte:** GLD 0/1023 (Gold-Timing endgültig tot); Einzelaktien 0/627 auf 780 Werten (idiosynkr. Crashs unsichtbar, Whipsaw 1,4–6,4 pp — Index-/Portfolio-Werkzeug, KEIN Einzelwert-Werkzeug); große Chöre k≥6 verdünnen monoton; Vol/DD/Oszillator-Beimischung schadet.
+
+**Einordnung:** strukturell = akademisches TS-Momentum-Overlay, defensiv
+formuliert; per ehrlicher Enumeration wiedergefunden, nicht hineingesteckt.
+Kein Widerspruch zu H-087 (dort binäres All-in/out am CAGR-Sieg-Kriterium).
+DEFENSIV-Overlay, kein Renditemotor.
+
+**Status: KANDIDAT (lokal geprüft, zweifach fenster-bestätigt, teil-robust).**
+Nicht verdrahtet, nicht deployt. Forward-Shadow gestartet
+(`h089_shadow.py`, Log ab 2026-08-11). Offene Operator-Entscheidungen:
+(a) Holdout 2017–2026 für die EINE finale Validierung öffnen? (b) nach
+Shadow-Evidenz: Overlay-Verdrahtung neben den Pilot-Kern (volle
+Review-Kette, Schutzzonen). Trials-Stand nach Kampagne: 6.269.

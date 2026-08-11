@@ -1,0 +1,536 @@
+{
+  "registriert": "H-089-Robustheitsbatterie — ist der Fund eine Parameter-Insel oder eine Flaeche?\n\nREGISTRIERUNG (+14 Trials, vorab; ALLE Ergebnisse berichtet; KEIN\nNachselektieren — die Batterie prueft die NACHBARSCHAFT der bestaetigten\nConfigs, nicht bessere Alternativen):\n  Kandidatenfamilie: mom12-Dial (I9 solo) und 3er-Chor\n  (trend200+cross+mom12), beide zweifach fenster-bestaetigt (K9/K9b).\n  V1-V9:  mom12-solo, Lookback {210, 252, 294} x Dial-Tiefe {0.5, 0.6, 0.7}\n  V10-V12: 3er-Chor, Dial-Tiefe {0.5, 0.6, 0.7} (Lookbacks Standard)\n  V13:    mom12-solo Standard, KOSTEN VERDOPPELT (10 bps/Seite)\n  V14:    3er-Chor Standard, KOSTEN VERDOPPELT\nKRITERIUM je Variante (identisch K1/K9): Doppel-Kriterium (MDD >= 25 %\nbesser, CAGR-Abgabe <= 1 pp) in gesamt+h1+h2 auf BEIDEN Epochen\n(SPY 1996-2016 UND CRSP 1926-1995). ERWARTUNG (vorab): eine robuste\nFlaeche besteht mehrheitlich; bestehen nur die exakten Originalparameter,\nist der Fund verdaechtig und wird herabgestuft.\n",
+  "varianten": {
+    "V_mom210_d50": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            34.3,
+            0.08
+          ],
+          "h1": [
+            33.3,
+            -1.27
+          ],
+          "h2": [
+            34.3,
+            1.53
+          ]
+        },
+        "besteht": false
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            17.5,
+            -0.5
+          ],
+          "h1": [
+            17.5,
+            -0.55
+          ],
+          "h2": [
+            34.6,
+            -0.44
+          ]
+        },
+        "besteht": false
+      },
+      "besteht_beide_epochen": false
+    },
+    "V_mom210_d60": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            42.0,
+            0.17
+          ],
+          "h1": [
+            40.6,
+            -1.48
+          ],
+          "h2": [
+            42.0,
+            1.92
+          ]
+        },
+        "besteht": false
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            20.2,
+            -0.55
+          ],
+          "h1": [
+            20.2,
+            -0.59
+          ],
+          "h2": [
+            41.1,
+            -0.51
+          ]
+        },
+        "besteht": false
+      },
+      "besteht_beide_epochen": false
+    },
+    "V_mom210_d70": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            46.5,
+            0.27
+          ],
+          "h1": [
+            48.0,
+            -1.68
+          ],
+          "h2": [
+            46.5,
+            2.33
+          ]
+        },
+        "besteht": false
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            22.9,
+            -0.59
+          ],
+          "h1": [
+            22.9,
+            -0.61
+          ],
+          "h2": [
+            41.1,
+            -0.57
+          ]
+        },
+        "besteht": false
+      },
+      "besteht_beide_epochen": false
+    },
+    "V_mom252_d50": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            35.2,
+            -0.65
+          ],
+          "h1": [
+            33.8,
+            -1.45
+          ],
+          "h2": [
+            35.2,
+            0.21
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            21.5,
+            -0.49
+          ],
+          "h1": [
+            21.5,
+            -1.22
+          ],
+          "h2": [
+            32.8,
+            0.19
+          ]
+        },
+        "besteht": false
+      },
+      "besteht_beide_epochen": false
+    },
+    "V_mom252_d60": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            43.2,
+            -0.72
+          ],
+          "h1": [
+            41.2,
+            -1.7
+          ],
+          "h2": [
+            43.2,
+            0.33
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            27.8,
+            -0.55
+          ],
+          "h1": [
+            27.8,
+            -1.39
+          ],
+          "h2": [
+            31.6,
+            0.25
+          ]
+        },
+        "besteht": true
+      },
+      "besteht_beide_epochen": true
+    },
+    "V_mom252_d70": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            51.5,
+            -0.77
+          ],
+          "h1": [
+            48.8,
+            -1.93
+          ],
+          "h2": [
+            51.5,
+            0.48
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            33.6,
+            -0.58
+          ],
+          "h1": [
+            33.6,
+            -1.54
+          ],
+          "h2": [
+            28.9,
+            0.32
+          ]
+        },
+        "besteht": true
+      },
+      "besteht_beide_epochen": true
+    },
+    "V_mom294_d50": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            31.4,
+            -0.44
+          ],
+          "h1": [
+            30.2,
+            -1.13
+          ],
+          "h2": [
+            31.4,
+            0.3
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            18.6,
+            -0.43
+          ],
+          "h1": [
+            18.6,
+            -1.49
+          ],
+          "h2": [
+            31.5,
+            0.56
+          ]
+        },
+        "besteht": false
+      },
+      "besteht_beide_epochen": false
+    },
+    "V_mom294_d60": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            38.3,
+            -0.47
+          ],
+          "h1": [
+            36.7,
+            -1.31
+          ],
+          "h2": [
+            38.3,
+            0.43
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            23.8,
+            -0.47
+          ],
+          "h1": [
+            23.8,
+            -1.71
+          ],
+          "h2": [
+            34.5,
+            0.69
+          ]
+        },
+        "besteht": false
+      },
+      "besteht_beide_epochen": false
+    },
+    "V_mom294_d70": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            45.5,
+            -0.48
+          ],
+          "h1": [
+            43.4,
+            -1.48
+          ],
+          "h2": [
+            45.5,
+            0.6
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            29.6,
+            -0.5
+          ],
+          "h1": [
+            29.6,
+            -1.92
+          ],
+          "h2": [
+            33.7,
+            0.83
+          ]
+        },
+        "besteht": true
+      },
+      "besteht_beide_epochen": true
+    },
+    "V_chor_d50": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            36.2,
+            -0.27
+          ],
+          "h1": [
+            32.0,
+            -0.43
+          ],
+          "h2": [
+            36.2,
+            -0.09
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            20.6,
+            -0.5
+          ],
+          "h1": [
+            20.6,
+            -0.84
+          ],
+          "h2": [
+            32.4,
+            -0.18
+          ]
+        },
+        "besteht": false
+      },
+      "besteht_beide_epochen": false
+    },
+    "V_chor_d60": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            44.5,
+            -0.26
+          ],
+          "h1": [
+            39.0,
+            -0.47
+          ],
+          "h2": [
+            44.5,
+            -0.03
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            26.3,
+            -0.56
+          ],
+          "h1": [
+            26.3,
+            -0.95
+          ],
+          "h2": [
+            39.2,
+            -0.19
+          ]
+        },
+        "besteht": true
+      },
+      "besteht_beide_epochen": true
+    },
+    "V_chor_d70": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            53.1,
+            -0.24
+          ],
+          "h1": [
+            46.1,
+            -0.5
+          ],
+          "h2": [
+            53.1,
+            0.06
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            30.8,
+            -0.61
+          ],
+          "h1": [
+            30.8,
+            -1.04
+          ],
+          "h2": [
+            46.0,
+            -0.2
+          ]
+        },
+        "besteht": true
+      },
+      "besteht_beide_epochen": true
+    },
+    "V_mom252_d60_2xkosten": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            43.1,
+            -0.61
+          ],
+          "h1": [
+            40.6,
+            -1.64
+          ],
+          "h2": [
+            43.1,
+            0.49
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            27.7,
+            -0.43
+          ],
+          "h1": [
+            27.7,
+            -1.25
+          ],
+          "h2": [
+            31.2,
+            0.34
+          ]
+        },
+        "besteht": true
+      },
+      "besteht_beide_epochen": true
+    },
+    "V_chor_d60_2xkosten": {
+      "spy_1996_2016": {
+        "kompakt": {
+          "gesamt": [
+            44.3,
+            -0.14
+          ],
+          "h1": [
+            38.4,
+            -0.36
+          ],
+          "h2": [
+            44.3,
+            0.1
+          ]
+        },
+        "besteht": true
+      },
+      "crsp_1926_1995": {
+        "kompakt": {
+          "gesamt": [
+            26.1,
+            -0.46
+          ],
+          "h1": [
+            26.1,
+            -0.83
+          ],
+          "h2": [
+            39.0,
+            -0.1
+          ]
+        },
+        "besteht": true
+      },
+      "besteht_beide_epochen": true
+    }
+  },
+  "verdikt": {
+    "bestanden_beide_epochen": [
+      "V_mom252_d60",
+      "V_mom252_d70",
+      "V_mom294_d70",
+      "V_chor_d60",
+      "V_chor_d70",
+      "V_mom252_d60_2xkosten",
+      "V_chor_d60_2xkosten"
+    ],
+    "quote": "7/14",
+    "lesart_vorab": "mehrheitlich = robuste Flaeche; nur Originale = Insel -> Herabstufung"
+  }
+}

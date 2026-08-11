@@ -1623,3 +1623,11 @@ hoechste vergebene Nummer. Vergeben sind bis heute: **H-001..H-088** (H-086 = Vo
   (Survivorship 2,36–2,90 pp bei 1,5 pp Marge); Ticker ist kein Schluessel (Befund 7).
 - Neue Datenbestaende: SEC-DERA Form 4 (17.134 Emittenten, 2006–2026), CRSP-Marktreihe ab 1926,
   Truth-Social-Vollarchiv (40.631 Posts). Anti-Patterns E-107..E-131.
+
+### Nachtrag 2026-08-11 — H-089 (Welle 49): Komposit-Kampagne abgeschlossen
+Kampagne K1–K10 + Robustheit (research/strategie_n1/): Trials 3.559 → 6.269.
+Verdikt: EIN bestätigter Kandidat (TS-Momentum-Dial/Trend-Chor, defensiv,
+Index-Ebene) — Details Registry Welle 49. Negativ-Karte: Gold-Timing,
+Einzelaktien-Timing, große Chöre, Offensiv-Geo (N1-GEO/Komposit W1–W6)
+alle tot. Zwei ungültige Erstläufe offen dokumentiert (K10-Overflow
+E-052-Klasse; Krypto-EODHD-Abbruch) — append-only, nicht zurückgeschrieben.
