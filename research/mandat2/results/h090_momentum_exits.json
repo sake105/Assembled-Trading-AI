@@ -1,0 +1,519 @@
+{
+  "h_id": "H-090",
+  "registered": "research/registry.md Welle 50, 2026-08-16, VOR dem Lauf",
+  "run_note": "Re-Run nach Stage-1-BLOCKER-Fix (Zukunftspreis-Delisting + Phantomtage); Trials bereits im Erstlauf gebucht, --no-book",
+  "n_phantom_days_removed": 9,
+  "window": {
+    "fenster": "SUCHE",
+    "von": "1995-01-03",
+    "bis": "2016-12-30",
+    "half_split": "2005-12-31",
+    "smoke": false
+  },
+  "params": {
+    "top_k": 5,
+    "min_history": 260,
+    "stop_pct": -0.15,
+    "max_hold": 120,
+    "cost_bps_main": 15.0,
+    "cost_bps_stress": [
+      30.0,
+      50.0
+    ],
+    "execution": "signal at close t, fill at close t+1 (entries AND exits)"
+  },
+  "results": {
+    "BASIS": {
+      "cost_15bp": {
+        "n_trades": 445,
+        "n_h1": 203,
+        "n_h2": 242,
+        "hit_rate": 0.4989,
+        "avg_ret": 0.03979,
+        "avg_days": 42.4,
+        "pf_total": 1.674694260015284,
+        "pf_h1": 1.8829013100885155,
+        "pf_h2": 1.4708945166725595,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "momentum": 273,
+          "stop": 123,
+          "time": 43
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 445,
+        "n_h1": 203,
+        "n_h2": 242,
+        "hit_rate": 0.4921,
+        "avg_ret": 0.03668,
+        "avg_days": 42.4,
+        "pf_total": 1.6081873573215872,
+        "pf_h1": 1.8160796892802038,
+        "pf_h2": 1.4051963820742275,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "momentum": 273,
+          "stop": 123,
+          "time": 43
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 445,
+        "n_h1": 203,
+        "n_h2": 242,
+        "hit_rate": 0.4674,
+        "avg_ret": 0.03254,
+        "avg_days": 42.4,
+        "pf_total": 1.5236011959724816,
+        "pf_h1": 1.7310043828083472,
+        "pf_h2": 1.3219303219235377,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "momentum": 273,
+          "stop": 123,
+          "time": 43
+        }
+      }
+    },
+    "V1": {
+      "cost_15bp": {
+        "n_trades": 550,
+        "n_h1": 269,
+        "n_h2": 281,
+        "hit_rate": 0.5364,
+        "avg_ret": 0.02836,
+        "avg_days": 30.9,
+        "pf_total": 1.5000895095912854,
+        "pf_h1": 1.646747086502171,
+        "pf_h2": 1.336370539376854,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 240,
+          "stop": 148,
+          "target": 152,
+          "time": 5
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 550,
+        "n_h1": 269,
+        "n_h2": 281,
+        "hit_rate": 0.5327,
+        "avg_ret": 0.02528,
+        "avg_days": 30.9,
+        "pf_total": 1.436392216470508,
+        "pf_h1": 1.5840773947523163,
+        "pf_h2": 1.2719915327391145,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 240,
+          "stop": 148,
+          "target": 152,
+          "time": 5
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 550,
+        "n_h1": 269,
+        "n_h2": 281,
+        "hit_rate": 0.5127,
+        "avg_ret": 0.02119,
+        "avg_days": 30.9,
+        "pf_total": 1.3554610662311046,
+        "pf_h1": 1.5042786509986428,
+        "pf_h2": 1.1905372688877003,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 240,
+          "stop": 148,
+          "target": 152,
+          "time": 5
+        }
+      }
+    },
+    "V2": {
+      "cost_15bp": {
+        "n_trades": 570,
+        "n_h1": 273,
+        "n_h2": 297,
+        "hit_rate": 0.5491,
+        "avg_ret": 0.02077,
+        "avg_days": 29.4,
+        "pf_total": 1.376891206491961,
+        "pf_h1": 1.4502258747421453,
+        "pf_h2": 1.2966727736409798,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "llp5": 179,
+          "momentum": 235,
+          "stop": 147,
+          "time": 3
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 570,
+        "n_h1": 273,
+        "n_h2": 297,
+        "hit_rate": 0.5456,
+        "avg_ret": 0.01771,
+        "avg_days": 29.4,
+        "pf_total": 1.3146290364470996,
+        "pf_h1": 1.3910684704519163,
+        "pf_h2": 1.2312096425808587,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "llp5": 179,
+          "momentum": 235,
+          "stop": 147,
+          "time": 3
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 570,
+        "n_h1": 273,
+        "n_h2": 297,
+        "hit_rate": 0.5211,
+        "avg_ret": 0.01365,
+        "avg_days": 29.4,
+        "pf_total": 1.2355947458325536,
+        "pf_h1": 1.3158092246266628,
+        "pf_h2": 1.1483850955176722,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "llp5": 179,
+          "momentum": 235,
+          "stop": 147,
+          "time": 3
+        }
+      }
+    },
+    "V3": {
+      "cost_15bp": {
+        "n_trades": 636,
+        "n_h1": 302,
+        "n_h2": 334,
+        "hit_rate": 0.5802,
+        "avg_ret": 0.01734,
+        "avg_days": 24.2,
+        "pf_total": 1.3395230581995463,
+        "pf_h1": 1.3886886866022563,
+        "pf_h2": 1.2856556031959587,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 3,
+          "momentum": 200,
+          "rsi": 279,
+          "stop": 151,
+          "time": 2
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 636,
+        "n_h1": 302,
+        "n_h2": 334,
+        "hit_rate": 0.577,
+        "avg_ret": 0.01429,
+        "avg_days": 24.2,
+        "pf_total": 1.2739203244177868,
+        "pf_h1": 1.3277681677615907,
+        "pf_h2": 1.2151482889021796,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 3,
+          "momentum": 200,
+          "rsi": 279,
+          "stop": 151,
+          "time": 2
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 636,
+        "n_h1": 302,
+        "n_h2": 334,
+        "hit_rate": 0.5613,
+        "avg_ret": 0.01024,
+        "avg_days": 24.2,
+        "pf_total": 1.1907534553838859,
+        "pf_h1": 1.2502309819718929,
+        "pf_h2": 1.126195464334953,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 3,
+          "momentum": 200,
+          "rsi": 279,
+          "stop": 151,
+          "time": 2
+        }
+      }
+    },
+    "V4": {
+      "cost_15bp": {
+        "n_trades": 573,
+        "n_h1": 263,
+        "n_h2": 310,
+        "hit_rate": 0.5183,
+        "avg_ret": 0.02581,
+        "avg_days": 28.5,
+        "pf_total": 1.4883884534183363,
+        "pf_h1": 1.531765369420312,
+        "pf_h2": 1.4387066696376478,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 243,
+          "rsi": 181,
+          "stop": 136,
+          "time": 8
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 573,
+        "n_h1": 263,
+        "n_h2": 310,
+        "hit_rate": 0.5113,
+        "avg_ret": 0.02274,
+        "avg_days": 28.5,
+        "pf_total": 1.4199555137536504,
+        "pf_h1": 1.4709716299467683,
+        "pf_h2": 1.3618013857895868,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 243,
+          "rsi": 181,
+          "stop": 136,
+          "time": 8
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 573,
+        "n_h1": 263,
+        "n_h2": 310,
+        "hit_rate": 0.4887,
+        "avg_ret": 0.01866,
+        "avg_days": 28.5,
+        "pf_total": 1.3335702799977782,
+        "pf_h1": 1.3939617997985758,
+        "pf_h2": 1.265222161948813,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 243,
+          "rsi": 181,
+          "stop": 136,
+          "time": 8
+        }
+      }
+    },
+    "V5": {
+      "cost_15bp": {
+        "n_trades": 626,
+        "n_h1": 304,
+        "n_h2": 322,
+        "hit_rate": 0.5942,
+        "avg_ret": 0.02175,
+        "avg_days": 24.4,
+        "pf_total": 1.4383194283519807,
+        "pf_h1": 1.6018721524455701,
+        "pf_h2": 1.2778554991068642,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 193,
+          "stop": 145,
+          "target": 281,
+          "time": 2
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 626,
+        "n_h1": 304,
+        "n_h2": 322,
+        "hit_rate": 0.5911,
+        "avg_ret": 0.01869,
+        "avg_days": 24.4,
+        "pf_total": 1.3687178348063698,
+        "pf_h1": 1.530281312573415,
+        "pf_h2": 1.2106703107065784,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 193,
+          "stop": 145,
+          "target": 281,
+          "time": 2
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 626,
+        "n_h1": 304,
+        "n_h2": 322,
+        "hit_rate": 0.5735,
+        "avg_ret": 0.01462,
+        "avg_days": 24.4,
+        "pf_total": 1.2803763468507088,
+        "pf_h1": 1.439148101499045,
+        "pf_h2": 1.1257638988425938,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 4,
+          "momentum": 193,
+          "stop": 145,
+          "target": 281,
+          "time": 2
+        }
+      }
+    },
+    "V6": {
+      "cost_15bp": {
+        "n_trades": 570,
+        "n_h1": 279,
+        "n_h2": 291,
+        "hit_rate": 0.4579,
+        "avg_ret": 0.02672,
+        "avg_days": 28.2,
+        "pf_total": 1.534408728401772,
+        "pf_h1": 1.720966240269358,
+        "pf_h2": 1.3405367509985273,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "momentum": 206,
+          "stop": 28,
+          "time": 10,
+          "trail": 320
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 570,
+        "n_h1": 279,
+        "n_h2": 291,
+        "hit_rate": 0.4491,
+        "avg_ret": 0.02364,
+        "avg_days": 28.2,
+        "pf_total": 1.4593285058245884,
+        "pf_h1": 1.6429932632843487,
+        "pf_h2": 1.2688854432229058,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "momentum": 206,
+          "stop": 28,
+          "time": 10,
+          "trail": 320
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 570,
+        "n_h1": 279,
+        "n_h2": 291,
+        "hit_rate": 0.4246,
+        "avg_ret": 0.01955,
+        "avg_days": 28.2,
+        "pf_total": 1.3653406355804294,
+        "pf_h1": 1.5449842140612093,
+        "pf_h2": 1.1796697917670775,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 5,
+          "momentum": 206,
+          "stop": 28,
+          "time": 10,
+          "trail": 320
+        }
+      }
+    },
+    "V7": {
+      "cost_15bp": {
+        "n_trades": 701,
+        "n_h1": 325,
+        "n_h2": 376,
+        "hit_rate": 0.5307,
+        "avg_ret": 0.01627,
+        "avg_days": 19.5,
+        "pf_total": 1.3849340642699601,
+        "pf_h1": 1.517778572873479,
+        "pf_h2": 1.2381901962838362,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 3,
+          "momentum": 81,
+          "stop": 102,
+          "time": 514
+        }
+      },
+      "cost_30bp": {
+        "n_trades": 701,
+        "n_h1": 325,
+        "n_h2": 376,
+        "hit_rate": 0.5221,
+        "avg_ret": 0.01323,
+        "avg_days": 19.5,
+        "pf_total": 1.3036336448350516,
+        "pf_h1": 1.4413927754483569,
+        "pf_h2": 1.1523438487501843,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 3,
+          "momentum": 81,
+          "stop": 102,
+          "time": 514
+        }
+      },
+      "cost_50bp": {
+        "n_trades": 701,
+        "n_h1": 325,
+        "n_h2": 376,
+        "hit_rate": 0.5078,
+        "avg_ret": 0.00918,
+        "avg_days": 19.5,
+        "pf_total": 1.202576359096174,
+        "pf_h1": 1.345840320966213,
+        "pf_h2": 1.0465152224102978,
+        "exit_reasons": {
+          "delisting": 1,
+          "eow": 3,
+          "momentum": 81,
+          "stop": 102,
+          "time": 514
+        }
+      }
+    }
+  },
+  "primary_verdicts": {
+    "BASIS": "PASS_PRIMAER",
+    "V1": "PASS_PRIMAER",
+    "V2": "FAIL_PRIMAER",
+    "V3": "FAIL_PRIMAER",
+    "V4": "PASS_PRIMAER",
+    "V5": "PASS_PRIMAER",
+    "V6": "PASS_PRIMAER"
+  },
+  "v7_reference": {
+    "pf_h1": 1.517778572873479,
+    "pf_h2": 1.2381901962838362
+  },
+  "basis_reference": {
+    "pf_h1": 1.8829013100885155,
+    "pf_h2": 1.4708945166725595
+  },
+  "beats_basis": {
+    "V1": false,
+    "V2": false,
+    "V3": false,
+    "V4": false,
+    "V5": false,
+    "V6": false,
+    "V7": false
+  }
+}

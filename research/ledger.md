@@ -1631,3 +1631,20 @@ Index-Ebene) — Details Registry Welle 49. Negativ-Karte: Gold-Timing,
 Einzelaktien-Timing, große Chöre, Offensiv-Geo (N1-GEO/Komposit W1–W6)
 alle tot. Zwei ungültige Erstläufe offen dokumentiert (K10-Overflow
 E-052-Klasse; Krypto-EODHD-Abbruch) — append-only, nicht zurückgeschrieben.
+
+### Nachtrag 2026-08-16 — H-090 (Welle 50): Kurs-Exit-Familie auf Top-K-Momentum — FAIL, Feld zu
+Quelle: extern zugelieferte Strategiespezifikation (User-Dokument). Getestet wurde
+AUSSCHLIESSLICH die Kurs-Exit-Familie (Stop/Ziel/Trailing/RSI/5T-Tief/Zeit) auf der bereits
+dreifach gefallenen Basisstrategie (H-011/012/049), PIT-Panel, Suchfenster 1995–2016.
+Trials 6.269 → **6.277** (einmalig gebucht; zwei kontaminierte Laeufe — Zukunftspreis-Delisting/
+Phantomtage in Phase 1, verschluckter Zero-Day-Trade im Phase-2-Replay — wurden nach
+Review-BLOCKERn verworfen und OHNE Neubuchung wiederholt; Artefakte als
+results/*.CONTAMINATED_run1.json quarantaenisiert).
+Verdikt: **FAIL auf allen drei Sekundaerachsen** fuer alle 5 primaer bestandenen Varianten
+(BASIS/V1/V4/V5/V6 — primaer nur gegen die V7-Nullmessung): Netto-PRIVAT_DE bester Kandidat
+BASIS 687.867 < EW-Benchmark 727.364; DSR heterogen 5/5 durchgefallen (bestes p=0,37 gegen
+0,95); PBO 71,4 % (trotz E-077-Verzerrung nach unten). Kernbefund: **beats_basis = false in
+7/7** — KEINE Kurs-Exit-Variante schlaegt die nackte Basisstrategie, in beiden Haelften.
+Stopp-Regel greift: Feld „Kurs-Exits auf Einzelaktien-Momentum" ZU; Wiederaufnahme nur mit
+echtem OHLC ueber die volle Historie. Anti-Patterns E-152..E-155. Details: Registry Welle 50,
+research/mandat2/results/h090_momentum_exits.json + h090_phase2_sekundaer.json.

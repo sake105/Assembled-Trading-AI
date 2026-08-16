@@ -1,0 +1,224 @@
+{
+  "h_id": "H-090-Phase2",
+  "registered": "research/registry.md Welle 50 (Sekundaerkriterien, vorab fixiert)",
+  "trials_kumuliert": 6277,
+  "trial_zaehler_unveraendert": true,
+  "cost_bps": 15.0,
+  "primaer_pass": [
+    "BASIS",
+    "V1",
+    "V4",
+    "V5",
+    "V6"
+  ],
+  "benchmarks_privat_de": {
+    "ew_index": {
+      "end": 727364.2410143805,
+      "konstruktion": "P11: {'top_in': 500, 'rank_out': 200, 'min_haltetage': 730, 'hebel': 1.0}, cost_bps=15"
+    },
+    "spy_fonds": {
+      "end": 610751.573449115
+    }
+  },
+  "pfade_end": {
+    "ZERO": {
+      "BASIS": 1010221.5088236183,
+      "V1": 1135998.7224286206,
+      "V2": 442556.4152846532,
+      "V3": 508542.3579694863,
+      "V4": 913551.9352572755,
+      "V5": 940999.8644437346,
+      "V6": 601746.746658207,
+      "V7": 496385.2725064487
+    },
+    "PRIVAT_DE": {
+      "BASIS": 508830.1298930742,
+      "V1": 596996.9317341219,
+      "V2": 284933.35347424354,
+      "V3": 309137.7321268031,
+      "V4": 490790.353860484,
+      "V5": 502798.0021649235,
+      "V6": 328754.4824840276,
+      "V7": 301231.9131568774
+    }
+  },
+  "steuern_privat_de": {
+    "BASIS": 199096.5599386549,
+    "V1": 199806.10109622698,
+    "V2": 81319.1149241712,
+    "V3": 101008.85664244537,
+    "V4": 170501.68576428734,
+    "V5": 174987.82777202464,
+    "V6": 136364.24268272644,
+    "V7": 102315.81059312486
+  },
+  "pbo": 0.5714285714285714,
+  "pbo_caveat": "Fast-Klone -> CSCV nach unten verzerrt (E-077); Rangmass Sharpe",
+  "varianz_klonfamilie": 2.214222408861577e-05,
+  "varianz_heterogen": 0.00013281173144820126,
+  "dsr": {
+    "BASIS": {
+      "heterogen": {
+        "entscheidungsfaehig": true,
+        "sharpe_observed": 0.03276247630589316,
+        "sharpe_threshold": 0.043161726456666105,
+        "dsr_probability": 0.21680917970378416,
+        "passes_5pct": false
+      },
+      "IID-Naeherung": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.03276247630589316,
+        "sharpe_threshold": 0.050327355784196344,
+        "dsr_probability": 0.09299198928396829,
+        "passes_5pct": false
+      },
+      "klonfamilie": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.03276247630589316,
+        "sharpe_threshold": 0.017623461316180537,
+        "dsr_probability": 0.8728353991847899,
+        "passes_5pct": false
+      }
+    },
+    "V1": {
+      "heterogen": {
+        "entscheidungsfaehig": true,
+        "sharpe_observed": 0.037723777810819474,
+        "sharpe_threshold": 0.043161726456666105,
+        "dsr_probability": 0.34112285222672456,
+        "passes_5pct": false
+      },
+      "IID-Naeherung": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.037723777810819474,
+        "sharpe_threshold": 0.050327355784196344,
+        "dsr_probability": 0.17134308809208565,
+        "passes_5pct": false
+      },
+      "klonfamilie": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.037723777810819474,
+        "sharpe_threshold": 0.017623461316180537,
+        "dsr_probability": 0.9348943838556043,
+        "passes_5pct": false
+      }
+    },
+    "V4": {
+      "heterogen": {
+        "entscheidungsfaehig": true,
+        "sharpe_observed": 0.0341920333107751,
+        "sharpe_threshold": 0.043161726456666105,
+        "dsr_probability": 0.2506062388335069,
+        "passes_5pct": false
+      },
+      "IID-Naeherung": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.0341920333107751,
+        "sharpe_threshold": 0.050327355784196344,
+        "dsr_probability": 0.11316044202734404,
+        "passes_5pct": false
+      },
+      "klonfamilie": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.0341920333107751,
+        "sharpe_threshold": 0.017623461316180537,
+        "dsr_probability": 0.8929513149585079,
+        "passes_5pct": false
+      }
+    },
+    "V5": {
+      "heterogen": {
+        "entscheidungsfaehig": true,
+        "sharpe_observed": 0.03824822843540557,
+        "sharpe_threshold": 0.043161726456666105,
+        "dsr_probability": 0.3563889296394036,
+        "passes_5pct": false
+      },
+      "IID-Naeherung": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.03824822843540557,
+        "sharpe_threshold": 0.050327355784196344,
+        "dsr_probability": 0.18273548505730997,
+        "passes_5pct": false
+      },
+      "klonfamilie": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.03824822843540557,
+        "sharpe_threshold": 0.017623461316180537,
+        "dsr_probability": 0.938856350711732,
+        "passes_5pct": false
+      }
+    },
+    "V6": {
+      "heterogen": {
+        "entscheidungsfaehig": true,
+        "sharpe_observed": 0.03048828321696618,
+        "sharpe_threshold": 0.043161726456666105,
+        "dsr_probability": 0.1704665077082097,
+        "passes_5pct": false
+      },
+      "IID-Naeherung": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.03048828321696618,
+        "sharpe_threshold": 0.050327355784196344,
+        "dsr_probability": 0.06801070470802845,
+        "passes_5pct": false
+      },
+      "klonfamilie": {
+        "entscheidungsfaehig": false,
+        "sharpe_observed": 0.03048828321696618,
+        "sharpe_threshold": 0.017623461316180537,
+        "dsr_probability": 0.8331540282742327,
+        "passes_5pct": false
+      }
+    }
+  },
+  "sekundaer_verdicts": {
+    "BASIS": {
+      "netto_privat_end": 508830.1298930742,
+      "ew_privat_end": 727364.2410143805,
+      "spy_privat_end": 610751.573449115,
+      "steuer_vs_ew_bestanden": false,
+      "dsr_heterogen_bestanden": false,
+      "pbo_bestanden": false,
+      "sekundaer_bestanden": false
+    },
+    "V1": {
+      "netto_privat_end": 596996.9317341219,
+      "ew_privat_end": 727364.2410143805,
+      "spy_privat_end": 610751.573449115,
+      "steuer_vs_ew_bestanden": false,
+      "dsr_heterogen_bestanden": false,
+      "pbo_bestanden": false,
+      "sekundaer_bestanden": false
+    },
+    "V4": {
+      "netto_privat_end": 490790.353860484,
+      "ew_privat_end": 727364.2410143805,
+      "spy_privat_end": 610751.573449115,
+      "steuer_vs_ew_bestanden": false,
+      "dsr_heterogen_bestanden": false,
+      "pbo_bestanden": false,
+      "sekundaer_bestanden": false
+    },
+    "V5": {
+      "netto_privat_end": 502798.0021649235,
+      "ew_privat_end": 727364.2410143805,
+      "spy_privat_end": 610751.573449115,
+      "steuer_vs_ew_bestanden": false,
+      "dsr_heterogen_bestanden": false,
+      "pbo_bestanden": false,
+      "sekundaer_bestanden": false
+    },
+    "V6": {
+      "netto_privat_end": 328754.4824840276,
+      "ew_privat_end": 727364.2410143805,
+      "spy_privat_end": 610751.573449115,
+      "steuer_vs_ew_bestanden": false,
+      "dsr_heterogen_bestanden": false,
+      "pbo_bestanden": false,
+      "sekundaer_bestanden": false
+    }
+  },
+  "feld_verdict": "FAIL"
+}

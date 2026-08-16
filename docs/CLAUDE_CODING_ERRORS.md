@@ -1983,3 +1983,86 @@ aufgetreten; die Ops-Tasks laufen unter Windows.
 **Erkannt in:** Stage-1-Review der Datenbestandsbewertung 2026-08-15
 (`scripts/data/pullers/pull_alpha_vantage_intraday.py`).
 **Referenzen:** E-112, E-147, E-149.
+
+## E-152 — Union-Kalender erzeugt Phantomtage: die Simulation liest „kein Kurs" als Ereignis
+**Datum:** 2026-08-16
+**Kategorie:** logic-error / union-kalender-phantomtage
+**Was passierte:** Das Preispanel entstand als Union aller Symbolkalender. An 9 US-Feiertagen im
+Suchfenster trugen nur wenige (fehlerhafte) Reihen Kurse, die Mehrheit hatte NaN. Die
+H-090-Tagesschleife interpretierte NaN als Delisting und verkaufte an diesen Tagen ALLE offenen
+Positionen zwangsweise — in jeder der 8 Varianten. Der komplette erste Volllauf war kontaminiert.
+
+**Warum falsch:** Ein Union-Kalender ist kein Handelskalender. Jede Regel, die „heute kein Kurs"
+als Ereignis liest (Delisting, Halt, Datenausfall), feuert auf reinen Kalenderartefakten. Der
+Fehler ist unsichtbar: die Zahlen bleiben plausibel, die Trade-Zahl steigt sogar.
+
+**Wie vermeiden:**
+1. Simulationskalender IMMER an einem vollstaendigen Ankerinstrument festmachen
+   (`close = close[close["SPY"].notna()]`).
+2. Die Zahl der entfernten Tage ins Ergebnis-Artefakt schreiben (`n_phantom_days_removed`).
+3. NaN im Panel nie ohne Kalenderpruefung als Ereignis interpretieren.
+**Erkannt in:** Stage-1-Review H-090 Welle 50 (`research/mandat2/h090_momentum_exits.py`).
+**Referenzen:** E-085, E-144.
+
+## E-153 — last_valid als Delisting-Detektor: der Fallback-Preis kommt aus der Zukunft
+**Datum:** 2026-08-16
+**Kategorie:** logic-error / fensterwissen-als-preisquelle
+**Was passierte:** Bei fehlendem Kurs verkaufte die Schleife zum „letzten verfuegbaren Kurs" via
+`last_valid` ueber das GESAMTE Fenster. Bei temporaeren Kursluecken (892/1037 Symbole auf dem
+rohen Kalender) lag dieser Kurs im Median 501 Handelstage NACH dem Verkaufstag. Verdict-relevant
+gemessen: BASIS PF-H2 1,755 -> 1,517 allein durch die Preiskorrektur (Zwischenmessung ohne den
+Phantomtag-Fix, nicht als Artefakt persistiert; Endwert nach beiden Fixes 1,471).
+
+**Warum falsch:** `last_valid` ist eine Fenster-Aggregation, kein Zeitpunkt-Fakt. Als Preisquelle
+liefert es Look-ahead; als Ereignisdetektor verwechselt es Datenluecke mit Delisting.
+
+**Wie vermeiden:**
+1. Zwangsverkauf nur wenn `i > last_valid[col]` — der Kurs ist dann garantiert Vergangenheit.
+2. Temporaere Luecken: Position halten, Fills verschieben, Signalpruefung ueberspringen.
+3. Verbleibende Fensterwissen-Nutzung (die UNTERSCHEIDUNG Luecke vs. Delisting) als Restannahme
+   im Docstring benennen, nicht verschweigen. Bei Ticker-Recycling (E-114) zusaetzlich pruefen,
+   ob eine „Luecke" in Wahrheit zwei Firmen unter einem Symbol sind.
+**Erkannt in:** Stage-1-Review H-090 Welle 50 (`research/mandat2/h090_momentum_exits.py`).
+**Referenzen:** E-114, E-152.
+
+## E-154 — PASS gegen die Nullmessung, ohne die unveraenderte Basis als zweite Referenz
+**Datum:** 2026-08-16
+**Kategorie:** research-anti-pattern / pass-label-ohne-basis-referenz
+**Was passierte:** Das vorregistrierte Primaerkriterium verglich jede Exit-Variante gegen die
+Zeit-Referenz V7 (Nullmessung). 5 Varianten bekamen „PASS_PRIMAER" — waehrend KEINE die
+unveraenderte Basisstrategie schlug (beats_basis false in 7/7, beide Haelften).
+
+**Warum falsch:** Ein Label gegen eine bewusst schwache Nullmessung wird beim Zusammenschreiben
+zwangslaeufig als „die Exits wirken" gelesen. Der Befund kann das Vorzeichen wechseln, ohne dass
+eine einzige Zahl falsch ist.
+
+**Wie vermeiden:**
+1. Bei „Zusatzregel verbessert Strategie X"-Hypothesen IMMER zwei Referenzen ins Ergebnis-JSON:
+   die vorregistrierte Nullmessung (Label, unveraenderlich) UND die unveraenderte
+   Ausgangsstrategie als eigenes Flag (`beats_basis`).
+2. Das Flag bis in den Endbefund und alle Folgephasen durchreichen.
+**Erkannt in:** Stage-2-Review H-090 Welle 50 (`research/mandat2/h090_momentum_exits.py`).
+**Referenzen:** E-085.
+
+## E-155 — Replay-Reihenfolge verschluckt Zero-Day-Trades und friert Kapital ein
+**Datum:** 2026-08-16
+**Kategorie:** logic-error / replay-verschluckt-zero-day
+**Was passierte:** Beim Abspielen einer Trade-Liste auf ein Portfolio liefen Sells vor Buys (wie
+in der Simulationsschleife). Ein Trade mit entry_date == exit_date (Delisting am Einstiegstag,
+MEE 2011-06-01) traf beim Sell auf qty==0, der Sell wurde still verworfen, der Buy danach
+ausgefuehrt — die Position blieb bis zum Fensterende liegen, ~1/5 des Portfolios war ab 2011 tot.
+Wirkung: BASIS-Endwert PRIVAT_DE 508.830 statt 687.867 (Bias GEGEN den Kandidaten), PBO und DSR
+auf kontaminierten Kurven.
+
+**Warum falsch:** Ein Replay ist kein Simulator: die Trade-Liste enthaelt bereits gepaarte
+Ein-/Ausstiege, deren Reihenfolge innerhalb eines Tages nicht der Signalreihenfolge folgt. Der
+Fehler ist still — die Trade-Zahl stimmt, die Kurve nicht.
+
+**Wie vermeiden:**
+1. Sells auf qty==0 zurueckstellen und NACH dem Buy-Loop desselben Tages erneut ausfuehren;
+   bleibt qty==0, hart abbrechen (SystemExit) statt still verwerfen.
+2. Tripwire am Fensterende: keine offene Position (`rest == []`) — als harter Guard, nicht als
+   ungelesenes Rueckgabefeld.
+3. Unit-Test mit synthetischem Zero-Day-Trade (`tests/test_h090_run_variant.py`).
+**Erkannt in:** Stage-1-Review (Runde 2) H-090 Welle 50 (`research/mandat2/h090_phase2_sekundaer.py`).
+**Referenzen:** E-147, E-150.

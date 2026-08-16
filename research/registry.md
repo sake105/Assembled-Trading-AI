@@ -1524,3 +1524,162 @@ Nicht verdrahtet, nicht deployt. Forward-Shadow gestartet
 (a) Holdout 2017–2026 für die EINE finale Validierung öffnen? (b) nach
 Shadow-Evidenz: Overlay-Verdrahtung neben den Pilot-Kern (volle
 Review-Kette, Schutzzonen). Trials-Stand nach Kampagne: 6.269.
+
+---
+
+## Welle 50 — H-090: Rettet eine Kurs-Exit-Familie das Top-K-Momentum-Portfolio? (registriert 2026-08-16, VOR dem ersten Lauf)
+
+**Herkunft.** Extern zugelieferte Strategiespezifikation (User-Dokument
+`StrategieSpezifikation.md`, Stand Aug 2026 — als Chat-Anhang zugeliefert,
+NICHT im Repo abgelegt; F-auditor-4): monatliche Top-K-Auswahl nach
+mom_12_1 mit SPY-SMA200-Marktfilter und sieben Ausstiegsvarianten. Die Quelle
+dokumentiert ihre Verzerrungen selbst (Survivorship 5,24:1 Endkapital-Verhaeltnis,
+Rueckspiegel-Auswahl, 60+ Varianten) und benennt als offene Kernfrage, ob die
+Ueberrendite Survivorship-Korrektur und Steuer ueberlebt. Genau diese Frage wird
+hier auf dem PIT-Panel beantwortet.
+
+**Warum kein vierter Schuss auf dieselbe Frage.** H-011/H-012/H-049 testeten
+monatliches Top-K-mom_12_1 (mit SMA200-Gate, Rang-Exits, ATR-Backstop) — alle
+FAIL. **Neu ist ausschliesslich die Kurs-Exit-Familie** (fester Stop, Trailing
+close-only, RSI-Exit, 5-Tage-Tief ab Gewinnschwelle, festes Ziel, Zeit-Exit,
+Max-Haltedauer). Kein bisheriger Lauf hatte einen dieser Exits. K10 (0/627) war
+per-Aktie-Zeitreihen-Timing ohne Selektion — anderes Objekt.
+
+**Hypothese (falsifizierbar).** Mindestens eine Kurs-Exit-Variante verbessert
+die Basisstrategie (Top-5 mom_12_1 > 0, SPY>SMA200-Gate, Momentum-Exit,
+Stop −15 % close, max 120 Handelstage) so, dass sie (a) die Zeit-Referenz V7
+in beiden disjunkten Search-Haelften im Profit-Faktor schlaegt UND (b) nach
+ehrlicher Steuer den EW-Pfad desselben PIT-Universums haelt.
+
+**Variantenfamilie (vorab registriert, zaehlt als Trials — 8):**
+Basis (nur Momentum-Exit + Stop + 120T) · V1 Ziel +20 % · V2 5T-Schlusstief ab
++8 % · V3 RSI14>70 ab +5 % · V4 RSI14>75 · V5 Ziel +12 % · V6 Trailing −12 %
+close · V7 Zeit 20T (Referenz/Nullmessung). TOP_K=5 fix, EW je Position,
+Mindesthistorie 260 T, Mindestkurs 5 USD *(Korrektur 2026-08-16: Filter
+entfaellt — siehe Praezisierung 2 unten; der Code hat nie einen Kursfilter
+gehabt, F-senior-7)*. RSI nach Wilder (EWM alpha=1/14).
+Trials 6.269 → **6.277**.
+
+**Daten & Fenster.** `prices_verdict.parquet` via `load_campaign()` —
+**NUR Suchfenster 1995-01-03…2016-12-31**, Holdout bleibt unangetastet.
+Haelften-Split disjunkt: 1995–2005 / 2006–2016 (E-078). Marktfilter: SPY aus
+demselben Panel, SMA200, monatlich gelesen (Kampagnenkonvention). Dividenden
+via `_load_div_panel` (E-070/E-074-konform). Kosten 15 bp/Seite
+(Haertetest 30/50 bp als Sensitivitaet, keine eigenen Trials).
+
+**Dokumentierte Abweichungen von der Spezifikation (Panel ist close-only):**
+Ausfuehrung t+1 CLOSE statt t+1 open · Ziel-Pruefung (V1/V5) auf Close statt
+Tageshoch (unterschaetzt Zielerreichung → konservativ) · LLp5 (V2) auf Close
+statt Low. Stop, Trailing, RSI, Zeit sind per Spezifikation ohnehin
+schlusskursbasiert. Intrabar-Reihenfolge entfaellt (laut Quelle bei
++20 %/−15 % ohnehin 0 % Kollisionsfaelle).
+
+**Praezisierung vor dem ersten Lauf (2026-08-16, noch kein Lauf erfolgt):**
+(1) ALLE Exits werden am Schlusskurs von Tag t ERKANNT und einheitlich am
+Schlusskurs von t+1 AUSGEFUEHRT (auch der Momentum-Exit; die Quelle ist dort
+ambigu „Verkauf zum Schlusskurs" — Same-Bar-Ausfuehrung wird ausgeschlossen).
+(2) Der 5-USD-Mindestkurs-Filter der Quelle entfaellt: das Panel traegt
+TR-adjustierte Kurse, ein Nominalkurs-Filter waere darauf systematisch falsch;
+es gilt die Kampagnen-Delisting-Truncation (<1 USD + >100 %-Sprung).
+(3) Die 1-%-ADV-Liquiditaetsgrenze und die 1-EUR-Fixgebuehr entfallen in der
+Trade-Statistik (keine Positionsgroessen auf Trade-Ebene); dokumentiert.
+(4) Dividenden sind implizit: das Panel ist total-return-adjustiert, exakt wie
+die Datengrundlage der Quelle („bereinigt um Splits und Dividenden").
+(5) Exit-Prioritaet je Tag: Stop → Ziel → Zeitgrenze → Indikator (Trailing/
+RSI/5T-Tief) → Momentum-Signal (nur am Monatsultimo) — wie Quelle 1.4.
+
+**Pass/Fail — vorab fixiert.**
+- *Primaer (je Variante):* PF > 1,2 in BEIDEN Haelften UND PF > V7-Referenz in
+  BEIDEN Haelften.
+- *Sekundaer (Deployability, nur fuer primaer bestandene):* Netto-PRIVAT_DE
+  (26,375 %, FIFO, Verlusttopf, End-Liquidation via `liquidate_all`) ≥ EW-Pfad
+  desselben Universums; DSR `passes_5pct` bei N=6.277;
+  PBO ≤ 0,5 ueber die 8er-Familie.
+- *Feld-PASS* nur wenn mindestens eine Variante primaer UND sekundaer besteht.
+  Benchmarks: EW-B&H desselben PIT-Universums (Hauptvergleich, gleiche
+  Datenwelt) + SPY als FONDS-Klasse (E-069).
+
+**Stopp-Regel.** FAIL schliesst das Feld „Kurs-Exits auf Einzelaktien-Momentum"
+endgueltig. Wiederaufnahme nur mit neuer Datenqualitaet (echtes OHLC fuer
+Intraday-Stops ueber die volle Historie) — nicht mit neuen Parametern,
+nicht mit neuer Auslegung derselben Exits.
+
+**Prior — ehrlich: stark negativ.** Mandats-Kernbefund (kein Signal schlaegt
+den ETF nach Steuer); H-011/12/49 FAIL auf derselben Basisstrategie; K10:
+Whipsaw-Kosten 1,4–6,4 pp auf Einzelwerten; H-087: Trendfilter gewinnt
+krisenfrei 0/338. Die Quelle selbst misst (8.2): Halten schlaegt aktiv nach
+Steuern um mehr als das Doppelte. Erwartung: Exits erhoehen Turnover und
+Steuer-Kontakt → FAIL wahrscheinlich. Der Test lohnt trotzdem, weil die
+Exit-Familie echt ungeprueft ist und die Quelle unabhaengig entstand.
+
+**Lauf-Protokoll (Nachtrag 2026-08-16, VOR Verdict-Verkuendung).**
+Erstlauf (8 Trials gebucht, Zaehler 6.269→6.277) wurde VERWORFEN: Stage-1-Review
+fand einen BLOCKER in der Simulation — (a) Delisting-Fallback nutzte den letzten
+gueltigen Kurs ueber das GESAMTE Fenster und verkaufte bei temporaeren Luecken
+zu Zukunftspreisen (892/1037 Symbole mit Luecken auf dem ROHEN Union-Kalender;
+nach dem SPY-Kalenderfix verbleiben 102/1037 Spalten mit echten Innenluecken,
+67 davon >21 Handelstage — F-senior-8; Fallback-Preis median +501
+Handelstage in der Zukunft), (b) Phantomtage im Panel-Kalender (US-Feiertage
+mit Kursen weniger Symbole) loesten Massen-Zwangsverkaeufe aller offenen
+Positionen aus. Gemessene Verdict-Relevanz: BASIS PF-H2 1,755→1,517 allein
+durch Preiskorrektur (Zwischenmessung des Reviewers OHNE den Phantomtag-Fix,
+nicht als Artefakt persistiert; Endwert nach BEIDEN Fixes: 1,471 —
+F-auditor-2). Fixes: Kalender = SPY-Handelstage; Delisting nur wenn
+i > last_valid; temporaere Luecken verschieben Fills und ueberspringen Signale;
+Fensterende-Positionen als „eow" gebucht statt verworfen; Primaervergleich auf
+ungerundeten PFs. Re-Run desselben registrierten Designs mit `--no-book`
+(KEINE erneute Trial-Buchung — gleiche Hypothese, gleiche Familie, gleiche
+Kriterien; nur Simulationsfehler behoben). Trials-Stand bleibt 6.277.
+
+*Phase-2-Nachtrag (2026-08-16, B-1):* Auch der ERSTE Phase-2-Lauf
+(Sekundaerkriterien) wurde verworfen: das Trade-Replay fuehrte Sells vor Buys
+aus und verschluckte den einen Zero-Day-Trade (MEE 2011-06-01, Delisting am
+Einstiegstag) — die Position blieb ab 2011 eingefroren, ~1/5 des Portfolios
+tot, in allen 8 Varianten, Bias GEGEN die Kandidaten (BASIS Netto-PRIVAT_DE
+508.830 statt 687.867; PBO 0,571 statt 0,714; V4 als Gegenbeispiel FIEL nach
+dem Fix: 490.790 -> 466.194 — freigesetztes Kapital wird reinvestiert, der
+Ausgang ist variantenabhaengig). Fix: deferred-Sells nach dem Buy-Loop +
+harter rest-Guard + Unit-Test (tests/test_h090_run_variant.py). Kontaminierte
+Artefakte quarantaenisiert als results/*.CONTAMINATED_run1.json. Anti-Patterns
+E-152..E-155 protokolliert.
+
+*Stage-2-Nachtrag (2026-08-16):* Drei weitere Praezisierungen: stale
+pending-Entries werden am naechsten Ultimo verworfen (F-senior-3/4, je 0
+Realisierungen, empirisch belegt); Delisting-Trades tragen exit_date/days_held
+des tatsaechlich letzten Handelstags (F-senior-6, betrifft 1 Trade je Variante
+— MEE 2011-06-01, ein Zero-Day-Trade —, fuer den Phase-1-PF neutral). Restannahme dokumentiert (F-senior-5): die
+UNTERSCHEIDUNG Luecke vs. Delisting nutzt Fensterwissen (Kampagnenkonvention);
+alle PREISE liegen in der Vergangenheit. Ergebnis-JSON weist zusaetzlich
+`beats_basis` je Variante aus (F-senior-1): das primaere PASS-Label laeuft
+gegen die V7-NULLMESSUNG — die Hypothese „verbessert die Basis" braucht den
+Basis-Vergleich als eigenes Flag, damit der generierte Befund das Vorzeichen
+nicht verfehlen kann.
+
+**Ergebnis (2026-08-16, generiert aus h090_momentum_exits.json +
+h090_phase2_sekundaer.json): FAIL — Feld zu.**
+
+*Primaer (gegen V7-Nullmessung, 15 bp):* BASIS PF 1,675 (H1 1,883 / H2 1,471),
+V1 1,500, V4 1,488, V5 1,438, V6 1,534 — diese 5 bestehen das vorregistrierte
+Kriterium; V2 1,377 und V3 1,340 fallen (H1 < V7-Referenz 1,518). ABER:
+**beats_basis = false in 7/7** — keine einzige Kurs-Exit-Variante schlaegt die
+unveraenderte Basisstrategie, in beiden Haelften. Die Kernaussage der Quelle
+(„je laenger die Leine, desto besser") bestaetigt sich in schaerfster Form:
+jeder zusaetzliche Kurs-Exit verschlechtert. Haertetest 30/50 bp aendert kein
+Verdict.
+
+*Sekundaer (alle 5 primaer Bestandenen): FAIL auf allen drei Achsen.*
+(1) Netto-PRIVAT_DE nach End-Liquidation: bester Kandidat BASIS 687.867 <
+EW-Benchmark 727.364 (Hauptvergleich; SPY-FONDS 610.752 wird geschlagen, ist
+aber nachrangig und lief mit 10 bp). (2) DSR (heterogenes V, N=6.277):
+5/5 durchgefallen, bestes p = 0,37 gegen Schwelle 0,95 — auch die
+IID-Naeherung rettet keinen (bestes 0,19). (3) PBO 71,4 % > 50 %, und das
+trotz E-077-Verzerrung nach unten (Fast-Klon-Matrix). Hinweis zum Artefakt
+(F-auditor-3): unter der bewusst NICHT entscheidungsfaehigen Klon-Varianz
+(E-077) erreicht V5 nominal p=0,955 — das ist die anti-konservative Groesse
+und war nie das Kriterium; entscheidend ist ausschliesslich das heterogene V.
+
+*Stopp-Regel greift:* Das Feld „Kurs-Exits auf Einzelaktien-Momentum" ist ZU.
+Wiederaufnahme nur mit echtem OHLC ueber die volle Historie — nicht mit neuen
+Parametern, nicht mit neuer Auslegung derselben Exits. Damit ist die offene
+Kernfrage der Quelle beantwortet: die Ueberrendite ueberlebt
+Survivorship-Korrektur und Steuer NICHT.
