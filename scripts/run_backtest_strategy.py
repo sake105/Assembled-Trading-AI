@@ -3109,7 +3109,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # Supply the leakage gate with a real frame where one exists. Until
         # 2026-08-15 no caller ever passed feature_df, so the 8th gate reported
         # SKIPPED on every single run since it was introduced — infrastructure
-        # without a consumer (E-143). _build_leakage_frame returns None when it
+        # without a consumer (E-143). build_leakage_frame returns None when it
         # cannot build a trustworthy frame, which keeps the old SKIPPED
         # behaviour instead of guessing column names.
         _leak_out_base = (

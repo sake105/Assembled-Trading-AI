@@ -132,8 +132,13 @@ mit unterschiedlichem Inhalt — siehe den Doppelstruktur-Follow-up unten.)
 
 **Noch nicht abgedeckt — und das ist die wichtigere Hälfte:** gemessen 2026-08-15 berühren
 **77** Dateien unter `scripts/`, `src/assembled_core/data/` und `research/mandat*/` das Netz
-(`urlopen` / `requests.` / `yf.download` / `http_get_*`). Davon führen seit 2026-08-16 **6**
-ein Protokoll.
+(`urlopen` / `requests.` / `yf.download` / `http_get_*`). Protokollführend sind seit
+2026-08-16 **sieben Pfade**: sechs der 77 marker-erfassten Dateien (io_utils,
+pull_alpha_vantage_intraday, pull_coingecko_ohlc, pull_ecb_fx, pull_stooq_eod,
+refresh_daily_cache_from_eodhd — Neuzählung 2026-08-16 mit dem Kriterium oben; die frühere
+„5" war bereits eine Fehlzählung) **plus `yfinance_source.py`**, das die Marker-Heuristik
+über `yf.Ticker` nicht erfasst und daher nie im 77er-Nenner lag (Zähler-Korrektur nach
+Kompakt-Review F-senior-1, E-161).
 
 Nicht abgedeckt sind insbesondere:
 - ~~**`src/assembled_core/data/sources/yfinance_source.py`**~~ — **GESCHLOSSEN 2026-08-16**

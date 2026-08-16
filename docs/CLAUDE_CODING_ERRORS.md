@@ -2167,3 +2167,28 @@ als keine: sie kostet Debugzeit und suggeriert, der (gefaehrliche) Pfad sei noch
 **Erkannt in:** Stage-2-Review Audit-Paket 6.1 (`scripts/features/build_daily_features.py`,
 `scripts/data/pull_yfinance_eod.py`).
 **Referenzen:** E-140, E-152.
+
+## E-161 — Ein Zaehler wird fortgeschrieben, ohne die Grundgesamtheit neu zu messen
+**Datum:** 2026-08-16
+**Kategorie:** logic-error / fortgeschriebener-zaehler
+**Was passierte:** Eine Coverage-Zahl in KNOWN_ISSUES §0.06(c) wurde beim Schliessen einer Luecke
+um 1 erhoeht („5 → 6") statt mit dem dokumentierten Kriterium neu gezaehlt. Doppelt falsch:
+(a) die Basis „5" war bereits eine Fehlzaehlung (Neuzaehlung mit dem eigenen Kriterium ergab 6),
+(b) das neue Element (yfinance_source.py, nutzt `yf.Ticker`) lag GAR NICHT im 77er-Nenner der
+Marker-Heuristik (`yf.download` etc.) — ein „davon"-Inkrement fuer etwas ausserhalb des „davon".
+
+**Warum falsch:** Ein inkrementierter Zaehler erbt jeden Fehler seiner Basis und verdeckt ihn,
+weil die Fortschreibung wie eine Bestaetigung aussieht. Eine Zahl, die aus ihrem eigenen
+genannten Kriterium nicht reproduzierbar ist, ist die E-112-Form in Miniatur — und sie stand
+ausgerechnet in dem Dokument, das der ehrliche Kassensturz sein soll (E-144: Messung vor jeder
+Zahl frisch).
+
+**Wie vermeiden:**
+1. Beim Fortschreiben JEDER Coverage-Zahl das Zaehl-Kommando erneut ausfuehren; Zaehler UND
+   Nenner frisch setzen.
+2. Pruefen, ob das neue Element ueberhaupt im Nenner liegt — bei grep-Marker-Heuristiken ist
+   das der Regelfall des Irrtums.
+3. Die Zaehlweise (Kommando/Kriterium) neben die Zahl schreiben, damit jeder Leser
+   reproduzieren kann.
+**Erkannt in:** Kompakt-Review des Auditor-Fix-Deltas (`KNOWN_ISSUES.md` §0.06c).
+**Referenzen:** E-112, E-144, E-148.

@@ -165,7 +165,7 @@ def fetch_prices_yfinance(
     # protocol like every other ingest (§0.06c closed 2026-08-16). PullLog is
     # non-raising by contract; the write sits in `finally` so the protocol
     # survives every exit, including the rate-limit abort (E-147).
-    from src.assembled_core.data.pull_log import PullLog
+    from src.assembled_core.data.pull_log import STATUS_SKIPPED, PullLog
 
     plog = PullLog(source="yfinance")
     window = (start_date, end_date)
@@ -173,7 +173,7 @@ def fetch_prices_yfinance(
     frames: list[pd.DataFrame] = []
     any_error = False  # DAT-005: a None from _fetch_single_symbol is an outage
     try:
-        for _i, sym in enumerate(symbols):
+        for i, sym in enumerate(symbols):
             # YFinanceRateLimitError propagates: caller should try an
             # alternative source. Record before re-raising.
             try:
@@ -186,9 +186,7 @@ def fetch_prices_yfinance(
                 # Ausfall, desto stiller wird er (E-158-Klasse). Laufindex statt
                 # symbols.index(sym): bei Duplikaten wuerde .index() bereits
                 # geholte Symbole als skipped nachbuchen (F-auditor-4).
-                from src.assembled_core.data.pull_log import STATUS_SKIPPED
-
-                for rest in symbols[_i + 1 :]:
+                for rest in symbols[i + 1 :]:
                     plog.record(
                         rest,
                         window=window,
