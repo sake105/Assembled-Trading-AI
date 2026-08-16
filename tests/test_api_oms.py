@@ -318,7 +318,7 @@ def test_oms_routes_lists_paper_route(client: TestClient):
     paper_route = next((r for r in routes if r["route_id"] == "PAPER"), None)
     assert paper_route is not None
     assert paper_route["route_id"] == "PAPER"
-    assert paper_route["description"] == "Internal paper trading route"
+    assert paper_route["description"].startswith("Internal paper trading route")
     assert paper_route["is_default"] is True
 
     # Check route structure

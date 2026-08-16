@@ -313,12 +313,12 @@ referenziert wird („Audit-Plan 2.5b" etc.), ist DIESE:
 | 3.2 | CI-Leakage-No-op ersetzen | 🔒 GEBLOCKT (workflows/ deny; gleiche Entscheidung) |
 | 4.1–4.5 | Pipeline-Korrektheit (Trailing-Teilred., corr-regime-Gate, Factor-Store-Key, cost_bps, Earnings-Guard) | 🔒 GEBLOCKT (pipeline/risk deny; gleiche Entscheidung) |
 | 5.1 | Zombie-/Corr-Alert-Producer-Mismatch | ✅ ERLEDIGT (+ Bindungstests mit echtem Writer) |
-| 5.2 | API-Ehrlichkeit (5 Producer-lose Endpunkte, 3 Dummies) | ⏳ OFFEN |
-| 5.3 | attribution/ an Reports | ⏳ OFFEN |
+| 5.2 | API-Ehrlichkeit (5 Producer-lose Endpunkte, 3 Dummies) | ✅ ERLEDIGT (2026-08-16/17: regime/signals/portfolio ehrlich, data-quality REAL an daily.parquet mit Bar-Frische, walk_forward 503 auch bei Teilartefakt, modules/oms als statisch deklariert; Coverage-Tests) |
+| 5.3 | attribution/ an Reports | ✅ ERLEDIGT (2026-08-16/17: composite_score-Opt-in-Hook, taeglicher Producer scripts/generate_attribution_report.py via Pilot-Bat Step 3 (verdrahtet; erster Scheduler-Lauf ausstehend, manuell verifiziert) — fuellt AttributionStore MIT Bar-Datum + Stagnations-Guard, beliefert /monitoring/signals, weist inerte Gewichtsanteile aus [gemessen 0,55]) |
 | 5.4 | Sentry-Init | ✅ ERLEDIGT |
 | 5.5 | Steuer-Engine-Integration | ⏳ OFFEN (eigener Auftrag, L) |
 | 6.1 | assemble_eod_daily.py archiviert | ✅ ERLEDIGT (+ Zeigerpflege) |
-| 6.2 | Gratis-Quellen nachziehen (EDGAR/yfinance) | ⏳ OFFEN (Laufzeit-Step) |
+| 6.2 | Gratis-Quellen nachziehen (EDGAR/yfinance) | ⚠ TEILWEISE/FEHLGESCHLAGEN (2026-08-16: macro/fundamentals/dividends erneuert; prewarm+earnings+insider an yfinance-429 gescheitert — 0 Preiszeilen nachgezogen, pull_log 30 req/0 ok belegt es; DERA war bereits aktuell, q2 noch nicht veroeffentlicht. Retry mit Throttle = eigener Step) |
 | 6.3 | Datenhygiene (2050er-Form4-Zeilen, Zukunfts-Dividenden) | ✅ ERLEDIGT (Loader-Guard + Test; Dividenden: Kampagnen-Loader filtert strukturell) |
 | 6.4 | Toter-Code-Archivierung (~40 Waisen) | ⏳ OFFEN |
 | 6.5 | ops/daily_scheduler anschliessen oder streichen | ⏳ OFFEN (Empfehlung: streichen/archivieren — Doppelstruktur) |

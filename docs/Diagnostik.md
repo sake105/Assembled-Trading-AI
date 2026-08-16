@@ -483,3 +483,10 @@ Umsetzungsstand nach GESAMTBEWERTUNG-Paketen P1–P4 (Commits `6a4fd712`, `f7777
 
 Alle übrigen Befunde dieses Dokuments: Stand 2026-06-03, dort nicht neu bewertet.
 Der ursprüngliche Text bleibt unverändert (Audit-Artefakt).
+
+
+> **Nachtrag 2026-08-17 (Audit-Plan 5.3):** `signal_scores_*` wird seit
+> 2026-08-16 real von `scripts/generate_attribution_report.py` nach
+> `output/signals/` geschrieben (Pilot-Bat Step 3) — der obige Befund
+> "kein Code schreibt es" ist fuer dieses Muster ueberholt.
+> `regime_state_*` bleibt producer-los.

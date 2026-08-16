@@ -441,13 +441,25 @@ def get_walk_forward_windows(freq: str) -> WalkForwardWindowsResponse:
     """Walk-forward split results: aggregated metrics + per-split summary."""
     try:
         data = _load_latest_walk_forward()
-        wf = data.get("walk_forward", {})
+        wf = data.get("walk_forward", {}) if data else {}
         agg = wf.get("aggregated_metrics", {})
         n_splits = int(wf.get("n_splits", 0))
+        # EHRLICHKEIT (Audit-Plan 5.2; erweitert F-senior-3/E-164, 2026-08-17):
+        # 503 nicht nur bei fehlender Datei, sondern auch bei leerem/teil-
+        # geschriebenem Artefakt — "lief nie" und "brach ab" duerfen beide
+        # nicht wie "lief mit 0 Splits" aussehen.
+        if not data or not wf or not agg or n_splits <= 0:
+            raise HTTPException(
+                status_code=503,
+                detail="no usable walk_forward artifact under output/qa/release_gate/ (missing, empty or partial) — walk-forward has not run",
+            )
         n_ok = int(wf.get("n_successful_splits", 0))
         generated_at = data.get("generated_at")
 
-        # Build synthetic per-split rows from aggregated stats (no per-split storage yet)
+        # Synthetic per-split rows from aggregated stats (no per-split storage
+        # yet). Jede Zeile traegt den Marker synthetic_from_aggregate=1.0,
+        # damit kein Konsument identische Zeilen fuer echte Splits haelt
+        # (Audit-Plan 5.2).
         windows: list[WalkForwardWindow] = []
         for i in range(n_splits):
             windows.append(
@@ -456,6 +468,7 @@ def get_walk_forward_windows(freq: str) -> WalkForwardWindowsResponse:
                     metrics={
                         "sharpe": agg.get("mean_sharpe", 0.0),
                         "total_return": agg.get("mean_total_return", 0.0),
+                        "synthetic_from_aggregate": 1.0,
                     },
                 )
             )
@@ -468,6 +481,9 @@ def get_walk_forward_windows(freq: str) -> WalkForwardWindowsResponse:
             windows=windows,
             generated_at=generated_at,
         )
+    except HTTPException:
+        # Der bewusste 503 (fehlendes Artefakt) darf nicht zum 500 werden.
+        raise
     except Exception as exc:
         logger.error("walk_forward/windows error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -481,17 +497,28 @@ def get_walk_forward_sharpe_distribution(freq: str) -> SharpeDistributionRespons
     """Walk-forward Sharpe distribution derived from aggregated split stats."""
     try:
         data = _load_latest_walk_forward()
-        wf = data.get("walk_forward", {})
+        wf = data.get("walk_forward", {}) if data else {}
         agg = wf.get("aggregated_metrics", {})
+        # EHRLICHKEIT (Audit-Plan 5.2; erweitert F-senior-3/E-164): keine
+        # Fantasie-Perzentile aus mean=0/std=1 — weder bei fehlender Datei
+        # noch bei leerem/teilgeschriebenem Artefakt.
+        if not data or not wf or not agg or int(agg.get("n_splits", 0)) <= 0:
+            raise HTTPException(
+                status_code=503,
+                detail="no usable walk_forward artifact under output/qa/release_gate/ (missing, empty or partial) — walk-forward has not run",
+            )
         mean_s = float(agg.get("mean_sharpe", 0.0))
         std_s = float(agg.get("std_sharpe", 1.0))
         min_s = float(agg.get("min_sharpe", mean_s - 2 * std_s))
         max_s = float(agg.get("max_sharpe", mean_s + 2 * std_s))
         n = int(agg.get("n_splits", 0))
 
+        # Perzentile sind PARAMETRISCH aus mean/std unter Normalannahme
+        # abgeleitet, keine empirischen Quantile — der source-String sagt das
+        # jetzt explizit (Audit-Plan 5.2).
         return SharpeDistributionResponse(
             freq=freq,
-            source="walk_forward",
+            source="walk_forward_parametric_normal",
             n_samples=n,
             p10=round(min_s, 4),
             p25=round(mean_s - 0.67 * std_s, 4),
@@ -501,6 +528,9 @@ def get_walk_forward_sharpe_distribution(freq: str) -> SharpeDistributionRespons
             mean=round(mean_s, 4),
             std=round(std_s, 4),
         )
+    except HTTPException:
+        # Der bewusste 503 (fehlendes Artefakt) darf nicht zum 500 werden.
+        raise
     except Exception as exc:
         logger.error("walk_forward/sharpe-distribution error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))

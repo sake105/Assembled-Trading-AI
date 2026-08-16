@@ -169,6 +169,13 @@ def get_modules_status() -> ModulesResponse:
             )
 
         return ModulesResponse(
+            registry_static=True,
+            registry_as_of="2026-05-05",
+            registry_caveat=(
+                "static hand-maintained registry (audit 2026-08-16): status/"
+                "callers reflect the 2026-05-05 snapshot, NOT a live scan; "
+                "moved modules show as 'phantom' even when they exist elsewhere"
+            ),
             total=len(modules),
             wired=counts.get("wired", 0),
             canary=counts.get("canary", 0),

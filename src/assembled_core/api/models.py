@@ -996,6 +996,11 @@ class ModuleStatus(BaseModel):
 class ModulesResponse(BaseModel):
     """Module wiring diagnostic response."""
 
+    # EHRLICHKEIT (Audit-Plan 5.2, 2026-08-16): die Registry hinter diesem
+    # Response ist eine STATISCHE Momentaufnahme, kein Live-Scan.
+    registry_static: bool = True
+    registry_as_of: Optional[str] = None
+    registry_caveat: Optional[str] = None
     total: int
     wired: int
     canary: int

@@ -142,13 +142,13 @@ class TestPortfolioPathSafety:
             "/api/v1/monitoring/portfolio", params={"db_path": OUT_OF_BOUNDS_DB}
         )
         assert resp.status_code == 200
-        assert resp.json() == {
-            "status": "no_ledger",
-            "cash": 0.0,
-            "positions": [],
-            "equity": 0.0,
-            "n_positions": 0,
-        }
+        body = resp.json()
+        # Seit Audit-Plan 5.2 (2026-08-16) traegt no_ledger zusaetzlich
+        # producer_exists/message (Ehrlichkeits-Felder) — Subset pruefen.
+        assert body["status"] == "no_ledger"
+        assert body["cash"] == 0.0 and body["positions"] == []
+        assert body["equity"] == 0.0 and body["n_positions"] == 0
+        assert body["producer_exists"] is False
         assert "pyproject" not in resp.text.lower()
 
 
@@ -196,12 +196,11 @@ class TestAlertsPathSafety:
 
 
 # ---------------------------------------------------------------------------
-# /monitoring/signals + /monitoring/data-quality (output_dir)
+# /monitoring/signals (output_dir) + /monitoring/data-quality (price_path)
 # ---------------------------------------------------------------------------
-# Both apply the IDENTICAL `_is_safe_monitoring_path(output_dir)` guard, in the
-# same pre-glob position, as /monitoring/regime and /monitoring/alerts above.
-# That guard logic is locked non-tautologically by TestIsSafeMonitoringPath (8
-# tests, incl. the legitimate src/output + data defaults), and its behavioural
-# read-suppression is proven by the regime + alerts planted-file tests above.
-# A dedicated planted-parquet test for each would be redundant; the guard
-# placement in both handlers was confirmed by code review (security sweep).
+# Both guard their caller-supplied path via `_is_safe_monitoring_path` BEFORE
+# any filesystem access (since 2026-08-16 data-quality takes a price_path FILE
+# and does no glob anymore; signals still globs output_dir). The guard logic is
+# locked non-tautologically by TestIsSafeMonitoringPath; happy-path + 503
+# behaviour of the rebuilt data-quality endpoint is covered directly in
+# tests/test_attribution_wiring.py.

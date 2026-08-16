@@ -532,6 +532,7 @@ def generate_composite_score_signals(
     signal_threshold: float = 0.10,
     as_of_date: "date | None" = None,
     min_history_bars: int = 30,
+    collect_attributions: "list | None" = None,
 ) -> pd.DataFrame:
     """Generate buy/sell signals for all symbols using the 9-dimension composite score.
 
@@ -553,6 +554,11 @@ def generate_composite_score_signals(
         signal_threshold: Minimum absolute composite score to generate a non-NEUTRAL signal.
         as_of_date: If provided, only use rows with timestamp <= as_of_date.
         min_history_bars: Minimum rows per symbol required for computation.
+        collect_attributions: Optional list. When provided, one
+            ``CompositeAttribution`` per scored symbol is appended
+            (Audit-Plan 5.3, 2026-08-16: the per-dimension dict was
+            previously discarded at the call site — attribution/ existed
+            without a producer). Zero cost when None.
 
     Returns:
         DataFrame with columns: symbol, direction, score.
@@ -681,9 +687,34 @@ def generate_composite_score_signals(
         if "news_sentiment" in grp.columns:
             dim9 = float(np.clip(grp["news_sentiment"].iloc[-1], -1.0, 1.0))
 
-        score, _ = composite_score(
+        score, dim_scores = composite_score(
             composite_regime, dim1, dim2, dim3, dim4, dim5, dim6, dim7, dim8, dim9
         )
+
+        if collect_attributions is not None:
+            from src.assembled_core.attribution.composite import build_attribution
+
+            # F-senior-9 (2026-08-17): Attribution traegt das BAR-Datum der
+            # Berechnungsgrundlage, nicht die Laufzeit — sonst schreibt jeder
+            # Lauf auf eingefrorenem Panel identische Scores unter neuem
+            # Datum und die IC-Diagnostik rechnet auf Duplikaten.
+            _attr_ts = None
+            if "timestamp" in grp.columns:
+                _last = pd.Timestamp(grp["timestamp"].iloc[-1])
+                _attr_ts = _last.to_pydatetime()
+            collect_attributions.append(
+                build_attribution(
+                    ticker=str(symbol),
+                    composite_score=score,
+                    dimension_raw_scores=dim_scores,
+                    dimension_weights=dict(
+                        COMPOSITE_WEIGHTS_BY_REGIME[composite_regime]
+                    ),
+                    regime=composite_regime,
+                    strategy_id="composite_score_v1",
+                    timestamp=_attr_ts,
+                )
+            )
 
         if score > signal_threshold:
             direction = "BUY"

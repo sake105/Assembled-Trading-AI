@@ -462,8 +462,19 @@ def get_portfolio_status(
 
         from src.assembled_core.data.ledger_store import LedgerStore
 
+        # EHRLICHKEIT (Audit-Plan 5.2, 2026-08-16): eine data/paper_ledger.db
+        # existiert NIRGENDS im Betrieb — kein Prozess schreibt sie; der reale
+        # Pilot-Ledger lebt im accounting/-Pfad (CSV/JSONL unter output/) und
+        # ist an diesen Endpoint NICHT angebunden. no_ledger ist hier also der
+        # strukturelle Dauerzustand, kein leeres Portfolio.
         no_ledger = {
             "status": "no_ledger",
+            "producer_exists": False,
+            "message": (
+                "no SQLite ledger is written by any live process (audit "
+                "2026-08-16); the real pilot ledger lives in the accounting/ "
+                "path and is not wired to this endpoint"
+            ),
             "cash": 0.0,
             "positions": [],
             "equity": 0.0,
@@ -558,13 +569,19 @@ def get_regime_status(
                 "source_file": regime_files[0].name,
             }
 
-        # Output dir exists but no regime_state_* file — pipeline never ran
-        # or the retention policy cleaned old files. Surface as "stale" so
-        # callers can distinguish cold-start from I/O failure above.
+        # EHRLICHKEIT (Audit-Plan 5.2, 2026-08-16): kein Modul im Repo
+        # schreibt regime_state_*.json — dieser Zustand ist kein Cold-Start,
+        # sondern strukturell: der Endpoint hat KEINEN Producer. Solange kein
+        # Writer verdrahtet ist, kann hier nie etwas anderes stehen.
         return {
             "status": "stale",
             "regime": "unknown",
-            "message": "no regime_state_*.json files in output_dir",
+            "producer_exists": False,
+            "message": (
+                "no regime_state_*.json files — NO producer writes this "
+                "artifact anywhere in the repo (audit 2026-08-16); endpoint "
+                "cannot deliver data until a writer is wired"
+            ),
             "last_run": None,
         }
     except HTTPException:
@@ -723,7 +740,8 @@ def get_active_alerts(
 @router.get("/monitoring/signals")
 def get_signal_scores(
     output_dir: str = Query(
-        default="src/output", description="Output directory for signal scores"
+        default="output/signals",
+        description="Output directory for signal scores",
     ),
     top_n: int = Query(
         default=20, description="Number of top/bottom symbols to return"
@@ -731,7 +749,10 @@ def get_signal_scores(
 ) -> dict:
     """Return most recent composite signal scores per symbol.
 
-    Reads from the most recent signal scores file in output_dir.
+    PRODUCER (seit Audit-Plan 5.3, 2026-08-16):
+    ``scripts/generate_attribution_report.py`` schreibt
+    ``output/signals/signal_scores_<ts>.json`` — vorher suchte dieser Endpoint
+    in ``src/output`` nach Dateien, die nie jemand schrieb.
     """
     try:
         import json as _json
@@ -767,7 +788,20 @@ def get_signal_scores(
                     "top_short": sorted(scores.items(), key=lambda x: x[1])[:top_n],
                     "n_symbols": len(scores),
                 }
-            return {"status": "unavailable", "message": "No signal score files found"}
+            # F-senior-1 (Stage 2, 2026-08-16): seit Audit-Plan 5.3 EXISTIERT
+            # der Producer (scripts/generate_attribution_report.py) — ein
+            # leeres Verzeichnis heisst jetzt "noch keine Daten" (Erstlauf,
+            # Retention, falsches CWD), NICHT "strukturell tot". Die zwei
+            # Zustaende duerfen nie wieder ein Feld teilen (E-162).
+            return {
+                "status": "no_data_yet",
+                "producer_exists": True,
+                "producer": "scripts/generate_attribution_report.py",
+                "message": (
+                    "no signal_scores_* files yet — producer exists but has "
+                    "not written into this directory"
+                ),
+            }
 
         data = _json.loads(score_files[0].read_text(encoding="utf-8"))
         scores = data.get("scores", {})
@@ -788,43 +822,71 @@ def get_signal_scores(
 
 @router.get("/monitoring/data-quality")
 def get_data_quality(
-    output_dir: str = Query(default="src/output", description="Output directory"),
+    price_path: str = Query(
+        default="output/aggregates/daily.parquet",
+        description="Path to the operational EOD price panel",
+    ),
 ) -> dict:
-    """Return data freshness and quality status per symbol.
+    """Return data freshness and quality status of the operational price panel.
 
-    Reads from the most recent price data file and reports staleness.
+    FIX (Audit-Plan 5.2, 2026-08-16): dieser Endpoint suchte vorher
+    ``prices_*.parquet`` in ``src/output`` — ein Muster, das kein Producer je
+    geschrieben hat (Antwort war immer "unavailable"), und zaehlte n_symbols
+    als ``len(df.columns)`` obwohl das Panel LONG-Format hat. Jetzt liest er
+    den ECHTEN operativen Cache und zaehlt Symbole korrekt.
     """
     try:
         from datetime import datetime as _dt
         from pathlib import Path as _Path
 
-        out_path = _Path(output_dir)
-        if not _is_safe_monitoring_path(out_path.resolve()):
+        p = _Path(price_path)
+        if not _is_safe_monitoring_path(p.resolve()):
             logger.warning(
-                "[monitoring/data-quality] rejected out-of-bounds output_dir: %s",
-                output_dir,
+                "[monitoring/data-quality] rejected out-of-bounds price_path: %s",
+                price_path,
             )
-            return {"status": "unavailable", "message": "No price files found"}
-        price_files = sorted(out_path.glob("prices_*.parquet"), reverse=True)
-        if not price_files:
-            return {"status": "unavailable", "message": "No price files found"}
+            return {"status": "unavailable", "message": "price_path out of bounds"}
+        if not p.exists():
+            raise HTTPException(
+                status_code=503,
+                detail=f"price panel {p} does not exist — ingest has not run",
+            )
 
-        latest = price_files[0]
-        mtime = latest.stat().st_mtime
-        age_hours = (time.time() - mtime) / 3600
-        freshness = "fresh" if age_hours < 26 else "stale"
+        mtime = p.stat().st_mtime
+        file_age_hours = (time.time() - mtime) / 3600
 
-        df = pd.read_parquet(str(latest))
-        n_symbols = len(df.columns) if hasattr(df, "columns") else 0
+        # F-senior-7: fehlende Spalten sollen eine diagnostizierbare 503
+        # liefern, kein generisches 500 — read_parquet(columns=...) wirft
+        # sonst VOR jedem Fallback.
+        try:
+            df = pd.read_parquet(str(p), columns=["timestamp", "symbol"])
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"price panel {p.name} lacks timestamp/symbol columns: {exc}",
+            )
+
+        n_symbols = int(df["symbol"].nunique())
+        last_bar_ts = pd.to_datetime(df["timestamp"].max(), utc=True)
+
+        # F-senior-2 / E-163: Frische aus dem LETZTEN BAR, nicht aus dem
+        # Datei-mtime — ein Backfill-Rewrite ist ein Dateiereignis, kein
+        # Datenereignis (gemessen: mtime 15.08. bei last bar 05.08.).
+        bar_age_days = (pd.Timestamp.now(tz="UTC") - last_bar_ts).days
+        freshness = "fresh" if bar_age_days <= 4 else "stale"
 
         return {
             "status": "ok",
-            "latest_file": latest.name,
-            "age_hours": round(age_hours, 1),
+            "latest_file": p.name,
             "freshness": freshness,
+            "bar_age_days": int(bar_age_days),
+            "file_age_hours": round(file_age_hours, 1),
             "n_symbols": n_symbols,
+            "last_bar": str(last_bar_ts),
             "last_modified": _dt.fromtimestamp(mtime).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Error fetching data quality: %s", exc)
         # A27: generic caller-facing detail; real exception logged above.

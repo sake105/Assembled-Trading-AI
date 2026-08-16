@@ -186,8 +186,12 @@ def get_oms_executions(
 def get_oms_routes() -> list[OmsRoute]:
     """Get available OMS routes.
 
-    Returns a list of configured routes, including the default paper trading route
-    and placeholders for future broker routes.
+    EHRLICHKEIT (Audit-Plan 5.2, 2026-08-16 / KNOWN_ISSUES §6.6): Diese Liste
+    ist HARTKODIERT, keine Konfigurationsabfrage — sie ist deshalb nicht
+    falsch, weil PAPER tatsaechlich die einzige existierende Route ist
+    (Alpaca-Paper via broker_adapter). Sobald eine zweite Route entsteht,
+    MUSS dieser Endpoint auf eine echte Quelle umgestellt werden, sonst
+    luegt er ab diesem Tag.
 
     Returns:
         List of OmsRoute objects
@@ -195,7 +199,7 @@ def get_oms_routes() -> list[OmsRoute]:
     routes = [
         OmsRoute(
             route_id="PAPER",
-            description="Internal paper trading route",
+            description="Internal paper trading route (static list — the only route that exists)",
             is_default=True,
         ),
         # Placeholder for future routes

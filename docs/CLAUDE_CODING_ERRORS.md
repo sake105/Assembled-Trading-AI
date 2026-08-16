@@ -2192,3 +2192,57 @@ Zahl frisch).
    reproduzieren kann.
 **Erkannt in:** Kompakt-Review des Auditor-Fix-Deltas (`KNOWN_ISSUES.md` §0.06c).
 **Referenzen:** E-112, E-144, E-148.
+
+## E-162 — Das Ehrlichkeitsfeld wird zur neuen Luege: producer_exists:false im Commit, der den Producer baut
+**Datum:** 2026-08-17
+**Kategorie:** wiring-gap / veralteter-ehrlichkeitsmarker
+**Was passierte:** Audit-Paket 5.2 stempelte producer-lose Endpunkte mit `producer_exists: false`
++ „NO producer writes this artifact anywhere in the repo". Paket 5.3 baute IM SELBEN DELTA den
+Producer fuer signal_scores_* — die Aussage blieb stehen und war ab dem Moment falsch.
+
+**Warum falsch:** Ein Ehrlichkeitsmarker ist ein Zustandsbefund mit Verfallsdatum. Bleibt er
+stehen, ist er schaedlicher als die alte vage Meldung: er behauptet STRUKTURLOSIGKEIT statt
+Datenlosigkeit und stoppt jede Fehlersuche („steht doch da: kein Producer").
+
+**Wie vermeiden:**
+1. „Kein Producer" und „noch keine Daten" sind ZWEI Zustaende — nie ein Feld teilen.
+2. producer_exists immer mit benannter Producer-Referenz setzen.
+3. Beim Bau eines Producers: grep auf `producer_exists`/„NO producer" ueber das GANZE Delta.
+**Erkannt in:** Stage-2-Review Audit-Paket 5.2/5.3 (`src/assembled_core/api/routers/monitoring.py`).
+**Referenzen:** E-140, E-159.
+
+## E-163 — Frische aus dem Datei-mtime statt aus dem letzten Bar
+**Datum:** 2026-08-17
+**Kategorie:** logic-error / mtime-ist-kein-datendatum
+**Was passierte:** /monitoring/data-quality meldete freshness aus `st_mtime`. Das operative Panel
+wurde am 15.08. neu geschrieben (adj_close-Backfill), endet aber am 05.08. — der Endpoint haette
+„fresh" fuer 11 Tage alte Daten gemeldet. `last_bar` wurde mitgeliefert, aber nicht bewertet.
+
+**Warum falsch:** Ein Rewrite (Backfill, Spaltenmigration, PIT-Umbau) ist ein DATEI-Ereignis,
+kein DATEN-Ereignis. mtime misst den Schreiber, nicht den Markt.
+
+**Wie vermeiden:** Freshness IMMER aus der juengsten Beobachtung im Datensatz ableiten
+(max(timestamp)); mtime nur als getrenntes Feld (file_age_hours) ausweisen.
+**Erkannt in:** Stage-2-Review Audit-Paket 5.2 (`src/assembled_core/api/routers/monitoring.py`).
+**Referenzen:** E-144, E-161.
+
+## E-164 — 503-Guard nur gegen die fehlende Datei, nicht gegen das leere Artefakt
+**Datum:** 2026-08-17
+**Kategorie:** logic-error / container-guard-statt-inhalts-guard
+**Was passierte:** Der neue walk_forward-503-Guard prueffte nur `if not data` (Datei fehlt). Ein
+vorhandenes Artefakt mit leerem walk_forward-Block (Teilschreibung, abgebrochener Lauf) lieferte
+weiter HTTP 200 mit Perzentilen aus mean=0/std=1 — exakt dem Muster, dessen Beseitigung der
+frisch geschriebene Kommentar behauptete.
+
+**Warum falsch:** Abgebrochene/teilgeschriebene Laeufe sind der HAEUFIGERE Fall als „nie
+gelaufen". Ein Guard auf Dateiexistenz deckt die schwaechere Haelfte und erzeugt falsche
+Sicherheit im Kommentar.
+
+**Wie vermeiden:**
+1. Guards auf den BENOETIGTEN INHALT setzen (Block vorhanden, n_splits > 0), nicht auf den
+   Container.
+2. Jede Kommentar-Behauptung „X kann nicht mehr passieren" gegen einen Probe-Aufruf mit
+   Teilartefakt testen.
+**Erkannt in:** Stage-2-Review Audit-Paket 5.2, per Scratch-Probe belegt
+(`src/assembled_core/api/routers/qa.py`).
+**Referenzen:** E-147, E-158.

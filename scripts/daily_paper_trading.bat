@@ -46,6 +46,15 @@ echo [%date% %time%] Running paper pilot --run-day... >> "%LOGFILE%" 2>&1
 .venv\Scripts\python.exe scripts\run_paper_pilot.py --run-day >> "%LOGFILE%" 2>&1
 set PILOT_RC=%errorlevel%
 
+REM Step 3: Attribution- + Signal-Score-Report (Audit-Plan 5.3, 2026-08-16).
+REM Producer fuer output/attribution/* und /monitoring/signals. Non-fatal:
+REM ein Report-Fehler darf den Pilot-Exit-Code nicht ueberschreiben.
+echo [%date% %time%] Generating attribution report... >> "%LOGFILE%" 2>&1
+.venv\Scripts\python.exe scripts\generate_attribution_report.py >> "%LOGFILE%" 2>&1
+if errorlevel 1 (
+    echo [WARN] attribution report failed — pilot result unaffected >> "%LOGFILE%" 2>&1
+)
+
 echo [%date% %time%] === Done. Pilot exit code: %PILOT_RC% === >> "%LOGFILE%" 2>&1
 
 REM NO `pause` — this runs unattended via Task Scheduler.

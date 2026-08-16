@@ -205,6 +205,14 @@ Der Vorher-Stand liegt als
 liegt keins mehr). Die Datei ist gitignored, also **nicht über git rekonstruierbar**; das Archiv
 ist der einzige Rückweg. Lauf-Report: `output/ops/backfill_adj_close_status.json`.
 
+**(f2) Retention-Klasse waechst (Nachtrag 2026-08-16):** Zu den pull_log-Dateien ohne
+Aufraeum-Policy kommen seit Audit-Plan 5.3 drei weitere unbegrenzt wachsende
+Artefakt-Familien: `output/signals/signal_scores_<ts>.json` (1/Lauf),
+`output/attribution/attribution_report_<date>.json` (1/Tag) und der append-only
+`output/attribution/attributions.db` (~195 Zeilen/Tag, kein Unique-Constraint —
+Mehrfachlaeufe am selben Tag gewichten die IC-Diagnostik doppelt). Bewusste
+Entscheidung: erst Daten sammeln, Retention als eigener kleiner Step.
+
 **(g) `check_leakage` ist nur auf dem Backtest-CLI versorgt, nicht im Pilot-Pfad**
 `scripts/run_backtest_strategy.py` baut das `feature_df` über
 `src.assembled_core.qa.leakage_frame.build_leakage_frame` (seit 2026-08-16 dorthin
