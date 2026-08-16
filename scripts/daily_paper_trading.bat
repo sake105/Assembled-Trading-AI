@@ -15,18 +15,11 @@ set LOGFILE=logs\scheduler\daily_paper_trading_%datetime:~0,8%.log
 
 echo [%date% %time%] === Starting daily paper trading cycle === >> "%LOGFILE%" 2>&1
 
-REM Step 0: Refresh daily.parquet from master_universe_panel.parquet (offline, no network).
-REM This bridges the freshness gap that broke the pilot 2026-05-15..20: when the
-REM cache aged past 3 days, run_live_paper.py fell back to a sequential yfinance
-REM fetch (197 syms x ~10s with rate-limit retries) that exceeded the 15-min Task
-REM Scheduler ExecutionTimeLimit and got hard-terminated. The master panel is
-REM produced earlier in the daily cycle by the build pipeline and typically has
-REM fresher OHLCV than the EOD cache. No-op when panel is not newer than cache.
-echo [%date% %time%] Refreshing daily.parquet from master panel... >> "%LOGFILE%" 2>&1
-.venv\Scripts\python.exe scripts\ops\refresh_daily_cache_from_panel.py >> "%LOGFILE%" 2>&1
-if errorlevel 1 (
-    echo [WARN] daily.parquet refresh failed — proceeding with existing cache >> "%LOGFILE%" 2>&1
-)
+REM Step 0 ENTFERNT (Audit 2026-08-16): refresh_daily_cache_from_panel.py lief
+REM seit 2026-05-21 als taeglicher No-op — data/sample/master_universe_panel.parquet
+REM wird von keinem Prozess mehr neu gebaut (der Builder haengt an EODHD, tot seit
+REM 2026-08-05). Die Freshness-Bridge, fuer die Step 0 gebaut wurde, uebernimmt
+REM Step 1 (prewarm via yfinance). Wiedereinbau nur mit lebendem Panel-Builder.
 
 REM Step 1: Refresh price cache for the watchlist (catch gaps from new symbols)
 echo [%date% %time%] Pre-warming price cache... >> "%LOGFILE%" 2>&1

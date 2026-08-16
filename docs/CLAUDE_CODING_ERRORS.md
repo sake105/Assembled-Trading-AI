@@ -2066,3 +2066,104 @@ Fehler ist still — die Trade-Zahl stimmt, die Kurve nicht.
 3. Unit-Test mit synthetischem Zero-Day-Trade (`tests/test_h090_run_variant.py`).
 **Erkannt in:** Stage-1-Review (Runde 2) H-090 Welle 50 (`research/mandat2/h090_phase2_sekundaer.py`).
 **Referenzen:** E-147, E-150.
+
+## E-156 — enabled:true ohne Implementierung: die Konfigurations-Illusion
+**Datum:** 2026-08-16
+**Kategorie:** wiring-gap / konfigurations-illusion
+**Was passierte:** Neun Policy-Bloecke standen auf enabled:true. Vier davon (shorts,
+intel.signal_layer, news_signal_bridge, earnings_guard) gateten Codebloecke, deren erster Import
+ein nicht existierendes Modul/Symbol lud; der except-Zweig loggte auf DEBUG — der Ausfall lief
+JEDEN Zyklus, seit Einfuehrung. Fuenf weitere Bloecke (macro_event_calendar mit FOMC-Exposure-
+Scaling!, quant_gates mit DSR/PSR-Block-Gates!, quarter_end_guard, ma_exclusion,
+freshness_monitor) hatten ueberhaupt keinen Code-Leser. Ein CI-Workflow (earnings-calendar-
+refresh) fuetterte taeglich einen Cache fuer einen Guard, der nie lief.
+
+**Warum falsch:** Die Konfiguration wurde zur Autoritaetsquelle ueber das Systemverhalten, obwohl
+sie es nicht steuert. Jede Aussage der Form „Feature X ist aktiv, steht in policy.yaml" war
+falsch — inklusive der Aussagen, die Menschen und Agenten daraus ableiteten. log.debug macht den
+Ausfall formal sichtbar und praktisch unsichtbar (E-142-Verwandtschaft). Die Schema-Validierung
+verstaerkte die Illusion („der Block wird validiert, also wird er gelesen").
+
+**Wie vermeiden:**
+1. Ein enabled:true-Flag braucht einen Test, der beweist, dass der Zweig bei true ANDERS laeuft
+   als bei false (Mutationsprobe).
+2. Feature-Modul-Imports gehoeren VOR den except-Vorhang oder mindestens auf WARN, nie auf DEBUG.
+3. Bei Flag-Inventuren pruefen, ob der GELESENE Key derselbe ist wie der GESCHRIEBENE —
+   earnings_guard existierte doppelt (Top-Level ohne Datei-Eintrag, verschachtelt mit Eintrag).
+**Erkannt in:** Nutzungsaudit 2026-08-16 (`configs/policy.yaml`,
+`src/assembled_core/pipeline/_tc_signals.py`, `orchestrator.py`).
+**Referenzen:** E-142, E-145.
+
+## E-157 — Glob-Praefix faengt die Nachbarquelle — und Lexikographie stellt sie nach vorn
+**Datum:** 2026-08-16
+**Kategorie:** logic-error / glob-namensfilter-statt-quellenfilter
+**Was passierte:** Ein neuer Konsument suchte das juengste Protokoll per
+glob("pull_log_yfinance_*.json") + sorted(reverse=True)[0]. Ein zweiter Puller schreibt
+pull_log_yfinance_intraday_*.json — und weil "i" lexikographisch NACH jeder Ziffer kommt, stuende
+die Fremddatei in reverse-Sortierung IMMER an erster Stelle. Der Check haette nie das Protokoll
+des Live-Preispfads gesehen, den er ueberwachen soll.
+
+**Warum falsch:** Ein Praefix-Glob ist ein Namensfilter, kein Quellenfilter; und „neueste Datei
+per Namenssortierung" setzt EIN Namensschema voraus. Beides bricht lautlos: der Check laeuft,
+findet eine Datei, liefert eine Zahl — nur ueber die falsche Quelle.
+
+**Wie vermeiden:**
+1. Quelle aus dem INHALT verifizieren (payload["source"]), nie aus dem Dateinamen.
+2. Glob so eng wie moeglich (Ziffern-Praefix "pull_log_yfinance_2*.json").
+3. Das Glob gegen ein reales Verzeichnis auflisten, nicht gegen die Vorstellung davon.
+**Erkannt in:** Stage-1-Review Audit-Paket 2 (`scripts/ops_watchdog.py`).
+**Referenzen:** E-146, E-152.
+
+## E-158 — Fehlerquote ueber einen Nenner, den der Abbruch selbst gekuerzt hat
+**Datum:** 2026-08-16
+**Kategorie:** logic-error / abbruch-kuerzt-nenner
+**Was passierte:** Ein Ratio-Alarm rechnet error/requested aus einem Anfrageprotokoll. Beim
+Rate-Limit-Abbruch enthielt das Protokoll nur die ERREICHTEN Symbole: Abbruch bei Symbol 3 von
+220 ergab requested=3, error=1, ratio=0,33 — KEIN Alarm, obwohl 217 Symbole nie gefragt wurden.
+Je katastrophaler der Ausfall, desto stiller.
+
+**Warum falsch:** Der Nenner soll „wie viele wollten wir" bedeuten, misst aber „wie viele haben
+wir geschafft". Der Ausfall unterdrueckt genau die Kennzahl, die ihn melden soll. Eine Quote ist
+nur so ehrlich wie ihr Nenner (E-112/E-148 eine Ebene weiter).
+
+**Wie vermeiden:**
+1. Beim Abbruch die nie angefragten Keys als STATUS_SKIPPED protokollieren (der Status existiert
+   genau dafuer) und skipped in die Quote zaehlen.
+2. Testfall: Abbruch bei Element 1 UND bei Element n-1 muessen beide alarmieren.
+**Erkannt in:** Stage-2-Review Audit-Paket 2 (`src/assembled_core/data/sources/yfinance_source.py`,
+`scripts/ops_watchdog.py`).
+**Referenzen:** E-112, E-148.
+
+## E-159 — Producer-Consumer-Fix ohne Bindungstest: derselbe blinde Fleck, neu lackiert
+**Datum:** 2026-08-16
+**Kategorie:** test-anti-pattern / fix-ohne-bindung
+**Was passierte:** Zwei Monitoring-Alarme lasen jahrelang einen Dateinamen, den kein Producer je
+schrieb (zombie_report_*.json — 0 Existenzen bei 901 Shadow-Dateien). Der Fix korrigierte Pfad
+und Envelope-Schema — zunaechst OHNE Test, der Producer-Ausgabe und Consumer-Lesung aneinander
+bindet.
+
+**Warum falsch:** Der Originaldefekt war unsichtbar, WEIL nichts das Paar band. Ein Fix, der
+diese Eigenschaft erbt, ist nicht verifiziert, sondern nur neu behauptet — der naechste
+Schema-Drift schlaegt genauso still zu.
+
+**Wie vermeiden:** Jeder Producer-Consumer-Fix bekommt einen Test, der mit dem ECHTEN
+Producer-Writer schreibt (record_shadow, nicht handgebautes JSON) und mit dem echten Consumer
+liest. Handgebaute Fixtures beweisen nur, dass der Consumer sein eigenes Wunschschema lesen kann.
+**Erkannt in:** Stage-2-Review Audit-Paket 5.1 (`src/assembled_core/api/routers/monitoring.py`).
+**Referenzen:** E-143, E-145.
+
+## E-160 — Skript archiviert, Zeiger stehen gelassen
+**Datum:** 2026-08-16
+**Kategorie:** wiring-gap / archiv-ohne-zeigerpflege
+**Was passierte:** Ein Legacy-Skript wurde nach archive/ verschoben; zwei In-Repo-Stellen wiesen
+weiter auf den alten Pfad — eine davon als FEHLERTEXT-Anweisung an den Bediener („Bitte zuerst X
+ausfuehren").
+
+**Warum falsch:** Eine Handlungsanweisung auf einen nicht mehr existierenden Pfad ist schlimmer
+als keine: sie kostet Debugzeit und suggeriert, der (gefaehrliche) Pfad sei noch der richtige.
+
+**Wie vermeiden:** Beim Verschieben/Archivieren grep auf den DATEINAMEN ueber *.py, *.bat, *.yml,
+*.md — nicht nur auf Imports, auch auf Freitext in Fehlermeldungen und Docstrings.
+**Erkannt in:** Stage-2-Review Audit-Paket 6.1 (`scripts/features/build_daily_features.py`,
+`scripts/data/pull_yfinance_eod.py`).
+**Referenzen:** E-140, E-152.

@@ -595,8 +595,13 @@ def get_active_alerts(
     # Guard both caller-supplied paths before any filesystem access. Reject to
     # the benign empty-alerts response (identical to a cold-start), so an
     # out-of-bounds path cannot be used to probe arbitrary files or leak
-    # existence. db_path is guarded too although the current zombie/corr globs
-    # only use output_dir — defence in depth against future db reads here.
+    # existence. SEIT 2026-08-16 (F-senior-8): die Zombie-/Corr-Bloecke lesen
+    # NICHT mehr aus output_dir, sondern aus default_shadow_root() — die
+    # Guards bleiben als defence-in-depth fuer db_path und kuenftige Leser;
+    # ob output_dir hier Parameter bleibt, ist eine offene Signaturfrage.
+    # BETRIEBSANNAHME (F-senior-9, E-146-Klasse): default_shadow_root() ist
+    # ohne ATI_SHADOW_ROOT CWD-relativ — konsistent mit dem Producer, aber
+    # nur solange API-Prozess und Pipeline dieselbe CWD (Repo-Root) haben.
     if not _is_safe_monitoring_path(Path(db_path).resolve()):
         logger.warning(
             "[monitoring/alerts] rejected out-of-bounds db_path: %s", db_path
@@ -610,17 +615,35 @@ def get_active_alerts(
 
     alerts = []
 
-    # Zombie positions
+    # Zombie positions.
+    # FIX 2026-08-16 (Audit-Plan 5.1): this block previously globbed
+    # {output_dir}/zombie_report_*.json — a filename NO producer ever wrote.
+    # The zombie killer records via ops.shadow_recorder ->
+    # output/shadow/zombie_killer_<date>.json with an envelope schema
+    # ({module, snapshot_date, payload: {would_apply: {zombie_symbols}}}),
+    # so this alert could never fire (consumer without producer).
+    # Freshness guard: shadow snapshots from BACKTESTS carry historical
+    # snapshot_dates (files back to 2021 exist) — only recent snapshots may
+    # alert, or test/backtest residue produces phantom alerts.
     try:
         import json as _json
-        from pathlib import Path as _Path
+        from datetime import datetime as _dt
+        from datetime import timedelta as _td
+        from datetime import timezone as _tz
 
-        out_path = _Path(output_dir)
-        zombie_files = sorted(out_path.glob("zombie_report_*.json"), reverse=True)
+        from src.assembled_core.ops.shadow_mode import default_shadow_root
+
+        _fresh_cutoff = (_dt.now(tz=_tz.utc) - _td(days=7)).date().isoformat()
+        zombie_files = sorted(
+            default_shadow_root().glob("zombie_killer_*.json"), reverse=True
+        )
         if zombie_files:
-            zombie_data = _json.loads(zombie_files[0].read_text(encoding="utf-8"))
-            zombie_syms = zombie_data.get("zombie_symbols", [])
-            if zombie_syms:
+            envelope = _json.loads(zombie_files[0].read_text(encoding="utf-8"))
+            snap_date = str(envelope.get("snapshot_date", ""))
+            zombie_syms = (
+                (envelope.get("payload") or {}).get("would_apply") or {}
+            ).get("zombie_symbols", [])
+            if zombie_syms and snap_date >= _fresh_cutoff:
                 alerts.append(
                     {
                         "type": "zombie_positions",
@@ -653,16 +676,32 @@ def get_active_alerts(
     except Exception as exc:
         logger.warning("[Monitoring] failed to check kill-switch state: %s", exc)
 
-    # Correlation guard
+    # Correlation guard.
+    # FIX 2026-08-16 (Audit-Plan 5.1): same consumer-without-producer defect —
+    # the guard records via shadow_recorder into output/shadow/ with the
+    # envelope schema, not {output_dir}/correlation_guard_*.json. Same
+    # 7-day freshness guard against backtest residue.
     try:
         import json as _json
-        from pathlib import Path as _Path
+        from datetime import datetime as _dt
+        from datetime import timedelta as _td
+        from datetime import timezone as _tz
 
-        out_path = _Path(output_dir)
-        corr_files = sorted(out_path.glob("correlation_guard_*.json"), reverse=True)
+        from src.assembled_core.ops.shadow_mode import default_shadow_root
+
+        _fresh_cutoff = (_dt.now(tz=_tz.utc) - _td(days=7)).date().isoformat()
+        corr_files = sorted(
+            default_shadow_root().glob("correlation_guard_*.json"), reverse=True
+        )
         if corr_files:
-            corr_data = _json.loads(corr_files[0].read_text(encoding="utf-8"))
-            if corr_data.get("guard_triggered"):
+            envelope = _json.loads(corr_files[0].read_text(encoding="utf-8"))
+            snap_date = str(envelope.get("snapshot_date", ""))
+            payload = envelope.get("payload") or {}
+            would_apply = payload.get("would_apply") or {}
+            triggered = bool(
+                would_apply.get("guard_triggered") or payload.get("guard_triggered")
+            )
+            if triggered and snap_date >= _fresh_cutoff:
                 alerts.append(
                     {
                         "type": "correlation_guard",

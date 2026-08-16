@@ -56,6 +56,19 @@ PREVIOUSLY_MISSING = [
         "circuit_breaker_tripped",
         {"ratio": 3.2, "threshold": 2.0, "trip_count": 1},
     ),
+    # F-senior-11 (2026-08-16): aus scripts/ops_watchdog.py gefeuert — der
+    # SRC-Scanner dieses Tests sieht scripts/ nicht, deshalb hier als Anker
+    # verankert (Existenz + Message-Rendering).
+    (
+        "pull_log_errors",
+        {
+            "log": "pull_log_yfinance_x.json",
+            "n_error": 6,
+            "requested": 10,
+            "ratio": 0.6,
+            "threshold": 0.5,
+        },
+    ),
 ]
 
 

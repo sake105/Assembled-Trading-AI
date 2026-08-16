@@ -252,7 +252,7 @@ def test_guard_can_be_overridden_knowingly(monkeypatch):
 
 
 def test_leakage_frame_is_armed_when_all_columns_exist(tmp_path):
-    from scripts.run_backtest_strategy import _build_leakage_frame
+    from src.assembled_core.qa.leakage_frame import build_leakage_frame
 
     pd.DataFrame(
         {
@@ -262,7 +262,7 @@ def test_leakage_frame_is_armed_when_all_columns_exist(tmp_path):
         }
     ).to_parquet(tmp_path / "events_earnings.parquet", index=False)
 
-    frame, col, reason = _build_leakage_frame(tmp_path)
+    frame, col, reason = build_leakage_frame(tmp_path)
 
     assert frame is not None
     assert col == "eps_surprise_pct"
@@ -274,7 +274,7 @@ def test_leakage_frame_stays_none_when_a_column_is_missing(tmp_path, drop):
     """None keeps the gate SKIPPED. Guessing a column name would BLOCK the
     pilot via qa_block.json — failing to check is recoverable, halting on a
     bookkeeping mistake is not."""
-    from scripts.run_backtest_strategy import _build_leakage_frame
+    from src.assembled_core.qa.leakage_frame import build_leakage_frame
 
     data = {
         "timestamp": pd.to_datetime(["2026-01-02"], utc=True),
@@ -284,7 +284,7 @@ def test_leakage_frame_stays_none_when_a_column_is_missing(tmp_path, drop):
     del data[drop]
     pd.DataFrame(data).to_parquet(tmp_path / "events_earnings.parquet", index=False)
 
-    frame, col, reason = _build_leakage_frame(tmp_path)
+    frame, col, reason = build_leakage_frame(tmp_path)
 
     assert frame is None
     assert col is None
@@ -292,9 +292,9 @@ def test_leakage_frame_stays_none_when_a_column_is_missing(tmp_path, drop):
 
 
 def test_leakage_frame_reports_a_missing_file_instead_of_guessing(tmp_path):
-    from scripts.run_backtest_strategy import _build_leakage_frame
+    from src.assembled_core.qa.leakage_frame import build_leakage_frame
 
-    frame, col, reason = _build_leakage_frame(tmp_path)
+    frame, col, reason = build_leakage_frame(tmp_path)
 
     assert frame is None
     assert "does not exist" in reason

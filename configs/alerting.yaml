@@ -122,6 +122,15 @@ alerts:
       cooldown_minutes: 360
       message: "Pilot-Drawdown {dd_pct}% hat Limit {limit_pct}% verletzt (Equity={equity})."
 
+    # 2026-08-16 (Audit-Plan 2.5b): erster Konsument des E-112-Anfrage-
+    # Protokolls. yfinance ist der einzige lebende Preispfad — wenn dessen
+    # juengstes pull_log eine hohe Fehlerquote traegt, lief der Pilot auf
+    # unvollstaendigen Preisen.
+    - name: pull_log_errors
+      severity: warning
+      cooldown_minutes: 360
+      message: "yfinance-Pull-Protokoll {log}: {n_error}/{requested} Requests fehlgeschlagen (Quote {ratio}, Schwelle {threshold})."
+
   watchdog:
     warn_after_trading_days: 1
     liquidate_after_warning_hours: 4
@@ -129,3 +138,5 @@ alerts:
     zero_order_days: 2
     dd_breach_pct: -8.0
     flatten_mode: shadow
+    pull_log_error_ratio: 0.5
+    pull_log_min_requested: 5   # Mindestnenner: 1-von-2-Kleinlaeufe alarmieren nicht

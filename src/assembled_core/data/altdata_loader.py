@@ -195,6 +195,24 @@ def load_insider_filings(
         mask &= df["symbol"].isin(symbols)
     df = df.loc[mask].copy()
 
+    # Datenhygiene (Audit-Plan 6.3, 2026-08-16): ein Form 4 meldet
+    # VERGANGENE Transaktionen — transaction_date > filing_date ist physisch
+    # unmoeglich und stammt aus Tippfehlern der Quelle (gemessen: 192 Zeilen
+    # im operativen Bestand, 7 davon mit Datum bis 2050). Die Rohdatei bleibt
+    # unangetastet (Quellenwahrheit); gefiltert wird beim Laden, sichtbar.
+    if "transaction_date" in df.columns:
+        _tx = pd.to_datetime(
+            df["transaction_date"], utc=True, errors="coerce"
+        ).dt.tz_localize(None)
+        _bad = _tx > df["filing_date"]
+        if bool(_bad.any()):
+            logger.warning(
+                "[altdata] insider: dropping %d row(s) with transaction_date "
+                "AFTER filing_date (source typos, e.g. year 2050)",
+                int(_bad.sum()),
+            )
+            df = df.loc[~_bad].copy()
+
     # shares_delta = signed net change. Prefer the signed ``net_shares`` from the
     # Form 4 feed; fall back to a raw ``shares`` column for the legacy file.
     if "shares_delta" not in df.columns:

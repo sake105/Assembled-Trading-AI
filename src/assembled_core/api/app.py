@@ -43,6 +43,14 @@ def create_app() -> FastAPI:
         version="2.0.0",
     )
 
+    # ── Error tracking (Audit-Plan 5.4, 2026-08-16) ──────────────────
+    # ops/error_tracking existierte fertig, wurde aber nie initialisiert.
+    # init_sentry() ist ein No-op ohne SENTRY_DSN in der Umgebung — der
+    # Aufruf ist also in jeder Umgebung sicher.
+    from src.assembled_core.ops.error_tracking import init_sentry
+
+    init_sentry()
+
     # ── Middleware ───────────────────────────────────────────────────
     add_middleware(app)
 

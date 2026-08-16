@@ -1,6 +1,20 @@
 # Backend Architecture - Assembled Trading AI
 
-**Letzte Aktualisierung:** 2026-05-31 (letzter Commit 90625485; Header-Datum am 2026-07-23 korrigiert — stand fälschlich auf 2025-01-15)
+**Letzte Aktualisierung:** 2026-08-16 (Kern-Korrektur; Detailtext darunter Stand 2026-05-31)
+
+> **KORREKTUR 2026-08-16 (Nutzungsaudit):** Der unten beschriebene
+> `orchestrator.run_eod_pipeline()` ist NICHT der aktive Kern — er ist ein
+> deklarierter Entry-Point ohne Scheduler/Workflow-Anbindung. Der tatsächlich
+> laufende Pfad des Paper-Piloten ist:
+> `run_paper_pilot.py --run-day` → `run_live_paper.py once` →
+> `ops/paper_runner.run_paper_daily_one` →
+> **`pipeline/trading_cycle_v2.run_trading_cycle`** (+ `_tc_features`,
+> `_tc_signals`, `_tc_sizing`, `_tc_risk`, `_tc_execution`), flankiert von
+> `risk/` (Kill-Switch, DD-Treppe, Pre-Trade-Checks) und `qa/qa_gates`
+> (Blockkette Gates 1–7). Die API hat inzwischen **13 Router** (nicht 6);
+> die unter „Phase 6" als geplant geführten Ingester (Insider/Congress/XBRL)
+> sind längst implementiert. Vollständige Verdrahtungsübersicht:
+> `docs/DATEN_UND_NUTZUNGSAUDIT.md` §3.
 
 ## Überblick
 

@@ -152,7 +152,8 @@ def fetch_prices_yfinance(
         low, close, volume.  Empty DataFrame if nothing could be fetched.
     """
     if not symbols:
-        # Caller asked for nothing — an empty window, not an outage.
+        # Caller asked for nothing — an empty window, not an outage. No
+        # protocol either: zero requests leave nothing to account for.
         return stamp_feed_status(
             pd.DataFrame(columns=_PRICE_COLS),
             "yfinance",
@@ -160,17 +161,54 @@ def fetch_prices_yfinance(
             reason="no_symbols_requested",
         )
 
+    # E-112: yfinance is the only LIVE price path — it must leave a request
+    # protocol like every other ingest (§0.06c closed 2026-08-16). PullLog is
+    # non-raising by contract; the write sits in `finally` so the protocol
+    # survives every exit, including the rate-limit abort (E-147).
+    from src.assembled_core.data.pull_log import PullLog
+
+    plog = PullLog(source="yfinance")
+    window = (start_date, end_date)
+
     frames: list[pd.DataFrame] = []
     any_error = False  # DAT-005: a None from _fetch_single_symbol is an outage
-    for sym in symbols:
-        # YFinanceRateLimitError propagates: caller should try an alternative source
-        df = _fetch_single_symbol(sym, start_date, end_date, interval)
-        # None == this symbol errored (outage); empty df == no bars in window
-        # (legitimate). Track so a total outage is distinguishable from "no data".
-        if df is None:
-            any_error = True
-        elif not df.empty:
-            frames.append(df)
+    try:
+        for _i, sym in enumerate(symbols):
+            # YFinanceRateLimitError propagates: caller should try an
+            # alternative source. Record before re-raising.
+            try:
+                df = _fetch_single_symbol(sym, start_date, end_date, interval)
+            except YFinanceRateLimitError:
+                plog.record(sym, window=window, http_status=429, error="rate_limited")
+                # F-senior-1 (Stage 2, 2026-08-16): die NICHT mehr angefragten
+                # Symbole als skipped protokollieren — sonst kuerzt der Abbruch
+                # den Nenner jeder Fehlerquote, und je spaeter (schlimmer) der
+                # Ausfall, desto stiller wird er (E-158-Klasse). Laufindex statt
+                # symbols.index(sym): bei Duplikaten wuerde .index() bereits
+                # geholte Symbole als skipped nachbuchen (F-auditor-4).
+                from src.assembled_core.data.pull_log import STATUS_SKIPPED
+
+                for rest in symbols[_i + 1 :]:
+                    plog.record(
+                        rest,
+                        window=window,
+                        status=STATUS_SKIPPED,
+                        error="not_requested_after_rate_limit_abort",
+                    )
+                raise
+            # None == this symbol errored (outage); empty df == no bars in
+            # window (legitimate). Track so a total outage is distinguishable
+            # from "no data".
+            if df is None:
+                any_error = True
+                plog.record(sym, window=window, error="all_retries_exhausted")
+            elif not df.empty:
+                frames.append(df)
+                plog.record(sym, window=window, n_rows=len(df))
+            else:
+                plog.record(sym, window=window, n_rows=0)
+    finally:
+        plog.write()
 
     if not frames:
         logger.warning(

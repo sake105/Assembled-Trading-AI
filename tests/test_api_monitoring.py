@@ -252,3 +252,61 @@ class TestMonitoringIntegration:
             elif response.status_code == 404:
                 # No data found (expected if no files exist)
                 assert "detail" in response.json()
+
+
+class TestAlertsProducerConsumerBinding:
+    """F-senior-3 (2026-08-16): Producer-Consumer-Bindung fuer die
+    Zombie-/Correlation-Alerts — geschrieben wird mit dem ECHTEN Writer
+    (ops.shadow_recorder.record_shadow), gelesen ueber den echten Endpoint.
+    Handgebaute Fixtures wuerden nur beweisen, dass der Consumer sein
+    eigenes Wunschschema lesen kann (E-159-Klasse)."""
+
+    def test_fresh_zombie_snapshot_raises_alert(self, client, tmp_path, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setenv("ATI_SHADOW_ROOT", str(tmp_path))
+        from src.assembled_core.ops.shadow_recorder import record_shadow
+
+        p = record_shadow(
+            "zombie_killer",
+            {"zombie_symbols": ["AAPL", "MSFT"], "would_force_flat": ["AAPL", "MSFT"]},
+            as_of=datetime.now(tz=timezone.utc).isoformat(),
+            meta={"zombies_found": 2, "applied": False},
+        )
+        assert p is not None and p.exists()
+        r = client.get("/api/v1/monitoring/alerts")
+        assert r.status_code == 200
+        types = [a["type"] for a in r.json()["alerts"]]
+        assert "zombie_positions" in types
+
+    def test_stale_zombie_snapshot_stays_silent(self, client, tmp_path, monkeypatch):
+        monkeypatch.setenv("ATI_SHADOW_ROOT", str(tmp_path))
+        from src.assembled_core.ops.shadow_mode import write_shadow_snapshot
+        from datetime import date
+
+        # 30 Tage alter Snapshot (Backtest-Residuum) darf NICHT alarmieren
+        write_shadow_snapshot(
+            "zombie_killer",
+            {"would_apply": {"zombie_symbols": ["OLD"]}, "meta": {}},
+            snapshot_date=date(2026, 7, 1),
+        )
+        r = client.get("/api/v1/monitoring/alerts")
+        assert r.status_code == 200
+        types = [a["type"] for a in r.json()["alerts"]]
+        assert "zombie_positions" not in types
+
+    def test_fresh_correlation_guard_raises_alert(self, client, tmp_path, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setenv("ATI_SHADOW_ROOT", str(tmp_path))
+        from src.assembled_core.ops.shadow_recorder import record_shadow
+
+        record_shadow(
+            "correlation_guard",
+            {"guard_triggered": True, "scale": 0.5},
+            as_of=datetime.now(tz=timezone.utc).isoformat(),
+        )
+        r = client.get("/api/v1/monitoring/alerts")
+        assert r.status_code == 200
+        types = [a["type"] for a in r.json()["alerts"]]
+        assert "correlation_guard" in types

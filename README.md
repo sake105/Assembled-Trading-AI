@@ -77,17 +77,25 @@ pytest -m phase4
 ```
 
 **Erwartete Ausgabe:**
-- ~117 Tests in ~13-17 Sekunden
+- `phase4`-Marker-Teilmenge in Sekunden; die **Gesamtsuite umfasst ~9.300 Tests**
+  (Stand 2026-08; `pytest --collect-only -q | tail -1` zeigt die aktuelle Zahl)
 - Alle Tests sollten grün sein ✅
 
 ---
 
 ## CI Workflows
 
+Sieben auf Push/PR getriggerte Workflows (von 21 Workflow-Dateien insgesamt;
+der Rest sind Cron-Worker). Blocking für Merges sind Backend CI + die
+Windows-Evidence-Ketten, dazu die lokale 3-stufige Review-Chain (Stop-Hook):
+
+- **CI** / **Backend CI** — Lint, mypy-Gate (blocking), Kern-Suite — [.github/workflows/](.github/workflows/)
 - **Evidence Pack CI (Windows)** — blocking: evidence_pack — [.github/workflows/evidence-pack-ci.yml](.github/workflows/evidence-pack-ci.yml)
 - **Ops Evidence CI (Windows)** — ops chain smoke/E2E — [.github/workflows/ops-evidence-ci.yml](.github/workflows/ops-evidence-ci.yml)
 - **Accounting CI (Windows)** — blocking: broker_snapshot — [.github/workflows/accounting-ci.yml](.github/workflows/accounting-ci.yml)
-- Sprint 13 release notes: [docs/RELEASE_NOTES_SPRINT13.md](docs/RELEASE_NOTES_SPRINT13.md)
+- **Release Gate CI (Windows)** — Release-Checks — [.github/workflows/release-gate-ci.yml](.github/workflows/release-gate-ci.yml)
+- **Secrets Scan** — Push/PR-Secret-Scanning — [.github/workflows/secrets-scan.yml](.github/workflows/secrets-scan.yml)
+- Historisch: Sprint-13-Notes [docs/RELEASE_NOTES_SPRINT13.md](docs/RELEASE_NOTES_SPRINT13.md)
 
 ### Quick checks (Windows)
 

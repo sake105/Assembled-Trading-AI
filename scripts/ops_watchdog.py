@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
@@ -21,6 +21,10 @@ HALT_FLAG = Path("output/ops/halt_ack_required.json")
 SCHED_HB = Path("output/ops/scheduler_heartbeat.json")
 STATE_HB = Path("output/state/heartbeat.json")
 PILOT_MANIFEST = Path("output/pilot/pilot_manifest.json")
+# Repo-verankert wie der Producer (pull_log.py schreibt _REPO_ROOT/output/ops,
+# E-146) — CWD-relativ faende der Check ausserhalb des Repo-Roots nie ein Log
+# und waere still inert (m2, Stage-1-Review 2026-08-16).
+PULL_LOG_DIR = _REPO / "output" / "ops"
 WATCHDOG_STATE = Path("output/ops/watchdog_state.json")
 ALERT_CFG = Path("configs/alerting.yaml")
 POLICY = Path("configs/policy.yaml")
@@ -119,6 +123,33 @@ def evaluate(state, snap, cfg, now):
                 )
             )
 
+    # --- pull-log error ratio (E-112-Konsument, Audit-Plan 2.5b) ---
+    # yfinance ist der einzige lebende Preispfad; sein Protokoll hatte bis
+    # 2026-08-16 keinen einzigen Leser (Lautstaerke ohne Konsument, E-142).
+    plog = snap.get("pull_log")
+    if plog:
+        requested = plog.get("requested") or 0
+        # error + skipped: ein Rate-Limit-Abbruch protokolliert die nie
+        # angefragten Symbole als skipped — ohne sie unterdrueckte der
+        # gekuerzte Nenner genau den schweren Ausfall (F-senior-1/E-158).
+        n_bad = (plog.get("error") or 0) + (plog.get("skipped") or 0)
+        threshold = cfg.get("pull_log_error_ratio", 0.5)
+        min_req = cfg.get("pull_log_min_requested", 5)
+        if requested >= min_req and (n_bad / requested) >= threshold:
+            actions.append(
+                (
+                    "fire",
+                    "pull_log_errors",
+                    {
+                        "log": plog.get("log_name", "?"),
+                        "n_error": n_bad,
+                        "requested": requested,
+                        "ratio": round(n_bad / requested, 2),
+                        "threshold": threshold,
+                    },
+                )
+            )
+
     # --- drawdown breach vs peak ---
     equity, peak = snap.get("equity"), snap.get("peak")
     if equity is not None and peak and peak > 0:
@@ -196,6 +227,50 @@ def load_snapshot():
                     pass
         if eqs:
             equity, peak = eqs[-1], max(eqs)
+    # yfinance-Pull-Protokolle (E-112-Konsument), AGGREGIERT ueber alle
+    # frischen Logs (F-senior-2, Stage 2 2026-08-16): fetch_prices_yfinance hat
+    # vier Aufrufer mit voellig verschiedenen Symbolmengen (Pilot ~200,
+    # Sektor-ETF ~11, prewarm 1-3) — nur das juengste Log zu lesen liesse
+    # einen sauberen Kleinlauf einen kaputten Grosslauf maskieren. Aggregation
+    # macht den Nenner ehrlich; ein Mindestnenner schuetzt vor
+    # 1-von-2-Fehlalarmen.
+    # M3 (Stage 1): Glob mit Ziffern-Praefix, damit 'pull_log_yfinance_
+    # intraday_*' (Fremdquelle, sortiert lexikographisch IMMER zuoberst) gar
+    # nicht erst gelesen wird; payload['source'] bleibt der autoritative
+    # Filter (F-senior-12: Namensfilter != Quellenfilter).
+    # BLINDFLECK, bewusst (F-senior-6): die Quote zaehlt error+skipped, NICHT
+    # 'empty' — 220x empty (kein einziger Kurs) alarmiert hier nicht, weil
+    # empty auch legitim ist (Feiertag, leeres Fenster). Der Total-Ausfall
+    # dieser Form wird vom heartbeat-/zero-orders-Check getragen.
+    pull_log = None
+    _agg = {"requested": 0, "error": 0, "skipped": 0, "n_logs": 0, "log_name": ""}
+    # Beide Seiten auf YYYY-MM-DDTHH:MM:SS geschnitten: der Producer schreibt
+    # UTC-isoformat(timespec="seconds"); unparsbares finished_at ueberspringt
+    # NUR dieses Log statt den Check stumm zu beenden (F-senior-5, E-142).
+    _fresh_cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=3)).isoformat()[:19]
+    for log_path in sorted(
+        PULL_LOG_DIR.glob("pull_log_yfinance_2*.json"), reverse=True
+    ):
+        payload = _load_json(log_path)
+        if not payload or payload.get("source") != "yfinance":
+            continue
+        finished = str(payload.get("finished_at") or "")[:19]
+        if not finished:
+            continue  # halbgeschriebenes/altes Schema: Log skippen, nicht Check
+        if finished < _fresh_cutoff:
+            break  # Namen tragen Zeitstempel: ab hier nur noch aeltere
+        summary = payload.get("summary")
+        if not isinstance(summary, dict):
+            continue
+        _agg["requested"] += int(summary.get("requested") or 0)
+        _agg["error"] += int(summary.get("error") or 0)
+        _agg["skipped"] += int(summary.get("skipped") or 0)
+        _agg["n_logs"] += 1
+        if not _agg["log_name"]:
+            _agg["log_name"] = log_path.name  # juengstes als Referenz
+    if _agg["n_logs"]:
+        pull_log = _agg
+
     return {
         "halt": _load_json(HALT_FLAG),
         "sched_hb": _load_json(SCHED_HB),
@@ -203,6 +278,7 @@ def load_snapshot():
         "manifest": manifest,
         "equity": equity,
         "peak": peak,
+        "pull_log": pull_log,
     }
 
 

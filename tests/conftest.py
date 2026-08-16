@@ -133,6 +133,16 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
             "_DEFAULT_OUTPUT",
             tmp_path / "trading_decisions.jsonl",
         ),
+        # 2026-08-16: yfinance_source schreibt seit dem E-112-Anschluss ein
+        # PullLog-Protokoll nach output/ops/ (DEFAULT_LOG_DIR). Erster
+        # Testlauf ohne diese Isolation legte sofort ein reales
+        # pull_log_yfinance_*.json an — gleiche Kontaminationsklasse (E-139:
+        # die ganze Familie schliessen, nicht nur den letzten Biss).
+        (
+            "src.assembled_core.data.pull_log",
+            "DEFAULT_LOG_DIR",
+            tmp_path / "pull_logs",
+        ),
     ]
     for _mod_name, _attr, _target in _patches:
         try:

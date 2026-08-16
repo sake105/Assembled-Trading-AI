@@ -7,8 +7,15 @@ scope:
   shorts_allowed: true               # v2.0: enabled — inverse ETFs + direct shorts
 
 # Short-selling configuration (active when shorts_allowed: true)
+# NICHT IMPLEMENTIERT (Audit 2026-08-16): der Signal-Block hinter diesem Flag
+# (_tc_signals.py Shorts-Zweig) importiert risk/short_risk.py und
+# signals/short_signals.py — beide Module existieren nicht; der Zweig wurde
+# seit jeher jeden Zyklus still uebersprungen (except -> log.debug).
+# enabled=false ist daher KEINE Verhaltensaenderung, sondern ehrliche
+# Selbstauskunft. scope.shorts_allowed + max_gross_exposure bleiben unberuehrt
+# (werden von realen Pfaden gelesen: Hedge-Gate, Exposure-Cap).
 shorts:
-  enabled: true
+  enabled: false
   max_short_weight_per_position: 0.10   # max 10% per short position
   max_total_short_exposure: 0.50        # raised 2026-05-24: 50% in crisis-active mode
   # Historical shorts-specific cap (long + |short|). Kept for documentation of
@@ -82,6 +89,9 @@ drawdown_policy:
     kill: -0.20   # block all orders at -20% DD
 
 # High-level state machine config (WATCH / ACTIVE / COOLDOWN / PAUSE).
+# KEIN CODE-LESER (Audit 2026-08-16): dieser Top-Level-Block wird von keinem
+# Modul in src/ oder scripts/ gelesen (der gelesene Block ist risk_state_machine,
+# ein anderer Key). Reine Doku-Konfiguration ohne Wirkung.
 state_machine:
   states: ["WATCH", "ACTIVE", "COOLDOWN", "PAUSE"]
   activation:
@@ -94,6 +104,7 @@ state_machine:
     cooldown_days: 5             # minimum 5 days in COOLDOWN state
 
 # Health / QC gates for external inputs (News, Disclosures, Market Data).
+# KEIN CODE-LESER (Audit 2026-08-16): kein Modul liest diesen Block.
 health_gates:
   news:
     degraded_behavior: "WATCH_ONLY"   # oder "PAUSE" für strengere Policy
@@ -138,8 +149,14 @@ intel:
       rate_hike_threshold: -0.05  # TLT-SHY gap below this => rate_hike basket (XLE/XLU/GLD/SHY)
 
   # Phase 9: Intel alpha signal layer wired into signal pipeline
+  # NICHT IMPLEMENTIERT (Audit 2026-08-16): _tc_signals importiert
+  # IntelSignalAdapter — die Klasse existiert nicht (nur IntelOverlay);
+  # zusaetzlich TypeError durch unbekannte Parameter. Der Layer hat trotz
+  # enabled:true + weight 0.15 nie einen Signalbeitrag geliefert
+  # (ImportError -> log.debug-Skip, jeden Zyklus). false = ehrliche
+  # Selbstauskunft, keine Verhaltensaenderung.
   signal_layer:
-    enabled: true            # enable compute_symbol_intel_scores() in trading_cycle
+    enabled: false           # enable compute_symbol_intel_scores() in trading_cycle
     weight: 0.15             # additive weight of intel score on signal score
     allow_short: false       # allow short signals from intel losers (inverse-ETF blacklist enforced in intel_signal_adapter.py)
     min_confidence: 0.50     # minimum intel signal confidence
@@ -149,8 +166,13 @@ intel:
   # output/intel/news/triggers_latest.json and applies per-ticker score deltas
   # based on severity * urgency * sentiment_sign. allow_short=false keeps the
   # bridge long-only (matches signal_layer + sector_rotation defaults).
+  # NICHT IMPLEMENTIERT (Audit 2026-08-16): _tc_signals importiert
+  # load_and_apply_news_signals — die Funktion existiert nicht (Modul hat nur
+  # blend_with_news). Die Bridge hat trotz enabled:true + weight 0.10 nie
+  # gewirkt (ImportError jeden Zyklus, ungated). false = ehrliche
+  # Selbstauskunft, keine Verhaltensaenderung.
   news_signal_bridge:
-    enabled: true
+    enabled: false
     weight: 0.10             # max scaled score delta contribution per ticker
     min_severity: 1          # 1 = WATCH, 2+ = ACTIVE
     allow_short: false
@@ -356,8 +378,11 @@ vol_targeting:
 # overall exposure to avoid gap risk from surprise prints.
 # Source: news_macro_calendar.py (fomc, cpi, nfp, ppi event types).
 # ---------------------------------------------------------------------------
+# KEIN CODE-LESER (Audit 2026-08-16): kein Modul liest diesen Block — das
+# FOMC/CPI/NFP-Exposure-Scaling hat NIE existiert. enabled=false = ehrliche
+# Selbstauskunft, keine Verhaltensaenderung.
 macro_event_calendar:
-  enabled: true
+  enabled: false
   fomc:
     exposure_scale: 0.50          # Reduce to 50% exposure 60min before/120min after decision
     window_before_min: 60         # minutes before event to reduce exposure
@@ -375,8 +400,11 @@ macro_event_calendar:
 # M&A Exclusion (Item 85) — Remove symbols with active M&A events from trading.
 # Symbols set via ctx.ma_symbols are excluded from target_positions.
 # ---------------------------------------------------------------------------
+# KEIN CODE-LESER (Audit 2026-08-16): kein Modul liest diesen Block; die
+# beschriebene ctx.ma_symbols-Exklusion existiert nicht. enabled=false =
+# ehrliche Selbstauskunft, keine Verhaltensaenderung.
 ma_exclusion:
-  enabled: true
+  enabled: false
   exclude_days: 60               # Exclude symbol for 60 days after M&A announcement
   news_categories: ["ma_activity", "merger", "acquisition"]  # trigger categories
 
@@ -469,8 +497,13 @@ signal_generation:
   # Phase 9: Pre-earnings signal suppression + PEAD (read by trading_cycle at signal_generation.earnings_guard)
   # Activated 2026-04-22 — ctx.earnings_calendar loaded from cache by paper/intel_context.py
   # Cache refreshed via scripts/fetch_earnings_calendar.py; safe no-op if cache missing
+  # NICHT IMPLEMENTIERT (Audit 2026-08-16): _tc_signals importiert
+  # signals/earnings_integration.py — das Modul existiert nicht; der Guard hat
+  # trotz enabled:true nie gewirkt (der earnings-calendar-refresh-CI fuettert
+  # seit jeher ins Leere). false bis zur echten Implementierung (Plan 4.5);
+  # keine Verhaltensaenderung.
   earnings_guard:
-    enabled: true            # suppress signals 3d before earnings + PEAD drift when cache present
+    enabled: false           # suppress signals 3d before earnings + PEAD drift when cache present
     suppress_window: 3       # days before earnings to zero out mean-reversion signals
     pead_window_days: 60     # PEAD drift window (days after earnings)
     pead_weight: 0.15        # weight added to score from PEAD signal
@@ -629,8 +662,11 @@ fat_finger_guard:
 # ---------------------------------------------------------------------------
 # Data freshness / stale-feature monitoring
 # ---------------------------------------------------------------------------
+# KEIN CODE-LESER (Audit 2026-08-16): data/freshness_monitor.py existiert,
+# liest aber diesen Policy-Block nicht (und hat selbst keinen Produktions-
+# Aufrufer). enabled=false = ehrliche Selbstauskunft.
 freshness_monitor:
-  enabled: true
+  enabled: false
   stale_feature_days: 5           # flag features constant for > 5 days
 
 # ---------------------------------------------------------------------------
@@ -825,8 +861,10 @@ strategies:
 # Quarter-End High-Friction Days (Item 84) — March 31, June 30, Sep 30, Dec 31
 # Window-dressing and fund rebalancing cause 2-3× higher slippage.
 # ---------------------------------------------------------------------------
+# KEIN CODE-LESER (Audit 2026-08-16): kein Modul liest diesen Block.
+# enabled=false = ehrliche Selbstauskunft, keine Verhaltensaenderung.
 quarter_end_guard:
-  enabled: true
+  enabled: false
   days_before: 2                  # flag window: 2 trading days before quarter-end
   slippage_multiplier: 2.0        # applied to estimated slippage for sizing
   max_position_size_pct: 0.50     # cap individual positions at 50% of normal max
@@ -840,8 +878,13 @@ quarter_end_guard:
 #   Defaults follow the audit recommendation (Runde 3, Teil D + W-005)
 #   and are conservative enough for solo-quant publication.
 # ---------------------------------------------------------------------------
+# KEIN CODE-LESER (Audit 2026-08-16): entgegen dem Kommentar oben liest
+# WEDER qa/qa_gates NOCH der Backtest-Reporter diesen Block — die
+# DSR/PSR/PBO-Promotion-Gates existieren nur als Konfiguration. Die realen
+# DSR/PBO-Rechnungen laufen in research/ (p13e, h090_phase2) ausserhalb
+# dieser Policy. enabled=false = ehrliche Selbstauskunft.
 quant_gates:
-  enabled: true
+  enabled: false
   deflated_sharpe:
     enabled: true
     block_threshold: 0.0          # DSR must be > 0 (Sharpe survives the FDR adjustment)

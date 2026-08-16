@@ -51,6 +51,7 @@ from src.assembled_core.qa.backtest_engine import (
     run_portfolio_backtest,
 )
 from src.assembled_core.qa.metrics import compute_all_metrics
+from src.assembled_core.qa.leakage_frame import build_leakage_frame
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
 from src.assembled_core.reports.metrics_export import export_metrics_json
@@ -1489,67 +1490,9 @@ def _pit_guard_after_load(args: argparse.Namespace, logger_obj) -> None:
     )
 
 
-#: Feature columns tried, in order, when building the leakage-gate frame.
-#: The gate checks ONE column per call, so the first usable one wins.
-_LEAKAGE_FEATURE_CANDIDATES = ("eps_surprise_pct", "eps_actual")
-
-
-def _build_leakage_frame(
-    output_base: Path,
-) -> tuple[pd.DataFrame | None, str | None, str]:
-    """Assemble the frame for the ``check_leakage`` QA gate.
-
-    Returns ``(frame, feature_col, reason)``. ``frame is None`` means the gate
-    stays SKIPPED — which reads as "NOT checked", never as "clean" (E-066).
-    ``reason`` always explains the outcome so the skip is visible rather than
-    silent (E-142: a signal nobody can read is the same as no signal).
-
-    Why the earnings event frame and not the feature panel: the panel is the
-    obvious candidate but it is unusable, because
-    ``altdata_news_macro_factors.py:346`` drops ``disclosure_date`` during the
-    merge. The event frame is the only production artifact that still carries
-    event time and disclosure time side by side, which is exactly what a
-    point-in-time leakage check needs.
-
-    This is deliberately conservative: any missing column yields ``None``
-    rather than a guess. A wrong column name would make the gate BLOCK, and a
-    BLOCK writes the QA block flag that stops the paper pilot until an
-    operator acknowledges it (see the HALT warning in ``evaluate_all_gates``).
-    Failing to *check* is recoverable; halting the pilot on a bookkeeping
-    mistake is not.
-    """
-    earn_path = output_base / "events_earnings.parquet"
-    if not earn_path.exists():
-        return None, None, f"no leakage frame: {earn_path} does not exist"
-
-    try:
-        frame = pd.read_parquet(earn_path)
-    except Exception as exc:
-        return None, None, f"no leakage frame: could not read {earn_path}: {exc}"
-
-    if frame.empty:
-        return None, None, f"no leakage frame: {earn_path} is empty"
-
-    for col in ("timestamp", "disclosure_date"):
-        if col not in frame.columns:
-            return None, None, f"no leakage frame: {earn_path} lacks column {col!r}"
-
-    feature_col = next(
-        (c for c in _LEAKAGE_FEATURE_CANDIDATES if c in frame.columns), None
-    )
-    if feature_col is None:
-        return (
-            None,
-            None,
-            f"no leakage frame: none of {_LEAKAGE_FEATURE_CANDIDATES} in {earn_path}",
-        )
-
-    return (
-        frame,
-        feature_col,
-        f"leakage gate armed on {earn_path.name}: "
-        f"feature={feature_col}, rows={len(frame)}",
-    )
+# _build_leakage_frame VERSCHOBEN (2026-08-16, Audit-Plan 3.1) nach
+# src/assembled_core/qa/leakage_frame.py — der Orchestrator braucht dieselbe
+# Logik, und ein src->scripts-Import waere eine Schichtverletzung. Import oben.
 
 
 def run_backtest_from_args(args: argparse.Namespace) -> int:
@@ -3174,7 +3117,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             if getattr(args, "output_dir", None)
             else Path("output")
         )
-        _leak_df, _leak_col, _leak_reason = _build_leakage_frame(_leak_out_base)
+        _leak_df, _leak_col, _leak_reason = build_leakage_frame(_leak_out_base)
         logger.info("[QA] %s", _leak_reason)
 
         if _leak_df is not None and _leak_col is not None:

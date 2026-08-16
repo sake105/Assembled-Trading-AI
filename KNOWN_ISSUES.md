@@ -1,7 +1,7 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-08-15 (§0.0 EODHD-Zugangsverlust ergänzt)
-**Vorher:** 2026-07-23 (§0.1 Survivorship ehrlich gemacht; §12 GESAMTBEWERTUNG-Umsetzung ergänzt)
+**Letzte Aktualisierung:** 2026-08-16 (§0.00 Kill-Switch-Zustand dokumentiert; §0.0-Backup-Nachtrag)
+**Vorher:** 2026-08-15 (§0.0 EODHD-Zugangsverlust ergänzt)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 
@@ -11,6 +11,21 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 (§0.1 ff. stammen aus AUDIT A10; §0.0 ist ein Zugangs-, kein Datenqualitätsbefund und
 wurde 2026-08-15 vorangestellt.)
+
+### 0.00 KILL-SWITCH ENGAGED seit 2026-08-09 — Pilot hart angehalten, OPERATOR-AKTION NÖTIG
+
+**Schwere:** akut-operativ — der Paper-Pilot erzeugt keine Orders, solange dieser Zustand besteht.
+**Status:** 🔴 offen — Auflösung ist bewusst NUR dem Operator möglich (`OPERATOR_KILL_TOKEN`).
+
+`output/ops/kill_switch_state.json`: `engaged: true` seit **2026-08-09 07:12 UTC**, Actor
+`trading_cycle_v2_auto_dd`, Reason `auto_dd_kill: drawdown=-90.00%`, `throttle_pct: 0.0`.
+Der Auslöser war ein **Testlauf** (die −90 % sind kein realer Pilot-Drawdown), aber der
+Zustand ist real und persistiert. Deaktivierung: Operator-Disengage mit `OPERATOR_KILL_TOKEN`
+(kein automatischer Selbst-Reset — by design).
+
+Dass dieser Betriebszustand bis 2026-08-16 in keiner Betriebsdoku stand (nur im State-File
+und im User-Level-Memory), ist erneut die **E-140**-Klasse — deshalb jetzt hier als §0.00
+VOR allen anderen Einträgen. Behoben ist er damit NICHT.
 
 ### 0.0 EODHD-Zugang AUSGEFALLEN seit 2026-08-05 — AKUT
 
@@ -29,6 +44,13 @@ Folge: `output/aggregates/daily.parquet` ist am **2026-08-05** eingefroren; der 
 
 **Vollständige Beschreibung inkl. Status-Tabelle aller Quellen, betroffener Pfade und
 widersprüchlicher Altdokumentation: `docs/DATENZUGANG_STATUS.md`.**
+
+**Backup-Nachtrag 2026-08-16:** Die nicht rekonstruierbaren eingefrorenen Bestände
+(`research/mandat/data/` komplett inkl. `prices_verdict.parquet`, `data_gratis/`,
+`geopolitik/data/`, `data/raw/intraday_1h/`, `data/universe/verdict_sp500.csv` — zusammen
+~4,7 GB) sind gesichert nach `D:\Backup_AssembledTradingAI\2026-08-16\` (MD5 des PIT-Panels
+verifiziert identisch). Hinweis: D: ist eine zweite Platte im selben Rechner — für echtes
+Offsite (Cloud/extern) braucht es eine Operator-Entscheidung.
 
 Dass dieser Zustand zehn Tage lang nur in einem Forschungsdokument stand, während der produktive
 Cache-Writer `scripts/ops/refresh_daily_cache_from_eodhd.py` davon abhing, ist die operative
@@ -110,13 +132,16 @@ mit unterschiedlichem Inhalt — siehe den Doppelstruktur-Follow-up unten.)
 
 **Noch nicht abgedeckt — und das ist die wichtigere Hälfte:** gemessen 2026-08-15 berühren
 **77** Dateien unter `scripts/`, `src/assembled_core/data/` und `research/mandat*/` das Netz
-(`urlopen` / `requests.` / `yf.download` / `http_get_*`). Davon führen **5** ein Protokoll.
+(`urlopen` / `requests.` / `yf.download` / `http_get_*`). Davon führen seit 2026-08-16 **6**
+ein Protokoll.
 
 Nicht abgedeckt sind insbesondere:
-- **`src/assembled_core/data/sources/yfinance_source.py`** — seit dem EODHD-Ausfall der
-  **autoritative Live-Preispfad** des Piloten (`run_live_paper.py`, „Try 2: yfinance batch
-  (authoritative when cache is stale)"). Das ist die schmerzhafteste Lücke: der Pfad, auf dem
-  aktuell tatsächlich gehandelt wird, protokolliert nichts.
+- ~~**`src/assembled_core/data/sources/yfinance_source.py`**~~ — **GESCHLOSSEN 2026-08-16**
+  (Audit-Paket 2.5): der autoritative Live-Preispfad protokolliert jetzt je Symbol ins
+  PullLog (try/finally, Rate-Limit-Abbruch protokolliert die nie angefragten Symbole als
+  `skipped`); erster Konsument ist der Ops-Watchdog (`pull_log_errors`-Alert, aggregiert
+  über alle frischen Logs, Quote = (error+skipped)/requested). Blindfleck bewusst offen:
+  `empty` zählt nicht in die Quote (Feiertags-Semantik).
 - die sechs `src/assembled_core/data/*_ingest.py` (`congress_trades_ingest`, `edgar_form4_ingest`,
   `fundamentals_xbrl_ingest`, `insider_ingest`, `prices_ingest`, `shipping_routes_ingest`)
 - `scripts/data/pull_yfinance_eod.py` und die drei `scripts/data/pullers/`-Zwillinge
@@ -176,7 +201,9 @@ liegt keins mehr). Die Datei ist gitignored, also **nicht über git rekonstruier
 ist der einzige Rückweg. Lauf-Report: `output/ops/backfill_adj_close_status.json`.
 
 **(g) `check_leakage` ist nur auf dem Backtest-CLI versorgt, nicht im Pilot-Pfad**
-`scripts/run_backtest_strategy.py` baut das `feature_df` über `_build_leakage_frame` und übergibt
+`scripts/run_backtest_strategy.py` baut das `feature_df` über
+`src.assembled_core.qa.leakage_frame.build_leakage_frame` (seit 2026-08-16 dorthin
+verschoben, vorher `_build_leakage_frame` im Script) und übergibt
 es an `evaluate_all_gates` — dort ist das 8. Gate scharf. Der **Orchestrator**
 (`pipeline/orchestrator.py`), also der Pfad, auf dem der Paper-Pilot seine QA fährt, ruft
 `evaluate_all_gates(qa_metrics)` weiterhin **ohne** `feature_df` — das Gate bleibt dort `SKIPPED`
@@ -253,8 +280,13 @@ Schutzpfad und braucht `risk-execution-reviewer`.
 
 ### 1.4 Monitoring-API
 
-- [x] **[DONE 2026-04-30]** Drift-Persistierung implementiert  
-  **Datei:** `src/assembled_core/qa/drift_detection.py` — `save_drift_results()` schreibt `output/drift_analysis_{freq}.parquet`; API liest daraus
+- [ ] **[KORRIGIERT 2026-08-16 — das „DONE 2026-04-30" war eine halbe Kette]**
+  `save_drift_results()` existiert und die API liest daraus — aber die Funktion hat
+  **keinen einzigen Caller** im Repo, und das im 503-Text des Endpoints genannte
+  `scripts/run_drift_check.py` existiert nicht. `/monitoring/drift_status` kann daher
+  nie Daten liefern (503 ist immerhin ehrlich). Kette komplett = Producer-Aufruf in
+  einem laufenden Pfad (Orchestrator/CI) + Endpoint-Test. Befund: Nutzungsaudit
+  2026-08-16 (`docs/DATEN_UND_NUTZUNGSAUDIT.md` §3).
 
 ### 1.5 Backtest: Monatlicher Rebalance-Modus — BEHOBEN (3478948)
 

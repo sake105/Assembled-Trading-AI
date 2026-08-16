@@ -203,3 +203,96 @@ def test_naive_ts_halt_does_not_crash():
         now=NOW,
     )
     assert isinstance(acts, list)  # must not raise
+
+
+# --- pull_log-Konsument (Audit-Plan 2.5b, 2026-08-16) -------------------------
+
+
+def test_pull_log_high_error_ratio_fires():
+    plog = {
+        "requested": 10,
+        "error": 6,
+        "ok": 4,
+        "log_name": "pull_log_yfinance_x.json",
+    }
+    acts = ow.evaluate(state={}, snap=_snap(pull_log=plog), cfg=CFG, now=NOW)
+    rules = [a[1] for a in acts if a[0] == "fire"]
+    assert "pull_log_errors" in rules
+    ctx = next(a[2] for a in acts if a[0] == "fire" and a[1] == "pull_log_errors")
+    assert ctx["n_error"] == 6 and ctx["requested"] == 10
+
+
+def test_pull_log_low_error_ratio_silent():
+    plog = {"requested": 10, "error": 1, "ok": 9, "log_name": "x.json"}
+    acts = ow.evaluate(state={}, snap=_snap(pull_log=plog), cfg=CFG, now=NOW)
+    assert all(a[1] != "pull_log_errors" for a in acts if a[0] == "fire")
+
+
+def test_pull_log_missing_or_empty_silent():
+    # kein Protokoll -> kein Alarm aus Buchhaltung
+    acts = ow.evaluate(state={}, snap=_snap(pull_log=None), cfg=CFG, now=NOW)
+    assert all(a[1] != "pull_log_errors" for a in acts if a[0] == "fire")
+    # requested=0 (leerer Lauf) -> kein Nulldivisions-Alarm
+    acts = ow.evaluate(
+        state={}, snap=_snap(pull_log={"requested": 0, "error": 0}), cfg=CFG, now=NOW
+    )
+    assert all(a[1] != "pull_log_errors" for a in acts if a[0] == "fire")
+
+
+def test_pull_log_skipped_counts_as_bad():
+    """F-senior-1: Rate-Limit-Abbruch — skipped zaehlt in die Quote, sonst
+    unterdrueckt der gekuerzte Nenner den schweren Ausfall."""
+    plog = {"requested": 220, "error": 1, "skipped": 217, "log_name": "x.json"}
+    acts = ow.evaluate(state={}, snap=_snap(pull_log=plog), cfg=CFG, now=NOW)
+    assert any(a[1] == "pull_log_errors" for a in acts if a[0] == "fire")
+
+
+def test_pull_log_min_requested_guards_small_runs():
+    """F-senior-2: 1-von-2-Kleinlauf darf nicht alarmieren."""
+    plog = {"requested": 2, "error": 1, "skipped": 0, "log_name": "x.json"}
+    acts = ow.evaluate(state={}, snap=_snap(pull_log=plog), cfg=CFG, now=NOW)
+    assert all(a[1] != "pull_log_errors" for a in acts if a[0] == "fire")
+
+
+def test_load_snapshot_aggregates_and_filters(tmp_path, monkeypatch):
+    """F-senior-7: load_snapshot-Bindung — Aggregation ueber frische Logs,
+    Fremdquellen und alte Logs fallen raus."""
+    import json as _json
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+    monkeypatch.setattr(ow, "PULL_LOG_DIR", tmp_path)
+    now = _dt.now(tz=_tz.utc)
+
+    def _write(name, source, finished, requested, error, skipped=0):
+        (tmp_path / name).write_text(
+            _json.dumps(
+                {
+                    "source": source,
+                    "finished_at": finished.isoformat(timespec="seconds"),
+                    "summary": {
+                        "requested": requested,
+                        "error": error,
+                        "skipped": skipped,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    stamp = now.strftime("%Y%m%dT%H%M%SZ")
+    _write(f"pull_log_yfinance_{stamp}.json", "yfinance", now, 200, 100)
+    _write(
+        "pull_log_yfinance_20260101T000000Z.json",
+        "yfinance",
+        now - _td(days=30),
+        50,
+        50,
+    )  # zu alt
+    _write(
+        f"pull_log_yfinance_intraday_{stamp}.json", "yfinance_intraday", now, 999, 999
+    )  # Fremdquelle
+    snap = ow.load_snapshot()
+    pl = snap["pull_log"]
+    assert pl is not None
+    assert pl["requested"] == 200 and pl["error"] == 100  # nur das frische echte
+    assert pl["n_logs"] == 1

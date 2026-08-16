@@ -5,7 +5,7 @@ Usage:
     py -3 scripts/data/pull_yfinance_eod.py [--symbols AAPL,MSFT,...] [--period 5y] [--out-dir data/raw/equities_eod/yfinance]
 
 Default universe: Top-30 US stocks + core macro/sector ETFs.
-Output: One parquet file per symbol in out-dir, then reassemble via assemble_eod_daily.py.
+Output: One parquet file per symbol in out-dir, (assemble_eod_daily.py ist archiviert — archive/legacy_scripts_2026-08-16/ — und darf den Live-Cache nicht mehr anfassen).
 """
 
 from __future__ import annotations

@@ -153,3 +153,42 @@ def test_loaded_frame_passes_wrapper_validation(tmp_path):
     assert "insider_activity_score" in result.columns
     # AAPL (sale, -) and MSFT (purchase, +) should produce a non-degenerate score.
     assert result["insider_activity_score"].notna().any()
+
+
+def test_impossible_transaction_dates_dropped_sameday_kept(tmp_path):
+    """F-senior-4 (2026-08-16): transaction_date > filing_date ist physisch
+    unmoeglich (Quell-Tippfehler, z. B. Jahr 2050) und faellt beim Laden;
+    same-day (==) und normale (<) Zeilen BLEIBEN — strict-Grenze."""
+    root = _write_form4(
+        tmp_path,
+        [
+            {  # normal: Transaktion vor Filing -> bleibt
+                "symbol": "AAPL",
+                "filing_date": pd.Timestamp("2024-10-08"),
+                "transaction_date": pd.Timestamp("2024-10-06"),
+                "transaction_type": "P",
+                "value_usd": 1.0,
+                "net_shares": 100.0,
+            },
+            {  # same-day -> bleibt (strict >)
+                "symbol": "AAPL",
+                "filing_date": pd.Timestamp("2024-10-08"),
+                "transaction_date": pd.Timestamp("2024-10-08"),
+                "transaction_type": "P",
+                "value_usd": 2.0,
+                "net_shares": 100.0,
+            },
+            {  # Tippfehler-Zukunft -> faellt
+                "symbol": "AAPL",
+                "filing_date": pd.Timestamp("2024-10-08"),
+                "transaction_date": pd.Timestamp("2050-09-01"),
+                "transaction_type": "P",
+                "value_usd": 3.0,
+                "net_shares": 100.0,
+            },
+        ],
+    )
+    out = load_insider_filings(["AAPL"], pd.Timestamp("2024-10-10"), root=root)
+    assert len(out) == 2, out
+    assert 3.0 not in set(out["value_usd"])
+    assert {1.0, 2.0} <= set(out["value_usd"])

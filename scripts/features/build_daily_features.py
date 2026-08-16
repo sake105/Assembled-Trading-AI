@@ -38,7 +38,7 @@ def realized_vol(s: pd.Series, window: int) -> pd.Series:
 def main():
     if not SRC.exists():
         raise FileNotFoundError(
-            f"{SRC} nicht gefunden. Bitte zuerst assemble_eod_daily.py ausführen."
+            f"{SRC} nicht gefunden. HINWEIS: assemble_eod_daily.py ist ARCHIVIERT (archive/legacy_scripts_2026-08-16/, Audit 6.1) und darf nicht mehr benutzt werden — der Cache wird vom Pilot-Zyklus (prewarm/yfinance) gepflegt."
         )
 
     df = pd.read_parquet(SRC)

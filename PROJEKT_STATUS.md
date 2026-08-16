@@ -1,8 +1,36 @@
 # Projekt Status - Assembled Trading AI
 
-**Letzte Aktualisierung:** 2026-04-26
+**Letzte Aktualisierung:** 2026-08-16 (Status-Kopf erneuert; Rest ab „Phase 4"
+ist HISTORISCH, Stand 2026-04-26, und bleibt als Archiv stehen)
 
-## Phase 4: Backend Core - ✅ ABGESCHLOSSEN
+## Aktueller Stand (2026-08-16)
+
+- **Betrieb:** Paper-Pilot aktiv (`trend_baseline`, Alpaca-Paper), aber
+  **Kill-Switch ENGAGED seit 2026-08-09** aus einem Testlauf — Pilot erzeugt
+  keine Orders bis Operator-Disengage (`KNOWN_ISSUES.md` §0.00).
+- **Daten:** EODHD-Zugang tot seit 2026-08-05 (401); operativer Preis-Cache
+  eingefroren, Live-Preise via yfinance-Fallback; PIT-Forschungspanel
+  (1.167 Namen, 1995–2026-07-06) eingefroren, seit 2026-08-16 auf D: gesichert.
+  Details: `docs/DATENZUGANG_STATUS.md`, §0.0.
+- **Pipeline-Kern:** `pipeline/trading_cycle_v2.run_trading_cycle` (+ `_tc_*`),
+  NICHT der EOD-`orchestrator` (der läuft in keinem Scheduler). Risk-Schicht
+  real: DD-Treppe, QA-Blockkette (Gates 1–7 ARMED), Shadow-Governance
+  (zombie_killer/correlation_guard etc. mit dokumentiertem Freigabeprozess).
+- **Tests/CI:** Suite ~9.300 Tests, 7 GitHub-Workflows, Review-Kette
+  (Stop-Hook, 3 Stufen) für geschützte Pfade.
+- **Forschung:** Mandat I+II abgeschlossen (Trials-Zähler 6.277, Holdout
+  unverbraucht). Kernbefund: kein Kandidat schlägt nach ehrlicher Steuer den
+  passiven Vergleichspfad; einziger bestätigter Kandidat H-089
+  (TS-Momentum-Dial, Index-Ebene, KANDIDAT — nicht verdrahtet). Felder
+  geschlossen: Aktienauswahl, SPY-Trendfilter, Insider, Geopolitik,
+  Kurs-Exits auf Einzelaktien-Momentum (H-090, Welle 50).
+- **Aufräum-/Verdrahtungsstand:** vollständige Nutzungs- und Datenbewertung in
+  `docs/DATEN_UND_NUTZUNGSAUDIT.md` (2026-08-16); Umsetzungsplan Pakete 1–6
+  in Arbeit (Paket 1: Policy-Ehrlichkeit + Backup + diese Doku-Erneuerung).
+
+---
+
+## Phase 4: Backend Core - ✅ ABGESCHLOSSEN (HISTORISCH, 2026-04-26)
 
 ### Status
 - **110 Phase-4-Tests**: Alle grün ✅
