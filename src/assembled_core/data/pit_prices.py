@@ -183,7 +183,15 @@ def load_pit_prices(
         empty.attrs[SYNTHETIC_OHLC_ATTR] = True
         return empty
 
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    # as_unit("ns") is load-bearing, not cosmetic: the DAILY_SCHEMA contract
+    # promises the same dtype as daily.parquet (datetime64[ns, UTC]). Newer
+    # pandas keeps whatever resolution pyarrow hands back from parquet — often
+    # microseconds — so without the cast the dtype depends on the installed
+    # pandas version. That is exactly what broke CI: local pandas 2.2.3
+    # (requirements.txt pin) yielded ns, CI's `pip install -e ".[dev]"`
+    # resolves the pyproject RANGE to a newer pandas and yielded us, on both
+    # runners (Rule-40 drift class: range vs. pin).
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.as_unit("ns")
 
     # --- synthetic OHLC ---------------------------------------------------
     # close is EODHD adjusted_close, i.e. total-return adjusted, which is the
