@@ -25,8 +25,11 @@ bar as a settled close. We only append bars strictly before today (UTC date).
 Schemas:
 - daily.parquet:        [timestamp, symbol, open, high, low, close, adj_close, volume]
 - fetch_prices_yfinance: [timestamp, symbol, open, high, low, close, volume]
-  (no adj_close — appended rows get adj_close=NaN as a loud sentinel, matching
-  refresh_daily_cache_from_panel.py.)
+  (no separate adj_close column — appended rows MIRROR close, matching
+  refresh_daily_cache_from_panel.py. Until 2026-08-15 they carried a NaN
+  "sentinel" instead; that rested on the assumption that close was unadjusted,
+  which is false here — this fetcher calls yfinance with auto_adjust=True. See
+  the comment at the adj_close branch below for the measurements.)
 
 Idempotent: appends only rows with timestamp strictly greater than each
 symbol's current cache max; drops exact (symbol, timestamp) duplicates as a
@@ -128,7 +131,6 @@ def refresh(
     Returns rows appended (>= 0), or -1 on a hard error (missing cache).
     A yfinance outage is NOT a hard error: returns 0 with the cache unchanged.
     """
-    import numpy as np
     import pandas as pd
 
     if not cache_path.exists():
@@ -277,19 +279,29 @@ def refresh(
         )
         return len(new_rows)
 
-    # F-RX-3 sentinel: yfinance has no adj_close. Setting adj_close = close
-    # would silently mis-handle ex-dividend dates. Use NaN so direct-parquet
-    # consumers that compute returns from adj_close fail loud (NaN propagation),
-    # and any consumer that fillna(close) makes that fallback explicit. The
-    # live-paper hot-path strips adj_close at load_eod_prices:146 (unaffected),
-    # and the sector store uses close, not adj_close.
+    # yfinance has no separate adj_close column -> mirror close.
+    #
+    # HISTORY: this branch used to write NaN as a "loud sentinel" (F-RX-3), on the
+    # premise that "setting adj_close = close would silently mis-handle ex-dividend
+    # dates". That premise was measured and REFUTED on 2026-08-15:
+    #
+    #   1. This fetcher calls yfinance with auto_adjust=True
+    #      (src/assembled_core/data/sources/yfinance_source.py:73), so the close it
+    #      returns is ALREADY split- and dividend-adjusted. There is no unadjusted
+    #      close anywhere in this path that adj_close could have differed from.
+    #   2. Across the whole cache, wherever adj_close WAS populated it equalled
+    #      close exactly: 180,734 of 180,734 rows, max abs diff 0.0.
+    #
+    # The sentinel protected against nothing and produced 98,279 NaN (35.2% of the
+    # cache). Do NOT reintroduce it without re-measuring both points — if this
+    # fetcher ever switches to auto_adjust=False, the correct fix is to carry
+    # yfinance's own "Adj Close" column through, not to poison this one with NaN.
     if "adj_close" not in new_rows.columns:
         new_rows = new_rows.copy()
-        new_rows["adj_close"] = np.nan
-        logger.warning(
-            "[refresh-sector] yfinance lacks adj_close — appended rows have "
-            "adj_close=NaN (sentinel). Sector store / live-paper use close; "
-            "adj_close consumers must guard or fillna(close) explicitly."
+        new_rows["adj_close"] = new_rows["close"]
+        logger.info(
+            "[refresh-sector] yfinance lacks adj_close — mirrored from close "
+            "(auto_adjust=True, so close is already adjusted; see comment above)."
         )
 
     # Reorder to cache schema, dropping any feed-status columns yfinance stamped.

@@ -1,6 +1,6 @@
 # Paper Trading Watchlist — Large Universe (195 symbols)
 # Switched 2026-05-15 from 29-ticker to master_universe_panel set
-# Backup of prior 29-ticker list: watchlist_29_backup.txt
+# Backup of prior 29-ticker list: archive/watchlists_2026-08-15/watchlist_29_backup.txt
 # 2026-05-15: Added KO + PEP to retain MTM accuracy for held positions.
 AA
 AAL

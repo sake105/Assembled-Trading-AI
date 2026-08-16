@@ -1,12 +1,200 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-07-23 (§0.1 Survivorship ehrlich gemacht; §12 GESAMTBEWERTUNG-Umsetzung ergänzt)
+**Letzte Aktualisierung:** 2026-08-15 (§0.0 EODHD-Zugangsverlust ergänzt)
+**Vorher:** 2026-07-23 (§0.1 Survivorship ehrlich gemacht; §12 GESAMTBEWERTUNG-Umsetzung ergänzt)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 
 ---
 
-## 0. Bekannte Datenqualitäts-Risiken (AUDIT A10)
+## 0. Bekannte Daten- und Zugangsrisiken
+
+(§0.1 ff. stammen aus AUDIT A10; §0.0 ist ein Zugangs-, kein Datenqualitätsbefund und
+wurde 2026-08-15 vorangestellt.)
+
+### 0.0 EODHD-Zugang AUSGEFALLEN seit 2026-08-05 — AKUT
+
+**Schwere:** akut — blockiert das **Nachziehen neuer Preisdaten**. Freie Quellen (SEC EDGAR/DERA,
+FRED, Ken French/CRSP, Polymarket, yfinance) sind unberührt, und alle bereits gezogenen lokalen
+Bestände bleiben vollständig nutzbar. Forschung auf historischen Fenstern ist **nicht** blockiert.
+**Entdeckt:** 2026-08-05 (`research/mandat2/ABSCHLUSS.md`), erst 2026-08-15 nach `docs/` überführt
+**Status:** 🔴 offen — Reaktivierung ist eine Beschaffungsentscheidung, keine technische
+
+Der bezahlte EODHD-Zugang liefert nicht mehr. API-Probe 2026-08-15: `/eod` antwortet **401** für
+`AAPL.US` *und* `LEH.US` (Kontrollsymbol, vgl. E-113), Options-Marketplace **403**.
+
+Folge: `output/aggregates/daily.parquet` ist am **2026-08-05** eingefroren; der Live-Pilot läuft
+über den yfinance-Fallback (`scripts/run_live_paper.py:238-250`). Das PIT-Panel
+`research/mandat/data/prices_verdict.parquet` ist am 2026-07-06 eingefroren und nicht erweiterbar.
+
+**Vollständige Beschreibung inkl. Status-Tabelle aller Quellen, betroffener Pfade und
+widersprüchlicher Altdokumentation: `docs/DATENZUGANG_STATUS.md`.**
+
+Dass dieser Zustand zehn Tage lang nur in einem Forschungsdokument stand, während der produktive
+Cache-Writer `scripts/ops/refresh_daily_cache_from_eodhd.py` davon abhing, ist die operative
+Variante von **E-140** (Doku-Drift).
+
+### 0.05 Factor-Store-Cache-Key ohne Code-/Feature-Version — OFFEN
+
+**Schwere:** materiell (betrifft Produktion, nicht nur Tests)
+**Entdeckt:** 2026-08-15, im Review der Datenbestandsbewertung
+**Status:** 🔴 offen — Testsichtbarkeit geschlossen, Ursache **nicht** behoben
+
+`compute_universe_key` (`src/assembled_core/data/factor_store.py:42`) hasht ausschließlich
+die Symbolliste — **keine Feature- oder Code-Version**. Ein Faktor-Panel, das unter älterem Code
+berechnet wurde, überlebt damit Änderungen an der Feature-/Sizing-Logik und wird stillschweigend
+wiederverwendet.
+
+**Das betrifft Produktion, nicht nur Tests:** `TradingContext.use_factor_store` ist per Default
+`True` (`trading_cycle_shared.py:177`), `factor_store_root=None` (`:178`) fällt auf den echten
+Store zurück.
+
+**Empirisch belegt** (identischer Code, identische Eingaben, nur der Cache-Zustand unterscheidet
+sich):
+
+| Lauf | Ergebnis |
+|---|---|
+| WARM (Kopie des echten Stores) | `n_orders=0`, 56 Feature-Spalten |
+| COLD (leerer Store) | `n_orders=2`, 55 Feature-Spalten |
+
+Das ist ein anderer Spaltensatz und ein anderes Handelsergebnis aus einem reinen Cache-Artefakt.
+
+**Was am 2026-08-15 gemacht wurde — und was nicht:** Die Testsuite wurde über
+`tests/conftest.py::_isolate_operational_stores` gegen den echten Store isoliert; drei Tests in
+`test_pipeline_trading_cycle_smoke.py`, die deswegen rot waren, sind grün. **Das behebt die
+Ursache nicht** — es entfernt lediglich den Ort, an dem der Defekt sichtbar wurde. Ehrlich
+benannt, weil genau das die gefährliche Variante wäre: ein Produktionsdefekt, dessen einziges
+Warnsignal wegisoliert wurde.
+
+**Nächster Schritt (Follow-up, nicht in diesem Step):** Cache-Key um eine Feature-/Code-Version
+erweitern **plus** ein Regressionstest, der ein Panel mit abweichendem Spaltensatz vorlegt und
+Verwerfen statt Verwenden erwartet.
+
+### 0.06 Bewusst offen gelassen aus der Datenbestandsbewertung 2026-08-15
+
+Sieben Punkte wurden im Review als MAJOR erkannt und **bewusst nicht** in jenem Step behoben, weil
+sie entweder einen geschützten Risikopfad ändern oder eine eigene Entscheidung brauchen. Sie
+stehen hier, damit sie nicht nur in Code-Kommentaren leben.
+
+**(a) Doppelzähl-Guard fehlt im Live-Paper-Engine**
+`src/assembled_core/execution/unified_paper_engine.py` hat `enable_corporate_actions=True` als
+Default, ruft `adjust_prices_for_splits` und hat **keinen** `prices_are_total_return_adjusted`-Guard
+— anders als `qa/backtest_engine.py`, das ihn seit 2026-08-15 hat. Solange keine SPLIT-Zeilen
+existieren, ist die Gefahr latent; sobald echte Split-Daten beschafft werden und jemand
+`corporate_actions_path` in einer Paper-Config setzt, würde der **Live**-Pfad still doppelt
+adjustieren. `execution/` ist Schutzpfad. Warnung liegt im Producer-Docstring und im CSV-Header
+von `output/corporate_actions.csv`.
+
+**(b) `on_unavailable="block"` verhindert auch Exits**
+In `pipeline/_tc_sizing.py` löst der `block`-Zweig ein `RuntimeError` aus, das
+`trading_cycle_v2.py` zu `status="error"` macht. Dadurch wird `route_orders` **nie** erreicht —
+es unterbleiben also nicht nur Neueinstiege, sondern auch Trailing-Stops, Exits und De-Risk-Orders.
+Bei bestehendem Long-Book ist `block` damit die *riskantere* Option. Default ist `reduce`,
+`block` ist heute in keiner Policy gesetzt.
+
+**(c) Anfrage-Protokoll deckt 5 Ingest-Pfade ab, nicht alle**
+Verdrahtet sind: `scripts/ops/refresh_daily_cache_from_eodhd.py` (der Primär-Writer für
+`output/aggregates/daily.parquet`, also genau der Ingest um den §0.0 geht),
+`scripts/data/pullers/pull_alpha_vantage_intraday.py`, `scripts/data/pull_coingecko_ohlc.py`,
+`scripts/data/pull_ecb_fx.py`.
+
+Belegter Nutzen beim ersten Lauf: das Protokoll meldet **220 von 220 Symbolen mit HTTP 401** —
+die per-Symbol-Evidenz für den EODHD-Zugangsverlust, die vorher nur als pauschales
+„all fetches failed" existierte.
+
+Verdrahtet ist außerdem `scripts/data/pull_stooq_eod.py`. (Eine frühere Fassung dieses Absatzes
+behauptete, dieser Puller nutze `requests`/`yfinance` und sei deshalb nicht anschließbar — das war
+falsch: er hängt an `common.io_utils.http_get_text`. Ursache der Fehlaussage: es existieren **zwei**
+gleichnamige Dateien, `scripts/data/pull_stooq_eod.py` und `scripts/data/pullers/pull_stooq_eod.py`,
+mit unterschiedlichem Inhalt — siehe den Doppelstruktur-Follow-up unten.)
+
+**Noch nicht abgedeckt — und das ist die wichtigere Hälfte:** gemessen 2026-08-15 berühren
+**77** Dateien unter `scripts/`, `src/assembled_core/data/` und `research/mandat*/` das Netz
+(`urlopen` / `requests.` / `yf.download` / `http_get_*`). Davon führen **5** ein Protokoll.
+
+Nicht abgedeckt sind insbesondere:
+- **`src/assembled_core/data/sources/yfinance_source.py`** — seit dem EODHD-Ausfall der
+  **autoritative Live-Preispfad** des Piloten (`run_live_paper.py`, „Try 2: yfinance batch
+  (authoritative when cache is stale)"). Das ist die schmerzhafteste Lücke: der Pfad, auf dem
+  aktuell tatsächlich gehandelt wird, protokolliert nichts.
+- die sechs `src/assembled_core/data/*_ingest.py` (`congress_trades_ingest`, `edgar_form4_ingest`,
+  `fundamentals_xbrl_ingest`, `insider_ingest`, `prices_ingest`, `shipping_routes_ingest`)
+- `scripts/data/pull_yfinance_eod.py` und die drei `scripts/data/pullers/`-Zwillinge
+- **20** `research/mandat*/pull_*.py`, darunter `research/mandat2/intraday_pull.py` — der
+  Ursprungsfall von E-112
+
+**E-112 ist damit auf fünf Ingest-Pfaden erfüllt, nicht „auf den Preis-Ingest-Pfaden".** Eine
+frühere Fassung dieses Absatzes behauptete Letzteres; das war überverkauft.
+
+**Bekannte Restlücke im EODHD-Writer:** `refresh()` hat **sieben** `return`-Pfade und **alle sieben**
+sind gedeckt — die beiden frühesten (fehlender Token, fehlender Cache) seit 2026-08-15 über `_abort()`,
+das einen `__run__`-Eintrag mit `status=skipped` schreibt. *(Eine frühere Fassung dieses Absatzes sagte
+„fünf von sieben"; sie beschrieb den Stand VOR dem Fix im selben Step — dieselbe Doku-Drift, gegen die
+§0.0 geschrieben wurde.)* Offen bleibt allein eine Exception, die außerhalb des Per-Symbol-`try` entkommt (etwa ein defektes
+`date`-Feld). Ein `try/finally` um die ganze Schleife würde das schließen; es unterbleibt hier, weil
+das der Live-Cache-Writer ist und die Änderung eine eigene Risikoprüfung braucht. Die drei Puller unter `scripts/data/` und der eine unter `scripts/data/pullers/` haben das
+`try/finally` bereits.
+
+**Exit-Code-Semantik der vier Puller (bewusst, nicht stillschweigend):** `0` = mindestens ein
+Symbol erfolgreich (Teilausfälle werden toleriert und nur protokolliert), `2` = Totalausfall.
+Vor diesem Step propagierte ein Transportfehler durch `main()` und erzeugte Exit `1` — ein
+Teilausfall gilt seither also als Erfolg. Das folgt der bereits bestehenden `any_ok`-Konvention
+von `pull_alpha_vantage_intraday.py`, ist aber eine Verhaltensänderung und steht deshalb hier.
+
+**Protokoll-Retention:** seit dem `run_id`-Default schreibt jeder Lauf eine eigene Datei nach
+`output/ops/pull_log_<source>_<ts>.json` statt eine zu überschreiben. Größenordnung: ~66 KB pro
+EODHD-Lauf (220 Symbole), bei täglichem Task also ~24 MB/Jahr. Es gibt **keine Retention und
+keinen automatischen Konsumenten** — Aufräumen ist Operator-Aufgabe. `output/` ist gitignored,
+das Repo wächst also nicht.
+
+**(e) Test-Isolation ist in-process, nicht subprozess-fest**
+`tests/conftest.py::_isolate_operational_stores` patcht Modul-Attribute — das bindet nur im
+Testprozess. **41** Testdateien rufen `subprocess.run/Popen/check_output/check_call`
+(gemessen als `.py` unter `tests/` ohne `__pycache__`; eine fruehere Angabe von 50
+zaehlte kompilierte `__pycache__`-Artefakte mit), die das Modul mit seinem echten Default neu
+importieren. Gemessen am 2026-08-15 während eines vollen Suite-Laufs: `output/audit/
+trading_decisions.jsonl` wuchs um **681 Zeilen**, während die Isolation aktiv war. Für den
+Audit-Trail ist das seit 2026-08-15 über `AUDIT_TRAIL_PATH` geschlossen (Env-Variablen werden
+vererbt); `intent_store`, `order_lifecycle_log`, `qa_gates`, `crisis_alpha` und `factor_store`
+haben **keinen** Env-Override und bleiben in-process-only.
+
+**(f) `adj_close`-Backfill wurde auf den Produktivbestand angewendet**
+`scripts/ops/backfill_adj_close.py --apply` lief am **2026-08-15** gegen
+`output/aggregates/daily.parquet` und **spiegelte** dort `close` in **98.279** leere `adj_close`
+(35,22 % → 0 % NaN). „Gespiegelt", nicht „rekonstruiert": die Methode ist `adj_close := close`,
+begründet in E-144 damit, dass beide Spalten in allen belegten Zeilen exakt gleich waren.
+
+⚠️ **Der Apply-Lauf hat kein eigenes Protokoll hinterlassen.** `output/ops/backfill_adj_close_status.json`
+zeigt `applied: false, rc: 0, n_adj_close_nan: 0` — das ist ein *späterer Verifikationslauf*, der den
+Apply-Report überschrieben hat (das Skript kennt keine run_id-Versionierung, anders als `pull_log`).
+Der Beleg für den Apply-Lauf ist damit nur indirekt: die `.bak` mit 98.279 NaN plus das veränderte
+Parquet. Das ist exakt die Klasse, die dieser Step bei den Pullern schließt (E-147) — hier nicht.
+Der Vorher-Stand liegt als
+`archive/orphaned_data_2026-08-15/daily.parquet.PRE_ADJCLOSE_BACKFILL.bak` (das
+`.parquet.bak` neben dem Cache wurde beim Aufräumen dorthin verschoben — im Verzeichnis selbst
+liegt keins mehr). Die Datei ist gitignored, also **nicht über git rekonstruierbar**; das Archiv
+ist der einzige Rückweg. Lauf-Report: `output/ops/backfill_adj_close_status.json`.
+
+**(g) `check_leakage` ist nur auf dem Backtest-CLI versorgt, nicht im Pilot-Pfad**
+`scripts/run_backtest_strategy.py` baut das `feature_df` über `_build_leakage_frame` und übergibt
+es an `evaluate_all_gates` — dort ist das 8. Gate scharf. Der **Orchestrator**
+(`pipeline/orchestrator.py`), also der Pfad, auf dem der Paper-Pilot seine QA fährt, ruft
+`evaluate_all_gates(qa_metrics)` weiterhin **ohne** `feature_df` — das Gate bleibt dort `SKIPPED`
+(„NOT checked", nicht „clean"). Bewusst so gelassen: die Versorgung im Orchestrator ist eine
+Änderung im Pipeline-Schutzpfad, und ein BLOCK dort hält den Piloten an — das braucht eine eigene
+Risikoprüfung, keinen Nebeneffekt einer Datenbestandsarbeit.
+
+**Doppelstruktur (vorbestehend, Rule 50):** `scripts/data/*.py` und `scripts/data/pullers/*.py`
+enthalten **drei** gleichnamige Puller mit abweichendem Inhalt (`pull_alpha_vantage_intraday`,
+`pull_coingecko_ohlc`, `pull_stooq_eod`; dazu `pull_ecb_fx` vs. `pull_ecb_fxref` — ähnlich, nicht gleichnamig). Welcher Baum der lebende ist, ist
+ungeklärt; das ist der Grund, warum Punkt 10 zunächst nur einen von beiden erreichte.
+
+**(d) `feed_status` wird gelesen, aber nicht durchgesetzt**
+`scripts/run_live_paper.py` liest den Stempel und protokolliert Partial-Outages; der BLOCK-Pfad
+nennt jetzt den Feed-Grund statt „unknown age". Die Handelsentscheidung ist **unverändert**: bei
+Teilausfall handelt der Pilot weiter auf dem geschrumpften Universum. Offene Frage: ab welchem
+Anteil fehlender Symbole ein Zyklus abbrechen soll. Das ist eine Risikoentscheidung im
+Schutzpfad und braucht `risk-execution-reviewer`.
 
 ### 0.1 Survivorship-Bias: PIT-Universe — TEILWEISE BEHOBEN (Architektur 2026-05-06; Datenlücke offen)
 
@@ -22,7 +210,15 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 - **2026-05-06 (d5630b6):** Kritischer Bug behoben — Cache-Invalidierung: wenn `cached start_date > backtest_start`, wird Cache aus `_prices_full_range` (vor Date-Filter) neu gebaut. Verhindert 0-Trades für alle Perioden vor 2025 (root cause: Cache wurde nach 2025-2026-Lauf mit `start_date=2025-01-02` für alle Symbole gebaut).
 
 **Was noch offen bleibt:**
-- Vollständige Index-Membership-Daten (z. B. S&P500-Zusammensetzung 2010–2026) — verhindert echten Survivorship-Bias für Aufnahmen/Abgänge innerhalb des Panels.
+- ~~Vollständige Index-Membership-Daten (z. B. S&P500-Zusammensetzung 2010–2026)~~ — **teilweise
+  geschlossen 2026-08-15:** `data/universe/verdict_sp500.csv` liefert 1.167 Symbole mit **418
+  echten `end_date`** (gegen **4** in den 13 vorherigen Universe-Dateien: `EXAS` und `HOLX`
+  je zweimal), abgeleitet aus dem
+  PIT-Preispanel. Drei harte Vorbehalte: die Ausscheide-Daten sind aus **Panel-Abdeckung
+  abgeleitet**, nicht aus Corporate Actions (DAT-006); die Datei ist **gitignored** und aus einem
+  eingefrorenen, nicht mehr beschaffbaren Panel erzeugt, also bei Verlust nicht rekonstruierbar;
+  und `get_universe_members_pit` hat weiterhin **keinen Produktions-Aufrufer**. Details:
+  `docs/UNIVERSE_SOURCES.md`.
 - Kommerziell: Sharadar (SFACT), Norgate, FactSet.
 - Open: S&P-Wikipedia-Scraper (unvollständig, lückenhaft).
 - Erwarteter Restbias mit data-derived PIT: ~0 für Large-Caps die nicht delistet wurden, **+1–3% p.a.** für historische Aufnahmen die jetzt in der Watchlist stehen.

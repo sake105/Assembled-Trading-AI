@@ -1807,3 +1807,179 @@ Das Artefakt berichtete die **Blockzahl** (4) und aggregierte Kennzahlen ueber a
 3. Overlays, die `target_weight` aendern, muessen `target_qty` synchron halten (Nachbar-Overlays im selben Modul tun das) — jede Ausnahme ist begruendungspflichtig.
 **Erkannt in:** Kompakt-Review 2026-08-11 (F-senior-1/2).
 **Referenzen:** E-135, E-136.
+
+## E-144 — NaN als „lauter Sentinel" auf einer Praemisse, die nie gemessen wurde
+**Datum:** 2026-08-15
+**Kategorie:** false-safety / sentinel-ohne-messung
+**Was passierte:** Zwei Cache-Writer schrieben `adj_close = NaN` fuer angehaengte Zeilen (F-RX-3 §9.12 (a)). Begruendung im Kommentar: die Quelle habe kein adj_close, und `adj_close = close` wuerde Ex-Dividenden-Tage still falsch behandeln. Die Praemisse war falsch. `close` in diesem Cache IST bereits total-return-adjustiert (`pipeline/io.py:33-41`; gemessen: AAPLs 4:1-Split am 2020-08-31 zeigt keinen Sprung, 15 von 279.013 Zeilen haben close ausserhalb [low, high], und alle 15 sind Float-Epsilon (max 2,8e-14 absolut, 1,5e-16 relativ)), und der yfinance-Pfad laeuft mit `auto_adjust=True` (`data/sources/yfinance_source.py:73`). Ueberall, wo adj_close belegt war, war es EXAKT gleich close: 180.734 von 180.734 Zeilen, max. Differenz 0.0. Der Sentinel hinterliess 98.279 NaN — 35,2 % der Spalte.
+
+**Warum falsch:** Ein Sentinel ist eine Aussage ueber die Datenlage („hier fehlt Information"). Wird er gesetzt, ohne die Datenlage zu messen, kehrt er sich um: er ERZEUGT den Fehlzustand, den er anzeigen sollte. „Loud failure" schuetzt nur, wenn der stille Fehler real existiert; sonst ist es Vergiftung mit guter Absicht. Verschaerfend: der Test hiess `test_..._sets_adj_close_nan` und zementierte die Fehlannahme als Vertrag — die Repraesentation war getestet, nicht die Invariante.
+
+**Wie vermeiden:**
+1. Vor jedem Sentinel die Praemisse EINMAL am realen Feed messen (hier haette ein Blick auf `auto_adjust=True` genuegt), nicht aus dem Spaltennamen ableiten.
+2. Sentinel-Anteil an der Zielspalte nach dem ersten Produktionslauf zaehlen. Zweistellige Prozentwerte sind kein Schutzsignal, sondern ein Defekt.
+3. Tests auf die INVARIANTE schreiben („adj_close ist adjustiert"), nicht auf die Repraesentation („adj_close ist NaN").
+**Erkannt in:** Datenbestandsbewertung 2026-08-15 (`scripts/ops/refresh_daily_cache_from_panel.py`, `scripts/ops/refresh_sector_etf_cache.py`).
+**Referenzen:** E-111, E-135.
+
+## E-145 — Default-Pfad auf eine nie existierende Datei: Risikokontrolle im Code, abwesend im Verhalten
+**Datum:** 2026-08-15
+**Kategorie:** silent-disable / default-pfad-ins-leere
+**Was passierte:** `get_default_security_master_path()` lieferte `data/security_master.csv`. Diese Datei existiert nicht und hat nie existiert — der Security Master liegt git-getrackt unter `configs/security_master.csv`. Alle drei Aufrufer (`scripts/run_backtest_strategy.py`, `scripts/run_daily.py`, `pipeline/_tc_execution.py`) behandeln eine fehlende Datei als „skip" mit einer Zeile in der Art „group exposure limits will be skipped". Netto liefen Sektor-, Regions- und FX-Gruppenlimits in der Default-Konfiguration nie.
+
+**Warum falsch:** Der Ausfall war doppelt getarnt. Der Default zeigte auf einen plausiblen Ort, und jeder Aufrufer degradierte einzeln und leise — kein Pfad war fuer sich auffaellig, die Kombination deaktivierte eine Risikokontrolle vollstaendig. Ein „skip", das in JEDEM Lauf eintritt, erzeugt nie ein Delta und wird deshalb nie bemerkt.
+
+**Wie vermeiden:**
+1. Jeder Default-Pfad zu einer Konfigurationsdatei braucht einen Test, der die Existenz am DEFAULT-Ort prueft — nicht den Ladevorgang mit tmp_path.
+2. Fehlt eine Datei, von der eine RISIKOKONTROLLE abhaengt, ist „skip" der falsche Default: fail-closed, oder mindestens WARN/ERROR mit dem gesuchten absoluten Pfad im Text.
+3. Bei jeder „... will be skipped"-Zeile einmal fragen: kann dieser Zweig der Normalfall sein? Wenn ja, ist die Kontrolle eine Attrappe.
+**Erkannt in:** Datenbestandsbewertung 2026-08-15 (`src/assembled_core/data/security_master.py`).
+**Referenzen:** E-135, E-142.
+
+## E-146 — CWD-relativer Pfad liefert ein leeres Universum, das wie ein gueltiges Ergebnis aussieht
+**Datum:** 2026-08-15
+**Kategorie:** cwd-abhaengigkeit / leeres-ergebnis-als-antwort
+**Was passierte:** Der Watchlist-Fallback in `get_universe_members()` las `Path("watchlist.txt")` — relativ zum Arbeitsverzeichnis. Aus jedem Prozess, der nicht im Repo-Root startete (Scheduler, Task-Runner, Tests mit chdir), lieferte die Funktion stillschweigend `[]`. Gemessen: 0 statt 195 Symbole aus fremdem CWD. Zweiter Fehler in derselben Zeile: `line.startswith("#")` wurde auf der UNgestrippten Zeile geprueft, ein eingerueckter Kommentar waere als Symbol durchgerutscht.
+
+**Warum falsch:** Der Rueckgabewert trug keine Information ueber den Grund. Leer aus „Datei nicht gefunden" und leer aus „heute keine Mitglieder aktiv" sind operativ voellig verschiedene Zustaende, die denselben Wert erzeugten — dieselbe Klasse wie `signal=0.0` fuer „Feed ausgefallen" und „Markt ruhig". Deployment-abhaengige Fehler dieser Art sind lokal unreproduzierbar, weil man im Repo-Root steht.
+
+**Wie vermeiden:**
+1. Repo-interne Ressourcen NIE ueber CWD-relative Pfade aufloesen. Reihenfolge: konfigurierter Override -> Anker ab `Path(__file__).resolve().parents[N]` -> relativer Pfad nur als Rueckwaertskompatibilitaet.
+2. Fehlt eine erwartete Quelle, mindestens WARN mit dem tatsaechlich GESUCHTEN Pfad, und im Text ausdruecklich sagen, dass „leer" nicht „keine Mitglieder" bedeutet.
+3. Bei Text-Watchlists immer `strip()` VOR dem Kommentar-Test.
+**Erkannt in:** Datenbestandsbewertung 2026-08-15 (`src/assembled_core/data/universe.py`).
+**Referenzen:** E-112, E-142.
+
+## E-147 — Protokoll nur am Happy-Path-Ende geschrieben: der Ausfall loescht seine eigene Evidenz
+**Datum:** 2026-08-15
+**Kategorie:** logic-error / evidenz-hinter-dem-erfolgspfad
+**Was passierte:** Zwei Puller sammelten pro Anfrage eine Protokollzeile und schrieben das Protokoll
+mit einem `plog.write()` am Ende von `main()`. Bei einem Anbieterausfall raist der erste Request
+durch `main()` hindurch — `write()` wurde nie erreicht. Verifiziert mit gestubbtem HTTPError 503:
+die Fehlerzeilen standen im Speicher, auf Platte landete nichts. Zweite Stufe desselben Fehlers:
+nach dem `try/finally`-Fix existierte die Datei zwar, war aber leer (`requested: 0`), weil die
+Transportschicht raist, bevor der Aufrufer — die einzige Ebene, die den Schluessel kennt —
+protokollieren konnte.
+
+**Warum falsch:** Ein Anfrage-Protokoll wird fuer genau den Lauf gebaut, in dem die Quelle nicht
+liefert. Steht der Schreibvorgang hinter dem Erfolgspfad, existiert es in allen Laeufen ausser dem
+einen, der zaehlt — und der Nachweis „wir haben gefragt" fehlt weiterhin. E-112 ist dann nicht
+repariert, nur teurer geworden.
+
+**Wie vermeiden:**
+1. Jede Evidenz-Artefakt-Schreibung gehoert in `finally`, nicht ans Funktionsende.
+2. Den Fehler auf der Ebene protokollieren, die den SCHLUESSEL kennt (der Aufrufer), nicht nur dort,
+   wo die Exception entsteht (der Transport).
+3. Gegenprobe im Test: Transport gezielt raisen lassen und pruefen, dass die Datei existiert UND
+   den angefragten Schluessel enthaelt. „Datei da" allein genuegt nicht.
+**Erkannt in:** Stage-2-Review der Datenbestandsbewertung 2026-08-15 (`scripts/data/pull_ecb_fx.py`,
+`pull_coingecko_ohlc.py`).
+**Referenzen:** E-112, E-142.
+
+## E-148 — Aggregat zaehlt Log-Zeilen und nennt sie „requested"
+**Datum:** 2026-08-15
+**Kategorie:** logic-error / falscher-nenner
+**Was passierte:** `PullLog.summary()` zaehlte `len(self.entries)` als `requested`. Ein Puller
+protokollierte pro Symbol zweimal — einmal auf Transportebene (`n_rows=None` -> `ok`), einmal auf
+Parse-Ebene (`n_rows=0` -> `empty`). Ein einzelnes Waehrungspaar erschien damit als
+`requested=2, ok=1, empty=1`: gleichzeitig erfolgreich und leer.
+
+**Warum falsch:** Coverage-Aussagen werden aus `requested` und `ok` gebaut. Ist der Nenner eine
+Zeilenzahl statt einer Anfragezahl, ist die Quote frei erfunden — dieselbe Fehlerform wie der
+widerrufene Anreicherungsfaktor 3,06 aus E-112, nur eine Ebene hoeher. Besonders tueckisch, weil
+das Protokoll fachlich korrekt befuellt war; erst die Aggregation log.
+
+**Wie vermeiden:**
+1. Aggregate ueber ENTITAETEN bilden, nicht ueber Zeilen: pro Schluessel den finalen Status
+   bestimmen, dann zaehlen.
+2. Genau EINE Ebene darf pro Schluessel protokollieren; alles Weitere gehoert als Zusatzfeld in
+   dieselbe Zeile.
+3. Mehrfacheintraege sichtbar machen (`duplicate_keys`) statt sie still in die Summen zu falten.
+**Erkannt in:** Stage-2-Review der Datenbestandsbewertung 2026-08-15
+(`src/assembled_core/data/pull_log.py`, `scripts/data/pull_ecb_fx.py`).
+**Referenzen:** E-112, E-147.
+
+## E-149 — Zusatzfeld an die Transportschicht gehaengt statt an den Protokoll-Recorder
+**Datum:** 2026-08-15
+**Kategorie:** wiring-gap / falsche-ebene
+**Was passierte:** Ein Review-Finding verlangte, Waehrung und Intervall aus dem zweckentfremdeten
+`window_end`-Feld in eigene Felder zu ziehen. Der Fix landete am Aufruf der HTTP-Hilfsfunktion
+(`http_get_json(..., quote_ccy=ccy)`) statt am Recorder (`PullLog.record`, der `**extra` hat).
+Die Signatur von `http_get_json` nimmt kein `**extra` — **TypeError bei jedem Symbol, vor jedem
+Netzwerkzugriff**. Der Puller war ab diesem Commit vollstaendig tot. Verschaerfend: das im selben
+Schritt eingebaute breite `except Exception` im Symbol-Loop fing den eigenen TypeError und schrieb
+ihn als *Anbieterfehler* ins Anfrage-Protokoll — das Artefakt sah aus wie ein sauber
+dokumentierter Vendor-Ausfall. Der Schwester-Puller bekam dasselbe Finding korrekt umgesetzt
+(`plog.record(..., interval=...)`): zwei Umsetzungen, eine davon nie ausgefuehrt.
+
+**Warum falsch:** Extra-Felder gehoeren an die Ebene, die das Protokoll SCHREIBT, nicht an die,
+die es durchreicht. Zwischenschichten mit fixer Signatur schlucken keine freien kwargs. Und ein
+Evidenzartefakt, das eigene Programmierfehler als Anbieterfehler fuehrt, vergiftet genau die
+Aussage, fuer die es gebaut wurde.
+
+**Wie vermeiden:**
+1. Nach jeder Signatur-Erweiterung den geaenderten Aufruf EINMAL ausfuehren — ein gestubbter
+   Transport genuegt, keine Netzverbindung noetig.
+2. Wird dasselbe Finding an mehreren Call-Sites umgesetzt, pruefen, ob alle dieselbe Ebene treffen.
+3. Jeder Ingest, der ein Evidenzartefakt schreibt, braucht einen Smoke-Test mit gestubbtem
+   Transport. Dieser BLOCKER ueberlebte SECHS Review-Durchlaeufe, weil kein Test den Puller je
+   aufrief — die Kette prueft Diffs, nicht Lauffaehigkeit.
+4. Im Ingest-Loop Programmierfehler von Transportfehlern trennen (TypeError/AttributeError/
+   NameError durchlassen oder als `error_class="internal"` markieren), damit Coverage-Auswertungen
+   interne Fehler ausschliessen koennen.
+**Erkannt in:** Stage-2-Review der Datenbestandsbewertung 2026-08-15
+(`scripts/data/pull_coingecko_ohlc.py`).
+**Referenzen:** E-112, E-147, E-148.
+
+## E-150 — Logging-Formatstring mit falscher Platzhalterzahl versteckt sich selbst
+**Datum:** 2026-08-15
+**Kategorie:** logic-error / selbstverdeckender-defekt
+**Was passierte:** In `PullLog.write()` wurde ein Argument (`summary["skipped"]`) ergaenzt, ohne den
+Formatstring mitzuziehen — 7 Platzhalter, 8 Argumente. Ergebnis: `TypeError: not all arguments
+converted during string formatting` bei JEDEM erfolgreichen `write()`. Symptom war ausschliesslich
+`--- Logging error ---` auf der Konsole eines Standalone-Laufs. In der isolierten Testdatei blieb
+alles gruen; erst ein Vollauf, bei dem `tests/test_logging_config.py` (alphabetisch davor) einen
+`RotatingFileHandler` am Root-Logger hinterliess, machte 13 von 14 Tests rot — dessen
+`shouldRollover` formatiert den Record und loest den Fehler aus.
+
+Zweiter, gleichartiger Vorfall in derselben Sitzung: der Nachbesserungs-`replace` fuer denselben
+Formatstring traf nicht, weil `ruff format` die Zeile zwischenzeitlich umgebrochen hatte. Der Fix
+galt als erledigt und war es nicht.
+
+**Warum falsch:** `logging` faengt Exceptions in `emit()` ab und ruft `handleError` — der Fehler
+propagiert NICHT. Kein Test kann anschlagen, die Suite bleibt gruen, und der Defekt ist nur
+sichtbar, wenn ein Mensch zufaellig die Konsole liest. Eine Statuszeile, die genau dann
+verschwindet, wenn sie gebraucht wird, ist schlimmer als keine.
+
+**Wie vermeiden:**
+1. Jede Log-Zeile mit >= 4 Platzhaltern bekommt einen `caplog`-Test, der `record.getMessage()`
+   aufruft — das wendet die %-Formatierung an und wirft bei Arity-Mismatch.
+2. Nach jeder Erweiterung eines `summary()`-Dicts die zugehoerige Log-Zeile mitzaehlen.
+3. Nach einem `sed`/`replace`-Fix auf einer Datei, die anschliessend formatiert wird, das
+   Ergebnis GEGENLESEN — ein nicht getroffener Replace meldet sich nicht.
+**Erkannt in:** Vollauf auf eingefrorenem Baum, Datenbestandsbewertung 2026-08-15
+(`src/assembled_core/data/pull_log.py`).
+**Referenzen:** E-142, E-149.
+
+## E-151 — Nicht-ASCII im print eines Produktionspfads: Erfolg wird als Anbieterfehler protokolliert
+**Datum:** 2026-08-15
+**Kategorie:** logic-error / umgebungsabhaengige-quittung
+**Was passierte:** `print(f"[INTRA] OK {s} → {fp}")` mit U+2192. Unter Windows-cp1252 wirft das einen
+`UnicodeEncodeError` — und zwar NACH `df.to_parquet(fp)`, aber VOR `plog.record(...)`. Der breite
+per-Symbol-`except` fing den eigenen Encoding-Fehler und schrieb den **vollstaendig erfolgreichen**
+Pull als Anbieterfehler ins Anfrage-Protokoll; der Lauf endete mit `rc=2`. Gemessen: Erfolgsfall
+lieferte `requested=2, ok=0, error=2` bei zwei korrekt geschriebenen Parquets auf der Platte.
+
+**Warum falsch:** Die Umgebungsabhaengigkeit sitzt zwischen der Arbeit und ihrer Quittung. Das
+Evidenzartefakt behauptet danach das Gegenteil dessen, was passiert ist — ausgerechnet in dem
+Artefakt, das eine Coverage-Frage beantworten soll. Unter Linux (UTF-8) waere der Defekt nie
+aufgetreten; die Ops-Tasks laufen unter Windows.
+
+**Wie vermeiden:**
+1. Ausgabestrings in Skripten ASCII-only (`→` -> `->`, `—` -> `--`).
+2. Buchhaltung VOR der Konsolenausgabe, nie danach.
+3. Im Ingest-Loop Programmierfehler von Transportfehlern trennen, damit ein eigener Bug nicht als
+   Vendor-Fehler in der Evidenz landet (vgl. E-149).
+**Erkannt in:** Stage-1-Review der Datenbestandsbewertung 2026-08-15
+(`scripts/data/pullers/pull_alpha_vantage_intraday.py`).
+**Referenzen:** E-112, E-147, E-149.

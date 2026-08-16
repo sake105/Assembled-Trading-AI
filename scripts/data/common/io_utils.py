@@ -32,12 +32,54 @@ def ensure_dir(p: Path):
 
 
 # --- HTTP (stdlib, ohne requests) ---
+#
+# Beide Getter akzeptieren optional einen PullLog (assembled_core.data.pull_log).
+# Wird einer uebergeben, schreibt der Aufruf eine Protokollzeile - auch und
+# gerade bei Leerergebnis oder Fehler. Das ist die Lehre aus E-112: ohne
+# Anfrage-Protokoll ist "keine Datei" nicht von "nie angefragt" zu unterscheiden,
+# und jede spaetere Coverage-Aussage ist geraten.
+#
+# Ohne pull_log verhalten sich beide Funktionen exakt wie zuvor.
+
+
+def _record_pull(pull_log, key, *, window, http_status, n_rows, error):
+    """Protokollzeile schreiben, falls ein PullLog uebergeben wurde.
+
+    Nie-raise: Buchhaltung darf einen Ingest-Lauf nicht toeten.
+    """
+    if pull_log is None:
+        return
+    # Kein try/except: PullLog.record ist per Vertrag nie-raise
+    # (pull_log.py), ein zusaetzlicher stiller Schlucker wuerde einen echten
+    # Defekt dort verbergen statt ihn zu zeigen.
+    pull_log.record(
+        key,
+        window=window,
+        http_status=http_status,
+        n_rows=n_rows,
+        error=error,
+    )
+
+
+def _status_of(ex) -> int | None:
+    """HTTP-Code aus einer Exception ziehen, soweit vorhanden."""
+    return getattr(ex, "code", None)
+
+
 def http_get_json(
-    url: str, headers: dict | None = None, retries: int = 3, backoff: float = 0.8
+    url: str,
+    headers: dict | None = None,
+    retries: int = 3,
+    backoff: float = 0.8,
+    *,
+    pull_log=None,
+    log_key: str | None = None,
+    log_window=None,
 ):
     h = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"}
     if headers:
         h.update(headers)
+    key = log_key or url
     last_ex = None
     for i in range(retries):
         try:
@@ -46,20 +88,76 @@ def http_get_json(
                 data = resp.read()
                 if resp.headers.get("Content-Encoding") == "gzip":
                     data = gzip.decompress(data)
-                return json.loads(data.decode("utf-8"))
+                payload = json.loads(data.decode("utf-8"))
+                # n_rows must mean ROWS, not "length of whatever came back".
+                # An earlier version used len(payload) for any sized object, so
+                # a dict response like {"code": "ok", "data": []} reported
+                # n_rows=2 (its top-level keys) and the protocol recorded an
+                # EMPTY result as "ok" — reinstating exactly the confusion E-112
+                # exists to prevent. Only a list is countable here; for anything
+                # else the caller knows the row count and must pass it.
+                _record_pull(
+                    pull_log,
+                    key,
+                    window=log_window,
+                    http_status=getattr(resp, "status", 200),
+                    n_rows=len(payload) if isinstance(payload, list) else None,
+                    error=None,
+                )
+                return payload
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as ex:
             last_ex = ex
             time.sleep((i + 1) * backoff)
+    _record_pull(
+        pull_log,
+        key,
+        window=log_window,
+        http_status=_status_of(last_ex),
+        n_rows=0,
+        error=f"{type(last_ex).__name__}: {last_ex}",
+    )
     raise last_ex
 
 
-def http_get_text(url: str, headers: dict | None = None):
+def http_get_text(
+    url: str,
+    headers: dict | None = None,
+    *,
+    pull_log=None,
+    log_key: str | None = None,
+    log_window=None,
+):
     h = {"User-Agent": USER_AGENT}
     if headers:
         h.update(headers)
+    key = log_key or url
     req = Request(url, headers=h)
-    with urlopen(req, timeout=30) as resp:
-        txt = resp.read().decode("utf-8", errors="replace")
+    try:
+        with urlopen(req, timeout=30) as resp:
+            txt = resp.read().decode("utf-8", errors="replace")
+            status = getattr(resp, "status", 200)
+    except (HTTPError, URLError, TimeoutError) as ex:
+        _record_pull(
+            pull_log,
+            key,
+            window=log_window,
+            http_status=_status_of(ex),
+            n_rows=0,
+            error=f"{type(ex).__name__}: {ex}",
+        )
+        raise
+    # NOT len(txt): that is a CHARACTER count, so the four-byte body "null"
+    # would be recorded as n_rows=4 and therefore "ok". A text endpoint has no
+    # row count the transport layer can know — leave it unknown and let the
+    # caller record the parsed row count.
+    _record_pull(
+        pull_log,
+        key,
+        window=log_window,
+        http_status=status,
+        n_rows=None,
+        error=None,
+    )
     return txt
 
 

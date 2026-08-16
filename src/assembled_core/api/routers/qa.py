@@ -327,6 +327,11 @@ def get_qa_gates(freq: str) -> QAGatesSummaryResponse:
                             "ok": gate_dict.get("passed_gates", 0),
                             "warning": gate_dict.get("warning_gates", 0),
                             "block": gate_dict.get("blocked_gates", 0),
+                            # E-066: a gate that was never CHECKED must not be
+                            # invisible. Without this key a SKIPPED gate falls
+                            # into no bucket and the caller reads "3 ok, 0 block"
+                            # as "everything verified" when one gate never ran.
+                            "skipped": gate_dict.get("skipped_gates", 0),
                         },
                         gate_results=gate_results,
                     )
@@ -399,6 +404,8 @@ def get_qa_gates(freq: str) -> QAGatesSummaryResponse:
                 "ok": gate_summary.passed_gates,
                 "warning": gate_summary.warning_gates,
                 "block": gate_summary.blocked_gates,
+                # E-066: "not checked" is its own state, never a pass.
+                "skipped": gate_summary.skipped_gates,
             },
             gate_results=gate_results,
         )

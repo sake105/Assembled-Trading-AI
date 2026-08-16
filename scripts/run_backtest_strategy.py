@@ -649,6 +649,47 @@ Examples:
     )
 
     parser.add_argument(
+        "--corporate-actions-path",
+        type=str,
+        default=None,
+        help=(
+            "Path to a corporate-actions CSV (produce one with "
+            "scripts/ops/build_corporate_actions.py). Until 2026-08-15 this "
+            "value was read via getattr but had no argparse entry, so it could "
+            "never be set from the CLI. NOTE: DELISTING rows in the generated "
+            "file are inferred from panel coverage, not corporate actions "
+            "(DAT-006)."
+        ),
+    )
+
+    parser.add_argument(
+        "--allow-synthetic-ohlc-risk",
+        action="store_true",
+        help=(
+            "Permit --pit-prices together with ATR-based trailing stops. "
+            "Off by default: the PIT panel has no real high/low, so ATR "
+            "measures ~61%% of its true value and every ATR-scaled stop sits "
+            "~39%% too tight. Only set this if you know that bias is "
+            "acceptable for the question being asked."
+        ),
+    )
+
+    parser.add_argument(
+        "--pit-prices",
+        action="store_true",
+        help=(
+            "Load the point-in-time price panel "
+            "(research/mandat/data/prices_verdict.parquet, 1167 symbols incl. "
+            "delisted) instead of the survivorship-biased operational panel "
+            "(220 symbols, 0 delisted). Measured composition bias of the "
+            "default panel: 2.36-2.90 pp p.a. WARNING: the PIT panel has no "
+            "real OHLC (open=high=low=close), so ATR/candlestick/spread "
+            "features are invalid on it, and it is frozen at 2026-07-06. "
+            "BACKTEST/RESEARCH ONLY - never the live path."
+        ),
+    )
+
+    parser.add_argument(
         "--symbols",
         type=str,
         nargs="+",
@@ -1117,8 +1158,78 @@ def load_price_data(
             settings = get_settings()
             output_dir = settings.output_dir
 
+    # PIT panel (opt-in). FIRST in the chain, deliberately: --pit-prices is an
+    # explicit statement about which universe the run is allowed to see, and it
+    # must win over a stale --price-file or --data-source in a config.
+    #
+    # It also resolves its own symbols and date range instead of borrowing the
+    # names bound inside the --data-source branch. An earlier version sat as an
+    # `elif` after that branch and read `symbols` / `start_date` / `end_date`
+    # from it — those names only exist when the FIRST branch runs, so every
+    # --pit-prices invocation died with UnboundLocalError, and with
+    # --data-source set the branch was unreachable altogether. Caught in Stage-2
+    # review: the flag had never been executed once (E-135/E-141 class: a path that never ran).
+    if getattr(args, "pit_prices", False):
+        from src.assembled_core.data.pit_prices import (
+            PANEL_FROZEN_AT,
+            load_pit_prices,
+        )
+
+        _pit_symbols: list[str] | None = None
+        if getattr(args, "symbols", None):
+            # --symbols is nargs="+", so args.symbols is a LIST. Also accept
+            # comma-separated values inside each element, since both forms are
+            # in use across the repo's scripts. An earlier version did
+            # str(args.symbols).split(",") on the list, which stringified it to
+            # "['AAPL,BSC,SIVB']" and matched exactly one symbol by accident —
+            # a silently WRONG universe rather than an error.
+            _raw = (
+                args.symbols
+                if isinstance(args.symbols, (list, tuple))
+                else [args.symbols]
+            )
+            _pit_symbols = [
+                part.strip()
+                for item in _raw
+                for part in str(item).split(",")
+                if part.strip()
+            ]
+        elif getattr(args, "symbols_file", None):
+            _pit_symbols = [
+                ln.strip()
+                for ln in Path(args.symbols_file)
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if ln.strip() and not ln.strip().startswith("#")
+            ]
+        elif args.universe:
+            _pit_symbols = [
+                ln.strip()
+                for ln in Path(args.universe).read_text(encoding="utf-8").splitlines()
+                if ln.strip() and not ln.strip().startswith("#")
+            ]
+        # None means "all 1,167 symbols in the panel" — the point of the flag.
+
+        _pit_start = getattr(args, "start_date", None)
+        _pit_end = getattr(args, "end_date", None)
+
+        logger.info(
+            "[PIT] loading point-in-time price panel (survivorship-aware), "
+            "symbols=%s, range=%s..%s. Panel frozen at %s.",
+            len(_pit_symbols) if _pit_symbols else "ALL",
+            _pit_start or "panel start",
+            _pit_end or "panel end",
+            PANEL_FROZEN_AT,
+        )
+        prices = load_pit_prices(
+            symbols=_pit_symbols,
+            start=_pit_start,
+            end=_pit_end,
+        )
+        _pit_guard_after_load(args, logger)
+
     # New-style: Use data_source abstraction if --data-source or --symbols is provided
-    if hasattr(args, "data_source") and args.data_source is not None:
+    elif hasattr(args, "data_source") and args.data_source is not None:
         from src.assembled_core.data.data_source import get_price_data_source
 
         settings = get_settings()
@@ -1330,6 +1441,115 @@ def get_cost_model(args: argparse.Namespace) -> CostModel:
     else:
         # Use default cost model
         return get_default_cost_model()
+
+
+def _pit_guard_after_load(args: argparse.Namespace, logger_obj) -> None:
+    """Refuse a --pit-prices run whose strategy depends on real bar ranges.
+
+    Gives the synthetic-OHLC guard an actual consumer. Without it the marker in
+    pit_prices.py and ``assert_no_synthetic_ohlc`` would be loudness nobody
+    reads (E-142) — the exact failure mode that module warns about.
+
+    Measured, not assumed: with ``open == high == low == close`` the True Range
+    collapses to the close-to-close move, so ATR lands at a **median 61% of its
+    true value** (8 liquid symbols, 300 bars, range 0.40–0.64). ATR is NOT zero,
+    and ``trailing_stops.py:179`` floors the zero case with a 10% fallback — so
+    this is not a crash. It is a silent ~39% tightening of every ATR-scaled
+    stop, which exits early and still looks plausible. A quiet wrong number is
+    worse than a loud failure, hence the refusal.
+    """
+    ts_enabled = False
+    try:
+        from src.assembled_core.config.policy_loader import load_policy
+
+        ts_enabled = bool(
+            ((load_policy() or {}).get("trailing_stops") or {}).get("enabled", False)
+        )
+    except (ImportError, AttributeError, OSError, ValueError, TypeError) as exc:
+        logger_obj.debug("[PIT] could not read trailing_stops policy: %s", exc)
+
+    if ts_enabled and not getattr(args, "allow_synthetic_ohlc_risk", False):
+        raise SystemExit(
+            "[PIT] REFUSING TO RUN: --pit-prices supplies SYNTHETIC OHLC "
+            "(open=high=low=close), but policy has trailing_stops.enabled=true. "
+            "ATR measures ~61% of its true value on this panel, so every "
+            "ATR-scaled stop would sit ~39% too tight and exit early - "
+            "silently, with no error and plausible-looking results. "
+            "Either disable trailing_stops for this run, or pass "
+            "--allow-synthetic-ohlc-risk if you accept the bias knowingly."
+        )
+
+    logger_obj.warning(
+        "[PIT] this run uses SYNTHETIC OHLC - ATR-, candlestick- and "
+        "range/spread-based features are biased on this panel (ATR ~%d%% of "
+        "true, i.e. stops ~%d%% too tight). Verify the strategy is close-only "
+        "before trusting results.",
+        61,
+        39,
+    )
+
+
+#: Feature columns tried, in order, when building the leakage-gate frame.
+#: The gate checks ONE column per call, so the first usable one wins.
+_LEAKAGE_FEATURE_CANDIDATES = ("eps_surprise_pct", "eps_actual")
+
+
+def _build_leakage_frame(
+    output_base: Path,
+) -> tuple[pd.DataFrame | None, str | None, str]:
+    """Assemble the frame for the ``check_leakage`` QA gate.
+
+    Returns ``(frame, feature_col, reason)``. ``frame is None`` means the gate
+    stays SKIPPED — which reads as "NOT checked", never as "clean" (E-066).
+    ``reason`` always explains the outcome so the skip is visible rather than
+    silent (E-142: a signal nobody can read is the same as no signal).
+
+    Why the earnings event frame and not the feature panel: the panel is the
+    obvious candidate but it is unusable, because
+    ``altdata_news_macro_factors.py:346`` drops ``disclosure_date`` during the
+    merge. The event frame is the only production artifact that still carries
+    event time and disclosure time side by side, which is exactly what a
+    point-in-time leakage check needs.
+
+    This is deliberately conservative: any missing column yields ``None``
+    rather than a guess. A wrong column name would make the gate BLOCK, and a
+    BLOCK writes the QA block flag that stops the paper pilot until an
+    operator acknowledges it (see the HALT warning in ``evaluate_all_gates``).
+    Failing to *check* is recoverable; halting the pilot on a bookkeeping
+    mistake is not.
+    """
+    earn_path = output_base / "events_earnings.parquet"
+    if not earn_path.exists():
+        return None, None, f"no leakage frame: {earn_path} does not exist"
+
+    try:
+        frame = pd.read_parquet(earn_path)
+    except Exception as exc:
+        return None, None, f"no leakage frame: could not read {earn_path}: {exc}"
+
+    if frame.empty:
+        return None, None, f"no leakage frame: {earn_path} is empty"
+
+    for col in ("timestamp", "disclosure_date"):
+        if col not in frame.columns:
+            return None, None, f"no leakage frame: {earn_path} lacks column {col!r}"
+
+    feature_col = next(
+        (c for c in _LEAKAGE_FEATURE_CANDIDATES if c in frame.columns), None
+    )
+    if feature_col is None:
+        return (
+            None,
+            None,
+            f"no leakage frame: none of {_LEAKAGE_FEATURE_CANDIDATES} in {earn_path}",
+        )
+
+    return (
+        frame,
+        feature_col,
+        f"leakage gate armed on {earn_path.name}: "
+        f"feature={feature_col}, rows={len(frame)}",
+    )
 
 
 def run_backtest_from_args(args: argparse.Namespace) -> int:
@@ -2314,6 +2534,51 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 logger.info(
                     f"Loaded security master: {len(security_meta_df)} symbols from {security_master_path}"
                 )
+                # BEHAVIOUR NOTE (2026-08-15): until the default-path bugfix in
+                # security_master.py this branch was unreachable (the default
+                # pointed at data/security_master.csv, which does not exist), so
+                # the master was never loaded at all.
+                #
+                # Partial coverage here is RESTRICTIVE, not permissive. An
+                # earlier version of this comment claimed the opposite; it was
+                # wrong. trading_cycle_shared.py::_apply_group_exposure_caps
+                # does `out[dim].fillna("UNKNOWN")`, so every symbol missing
+                # from the master lands in ONE shared "UNKNOWN" bucket and the
+                # whole bucket is capped against max_sector_gross together. At
+                # 32-of-195 coverage that bucket holds ~83% of gross, so a
+                # 0.30 cap scales all of those orders to ~36% of their qty —
+                # the harshest cap in the book, applied precisely to the
+                # symbols we know least about.
+                #
+                # Not changed here: group caps require risk.group_limits.enabled
+                # in policy, which is set in NO config today, so nothing runs
+                # either way. Fixing the UNKNOWN-bucket semantics is a change to
+                # a protected risk path and belongs in its own step.
+                try:
+                    _sm_syms = set(security_meta_df["symbol"])
+                    _uni_syms = (
+                        set(prices["symbol"].unique())
+                        if prices is not None and not prices.empty
+                        else set()
+                    )
+                    _uncovered = _uni_syms - _sm_syms
+                    if _uncovered:
+                        logger.warning(
+                            "[security-master] covers %d of %d traded symbols. "
+                            "The %d uncovered symbols (e.g. %s) are NOT exempt "
+                            "from group caps: they share a single 'UNKNOWN' "
+                            "bucket and get capped TOGETHER, which is the most "
+                            "restrictive treatment in the book. Only relevant "
+                            "if risk.group_limits.enabled is turned on.",
+                            len(_uni_syms & _sm_syms),
+                            len(_uni_syms),
+                            len(_uncovered),
+                            ", ".join(sorted(_uncovered)[:5]),
+                        )
+                except (KeyError, TypeError, ValueError) as _cov_err:
+                    logger.debug(
+                        "[security-master] coverage check failed: %s", _cov_err
+                    )
             else:
                 logger.debug(
                     f"Security master not found at {security_master_path} - group exposure limits will be skipped"
@@ -2518,6 +2783,20 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 # Fill pipeline: relax session gate for 1d EOD data (e.g. timestamps 00:00 UTC)
                 strict_session_gate=not getattr(args, "no_strict_session_gate", False),
                 rebalance_schedule=getattr(args, "rebalance", "daily"),
+                # Corporate actions. Until 2026-08-15 --corporate-actions-path
+                # was read only by the delisting-exit audit further down and
+                # never reached the engine, so the whole split-adjustment
+                # branch was unreachable from the CLI while its help text
+                # promised otherwise — E-135 inside the change that cites E-135.
+                #
+                # prices_are_total_return_adjusted stays True: every price panel
+                # this script can load (daily.parquet AND the PIT panel) is
+                # already total-return adjusted, so the engine will log that it
+                # SKIPPED split adjustment rather than double-adjust. Passing
+                # the path is still what makes that decision visible instead of
+                # silently absent.
+                corporate_actions_path=getattr(args, "corporate_actions_path", None),
+                prices_are_total_return_adjusted=True,
             )
 
         logger.info(f"Backtest completed: {len(result.equity)} equity points")
@@ -2883,7 +3162,31 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # Evaluate QA gates
         logger.info("")
         logger.info("Evaluating QA gates...")
-        gate_result = evaluate_all_gates(metrics)
+
+        # Supply the leakage gate with a real frame where one exists. Until
+        # 2026-08-15 no caller ever passed feature_df, so the 8th gate reported
+        # SKIPPED on every single run since it was introduced — infrastructure
+        # without a consumer (E-143). _build_leakage_frame returns None when it
+        # cannot build a trustworthy frame, which keeps the old SKIPPED
+        # behaviour instead of guessing column names.
+        _leak_out_base = (
+            Path(args.output_dir)
+            if getattr(args, "output_dir", None)
+            else Path("output")
+        )
+        _leak_df, _leak_col, _leak_reason = _build_leakage_frame(_leak_out_base)
+        logger.info("[QA] %s", _leak_reason)
+
+        if _leak_df is not None and _leak_col is not None:
+            gate_result = evaluate_all_gates(
+                metrics,
+                feature_df=_leak_df,
+                leakage_feature_col=_leak_col,
+                leakage_disclosure_col="disclosure_date",
+                leakage_timestamp_col="timestamp",
+            )
+        else:
+            gate_result = evaluate_all_gates(metrics)
 
         logger.info(f"QA Overall Result: {gate_result.overall_result.value.upper()}")
         logger.info(

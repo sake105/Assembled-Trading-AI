@@ -184,22 +184,31 @@ def refresh(cache_path: Path, panel_path: Path, *, dry_run: bool) -> int:
         )
         return len(new_rows)
 
-    # F-RX-3 §9.12 (a): panel has no adj_close column. Live-paper hot-path
-    # is unaffected (load_eod_prices:146 strips adj_close before the pilot
-    # sees it). BUT direct-parquet consumers (backtests, factor stores) read
-    # the column. Setting adj_close = close would silently mis-handle
-    # ex-dividend dates. Use NaN as sentinel: consumers that compute returns
-    # from adj_close get NaN propagation (loud failure), and any consumer
-    # that uses .fillna(close) is making the same fallback choice explicit.
+    # Panel has no adj_close column -> mirror close.
+    #
+    # HISTORY: this branch used to write NaN as a "loud sentinel" (F-RX-3 §9.12 (a)),
+    # on the premise that "setting adj_close = close would silently mis-handle
+    # ex-dividend dates". That premise was measured and REFUTED on 2026-08-15:
+    #
+    #   1. close in this cache is ALREADY total-return adjusted (split + dividend).
+    #      Documented in src/assembled_core/pipeline/io.py:33-41 and in the
+    #      2026-07-23 correction box of docs/CORPORATE_ACTIONS.md.
+    #      Empirical proof: AAPL's 4:1 split on 2020-08-31 shows NO jump
+    #      (121.699 -> 125.829), only 15 of 279,013 rows have close outside [low, high] and all 15 are float epsilon (max 2.8e-14 absolute, 1.5e-16 relative), i.e. the whole OHLC tuple is adjusted consistently.
+    #   2. Wherever adj_close WAS populated, it equalled close exactly:
+    #      180,734 of 180,734 rows, max abs diff 0.0. The column never carried
+    #      information distinct from close.
+    #
+    # The sentinel therefore protected against nothing and produced 98,279 NaN
+    # (35.2% of the cache), which is a real hazard for direct-parquet consumers.
+    # Do NOT reintroduce the NaN sentinel without first re-measuring points 1 and 2 —
+    # if a future writer ever appends genuinely UNADJUSTED close, this branch is
+    # wrong and the fix is to adjust at ingest, not to poison the column with NaN.
     if "adj_close" not in new_rows.columns:
-        import numpy as np
-
-        new_rows["adj_close"] = np.nan
-        logger.warning(
-            "[refresh-cache] panel lacks adj_close — appended rows have "
-            "adj_close=NaN (sentinel). Direct-parquet consumers must guard "
-            "or fillna(close) explicitly; live-paper hot-path strips "
-            "adj_close at load_eod_prices:146 and is unaffected."
+        new_rows["adj_close"] = new_rows["close"]
+        logger.info(
+            "[refresh-cache] panel lacks adj_close — mirrored from close "
+            "(close is already total-return adjusted; see comment above)."
         )
 
     # Reorder to match cache schema (drop any extra cols panel may carry).

@@ -12,9 +12,43 @@ _REQUIRED_COLS = {"symbol", "sector", "region", "currency", "asset_type"}
 _STR_COLS = ["symbol", "sector", "region", "currency", "asset_type"]
 
 
+#: Candidate locations for the security master, most authoritative first.
+#: configs/ is the real, git-tracked location; data/ is kept as a fallback
+#: because it was the documented default before 2026-08-15.
+_SECURITY_MASTER_CANDIDATES = (
+    Path("configs") / "security_master.csv",
+    Path("data") / "security_master.csv",
+)
+
+
 def get_default_security_master_path() -> Path:
-    """Return the default security master CSV path."""
-    return Path("data") / "security_master.csv"
+    """Return the default security master CSV path.
+
+    BUGFIX 2026-08-15: this returned ``data/security_master.csv``, which does
+    not exist and never has — the file is git-tracked at
+    ``configs/security_master.csv``. All three callers
+    (``scripts/run_backtest_strategy.py``, ``scripts/run_daily.py``,
+    ``pipeline/_tc_execution.py``) treat a missing file as "skip", each with a
+    log line along the lines of "group exposure limits will be skipped". The
+    net effect was that sector/region/FX group caps silently did not run in the
+    default configuration — a risk control that was present in code, absent in
+    behaviour (the E-135 family).
+
+    COVERAGE WARNING: the file currently maps 32 symbols against a 195-symbol
+    trading universe, and partial coverage here is RESTRICTIVE, not permissive.
+    ``trading_cycle_shared.py::_apply_group_exposure_caps`` does
+    ``out[dim].fillna("UNKNOWN")``, so every unmapped symbol joins one shared
+    "UNKNOWN" bucket that is capped as a single group. Extend this file before
+    enabling ``risk.group_limits``, or the cap will bite hardest exactly where
+    the metadata is missing.
+
+    Returns the first candidate that exists, falling back to the canonical
+    ``configs/`` path so the error message names the right file.
+    """
+    for candidate in _SECURITY_MASTER_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    return _SECURITY_MASTER_CANDIDATES[0]
 
 
 def _strip_strings(df: pd.DataFrame) -> pd.DataFrame:

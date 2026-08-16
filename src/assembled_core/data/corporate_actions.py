@@ -21,7 +21,17 @@ def load_corporate_actions(path: str | None = None) -> pd.DataFrame:
     """
     if path is None:
         return pd.DataFrame(columns=["symbol", "date", "action_type", "factor"])
-    return pd.read_csv(path, dtype={"symbol": "string", "action_type": "string"})
+    # comment="#" so a produced file can carry a provenance header describing
+    # how its rows were derived. That matters here more than usual: the
+    # DELISTING rows written by scripts/ops/build_corporate_actions.py are
+    # INFERRED FROM PANEL COVERAGE, not from corporate-action data (DAT-006),
+    # and that caveat has to travel with the file rather than live only in a
+    # doc nobody opens next to it.
+    return pd.read_csv(
+        path,
+        dtype={"symbol": "string", "action_type": "string"},
+        comment="#",
+    )
 
 
 def apply_splits_for_research_prices(

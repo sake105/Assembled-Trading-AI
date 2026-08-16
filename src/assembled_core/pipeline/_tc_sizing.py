@@ -659,30 +659,98 @@ def _sp_compute_final_multiplier(
             )
 
     # Prediction-market overlay (live/paper only — never fetches live API in backtest)
+    #
+    # FAIL-CLOSED (2026-08-15). This block used to end in
+    # `except Exception -> log.debug(...)`, leaving pm_multiplier at 1.0. The
+    # operator had explicitly enabled a risk overlay, the feed died, exposure
+    # stayed at full size, and the only trace was a debug line nobody reads.
+    # A risk reduction that disappears silently when its input disappears is
+    # worse than no risk reduction, because it is believed to be active.
+    #
+    # `on_unavailable` decides what an enabled-but-blind overlay does:
+    #   "reduce" (default) — apply the reduction as if the signal sat exactly
+    #                        at the threshold: we cannot see, so we assume the
+    #                        risk we were asked to protect against
+    #   "ignore"           — keep 1.0, but log at WARNING (never debug)
+    #   "block"            — refuse to size; the caller must halt the cycle
     pm_multiplier = 1.0
-    try:
-        pm_cfg = policy.get("prediction_market_overlay") or {}
-        if pm_cfg.get("enabled", False) and getattr(ctx, "mode", "") in (
-            "live",
-            "paper",
-        ):
+    pm_cfg = policy.get("prediction_market_overlay") or {}
+    pm_enabled = bool(pm_cfg.get("enabled", False)) and getattr(ctx, "mode", "") in (
+        "live",
+        "paper",
+    )
+    if pm_enabled:
+        pm_threshold = float(pm_cfg.get("threshold", 0.25))
+        on_unavailable = str(pm_cfg.get("on_unavailable", "reduce")).lower()
+        pm_degraded = False
+        pm_reason = ""
+        raw_pm = 0.0
+        pm_sources = 0
+        try:
             from src.assembled_core.risk.georisk_overlay import (
                 get_market_implied_geo_signal,
             )
 
             pm_signal = get_market_implied_geo_signal(policy=policy)
             raw_pm = float(pm_signal.get("signal", 0.0))
-            pm_threshold = float(pm_cfg.get("threshold", 0.25))
-            if raw_pm > pm_threshold:
+            pm_sources = int(pm_signal.get("n_sources", 0) or 0)
+            # get_market_implied_geo_signal marks its own degradation; treat a
+            # zero-source result as degraded even if the flag is missing, so an
+            # older provider version cannot slip through as "calm".
+            pm_degraded = bool(pm_signal.get("degraded", False)) or pm_sources == 0
+            pm_reason = str(pm_signal.get("degraded_reason", "") or "")
+            if not pm_degraded and raw_pm > pm_threshold:
                 reduction = float(pm_cfg.get("reduction_factor", 0.50))
                 pm_multiplier = max(0.0, 1.0 - reduction * raw_pm)
-            meta["prediction_market"] = {
-                "signal": raw_pm,
-                "multiplier": pm_multiplier,
-                "n_sources": pm_signal.get("n_sources", 0),
-            }
-    except Exception as e:
-        log.debug("prediction_market_overlay skipped: %s", e)
+        except Exception as e:
+            pm_degraded = True
+            pm_reason = f"{type(e).__name__}: {e}"
+
+        if on_unavailable not in ("reduce", "ignore", "block"):
+            # Do not absorb a config typo into the conservative branch: the
+            # operator would get a reduction they never configured, and the
+            # misspelling would never surface.
+            log.warning(
+                "[sizing] prediction_market_overlay.on_unavailable=%r is not "
+                "one of reduce|ignore|block - falling back to 'reduce'.",
+                on_unavailable,
+            )
+            on_unavailable = "reduce"
+
+        if pm_degraded:
+            if on_unavailable == "block":
+                raise RuntimeError(
+                    "prediction_market_overlay is enabled but its signal is "
+                    f"unavailable ({pm_reason or 'no sources'}), and "
+                    "on_unavailable='block'. Refusing to size positions "
+                    "without the risk input that was configured as required."
+                )
+            if on_unavailable == "ignore":
+                log.warning(
+                    "[sizing] prediction_market_overlay ENABLED but signal "
+                    "unavailable (%s). on_unavailable='ignore' -> exposure NOT "
+                    "reduced. The overlay is inert for this cycle.",
+                    pm_reason or "no sources",
+                )
+            else:
+                reduction = float(pm_cfg.get("reduction_factor", 0.50))
+                pm_multiplier = max(0.0, 1.0 - reduction * pm_threshold)
+                log.warning(
+                    "[sizing] prediction_market_overlay ENABLED but signal "
+                    "unavailable (%s). Applying the threshold-level reduction "
+                    "(multiplier=%.4f) instead of assuming calm markets.",
+                    pm_reason or "no sources",
+                    pm_multiplier,
+                )
+
+        meta["prediction_market"] = {
+            "signal": raw_pm,
+            "multiplier": pm_multiplier,
+            "n_sources": pm_sources,
+            "degraded": pm_degraded,
+            "degraded_reason": pm_reason,
+            "on_unavailable": on_unavailable,
+        }
 
     # HMM regime overlay — reduce/increase exposure based on detected market regime
     hmm_regime_multiplier = 1.0

@@ -1,0 +1,67 @@
+{
+  "archived_at": "2026-08-15T17:05:16+00:00",
+  "reason": "Datenbestandsbewertung 2026-08-15, Punkt 7: verwaiste Bestaende. ARCHIVIERT statt geloescht, weil /data/ und /output/ gitignored sind und der EODHD-Zugang seit 2026-08-05 tot ist - Kurshistorie waere nicht neu ziehbar.",
+  "manifest_rebuilt": "2026-08-16: neu aus dem Verzeichnis erzeugt. Die erste Fassung listete drei der groessten Dateien nicht (Stage-3-Review); ein anschliessender Nachtrag zaehlte Dateien aus bereits erfassten Verzeichnissen doppelt. Diese Fassung fuehrt jede Top-Level-Einheit genau einmal - Summe unten gegen das Verzeichnis geprueft.",
+  "total_bytes": 160232916,
+  "entries": [
+    {
+      "moved_to": "archive/orphaned_data_2026-08-15/daily.parquet.PRE_ADJCLOSE_BACKFILL.bak",
+      "kind": "file",
+      "bytes": 11642639,
+      "note": "Stand von output/aggregates/daily.parquet VOR dem adj_close-Backfill (98.279 NaN = 35,22 %). Der Apply-Lauf hinterliess kein eigenes Protokoll - diese Datei ist der Beleg."
+    },
+    {
+      "moved_to": "archive/orphaned_data_2026-08-15/data",
+      "kind": "directory",
+      "files": 2,
+      "bytes": 13325,
+      "note": "verwaist, siehe Datenbestandsbewertung 2026-08-15"
+    },
+    {
+      "moved_to": "archive/orphaned_data_2026-08-15/datensammlungen",
+      "kind": "directory",
+      "files": 45,
+      "bytes": 7333489,
+      "note": "verwaister Snapshot 2025-12-03, 45 Ticker, kein adj_close; ohne EODHD nicht neu ziehbar"
+    },
+    {
+      "moved_to": "archive/orphaned_data_2026-08-15/output",
+      "kind": "directory",
+      "files": 31,
+      "bytes": 51053607,
+      "note": "verwaist, siehe Datenbestandsbewertung 2026-08-15"
+    },
+    {
+      "moved_to": "archive/orphaned_data_2026-08-15/trading_decisions.PRE_TESTROW_CLEANUP.jsonl",
+      "kind": "file",
+      "bytes": 89935089,
+      "note": "Vollstaendige Kopie des Audit-Trails VOR der Testzeilen-Bereinigung 2026-08-15. Einziger Rueckweg, output/ ist gitignored."
+    },
+    {
+      "moved_to": "archive/orphaned_data_2026-08-15/trading_decisions.REMOVED_TESTROWS.jsonl",
+      "kind": "file",
+      "bytes": 254767,
+      "note": "Die 1.129 entfernten Zeilen (run_id test_run_001/365 + test_run_123/356, Symbole AAA/204 + BBB/204). Getrennt aufbewahrt, damit die Messung nachpruefbar bleibt statt nur behauptet."
+    }
+  ],
+  "empty_dirs_removed": [
+    "data\\raw\\crypto\\coingecko",
+    "data\\raw\\crypto",
+    "data\\raw\\fx\\ecb",
+    "data\\raw\\fx",
+    "data\\raw\\intraday\\alphavantage\\5m",
+    "data\\raw\\intraday\\alphavantage\\5min",
+    "data\\raw\\intraday\\alphavantage",
+    "data\\raw\\intraday"
+  ],
+  "audit_trail_cleanup": {
+    "file": "output/audit/trading_decisions.jsonl",
+    "removed_rows": 1129,
+    "criteria": "run_id in {test_run_001, test_run_123} oder symbol in {AAA, BBB}",
+    "before": 434750,
+    "after": 433621,
+    "why": "Testzeilen im Audit-Trail des LAUFENDEN Paper-Piloten. Ein Audit-Trail, der Entscheidungen fuehrt, die nie stattgefunden haben, ist kein Audit-Trail.",
+    "origin": "Subprozess-Kontamination - siehe KNOWN_ISSUES §0.06 (e); die In-Process-Isolation in tests/conftest.py erreichte diese Schreiber nicht.",
+    "reversible": "ja, ueber trading_decisions.PRE_TESTROW_CLEANUP.jsonl in diesem Verzeichnis"
+  }
+}

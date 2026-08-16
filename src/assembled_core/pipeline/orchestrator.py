@@ -326,12 +326,20 @@ def _gate_result_to_dict(gate_result) -> dict[str, Any] | None:
     passed = sum(1 for r in gate_result.gate_results if r.result.value == "ok")
     warnings = sum(1 for r in gate_result.gate_results if r.result.value == "warning")
     blocked = sum(1 for r in gate_result.gate_results if r.result.value == "block")
+    # E-066: SKIPPED is its own state and must survive serialisation. It was
+    # missing here, so the manifest carried ok/warning/block only — a gate that
+    # never ran vanished from every aggregate built from this dict, and
+    # "3 ok, 0 block" read as "everything was verified". The per-gate entries
+    # below always contained result == "skipped", but aggregates are what get
+    # read; detail strings are not.
+    skipped = sum(1 for r in gate_result.gate_results if r.result.value == "skipped")
 
     return {
         "overall_result": gate_result.overall_result.value,
         "passed_gates": passed,
         "warning_gates": warnings,
         "blocked_gates": blocked,
+        "skipped_gates": skipped,
         "gate_results": [
             {
                 "gate_name": r.gate_name,

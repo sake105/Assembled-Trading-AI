@@ -16,6 +16,45 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+#: Repo root: src/assembled_core/data/universe.py -> up 4.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_watchlist_path() -> Path | None:
+    """Locate watchlist.txt without depending on the current directory.
+
+    Order: configured ``settings.watchlist_file`` first (so an operator
+    override wins), then the repo-root file, then a plain relative path for
+    backwards compatibility with callers that already chdir'd correctly.
+
+    Returns the first existing candidate, or the repo-root path so that a
+    caller's error message names a real location rather than a bare filename.
+    """
+    candidates: list[Path] = []
+    try:
+        from src.assembled_core.config.settings import get_settings
+
+        configured = getattr(get_settings(), "watchlist_file", None)
+        if configured:
+            candidates.append(Path(configured))
+    except (ImportError, AttributeError, OSError, ValueError, TypeError):
+        # Narrow on purpose: settings may be unimportable in a minimal env,
+        # missing the attribute, or hold an unusable path. Any OTHER exception
+        # is a real defect and should surface rather than silently degrade the
+        # universe to the repo-root fallback.
+        pass
+
+    candidates.append(_REPO_ROOT / "watchlist.txt")
+    candidates.append(Path("watchlist.txt"))
+
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                return candidate
+        except OSError:  # pragma: no cover - defensive
+            continue
+    return _REPO_ROOT / "watchlist.txt"
+
 
 def _universe_path(universe_name: str, root: Path, fmt: str) -> Path:
     ext = ".csv" if fmt == "csv" else ".parquet"
@@ -109,21 +148,34 @@ def get_universe_members(
         # (delisted symbols are invisible to the caller). The PIT-safe API is
         # `get_universe_members_pit`; surface this fallback so the risk is
         # observable in logs.
-        import logging
-
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "[Universe] get_universe_members called with as_of=None — "
             "falling back to watchlist.txt; this is NOT PIT-safe and hides "
             "delistings in historical contexts. Use get_universe_members_pit "
             "for point-in-time membership."
         )
-        wl = Path("watchlist.txt")
-        if wl.exists():
+        # Resolve against settings (and the repo root) rather than the CWD.
+        # `Path("watchlist.txt")` silently returned [] whenever the process was
+        # started from anywhere but the repo root — an empty universe that
+        # looks exactly like "no members today" instead of "wrong directory".
+        wl = _resolve_watchlist_path()
+        if wl is not None and wl.exists():
             return sorted(
-                line.strip()
-                for line in wl.read_text(encoding="utf-8").splitlines()
-                if line.strip() and not line.startswith("#")
+                # strip() BEFORE the comment test: an indented "# comment" used
+                # to slip through as a symbol, because startswith('#') was
+                # evaluated on the unstripped line.
+                stripped
+                for stripped in (
+                    line.strip() for line in wl.read_text(encoding="utf-8").splitlines()
+                )
+                if stripped and not stripped.startswith("#")
             )
+        logger.warning(
+            "[Universe] watchlist fallback found no readable file (looked at "
+            "%s) — returning an EMPTY universe. That is not the same as 'no "
+            "members'.",
+            wl,
+        )
         return []
 
     if not require_active_status:

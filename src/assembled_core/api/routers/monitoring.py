@@ -118,6 +118,9 @@ def get_qa_status_summary(
                         "ok": gate_dict.get("passed_gates", 0),
                         "warning": gate_dict.get("warning_gates", 0),
                         "block": gate_dict.get("blocked_gates", 0),
+                        # E-066: SKIPPED is its own state. Omitting it here made
+                        # an unchecked gate indistinguishable from a passed one.
+                        "skipped": gate_dict.get("skipped_gates", 0),
                     }
 
                 # Get metrics if available
@@ -217,6 +220,8 @@ def get_qa_status_summary(
                 "ok": gate_summary.passed_gates,
                 "warning": gate_summary.warning_gates,
                 "block": gate_summary.blocked_gates,
+                # E-066: "not checked" is never a pass.
+                "skipped": gate_summary.skipped_gates,
             },
             key_metrics={
                 "sharpe_ratio": metrics.sharpe_ratio,

@@ -1,0 +1,27 @@
+# Non-US / legacy symbols preserved from the retired root watchlist_full.txt
+# (moved to archive/watchlists_2026-08-15/ on 2026-08-15).
+# These had ZERO code consumers; kept so the tickers are not lost.
+ASML.AS
+BA.L
+BAVA.CO
+COIN
+DRO.AX
+ETSY
+HAG.DE
+IOS.DE
+JD
+MDB
+PAH3.DE
+RBLX
+RHM.DE
+RR.L
+SEDG
+SHOP
+SMHN.DE
+SRT3.DE
+TEAM
+TSM
+TWLO
+VOW3.DE
+VRNA
+ZS

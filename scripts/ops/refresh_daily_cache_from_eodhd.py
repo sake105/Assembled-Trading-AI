@@ -86,15 +86,33 @@ def _fetch_symbol(tok: str, sym: str, frm: str) -> list[dict]:
 def refresh(*, dry_run: bool) -> int:
     import pandas as pd
 
+    # Protokoll ZUERST: "kein Token" und "kein Cache" sind Betriebszustaende,
+    # die genauso belegt gehoeren wie ein Anbieterausfall - und sie waren die
+    # letzten beiden der sieben return-Pfade ohne Evidenz.
+    plog = None
+    try:
+        from src.assembled_core.data.pull_log import PullLog
+
+        plog = PullLog(source="eodhd_eod")
+    except Exception as _plexc:  # pragma: no cover - must not block the refresh
+        logger.warning("[refresh-eodhd] pull_log unavailable: %s", _plexc)
+
+    def _abort(reason: str) -> None:
+        if plog is not None:
+            plog.record("__run__", status="skipped", n_rows=0, skipped_reason=reason)
+            plog.write()
+
     tok = os.environ.get("EODHD_API_TOKEN")
     if not tok:
         logger.error("[refresh-eodhd] EODHD_API_TOKEN fehlt in .env")
+        _abort("no EODHD_API_TOKEN - no request was made")
         _write_status(
             rc=-1, cache_latest=None, new_latest=None, rows_appended=0, error="no token"
         )
         return -1
     if not CACHE_PATH.exists():
         logger.error("[refresh-eodhd] cache not found: %s", CACHE_PATH)
+        _abort(f"cache missing at {CACHE_PATH} - no request was made")
         _write_status(
             rc=-1,
             cache_latest=None,
@@ -116,7 +134,18 @@ def refresh(*, dry_run: bool) -> int:
         len(stale),
         len(per_sym_max),
     )
+    # E-112 request protocol for the primary price ingest. The existing status
+    # JSON is a RUN aggregate (rc, rows_appended); it cannot say which symbols
+    # were asked for or what each one returned. That per-symbol record is what
+    # a later coverage question actually needs.
+    #
+    # Initialised BEFORE the stale.empty return so that even a run which asks
+    # for nothing leaves a protocol saying "0 requested". "No protocol file" and
+    # "we asked and got nothing" must not look the same afterwards — that
+    # ambiguity is the whole of E-112.
     if stale.empty:
+        if plog is not None:
+            plog.write()
         _write_status(
             rc=0, cache_latest=cache_latest, new_latest=cache_latest, rows_appended=0
         )
@@ -124,6 +153,7 @@ def refresh(*, dry_run: bool) -> int:
 
     frames = []
     n_fail = 0
+
     for sym, cmax in stale.items():
         frm = (cmax - pd.Timedelta(days=5)).date().isoformat()
         try:
@@ -131,14 +161,38 @@ def refresh(*, dry_run: bool) -> int:
         except Exception as exc:  # noqa: BLE001
             n_fail += 1
             logger.warning("[refresh-eodhd] %s fetch failed: %s", sym, str(exc)[:80])
+            if plog is not None:
+                plog.record(
+                    sym,
+                    window=(frm, "today"),
+                    http_status=getattr(exc, "code", None),
+                    error=f"{type(exc).__name__}: {str(exc)[:200]}",
+                )
             continue
         if not rows:
+            # E-112, the canonical case: a successful request that returned
+            # nothing used to `continue` without a trace. "No new rows for LEH"
+            # and "LEH was never requested" then look identical afterwards, and
+            # a coverage claim built on that is a guess. This is the ingest the
+            # EODHD outage in KNOWN_ISSUES §0.0 is about, so it is exactly the
+            # one that must be able to answer "did we ask, and what came back".
+            if plog is not None:
+                plog.record(sym, window=(frm, "today"), n_rows=0)
             continue
         df = pd.DataFrame(rows)
         need = {"date", "open", "high", "low", "close", "adjusted_close", "volume"}
         if not need.issubset(df.columns):
             n_fail += 1
+            if plog is not None:
+                plog.record(
+                    sym,
+                    window=(frm, "today"),
+                    n_rows=len(rows),
+                    error=f"schema mismatch, missing: {sorted(need - set(df.columns))}",
+                )
             continue
+        if plog is not None:
+            plog.record(sym, window=(frm, "today"), n_rows=len(rows))
         df["timestamp"] = pd.to_datetime(df["date"], utc=True)
         # BLOCKER-Fix (Review Stage-2, E-041-Klasse): PIT-Cutoff — EODHD /eod/ liefert
         # während offener US-Session einen FORMING same-day Bar (empirisch verifiziert).
@@ -180,6 +234,17 @@ def refresh(*, dry_run: bool) -> int:
         )
         frames.append(out)
         time.sleep(0.03)
+
+    # Written before every `return` below, so the protocol survives each of
+    # them — including "all fetches failed", the run where it matters most.
+    # NOTE the precise claim: this covers the RETURN paths. An exception
+    # escaping outside the per-symbol try (say a malformed date field) still
+    # ends refresh() without a protocol file. Wrapping the whole loop in
+    # try/finally would close that too and is the better shape; it is not
+    # done here because this is the live cache writer and the change would
+    # need its own risk review. Tracked in KNOWN_ISSUES §0.06 (c).
+    if plog is not None:
+        plog.write()
 
     if not frames:
         # MAJOR-Fix (Review TR): 100%-Fetch-Failure darf NICHT als ok:true/rc=0

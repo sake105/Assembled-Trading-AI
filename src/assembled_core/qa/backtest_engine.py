@@ -1248,9 +1248,21 @@ def run_portfolio_backtest(
     rebalance_schedule: str = "daily",
     # Optional: restrict rebalance to these timestamps only (e.g. for EOD parity tests)
     rebalance_timestamps: list[pd.Timestamp] | None = None,
-    # A7: Corporate actions — splits/dividends adjustment (default: False for backtest to avoid data dep)
-    enable_corporate_actions: bool = False,
+    # A7: Corporate actions — splits/dividends adjustment.
+    # Default flipped False -> True on 2026-08-15: a disabled-by-default safety
+    # feature is not a safety feature. With no actions file present this is a
+    # no-op, so the flip cannot change existing results; it only means that a
+    # file, once produced, is actually used instead of silently ignored.
+    enable_corporate_actions: bool = True,
     corporate_actions_path: str | None = None,
+    # DOUBLE-ADJUSTMENT GUARD. output/aggregates/daily.parquet is ALREADY
+    # total-return adjusted (splits + dividends) — documented in
+    # pipeline/io.py:33-41, measured 2026-08-15 (AAPL 4:1 on 2020-08-31 shows
+    # no jump; only 15 of 279,013 rows have close outside [low, high] and all 15 are float epsilon (max 2.8e-14 absolute, 1.5e-16 relative), i.e. the whole OHLC tuple is adjusted consistently). Applying a
+    # split factor on top of that would divide already-divided prices and
+    # produce a silently wrong series. Set this False ONLY for a genuinely
+    # unadjusted (raw) price panel.
+    prices_are_total_return_adjusted: bool = True,
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -1363,26 +1375,55 @@ def run_portfolio_backtest(
             "[BACKTEST] Corporate actions DISABLED — splits/dividends ignored. "
             "Results may be misleading for multi-year backtests."
         )
-    elif corporate_actions_path is not None:
-        try:
-            import pandas as _pd_ca
-            from src.assembled_core.data.corporate_actions import (
-                adjust_prices_for_splits,
-            )
-
-            splits = _pd_ca.read_csv(corporate_actions_path)
-            prices = adjust_prices_for_splits(prices, splits)
-            logger.info(
-                "[BACKTEST] Corporate actions applied from %s", corporate_actions_path
-            )
-        except Exception as _ca_err:
-            logger.warning(
-                "[BACKTEST] Corporate actions adjustment failed: %s", _ca_err
-            )
+    elif corporate_actions_path is None:
+        # Previously logger.debug — i.e. invisible. That is the worst of the
+        # three states: the caller asked for corporate-action handling, got
+        # none, and nothing said so. "Enabled but inert" must be as loud as
+        # "disabled" (E-135: a feature built on a mechanism that never fires).
+        logger.warning(
+            "[BACKTEST] enable_corporate_actions=True but NO corporate_actions_path "
+            "was given — NO adjustment was applied. This run is equivalent to "
+            "corporate actions being disabled. Produce a file with "
+            "scripts/ops/build_corporate_actions.py and pass "
+            "--corporate-actions-path."
+        )
+    elif prices_are_total_return_adjusted:
+        # Refuse rather than double-adjust. The engine cannot detect adjustment
+        # state from the data alone, so it trusts the caller's declaration —
+        # and the default declaration matches the panel this repo actually
+        # ships. Dividends/delistings are handled in the ledger path
+        # (execution/unified_paper_engine.py), not here, so skipping the split
+        # adjustment loses nothing for an already-adjusted panel.
+        logger.info(
+            "[BACKTEST] Corporate actions file present (%s) but the price panel "
+            "is declared TOTAL-RETURN ADJUSTED — split adjustment SKIPPED to "
+            "avoid double-adjustment. Pass "
+            "prices_are_total_return_adjusted=False only for a raw panel.",
+            corporate_actions_path,
+        )
     else:
-        logger.debug(
-            "[BACKTEST] enable_corporate_actions=True but no corporate_actions_path provided"
-            " — skipping adjustment"
+        # Raw panel: apply. Failures here are NOT swallowed. The previous broad
+        # `except Exception -> warning` neutralised the loud-failure semantics
+        # that corporate_actions.py:184 deliberately raises on schema drift,
+        # turning a wrong-schema actions file into a silently unadjusted run.
+        from src.assembled_core.data.corporate_actions import (
+            adjust_prices_for_splits,
+            load_corporate_actions,
+        )
+
+        # Use the canonical loader, not a bare read_csv. The loader carries
+        # comment="#", and scripts/ops/build_corporate_actions.py writes a
+        # provenance header (DAT-006 caveats about coverage-inferred delisting
+        # dates) ahead of the CSV. A raw read_csv takes the first "#" line as
+        # the header, adjust_prices_for_splits then misses its required columns
+        # and raises — and since the broad except around this block was removed,
+        # that aborts the backtest. Producer and consumer come from the same
+        # change here; they have to agree on the format (E-052 family).
+        splits = load_corporate_actions(str(corporate_actions_path))
+        prices = adjust_prices_for_splits(prices, splits)
+        logger.info(
+            "[BACKTEST] Corporate actions applied from %s (raw panel)",
+            corporate_actions_path,
         )
 
     # Step 1: Feature computation

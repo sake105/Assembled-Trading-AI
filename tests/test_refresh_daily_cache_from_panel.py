@@ -79,11 +79,24 @@ def _make_panel(tmp_path: Path, latest: str, syms: list[str]) -> Path:
     return p
 
 
-def test_refresh_appends_fresher_panel_rows_and_sets_adj_close_nan(tmp_path):
-    """Panel newer than cache → append new rows. F-RX-3: panel lacks adj_close,
-    appended rows get NaN sentinel (NOT close) so direct-parquet consumers can
-    detect-and-handle. Live-paper hot-path strips adj_close at load and is
-    unaffected.
+def test_refresh_appends_fresher_panel_rows_and_mirrors_adj_close(tmp_path):
+    """Panel newer than cache → append new rows with adj_close mirrored from close.
+
+    CONTRACT CHANGE 2026-08-15. This test previously asserted the opposite:
+    that appended rows carry a NaN "sentinel" in adj_close (F-RX-3 §9.12 (a)).
+    The premise behind that sentinel — that adj_close = close "would silently
+    mis-handle ex-dividend dates" — was measured and refuted:
+
+      - close in this cache is already TOTAL-RETURN adjusted (documented in
+        pipeline/io.py:33-41; measured: AAPL's 4:1 split on 2020-08-31 shows no
+        jump, and only 15 of 279,013 rows have close outside [low, high] and all 15 are float epsilon (max 2.8e-14 absolute, 1.5e-16 relative), i.e. the whole OHLC tuple is adjusted consistently)
+      - wherever adj_close was populated it equalled close EXACTLY: 180,734 of
+        180,734 rows, max abs difference 0.0
+
+    So the sentinel guarded nothing and left 98,279 NaN (35.2% of the cache).
+    The test is inverted rather than deleted, because the invariant it should
+    have been protecting all along — adj_close is never silently absent — is
+    worth pinning down.
     """
 
     mod = _load_module()
@@ -97,9 +110,13 @@ def test_refresh_appends_fresher_panel_rows_and_sets_adj_close_nan(tmp_path):
     assert out["timestamp"].max() == pd.Timestamp("2026-05-18", tz="UTC")
     new_rows = out[out["timestamp"] > pd.Timestamp("2026-05-14", tz="UTC")]
     assert len(new_rows) > 0
-    # Panel had no adj_close → set to NaN sentinel (F-RX-3 §9.12 (a))
-    assert new_rows["adj_close"].isna().all(), (
-        "appended rows must carry NaN sentinel in adj_close, not silent close-fallback"
+    # Panel had no adj_close → mirrored from close (close is already TR-adjusted)
+    assert not new_rows["adj_close"].isna().any(), (
+        "appended rows must not carry NaN in adj_close; close is already "
+        "total-return adjusted, so mirroring it is exact, not a fallback"
+    )
+    assert (new_rows["adj_close"] == new_rows["close"]).all(), (
+        "adj_close must equal close exactly for appended rows"
     )
     # Original cache rows still have their valid adj_close (close-equivalent)
     cache_old = out[out["timestamp"] <= pd.Timestamp("2026-05-14", tz="UTC")]

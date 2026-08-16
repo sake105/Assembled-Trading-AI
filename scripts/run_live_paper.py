@@ -237,6 +237,9 @@ def _load_prices(app_cfg: dict):
         logger.info("[run_live_paper] local cache unavailable: %s", exc)
 
     # --- Try 2: yfinance batch (authoritative when cache is stale) ---
+    # Initialised before the try so the BLOCK path below can report WHY the
+    # feed failed instead of just "unknown age" (DAT-005 / E-142).
+    feed_status = None
     try:
         from src.assembled_core.data.sources.yfinance_source import (
             fetch_prices_yfinance,
@@ -256,6 +259,58 @@ def _load_prices(app_cfg: dict):
             end_date,
         )
         prices = fetch_prices_yfinance(symbols, start_date, end_date)
+
+        # --- DAT-005 / E-142: read the feed stamp the source just wrote ---
+        #
+        # SCOPE, stated plainly: this makes the stamp VISIBLE. It does not yet
+        # make it BINDING. fetch_prices_yfinance stamps the outcome into
+        # DataFrame.attrs and nobody read it; now it is read and logged, and
+        # the BLOCK path below reports the feed reason instead of "unknown age".
+        # But the `if not prices.empty` decision twelve lines down is unchanged:
+        # on a PARTIAL outage (say 40 of 200 symbols missing) the pilot still
+        # trades the silently shrunken universe, now with a WARNING in the log.
+        #
+        # That is deliberate for this step, not an oversight. Deciding at what
+        # share of missing symbols a live cycle must abort is a risk decision in
+        # a protected path, and it does not belong as a side effect of a data
+        # inventory. Tracked as an open item in KNOWN_ISSUES §0.06.
+        #
+        # attrs survive the path from source to here (assign / boolean mask /
+        # reset_index all preserve them), so this read is reliable.
+        # Cache-loaded frames carry no stamp at all -> get_feed_status returns
+        # None, which means "unknown", NOT "ok". Do not treat it as ok.
+        try:
+            from src.assembled_core.data.feed_status import (
+                FEED_ERROR,
+                get_feed_status,
+            )
+
+            feed_status = get_feed_status(prices)
+        except Exception as exc:  # pragma: no cover - never break the fetch path
+            logger.debug("[run_live_paper] feed_status unavailable: %s", exc)
+            FEED_ERROR = "error"  # noqa: N806
+
+        if feed_status:
+            _reason = feed_status.get("reason")
+            if feed_status.get("status") == FEED_ERROR:
+                logger.error(
+                    "[run_live_paper] yfinance reported FEED OUTAGE "
+                    "(reason=%s, rows=%s) - the result is an error, not an "
+                    "empty window.",
+                    _reason,
+                    feed_status.get("n_rows"),
+                )
+            elif _reason == "partial_outage":
+                _got = int(prices["symbol"].nunique()) if not prices.empty else 0
+                logger.warning(
+                    "[run_live_paper] yfinance PARTIAL OUTAGE - %d of %d "
+                    "requested symbols returned data (%s rows). The universe "
+                    "is silently smaller than intended for this cycle.",
+                    _got,
+                    len(symbols),
+                    feed_status.get("n_rows"),
+                )
+
         if not prices.empty:
             fresh_latest = pd.Timestamp(prices["timestamp"].max())
             logger.info(
@@ -277,12 +332,21 @@ def _load_prices(app_cfg: dict):
     # network-outage days is still undesirable. Block instead — operator can
     # see the run failed and either fix the data path or skip the day.
     if cache_prices is not None and not cache_prices.empty:
+        # Carry the feed's own reason into the CRITICAL line. Without it the
+        # operator sees "unknown age" and has to guess whether the upstream
+        # problem was rate-limiting, a credential failure or an empty window.
+        _feed_reason = (
+            f"{feed_status.get('status')}/{feed_status.get('reason')}"
+            if feed_status
+            else "no feed stamp (source never reached or cache path)"
+        )
         logger.critical(
             "[run_live_paper] yfinance unavailable AND cache is stale (%s) — "
             "BLOCKING. No trades will be submitted on out-of-date prices. "
-            "Resolve the upstream data issue or run scripts/ops/"
+            "feed_status=%s. Resolve the upstream data issue or run scripts/ops/"
             "refresh_daily_cache_from_panel.py before retrying.",
             cache_stale_reason or "unknown age",
+            _feed_reason,
         )
         return pd.DataFrame()
 

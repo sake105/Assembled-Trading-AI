@@ -66,9 +66,19 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
     same-day test residue (runs 22.+23.07. 21:30). Same contamination class
     as the order-lifecycle journal leak (Stage-1 M1, 2026-07-22).
 
-    This autouse fixture makes the whole class structurally impossible:
-    the module-level default paths are pointed at tmp_path for every test.
-    Tests that pass explicit paths are unaffected.
+    This autouse fixture closes that class IN-PROCESS: the module-level default
+    paths are pointed at tmp_path for every test. Tests that pass explicit paths
+    are unaffected.
+
+    NOT closed by the module-attribute patches: subprocesses. 42 test files
+    under tests/ spawn one, and a child re-imports the module with its real
+    default. Measured 2026-08-15 during a full suite run:
+    output/audit/trading_decisions.jsonl grew by 681 rows while this fixture was
+    active. Stores that expose an ENV override (kill switch, reconcile audit,
+    and since 2026-08-15 the audit trail via AUDIT_TRAIL_PATH) are isolated on
+    both sides because env vars are inherited; the rest are in-process only.
+    An earlier version of this docstring said "structurally impossible" without
+    that qualifier — see KNOWN_ISSUES §0.06 (e).
     """
     # Each patch is individually import-guarded: importing a module here
     # pulls its PACKAGE __init__ chain (qa/__init__ -> walk_forward ->
@@ -104,6 +114,24 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
             "src.assembled_core.events.crisis_alpha.state_machine",
             "_DEFAULT_STATE_PATH",
             tmp_path / "crisis_alpha_state.json",
+        ),
+        # 2026-08-15: the decision audit trail was the next store still
+        # unisolated. Measured on the real file before the cleanup: 1,129 rows
+        # carrying run_id=test_run_001 / test_run_123 or symbols AAA/BBB among
+        # 434,750 production rows. Those rows are preserved verbatim in
+        # archive/orphaned_data_2026-08-15/trading_decisions.REMOVED_TESTROWS.jsonl
+        # — grep the live file and you will now find none, which is the point;
+        # the archived copy is what makes the number re-checkable.
+        # Less acute than the kill-switch case (nothing reads this file as a
+        # control input), but it is the same contamination class, and an audit
+        # trail that records decisions which never happened is not an audit
+        # trail. Listed here rather than after the next incident — the point of
+        # E-139 is that extending isolation only for whatever just bit leaves
+        # the rest of the family open.
+        (
+            "src.assembled_core.ops.audit_trail",
+            "_DEFAULT_OUTPUT",
+            tmp_path / "trading_decisions.jsonl",
         ),
     ]
     for _mod_name, _attr, _target in _patches:
@@ -141,6 +169,51 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
     monkeypatch.setenv(
         "ASSEMBLED_RECONCILE_AUDIT", str(tmp_path / "reconciliation_audit.jsonl")
     )
+
+    # SUBPROCESS GAP (2026-08-15). The module-attribute patches above only bind
+    # in THIS process. 42 test files under tests/ spawn subprocesses, and a
+    # child re-imports the module with its real default — so the attribute
+    # patch never applies there. Measured during a full suite run:
+    # output/audit/trading_decisions.jsonl grew by 681 rows (447,625 ->
+    # 448,306) while the isolation was supposedly active, with backtest
+    # decisions dated 2023-02-23.
+    #
+    # Environment variables ARE inherited by children, so anything with an env
+    # override gets it here as well. audit_trail._get_output_path() prefers
+    # AUDIT_TRAIL_PATH over the module default, which makes this the one lever
+    # that reaches both sides.
+    #
+    # HONEST SCOPE: this closes the audit trail for subprocesses. The other
+    # module-attribute patches above (intent_store, order_lifecycle,
+    # qa_gates, crisis_alpha, factor_store) have NO env override and therefore
+    # remain in-process only. The fixture docstring's "structurally impossible"
+    # is true for the in-process half and overstated for the rest — tracked in
+    # KNOWN_ISSUES §0.06 rather than silently left as a stronger claim than the
+    # code earns.
+    monkeypatch.setenv("AUDIT_TRAIL_PATH", str(tmp_path / "trading_decisions.jsonl"))
+
+    # 2026-08-15: the factor store was the last unisolated operational store,
+    # and it is the one that actually bit. Tests write computed panels into the
+    # REAL output/factors/ via store_factors and read them back on the next
+    # run. Its cache key is a universe hash with NO code or feature version
+    # (factor_store.compute_universe_key), so a panel computed by older code
+    # survives changes to feature/sizing logic and is silently reused.
+    #
+    # Observed effect: three tests in test_pipeline_trading_cycle_smoke.py fail
+    # in this working tree and pass in a fresh worktree, purely because the
+    # fresh tree has an empty output/factors/. Proven causally: pointing the
+    # factors root at tmp_path turns the same file from 3 failed to 7 passed.
+    # The failure looks like a code regression and is a cache artefact.
+    #
+    # Patched as a function (not a module attribute) because the root is
+    # resolved per call via _default_factors_root().
+    try:
+        import src.assembled_core.data.factor_store as _fs_mod
+
+        _iso_factors_root = tmp_path / "factors"
+        monkeypatch.setattr(_fs_mod, "_default_factors_root", lambda: _iso_factors_root)
+    except ImportError:  # pragma: no cover - minimal env without the module
+        pass
 
 
 @pytest.fixture

@@ -17,6 +17,15 @@ data/raw/fundamentals/
 legacy/
 backup/
 
+# Orphaned-DATA archive (2026-08-15). archive/ being tracked is right for the
+# research CODE that lives here, but wrong for data payloads: moving orphaned
+# files out of the gitignored /data/ and /output/ zones into archive/ would
+# otherwise commit them irreversibly — including a 90 MB paper-trading decision
+# log. The bulk stays out of git; MANIFEST.json is tracked so the move itself
+# remains auditable.
+archive/orphaned_data_2026-08-15/**
+!archive/orphaned_data_2026-08-15/MANIFEST.json
+
 # Binary Archives
 *.zip
 *.7z

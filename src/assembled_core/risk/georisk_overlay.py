@@ -293,6 +293,11 @@ def get_market_implied_geo_signal(
     """
     poly_sig = None
     kals_sig = None
+    # Collect failures instead of dropping them into a debug log. A dead feed
+    # and a calm world both produced signal=0.0 before, which is the core
+    # fail-open here: "we could not measure geopolitical risk" was reported in
+    # exactly the same shape as "there is no geopolitical risk".
+    failures: list[str] = []
 
     if use_polymarket:
         try:
@@ -301,8 +306,28 @@ def get_market_implied_geo_signal(
             )
 
             poly_sig = _poly_signal(policy=policy)
+            # An EMPTY answer is not a calm answer. polymarket_source returns a
+            # perfectly valid dict with n_markets=0 when fetch_active_markets
+            # comes back empty (HTTP 200 with no rows, a geo filter that no
+            # longer matches, a renamed category). Without this check that dict
+            # is truthy, counts as a working source, and signal=0.0 reads as
+            # "no geopolitical risk" — the exact fail-open this function is
+            # supposed to close. Guarding only against exceptions guards against
+            # the rarer half of the problem.
+            if (
+                poly_sig is not None
+                and "n_markets" in poly_sig
+                and int(poly_sig.get("n_markets") or 0) <= 0
+            ):
+                failures.append("polymarket: returned 0 markets")
+                log.warning(
+                    "[GeoRisk] polymarket returned 0 markets - treating as "
+                    "UNAVAILABLE, not as calm."
+                )
+                poly_sig = None
         except Exception as _exc:
-            log.debug("[GeoRisk] polymarket signal failed: %s", _exc)
+            failures.append(f"polymarket: {type(_exc).__name__}: {_exc}")
+            log.warning("[GeoRisk] polymarket signal FAILED: %s", _exc)
 
     if use_kalshi:
         try:
@@ -314,27 +339,84 @@ def get_market_implied_geo_signal(
             )
 
             kals_sig = _kals_signal()
+            # Same reasoning as the polymarket branch above: zero contracts is
+            # an absent measurement, not a measured absence of risk.
+            if (
+                kals_sig is not None
+                and "n_markets" in kals_sig
+                and int(kals_sig.get("n_markets") or 0) <= 0
+            ):
+                failures.append("kalshi: returned 0 markets")
+                log.warning(
+                    "[GeoRisk] kalshi returned 0 markets - treating as "
+                    "UNAVAILABLE, not as calm."
+                )
+                kals_sig = None
         except Exception as _exc:
-            log.debug("[GeoRisk] kalshi signal failed: %s", _exc)
+            failures.append(f"kalshi: {type(_exc).__name__}: {_exc}")
+            log.warning("[GeoRisk] kalshi signal FAILED: %s", _exc)
 
     if poly_sig is None and kals_sig is None:
-        return {"signal": 0.0, "source": "prediction_markets_combined", "n_sources": 0}
+        # UNAVAILABLE, not calm. The `degraded` flag is what lets the caller
+        # tell the two apart and decide conservatively; signal stays 0.0 for
+        # backwards compatibility with consumers that only read that key.
+        requested = int(bool(use_polymarket)) + int(bool(use_kalshi))
+        if requested:
+            log.error(
+                "[GeoRisk] ALL %d prediction-market sources unavailable (%s). "
+                "Returning signal=0.0 with degraded=True — this is 'unknown', "
+                "NOT 'no geopolitical risk'. A consumer that treats it as calm "
+                "silently disables its own risk reduction.",
+                requested,
+                "; ".join(failures) or "no signal returned",
+            )
+        return {
+            "signal": 0.0,
+            "source": "prediction_markets_combined",
+            "n_sources": 0,
+            "degraded": True,
+            "degraded_reason": "; ".join(failures) or "all sources returned no signal",
+        }
 
     try:
         from assembled_core.data.sources.kalshi_source import (
             fetch_combined_prediction_signal,
         )
 
-        return cast(
+        combined = cast(
             dict, fetch_combined_prediction_signal(poly_sig, kals_sig, poly_weight)
         )
-    except Exception:
-        # Fallback: use whichever signal is available
+        # Partial outage is still a degradation: the blend ran on fewer sources
+        # than requested, so mark it rather than presenting it as complete.
+        if failures:
+            combined = dict(combined)
+            combined["degraded"] = True
+            combined["degraded_reason"] = "; ".join(failures)
+            log.warning(
+                "[GeoRisk] blended signal computed from a PARTIAL source set (%s)",
+                "; ".join(failures),
+            )
+        return combined
+    except Exception as _exc:
+        # Fallback: use whichever signal is available. Previously a bare
+        # `except Exception` with no logging at all — a broken blend looked
+        # exactly like a healthy single-source read.
+        log.warning(
+            "[GeoRisk] blending FAILED (%s) — falling back to a single source",
+            _exc,
+        )
         available = poly_sig or kals_sig
-        return available or {
+        if available:
+            available = dict(available)
+            available["degraded"] = True
+            available["degraded_reason"] = f"blend failed: {_exc}"
+            return available
+        return {
             "signal": 0.0,
             "source": "prediction_markets_combined",
             "n_sources": 0,
+            "degraded": True,
+            "degraded_reason": f"blend failed and no source available: {_exc}",
         }
 
 

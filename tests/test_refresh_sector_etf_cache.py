@@ -90,9 +90,9 @@ def _patch_fetch(mod, frame: pd.DataFrame):
 TODAY = _dt.date(2026, 6, 1)
 
 
-def test_appends_fresh_rows_and_sets_adj_close_nan(tmp_path, monkeypatch):
-    """Fetched rows newer than cache → appended with adj_close=NaN sentinel,
-    cache schema preserved (no feed-status cols leak)."""
+def test_appends_fresh_rows_and_mirrors_adj_close(tmp_path, monkeypatch):
+    """Fetched rows newer than cache -> appended with adj_close mirrored from
+    close, cache schema preserved (no feed-status cols leak)."""
     mod = _load_module()
     monkeypatch.setattr(mod, "STATUS_PATH", tmp_path / "ops" / "status.json")
     syms = mod.TARGET_SYMBOLS
@@ -106,8 +106,16 @@ def test_appends_fresh_rows_and_sets_adj_close_nan(tmp_path, monkeypatch):
     assert out["timestamp"].max() == pd.Timestamp("2026-05-28", tz="UTC")
     new_rows = out[out["timestamp"] > pd.Timestamp("2026-05-18", tz="UTC")]
     assert len(new_rows) == len(syms) * 2
-    assert new_rows["adj_close"].isna().all(), (
-        "appended rows must carry NaN sentinel, not silent close-fallback"
+    # CONTRACT CHANGE 2026-08-15: adj_close is mirrored from close, not NaN.
+    # This fetcher calls yfinance with auto_adjust=True, so close is already
+    # split- and dividend-adjusted — there is no unadjusted series the old NaN
+    # "sentinel" could have been protecting against. Across the real cache,
+    # every populated adj_close equalled close exactly (180,734 of 180,734).
+    assert not new_rows["adj_close"].isna().any(), (
+        "appended rows must not carry NaN in adj_close (auto_adjust=True)"
+    )
+    assert (new_rows["adj_close"] == new_rows["close"]).all(), (
+        "adj_close must equal close exactly for appended rows"
     )
     old_rows = out[out["timestamp"] <= pd.Timestamp("2026-05-18", tz="UTC")]
     assert not old_rows["adj_close"].isna().any()
@@ -323,7 +331,9 @@ def test_absent_symbol_gets_all_fetched_rows(tmp_path, monkeypatch):
     assert absent in set(out["symbol"])
     absent_rows = out[out["symbol"] == absent]
     assert len(absent_rows) == 2
-    assert absent_rows["adj_close"].isna().all()
+    # See the contract-change note above: mirrored from close, never NaN.
+    assert not absent_rows["adj_close"].isna().any()
+    assert (absent_rows["adj_close"] == absent_rows["close"]).all()
 
 
 def test_non_target_cache_rows_are_preserved(tmp_path, monkeypatch):
