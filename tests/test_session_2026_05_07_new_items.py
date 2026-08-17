@@ -13064,9 +13064,12 @@ class TestEDGARThrottling:
     edgar_source.py ist archiviert (Tranche 3); Ziel ist jetzt EXPLIZIT der
     lebende SEC-Client data/edgar_form4_ingest.py. Der fruehere First-Match
     aus rglob("*edgar*.py") war PLATTFORMABHAENGIG sortiert — Windows traf
-    den Ingest (gruen), Ubuntu ein anderes edgar-Modul (CI rot)."""
-
-    _EDGAR_CLIENT = "data/edgar_form4_ingest.py"
+    den Ingest (gruen), Ubuntu ein anderes edgar-Modul (CI rot).
+    EHRLICHE GRENZE (F-senior-2): das zweite lebende EDGAR-Modul
+    events/disclosures/fetch_edgar.py hat die Throttle-Keywords REAL nicht
+    (requests.get ohne Ratenbegrenzung, compliance/rate_limits ungenutzt) —
+    der Pin nimmt ihm die zufaellige Coverage; offener Follow-up in
+    KNOWN_ISSUES, nicht dieser Test."""
 
     def test_edgar_source_has_rate_limiting(self):
         p = (

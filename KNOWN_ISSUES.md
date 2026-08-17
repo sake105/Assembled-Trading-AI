@@ -23,6 +23,16 @@
 > alte mtime den Monitor ehrlich rot. Der Producer loggt den Horizont jetzt
 > laut (WARN >120 Tage); ein struktureller Payload-Horizont-Check im
 > freshness_monitor ist offener Follow-up.
+
+> **Nachtrag 2026-08-17 (F-senior-2 aus dem E-182-Review):**
+> `src/assembled_core/events/disclosures/fetch_edgar.py` ist LIVE verdrahtet
+> (pipeline.py:14, __init__:13), ruft SEC EDGAR via requests.get **ohne jede
+> Ratenbegrenzung** auf und ignoriert das vorhandene
+> `compliance/rate_limits.SEC_EDGAR_MAX_REQ_PER_SEC=10`-Spacing (UA+timeout
+> sind gesetzt). Der Throttle-Test pinnt seit `348bb012` bewusst nur den
+> Form-4-Ingest — dieses Loch hat damit KEINE Test-Coverage mehr. Follow-up:
+> rate_limits-Spacing in fetch_edgar verdrahten ODER den Throttle-Test ueber
+> alle lebenden EDGAR-Clients parametrisieren.
 **Vorher:** 2026-08-15 (§0.0 EODHD-Zugangsverlust ergänzt)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.

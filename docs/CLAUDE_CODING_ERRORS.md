@@ -2603,3 +2603,25 @@ Ziel?
 
 **Gefunden in:** tests/test_session_2026_05_07_new_items.py (CI-Run
 32044912981, ubuntu-latest rot / windows-latest gruen).
+
+---
+
+## E-183 (2026-08-17) — test-anti-pattern / leere-glob-population-laesst-test-still-gruen
+
+**Was passiert ist:** Datei-Inhalts-Tests im Session-Testfile brechen bei
+leerer Glob-Liste mit `return`/skip ab (47 Stellen gezaehlt). Wird das
+geprueft Modul archiviert, bleibt der Test gruen — die verlorene Coverage
+ist unsichtbar. Genau dieser Mechanismus liess das edgar_source-Retargeting
+(E-182) ueberhaupt erst durchrutschen.
+
+**Warum falsch:** Ein Test, der ohne Pruefgegenstand besteht, misst nichts
+und meldet trotzdem PASS. Archivierungswellen entfernen damit still
+Coverage; E-182 (First-Match-Ordnung) ist die zweite Haelfte desselben
+Problems.
+
+**Wie vermeiden:** Leere Population = FAIL oder xfail mit Ticket-Referenz,
+nie stiller return. Bei jeder Archivierung aktiv pruefen, welche
+Inhalts-Tests ihr Ziel verlieren (nicht nur, welche rot werden).
+
+**Gefunden in:** tests/test_session_2026_05_07_new_items.py
+(senior-code-reviewer, Kompakt-Review 348bb012).
