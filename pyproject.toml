@@ -159,6 +159,9 @@ where = ["src"]
 target-version = "py310"
 src = ["src", "scripts", "tests"]
 line-length = 88
+# archive/ ist eingefrorener Code (Audit 6.4, 2026-08-17): archivierte Module
+# werden bewusst NICHT weitergepflegt — der Linter soll sie nicht anfassen.
+extend-exclude = ["archive"]
 
 [tool.ruff.lint]
 # Nur echte Fehler prüfen, keine Style-Warnungen

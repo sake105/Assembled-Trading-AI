@@ -27,7 +27,7 @@ Use this to find the right source for a given data type.
 | Source | File | Status | API Key | Notes |
 |--------|------|--------|---------|-------|
 | **FRED** | `fred_source.py` | 📚 Single caller | `FRED_API_KEY` | 800k+ series; free at fred.stlouisfed.org |
-| **World Bank** | `worldbank_source.py` | 📚 Single caller | None (free) | Country-level macro, long history |
+| **World Bank** | `worldbank_source.py` | ARCHIVIERT (Audit 6.4, 2026-08-17) | None (free) | Country-level macro, long history. Modul + Reexport nach archive/orphaned_code_2026-08-17/ verschoben — kein Caller mehr |
 | **BLS** | `bls_source.py` | 📚 Single caller | None (free) | US labor stats (CPI, jobs, PPI) |
 
 ## Corporate Events / Filings

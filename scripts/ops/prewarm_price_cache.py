@@ -125,8 +125,9 @@ def fetch_missing_alpaca(missing: list[str], years: int) -> "pd.DataFrame":
             columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
         )
 
-    # Exclude today: Alpaca may return a partial intraday bar for the current session.
-    # Use yesterday as the exclusive upper bound, matching yfinance's auto_adjust behaviour.
+    # Exclude today: Alpaca may return a partial intraday bar for the current
+    # session; yesterday is the exclusive upper bound. (Adjustierung wird oben
+    # explizit per Adjustment.ALL gesetzt — nicht mit dieser Datumslogik verwechseln.)
     end_dt = datetime.now(tz=timezone.utc) - timedelta(days=1)
     start_dt = end_dt - timedelta(days=int(years * 366))
     logger.info(
@@ -137,12 +138,20 @@ def fetch_missing_alpaca(missing: list[str], years: int) -> "pd.DataFrame":
     )
 
     try:
+        from alpaca.data.enums import Adjustment  # type: ignore[import]
+
         client = StockHistoricalDataClient(api_key=api_key, secret_key=secret_key)
+        # BLOCKER-Fix 2026-08-17 (E-165): der API-Default ist RAW. Der Cache
+        # ist total-return-adjustiert — RAW-Bars erzeugten am 17.08. eine
+        # Naht mit bis +2444 % (BKNG) und Splits als -90-%-Crashs mitten in
+        # der Reihe. adjustment=ALL = split+dividend-adjustiert, dieselbe
+        # Basis wie der Bestand. NIE den Default einer Preis-API annehmen.
         request = StockBarsRequest(
             symbol_or_symbols=missing,
             timeframe=TimeFrame.Day,
             start=start_dt,
             end=end_dt,
+            adjustment=Adjustment.ALL,
         )
         bars = client.get_stock_bars(request)
         df = bars.df.reset_index()
@@ -166,6 +175,10 @@ def fetch_missing_alpaca(missing: list[str], years: int) -> "pd.DataFrame":
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.normalize()
     keep = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
     df = df[[c for c in keep if c in df.columns]]
+    # Spiegel-Konvention wie die anderen beiden Cache-Schreiber (F-senior-2,
+    # 2026-08-17): ohne adj_close riss dieser DRITTE Schreiber die am 15.08.
+    # reparierte 0-NaN-Invariante wieder auf (gemessen 97.859 NaN).
+    df["adj_close"] = df["close"]
     got = set(df["symbol"].unique())
     failed = set(missing) - got
     if failed:
@@ -262,11 +275,131 @@ def merge_and_save(new_df: "pd.DataFrame", cache_path: Path = CACHE_PATH) -> int
     else:
         existing = pd.DataFrame(columns=new_df.columns)
 
+    # OVERLAP-RE-ADJUSTIERUNG (E-165 Teil 2, 2026-08-17): auch adjusted-zu-
+    # adjusted ist nicht nahtfrei, wenn zwischen dem Anker des Bestands
+    # (letzter EODHD-Bar) und dem Anker der neuen Quelle (heute) eine
+    # Corporate Action lag — die neue Reihe ist dann RUECKWIRKEND anders
+    # skaliert (gemessen: AAPL, BE am 17.08.). Korrekte Operation: im
+    # Ueberlappungsfenster die Ratio neu/alt messen; ist sie KONSTANT und
+    # != 1, wird der gesamte BESTAND des Symbols auf den neuen Anker
+    # reskaliert (normale rueckwaertige Adjustierung). Nicht-konstante
+    # Ratio = inkonsistente Quelle -> Symbol verwerfen, failed-Liste.
+    _price_cols = [
+        c
+        for c in ("open", "high", "low", "close", "adj_close")
+        if c in existing.columns
+    ]
+    _verified: set[str] = set()  # Symbole mit per Overlap BEWIESENER Semantik
+    if not existing.empty and not new_df.empty:
+        _drop_syms: list[str] = []
+        for _sym in new_df["symbol"].unique():
+            _old_s = existing[existing["symbol"] == _sym].set_index("timestamp")
+            _new_s = new_df[new_df["symbol"] == _sym].set_index("timestamp")
+            _common = _old_s.index.intersection(_new_s.index)
+            if len(_common) < 5:
+                continue  # kein belastbarer Overlap -> Naht-Guard entscheidet
+            _ratio = _new_s.loc[_common, "close"].astype(float) / _old_s.loc[
+                _common, "close"
+            ].astype(float)
+            _med = float(_ratio.median())
+            _spread = float((_ratio / _med - 1).abs().max())
+            if _spread <= 0.02:
+                _verified.add(_sym)
+            if _spread > 0.02:
+                logger.warning(
+                    "[prewarm] %s: overlap ratio NOT constant (spread %.1f%%) "
+                    "— dropping its new rows, flagging for review",
+                    _sym,
+                    _spread * 100,
+                )
+                _drop_syms.append(_sym)
+                continue
+            if abs(_med - 1.0) > 0.001:
+                logger.info(
+                    "[prewarm] %s: corporate action between anchors — "
+                    "rescaling existing history by %.6f",
+                    _sym,
+                    _med,
+                )
+                # F-auditor-7 (2026-08-17): grosse Faktoren sind meist echte
+                # Splits, KOENNEN aber auch ein recyceltes Ticker-Symbol oder
+                # ein Einheitenwechsel sein — konstant heisst konsistent,
+                # nicht zwingend legitim. Nicht blocken, aber LAUT machen.
+                # Bewusst NICHT mitskaliert: volume (Split-Historie bleibt
+                # stueckseitig alt; ADV ueber die Grenze ist dann unscharf).
+                if abs(_med - 1.0) > 0.25:
+                    logger.warning(
+                        "[prewarm] %s: LARGE rescale factor %.4f over %d rows "
+                        "— verify this is a real split, not ticker recycling",
+                        _sym,
+                        _med,
+                        int((existing["symbol"] == _sym).sum()),
+                    )
+                _mask = existing["symbol"] == _sym
+                for _c in _price_cols:
+                    existing.loc[_mask, _c] = (
+                        existing.loc[_mask, _c].astype(float) * _med
+                    )
+        if _drop_syms:
+            new_df = new_df[~new_df["symbol"].isin(_drop_syms)]
+            write_failed_symbols(_drop_syms, "overlap_ratio_not_constant")
+
     combined = pd.concat([existing, new_df], ignore_index=True)
     # Dedupe on (symbol, timestamp) — last-write-wins favors the fresh fetch
     combined = combined.drop_duplicates(
         subset=["symbol", "timestamp"], keep="last"
     ).sort_values(["symbol", "timestamp"])
+
+    # INVARIANTE AM SCHREIBPUNKT (E-166, 2026-08-17): adj_close == close ist
+    # die Cache-Invariante (backfill_adj_close 15.08.). Sie je FETCH-Pfad zu
+    # spiegeln hat zweimal versagt (Alpaca-Pfad am 16.08., yfinance-Pfad am
+    # 17.08. — liefert die Spalte gar nicht). Hier, am einzigen Schreibpunkt,
+    # kann kein vierter Pfad sie mehr aufreissen.
+    if "adj_close" in combined.columns:
+        _na = combined["adj_close"].isna()
+        if bool(_na.any()):
+            combined.loc[_na, "adj_close"] = combined.loc[_na, "close"]
+
+    # NAHT-GUARD (E-165, fail-closed, 2026-08-17): zwei Preisquellen sind nur
+    # mergebar, wenn die Werte-SEMANTIK identisch ist — Symbol+Timestamp als
+    # Merge-Key reicht nicht. Der 17.08.-Vorfall (RAW-Bars in TR-Cache:
+    # BKNG +2444 %, NFLX-Split als -90 %) waere hier gestoppt worden.
+    # PRAEZISIERUNG (gleicher Tag): geprueft wird NUR die QUELLEN-NAHT
+    # (letzter Alt-Bar -> erster Neu-Bar) und NUR fuer Symbole OHNE per
+    # Overlap bewiesene Semantik — echte historische Extremtage im Bestand
+    # (AAPL -51,8 % Sep-2000, BE +59 % Nov-2024, beide real) duerfen einen
+    # Merge nicht blocken; der Fehlerfall ist der Ratio-Sprung ZWISCHEN
+    # Quellen, nicht ein Extremtag innerhalb einer Quelle.
+    _new_syms = set(new_df["symbol"].unique()) if not new_df.empty else set()
+    _bad: list[str] = []
+    for _sym in _new_syms - _verified:
+        _old_ts = (
+            existing.loc[existing["symbol"] == _sym, "timestamp"].max()
+            if not existing.empty
+            else None
+        )
+        if _old_ts is None or pd.isna(_old_ts):
+            continue  # neues Symbol: keine Naht
+        _after = new_df[
+            (new_df["symbol"] == _sym) & (new_df["timestamp"] > _old_ts)
+        ].sort_values("timestamp")
+        if _after.empty:
+            continue
+        _old_close = float(
+            existing.loc[
+                (existing["symbol"] == _sym) & (existing["timestamp"] == _old_ts),
+                "close",
+            ].iloc[0]
+        )
+        _first_new = float(_after["close"].iloc[0])
+        if _old_close > 0 and abs(_first_new / _old_close - 1.0) > 0.5:
+            _bad.append(_sym)
+    if _bad:
+        raise RuntimeError(
+            f"[prewarm] MERGE ABORTED (seam guard): {len(_bad)} symbol(s) with "
+            f"|daily move| > 50% after merge — adjustment-basis mismatch or "
+            f"corrupt feed. Nothing written. Symbols: {sorted(_bad)[:15]}"
+        )
 
     # Atomic write
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -277,6 +410,17 @@ def merge_and_save(new_df: "pd.DataFrame", cache_path: Path = CACHE_PATH) -> int
 
 
 def main(argv: list[str] | None = None) -> int:
+    # .env HIER laden, nicht auf Modulebene: tests/test_prewarm_price_cache.py
+    # laedt dieses Script per importlib.exec_module — ein Modulebenen-
+    # load_dotenv wuerde echte Credentials in den pytest-Prozess injizieren
+    # (F-senior-3/E-168). override=False: Task-gesetzte ENV gewinnt.
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(ROOT / ".env")
+    except ImportError:
+        logger.warning("[WARN] python-dotenv fehlt — Alpaca-Fallback ohne .env-Keys")
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--years",

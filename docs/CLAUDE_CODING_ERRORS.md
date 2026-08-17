@@ -2246,3 +2246,80 @@ Sicherheit im Kommentar.
 **Erkannt in:** Stage-2-Review Audit-Paket 5.2, per Scratch-Probe belegt
 (`src/assembled_core/api/routers/qa.py`).
 **Referenzen:** E-147, E-158.
+
+## E-165 — Fallback-Datenquelle mit anderer Adjustierungsbasis in denselben Cache gemergt
+**Datum:** 2026-08-17
+**Kategorie:** logic-error / adjustierungs-naht
+**Was passierte:** Ein total-return-adjustierter Preis-Cache wurde per Alpaca-Fallback mit
+RAW-Bars ueberschrieben — der API-Default (`adjustment=None` -> raw) wurde nie gesetzt. Ergebnis
+im LIVE-Cache des Paper-Piloten: Naht mit +2444 % Tagesbewegung (BKNG), Splits als -90-%-Crashs
+mitten in der Reihe (NFLX/SMCI/KLAC), SPY und Sektor-ETFs betroffen — still, ohne Guard.
+Zweiter Layer desselben Fehlers: auch adjusted-zu-adjusted ist NICHT nahtfrei, wenn zwischen
+den Adjustierungs-ANKERN der Quellen eine Corporate Action lag (gemessen AAPL/BE u. a.).
+
+**Warum falsch:** Zwei Preisquellen sind nur mergebar, wenn Adjustierung UND Anker identisch
+sind. „Symbol + Timestamp" als Merge-Key prueft die Syntax, nicht die Semantik der Werte.
+Frische (Zeilenzahl, letzter Bar, stale=0) wurde gemessen und als Korrektheit verkauft.
+
+**Wie vermeiden:**
+1. Bei jeder Preis-API den adjustment-Parameter EXPLIZIT setzen, nie den Default annehmen.
+2. Overlap-Fenster mitziehen und die Ratio neu/alt je Symbol pruefen: konstant != 1 ->
+   Bestand auf den neuen Anker reskalieren; nicht konstant -> Symbol verwerfen + flaggen.
+3. Fail-closed Naht-Guard am Schreibpunkt (Quellen-Uebergang, nicht Gesamtreihe — echte
+   Extremtage wie AAPL -51,8 % Sep-2000 sind legitim).
+4. Beweis ist der Vor/Nach-Vergleich gegen ein Backup, nicht die Zeilenzahl.
+**Erkannt in:** Stage-2-Review Audit 6.2 (`scripts/ops/prewarm_price_cache.py`,
+`output/aggregates/daily.parquet`; forensisch gegen `daily.parquet.PRE_ADJCLOSE_BACKFILL.bak`).
+**Referenzen:** E-144, E-161, E-163.
+
+## E-166 — Reparatur durch dritten, ungefixten Schreiber rueckgaengig gemacht
+**Datum:** 2026-08-17
+**Kategorie:** wiring-gap / unvollstaendige-schreiberliste
+**Was passierte:** Der adj_close-Backfill vom 15.08. reparierte 98.279 NaN und fixte ZWEI
+Schreiber. Ein dritter (Alpaca-Pfad in prewarm) war damals inaktiv und wurde uebersehen —
+nach seiner Aktivierung riss er sofort 97.859 NaN neu auf. Ein VIERTER (yfinance-Pfad in
+prewarm, liefert die Spalte gar nicht) folgte einen Tag spaeter mit 14.527.
+
+**Warum falsch:** Wer eine Datei-Invariante repariert, muss die Schreiberliste VOLLSTAENDIG
+erheben — auch derzeit tote Pfade. Ein toter Pfad ist kein fehlender Pfad.
+
+**Wie vermeiden:**
+1. Bei Invarianten-Reparatur: alle Writer per Grep auf die Zieldatei listen und namentlich
+   abhaken (inkl. Fallback-/Fehlerpfade).
+2. Die Invariante zusaetzlich AM SCHREIBPUNKT erzwingen (merge/save), nicht je Fetch-Pfad
+   spiegeln — dann kann kein fuenfter Pfad sie mehr aufreissen.
+**Erkannt in:** Stage-2-Review Audit 6.2 (`scripts/ops/prewarm_price_cache.py`,
+`scripts/ops/backfill_adj_close.py`).
+**Referenzen:** E-139, E-145.
+
+## E-167 — Referenz-Dry-Run mit zu engem Scope, Ergebnis als „0 Referenzen" verkauft
+**Datum:** 2026-08-17
+**Kategorie:** test-anti-pattern / scope-der-aussage
+**Was passierte:** Ein Archivierungs-Dry-Run prueffte *.py/*.yaml in vier Verzeichnissen; der
+Archiv-README behauptete daraufhin „NULL Referenzen" und Freitext-Zeiger-Pruefung. Uebersehen:
+ein echter Import in research/**/*.ipynb (Notebooks sind Code!) und ~40 Doku-Zeiger.
+
+**Warum falsch:** Das Werkzeug machte eine Aussage ueber 4 Verzeichnisse und 2 Endungen; die
+Behauptung machte eine Aussage ueber das Repo. Der Scope des Werkzeugs gehoert IN die Aussage.
+
+**Wie vermeiden:** Entweder Scope in die Behauptung schreiben („0 Referenzen in py/yaml unter
+...") oder den Sweep repo-weit fahren (ipynb/md/bat/ps1/json/toml inkl. research/).
+**Erkannt in:** Stage-2-Review Audit 6.4 (`archive/orphaned_code_2026-08-17/README.md`).
+**Referenzen:** E-148, E-160, E-161.
+
+## E-168 — Modulebenen-load_dotenv in einem Script, das Tests per exec_module laden
+**Datum:** 2026-08-17
+**Kategorie:** test-anti-pattern / import-nebenwirkung
+**Was passierte:** load_dotenv(.env) auf Modulebene eines Ops-Scripts, dessen Testdatei das
+Modul via importlib.exec_module laedt — echte Credentials (ALPACA_*, TELEGRAM_*, ...) landeten
+bei jedem Testlauf im os.environ des GESAMTEN pytest-Prozesses; in CI (keine .env) no-op ->
+lokal-vs-CI-Divergenz obendrauf.
+
+**Warum falsch:** Import-Nebenwirkungen, die das Prozess-Environment mutieren, brechen
+Test-Isolation — Tests, die Credential-ABSENZ annehmen, werden lokal still anders.
+
+**Wie vermeiden:** In Scripts mit test_<script>.py-Ladern gehoert load_dotenv in main()/__main__
+(Repo-Praezedenz: book_dividends.py). Vor der Platzierung pruefen, ob Tests das Modul laden.
+**Erkannt in:** Stage-2-Review Audit 6.2 (`scripts/ops/prewarm_price_cache.py`,
+`tests/test_prewarm_price_cache.py`).
+**Referenzen:** E-146, E-151.

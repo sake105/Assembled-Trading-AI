@@ -1,6 +1,13 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-08-16 (§0.00 Kill-Switch-Zustand dokumentiert; §0.0-Backup-Nachtrag)
+**Letzte Aktualisierung:** 2026-08-17 (Archiv-Hinweis Tranche 1)
+> **Archiv-Hinweis 2026-08-17:** Einige aeltere Eintraege verweisen auf Module,
+> die im Audit-Paket 6.4 (Tranche 1) nach `archive/orphaned_code_2026-08-17/`
+> verschoben wurden (u. a. breakout_signal, TFT/LTN-Stubs, mlflow_tracking,
+> pead_strategy inkl. seiner 14 Tests, incident_tracker, rejection_collector,
+> worldbank_source). Diese Eintraege sind HISTORISCH korrekt, die Pfade aber
+> nicht mehr aktuell — Details im Archiv-README.
+**Vorher:** 2026-08-16 (§0.00 Kill-Switch-Zustand dokumentiert; §0.0-Backup-Nachtrag)
 **Vorher:** 2026-08-15 (§0.0 EODHD-Zugangsverlust ergänzt)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.

@@ -209,3 +209,227 @@ def test_fetch_missing_alpaca_sdk_unavailable_returns_empty(tmp_path, monkeypatc
 
     assert isinstance(df, __import__("pandas").DataFrame)
     assert df.empty
+
+
+def test_merge_seam_guard_aborts_on_adjustment_mismatch(tmp_path):
+    """E-165-Pin (2026-08-17): RAW-Bars in einen TR-Cache mergen erzeugt eine
+    Naht mit riesiger Scheinrendite — merge_and_save muss fail-closed abbrechen
+    statt zu schreiben. Genau dieser Fall hat am 17.08. den Live-Cache
+    beschaedigt (BKNG +2444 %)."""
+    import pandas as pd
+    import pytest
+
+    mod = _load_module()
+    cache = tmp_path / "daily.parquet"
+    days = pd.to_datetime(["2026-08-04", "2026-08-05"], utc=True)
+    old = pd.DataFrame(
+        {
+            "timestamp": days,
+            "symbol": ["BKNG", "BKNG"],
+            "open": [140.0, 140.4],
+            "high": [141, 141],
+            "low": [139, 139],
+            "close": [140.0, 140.42],
+            "volume": [1e6, 1e6],
+            "adj_close": [140.0, 140.42],
+        }
+    )
+    old.to_parquet(cache, index=False)
+    new = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2026-08-06"], utc=True),
+            "symbol": ["BKNG"],
+            "open": [3570.0],
+            "high": [3580],
+            "low": [3560],
+            "close": [3572.0],
+            "volume": [1e6],
+            "adj_close": [3572.0],  # RAW!
+        }
+    )
+    with pytest.raises(RuntimeError, match="seam guard"):
+        mod.merge_and_save(new, cache_path=cache)
+    # fail-closed: Cache unveraendert
+    assert len(pd.read_parquet(cache)) == 2
+
+
+def test_merge_seam_guard_passes_clean_continuation(tmp_path):
+    """Gegenprobe: stetige Fortsetzung derselben Adjustierungsbasis merged."""
+    import pandas as pd
+
+    mod = _load_module()
+    cache = tmp_path / "daily.parquet"
+    days = pd.to_datetime(["2026-08-04", "2026-08-05"], utc=True)
+    old = pd.DataFrame(
+        {
+            "timestamp": days,
+            "symbol": ["NFLX", "NFLX"],
+            "open": [73, 73.5],
+            "high": [74, 74],
+            "low": [72, 73],
+            "close": [73.57, 74.20],
+            "volume": [1e6, 1e6],
+            "adj_close": [73.57, 74.20],
+        }
+    )
+    old.to_parquet(cache, index=False)
+    new = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2026-08-06"], utc=True),
+            "symbol": ["NFLX"],
+            "open": [74.1],
+            "high": [75],
+            "low": [74],
+            "close": [74.80],
+            "volume": [1e6],
+            "adj_close": [74.80],
+        }
+    )
+    n = mod.merge_and_save(new, cache_path=cache)
+    assert n == 3
+
+
+def test_alpaca_request_pins_adjustment_all(monkeypatch):
+    """F-auditor-1a (2026-08-17): pinnt den ROOT-CAUSE-Fix des Cache-
+    Zwischenfalls — StockBarsRequest MUSS adjustment=Adjustment.ALL setzen.
+    Ohne diesen Pin koennte ein Refactor den Parameter still entfernen und
+    der Alpaca-Default (RAW) beschaedigte den TR-Cache erneut (E-165)."""
+    import sys
+    import types
+
+    import pandas as pd
+
+    captured = {}
+
+    class _FakeAdjustment:
+        ALL = "all"
+        RAW = "raw"
+
+    class _FakeRequest:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    class _FakeBars:
+        df = pd.DataFrame(
+            {
+                "symbol": ["AAPL"],
+                "timestamp": pd.to_datetime(["2026-08-14"], utc=True),
+                "open": [1.0],
+                "high": [1.0],
+                "low": [1.0],
+                "close": [1.0],
+                "volume": [1.0],
+            }
+        ).set_index(["symbol", "timestamp"])
+
+    class _FakeClient:
+        def __init__(self, **kwargs): ...
+        def get_stock_bars(self, request):
+            return _FakeBars()
+
+    fake_data = types.ModuleType("alpaca.data")
+    fake_data.StockHistoricalDataClient = _FakeClient
+    fake_req = types.ModuleType("alpaca.data.requests")
+    fake_req.StockBarsRequest = _FakeRequest
+    fake_tf = types.ModuleType("alpaca.data.timeframe")
+    fake_tf.TimeFrame = types.SimpleNamespace(Day="day")
+    fake_enums = types.ModuleType("alpaca.data.enums")
+    fake_enums.Adjustment = _FakeAdjustment
+    fake_root = types.ModuleType("alpaca")
+    for name, mod in (
+        ("alpaca", fake_root),
+        ("alpaca.data", fake_data),
+        ("alpaca.data.requests", fake_req),
+        ("alpaca.data.timeframe", fake_tf),
+        ("alpaca.data.enums", fake_enums),
+    ):
+        monkeypatch.setitem(sys.modules, name, mod)
+    monkeypatch.setenv("ALPACA_API_KEY", "k")
+    monkeypatch.setenv("ALPACA_API_SECRET", "s")
+
+    mod = _load_module()
+    df = mod.fetch_missing_alpaca(["AAPL"], years=1)
+    assert captured.get("adjustment") == _FakeAdjustment.ALL, captured
+    assert not df.empty and "adj_close" in df.columns  # Spiegel-Konvention
+
+
+def test_merge_rescales_history_on_constant_overlap_ratio(tmp_path):
+    """F-auditor-1b: konstante Overlap-Ratio != 1 (Corporate Action zwischen
+    den Adjustierungs-Ankern) reskaliert den GESAMTEN Bestand auf den neuen
+    Anker — auch die Bars VOR dem Overlap."""
+    import pandas as pd
+
+    mod = _load_module()
+    cache = tmp_path / "daily.parquet"
+    days = pd.bdate_range("2026-07-01", periods=10, tz="UTC")
+    old = pd.DataFrame(
+        {
+            "timestamp": days,
+            "symbol": "DIV",
+            "open": 100.0,
+            "high": 100.0,
+            "low": 100.0,
+            "close": 100.0,
+            "volume": 1e6,
+            "adj_close": 100.0,
+        }
+    )
+    old.to_parquet(cache, index=False)
+    # Neue Quelle: Overlap auf den letzten 6 Tagen mit konstant 0.99 + 1 neuer Bar
+    new_days = list(days[4:]) + [days[-1] + pd.Timedelta(days=1)]
+    new = pd.DataFrame(
+        {
+            "timestamp": new_days,
+            "symbol": "DIV",
+            "open": 99.0,
+            "high": 99.0,
+            "low": 99.0,
+            "close": 99.0,
+            "volume": 1e6,
+            "adj_close": 99.0,
+        }
+    )
+    mod.merge_and_save(new, cache_path=cache)
+    out = pd.read_parquet(cache).sort_values("timestamp")
+    first_bar = float(out["close"].iloc[0])  # VOR dem Overlap
+    assert first_bar == pytest.approx(99.0), (
+        f"Bestand vor dem Overlap nicht reskaliert: {first_bar}"
+    )
+
+
+def test_merge_enforces_adj_close_invariant_at_write(tmp_path):
+    """F-auditor-1c: new_df OHNE adj_close-Spalte (yfinance-Pfad!) darf die
+    0-NaN-Invariante nicht aufreissen — Erzwingung am Schreibpunkt (E-166)."""
+    import pandas as pd
+
+    mod = _load_module()
+    cache = tmp_path / "daily.parquet"
+    days = pd.bdate_range("2026-08-03", periods=3, tz="UTC")
+    old = pd.DataFrame(
+        {
+            "timestamp": days,
+            "symbol": "YFI",
+            "open": 10.0,
+            "high": 10.0,
+            "low": 10.0,
+            "close": 10.0,
+            "volume": 1e6,
+            "adj_close": 10.0,
+        }
+    )
+    old.to_parquet(cache, index=False)
+    new = pd.DataFrame(
+        {
+            "timestamp": [days[-1] + pd.Timedelta(days=1)],
+            "symbol": ["YFI"],
+            "open": [10.1],
+            "high": [10.2],
+            "low": [10.0],
+            "close": [10.15],
+            "volume": [1e6],
+        }
+    )  # KEIN adj_close — wie fetch_prices_yfinance
+    mod.merge_and_save(new, cache_path=cache)
+    out = pd.read_parquet(cache)
+    assert int(out["adj_close"].isna().sum()) == 0
+    assert float(out.sort_values("timestamp")["adj_close"].iloc[-1]) == 10.15
