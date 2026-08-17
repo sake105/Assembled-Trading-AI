@@ -2580,3 +2580,26 @@ Review fragen: was passiert bei Cooldown/unbekannter Regel?
 
 **Gefunden in:** scripts/ops_watchdog.py (senior-code-reviewer; Fix + Test
 test_sector_status_cooldown_suppression_keeps_dedupe_open).
+
+---
+
+## E-182 (2026-08-17) — test-anti-pattern / rglob-first-match-ist-plattformabhaengig
+
+**Was passiert ist:** TestEDGARThrottling nahm `edgar_files[0]` aus
+`src.rglob("*edgar*.py")`. Nach der Archivierung von edgar_source.py traf
+der First-Match auf Windows den lebenden Form-4-Ingest (gruen) — auf Ubuntu
+sortiert das Dateisystem anders und [0] war ein Modul ohne Throttle-Keywords:
+CI rot, lokal gruen. Drei Review-Stufen hatten das Retargeting "bestaetigt"
+— alle drei massen nur auf Windows.
+
+**Warum falsch:** rglob garantiert keine Reihenfolge; ein First-Match-Test
+testet auf jeder Plattform potenziell eine ANDERE Datei. Eine
+Plattform-Messung beweist die andere nicht (Rule 40: lokal != CI).
+
+**Wie vermeiden:** Datei-Inhalts-Tests IMMER auf einen expliziten Pfad
+pinnen, nie auf glob[0]. Wenn ein Glob-Test nach einer Archivierung
+"weiterhin gruen" ist, fragen: trifft er auf ALLEN Plattformen dasselbe
+Ziel?
+
+**Gefunden in:** tests/test_session_2026_05_07_new_items.py (CI-Run
+32044912981, ubuntu-latest rot / windows-latest gruen).

@@ -13060,18 +13060,24 @@ class TestNetworkTimeouts:
 class TestEDGARThrottling:
     """Item 165: SEC EDGAR throttling is implemented.
 
-    RETARGETING-HINWEIS 2026-08-17 (Stage-1-N2): data/sources/edgar_source.py
-    ist archiviert (Tranche 3); das rglob("*edgar*.py") trifft jetzt den
-    LEBENDEN SEC-Client data/edgar_form4_ingest.py — Throttle-/UA-Pflicht
-    gilt dort genauso, die Klasse bleibt bewusst bestehen."""
+    RETARGETING 2026-08-17 (Stage-1-N2 + CI-Fix E-182): data/sources/
+    edgar_source.py ist archiviert (Tranche 3); Ziel ist jetzt EXPLIZIT der
+    lebende SEC-Client data/edgar_form4_ingest.py. Der fruehere First-Match
+    aus rglob("*edgar*.py") war PLATTFORMABHAENGIG sortiert — Windows traf
+    den Ingest (gruen), Ubuntu ein anderes edgar-Modul (CI rot)."""
+
+    _EDGAR_CLIENT = "data/edgar_form4_ingest.py"
 
     def test_edgar_source_has_rate_limiting(self):
-        src = Path(__file__).parents[1] / "src"
-        edgar_files = list(src.rglob("edgar_source.py")) + list(src.rglob("*edgar*.py"))
-        edgar_files = [f for f in edgar_files if "__pycache__" not in str(f)]
-        if not edgar_files:
-            return
-        content = edgar_files[0].read_text(encoding="utf-8", errors="replace")
+        p = (
+            Path(__file__).parents[1]
+            / "src"
+            / "assembled_core"
+            / "data"
+            / "edgar_form4_ingest.py"
+        )
+        assert p.exists(), "lebender SEC-Client fehlt"
+        content = p.read_text(encoding="utf-8", errors="replace")
         has_throttle = any(
             kw in content
             for kw in [
@@ -13087,12 +13093,15 @@ class TestEDGARThrottling:
         )
 
     def test_edgar_user_agent_set(self):
-        src = Path(__file__).parents[1] / "src"
-        edgar_files = list(src.rglob("edgar_source.py")) + list(src.rglob("*edgar*.py"))
-        edgar_files = [f for f in edgar_files if "__pycache__" not in str(f)]
-        if not edgar_files:
-            return
-        content = edgar_files[0].read_text(encoding="utf-8", errors="replace")
+        p = (
+            Path(__file__).parents[1]
+            / "src"
+            / "assembled_core"
+            / "data"
+            / "edgar_form4_ingest.py"
+        )
+        assert p.exists(), "lebender SEC-Client fehlt"
+        content = p.read_text(encoding="utf-8", errors="replace")
         has_ua = (
             "User-Agent" in content
             or "user_agent" in content.lower()
