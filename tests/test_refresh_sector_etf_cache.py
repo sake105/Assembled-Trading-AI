@@ -432,8 +432,6 @@ def test_seam_guard_blocks_adjustment_mismatch(tmp_path, monkeypatch):
     after = pd.read_parquet(cache_path)
     pd.testing.assert_frame_equal(before, after)  # nichts geschrieben
     # F-senior-7: die beiden SICHTBARKEITS-Ebenen pinnen (gelesen != getestet):
-    import json as _json
-
     status = _json.loads((tmp_path / "ops" / "status.json").read_text("utf-8"))
     assert status["ok"] is False
     assert "seam_guard" in (status["error"] or "")
@@ -441,8 +439,10 @@ def test_seam_guard_blocks_adjustment_mismatch(tmp_path, monkeypatch):
 
 def test_overlap_drop_lands_in_status_json(tmp_path, monkeypatch):
     """F-auditor-3-Pin (Stage 3, 2026-08-17): der Drop-Zweig der guarded_merge
-    (inkonstante Overlap-Ratio -> Symbol verworfen) muss den Operator
-    maschinenlesbar erreichen: status['dropped_symbols'] + error-Feld.
+    (inkonstante Overlap-Ratio -> Symbol verworfen) landet maschinenlesbar im
+    Status-JSON: status['dropped_symbols'] + error-Feld. EHRLICHE GRENZE
+    (E-176): das Status-JSON hat noch KEINEN Leser und der Drop-Pfad endet
+    mit Exit 0 — ein Konsument/Alarm ist offener Follow-up, kein Ist-Zustand.
 
     VERTRAG (bewusst entschieden): ok bleibt True auf dem Drop-Pfad — der
     Refresh ist ein PARTIELLER Erfolg (uebrige Symbole geschrieben, Cache

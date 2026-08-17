@@ -2446,3 +2446,28 @@ wo Serien-Werte gelesen werden.
 Guard-Tests mit NaN speisen, nicht nur mit None.
 **Erkannt in:** Stage-2-Review (scripts/ops/write_regime_state.py).
 **Referenzen:** E-144, E-170.
+
+---
+
+## E-176 (2026-08-17) — wiring-gap / feld-ohne-leser-als-sichtbarkeit-verkauft
+
+**Was passiert ist:** Ein Review-Finding (Drop-Forensik nur im Tageslog) wurde
+geschlossen, indem `dropped_symbols`/`error` zusaetzlich ins Status-JSON von
+`refresh_sector_etf_cache` geschrieben wurden. Kommentar und Test-Docstring
+behaupteten daraufhin, der Drop "erreiche den Operator maschinenlesbar".
+Gemessen: das Status-JSON hat repo-weit KEINEN Leser, und der Drop-Pfad endet
+mit Exit 0 — der einzige Alarmkanal (.bat `if errorlevel 1`) feuert nicht.
+
+**Warum falsch:** Ein geschriebenes Feld ist kein Alarm. "Erreicht den
+Operator" setzt einen Konsumenten voraus; ohne ihn ist das Finding nur
+verschoben, wirkt aber geschlossen — Producer-ohne-Consumer auf Feldebene
+(Schwester von E-159/E-162/E-174).
+
+**Wie vermeiden:** Vor jeder Sichtbarkeits-Behauptung den Leser namentlich
+nachweisen (Grep auf den Artefaktnamen). Existiert keiner: Feld schreiben ist
+ok, aber im Text ehrlich "Konsument fehlt noch (Follow-up)" schreiben — nie
+"erreicht den Operator".
+
+**Gefunden in:** `scripts/ops/refresh_sector_etf_cache.py`,
+`tests/test_refresh_sector_etf_cache.py` (senior-code-reviewer, Delta-Review
+der Korb-3-Welle).

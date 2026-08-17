@@ -72,8 +72,6 @@ def test_signal_scores_producer_feeds_monitoring_endpoint(tmp_path, monkeypatch)
     from src.assembled_core.api.app import create_app
 
     # Producer-Format exakt wie scripts/generate_attribution_report.py
-    import json
-
     scores_dir = tmp_path / "signals"
     scores_dir.mkdir()
     (scores_dir / "signal_scores_20260816T120000Z.json").write_text(
@@ -222,8 +220,6 @@ def test_regime_producer_feeds_monitoring_endpoint(tmp_path):
     im Producer-Format muss vom Endpoint gelesen werden; leeres Verzeichnis
     heisst no_data_yet mit Producer-Referenz (E-162)."""
     pytest.importorskip("fastapi")
-    import json
-
     from fastapi.testclient import TestClient
 
     from src.assembled_core.api.app import create_app
@@ -260,12 +256,14 @@ def test_prune_keeps_newest_per_family(tmp_path, monkeypatch):
     import os
     import time as _t
 
+    # E-169: an __file__ ankern, nicht an die CWD (F-senior-4).
     spec = ilu.spec_from_file_location(
         "prune_ops_artifacts",
         str(
-            pytest.importorskip("pathlib")
-            .Path("scripts/ops/prune_ops_artifacts.py")
-            .resolve()
+            Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "ops"
+            / "prune_ops_artifacts.py"
         ),
     )
     mod = ilu.module_from_spec(spec)

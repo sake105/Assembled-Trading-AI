@@ -353,8 +353,10 @@ def refresh(
         cache_latest=cache_latest,
         fetch_latest=fetch_latest,
         rows_appended=int(rows_appended_real),
-        # F-senior-1: das Drop-Forensik-Signal braucht einen maschinen-
-        # lesbaren Empfaenger (E-140/E-172) — nicht nur die Tageslogdatei.
+        # F-senior-1: Drop-Forensik zusaetzlich ins Status-JSON (E-140/E-172),
+        # nicht nur in die Tageslogdatei. EHRLICHE GRENZE (E-176): das Feld
+        # wird geschrieben, aber ein Konsument/Alarm fehlt noch (Follow-up);
+        # der Drop-Pfad endet mit Exit 0.
         dropped_symbols=result.dropped_symbols,
         error=(
             f"overlap_ratio_not_constant: {sorted(result.dropped_symbols)}"
