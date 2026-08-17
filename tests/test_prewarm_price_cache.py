@@ -433,3 +433,27 @@ def test_merge_enforces_adj_close_invariant_at_write(tmp_path):
     out = pd.read_parquet(cache)
     assert int(out["adj_close"].isna().sum()) == 0
     assert float(out.sort_values("timestamp")["adj_close"].iloc[-1]) == 10.15
+
+
+def test_merge_creates_adj_close_on_fresh_cache(tmp_path):
+    """F-senior-2-Pin: frischer Cache + Quelle OHNE adj_close-Spalte muss die
+    Spalte ERZEUGEN (nicht nur NaN fuellen) — der haerteste Invarianten-Fall."""
+    import pandas as pd
+
+    mod = _load_module()
+    cache = tmp_path / "fresh.parquet"  # existiert NICHT
+    new = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2026-08-14"], utc=True),
+            "symbol": ["NEW"],
+            "open": [1.0],
+            "high": [1.0],
+            "low": [1.0],
+            "close": [1.5],
+            "volume": [1e5],
+        }
+    )  # kein adj_close
+    mod.merge_and_save(new, cache_path=cache)
+    out = pd.read_parquet(cache)
+    assert "adj_close" in out.columns
+    assert float(out["adj_close"].iloc[0]) == 1.5

@@ -2323,3 +2323,52 @@ Test-Isolation — Tests, die Credential-ABSENZ annehmen, werden lokal still and
 **Erkannt in:** Stage-2-Review Audit 6.2 (`scripts/ops/prewarm_price_cache.py`,
 `tests/test_prewarm_price_cache.py`).
 **Referenzen:** E-146, E-151.
+
+## E-169 — importlib-Load mit CWD-relativem Pfad in Notebooks
+**Datum:** 2026-08-17
+**Kategorie:** wiring-gap / cwd-annahme-in-notebooks
+**Was passierte:** Nach einer Archivierung wurde ein Notebook-Import auf
+spec_from_file_location mit dem relativen Pfad "archive/..." umgestellt und als „Zelle bleibt
+lauffaehig" verkauft. Jupyter laeuft mit CWD = Notebook-Verzeichnis (research/trend/) — der Load
+haette mit FileNotFoundError gebrochen. Dieselbe Zelle ermittelte REPO bereits per
+Aufwaertslauf; der Widerspruch stand sichtbar im Diff.
+
+**Warum falsch:** Ein relativer Pfad ist eine ungetestete Annahme ueber den Ausfuehrungsort.
+
+**Wie vermeiden:** Dateipfade in Notebooks/Scripts IMMER an einen Anker binden (REPO /
+Path(__file__).parents[n]). Wer „lauffaehig" behauptet, fuehrt die Zelle aus oder prueft
+mindestens exists() mit dem ECHTEN CWD.
+**Erkannt in:** Kompakt-Review (`research/trend/trend_baseline_experiments.ipynb`).
+**Referenzen:** E-146, E-160.
+
+## E-170 — Invariante „am Schreibpunkt" deckt nur den NaN-Fall, nicht den Spalte-fehlt-Fall
+**Datum:** 2026-08-17
+**Kategorie:** logic-error / bedingte-invariante
+**Was passierte:** Die adj_close-Invariante wurde am Schreibpunkt als
+`if "adj_close" in columns: fill NaN` implementiert. Bei frischem Cache + Quelle ohne die
+Spalte entstand eine Datei GANZ OHNE adj_close — der haerteste Verletzungsfall war vom Guard
+strukturell ausgeschlossen, und der Pin-Test testete nur den NaN-Pfad.
+
+**Warum falsch:** „Invariante am Schreibpunkt" verspricht Vollstaendigkeit; eine BEDINGTE
+Reparatur ist keine Invariante.
+
+**Wie vermeiden:** Invarianten unbedingt HERSTELLEN (Spalte anlegen, dann fuellen), nicht
+bedingt reparieren. Der Test muss den Zustand OHNE die Spalte abdecken, nicht nur NaN darin.
+**Erkannt in:** Kompakt-Review (`scripts/ops/prewarm_price_cache.py`).
+**Referenzen:** E-158, E-166.
+
+## E-171 — Generierte Architektur-Artefakte nach Archivierung nicht neu erzeugt
+**Datum:** 2026-08-17
+**Kategorie:** wiring-gap / stale-generat
+**Was passierte:** 9 Module wurden nach archive/ verschoben; die generierte Systemkarte
+(docs/architecture/system_map/*) zeigte sie weiter unter src/ (36+ Treffer). Bei der frueheren
+Archivierung (6.1) wurde Zeigerpflege geleistet — hier zunaechst nicht: inkonsistenter Standard.
+
+**Warum falsch:** Generierte Doku ist in diesem Repo Steuerung; stale Zeiger kosten spaetere
+Suchzeit und untergraben das Vertrauen in die Karte.
+
+**Wie vermeiden:** Bei jedem git mv aus src/: grep ueber docs/ auf den Modulnamen UND alle
+Generatoren des betroffenen Doku-Ordners neu laufen lassen (hier:
+scripts/architecture/generate_system_map.py).
+**Erkannt in:** Kompakt-Review (`docs/architecture/system_map/data/system_map.json`).
+**Referenzen:** E-160, E-167.

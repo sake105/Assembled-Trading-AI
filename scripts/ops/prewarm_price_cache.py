@@ -290,8 +290,8 @@ def merge_and_save(new_df: "pd.DataFrame", cache_path: Path = CACHE_PATH) -> int
         if c in existing.columns
     ]
     _verified: set[str] = set()  # Symbole mit per Overlap BEWIESENER Semantik
+    _drop_syms: list[str] = []
     if not existing.empty and not new_df.empty:
-        _drop_syms: list[str] = []
         for _sym in new_df["symbol"].unique():
             _old_s = existing[existing["symbol"] == _sym].set_index("timestamp")
             _new_s = new_df[new_df["symbol"] == _sym].set_index("timestamp")
@@ -342,7 +342,9 @@ def merge_and_save(new_df: "pd.DataFrame", cache_path: Path = CACHE_PATH) -> int
                     )
         if _drop_syms:
             new_df = new_df[~new_df["symbol"].isin(_drop_syms)]
-            write_failed_symbols(_drop_syms, "overlap_ratio_not_constant")
+            # F-senior-4: NICHT hier protokollieren — der Naht-Guard unten
+            # kann noch abbrechen ("Nothing written" muss wahr bleiben);
+            # geschrieben wird direkt vor dem atomic write.
 
     combined = pd.concat([existing, new_df], ignore_index=True)
     # Dedupe on (symbol, timestamp) — last-write-wins favors the fresh fetch
@@ -355,10 +357,14 @@ def merge_and_save(new_df: "pd.DataFrame", cache_path: Path = CACHE_PATH) -> int
     # spiegeln hat zweimal versagt (Alpaca-Pfad am 16.08., yfinance-Pfad am
     # 17.08. — liefert die Spalte gar nicht). Hier, am einzigen Schreibpunkt,
     # kann kein vierter Pfad sie mehr aufreissen.
-    if "adj_close" in combined.columns:
-        _na = combined["adj_close"].isna()
-        if bool(_na.any()):
-            combined.loc[_na, "adj_close"] = combined.loc[_na, "close"]
+    # F-senior-2 (Kompakt-Review 2026-08-17): Invariante UNBEDINGT herstellen
+    # — der Spalte-fehlt-Fall (frischer Cache + Quelle ohne adj_close) ist die
+    # haerteste Verletzung und war vom bedingten Guard ausgeschlossen (E-170).
+    if "adj_close" not in combined.columns:
+        combined["adj_close"] = combined["close"]
+    _na = combined["adj_close"].isna()
+    if bool(_na.any()):
+        combined.loc[_na, "adj_close"] = combined.loc[_na, "close"]
 
     # NAHT-GUARD (E-165, fail-closed, 2026-08-17): zwei Preisquellen sind nur
     # mergebar, wenn die Werte-SEMANTIK identisch ist — Symbol+Timestamp als
@@ -400,6 +406,9 @@ def merge_and_save(new_df: "pd.DataFrame", cache_path: Path = CACHE_PATH) -> int
             f"|daily move| > 50% after merge — adjustment-basis mismatch or "
             f"corrupt feed. Nothing written. Symbols: {sorted(_bad)[:15]}"
         )
+
+    if _drop_syms:
+        write_failed_symbols(_drop_syms, "overlap_ratio_not_constant")
 
     # Atomic write
     cache_path.parent.mkdir(parents=True, exist_ok=True)
