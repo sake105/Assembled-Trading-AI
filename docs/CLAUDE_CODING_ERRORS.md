@@ -2471,3 +2471,47 @@ ok, aber im Text ehrlich "Konsument fehlt noch (Follow-up)" schreiben — nie
 **Gefunden in:** `scripts/ops/refresh_sector_etf_cache.py`,
 `tests/test_refresh_sector_etf_cache.py` (senior-code-reviewer, Delta-Review
 der Korb-3-Welle).
+
+---
+
+## E-177 (2026-08-17) — logic-error / nicht-cp1252-glyphe-im-print-pfad
+
+**Was passiert ist:** U+2713 (Haekchen) in einem Statusstring von
+`scripts/drills/drill_kill_switch.py`. Python 3.11 auf windows-latest schreibt
+mit locale-Encoding cp1252 -> UnicodeEncodeError im ERSTEN Print, vor jedem
+Fachschritt. Der weekly-drills-Job war dadurch 5 Wochen rot (20.07.-17.08.).
+
+**Warum falsch:** Haekchen/Pfeile/Sonderglyphen ueberleben lokal (UTF-8-
+Konsole), sterben im CI. Der Crash trifft die AUSGABE, nicht die Logik — er
+sieht darum nach Fachfehler aus und wurde wochenlang nicht als Encoding-Problem
+erkannt.
+
+**Wie vermeiden:** Skripte, die in CI printen, auf cp1252-Encodebarkeit
+pruefen (`src.encode('cp1252')`), nicht bloss auf ASCII (Em-Dash/§ sind
+cp1252-ok). Statuspraefixe [OK]/[FAIL] statt Glyphen (Rule 80).
+
+**Gefunden in:** `scripts/drills/drill_kill_switch.py` (CI-Log-Forensik nach
+Korb-3-Abschluss).
+
+---
+
+## E-178 (2026-08-17) — other / erster-crash-maskiert-zweiten-failure-grund
+
+**Was passiert ist:** Der Unicode-Crash (E-177) verhinderte, dass der Drill je
+Schritt 3 erreichte (deactivate, tokenpflichtig). Dass der Workflow
+weekly-drills.yml KEIN `OPERATOR_KILL_TOKEN` im env hat (0 Grep-Treffer in
+.github/workflows/), war dadurch unsichtbar — nach dem Encoding-Fix bleibt der
+Job erwartbar rot, nur weiter hinten.
+
+**Warum falsch:** Ein Fix am fruehesten Crash gibt kein Signal ueber alles
+danach. „Fix gepusht" als „Pipeline repariert" zu verkaufen ist eine unbelegte
+Aussage (CLAUDE.md: keine falsche Sicherheit; E-167 Scope-der-Aussage).
+
+**Wie vermeiden:** Bei einem Crash VOR dem Fachablauf den restlichen Pfad
+statisch durchlesen und Preconditions (Secrets/Env/Files) pruefen, BEVOR ein
+Ergebnis versprochen wird. Erwartung fuer den Verifikationslauf VORREGISTRIEREN
+(hier: PASS initial + PASS activation, dann FAIL deactivation/PermissionError
+= Fix bestaetigt + zweiter Grund bewiesen).
+
+**Gefunden in:** `scripts/drills/drill_kill_switch.py`,
+`.github/workflows/weekly-drills.yml` (senior-code-reviewer, Kompakt-Review).

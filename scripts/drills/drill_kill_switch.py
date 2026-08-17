@@ -47,9 +47,13 @@ def main() -> int:
         "initial_state_disengaged",
         not initial,
         (
-            "already engaged at drill start — deactivate first"
+            # Keine Nicht-cp1252-Glyphen in print-Pfaden: der GitHub-
+            # Windows-Runner printet mit cp1252 - ein U+2713 hier crashte
+            # den Drill 5 Wochen lang mit UnicodeEncodeError, BEVOR
+            # irgendein Drill-Schritt lief (E-177).
+            "already engaged at drill start - deactivate first"
             if initial
-            else "disengaged ✓"
+            else "disengaged"
         ),
     )
 
