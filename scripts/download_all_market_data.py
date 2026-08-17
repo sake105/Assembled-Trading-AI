@@ -325,25 +325,42 @@ def download_fundamentals(tickers: list[str]) -> pd.DataFrame:
 
 
 def download_earnings(tickers: list[str]) -> pd.DataFrame:
+    # UMGESTELLT 2026-08-17: Ticker.quarterly_earnings ist in yfinance
+    # deprecated und liefert STILL None fuer jedes Symbol — der alte Pfad
+    # produzierte seit dem yfinance-Upgrade 0 Zeilen ohne eine einzige
+    # Warnung (kein Rate-Limit; per 3-Symbol-Probe verifiziert). Ersatz:
+    # get_earnings_dates() (EPS Estimate/Reported + Surprise). SPALTEN-Schema
+    # unveraendert; Revenue liefert der neue Endpoint nicht -> None.
+    # DATUMS-SEMANTIK GEAENDERT (F-senior-5): event_date/disclosure_date sind
+    # jetzt der ANKUENDIGUNGS-Zeitstempel in UTC (After-Close ET faellt auf
+    # den Folge-UTC-Tag), nicht mehr das Fiskalperioden-Ende — event_ids sind
+    # zu Altzeilen derselben Datei NICHT vergleichbar. PIT-Richtung sicher
+    # (spaeter, nie frueher).
     log.info("[EARNINGS] Downloading earnings history for %d symbols...", len(tickers))
     rows: list[dict] = []
+    n_fail = 0
     for sym in tickers:
         try:
             ticker = yf.Ticker(sym)
-            # Quarterly earnings
-            qe = ticker.quarterly_earnings
-            if qe is not None and not qe.empty:
-                for date, row_data in qe.iterrows():
+            ed = ticker.get_earnings_dates(limit=12)
+            if ed is not None and not ed.empty:
+                # PIT: nur berichtete Quartale (EPS vorhanden) — zukuenftige
+                # Termine haben NaN-Reported und waeren Zukunfts-Events.
+                rep_col = next((c for c in ed.columns if "Reported" in str(c)), None)
+                est_col = next((c for c in ed.columns if "Estimate" in str(c)), None)
+                for date, row_data in ed.iterrows():
+                    eps_act = row_data.get(rep_col) if rep_col else None
+                    if eps_act is None or pd.isna(eps_act):
+                        continue
+                    ts = pd.Timestamp(date)
                     ts = (
-                        pd.Timestamp(date, tz="UTC")
-                        if not isinstance(date, pd.Timestamp)
-                        else date
+                        ts.tz_localize("UTC")
+                        if ts.tzinfo is None
+                        else ts.tz_convert("UTC")
                     )
-                    if ts.tzinfo is None:
-                        ts = ts.tz_localize("UTC")
-                    eps_act = row_data.get("Earnings")
-                    eps_est = row_data.get("Estimate")
-                    revenue = row_data.get("Revenue")
+                    eps_est = row_data.get(est_col) if est_col else None
+                    if eps_est is not None and pd.isna(eps_est):
+                        eps_est = None
                     rows.append(
                         {
                             "timestamp": ts,
@@ -352,22 +369,32 @@ def download_earnings(tickers: list[str]) -> pd.DataFrame:
                             "event_id": f"{sym}_earnings_{ts.date()}",
                             "event_date": ts,
                             "disclosure_date": ts,
-                            "eps_actual": eps_act,
-                            "eps_estimate": eps_est,
+                            "eps_actual": float(eps_act),
+                            "eps_estimate": (
+                                float(eps_est) if eps_est is not None else None
+                            ),
                             "eps_surprise_pct": (
                                 (eps_act - eps_est) / abs(eps_est) * 100
                                 if eps_est and eps_act and eps_est != 0
                                 else None
                             ),
-                            "revenue_actual": revenue,
+                            "revenue_actual": None,
                             "revenue_estimate": None,
                         }
                     )
             time.sleep(0.15)
         except Exception as exc:
+            n_fail += 1
             log.warning("  [WARN] %s earnings: %s", sym, exc)
 
     if not rows:
+        # E-176-Lektion: leer darf nicht still aussehen wie Erfolg.
+        log.error(
+            "[EARNINGS] 0 rows from %d symbols (%d hard failures) — "
+            "NOT overwriting existing parquet",
+            len(tickers),
+            n_fail,
+        )
         return pd.DataFrame()
 
     df = pd.DataFrame(rows)
@@ -377,6 +404,24 @@ def download_earnings(tickers: list[str]) -> pd.DataFrame:
     log.info(
         "[EARNINGS] Saved: %d events across %d symbols", len(df), df["symbol"].nunique()
     )
+    # F-senior-3 (E-180): Datei-mtime ist nicht Daten-Frische — der
+    # freshness_monitor urteilt per mtime und wuerde einen frisch
+    # geschriebenen, inhaltlich alten Payload gruen melden. Deshalb den
+    # Ereignis-Horizont IMMER loggen und bei grossem Abstand laut warnen
+    # (2026-08-17 real: Reported-EPS endete vendor-seitig ~14 Monate zurueck).
+    horizon = df["event_date"].max()
+    age_days = (pd.Timestamp.now(tz="UTC") - horizon).days
+    if age_days > 120:
+        log.warning(
+            "[EARNINGS] newest reported event is %s (%d days old) — vendor "
+            "cutoff or filter issue; file mtime will still look fresh",
+            horizon,
+            age_days,
+        )
+    else:
+        log.info(
+            "[EARNINGS] newest reported event: %s (%d days old)", horizon, age_days
+        )
     return df
 
 

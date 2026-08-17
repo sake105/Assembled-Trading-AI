@@ -25,6 +25,9 @@ PILOT_MANIFEST = Path("output/pilot/pilot_manifest.json")
 # E-146) — CWD-relativ faende der Check ausserhalb des Repo-Roots nie ein Log
 # und waere still inert (m2, Stage-1-Review 2026-08-16).
 PULL_LOG_DIR = _REPO / "output" / "ops"
+# E-176-Konsument (2026-08-17): erster Leser des sector_etf-Status-JSONs —
+# repo-verankert wie PULL_LOG_DIR (E-146), Producer schreibt ROOT/output/ops.
+SECTOR_STATUS = _REPO / "output" / "ops" / "refresh_sector_etf_status.json"
 WATCHDOG_STATE = Path("output/ops/watchdog_state.json")
 ALERT_CFG = Path("configs/alerting.yaml")
 POLICY = Path("configs/policy.yaml")
@@ -146,6 +149,34 @@ def evaluate(state, snap, cfg, now):
                         "requested": requested,
                         "ratio": round(n_bad / requested, 2),
                         "threshold": threshold,
+                    },
+                )
+            )
+
+    # --- sector-refresh degradation (E-176-Konsument, 2026-08-17) ---
+    # Der Drop-Pfad des Refreshers endet mit Exit 0 und ein Naht-Abbruch
+    # (ok=false) erreichte nur die Tageslogdatei — das Status-JSON hatte
+    # KEINEN Leser. Dedupe ueber ts_utc: jeder Status wird genau einmal
+    # gemeldet (der Refresher schreibt taeglich, der Watchdog tickt 15-min).
+    sstat = snap.get("sector_status")
+    if sstat:
+        degraded = (
+            (not sstat.get("ok", True))
+            or bool(sstat.get("dropped_symbols"))
+            or bool(sstat.get("error"))
+        )
+        if degraded and state.get("last_alerted_sector_status_ts") != sstat.get(
+            "ts_utc"
+        ):
+            actions.append(
+                (
+                    "fire",
+                    "sector_refresh_degraded",
+                    {
+                        "ts_utc": sstat.get("ts_utc"),
+                        "rc": sstat.get("rc"),
+                        "dropped": ",".join(sstat.get("dropped_symbols") or []) or "-",
+                        "error": str(sstat.get("error") or "")[:160],
                     },
                 )
             )
@@ -279,6 +310,7 @@ def load_snapshot():
         "equity": equity,
         "peak": peak,
         "pull_log": pull_log,
+        "sector_status": _load_json(SECTOR_STATUS),
     }
 
 
@@ -305,9 +337,15 @@ def apply_actions(acts, am, state, policy, now):
         kind = a[0]
         if kind == "fire":
             _, rule, ctx = a
-            am.fire(rule, ctx)
+            delivered = am.fire(rule, ctx)
             if rule == "liquidation_warning":
                 state["warning_sent_at"] = now.isoformat()
+            elif rule == "sector_refresh_degraded" and delivered:
+                # F-senior-1 (Stage 2, 2026-08-17): fire() gibt False bei
+                # Cooldown/unbekannter Regel — Dedupe-Gedaechtnis nur
+                # fortschreiben, was WIRKLICH zugestellt wurde (E-181),
+                # sonst macht die Rate-Limitierung die Degradation stumm.
+                state["last_alerted_sector_status_ts"] = ctx.get("ts_utc")
         elif kind == "liquidate":
             _, reason, ctx = a
             _do_liquidation(reason, ctx, policy)

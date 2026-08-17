@@ -2,9 +2,9 @@
 
 Covers three fixes from docs/Diagnostik.md (portfolio + qa sections):
 
-- **P1** — ``portfolio/dro_portfolio.py`` and ``portfolio/optimizers.py`` must be
+- **P1** — ``portfolio/optimizers.py`` must be
   IMPORTABLE even when scipy is absent (scipy.optimize is imported lazily inside
-  the solver functions). Calling a solver without scipy must raise a *clear,
+  the solver functions). (``dro_portfolio`` 2026-08-17 archiviert, 6.4 T3.) Calling a solver without scipy must raise a *clear,
   informative* ``ImportError`` — not a bare ``ModuleNotFoundError`` at an
   unexpected point.
 - **Q1** — ``qa/metrics.probability_backtest_overfitting`` is a single-partition
@@ -81,12 +81,10 @@ def _import_module_without_scipy(module_name: str):
 # ===========================================================================
 # P1 — portfolio modules import without scipy; solvers raise clear error
 # ===========================================================================
-def test_dro_portfolio_imports_without_scipy():
-    """dro_portfolio must import cleanly even when scipy is unavailable."""
-    mod = _import_module_without_scipy("src.assembled_core.portfolio.dro_portfolio")
-    assert hasattr(mod, "wasserstein_dro_portfolio")
-    assert hasattr(mod, "kl_dro_portfolio")
-    assert mod._SCIPY_AVAILABLE is False
+# ENTFERNT 2026-08-17: test_dro_portfolio_imports_without_scipy —
+# portfolio/dro_portfolio archiviert (Audit-Plan 6.4 Tranche 3, nur
+# Test-Referenzen; dedizierte Datei tests/test_portfolio_dro.py
+# mit-archiviert). optimizers-Tests bleiben unveraendert.
 
 
 def test_optimizers_imports_without_scipy():
@@ -96,20 +94,8 @@ def test_optimizers_imports_without_scipy():
     assert mod._SCIPY_AVAILABLE is False
 
 
-def test_dro_solver_without_scipy_raises_clear_importerror():
-    """Calling a DRO solver without scipy raises a clear ImportError."""
-    module_name = "src.assembled_core.portfolio.dro_portfolio"
-    returns = np.array([[0.01, -0.02], [0.00, 0.01], [0.02, 0.00], [-0.01, 0.03]])
-    # scipy must stay hidden for BOTH the import and the call (the lazy import
-    # happens at call time inside the solver).
-    with _scipy_hidden(module_name):
-        mod = importlib.import_module(module_name)
-        with pytest.raises(ImportError) as exc:
-            mod.wasserstein_dro_portfolio(returns)
-    msg = str(exc.value).lower()
-    assert "scipy" in msg
-    # Must be a helpful, informative message — not an empty/bare error.
-    assert "wasserstein" in msg or "dro" in msg or "linprog" in msg
+# ENTFERNT 2026-08-17: test_dro_solver_without_scipy_raises_clear_importerror
+# (dro_portfolio archiviert, s. o.).
 
 
 def test_optimizer_without_scipy_raises_clear_importerror():
@@ -135,16 +121,8 @@ def test_optimizer_without_scipy_raises_clear_importerror():
 # These run only when scipy is actually installed; they are NOT importorskip'd
 # at module level (that would skip the whole no-scipy point above).
 # ---------------------------------------------------------------------------
-def test_dro_solver_with_scipy_runs():
-    pytest.importorskip("scipy")
-    from src.assembled_core.portfolio.dro_portfolio import (
-        wasserstein_dro_portfolio,
-    )
-
-    returns = np.array([[0.01, -0.02], [0.00, 0.01], [0.02, 0.00], [-0.01, 0.03]])
-    res = wasserstein_dro_portfolio(returns)
-    assert res.weights.shape == (2,)
-    assert abs(float(res.weights.sum()) - 1.0) < 1e-6
+# ENTFERNT 2026-08-17: test_dro_solver_with_scipy_runs (dro_portfolio
+# archiviert, s. o.).
 
 
 def test_optimizer_with_scipy_runs():

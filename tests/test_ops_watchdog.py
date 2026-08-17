@@ -296,3 +296,101 @@ def test_load_snapshot_aggregates_and_filters(tmp_path, monkeypatch):
     assert pl is not None
     assert pl["requested"] == 200 and pl["error"] == 100  # nur das frische echte
     assert pl["n_logs"] == 1
+
+
+# --- sector_status-Konsument (E-176, 2026-08-17) ------------------------------
+
+
+def _sector_status(**kw):
+    base = {
+        "ts_utc": "2026-08-17T05:00:00+00:00",
+        "rc": 11,
+        "ok": True,
+        "dropped_symbols": [],
+        "error": None,
+    }
+    base.update(kw)
+    return base
+
+
+def test_sector_status_seam_abort_fires():
+    """ok=false (Naht-Abbruch, rc=-2) muss alarmieren."""
+    sstat = _sector_status(rc=-2, ok=False, error="seam_guard: MERGE ABORTED")
+    acts = ow.evaluate(state={}, snap=_snap(sector_status=sstat), cfg=CFG, now=NOW)
+    hits = [a for a in acts if a[0] == "fire" and a[1] == "sector_refresh_degraded"]
+    assert len(hits) == 1
+    assert "seam_guard" in hits[0][2]["error"]
+
+
+def test_sector_status_dropped_symbols_fires_despite_ok_true():
+    """Der Drop-Pfad endet mit Exit 0 und ok=true — genau deshalb muss der
+    Watchdog auf dropped_symbols anspringen, nicht auf ok."""
+    sstat = _sector_status(
+        dropped_symbols=["XLK"], error="overlap_ratio_not_constant: ['XLK']"
+    )
+    acts = ow.evaluate(state={}, snap=_snap(sector_status=sstat), cfg=CFG, now=NOW)
+    hits = [a for a in acts if a[0] == "fire" and a[1] == "sector_refresh_degraded"]
+    assert len(hits) == 1
+    assert hits[0][2]["dropped"] == "XLK"
+
+
+def test_sector_status_healthy_silent():
+    acts = ow.evaluate(
+        state={}, snap=_snap(sector_status=_sector_status()), cfg=CFG, now=NOW
+    )
+    assert all(a[1] != "sector_refresh_degraded" for a in acts if a[0] == "fire")
+    # fehlendes Status-JSON -> still (kein Fehlalarm vor dem ersten Lauf)
+    acts = ow.evaluate(state={}, snap=_snap(sector_status=None), cfg=CFG, now=NOW)
+    assert all(a[1] != "sector_refresh_degraded" for a in acts if a[0] == "fire")
+
+
+def test_sector_status_dedupe_via_state_ts():
+    """Gleicher ts_utc darf nur einmal gemeldet werden (15-min-Ticks vs.
+    Tages-Producer); ein NEUER degradierter Status feuert wieder."""
+    sstat = _sector_status(rc=-2, ok=False, error="seam_guard: x")
+    state = {"last_alerted_sector_status_ts": sstat["ts_utc"]}
+    acts = ow.evaluate(state=state, snap=_snap(sector_status=sstat), cfg=CFG, now=NOW)
+    assert all(a[1] != "sector_refresh_degraded" for a in acts if a[0] == "fire")
+    fresh = _sector_status(
+        ts_utc="2026-08-18T05:00:00+00:00", rc=-2, ok=False, error="seam_guard: y"
+    )
+    acts = ow.evaluate(state=state, snap=_snap(sector_status=fresh), cfg=CFG, now=NOW)
+    assert any(a[1] == "sector_refresh_degraded" for a in acts if a[0] == "fire")
+
+
+def test_sector_status_apply_actions_records_ts():
+    """apply_actions muss den gemeldeten ts_utc in den State schreiben
+    (Dedupe-Gedaechtnis), ohne echten AlertManager."""
+
+    class _AM:
+        def __init__(self):
+            self.fired = []
+
+        def fire(self, rule, ctx):
+            self.fired.append((rule, ctx))
+            return True
+
+    sstat = _sector_status(rc=-2, ok=False, error="seam_guard: x")
+    acts = ow.evaluate(state={}, snap=_snap(sector_status=sstat), cfg=CFG, now=NOW)
+    am = _AM()
+    state = ow.apply_actions(acts, am, {}, policy={}, now=NOW)
+    assert state["last_alerted_sector_status_ts"] == sstat["ts_utc"]
+    assert any(r == "sector_refresh_degraded" for r, _ in am.fired)
+
+
+def test_sector_status_cooldown_suppression_keeps_dedupe_open():
+    """F-senior-1 (E-181): gibt fire() False zurueck (Cooldown/unbekannte
+    Regel), darf der ts NICHT als gemeldet gelten — sonst macht die
+    Rate-Limitierung die Degradation dauerhaft stumm."""
+
+    class _SuppressingAM:
+        def fire(self, rule, ctx):
+            return False  # z.B. aktives Cooldown-Fenster
+
+    sstat = _sector_status(rc=-2, ok=False, error="seam_guard: x")
+    acts = ow.evaluate(state={}, snap=_snap(sector_status=sstat), cfg=CFG, now=NOW)
+    state = ow.apply_actions(acts, _SuppressingAM(), {}, policy={}, now=NOW)
+    assert "last_alerted_sector_status_ts" not in state
+    # naechster Tick: derselbe Status muss erneut zur Meldung anstehen
+    acts2 = ow.evaluate(state=state, snap=_snap(sector_status=sstat), cfg=CFG, now=NOW)
+    assert any(a[1] == "sector_refresh_degraded" for a in acts2 if a[0] == "fire")

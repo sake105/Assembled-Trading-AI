@@ -31,6 +31,21 @@ from src.assembled_core.execution.kill_switch import (
 
 
 def main() -> int:
+    # CI-Selbstversorgung (E-178): der GitHub-Runner hat kein Repo-Secret
+    # OPERATOR_KILL_TOKEN, wodurch Schritt 3 (deactivate) konstruktiv nie
+    # bestehen konnte. Im CI ist der Kill-Switch-State ephemer (frischer
+    # Checkout) — ein Wegwerf-Token testet die Token-Mechanik vollstaendig
+    # (setzen, durchreichen, vergleichen), ohne das echte Operator-Token zu
+    # brauchen. EHRLICHE GRENZE: das prueft die MECHANIK, nicht ob das
+    # Repo-Secret konfiguriert ist. Lokal (kein GITHUB_ACTIONS) unveraendert.
+    if os.environ.get("GITHUB_ACTIONS") == "true" and not os.environ.get(
+        "OPERATOR_KILL_TOKEN"
+    ):
+        import secrets as _secrets
+
+        os.environ["OPERATOR_KILL_TOKEN"] = _secrets.token_hex(16)
+        print("[WARN] CI: ephemeres OPERATOR_KILL_TOKEN provisioniert (drill-only)")
+
     ts = datetime.now(timezone.utc).isoformat()
     report: dict = {"started_at": ts, "steps": []}
 
@@ -40,6 +55,23 @@ def main() -> int:
         report["steps"].append({"step": name, "status": status, "detail": detail})
 
     print("=== Kill-Switch Drill ===")
+
+    # F-senior-2 (Stage 2, 2026-08-17): Token-Praesenz VOR jeder Aktivierung
+    # pruefen. Der alte Ablauf aktivierte erst (tokenfrei) und scheiterte dann
+    # am tokenpflichtigen Deactivate — und liess den ECHTEN Kill-Switch
+    # engaged zurueck (exakt der 09.08.-Zustand: engaged aus einem Testlauf,
+    # Pilot orderlos). Ohne Token wird jetzt abgebrochen, BEVOR der Drill
+    # irgendeinen Zustand anfasst.
+    if not os.environ.get("OPERATOR_KILL_TOKEN"):
+        step(
+            "token_present",
+            False,
+            "OPERATOR_KILL_TOKEN fehlt — Drill wuerde aktivieren, aber nie "
+            "deaktivieren koennen. Abbruch VOR der Aktivierung.",
+        )
+        report["verdict"] = "FAIL"
+        _write(report)
+        return 1
 
     # 1. Should start disengaged
     initial = is_kill_switch_engaged()

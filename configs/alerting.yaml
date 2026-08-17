@@ -131,6 +131,14 @@ alerts:
       cooldown_minutes: 360
       message: "yfinance-Pull-Protokoll {log}: {n_error}/{requested} Requests fehlgeschlagen (Quote {ratio}, Schwelle {threshold})."
 
+    # 2026-08-17 (E-176-Konsument): erster Leser des sector_etf-Status-JSONs.
+    # Ein Naht-Abbruch (ok=false) oder dauerhaft gedroppte Symbole (der
+    # Drop-Pfad endet mit Exit 0!) erreichten vorher keinen Menschen.
+    - name: sector_refresh_degraded
+      severity: warning
+      cooldown_minutes: 360
+      message: "Sector-ETF-Refresh degradiert: rc={rc}, dropped=[{dropped}], error={error}"
+
   watchdog:
     warn_after_trading_days: 1
     liquidate_after_warning_hours: 4

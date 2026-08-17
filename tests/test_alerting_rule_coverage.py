@@ -69,6 +69,18 @@ PREVIOUSLY_MISSING = [
             "threshold": 0.5,
         },
     ),
+    # E-176-Konsument (2026-08-17): ebenfalls aus scripts/ops_watchdog.py
+    # gefeuert (der SRC-Scanner sieht scripts/ nicht) — Anker fuer Existenz
+    # + Message-Rendering mit dem exakten Call-Site-Kontext.
+    (
+        "sector_refresh_degraded",
+        {
+            "ts_utc": "2026-08-17T05:00:00+00:00",
+            "rc": -2,
+            "dropped": "XLK",
+            "error": "seam_guard: MERGE ABORTED",
+        },
+    ),
 ]
 
 

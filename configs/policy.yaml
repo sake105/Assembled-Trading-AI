@@ -741,7 +741,8 @@ regime_walk_forward:
 # Phase 11: Alert system
 # ---------------------------------------------------------------------------
 alerts:
-  enabled: true              # enable alert_health_worker in daily_scheduler
+  enabled: true              # gate for alert emission (ops/alerts.py, paper_runner);
+                             # Kommentar 2026-08-17 aktualisiert — daily_scheduler archiviert (6.5)
   rate_limit_seconds: 300    # seconds between identical alert messages
   output_dir: "output/alerts"
   sinks:

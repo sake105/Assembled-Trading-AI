@@ -5,13 +5,10 @@ including health checks, status reporting, and operational insights.
 """
 
 # Wired 2026-04-22: previously orphan ops modules
+# daily_scheduler-Reexport ENTFERNT 2026-08-17 (Audit-Plan 6.5): Modul nach
+# archive/orphaned_code_2026-08-17/ops/ archiviert (Scheduler-Kette ohne
+# Launcher; kein Paket-Import nutzte die Reexporte — repo-weit 0 Treffer).
 from src.assembled_core.ops.compare import compare_summaries  # noqa: F401
-from src.assembled_core.ops.daily_scheduler import (
-    DailyScheduler,
-    WorkerResult,
-    build_cycle_summary,
-    run_daily_cycle,
-)
 from src.assembled_core.ops.health_check import (
     HealthCheck,
     HealthCheckResult,
@@ -40,8 +37,4 @@ __all__ = [
     "health_result_from_dict",
     "health_result_to_dict",
     "render_health_summary_text",
-    "DailyScheduler",
-    "WorkerResult",
-    "run_daily_cycle",
-    "build_cycle_summary",
 ]

@@ -8214,30 +8214,7 @@ class TestNetworkTimeoutsComprehensive:
 
     # ENTFERNT 2026-08-17: testete data/sources/newsapi_source (timeout-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
     # ENTFERNT 2026-08-17: testete intel/polymarket_loader (timeout-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
-    def test_edgar_source_has_timeout(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "edgar_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "timeout" in content
-
-    def test_alphavantage_source_has_timeout(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "alphavantage_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "timeout" in content
-
+    # ENTFERNT 2026-08-17: test_edgar_source_has_timeout + test_alphavantage_source_has_timeout — testeten data/sources/{edgar,alphavantage}_source (archiviert Tranche 3, nur __init__-Reexporte ohne Konsument), s. archive/orphaned_code_2026-08-17/README.md
     def test_cboe_source_has_timeout(self):
         p = (
             Path(__file__).parents[1]
@@ -8251,78 +8228,10 @@ class TestNetworkTimeoutsComprehensive:
         assert "timeout" in content
 
 
-class TestEDGARRateLimiting:
-    """Item 165: edgar_source.py sets User-Agent header (SEC requirement) and uses timeout."""
-
-    def test_edgar_source_exists(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "edgar_source.py"
-        )
-        assert p.exists()
-
-    def test_edgar_has_user_agent_header(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "edgar_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "User-Agent" in content, "EDGAR requires a descriptive User-Agent header"
-
-    def test_edgar_user_agent_is_descriptive(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "edgar_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        # Must not be generic — SEC requires contact email or company name
-        assert (
-            "@" in content
-            or "assembled" in content.lower()
-            or "trading" in content.lower()
-        )
-
-    def test_edgar_has_timeout(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "edgar_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "timeout" in content
-
-    def test_edgar_has_rate_limit_awareness(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "edgar_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        # Rate limiting: sleep, rate_limit, or 10 req/sec mention
-        has_rate_limit = any(
-            kw in content.lower() for kw in ["sleep", "rate_limit", "10", "throttl"]
-        )
-        assert has_rate_limit, (
-            "edgar_source.py should have rate-limit awareness (SEC: 10 req/sec)"
-        )
+# ENTFERNT 2026-08-17: Klasse TestEDGARRateLimiting — testete Datei-Existenz/
+# UA/Timeout von data/sources/edgar_source.py (archiviert Tranche 3). Der
+# LEBENDE Form-4-Pfad (data/edgar_form4_ingest.py) traegt eigene UA-/Limit-
+# Logik (resolve_user_agent, req_rate-Log).
 
 
 # ---------------------------------------------------------------------------
@@ -10108,8 +10017,9 @@ class TestOsPathPathlibMix:
 
     def test_new_modules_prefer_pathlib(self):
         # Key new modules should use pathlib, not os.path
-        # ENTFERNT 2026-08-17: newsapi_source.py aus der Liste, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
-        for fname in ["edgar_source.py", "model_registry.py"]:
+        # ENTFERNT 2026-08-17: newsapi_source.py aus der Liste (Tranche 2) und
+        # edgar_source.py (Tranche 3), s. archive/orphaned_code_2026-08-17/README.md
+        for fname in ["model_registry.py"]:
             for base in ["data/sources", "ml"]:
                 p = Path(__file__).parents[1] / "src" / "assembled_core" / base / fname
                 if p.exists():
@@ -13148,7 +13058,12 @@ class TestNetworkTimeouts:
 
 
 class TestEDGARThrottling:
-    """Item 165: SEC EDGAR throttling is implemented."""
+    """Item 165: SEC EDGAR throttling is implemented.
+
+    RETARGETING-HINWEIS 2026-08-17 (Stage-1-N2): data/sources/edgar_source.py
+    ist archiviert (Tranche 3); das rglob("*edgar*.py") trifft jetzt den
+    LEBENDEN SEC-Client data/edgar_form4_ingest.py — Throttle-/UA-Pflicht
+    gilt dort genauso, die Klasse bleibt bewusst bestehen."""
 
     def test_edgar_source_has_rate_limiting(self):
         src = Path(__file__).parents[1] / "src"

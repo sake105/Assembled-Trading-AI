@@ -55,7 +55,7 @@ For scripts in subdirectories (`architecture/`, `calibration/`, `ci/`, `commands
 - `daily_pilot_review.py` — generates structured markdown summary for paper pilot monitoring
 - `smoke_test_paper.py` — 72-hour pre-paper-pilot smoke test; validates full stack integration
 - `paper_trading_scheduler.py` — autonomous paper trading scheduler
-- `run_daily_scheduler.py` — CLI runner for the autonomous daily operations cycle
+- `run_daily_scheduler.py` — ARCHIVIERT 2026-08-17 (Audit-Plan 6.5) nach `archive/orphaned_code_2026-08-17/scripts/` — Scheduler-Kette ohne Launcher, Doppelstruktur zum Pilot-Bat
 - `run_preflight_checks.py` — pre-flight check automation script (Checks 1–6)
 - `snapshot_alpaca_balance.py` — Alpaca EOD balance snapshot (A4)
 - `import_broker_snapshot.py` — CLI tool for importing external broker snapshots

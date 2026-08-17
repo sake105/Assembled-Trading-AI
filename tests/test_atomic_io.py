@@ -110,33 +110,9 @@ class TestAtomicWriteJson:
 
 
 class TestAtomicWriteJsonIntegration:
-    def test_pit_store_uses_atomic_write(self, tmp_path, monkeypatch):
-        """pit_store.archive() must call atomic_write_json, not write_text."""
-        calls = []
-
-        def recording_write(path, data, **kwargs):
-            calls.append(str(path))
-
-        monkeypatch.setattr(
-            "src.assembled_core.utils.atomic_io.atomic_write_json",
-            recording_write,
-        )
-
-        from src.assembled_core.intel.pit_store import PITStore
-
-        store = PITStore(root=tmp_path)
-
-        # archive creates the directory structure and calls atomic_write_json
-        store.archive(
-            source="test_source",
-            run_id="run001",
-            artifact_type="signals",
-            data={"signal": 1.0},
-        )
-
-        assert any("signals.json" in c for c in calls), (
-            f"atomic_write_json not called for signals.json; calls={calls}"
-        )
+    # ENTFERNT 2026-08-17: test_pit_store_uses_atomic_write testete
+    # intel/pit_store (archiviert nach archive/orphaned_code_2026-08-17/intel/,
+    # Audit-Plan 6.4 Tranche 3 — einzige Referenz war dieser Test).
 
     def test_factor_store_manifest_uses_atomic_write(self, tmp_path, monkeypatch):
         """factor_store._write_manifest() must use atomic_write_json."""

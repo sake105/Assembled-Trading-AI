@@ -2515,3 +2515,68 @@ Ergebnis versprochen wird. Erwartung fuer den Verifikationslauf VORREGISTRIEREN
 
 **Gefunden in:** `scripts/drills/drill_kill_switch.py`,
 `.github/workflows/weekly-drills.yml` (senior-code-reviewer, Kompakt-Review).
+
+---
+
+## E-179 (2026-08-17) — logic-error / deprecated-vendor-feld-liefert-still-none
+
+**Was passiert ist:** Ticker.quarterly_earnings ist in yfinance deprecated und
+gibt fuer JEDES Symbol None zurueck. download_earnings lief durch, sammelte
+0 Zeilen, returnte ein leeres DataFrame und schrieb nichts — ohne eine einzige
+Warnung. Der Ausfall war monatelang unsichtbar (die alte Datei blieb liegen)
+und wurde zunaechst faelschlich dem yfinance-Rate-Limit zugeschrieben.
+
+**Warum falsch:** Ein leeres Vendor-Ergebnis ist nicht dasselbe wie "keine
+Daten vorhanden". Ohne explizites Log ist der Nullfall vom Normalfall
+ununterscheidbar; weil der Write uebersprungen wird, sieht die alte Datei
+weiter "vorhanden" aus.
+
+**Wie vermeiden:** Fetch-Pfade, die bei 0 Ergebnissen den Write ueberspringen,
+MUESSEN das auf ERROR loggen (Symbolzahl, harte Fehler, "not overwriting").
+Bei Verdacht auf Vendor-Probleme: 3-Symbol-Probe des konkreten Feldes, nicht
+auf Rate-Limit tippen.
+
+**Gefunden in:** scripts/download_all_market_data.py (earnings-Nachzug der
+Welle "Rest autonom", Messung statt Annahme).
+
+---
+
+## E-180 (2026-08-17) — logic-error / mtime-frische-maskiert-payload-alter
+
+**Was passiert ist:** Der reparierte Earnings-Downloader schrieb
+events_earnings.parquet neu: Datei-mtime = heute, juengstes Ereignis darin =
+2025-06-26 (14 Monate alt, Vendor-Cutoff). freshness_monitor urteilt per
+mtime (96-h-Budget) und meldet GRUEN auf altem Inhalt. Schwester von E-163
+(dort Endpoint-Frische, hier Monitoring-Frische).
+
+**Warum falsch:** Frische der DATEI ist nicht Frische der DATEN — und der
+Producer-Fix verschaerft die Luecke, weil er die Datei neu stempelt.
+
+**Wie vermeiden:** Producer loggen nach jedem Write den Ereignis-Horizont
+(max(event_date)) und warnen bei ungewoehnlichem Abstand zu now. Bei
+mtime-Freshness-Checks gilt: sie beweisen nur, dass ein Job LIEF.
+
+**Gefunden in:** scripts/download_all_market_data.py +
+src/assembled_core/data/freshness_monitor.py (senior-code-reviewer, gemessen).
+
+---
+
+## E-181 (2026-08-17) — wiring-gap / dedupe-state-trotz-suppressed-sink
+
+**Was passiert ist:** Der Watchdog schrieb "zuletzt gemeldet: <ts>" direkt
+nach am.fire(), ohne den Rueckgabewert zu pruefen. fire() gibt bei aktivem
+Cooldown (360 min) oder unbekannter Regel False zurueck — der Alarm ging nie
+raus, galt aber als gemeldet und konnte (ts-Dedupe, Tages-Producer) nie
+wiederkehren.
+
+**Warum falsch:** Dedupe-State darf nur fortschreiben, was tatsaechlich
+zugestellt wurde — sonst verwandelt ausgerechnet die Rate-Limitierung eine
+Degradation in dauerhafte Stille (die E-176-Klasse, gegen die der Check
+gebaut wurde).
+
+**Wie vermeiden:** "Zuletzt alarmiert"-State IMMER an den Rueckgabewert des
+Sinks binden (if am.fire(...): state[...] = ...). Bei Alert-Konsumenten im
+Review fragen: was passiert bei Cooldown/unbekannter Regel?
+
+**Gefunden in:** scripts/ops_watchdog.py (senior-code-reviewer; Fix + Test
+test_sector_status_cooldown_suppression_keeps_dedupe_open).

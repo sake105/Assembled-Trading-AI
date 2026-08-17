@@ -89,9 +89,9 @@ _MODULE_REGISTRY: list[dict] = [
     },
     {
         "module": "edgar_source",
-        "status": "canary",
-        "callers": 1,
-        "path": "src/assembled_core/data/edgar_source.py",
+        "status": "archived",
+        "callers": 0,
+        "path": "archive/orphaned_code_2026-08-17/sources/edgar_source.py",
     },
     # canary (newly promoted from phantom — files exist, not yet in hot path)
     {

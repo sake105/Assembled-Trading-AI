@@ -14,6 +14,15 @@
 > Eintraege sind HISTORISCH korrekt, die Pfade aber nicht mehr aktuell —
 > Details im Archiv-README.
 **Vorher:** 2026-08-16 (§0.00 Kill-Switch-Zustand dokumentiert; §0.0-Backup-Nachtrag)
+
+> **Nachtrag 2026-08-17 (E-180, F-auditor-2):** `freshness_monitor` meldet
+> `events_earnings.parquet` seit dem Earnings-Nachzug vom 2026-08-17 **GRUEN**
+> (mtime-basiert, 96-h-Budget), obwohl der Ereignis-Horizont der Datei bei
+> **2025-06-26** liegt (Vendor-Grenze: Yahoo-Reported-EPS endet ~Q2/2025).
+> Frische der Datei ist NICHT Frische der Daten — vor dem Nachzug hielt die
+> alte mtime den Monitor ehrlich rot. Der Producer loggt den Horizont jetzt
+> laut (WARN >120 Tage); ein struktureller Payload-Horizont-Check im
+> freshness_monitor ist offener Follow-up.
 **Vorher:** 2026-08-15 (§0.0 EODHD-Zugangsverlust ergänzt)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
@@ -34,7 +43,10 @@ wurde 2026-08-15 vorangestellt.)
 `trading_cycle_v2_auto_dd`, Reason `auto_dd_kill: drawdown=-90.00%`, `throttle_pct: 0.0`.
 Der Auslöser war ein **Testlauf** (die −90 % sind kein realer Pilot-Drawdown), aber der
 Zustand ist real und persistiert. Deaktivierung: Operator-Disengage mit `OPERATOR_KILL_TOKEN`
-(kein automatischer Selbst-Reset — by design).
+(kein automatischer Selbst-Reset — by design). **Fertiges Operator-Tool seit 2026-08-17:**
+`python scripts/ops/ops_disengage_kill_switch.py` — laedt `.env` selbst, wechselt hart ins
+Repo-Root (CWD-sicher), druckt das Token nie; Agent-Ausfuehrung ist vom
+Auto-Mode-Klassifizierer geblockt (bewusst — Token-Zugriff bleibt beim Operator).
 
 Dass dieser Betriebszustand bis 2026-08-16 in keiner Betriebsdoku stand (nur im State-File
 und im User-Level-Memory), ist erneut die **E-140**-Klasse — deshalb jetzt hier als §0.00

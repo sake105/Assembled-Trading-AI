@@ -1,7 +1,9 @@
 # src/assembled_core/api/routers/health.py
 """Rich health-check endpoint (GO_LIVE F2).
 
-Mirrors the checks performed by ops/daily_scheduler._health_check_worker and
+Mirrors the checks performed by the former ops/daily_scheduler
+._health_check_worker (archiviert 2026-08-17 nach
+archive/orphaned_code_2026-08-17/ops/, Audit-Plan 6.5) and
 execution/broker_adapter.BrokerAdapter.health_check().  The existing thin
 /health (uptime-only) in app.py is replaced by this router.
 
