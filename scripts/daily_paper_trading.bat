@@ -55,6 +55,21 @@ if errorlevel 1 (
     echo [WARN] attribution report failed — pilot result unaffected >> "%LOGFILE%" 2>&1
 )
 
+REM Step 4: Regime-State-Producer fuer /monitoring/regime (Audit-Follow-up
+REM 2026-08-17; nutzt denselben Detector wie die Pipeline). Non-fatal.
+echo [%date% %time%] Writing regime state... >> "%LOGFILE%" 2>&1
+.venv\Scripts\python.exe scripts\ops\write_regime_state.py >> "%LOGFILE%" 2>&1
+if errorlevel 1 (
+    echo [WARN] regime state write failed — pilot result unaffected >> "%LOGFILE%" 2>&1
+)
+
+REM Step 5: Retention fuer Ops-Artefakt-Familien (KNOWN_ISSUES f2). Non-fatal.
+echo [%date% %time%] Pruning ops artifacts... >> "%LOGFILE%" 2>&1
+.venv\Scripts\python.exe scripts\ops\prune_ops_artifacts.py >> "%LOGFILE%" 2>&1
+if errorlevel 1 (
+    echo [WARN] artifact prune failed — pilot result unaffected >> "%LOGFILE%" 2>&1
+)
+
 echo [%date% %time%] === Done. Pilot exit code: %PILOT_RC% === >> "%LOGFILE%" 2>&1
 
 REM NO `pause` — this runs unattended via Task Scheduler.

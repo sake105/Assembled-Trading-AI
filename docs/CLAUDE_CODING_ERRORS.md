@@ -2372,3 +2372,77 @@ Generatoren des betroffenen Doku-Ordners neu laufen lassen (hier:
 scripts/architecture/generate_system_map.py).
 **Erkannt in:** Kompakt-Review (`docs/architecture/system_map/data/system_map.json`).
 **Referenzen:** E-160, E-167.
+
+## E-172 — Vendor adjustiert Split nur ab Stichtag: die Cache-Historie bleibt auf alter Skala
+**Datum:** 2026-08-17
+**Kategorie:** logic-error / teiladjustierter-bestand
+**Was passierte:** CRWD (Split 4:1) und DD (Reverse ~1:3) am 17.06.2026: EODHD lieferte danach
+adjustierte NEUE Bars, aber der lokale Cache behielt die VOR-Split-Historie auf der alten Skala
+— ein +305 %/-75 %-Phantomsprung mitten in der Reihe, unbemerkt seit Juni, mit Wirkung auf alle
+fensterueberspannenden Kennzahlen (mom_12_1, MAs) im Pilot. Entdeckt erst, als die
+Overlap-Ratio-Pruefung des neuen Merge-Helpers „nicht konstant" meldete und die Forensik den
+Sprungtag isolierte (Ratio 0.25 konstant VOR dem 17.06., 1.0 danach).
+
+**Warum falsch:** Ein inkrementeller Cache-Refresh uebernimmt Vendor-Adjustierungen nur fuer
+neue Zeilen. Jeder Split nach dem letzten Vollabzug hinterlaesst eine teiladjustierte Reihe —
+und kein damaliger Guard prueffte Bestandskonsistenz.
+
+**Wie vermeiden:**
+1. Overlap-Ratio-Pruefung gegen eine Zweitquelle findet solche Brueche (genau so entdeckt);
+   „Ratio nicht konstant" ist ein FORENSIK-Signal, kein blosses Drop-Kriterium.
+2. Reparatur-Faktor = Median der Vor-Sprung-Overlap-Ratio (split-exakt), NIE post/pre am
+   Sprungtag — letzteres schluckt die echte Tagesrendite (im ersten Versuch passiert,
+   selbst korrigiert: Sprungtags-Rendite muss nach der Reparatur der Zweitquelle entsprechen).
+3. Aufgeloeste failed-symbols-Eintraege aktiv ausleeren — eine stale Fehlerliste ist die
+   naechste E-140.
+**Erkannt in:** CRWD/DD-Forensik (`output/aggregates/daily.parquet`,
+`scripts/ops/prewarm_price_cache.py`).
+**Referenzen:** E-165, E-166.
+
+
+## E-173 — Extrahierter Guard-Helper mit Allquantor im Docstring
+**Datum:** 2026-08-17
+**Kategorie:** wiring-gap / allquantor-ohne-grep
+**Was passierte:** price_cache_merge wurde extrahiert, "damit JEDER Schreiber dieselbe Wahrheit
+nutzt". Angeschlossen wurden 2 von 5 Schreibern derselben Datei (die 3 dormanten nicht).
+
+**Warum falsch:** Der Allquantor im Kopf des Schutzmoduls erzeugt genau die Sicherheit, die
+E-166 zerstoert hat: der naechste Leser prueft nicht, ob SEIN Schreiber angeschlossen ist.
+Ein Helper macht eine Invariante VERFUEGBAR, nicht durchgesetzt.
+
+**Wie vermeiden:** Angeschlossene UND nicht angeschlossene Aufrufer NAMENTLICH im Docstring
+listen; "alle" nie schreiben, ohne es gegrept zu haben.
+**Erkannt in:** Stage-2-Review Korb-3-Welle (src/assembled_core/data/price_cache_merge.py).
+**Referenzen:** E-166, E-144.
+
+## E-174 — Consumer-ohne-Producer repariert, Producer-ohne-Wert erzeugt
+**Datum:** 2026-08-17
+**Kategorie:** wiring-gap / feld-ohne-quelle
+**Was passierte:** write_regime_state schloss die E-162-Luecke am /monitoring/regime-Endpoint,
+schrieb aber regime_score — ein Feld, das der verwendete Detector nie liefert (er liefert
+regime_confidence). Beide real erzeugten Artefakte trugen null, waehrend der verfuegbare Wert
+ungenutzt danebenlag.
+
+**Warum falsch:** Der Endpoint gilt danach als "hat Producer", liefert fuer das Feld aber
+dauerhaft nichts — E-162 eine Ebene tiefer und schwerer zu finden.
+
+**Wie vermeiden:** Beim Schliessen einer Producer-Luecke das Ausgabeschema FELDWEISE gegen das
+Rueckgabeschema der Quelle abgleichen; das erste real geschriebene Artefakt Feld fuer Feld
+ansehen — null in einem neuen Artefakt ist ein Befund, kein Rauschen.
+**Erkannt in:** Stage-2-Review (scripts/ops/write_regime_state.py).
+**Referenzen:** E-162, E-159.
+
+## E-175 — NaN ist truthy: "x or default" ist kein Null-Guard fuer pandas-Werte
+**Datum:** 2026-08-17
+**Kategorie:** pandas-pitfall / truthy-nan
+**Was passierte:** str(last.get("regime_label") or "unknown") sollte fehlende Zustaende
+abfangen; ein NaN-Label passiert den or-Guard (float NaN ist wahr) und wird zum String
+"nan", der bis in den Monitoring-Endpoint durchlaeuft.
+
+**Warum falsch:** Der or-Guard deckt None/Leerstring ab und taeuscht Vollstaendigkeit vor,
+wo Serien-Werte gelesen werden.
+
+**Wie vermeiden:** Bei Werten aus pandas-Series/Rows immer pd.notna() pruefen, nie "or";
+Guard-Tests mit NaN speisen, nicht nur mit None.
+**Erkannt in:** Stage-2-Review (scripts/ops/write_regime_state.py).
+**Referenzen:** E-144, E-170.

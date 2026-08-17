@@ -525,7 +525,7 @@ def get_portfolio_status(
 @router.get("/monitoring/regime")
 def get_regime_status(
     output_dir: str = Query(
-        default="src/output", description="Output directory for regime state"
+        default="output/regime", description="Output directory for regime state"
     ),
 ) -> dict:
     """Return current market regime state.
@@ -569,18 +569,17 @@ def get_regime_status(
                 "source_file": regime_files[0].name,
             }
 
-        # EHRLICHKEIT (Audit-Plan 5.2, 2026-08-16): kein Modul im Repo
-        # schreibt regime_state_*.json — dieser Zustand ist kein Cold-Start,
-        # sondern strukturell: der Endpoint hat KEINEN Producer. Solange kein
-        # Writer verdrahtet ist, kann hier nie etwas anderes stehen.
+        # Seit 2026-08-17 EXISTIERT der Producer
+        # (scripts/ops/write_regime_state.py, Pilot-Bat) — leeres Verzeichnis
+        # heisst "noch keine Daten", nicht "strukturell tot" (E-162).
         return {
-            "status": "stale",
+            "status": "no_data_yet",
             "regime": "unknown",
-            "producer_exists": False,
+            "producer_exists": True,
+            "producer": "scripts/ops/write_regime_state.py",
             "message": (
-                "no regime_state_*.json files — NO producer writes this "
-                "artifact anywhere in the repo (audit 2026-08-16); endpoint "
-                "cannot deliver data until a writer is wired"
+                "no regime_state_*.json yet — producer exists but has not "
+                "written into this directory"
             ),
             "last_run": None,
         }

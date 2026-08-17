@@ -57,23 +57,7 @@ class TestACLED:
         assert agg["Ukraine"]["total_fatalities"] == 8
 
 
-class TestFeedbackLoopTracker:
-    def test_partial_activation(self):
-        from src.assembled_core.intel.feedback_loops import (
-            FeedbackLoop,
-            track_loop_activation,
-        )
-
-        loop = FeedbackLoop(
-            loop_id="test",
-            name="Test",
-            chain=["a", "b", "c", "d", "e"],
-        )
-        history = [["a", "b"], ["a", "c"]]
-        result = track_loop_activation(loop, history)
-        assert result["activated_elements"] == 3
-        assert result["activation_score"] == 0.6
-        assert result["alert"] is False  # exactly 0.6, not > 0.6
+# ENTFERNT 2026-08-17: testete intel/feedback_loops, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 class TestMaxDiversification:

@@ -8,6 +8,7 @@ Producer-Consumer-Fixes brauchen Bindungstests mit dem ECHTEN Writer)."""
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -214,3 +215,140 @@ def test_signals_no_data_yet_names_producer(tmp_path):
     assert body["status"] == "no_data_yet", body
     assert body["producer_exists"] is True
     assert body["producer"].endswith("generate_attribution_report.py")
+
+
+def test_regime_producer_feeds_monitoring_endpoint(tmp_path):
+    """Bindungstest (E-159-Regel) fuer den neuen regime-Producer: ein Artefakt
+    im Producer-Format muss vom Endpoint gelesen werden; leeres Verzeichnis
+    heisst no_data_yet mit Producer-Referenz (E-162)."""
+    pytest.importorskip("fastapi")
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from src.assembled_core.api.app import create_app
+
+    client = TestClient(create_app())
+    # leer -> no_data_yet + producer benannt
+    r0 = client.get("/api/v1/monitoring/regime", params={"output_dir": str(tmp_path)})
+    assert r0.status_code == 200
+    b0 = r0.json()
+    assert b0["status"] == "no_data_yet" and b0["producer_exists"] is True
+    assert b0["producer"].endswith("write_regime_state.py")
+    # Producer-Format -> gelesen
+    (tmp_path / "regime_state_20260817T020000Z.json").write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-08-17T02:00:00+00:00",
+                "data_as_of": "2026-08-14 00:00:00+00:00",
+                "regime": "sideways",
+                "regime_score": 0.61,
+                "producer": "scripts/ops/write_regime_state.py",
+            }
+        ),
+        encoding="utf-8",
+    )
+    r1 = client.get("/api/v1/monitoring/regime", params={"output_dir": str(tmp_path)})
+    assert r1.status_code == 200
+    assert r1.json()["regime"] == "sideways"
+
+
+def test_prune_keeps_newest_per_family(tmp_path, monkeypatch):
+    """Retention-Pin: alte Dateien fallen, die NEUESTE bleibt immer —
+    auch wenn sie selbst aelter als die Frist ist."""
+    import importlib.util as ilu
+    import os
+    import time as _t
+
+    spec = ilu.spec_from_file_location(
+        "prune_ops_artifacts",
+        str(
+            pytest.importorskip("pathlib")
+            .Path("scripts/ops/prune_ops_artifacts.py")
+            .resolve()
+        ),
+    )
+    mod = ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(mod, "_REPO", tmp_path)
+    d = tmp_path / "output" / "ops"
+    d.mkdir(parents=True)
+    old_ts = _t.time() - 90 * 86400
+    for i, name in enumerate(["pull_log_a.json", "pull_log_b.json", "pull_log_c.json"]):
+        f = d / name
+        f.write_text("{}")
+        os.utime(f, (old_ts + i, old_ts + i))  # alle 90 Tage alt
+    mod.prune(dry_run=False)
+    remaining = sorted(x.name for x in d.glob("pull_log_*.json"))
+    assert remaining == ["pull_log_c.json"]  # nur die juengste ueberlebt
+
+
+def _load_regime_producer(tmp_path, monkeypatch, fake_hmm_result):
+    """write_regime_state.py mit gemocktem Detector + Mini-Panel laden
+    (F-auditor-4: die Fehler-Zweige sind ohne Mock nicht erreichbar)."""
+    import importlib.util as ilu
+    from pathlib import Path as _P
+
+    spec = ilu.spec_from_file_location(
+        "write_regime_state",
+        str(
+            _P(__file__).resolve().parents[1]
+            / "scripts"
+            / "ops"
+            / "write_regime_state.py"
+        ),
+    )
+    mod = ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    panel = tmp_path / "daily.parquet"
+    pd.DataFrame(
+        {
+            "timestamp": pd.date_range(end="2026-08-14", periods=5, freq="D", tz="UTC"),
+            "symbol": ["SPY"] * 5,
+            "close": [100.0, 101.0, 102.0, 101.5, 103.0],
+        }
+    ).to_parquet(panel, index=False)
+    monkeypatch.setattr(mod, "PANEL_PATH", panel)
+    monkeypatch.setattr(mod, "OUT_DIR", tmp_path / "regime")
+
+    # main() importiert build_regime_state_hmm zur Laufzeit aus dem echten
+    # risk-Modul — dort patchen, damit der from-Import den Mock zieht.
+    import src.assembled_core.risk.regime_models as _rm
+
+    monkeypatch.setattr(_rm, "build_regime_state_hmm", lambda **kwargs: fake_hmm_result)
+    return mod
+
+
+def test_regime_producer_nan_label_writes_unknown(tmp_path, monkeypatch):
+    """E-175-Pin: NaN ist truthy — ein NaN-regime_label muss als 'unknown'
+    landen, nicht als String 'nan'; die Confidence bleibt nutzbar."""
+    fake = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-14"]),
+            "regime_label": [np.nan],
+            "regime_confidence": [0.7],
+        }
+    )
+    mod = _load_regime_producer(tmp_path, monkeypatch, fake)
+    assert mod.main() == 0
+    payload = json.loads(
+        next((tmp_path / "regime").glob("regime_state_*.json")).read_text("utf-8")
+    )
+    assert payload["regime"] == "unknown"
+    assert payload["regime_score"] == pytest.approx(0.7)
+
+
+def test_regime_producer_missing_confidence_writes_none_score(tmp_path, monkeypatch):
+    """F-senior-3/E-174-Pin: fehlt die regime_confidence-Spalte, ist
+    regime_score explizit null — kein KeyError, kein erfundener Wert."""
+    fake = pd.DataFrame(
+        {"date": pd.to_datetime(["2026-08-14"]), "regime_label": ["bull"]}
+    )
+    mod = _load_regime_producer(tmp_path, monkeypatch, fake)
+    assert mod.main() == 0
+    payload = json.loads(
+        next((tmp_path / "regime").glob("regime_state_*.json")).read_text("utf-8")
+    )
+    assert payload["regime"] == "bull"
+    assert payload["regime_score"] is None

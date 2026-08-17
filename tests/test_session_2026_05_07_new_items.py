@@ -2207,98 +2207,7 @@ class TestHttpClient:
             get("https://example.com/api", timeout=1.0)
 
 
-# ─── Item 163: Alert failover for disaster-recovery drills ───────────────────
-
-
-class TestAlertFailover:
-    """Item 163: alert_failover.py — Discord-first with email fallback."""
-
-    def test_module_importable(self):
-        from src.assembled_core.ops.alert_failover import (
-            send_with_failover,
-            drill_failover_check,
-        )
-
-        assert callable(send_with_failover)
-        assert callable(drill_failover_check)
-
-    def test_send_returns_expected_keys(self, monkeypatch):
-        """send_with_failover result must have discord_ok, email_ok, channel keys."""
-        monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
-        monkeypatch.delenv("SMTP_HOST", raising=False)
-        from src.assembled_core.ops.alert_failover import send_with_failover
-
-        result = send_with_failover("test message", subject="Unit Test")
-        assert "discord_ok" in result
-        assert "email_ok" in result
-        assert "channel" in result
-        assert result["channel"] == "none"  # no channels configured
-
-    def test_discord_success_skips_email(self, monkeypatch):
-        """When Discord succeeds, email must NOT be attempted."""
-        monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/fake-webhook")
-        email_called = {"flag": False}
-
-        import requests
-
-        def fake_post(url, **kwargs):
-            r = requests.models.Response()
-            r.status_code = 204
-            return r
-
-        monkeypatch.setattr(
-            "src.assembled_core.utils.http_client.requests.post", fake_post
-        )
-        monkeypatch.setattr(
-            "src.assembled_core.ops.alert_failover._send_email",
-            lambda msg, subject: (email_called.__setitem__("flag", True) or False),
-        )
-        from src.assembled_core.ops.alert_failover import send_with_failover
-
-        result = send_with_failover("test", subject="Test")
-        assert result["discord_ok"] is True
-        assert email_called["flag"] is False
-
-    def test_discord_failure_triggers_email_fallback(self, monkeypatch):
-        """When Discord fails, email fallback must be attempted."""
-        monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/fake-webhook")
-        monkeypatch.setattr(
-            "src.assembled_core.ops.alert_failover._send_discord",
-            lambda url, msg, sub: False,
-        )
-        monkeypatch.setattr(
-            "src.assembled_core.ops.alert_failover._send_email",
-            lambda msg, subject: True,
-        )
-        from src.assembled_core.ops.alert_failover import send_with_failover
-
-        result = send_with_failover("fallback test", subject="Fallback")
-        assert result["discord_ok"] is False
-        assert result["email_ok"] is True
-        assert result["channel"] == "email"
-
-    def test_drill_failover_check_with_simulated_failure(self, monkeypatch):
-        """drill_failover_check(simulate_discord_failure=True) → channel=email when email ok."""
-        monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/fake-webhook")
-        monkeypatch.setattr(
-            "src.assembled_core.ops.alert_failover._send_email",
-            lambda msg, subject: True,
-        )
-        from src.assembled_core.ops.alert_failover import drill_failover_check
-
-        result = drill_failover_check(simulate_discord_failure=True)
-        assert result["drill_passed"] is True
-        assert result["channel"] == "email"
-
-    def test_drill_passthrough_result_structure(self, monkeypatch):
-        """drill_failover_check always returns drill_passed key."""
-        monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
-        monkeypatch.delenv("SMTP_HOST", raising=False)
-        from src.assembled_core.ops.alert_failover import drill_failover_check
-
-        result = drill_failover_check()
-        assert "drill_passed" in result
-        assert result["drill_passed"] is False  # no channels configured
+# ENTFERNT 2026-08-17: testete ops/alert_failover, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ─── Item 66: File-locking utility ───────────────────────────────────────────
@@ -2506,87 +2415,7 @@ class TestSafeDivide:
         assert result[1] == pytest.approx(0.0)
 
 
-# ─── Item 63: Model calibration tracker ──────────────────────────────────────
-
-
-class TestCalibrationTracker:
-    """Item 63: CalibrationTracker computes Brier score and detects drift."""
-
-    def test_record_and_flush(self, tmp_path):
-        """record + flush writes JSONL file."""
-        from src.assembled_core.ops.calibration_tracker import CalibrationTracker
-
-        ct = CalibrationTracker(store_path=tmp_path / "cal.jsonl")
-        ct.record(predicted_prob=0.8, actual_outcome=1, as_of="2026-05-01")
-        ct.record(predicted_prob=0.3, actual_outcome=0, as_of="2026-05-02")
-        n = ct.flush()
-        assert n == 2
-        assert (tmp_path / "cal.jsonl").exists()
-
-    def test_brier_score_perfect_calibration(self, tmp_path):
-        """Perfect predictions → Brier score ≈ 0."""
-        from src.assembled_core.ops.calibration_tracker import CalibrationTracker
-
-        ct = CalibrationTracker(store_path=tmp_path / "cal.jsonl")
-        for _ in range(10):
-            ct.record(1.0, 1, as_of="2026-05-01")
-            ct.record(0.0, 0, as_of="2026-05-01")
-        ct.flush()
-        score = ct.brier_score(window_days=365)
-        assert score is not None
-        assert score == pytest.approx(0.0, abs=1e-6)
-
-    def test_brier_score_random_baseline(self, tmp_path):
-        """50-50 predictions → Brier score ≈ 0.25."""
-        from src.assembled_core.ops.calibration_tracker import CalibrationTracker
-
-        ct = CalibrationTracker(store_path=tmp_path / "cal.jsonl")
-        for _ in range(20):
-            ct.record(0.5, 1, as_of="2026-05-01")
-            ct.record(0.5, 0, as_of="2026-05-01")
-        ct.flush()
-        score = ct.brier_score(window_days=365)
-        assert score == pytest.approx(0.25, abs=0.001)
-
-    def test_brier_score_returns_none_with_no_data(self, tmp_path):
-        """brier_score() returns None when no records exist."""
-        from src.assembled_core.ops.calibration_tracker import CalibrationTracker
-
-        ct = CalibrationTracker(store_path=tmp_path / "empty.jsonl")
-        assert ct.brier_score() is None
-
-    def test_is_drift_detected_above_threshold(self, tmp_path):
-        """Brier > threshold → drift detected."""
-        from src.assembled_core.ops.calibration_tracker import CalibrationTracker
-
-        ct = CalibrationTracker(store_path=tmp_path / "cal.jsonl")
-        # Inverted model: predicts high prob but wrong → high Brier score
-        for _ in range(20):
-            ct.record(0.9, 0, as_of="2026-05-01")  # confident but wrong
-        ct.flush()
-        assert ct.is_drift_detected(threshold=0.20, window_days=365) is True
-
-    def test_is_drift_not_detected_good_model(self, tmp_path):
-        """Good model Brier score < threshold → no drift."""
-        from src.assembled_core.ops.calibration_tracker import CalibrationTracker
-
-        ct = CalibrationTracker(store_path=tmp_path / "cal.jsonl")
-        for _ in range(20):
-            ct.record(0.9, 1, as_of="2026-05-01")
-            ct.record(0.1, 0, as_of="2026-05-01")
-        ct.flush()
-        assert ct.is_drift_detected(threshold=0.20, window_days=365) is False
-
-    def test_summary_keys(self, tmp_path):
-        """summary() must return expected keys."""
-        from src.assembled_core.ops.calibration_tracker import CalibrationTracker
-
-        ct = CalibrationTracker(store_path=tmp_path / "cal.jsonl")
-        s = ct.summary()
-        assert "model_id" in s
-        assert "brier_score" in s
-        assert "n_records" in s
-        assert "drift_detected" in s
+# ENTFERNT 2026-08-17: testete ops/calibration_tracker, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ─── Item 42: Margin call handler tests ──────────────────────────────────────
@@ -3168,30 +2997,7 @@ class TestFIFOMatchingConsistency:
         assert result.lots_closed[0]["holding_days"] == 7
 
 
-# ---------------------------------------------------------------------------
-# Item 60 / 62: SHAP explainer importable
-# ---------------------------------------------------------------------------
-
-
-class TestSHAPExplainerModule:
-    """Item 62: shap_explainer.py is importable and has expected interface."""
-
-    def test_module_importable(self):
-        from src.assembled_core.ops import shap_explainer
-
-        assert hasattr(shap_explainer, "__file__")
-
-    def test_has_explain_function_or_class(self):
-        import importlib
-
-        mod = importlib.import_module("src.assembled_core.ops.shap_explainer")
-        # Should expose some callable for explanations
-        has_callable = any(
-            callable(getattr(mod, name))
-            for name in dir(mod)
-            if not name.startswith("_")
-        )
-        assert has_callable, "shap_explainer must expose at least one public callable"
+# ENTFERNT 2026-08-17: testete ops/shap_explainer, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -3880,15 +3686,7 @@ class TestPathlibConsistencySpot:
         ).read_text(encoding="utf-8")
         assert "from pathlib import Path" in src
 
-    def test_calibration_tracker_uses_pathlib(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).resolve().parents[1]
-            / "src/assembled_core/ops/calibration_tracker.py"
-        ).read_text(encoding="utf-8")
-        assert "from pathlib import Path" in src
-
+    # ENTFERNT 2026-08-17: testete ops/calibration_tracker (pathlib-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
     def test_memory_profile_uses_pathlib(self):
         from pathlib import Path
 
@@ -3911,11 +3709,7 @@ class TestPublicAPIExports:
 
         assert "FileLock" in __all__
 
-    def test_calibration_tracker_has_all(self):
-        from src.assembled_core.ops.calibration_tracker import __all__
-
-        assert "CalibrationTracker" in __all__
-
+    # ENTFERNT 2026-08-17: testete ops/calibration_tracker (__all__-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
     def test_safe_divide_in_dataframe_module(self):
         from src.assembled_core.utils.dataframe import safe_divide
 
@@ -4804,14 +4598,7 @@ class TestDatetimeTimezoneAwareness:
         ).read_text(encoding="utf-8")
         assert ".utcnow()" not in src, "ledger.py should not use deprecated utcnow()"
 
-    def test_calibration_tracker_uses_timezone(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).resolve().parents[1]
-            / "src/assembled_core/ops/calibration_tracker.py"
-        ).read_text(encoding="utf-8")
-        assert "timezone.utc" in src or "tz=timezone.utc" in src
+    # ENTFERNT 2026-08-17: testete ops/calibration_tracker (timezone-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -4869,15 +4656,7 @@ class TestPathlibUsagePolicy:
         ).read_text(encoding="utf-8")
         assert "from pathlib import" in src or "import pathlib" in src
 
-    def test_calibration_tracker_uses_pathlib(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).resolve().parents[1]
-            / "src/assembled_core/ops/calibration_tracker.py"
-        ).read_text(encoding="utf-8")
-        assert "from pathlib import" in src or "import pathlib" in src
-
+    # ENTFERNT 2026-08-17: testete ops/calibration_tracker (pathlib-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
     def test_intent_store_uses_pathlib(self):
         from pathlib import Path
 
@@ -5200,42 +4979,7 @@ class TestRegimeCacheBounded:
         assert isinstance(_REGIME_WEIGHTS_CACHE, _BoundedCache)
 
 
-# ---------------------------------------------------------------------------
-# Item 25: Slippage tracking — SlippageCollector records and snapshots bps
-# ---------------------------------------------------------------------------
-
-
-class TestSlippageCollector:
-    """Item 25: SlippageCollector tracks realized slippage in basis points."""
-
-    def test_record_and_snapshot(self):
-        from src.assembled_core.ops.slippage_collector import SlippageCollector
-
-        collector = SlippageCollector()
-        collector.record(5.0)
-        collector.record(-2.0)
-        snap = collector.snapshot()
-        assert 5.0 in snap
-        assert -2.0 in snap
-
-    def test_snapshot_reset(self):
-        from src.assembled_core.ops.slippage_collector import SlippageCollector
-
-        collector = SlippageCollector()
-        collector.record(3.0)
-        _ = collector.snapshot(reset=True)
-        assert collector.snapshot() == []
-
-    def test_empty_snapshot(self):
-        from src.assembled_core.ops.slippage_collector import SlippageCollector
-
-        collector = SlippageCollector()
-        assert collector.snapshot() == []
-
-    def test_module_importable(self):
-        from src.assembled_core.ops.slippage_collector import SlippageCollector
-
-        assert callable(SlippageCollector)
+# ENTFERNT 2026-08-17: testete ops/slippage_collector (dedizierter Test test_slippage_collector.py mit-archiviert), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -6341,14 +6085,7 @@ class TestSpreadCaptureTracking:
         txt = tc.read_text(errors="ignore").lower()
         assert "spread" in txt or "slippage" in txt or "bid" in txt
 
-    def test_slippage_collector_round_trip(self):
-        from assembled_core.ops.slippage_collector import SlippageCollector
-
-        sc = SlippageCollector()
-        sc.record(5.2)
-        sc.record(3.1)
-        snap = sc.snapshot()
-        assert len(snap) == 2
+    # ENTFERNT 2026-08-17: testete ops/slippage_collector (Round-Trip), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -7361,45 +7098,7 @@ class TestEDCLConvictionInBacktest:
         assert "compute_edcl_conviction_multiplier" in content
 
 
-class TestPolymarketLoaderF821:
-    """Item 159: F821 undefined name cleared from polymarket_loader.py."""
-
-    def test_polymarket_loader_has_noqa_annotation(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "intel"
-            / "polymarket_loader.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        # String annotation for pd.DataFrame must have noqa or use TYPE_CHECKING
-        assert "pd.DataFrame" in content
-        assert "noqa: F821" in content or "TYPE_CHECKING" in content
-
-    def test_polymarket_loader_imports_cleanly(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "intel"
-            / "polymarket_loader.py"
-        )
-        assert p.exists()
-        content = p.read_text(encoding="utf-8", errors="replace")
-        # Must have the function
-        assert "def polymarket_to_dataframe" in content
-
-    def test_polymarket_loader_has_fetch_function(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "intel"
-            / "polymarket_loader.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "def fetch_polymarket_markets" in content
+# ENTFERNT 2026-08-17: testete intel/polymarket_loader, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 class TestModelRegistryHashCheck:
@@ -7900,38 +7599,7 @@ class TestDependencyPinning:
         assert p.exists(), "requirements.lock must exist as full transitive freeze"
 
 
-class TestF821Cleared:
-    """Item 159: F821 (undefined names) cleared from entire src/ tree."""
-
-    def test_no_f821_in_intel_module(self):
-        import subprocess
-
-        result = subprocess.run(
-            [
-                "python",
-                "-m",
-                "ruff",
-                "check",
-                "src/assembled_core/intel/polymarket_loader.py",
-                "--select",
-                "F821",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=str(Path(__file__).parents[1]),
-        )
-        assert "F821" not in result.stdout, f"F821 found: {result.stdout}"
-
-    def test_polymarket_has_noqa_f821(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "intel"
-            / "polymarket_loader.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "noqa: F821" in content
+# ENTFERNT 2026-08-17: testete intel/polymarket_loader (F821-Checks), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 class TestSectorBiasAwareness:
@@ -7975,79 +7643,7 @@ class TestSectorBiasAwareness:
 # ---------------------------------------------------------------------------
 
 
-class TestNewsAPIRateLimit:
-    """Item 152: NewsAPI has a 100-calls/day guard to protect free tier."""
-
-    def test_newsapi_has_daily_counter(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "newsapi_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "_DAILY_CALL_LIMIT" in content or "NEWSAPI_DAILY_LIMIT" in content
-
-    def test_newsapi_daily_limit_is_100(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "newsapi_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert (
-            '"100"' in content
-            or "'100'" in content
-            or "_DAILY_CALL_LIMIT: int" in content
-        )
-
-    def test_newsapi_has_counter_increment(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "newsapi_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "_increment_counter" in content or "call_count" in content
-
-    def test_newsapi_counter_persists_to_disk(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "newsapi_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        # Counter must persist across restarts
-        assert (
-            "json" in content and "write_text" in content or "_COUNTER_PATH" in content
-        )
-
-    def test_newsapi_skips_when_limit_reached(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "newsapi_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert (
-            "limit" in content.lower()
-            and "continue" in content
-            or "skip" in content.lower()
-        )
+# ENTFERNT 2026-08-17: testete data/sources/newsapi_source (Rate-Limit-Checks), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 class TestStressTestWithLeverage:
@@ -8616,29 +8212,8 @@ class TestNetworkTimeoutsComprehensive:
         # Should have timeout or use SDK that handles it
         assert "timeout" in content.lower() or "alpaca" in content.lower()
 
-    def test_newsapi_source_has_timeout(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "data"
-            / "sources"
-            / "newsapi_source.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "timeout" in content
-
-    def test_polymarket_loader_has_timeout(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "intel"
-            / "polymarket_loader.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "timeout" in content
-
+    # ENTFERNT 2026-08-17: testete data/sources/newsapi_source (timeout-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
+    # ENTFERNT 2026-08-17: testete intel/polymarket_loader (timeout-Check), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
     def test_edgar_source_has_timeout(self):
         p = (
             Path(__file__).parents[1]
@@ -10533,8 +10108,9 @@ class TestOsPathPathlibMix:
 
     def test_new_modules_prefer_pathlib(self):
         # Key new modules should use pathlib, not os.path
-        for fname in ["edgar_source.py", "newsapi_source.py", "model_registry.py"]:
-            for base in ["data/sources", "data/sources", "ml"]:
+        # ENTFERNT 2026-08-17: newsapi_source.py aus der Liste, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
+        for fname in ["edgar_source.py", "model_registry.py"]:
+            for base in ["data/sources", "ml"]:
                 p = Path(__file__).parents[1] / "src" / "assembled_core" / base / fname
                 if p.exists():
                     content = p.read_text(encoding="utf-8", errors="replace")
@@ -11656,29 +11232,7 @@ class TestRetrainingSchedule:
         assert len(sched_files) >= 1, "A retraining scheduler module should exist"
 
 
-class TestFeatureImportanceMonitoringB:
-    """Item 62: Feature importance (SHAP) is computed and could be monitored."""
-
-    def test_shap_explainer_exists(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "ops"
-            / "shap_explainer.py"
-        )
-        assert p.exists(), "ops/shap_explainer.py should exist"
-
-    def test_shap_explainer_has_explanation_function(self):
-        p = (
-            Path(__file__).parents[1]
-            / "src"
-            / "assembled_core"
-            / "ops"
-            / "shap_explainer.py"
-        )
-        content = p.read_text(encoding="utf-8", errors="replace")
-        assert "shap" in content.lower() or "explain" in content.lower()
+# ENTFERNT 2026-08-17: testete ops/shap_explainer (Existenz-Checks), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 class TestLoggingHotPathB:

@@ -267,148 +267,32 @@ def fetch_missing(missing: list[str], years: int) -> "pd.DataFrame":
 
 
 def merge_and_save(new_df: "pd.DataFrame", cache_path: Path = CACHE_PATH) -> int:
-    """Merge new rows into cache. Returns rows-after-merge count."""
+    """Merge new rows into cache via the shared guarded merge. Returns row count.
+
+    EXTRAKTION 2026-08-17 (Audit-Follow-up): die drei Schutzschichten
+    (Overlap-Re-Adjustierung, fail-closed Naht-Guard, unbedingte
+    adj_close-Invariante) leben jetzt in
+    src/assembled_core/data/price_cache_merge.guarded_merge — EINE Wahrheit
+    fuer alle Schreiber von daily.parquet (Rule 50/E-166). Dieser Wrapper
+    macht nur noch I/O + failed-symbols-Protokoll.
+    """
     import pandas as pd
+
+    from src.assembled_core.data.price_cache_merge import guarded_merge
 
     if cache_path.exists():
         existing = pd.read_parquet(cache_path)
     else:
         existing = pd.DataFrame(columns=new_df.columns)
 
-    # OVERLAP-RE-ADJUSTIERUNG (E-165 Teil 2, 2026-08-17): auch adjusted-zu-
-    # adjusted ist nicht nahtfrei, wenn zwischen dem Anker des Bestands
-    # (letzter EODHD-Bar) und dem Anker der neuen Quelle (heute) eine
-    # Corporate Action lag — die neue Reihe ist dann RUECKWIRKEND anders
-    # skaliert (gemessen: AAPL, BE am 17.08.). Korrekte Operation: im
-    # Ueberlappungsfenster die Ratio neu/alt messen; ist sie KONSTANT und
-    # != 1, wird der gesamte BESTAND des Symbols auf den neuen Anker
-    # reskaliert (normale rueckwaertige Adjustierung). Nicht-konstante
-    # Ratio = inkonsistente Quelle -> Symbol verwerfen, failed-Liste.
-    _price_cols = [
-        c
-        for c in ("open", "high", "low", "close", "adj_close")
-        if c in existing.columns
-    ]
-    _verified: set[str] = set()  # Symbole mit per Overlap BEWIESENER Semantik
-    _drop_syms: list[str] = []
-    if not existing.empty and not new_df.empty:
-        for _sym in new_df["symbol"].unique():
-            _old_s = existing[existing["symbol"] == _sym].set_index("timestamp")
-            _new_s = new_df[new_df["symbol"] == _sym].set_index("timestamp")
-            _common = _old_s.index.intersection(_new_s.index)
-            if len(_common) < 5:
-                continue  # kein belastbarer Overlap -> Naht-Guard entscheidet
-            _ratio = _new_s.loc[_common, "close"].astype(float) / _old_s.loc[
-                _common, "close"
-            ].astype(float)
-            _med = float(_ratio.median())
-            _spread = float((_ratio / _med - 1).abs().max())
-            if _spread <= 0.02:
-                _verified.add(_sym)
-            if _spread > 0.02:
-                logger.warning(
-                    "[prewarm] %s: overlap ratio NOT constant (spread %.1f%%) "
-                    "— dropping its new rows, flagging for review",
-                    _sym,
-                    _spread * 100,
-                )
-                _drop_syms.append(_sym)
-                continue
-            if abs(_med - 1.0) > 0.001:
-                logger.info(
-                    "[prewarm] %s: corporate action between anchors — "
-                    "rescaling existing history by %.6f",
-                    _sym,
-                    _med,
-                )
-                # F-auditor-7 (2026-08-17): grosse Faktoren sind meist echte
-                # Splits, KOENNEN aber auch ein recyceltes Ticker-Symbol oder
-                # ein Einheitenwechsel sein — konstant heisst konsistent,
-                # nicht zwingend legitim. Nicht blocken, aber LAUT machen.
-                # Bewusst NICHT mitskaliert: volume (Split-Historie bleibt
-                # stueckseitig alt; ADV ueber die Grenze ist dann unscharf).
-                if abs(_med - 1.0) > 0.25:
-                    logger.warning(
-                        "[prewarm] %s: LARGE rescale factor %.4f over %d rows "
-                        "— verify this is a real split, not ticker recycling",
-                        _sym,
-                        _med,
-                        int((existing["symbol"] == _sym).sum()),
-                    )
-                _mask = existing["symbol"] == _sym
-                for _c in _price_cols:
-                    existing.loc[_mask, _c] = (
-                        existing.loc[_mask, _c].astype(float) * _med
-                    )
-        if _drop_syms:
-            new_df = new_df[~new_df["symbol"].isin(_drop_syms)]
-            # F-senior-4: NICHT hier protokollieren — der Naht-Guard unten
-            # kann noch abbrechen ("Nothing written" muss wahr bleiben);
-            # geschrieben wird direkt vor dem atomic write.
+    result = guarded_merge(existing, new_df)
 
-    combined = pd.concat([existing, new_df], ignore_index=True)
-    # Dedupe on (symbol, timestamp) — last-write-wins favors the fresh fetch
-    combined = combined.drop_duplicates(
-        subset=["symbol", "timestamp"], keep="last"
-    ).sort_values(["symbol", "timestamp"])
+    # Erst NACH dem (nicht geworfenen) Naht-Guard protokollieren, damit
+    # "Cache unchanged" im Abbruchfall auch fuer Seitenartefakte gilt.
+    if result.dropped_symbols:
+        write_failed_symbols(result.dropped_symbols, "overlap_ratio_not_constant")
 
-    # INVARIANTE AM SCHREIBPUNKT (E-166, 2026-08-17): adj_close == close ist
-    # die Cache-Invariante (backfill_adj_close 15.08.). Sie je FETCH-Pfad zu
-    # spiegeln hat zweimal versagt (Alpaca-Pfad am 16.08., yfinance-Pfad am
-    # 17.08. — liefert die Spalte gar nicht). Hier, am einzigen Schreibpunkt,
-    # kann kein vierter Pfad sie mehr aufreissen.
-    # F-senior-2 (Kompakt-Review 2026-08-17): Invariante UNBEDINGT herstellen
-    # — der Spalte-fehlt-Fall (frischer Cache + Quelle ohne adj_close) ist die
-    # haerteste Verletzung und war vom bedingten Guard ausgeschlossen (E-170).
-    if "adj_close" not in combined.columns:
-        combined["adj_close"] = combined["close"]
-    _na = combined["adj_close"].isna()
-    if bool(_na.any()):
-        combined.loc[_na, "adj_close"] = combined.loc[_na, "close"]
-
-    # NAHT-GUARD (E-165, fail-closed, 2026-08-17): zwei Preisquellen sind nur
-    # mergebar, wenn die Werte-SEMANTIK identisch ist — Symbol+Timestamp als
-    # Merge-Key reicht nicht. Der 17.08.-Vorfall (RAW-Bars in TR-Cache:
-    # BKNG +2444 %, NFLX-Split als -90 %) waere hier gestoppt worden.
-    # PRAEZISIERUNG (gleicher Tag): geprueft wird NUR die QUELLEN-NAHT
-    # (letzter Alt-Bar -> erster Neu-Bar) und NUR fuer Symbole OHNE per
-    # Overlap bewiesene Semantik — echte historische Extremtage im Bestand
-    # (AAPL -51,8 % Sep-2000, BE +59 % Nov-2024, beide real) duerfen einen
-    # Merge nicht blocken; der Fehlerfall ist der Ratio-Sprung ZWISCHEN
-    # Quellen, nicht ein Extremtag innerhalb einer Quelle.
-    _new_syms = set(new_df["symbol"].unique()) if not new_df.empty else set()
-    _bad: list[str] = []
-    for _sym in _new_syms - _verified:
-        _old_ts = (
-            existing.loc[existing["symbol"] == _sym, "timestamp"].max()
-            if not existing.empty
-            else None
-        )
-        if _old_ts is None or pd.isna(_old_ts):
-            continue  # neues Symbol: keine Naht
-        _after = new_df[
-            (new_df["symbol"] == _sym) & (new_df["timestamp"] > _old_ts)
-        ].sort_values("timestamp")
-        if _after.empty:
-            continue
-        _old_close = float(
-            existing.loc[
-                (existing["symbol"] == _sym) & (existing["timestamp"] == _old_ts),
-                "close",
-            ].iloc[0]
-        )
-        _first_new = float(_after["close"].iloc[0])
-        if _old_close > 0 and abs(_first_new / _old_close - 1.0) > 0.5:
-            _bad.append(_sym)
-    if _bad:
-        raise RuntimeError(
-            f"[prewarm] MERGE ABORTED (seam guard): {len(_bad)} symbol(s) with "
-            f"|daily move| > 50% after merge — adjustment-basis mismatch or "
-            f"corrupt feed. Nothing written. Symbols: {sorted(_bad)[:15]}"
-        )
-
-    if _drop_syms:
-        write_failed_symbols(_drop_syms, "overlap_ratio_not_constant")
+    combined = result.combined
 
     # Atomic write
     cache_path.parent.mkdir(parents=True, exist_ok=True)

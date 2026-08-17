@@ -3,7 +3,6 @@
 Covers:
     * qa.conformal_cross — Cross-Conformal (audit C2-033)
     * ml.bayesian_model_averaging — BMA (audit C2-058)
-    * signals.regime_conditional_ensemble — regime-aware ensemble (audit C2-055)
     * risk.vol_targeting_ewma — EWMA forecast variant (audit C2-066)
     * attribution.brinson_multi_period — Cariño linking (audit C4-077)
 """
@@ -137,72 +136,7 @@ def test_bma_rejects_bad_inputs() -> None:
         )
 
 
-# ===========================================================================
-# Regime-conditional ensemble
-# ===========================================================================
-
-
-def test_regime_ensemble_uses_regime_weights() -> None:
-    from src.assembled_core.signals.regime_conditional_ensemble import (
-        conditional_ensemble,
-    )
-
-    p1 = np.array([1.0, 2.0, 3.0])
-    p2 = np.array([10.0, 20.0, 30.0])
-    weights = {
-        "bull": np.array([1.0, 0.0]),  # only model A
-        "bear": np.array([0.0, 1.0]),  # only model B
-    }
-    bull_out = conditional_ensemble(
-        model_predictions=[p1, p2],
-        current_regime="bull",
-        per_regime_weights=weights,
-    )
-    bear_out = conditional_ensemble(
-        model_predictions=[p1, p2],
-        current_regime="bear",
-        per_regime_weights=weights,
-    )
-    np.testing.assert_allclose(bull_out.combined, p1)
-    np.testing.assert_allclose(bear_out.combined, p2)
-    assert not bull_out.fell_back
-    assert not bear_out.fell_back
-
-
-def test_regime_ensemble_falls_back_to_uniform() -> None:
-    from src.assembled_core.signals.regime_conditional_ensemble import (
-        conditional_ensemble,
-    )
-
-    p1 = np.array([1.0, 1.0])
-    p2 = np.array([3.0, 3.0])
-    out = conditional_ensemble(
-        model_predictions=[p1, p2],
-        current_regime="unknown_regime",
-        per_regime_weights={"bull": np.array([1.0, 0.0])},
-    )
-    np.testing.assert_allclose(out.combined, [2.0, 2.0])  # uniform mean
-    assert out.fell_back is True
-    assert out.regime_used == "uniform"
-
-
-def test_regime_dispersion_zero_when_weights_identical() -> None:
-    from src.assembled_core.signals.regime_conditional_ensemble import regime_dispersion
-
-    w = np.array([0.5, 0.5])
-    assert regime_dispersion({"r1": w, "r2": w, "r3": w}) == 0.0
-
-
-def test_regime_dispersion_positive_when_weights_differ() -> None:
-    from src.assembled_core.signals.regime_conditional_ensemble import regime_dispersion
-
-    d = regime_dispersion(
-        {
-            "bull": np.array([1.0, 0.0]),
-            "bear": np.array([0.0, 1.0]),
-        }
-    )
-    assert d > 1.0  # max L2 distance for unit-sum probability vectors is √2
+# ENTFERNT 2026-08-17: testete signals/regime_conditional_ensemble, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ===========================================================================

@@ -89,6 +89,7 @@ def _write_status(
     fetch_latest: object | None,
     rows_appended: int,
     error: str | None = None,
+    dropped_symbols: list[str] | None = None,
     status_path: Path | None = None,
 ) -> None:
     """Write a status JSON for ops monitoring.
@@ -110,6 +111,7 @@ def _write_status(
             "fetch_latest": str(fetch_latest) if fetch_latest is not None else None,
             "rows_appended": int(rows_appended),
             "symbols": TARGET_SYMBOLS,
+            "dropped_symbols": dropped_symbols or [],
             "error": error,
         }
         tmp = status_path.with_name(status_path.name + ".tmp")
@@ -231,9 +233,12 @@ def refresh(
         fetch_latest,
     )
 
-    # Per-symbol freshness merge (mirrors refresh_daily_cache_from_panel F-RX-2):
-    # compare each fetched row against that symbol's own cache max so a symbol
-    # absent from the cache (default very_old) gets all its rows treated as new.
+    # Per-symbol freshness delta — NUR fuers Reporting (rows_appended):
+    # der eigentliche Merge bekommt seit 2026-08-17 den VOLLEN fetched-Frame
+    # inkl. Overlap, denn der Overlap traegt die Semantik-Pruefung der
+    # guarded_merge (Overlap-Re-Adjustierung bei Corporate Actions zwischen
+    # den Adjustierungs-Ankern + fail-closed Naht-Guard, E-165/E-166 —
+    # dieser Schreiber war der fuenfte OHNE Guard, F-auditor-8).
     very_old = pd.Timestamp("1900-01-01", tz="UTC")
     cache_per_sym = (
         cache[cache["symbol"].isin(TARGET_SYMBOLS)]
@@ -279,40 +284,44 @@ def refresh(
         )
         return len(new_rows)
 
-    # yfinance has no separate adj_close column -> mirror close.
-    #
-    # HISTORY: this branch used to write NaN as a "loud sentinel" (F-RX-3), on the
-    # premise that "setting adj_close = close would silently mis-handle ex-dividend
-    # dates". That premise was measured and REFUTED on 2026-08-15:
-    #
-    #   1. This fetcher calls yfinance with auto_adjust=True
-    #      (src/assembled_core/data/sources/yfinance_source.py:73), so the close it
-    #      returns is ALREADY split- and dividend-adjusted. There is no unadjusted
-    #      close anywhere in this path that adj_close could have differed from.
-    #   2. Across the whole cache, wherever adj_close WAS populated it equalled
-    #      close exactly: 180,734 of 180,734 rows, max abs diff 0.0.
-    #
-    # The sentinel protected against nothing and produced 98,279 NaN (35.2% of the
-    # cache). Do NOT reintroduce it without re-measuring both points — if this
-    # fetcher ever switches to auto_adjust=False, the correct fix is to carry
-    # yfinance's own "Adj Close" column through, not to poison this one with NaN.
-    if "adj_close" not in new_rows.columns:
-        new_rows = new_rows.copy()
-        new_rows["adj_close"] = new_rows["close"]
-        logger.info(
-            "[refresh-sector] yfinance lacks adj_close — mirrored from close "
-            "(auto_adjust=True, so close is already adjusted; see comment above)."
-        )
-
-    # Reorder to cache schema, dropping any feed-status columns yfinance stamped.
-    new_rows = new_rows[cache.columns.tolist()]
-
-    merged = pd.concat([cache, new_rows], ignore_index=True)
-    merged = (
-        merged.sort_values(["symbol", "timestamp"])
-        .drop_duplicates(subset=["symbol", "timestamp"], keep="last")
-        .reset_index(drop=True)
+    # adj_close-Spiegel uebernimmt guarded_merge unbedingt am Schreibpunkt
+    # (E-170); der historische F-RX-3-Kontext bleibt in der Git-Historie.
+    from src.assembled_core.data.price_cache_merge import (
+        SeamGuardError,
+        guarded_merge,
     )
+
+    # Schema angleichen (Feed-Status-Spalten von yfinance verwerfen; adj_close
+    # darf fehlen — der Helper stellt die Invariante her).
+    keep_cols = [c for c in cache.columns.tolist() if c in fetched.columns]
+    fetched_clean = fetched[keep_cols]
+
+    try:
+        result = guarded_merge(cache, fetched_clean)
+    except SeamGuardError as exc:
+        # F-TR-1 (Stage 1, 2026-08-17): der Abbruch muss den Operator
+        # ERREICHEN — rc=-2 (negativ -> ok=false im Status, Exit 1 im main,
+        # WARN-Zweig im .bat feuert) + error-Feld. Ein positives rc waere mit
+        # "N rows appended" des Erfolgspfads ambig gewesen und ok=true haette
+        # den Guard-Treffer als Erfolg maskiert (E-142-Klasse).
+        logger.error("[refresh-sector] %s", exc)
+        _write_status(
+            rc=-2,
+            cache_latest=cache_latest,
+            fetch_latest=fetch_latest,
+            rows_appended=0,
+            error=f"seam_guard: {exc}",
+        )
+        return -2
+    if result.dropped_symbols:
+        logger.warning(
+            "[refresh-sector] dropped (overlap ratio not constant): %s",
+            result.dropped_symbols,
+        )
+    merged = result.combined.reset_index(drop=True)
+    # F-TR-4: real angehaengte Zeilen zaehlen (Drops der Overlap-Pruefung
+    # duerfen nicht als "appended" berichtet werden).
+    rows_appended_real = max(0, len(merged) - len(cache))  # F-senior-6
 
     # Atomic write (Path.replace is atomic on the same filesystem).
     tmp = cache_path.with_name(cache_path.name + ".tmp")
@@ -340,12 +349,20 @@ def refresh(
         guard_state,
     )
     _write_status(
-        rc=int(len(new_rows)),
+        rc=int(rows_appended_real),  # F-senior-5: rc == Rueckgabewert
         cache_latest=cache_latest,
         fetch_latest=fetch_latest,
-        rows_appended=int(len(new_rows)),
+        rows_appended=int(rows_appended_real),
+        # F-senior-1: das Drop-Forensik-Signal braucht einen maschinen-
+        # lesbaren Empfaenger (E-140/E-172) — nicht nur die Tageslogdatei.
+        dropped_symbols=result.dropped_symbols,
+        error=(
+            f"overlap_ratio_not_constant: {sorted(result.dropped_symbols)}"
+            if result.dropped_symbols
+            else None
+        ),
     )
-    return len(new_rows)
+    return int(rows_appended_real)
 
 
 def main() -> int:

@@ -44,39 +44,7 @@ class TestCrashPredictionThresholds:
         assert "p90" in result.columns
 
 
-class TestWildCardDetector:
-    def test_no_anomaly(self):
-        from src.assembled_core.intel.wild_card_detector import detect_volume_anomaly
-
-        counts = pd.Series([100] * 40)
-        result = detect_volume_anomaly(counts)
-        assert result["is_anomaly"] is False
-
-    def test_anomaly_detected(self):
-        from src.assembled_core.intel.wild_card_detector import detect_volume_anomaly
-
-        np.random.seed(42)
-        # baseline with natural variance, then a huge spike
-        baseline = np.random.normal(100, 10, 39).astype(int).tolist()
-        counts = pd.Series(baseline + [500])
-        result = detect_volume_anomaly(counts)
-        assert result["is_anomaly"] is True
-
-
-class TestStructuralCycles:
-    def test_normal_environment(self):
-        from src.assembled_core.intel.structural_cycles import (
-            compute_structural_cycle_score,
-        )
-
-        result = compute_structural_cycle_score(
-            debt_gdp_pct=80,
-            gini_index=0.35,
-            trust_index=0.60,
-            rivalry_index=0.30,
-        )
-        assert result.risk_multiplier >= 1.0
-        assert result.composite >= 0
+# ENTFERNT 2026-08-17: testete intel/wild_card_detector + intel/structural_cycles, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 class TestSmartOrderRouter:

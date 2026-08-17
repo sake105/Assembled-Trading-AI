@@ -59,7 +59,7 @@ Schlecht:
 - **`_compute_options_factors` hat keinen `as_of`-Parameter** (`multifactor_v2.py:987-1026`, selbst nachgeprüft): fetcht CBOE live, nimmt `iloc[-1]` → Look-Ahead im Backtest/Replay für `options_put_call_extreme` (w=0.02) und `vix_regime_score` (w=0.01). Als Follow-up seit 2026-05-28 bekannt, **weiterhin offen**. **[V]**
 - **21× `except Exception` in multifactor_v2.py** degradieren Faktoren still auf 0.0 — ein Feed-Ausfall reduziert unbemerkt die effektive Faktorzahl. **[V]**
 - Faktoren, die in der OOS-Forensik (Paket 3c.2) ZERO-Beitrag zeigten (`sector_rotation_bias` 0.04, `news_sentiment_7d` 0.04, options/VIX 0.03), tragen weiter Default-Gewicht — Gewichtsbudget auf nachweislich beitragsfreien Faktoren. **[V]**
-- Leichen: `src/erweiterung/` enthält nur noch `.pyc`-Dateien; `signals/pead_sue.py` (Finnhub-Duplikat) nur test-referenziert; Intel-Module `polymarket_loader`, `wild_card_detector`, `structural_cycles` orphan. **[V]**
+- Leichen: `src/erweiterung/` enthält nur noch `.pyc`-Dateien; `signals/pead_sue.py` (Finnhub-Duplikat) nur test-referenziert; Intel-Module `polymarket_loader`, `wild_card_detector`, `structural_cycles` orphan (2026-08-17 archiviert nach `archive/orphaned_code_2026-08-17/`, Audit 6.4 Tranche 2). **[V]**
 
 ML-Ebene ehrlich eingeordnet **[V]**: produktiv sind HMM-Regime, Copula-Tail-Risk, EDCL (policy `enabled: true`); conformal sizing und meta_model sind implementiert, aber **policy-deaktiviert mit ehrlicher Begründung** (`policy.yaml:507-509`: „CAGR −3.99pp"; `:665-668`: „v2 AUC=0.649 had look-ahead bias; v6 AUC=0.51"). GNN/TFT/LTN sind deklarierte Stubs. Das ist sauber gehandhabt — nur der Alt-Kommentar `_tc_signals.py:566` bewirbt noch das kontaminierte AUC-0.649-Modell.
 

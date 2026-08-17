@@ -3,7 +3,6 @@
 Covers:
   - features/liquidity_condition_index.py
   - risk/regime_hmm.py
-  - signals/analyst_revisions.py
   - signals/pead_sue.py
   - features/residual_momentum.py
   - data/sources/finra_source.py (unit only, no live network)
@@ -12,11 +11,8 @@ Covers:
   - data/free_universe.py (unit only)
   - portfolio/conformal_position.py
   - features/chart_pattern_matrix.py
-  - signals/sentiment_panel.py
-  - signals/recession_probability.py
   - signals/buyback_drift.py
   - signals/etf_flows.py
-  - ops/shap_explainer.py
   - ops/drift_monitor.py
   - features/macro_regime_quadrant.py
   - features/change_point_detection.py
@@ -120,35 +116,7 @@ def test_regime_hmm_fit_without_hmmlearn():
         mod.HMMLEARN_AVAILABLE = original
 
 
-# ---------------------------------------------------------------------------
-# Analyst Revisions tests
-# ---------------------------------------------------------------------------
-
-
-def test_analyst_revision_score_empty_data():
-    from src.assembled_core.signals.analyst_revisions import analyst_revision_score
-
-    class MockFinnhub:
-        def recommendation_trends(self, ticker):
-            return []
-
-    score = analyst_revision_score("AAPL", MockFinnhub())
-    assert score == 0.0
-
-
-def test_analyst_revision_score_positive():
-    from src.assembled_core.signals.analyst_revisions import analyst_revision_score
-
-    class MockFinnhub:
-        def recommendation_trends(self, ticker):
-            return [
-                {"buy": 10, "strongBuy": 5, "sell": 1, "strongSell": 0},  # current
-                {"buy": 6, "strongBuy": 2, "sell": 2, "strongSell": 1},  # prior
-            ]
-
-    score = analyst_revision_score("AAPL", MockFinnhub())
-    assert score > 0.0
-    assert -1 <= score <= 1
+# ENTFERNT 2026-08-17: testete signals/analyst_revisions, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -365,81 +333,7 @@ def test_discord_anomaly_feature_without_stumpy():
         mod._try_stumpy = original
 
 
-# ---------------------------------------------------------------------------
-# Sentiment Panel tests
-# ---------------------------------------------------------------------------
-
-
-def test_sentiment_panel_basic():
-    from src.assembled_core.signals.sentiment_panel import (
-        compute_sentiment_panel,
-        sentiment_multiplier,
-    )
-
-    n = 300
-    idx = pd.date_range("2020-01-01", periods=n, freq="B")
-    rng = np.random.default_rng(0)
-
-    score = compute_sentiment_panel(
-        cboe_put_call=pd.Series(rng.uniform(0.8, 1.5, n), index=idx),
-        hy_spread=pd.Series(rng.uniform(3, 8, n), index=idx),
-        vix=pd.Series(rng.uniform(10, 40, n), index=idx),
-        spy_127d_return=pd.Series(rng.uniform(-0.2, 0.3, n), index=idx),
-        lookback=60,
-    )
-    assert isinstance(score, pd.Series)
-    assert not score.empty
-    # Scores should be in roughly 0–100 range
-    valid = score.dropna()
-    assert (valid >= 0).all()
-    assert (valid <= 100).all()
-
-    assert sentiment_multiplier(90) == 1.2
-    assert sentiment_multiplier(50) == 1.0
-    assert sentiment_multiplier(10) == 0.7
-
-
-# ---------------------------------------------------------------------------
-# Recession Probability tests
-# ---------------------------------------------------------------------------
-
-
-def test_recession_probability_without_statsmodels():
-    from src.assembled_core.signals import recession_probability as mod
-    import sys
-
-    # Temporarily hide statsmodels
-    real = sys.modules.pop("statsmodels.tsa.regime_switching.markov_regression", None)
-    real2 = sys.modules.pop("statsmodels", None)
-
-    try:
-        n = 200
-        idx = pd.date_range("2020-01-01", periods=n, freq="B")
-        t10y3m = pd.Series(np.random.randn(n) * 0.5 - 0.1, index=idx)
-        nfci = pd.Series(np.random.randn(n) * 0.3, index=idx)
-
-        result = (
-            mod.compute_recession_probability.__wrapped__
-            if hasattr(mod.compute_recession_probability, "__wrapped__")
-            else None
-        )
-        # If statsmodels is actually installed this test passes trivially
-        probs = mod.compute_recession_probability(t10y3m, nfci)
-        assert isinstance(probs, pd.Series)
-    finally:
-        if real:
-            sys.modules["statsmodels.tsa.regime_switching.markov_regression"] = real
-        if real2:
-            sys.modules["statsmodels"] = real2
-
-
-def test_recession_multiplier():
-    from src.assembled_core.signals.recession_probability import (
-        recession_signal_multiplier,
-    )
-
-    assert recession_signal_multiplier(0.3) == 1.0
-    assert recession_signal_multiplier(0.7) == 0.5
+# ENTFERNT 2026-08-17: testete signals/sentiment_panel + signals/recession_probability, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -503,31 +397,7 @@ def test_etf_flow_summary_no_yfinance(monkeypatch):
     assert "sector" in df.columns
 
 
-# ---------------------------------------------------------------------------
-# SHAP explainer tests
-# ---------------------------------------------------------------------------
-
-
-def test_shap_without_shap_lib():
-    from src.assembled_core.ops import shap_explainer as mod
-
-    original = mod._try_shap
-    mod._try_shap = lambda: None
-    try:
-        result = mod.compute_shap_values(None, np.random.randn(10, 5))
-        assert result is None
-    finally:
-        mod._try_shap = original
-
-
-def test_top_features_by_shap():
-    from src.assembled_core.ops.shap_explainer import top_features_by_shap
-
-    shap_vals = np.array([[0.5, -0.3, 0.1, 0.8, -0.2]] * 5)
-    features = ["a", "b", "c", "d", "e"]
-    top = top_features_by_shap(shap_vals, features, n=2)
-    assert top.index[0] == "d"
-    assert top.index[1] == "a"
+# ENTFERNT 2026-08-17: testete ops/shap_explainer, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------

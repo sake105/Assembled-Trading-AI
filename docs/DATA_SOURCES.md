@@ -41,7 +41,7 @@ Use this to find the right source for a given data type.
 
 | Source | File | Status | API Key | Notes |
 |--------|------|--------|---------|-------|
-| **NewsAPI** | `newsapi_source.py` | 📚 Single caller | `NEWSAPI_KEY` | 100 req/day free; used by news pipeline |
+| **NewsAPI** | `newsapi_source.py` | ARCHIVIERT (Audit 6.4 Tranche 2, 2026-08-17) | `NEWSAPI_KEY` | Modul + Reexport nach archive/orphaned_code_2026-08-17/ verschoben — kein Caller mehr; News-Pipeline nutzt RSS/intel-Pfade |
 | **Finnhub** | (via altdata/) | 📚 Single caller | `FINNHUB_API_KEY` | Events + news; see `data/altdata/` |
 | **Wikipedia Views** | `wikipedia_views_source.py` | 🧪 Test-only | None (free) | Retail attention proxy |
 
@@ -72,7 +72,7 @@ Use this to find the right source for a given data type.
 | Macro time series (inflation, rates) | `fred_source.py` |
 | Earnings dates | `earnings_calendar_source.py` |
 | SEC filings | `edgar_source.py` |
-| News sentiment | `newsapi_source.py` + `intel/news_rag.py` |
+| News sentiment | `intel/news_rag.py` (`newsapi_source.py` archiviert, Audit 6.4 Tranche 2) |
 | Geo-risk signal (live) | `polymarket_source.py` + `kalshi_source.py` via `risk/georisk_overlay.py` |
 | Short interest | `finra_source.py` |
 | VIX data | `cboe_source.py` |

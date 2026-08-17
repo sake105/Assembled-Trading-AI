@@ -336,64 +336,7 @@ class TestLiquidityAwareSizer:
         assert result.signal_qty == 500
 
 
-# ---------------------------------------------------------------------------
-# VVIXTailRiskSignal
-# ---------------------------------------------------------------------------
-
-
-class TestVVIXTailRiskSignal:
-    def _signal(self):
-        from assembled_core.signals.tail_risk_vvix import VVIXTailRiskSignal
-
-        return VVIXTailRiskSignal()
-
-    def test_calm_regime(self):
-        s = self._signal()
-        state = s.regime({"vvix": 85.0, "skew": 125.0, "vix": 15.0, "vix3m": 17.0})
-        assert state.regime == "calm"
-        assert state.score == 0
-
-    def test_elevated_regime(self):
-        s = self._signal()
-        # vvix=95: >= calm(90) but < high(110) → score 1; skew=130: >= calm(130) → score 1
-        state = s.regime({"vvix": 95.0, "skew": 130.0})
-        assert state.regime == "elevated"
-
-    def test_high_regime(self):
-        s = self._signal()
-        # vvix=115: >= high(110) → score 2; skew=142: >= high(140) → score 2
-        state = s.regime({"vvix": 115.0, "skew": 142.0})
-        assert state.regime == "high"
-
-    def test_extreme_regime(self):
-        s = self._signal()
-        state = s.regime({"vvix": 135.0, "skew": 155.0})
-        assert state.regime == "extreme"
-        assert state.score == 3
-
-    def test_backwardation_increases_score(self):
-        s = self._signal()
-        # vvix=95 → score=1 (elevated), backwardation adds +1 → high
-        state = s.regime({"vvix": 95.0, "vix": 25.0, "vix3m": 20.0})
-        assert state.backwardation is True
-        assert state.score >= 2
-
-    def test_no_backwardation_normal_term_structure(self):
-        s = self._signal()
-        state = s.regime({"vvix": 85.0, "vix": 15.0, "vix3m": 18.0})
-        assert state.backwardation is False
-
-    def test_pd_series_input(self):
-        s = self._signal()
-        data = pd.Series({"vvix": 120.0, "skew": 143.0, "vix": 25.0, "vix3m": 22.0})
-        state = s.regime(data)
-        assert state.regime in ("elevated", "high", "extreme")
-
-    def test_missing_skew_uses_vvix_only(self):
-        s = self._signal()
-        state = s.regime({"vvix": 105.0})
-        assert state.skew is None
-        assert state.regime in ("elevated", "high", "extreme")
+# ENTFERNT 2026-08-17: testete signals/tail_risk_vvix, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -606,57 +549,7 @@ class TestExecutionRouter:
         assert len(slices) >= 1
 
 
-# ---------------------------------------------------------------------------
-# CrossAssetCarryV2
-# ---------------------------------------------------------------------------
-
-
-class TestCrossAssetCarryV2:
-    def test_fx_carry_shape(self):
-        from assembled_core.signals.cross_asset_carry_v2 import UniversalCarrySignal
-
-        sig = UniversalCarrySignal()
-        idx = pd.date_range("2024-01-01", periods=10)
-        rates = pd.DataFrame(
-            np.random.default_rng(0).normal(0, 1, (10, 4)),
-            index=idx,
-            columns=["EUR", "JPY", "GBP", "AUD"],
-        )
-        result = sig.fx_carry(rates)
-        assert result.shape == rates.shape
-        assert ((result >= -1) & (result <= 1)).all().all()
-
-    def test_crypto_carry_range(self):
-        from assembled_core.signals.cross_asset_carry_v2 import UniversalCarrySignal
-
-        sig = UniversalCarrySignal()
-        idx = pd.date_range("2024-01-01", periods=50, freq="8h")
-        rates = pd.DataFrame(
-            np.random.default_rng(1).normal(0.0001, 0.001, (50, 3)),
-            index=idx,
-            columns=["BTC", "ETH", "SOL"],
-        )
-        result = sig.crypto_carry(rates)
-        assert ((result >= -1) & (result <= 1)).all().all()
-
-    def test_commodity_carry_wide_format(self):
-        from assembled_core.signals.cross_asset_carry_v2 import UniversalCarrySignal
-
-        sig = UniversalCarrySignal()
-        idx = pd.date_range("2024-01-01", periods=20)
-        df = pd.DataFrame(
-            {"CL_M1": np.linspace(80, 90, 20), "CL_M2": np.linspace(81, 91, 20)},
-            index=idx,
-        )
-        result = sig.commodity_carry(df)
-        assert not result.empty
-
-    def test_fx_carry_empty(self):
-        from assembled_core.signals.cross_asset_carry_v2 import UniversalCarrySignal
-
-        sig = UniversalCarrySignal()
-        result = sig.fx_carry(pd.DataFrame())
-        assert result.empty
+# ENTFERNT 2026-08-17: testete signals/cross_asset_carry_v2, archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------
@@ -914,50 +807,7 @@ class TestAdaptiveConformalSizer:
         assert 0.0 < mid < 1.0
 
 
-# ---------------------------------------------------------------------------
-# LPPLSCrashDetector
-# ---------------------------------------------------------------------------
-
-
-class TestLPPLSCrashDetector:
-    def _prices(self, n=150, bubble=False):
-        import numpy as np
-
-        rng = np.random.default_rng(42)
-        if bubble:
-            t = np.arange(n)
-            prices = (
-                100
-                * np.exp(0.002 * t + 0.5 * np.cos(7 * np.log(n - t + 5)))
-                * (1 + rng.normal(0, 0.005, n))
-            )
-        else:
-            prices = 100 * np.exp(rng.normal(0, 0.01, n).cumsum())
-        return np.abs(prices) + 10
-
-    def test_returns_dict(self):
-        from assembled_core.signals.lppls_crash import LPPLSCrashDetector
-
-        det = LPPLSCrashDetector(fit_window=50, max_searches=5)
-        result = det.fit_and_score(self._prices(100))
-        assert "crash_confidence" in result
-        assert "tc_estimate" in result
-        assert "time_to_crash_days" in result
-        assert "method" in result
-
-    def test_confidence_in_range(self):
-        from assembled_core.signals.lppls_crash import LPPLSCrashDetector
-
-        det = LPPLSCrashDetector(fit_window=50, max_searches=5)
-        result = det.fit_and_score(self._prices(120))
-        assert 0.0 <= result["crash_confidence"] <= 1.0
-
-    def test_method_is_numpy_fallback(self):
-        from assembled_core.signals.lppls_crash import LPPLSCrashDetector
-
-        det = LPPLSCrashDetector(fit_window=50, max_searches=5)
-        result = det.fit_and_score(self._prices(80))
-        assert "numpy" in result["method"]
+# ENTFERNT 2026-08-17: testete signals/lppls_crash (dedizierter Test test_signals_lppls_validation.py mit-archiviert), archiviert in Tranche 2, s. archive/orphaned_code_2026-08-17/README.md
 
 
 # ---------------------------------------------------------------------------

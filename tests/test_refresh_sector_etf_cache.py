@@ -270,7 +270,12 @@ def test_empty_fetch_degrades_gracefully(tmp_path, monkeypatch):
 
 def test_per_symbol_freshness_when_global_max_matches(tmp_path, monkeypatch):
     """One sector ETF stale in cache while another is fresh → the stale one is
-    refreshed even though the global cache max already equals the fetch max."""
+    refreshed even though the global cache max already equals the fetch max.
+
+    FIXTURE-FIX 2026-08-17: Cache-Preise muessen zur Fetch-Fixture (110.5)
+    konsistent sein — die alte 1.0-Fixture erzeugte eine +10.950%-Naht, die
+    der neue guarded_merge-Naht-Guard KORREKT abbricht (E-165). Der Test
+    prueft Freshness-Logik, nicht Naht-Verhalten."""
     mod = _load_module()
     monkeypatch.setattr(mod, "STATUS_PATH", tmp_path / "ops" / "status.json")
     a, b = mod.TARGET_SYMBOLS[0], mod.TARGET_SYMBOLS[1]
@@ -280,11 +285,11 @@ def test_per_symbol_freshness_when_global_max_matches(tmp_path, monkeypatch):
             {
                 "timestamp": d,
                 "symbol": a,
-                "open": 1.0,
-                "high": 1.0,
-                "low": 1.0,
-                "close": 1.0,
-                "adj_close": 1.0,
+                "open": 110.0,
+                "high": 111.0,
+                "low": 109.0,
+                "close": 110.5,
+                "adj_close": 110.5,
                 "volume": 1,
             }
         )
@@ -293,11 +298,11 @@ def test_per_symbol_freshness_when_global_max_matches(tmp_path, monkeypatch):
             {
                 "timestamp": d,
                 "symbol": b,
-                "open": 1.0,
-                "high": 1.0,
-                "low": 1.0,
-                "close": 1.0,
-                "adj_close": 1.0,
+                "open": 110.0,
+                "high": 111.0,
+                "low": 109.0,
+                "close": 110.5,
+                "adj_close": 110.5,
                 "volume": 1,
             }
         )
@@ -393,3 +398,100 @@ def test_returns_nonneg_and_main_exit_code(tmp_path, monkeypatch):
     monkeypatch.setattr(__import__("sys"), "argv", ["refresh_sector_etf_cache.py"])
 
     assert mod.main() == 0
+
+
+def test_seam_guard_blocks_adjustment_mismatch(tmp_path, monkeypatch):
+    """E-165-Pin fuer den 5. Cache-Schreiber (2026-08-17): eine
+    Adjustierungs-Naht (Cache TR-adjustiert 1.0, Fetch RAW-artig 110.5)
+    muss den Refresh fail-closed abbrechen — rc=-2, Cache byte-unveraendert."""
+    mod = _load_module()
+    monkeypatch.setattr(mod, "STATUS_PATH", tmp_path / "ops" / "status.json")
+    a = mod.TARGET_SYMBOLS[0]
+    rows = [
+        {
+            "timestamp": d,
+            "symbol": a,
+            "open": 1.0,
+            "high": 1.0,
+            "low": 1.0,
+            "close": 1.0,
+            "adj_close": 1.0,
+            "volume": 1,
+        }
+        for d in pd.date_range(end="2026-05-26", periods=3, freq="D", tz="UTC")
+    ]
+    cache_path = tmp_path / "daily.parquet"
+    pd.DataFrame(rows).to_parquet(cache_path, index=False)
+    before = pd.read_parquet(cache_path)
+
+    _patch_fetch(mod, _fetch_frame([a], ["2026-05-27", "2026-05-28"]))  # 110.5!
+    rc = mod.refresh(cache_path, dry_run=False, today=TODAY)
+    # rc=-2 seit F-TR-1: negativ -> ok=false im Status + Exit 1 -> Operator
+    # sieht den Abbruch (vorher rc=2 = ambig mit "2 rows appended", ok=true).
+    assert rc == -2
+    after = pd.read_parquet(cache_path)
+    pd.testing.assert_frame_equal(before, after)  # nichts geschrieben
+    # F-senior-7: die beiden SICHTBARKEITS-Ebenen pinnen (gelesen != getestet):
+    import json as _json
+
+    status = _json.loads((tmp_path / "ops" / "status.json").read_text("utf-8"))
+    assert status["ok"] is False
+    assert "seam_guard" in (status["error"] or "")
+
+
+def test_overlap_drop_lands_in_status_json(tmp_path, monkeypatch):
+    """F-auditor-3-Pin (Stage 3, 2026-08-17): der Drop-Zweig der guarded_merge
+    (inkonstante Overlap-Ratio -> Symbol verworfen) muss den Operator
+    maschinenlesbar erreichen: status['dropped_symbols'] + error-Feld.
+
+    VERTRAG (bewusst entschieden): ok bleibt True auf dem Drop-Pfad — der
+    Refresh ist ein PARTIELLER Erfolg (uebrige Symbole geschrieben, Cache
+    konsistent). ok=False ist exklusiv fuer den Naht-Abbruch (rc=-2, NICHTS
+    geschrieben). Drop-Monitoring geht ueber dropped_symbols/error, nicht ok."""
+    mod = _load_module()
+    monkeypatch.setattr(mod, "STATUS_PATH", tmp_path / "ops" / "status.json")
+    bad, good = mod.TARGET_SYMBOLS[0], mod.TARGET_SYMBOLS[1]
+    cache_path = _make_cache(tmp_path, latest="2026-05-26", syms=[bad, good])
+
+    # Overlap = die 5 Cache-Tage: `bad` mit Ausreisser-Ratio (150 vs 100.5 an
+    # Tag 3 -> spread >> overlap_spread_max), `good` exakt konstant 1.0;
+    # dazu je 1 echter Neutag.
+    dates = pd.date_range(end=pd.Timestamp("2026-05-26", tz="UTC"), periods=5, freq="D")
+    rows = []
+    for i, d in enumerate(dates):
+        for sym, close in ((bad, 150.0 if i == 2 else 100.5), (good, 100.5)):
+            rows.append(
+                {
+                    "timestamp": d,
+                    "symbol": sym,
+                    "open": 100.0,
+                    "high": 101.0,
+                    "low": 99.0,
+                    "close": close,
+                    "volume": 2_000_000,
+                }
+            )
+    for sym in (bad, good):
+        rows.append(
+            {
+                "timestamp": pd.Timestamp("2026-05-27", tz="UTC"),
+                "symbol": sym,
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.5,
+                "volume": 2_000_000,
+            }
+        )
+    _patch_fetch(mod, pd.DataFrame(rows))
+
+    rc = mod.refresh(cache_path, dry_run=False, today=TODAY)
+
+    assert rc == 1  # nur der good-Neutag zaehlt (Drop nicht als appended, F-TR-4)
+    out = pd.read_parquet(cache_path)
+    newer = out[out["timestamp"] > pd.Timestamp("2026-05-26", tz="UTC")]
+    assert set(newer["symbol"]) == {good}  # bad-Zeilen verworfen
+    status = _json.loads((tmp_path / "ops" / "status.json").read_text("utf-8"))
+    assert status["dropped_symbols"] == [bad]
+    assert "overlap_ratio_not_constant" in (status["error"] or "")
+    assert status["ok"] is True  # partieller Erfolg, siehe Docstring-Vertrag
