@@ -91,11 +91,18 @@ Dass dieser Zustand zehn Tage lang nur in einem Forschungsdokument stand, währe
 Cache-Writer `scripts/ops/refresh_daily_cache_from_eodhd.py` davon abhing, ist die operative
 Variante von **E-140** (Doku-Drift).
 
-### 0.05 Factor-Store-Cache-Key ohne Code-/Feature-Version — OFFEN
+### 0.05 Factor-Store-Cache-Key ohne Code-/Feature-Version — BEHOBEN 2026-08-17
 
-**Schwere:** materiell (betrifft Produktion, nicht nur Tests)
+**Schwere:** materiell (betraf Produktion, nicht nur Tests)
 **Entdeckt:** 2026-08-15, im Review der Datenbestandsbewertung
-**Status:** 🔴 offen — Testsichtbarkeit geschlossen, Ursache **nicht** behoben
+**Status:** ✅ behoben (Audit-Plan 4.3, 2026-08-17): `compute_universe_key` traegt
+jetzt einen SHA-256-Hash ueber `src/assembled_core/features/*.py`
+(`_feature_code_version`) — JEDE Code-Aenderung dort invalidiert den Cache
+automatisch (kein manueller Versions-Bump, der vergessen werden kann).
+Regressionstests in `tests/test_factor_store_code_version.py` pinnen:
+Code-Aenderung => neuer Key => altes Panel wird verworfen (COLD statt stale).
+Bestands-Panels unter Alt-Keys werden nie wieder gelesen (bewusster
+einmaliger COLD-Start; `output/factors/`-Altbestand kann geloescht werden).
 
 `compute_universe_key` (`src/assembled_core/data/factor_store.py:42`) hasht ausschließlich
 die Symbolliste — **keine Feature- oder Code-Version**. Ein Faktor-Panel, das unter älterem Code

@@ -197,6 +197,37 @@ def _load_prices(app_cfg: dict):
         logger.error("[run_live_paper] no tradeable US symbols in watchlist")
         return pd.DataFrame()
 
+    # F-senior-8 / Pilot-Diagnose 2026-08-18: die crisis_alpha-Hedges
+    # (SH/SHY/VIXY/XLU/...) brauchen PREISE, damit ihre Ziele zu Orders
+    # werden — ohne Preis kann generate_orders_from_targets das Notional
+    # nicht in Stueck umrechnen und der Hedge faellt im Ernstfall STILL aus
+    # (gemessen: 5 Crisis-Ziele, 0 Crisis-Orders). Sie gehoeren aber NICHT
+    # in watchlist.txt: dort wuerden sie Kandidaten der Core-Trend-Strategie
+    # und gingen genau im Krisenfall LONG, waehrend das Overlay dieselben
+    # Instrumente kauft (Doppelallokation, F-senior-8). Deshalb hier NUR
+    # dem Preis-Frame beimischen; das Signal-Universum bleibt die Watchlist.
+    try:
+        from src.assembled_core.events.crisis_alpha.baskets import (
+            get_basket_symbols,
+        )
+
+        _hedges = [h for h in get_basket_symbols() if "." not in h]
+        _added = [h for h in _hedges if h not in symbols]
+        if _added:
+            symbols = symbols + _added
+            logger.info(
+                "[run_live_paper] added %d crisis-hedge symbols to the PRICE "
+                "frame only (not to the signal universe): %s",
+                len(_added),
+                ", ".join(sorted(_added)),
+            )
+    except Exception as _hexc:  # noqa: BLE001 - Preisbeimischung ist best-effort
+        logger.warning(
+            "[run_live_paper] could not add crisis-hedge symbols to price "
+            "frame (%s) — crisis targets may not become orders",
+            _hexc,
+        )
+
     logger.info("[run_live_paper] loading prices for %d US symbols", len(symbols))
 
     # --- Try 1: local parquet cache, but only if fresh ---

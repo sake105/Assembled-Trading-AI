@@ -14,6 +14,7 @@ import logging
 import os
 import tempfile
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -39,18 +40,58 @@ def get_factor_store_root(factors_root: Path | None = None) -> Path:
     return root
 
 
+@lru_cache(maxsize=1)
+def _feature_code_version() -> str:
+    """Hash ueber die Feature-Berechnungsquellen (Audit-Plan 4.3, §0.05).
+
+    Der Cache-Key hashte bis 2026-08-17 AUSSCHLIESSLICH die Symbolliste —
+    ein unter aelterem Code berechnetes Panel ueberlebte damit jede
+    Aenderung an der Feature-Logik und wurde still wiederverwendet
+    (empirisch belegt: WARM n_orders=0/56 Spalten vs. COLD n_orders=2/55
+    Spalten aus reinem Cache-Artefakt). Der Datei-Hash ueber
+    src/assembled_core/features/ macht den Key automatisch code-versioniert:
+    JEDE Aenderung dort invalidiert den Cache (bewusst konservativ — ein
+    Cache-Rebuild kostet Zeit, ein stiller Stale-Hit kostet Orders). Kein
+    manueller Versions-Bump noetig, der vergessen werden koennte.
+    """
+    feat_dir = Path(__file__).resolve().parents[1] / "features"
+    h = hashlib.sha256()
+    try:
+        # F-senior-19: rekursiv — sonst deckt der Hash nur features/
+        # top-level ab und ein neues Unterpaket invalidiert den Key nie.
+        for p in sorted(feat_dir.rglob("*.py")):
+            if "__pycache__" in p.parts:
+                continue
+            h.update(p.name.encode())
+            h.update(p.read_bytes())
+    except OSError:
+        # Nicht lesbar (exotisches Deployment): fail-closed auf einen
+        # Prozess-stabilen, aber lauten Marker — lieber COLD als stale.
+        logger.warning(
+            "[factor-store] feature dir unreadable — cache key gets "
+            "process-unique code version (forces COLD)"
+        )
+        return f"unreadable{os.getpid()}"
+    return h.hexdigest()[:10]
+
+
 def compute_universe_key(
     symbols: list[str] | None = None,
     universe_file: Path | None = None,
 ) -> str:
     """Compute a deterministic hash key for a universe of symbols.
 
+    Seit 2026-08-17 (Audit-Plan 4.3) traegt der Key zusaetzlich die
+    Feature-Code-Version — siehe :func:`_feature_code_version`. Panels
+    aelterer Code-Staende werden dadurch verworfen statt still verwendet.
+
     Args:
         symbols: List of ticker symbols (order-independent).
         universe_file: Optional path to a file with one symbol per line.
 
     Returns:
-        Short identifier prefixed with 'universe_'.
+        Short identifier prefixed with 'universe_', suffixed with the
+        feature-code version ('_code_<hash>').
     """
     if universe_file is not None:
         text = Path(universe_file).read_text(encoding="utf-8")
@@ -59,7 +100,7 @@ def compute_universe_key(
         symbols = []
     joined = ",".join(sorted(symbols))
     digest = hashlib.sha256(joined.encode()).hexdigest()[:12]
-    return f"universe_{digest}"
+    return f"universe_{digest}_code_{_feature_code_version()}"
 
 
 def panel_path(

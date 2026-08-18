@@ -11,9 +11,14 @@ runtime this crashed inside optimize_portfolio (``OptimizerConfig`` has no
 reached the optimizer.
 
 This test asserts the fixed contract: optimize_portfolio is invoked with
-``config=OptimizerConfig(...)`` built from sizing_cfg and with
-``per_symbol_cost_bps`` left at its default (None) — i.e. neither passed
-positionally in slot 4 nor as a keyword.
+``config=OptimizerConfig(...)`` built from sizing_cfg and
+``per_symbol_cost_bps`` NEVER positionally in slot 4.
+
+VERTRAGS-UPDATE 2026-08-17 (Audit-Plan 4.4): per_symbol_cost_bps wird jetzt
+BEWUSST als Keyword uebergeben — None, wenn keine ADV-Basis existiert (Fixture
+ohne volume-Spalte), sonst ein dict {symbol: commission + spread/2} aus der
+transaction_costs-Engine. Der alte Pin "nicht als Keyword" schuetzte nur den
+Positional-Bug; der bleibt durch den len(args)==3-Check gepinnt.
 
 Patch note: _tc_sizing does a function-LOCAL ``from ... import
 optimize_portfolio`` at call time, so we patch the attribute on the SOURCE
@@ -108,8 +113,11 @@ def test_cost_aware_passes_policy_config_as_keyword(monkeypatch):
     # ...and current_weights came from ctx.current_positions.
     assert args[2] == {"AAA": 0.1}
 
-    # 3) per_symbol_cost_bps not passed as keyword either -> stays default None.
-    assert "per_symbol_cost_bps" not in kwargs
+    # 3) Audit-Plan 4.4: per_symbol_cost_bps kommt jetzt als KEYWORD — in
+    #    dieser Fixture (keine volume-Spalte -> kein ADV) explizit None,
+    #    d.h. der Optimizer-Flat-Default gilt weiter.
+    assert "per_symbol_cost_bps" in kwargs
+    assert kwargs["per_symbol_cost_bps"] is None
 
     # 4) config= is an OptimizerConfig carrying the sizing_cfg policy values.
     cfg = kwargs.get("config")
@@ -125,6 +133,68 @@ def test_cost_aware_passes_policy_config_as_keyword(monkeypatch):
     row_a = result.loc[result["symbol"] == "AAA"].iloc[0]
     assert row_a["target_weight"] == pytest.approx(0.6)
     assert row_a["target_qty"] == pytest.approx(0.6 * CAPITAL)
+
+
+def test_cost_aware_per_symbol_costs_from_adv(monkeypatch):
+    """Audit-Plan 4.4 Positiv-Pin: MIT volume-Spalte liefert die
+    transaction_costs-Engine per-Symbol-Kosten (commission + Spread/2) —
+    beide Symbole vorhanden, Werte >= commission."""
+    seen: dict[str, object] = {}
+
+    def fake_optimize_portfolio(*args, **kwargs):
+        seen["kwargs"] = kwargs
+        return cao_mod.OptimizationResult(
+            weights={"AAA": 1.0},
+            expected_return=0.0,
+            expected_risk=0.0,
+            turnover_cost=0.0,
+            solver_status="optimal",
+            method="fake",
+        )
+
+    monkeypatch.setattr(cao_mod, "optimize_portfolio", fake_optimize_portfolio)
+    prices = _mini_prices()
+    prices["volume"] = 1_000_000  # ADV-Basis vorhanden
+    ts_extra = pd.date_range("2026-01-19", periods=15, freq="B", tz="UTC")
+    extra = []
+    for i, t in enumerate(ts_extra):  # >= adv_window=20 Zeilen je Symbol
+        extra.append(
+            {"timestamp": t, "symbol": "AAA", "close": 105.0 + i, "volume": 1_000_000}
+        )
+        extra.append(
+            {"timestamp": t, "symbol": "BBB", "close": 48.0 - i * 0.1, "volume": 500}
+        )
+    prices = pd.concat([prices, pd.DataFrame(extra)], ignore_index=True)
+
+    ctx = SimpleNamespace(
+        capital=CAPITAL,
+        position_sizing_fn=lambda s, c: pd.DataFrame(
+            {"symbol": ["FALLBACK"], "target_weight": [1.0], "target_qty": [c]}
+        ),
+        current_positions=None,
+    )
+    _sp_dispatch_sizing(
+        _mini_signals(),
+        ctx,
+        prices,
+        {"method": "cost_aware", "commission_bps": 4.0},
+        _LOG,
+    )
+    kwargs = seen.get("kwargs")
+    assert isinstance(kwargs, dict)
+    costs = kwargs.get("per_symbol_cost_bps")
+    assert isinstance(costs, dict) and {"AAA", "BBB"} <= set(costs)
+    # one_way = commission + spread/2 -> mindestens die Commission.
+    assert all(v >= 4.0 for v in costs.values())
+    # F-senior-6 (E-186): VARIANZ pinnen, nicht nur Praesenz — die erste
+    # Fassung nutzte SpreadModel() ohne buckets und gab JEDEM Symbol
+    # denselben Fallback; der Test bestand trotz voelliger
+    # Nicht-Differenzierung. AAA hat ~2000x den ADV von BBB.
+    assert costs["AAA"] != costs["BBB"], (
+        "per_symbol_cost_bps differenziert nicht nach Liquiditaet — "
+        "SpreadModel ohne buckets kollabiert auf den Fallback"
+    )
+    assert costs["AAA"] < costs["BBB"]  # liquider = billiger
 
 
 def test_cost_aware_config_defaults_when_policy_keys_absent(monkeypatch):

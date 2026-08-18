@@ -71,3 +71,8 @@ __all__ = [
     # Integration
     "build_ledger_from_trades",
 ]
+
+# Audit-Plan 5.5 (2026-08-17): PARALLELE Steuer-Sicht. position_engine
+# bleibt autoritativ fuer operatives PnL/Cash/Reconcile; tax_view ist
+# ausschliesslich die Reporting-Sicht nach deutschem Recht (FIFO).
+from src.assembled_core.accounting import tax_regime_de, tax_view  # noqa: F401,E402

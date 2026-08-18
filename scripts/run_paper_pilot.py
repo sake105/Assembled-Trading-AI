@@ -192,6 +192,18 @@ def run_startup_checks() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s — %(message)s",
     )
+    # E-145-Klasse-Fix (2026-08-18, Pilot-Diagnose): dieses Script lud die
+    # .env NIE — run_live_paper.py (innerer Zyklus) laedt sie selbst, aber
+    # die STARTUP-SAFETY-CHECKS hier (Broker-Positions-Fetch, Stale-Order-
+    # Cancel) liefen seit jeher ohne ALPACA_API_KEY/SECRET "non-fatal" ins
+    # Leere — Schutzchecks, die still nie schuetzten. In der Funktion, nicht
+    # auf Modulebene (E-168: Test-Loader via exec_module).
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(ROOT / ".env")
+    except ImportError:
+        logger.warning("[pilot-startup] python-dotenv missing — env not loaded")
     logger.info("[pilot-startup] Running startup safety checks…")
     # Item 68: position state recovery
     check_state_recovery()

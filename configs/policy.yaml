@@ -497,13 +497,17 @@ signal_generation:
   # Phase 9: Pre-earnings signal suppression + PEAD (read by trading_cycle at signal_generation.earnings_guard)
   # Activated 2026-04-22 — ctx.earnings_calendar loaded from cache by paper/intel_context.py
   # Cache refreshed via scripts/fetch_earnings_calendar.py; safe no-op if cache missing
-  # NICHT IMPLEMENTIERT (Audit 2026-08-16): _tc_signals importiert
-  # signals/earnings_integration.py — das Modul existiert nicht; der Guard hat
-  # trotz enabled:true nie gewirkt (der earnings-calendar-refresh-CI fuettert
-  # seit jeher ins Leere). false bis zur echten Implementierung (Plan 4.5);
-  # keine Verhaltensaenderung.
+  # IMPLEMENTIERT 2026-08-17 (Audit-Plan 4.5): signals/earnings_integration.py
+  # existiert jetzt real (Suppression + PEAD, PIT-sauber, getestet) — der
+  # earnings-calendar-refresh-CI hat damit erstmals einen echten Konsumenten.
+  # enabled:true reaktiviert die seit 2026-04-22 deklarierte Absicht; safe
+  # no-op, solange der Kalender-Cache fehlt (ctx.earnings_calendar leer).
   earnings_guard:
-    enabled: false           # suppress signals 3d before earnings + PEAD drift when cache present
+    enabled: true            # suppress signals 3d before earnings + PEAD drift when cache present
+    shadow_only: true        # S1-M2: Adjustments aufzeichnen, NICHT anwenden —
+                             # Live-Flip erst nach Beobachtungsfenster (Part-D-Prozess);
+                             # verhindert daten-getriggerte Live-Aktivierung beim
+                             # ersten Erscheinen des Kalender-Caches
     suppress_window: 3       # days before earnings to zero out mean-reversion signals
     pead_window_days: 60     # PEAD drift window (days after earnings)
     pead_weight: 0.15        # weight added to score from PEAD signal
@@ -763,7 +767,19 @@ kpi_export:
 # ---------------------------------------------------------------------------
 correlation_guard:
   shadow_only: true          # D1 — compute but do not apply scaled weights
+  # S1-M1 (2026-08-17): max_pairwise_corr gehoerte historisch HIERHER und
+  # war durch den 4.2-Block-Einschub kurz nach correlation_regime_shift
+  # gerutscht. Kein Code-Konsument liest den Key (repo-weit verifiziert) —
+  # er bleibt als dokumentierter toter Key an seinem Ursprungsort.
   max_pairwise_corr: 0.8
+
+# Audit-Plan 4.2 (2026-08-17): der Regime-Shift-Skalierer lief bis dahin
+# UNGATED live (target_qty), waehrend der Guard daneben shadow war —
+# unbeabsichtigte Asymmetrie. Jetzt gleiches Part-D-Muster: shadow bis
+# expliziter Flip nach Validierung (Verhaltensaenderung in die
+# KONSERVATIVE Richtung: weniger ungated Order-Eingriffe).
+correlation_regime_shift:
+  shadow_only: true
 zombie_killer:
   shadow_only: true          # D2 — log zombies but do not force-flat
   # Operator-Flip 2026-07-27: enabled war nie gesetzt und der Code-Default ist

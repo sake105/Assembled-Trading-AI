@@ -79,3 +79,60 @@ def test_pos_map_erreicht_compute_trailing_stops(monkeypatch):
     assert erhalten["AAPL"]["qty"] == pytest.approx(10.0)
     assert erhalten["MSFT"]["entry_price"] == pytest.approx(210.0)
     assert isinstance(out, pd.DataFrame)
+
+
+def test_teilreduktion_erreicht_target_qty(monkeypatch):
+    """Audit-Plan 4.1 (2026-08-17): eine TEIL-Reduktion muss target_qty
+    skalieren — bis zum Fix wurde nur target_weight angepasst, waehrend die
+    Order-Generierung aus target_qty liest: GRADUAL DE-RISK stand im Log,
+    wirkte aber nie auf Orders (E-143). Voll-Stop weiterhin qty=0."""
+    ts = pd.Timestamp("2025-06-26", tz="UTC")
+    prices = pd.DataFrame(
+        {
+            "timestamp": [ts] * 2,
+            "symbol": ["AAPL", "MSFT"],
+            "close": [100.0, 200.0],
+            "high": [101.0, 202.0],
+            "low": [99.0, 198.0],
+        }
+    )
+    ctx = TradingContext(prices=prices, as_of=ts, write_outputs=False)
+    ctx.current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [10.0, 5.0],
+            "entry_price": [90.0, 210.0],
+        }
+    )
+    ctx.market_stress = None
+
+    class _Res:
+        triggered_symbols = ["MSFT"]  # Voll-Stop
+        reduction_symbols = {"AAPL": 0.5}  # 50%-Teilreduktion
+
+    monkeypatch.setattr(ts_mod, "compute_trailing_stops", lambda *a, **k: _Res())
+    targets = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "target_weight": [0.5, 0.5],
+            "target_qty": [100.0, 40.0],
+        }
+    )
+    meta: dict = {}
+    out = tc_sizing._sp_apply_trailing_stops(
+        targets,
+        ctx,
+        prices,
+        {"trailing_stops": {"enabled": True}},
+        meta,
+        logging.getLogger("test_ts_qty"),
+    )
+    degraded = [
+        d for d in (meta.get("degraded_steps") or []) if "trailing" in str(d).lower()
+    ]
+    assert not degraded, f"Trailing-Stops-Pfad degradiert: {degraded}"
+    row = out.set_index("symbol")
+    assert row.loc["AAPL", "target_qty"] == pytest.approx(50.0)  # 100 * (1-0.5)
+    assert row.loc["AAPL", "target_weight"] == pytest.approx(0.25)  # 0.5 * (1-0.5)
+    assert row.loc["MSFT", "target_qty"] == pytest.approx(0.0)  # Voll-Stop
+    assert row.loc["MSFT", "target_weight"] == pytest.approx(0.0)

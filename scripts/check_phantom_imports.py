@@ -37,7 +37,8 @@ KNOWN_ARCHIVED = {
     # signals — in try/except, degrade gracefully
     "src.assembled_core.signals.short_signals",
     "src.assembled_core.signals.mean_reversion",
-    "src.assembled_core.signals.earnings_integration",
+    # earnings_integration ENTFERNT 2026-08-17: Modul existiert seit
+    # Audit-Plan 4.5 real (kein Phantom mehr).
     # ml — all in try/except; advanced features not in base install
     "src.assembled_core.ml.conformal",
     "src.assembled_core.ml.evt_models",

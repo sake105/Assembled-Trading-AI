@@ -100,15 +100,27 @@ def compute_target_positions(
     Args:
         signals: DataFrame with at least symbol + direction; score used to
             rank when max_positions cap binds.
-        capital: total capital base used for weight→qty derivation downstream.
+        capital: total capital base; target_qty is derived from it as
+            NOTIONAL (= target_weight * capital).
         max_positions: optional cap; when > 0 and len(LONG) > cap, keep
             top-N by score.
         target_invested_pct: fraction of capital to deploy total across LONGs.
 
     Returns:
-        DataFrame with columns symbol, target_weight, target_qty (qty=0 — the
-        downstream sizing pipeline turns target_weight into qty using
-        current prices).
+        DataFrame with columns symbol, target_weight, target_qty.
+
+    FIX 2026-08-18 (Pilot-Diagnose): target_qty war hart 0.0 mit dem
+    Hinweis, "die nachgelagerte Sizing-Pipeline" wandle target_weight in
+    qty um. Diesen Konverter GIBT ES NICHT:
+    execution/order_generation.generate_orders_from_targets verlangt
+    ``target_qty`` als NOTIONAL und liest ``target_weight`` nie (dort
+    ausdruecklich dokumentiert). Folge im Live-Pilot: die Strategie lieferte
+    gueltige Gewichte, jede Kernposition bekam qty=0 -> Delta 0 -> NULL
+    Orders, waehrend die Crisis-Alpha-Overlays (die ihr Notional selbst aus
+    ctx.capital rechnen) sehr wohl Ziele mit qty > 0 hatten. Erwarteter
+    Consumer nie gebaut = E-143/E-176-Klasse. Jetzt wird das Notional hier
+    abgeleitet — identische Konvention wie multifactor_v1
+    (target_qty = available_capital * weight, round(2)).
     """
     if signals is None or signals.empty or "direction" not in signals.columns:
         return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
@@ -125,11 +137,12 @@ def compute_target_positions(
 
     n = len(longs)
     weight = float(target_invested_pct) / float(n) if n > 0 else 0.0
+    notional = round(weight * float(capital), 2)
     return pd.DataFrame(
         {
             "symbol": longs["symbol"].values,
             "target_weight": [weight] * n,
-            "target_qty": [0.0] * n,
+            "target_qty": [notional] * n,
         }
     )
 

@@ -205,9 +205,10 @@ def _isolate_operational_stores(monkeypatch, tmp_path):
     # 2026-08-15: the factor store was the last unisolated operational store,
     # and it is the one that actually bit. Tests write computed panels into the
     # REAL output/factors/ via store_factors and read them back on the next
-    # run. Its cache key is a universe hash with NO code or feature version
-    # (factor_store.compute_universe_key), so a panel computed by older code
-    # survives changes to feature/sizing logic and is silently reused.
+    # run. Its cache key WAS a universe hash with NO code or feature version;
+    # since 2026-08-17 (Audit-Plan 4.3) the key carries a feature-code hash,
+    # so stale panels are discarded — the tmp_path isolation below stays
+    # anyway (tests must never write into the real operational store).
     #
     # Observed effect: three tests in test_pipeline_trading_cycle_smoke.py fail
     # in this working tree and pass in a fresh worktree, purely because the

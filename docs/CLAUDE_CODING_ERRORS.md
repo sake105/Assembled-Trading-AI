@@ -2625,3 +2625,99 @@ Inhalts-Tests ihr Ziel verlieren (nicht nur, welche rot werden).
 
 **Gefunden in:** tests/test_session_2026_05_07_new_items.py
 (senior-code-reviewer, Kompakt-Review 348bb012).
+
+---
+
+## E-184 (2026-08-18) — pandas-pitfall / verwerf-regel-hinter-dem-dedup
+
+**Was passiert ist:** Ein Vendor lieferte Bars MIT volume, aber NaN-OHLC. Der
+Guard `_drop_priceless_rows` wurde am Schreibpunkt eingebaut — aber NACH
+`drop_duplicates(keep="last")`. Die NaN-Zeile gewann das last-write-wins, wurde
+danach verworfen, und die valide Bestandszeile desselben (symbol,timestamp) war
+WEG. Zusaetzlich vergiftete NaN-close die Overlap-Ratio-Pruefung (median=NaN;
+"NaN > threshold" ist False), wodurch ein Symbol ohne Beweis als "verified" galt
+und den fail-closed Naht-Guard uebersprang — genau die E-165-Klasse, gegen die
+der Helper gebaut wurde. Vom Stage-2-Review reproduziert (6 von 7 guten
+Bestandszeilen geloescht, 10x-Sprung ohne SeamGuardError gemergt).
+
+**Warum falsch:** Ein Guard, der Muell erst NACH einer verdraengenden Operation
+entfernt, ist kein Filter, sondern ein Loescher. Und jeder NaN-Vergleich ist
+False — eine Schwellenpruefung auf NaN meldet stillschweigend "in Ordnung".
+
+**Wie vermeiden:** Datenqualitaets-Filter gehoeren an den INGRESS (auf die
+eingehenden Zeilen), vor Dedup-, Overlap- und Naht-Logik. Bei jeder
+Schwellenpruefung explizit fragen: was passiert bei NaN? Testfall immer mit
+KOLLISION auf demselben Key, nicht nur mit einem neuen Timestamp.
+
+**Gefunden in:** `src/assembled_core/data/price_cache_merge.py`
+(senior-code-reviewer, reproduziert).
+
+---
+
+## E-185 (2026-08-18) — wiring-gap / neutraler-platzhalter-plus-doku-versprechen
+
+**Was passiert ist:** `trend_baseline.compute_target_positions` gab
+`target_qty=0.0` zurueck, mit einem Docstring, der auf "die nachgelagerte
+Sizing-Pipeline" als Konverter verwies. Diesen Konverter gab es NIE
+(`generate_orders_from_targets` verlangt target_qty als NOTIONAL und liest
+target_weight nicht). Jede Kernposition hatte Delta 0 — der LIVE-Paper-Pilot
+erzeugte trotz gueltiger Signale NULL Orders. Die Bestandstests pruefen Spalten
+und Gewichtssumme; kein Test prueft die WIRKUNG (Order-Delta).
+
+**Warum falsch:** Verwandt mit E-143/E-176, aber die neue Lehre ist der NEUTRALE
+PLATZHALTER: 0.0 ist syntaktisch gueltig, semantisch stumm und wirft nie. Der
+Docstring verlagerte die Verantwortung an ein Modul, das niemand gegenpruefte —
+ein Doku-Verweis ist kein Vertrag.
+
+**Wie vermeiden:** Wer einen neutralen Platzhalter (0.0/None/{}) mit dem Hinweis
+"macht wer anders" zurueckgibt, MUSS den Konsumenten im selben Commit benennen
+und per Test binden. Tests auf WIRKUNG (Orders/Delta), nicht auf Schema.
+
+**Gefunden in:** `src/assembled_core/strategies/trend_baseline.py`
+(Pilot-Diagnose 2026-08-18: 0 Orders trotz 10 gueltiger Ziele).
+
+---
+
+## E-186 (2026-08-18) — logic-error / per-symbol-aus-default-modell-das-kollabiert
+
+**Was passiert ist:** Audit-Plan 4.4 uebergab `per_symbol_cost_bps` aus
+`SpreadModel()`. Dessen `buckets`-Default ist None, wodurch `assign_spread_bps`
+fuer JEDES Symbol `fallback_spread_bps` zurueckgibt. Gemessen: ADV 124,5 Mio USD
+und ADV 23.775 USD bekamen identische 6,5 bps. Log, Code-Kommentar, Test-
+Docstring und Audit-Tabelle sprachen von ADV-differenzierten Kosten; faktisch
+wurde ein flacher Default durch einen anderen ersetzt. Der Positiv-Test konnte es
+nicht fangen, weil er nur `v >= commission` assertete.
+
+**Warum falsch:** Der Docstring der Modellklasse listet Buckets, die
+`__post_init__` nicht setzt — die Doku beschreibt eine Absicht, der Code einen
+Fallback. Eine Differenzierung wurde behauptet statt gemessen.
+
+**Wie vermeiden:** Bei jedem "jetzt per-Symbol/per-Gruppe"-Change EINMAL die
+tatsaechlichen Werte ausdrucken und im Test die VARIANZ pinnen (`assert a != b`),
+nicht nur Praesenz und Untergrenze. Model-Defaults nie aus dem Docstring
+ableiten — instanziieren und ausgeben.
+
+**Gefunden in:** `src/assembled_core/pipeline/_tc_sizing.py`,
+`tests/pipeline/test_tc_sizing_cost_aware_config.py`.
+
+---
+
+## E-187 (2026-08-18) — silent-except / guetesiegel-fuer-null-arbeit
+
+**Was passiert ist:** `build_tax_report.py` auf der eigenen Beispiel-Invocation:
+die Eingabedatei hatte nicht die erwarteten Spalten, der Builder stieg frueh aus,
+das Script meldete "[OK] 0 Fills replayed", Exit 0 — und schrieb ein Artefakt mit
+`authoritative: true` und `years: {}`. Parallel war `authoritative` in
+`tax_view.py` hartkodiert, galt also auch fuer Simulations-Trades mit
+Platzhalter-FX.
+
+**Warum falsch:** Ein leeres Ergebnis ist kein Erfolg, und ein Qualitaetssiegel
+darf nie eine Konstante sein — es muss aus den Bedingungen abgeleitet werden, die
+es behauptet.
+
+**Wie vermeiden:** Report-Scripts: 0 verarbeitete Datensaetze => Exit != 0 und
+kein Siegel. Jedes `authoritative`/`validated`/`verified`-Feld aus seinen
+Voraussetzungen BERECHNEN, nie literal setzen.
+
+**Gefunden in:** `scripts/ops/build_tax_report.py`,
+`src/assembled_core/accounting/tax_view.py`.

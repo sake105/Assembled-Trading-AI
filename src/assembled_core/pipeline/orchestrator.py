@@ -1004,7 +1004,31 @@ def _eo_step_qa(
                     qa_metrics.cagr,
                 )
 
-                qa_gate_result = evaluate_all_gates(qa_metrics)
+                # Audit-Plan 3.1 (2026-08-17, nach Deny-Lift): das Leakage-Gate
+                # (Gate 8) bekommt erstmals AUCH im Orchestrator-Pfad ein
+                # echtes Frame — vorher lief im Pilot dauerhaft SKIPPED und es
+                # existierte kein einziger laufender Leakage-Check (Audit §4
+                # Punkt 6). Gleiches Muster wie run_backtest_strategy.py:3115;
+                # build_leakage_frame ist konservativ: None => SKIPPED mit
+                # Grund (liest sich als "NICHT geprueft", nie als "sauber",
+                # E-066) statt Spaltenraten, das den Pilot per qa_block
+                # halten wuerde.
+                from src.assembled_core.qa.leakage_frame import (
+                    build_leakage_frame,
+                )
+
+                _leak_df, _leak_col, _leak_reason = build_leakage_frame(base)
+                logger.info("[orchestrator] %s", _leak_reason)
+                if _leak_df is not None and _leak_col is not None:
+                    qa_gate_result = evaluate_all_gates(
+                        qa_metrics,
+                        feature_df=_leak_df,
+                        leakage_feature_col=_leak_col,
+                        leakage_disclosure_col="disclosure_date",
+                        leakage_timestamp_col="timestamp",
+                    )
+                else:
+                    qa_gate_result = evaluate_all_gates(qa_metrics)
                 out["qa_gate_result"] = qa_gate_result
                 gate_status = qa_gate_result.overall_result.value
                 passed = sum(
@@ -1516,6 +1540,8 @@ def run_eod_pipeline(
     broker_snapshot_date: str | None = None,
     # Evidence pack controls
     write_evidence_pack: bool = False,
+    # Steuer-Sicht (Audit-Plan 5.5): rein lesende Schatten-Sicht, default AUS
+    write_tax_view: bool = False,
 ) -> dict[str, Any]:
     """Run full EOD pipeline for a given frequency.
 
@@ -1678,6 +1704,38 @@ def run_eod_pipeline(
             )
     else:
         logger.info("Step 4b: Ledger/Accounting (SKIPPED - no trades available)")
+
+    # Step 4c: Steuer-Sicht (Audit-Plan 5.5, 2026-08-17) — PARALLELE, rein
+    # lesende FIFO/PrivatDE-Reporting-Sicht. Opt-in (default aus), komplett
+    # best-effort: ein Fehler hier darf NIE failure_flag setzen oder
+    # ledger_result beeinflussen (Rule-30-Invariante, testgepinnt).
+    if write_tax_view and portfolio_trades_df is not None:
+        try:
+            from src.assembled_core.accounting.tax_view import (
+                build_tax_view_from_trades,
+                write_tax_view_json,
+            )
+
+            _tax_res = build_tax_view_from_trades(portfolio_trades_df)
+            _tax_run_id = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            write_tax_view_json(
+                _tax_res,
+                base,
+                _tax_run_id,
+                # S1-N3a: Simulations-Trades — KEINE Anlage-KAP-Basis; die
+                # echte Steuer-Basis liefert build_tax_report.py auf
+                # Ledger-Fills.
+                trades_source="portfolio_simulation",
+            )
+            logger.info(
+                "Step 4c: Tax view written (%d years, fx_source=%s)",
+                len(_tax_res.years),
+                _tax_res.fx_source,
+            )
+        except Exception as _tax_exc:  # noqa: BLE001 — best-effort by contract
+            logger.error("Step 4c: Tax view failed (non-fatal): %s", _tax_exc)
+    elif write_tax_view:
+        logger.info("Step 4c: Tax view (SKIPPED - no trades available)")
 
     # Step 5: QA
     if not skip_qa:

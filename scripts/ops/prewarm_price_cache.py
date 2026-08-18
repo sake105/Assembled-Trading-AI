@@ -52,6 +52,18 @@ def load_watchlist(path: Path = WATCHLIST_PATH) -> list[str]:
     ]
 
 
+#: Instrumente, die NUR Preisdaten brauchen, aber NICHT ins Signal-Universe
+#: gehoeren (F-senior-8, 2026-08-18). Das crisis_alpha-Overlay
+#: (events/crisis_alpha/baskets.py) handelt sie als Hedges; ohne Preise im
+#: Cache faellt der Hedge im Ernstfall still aus (gemessen: SH/VIXY fehlten
+#: komplett, SHY war 12 Tage alt). Sie in watchlist.txt aufzunehmen waere der
+#: falsche Weg: dann werden sie zu Kandidaten der Core-Trend-Strategie und
+#: gehen genau im Krisenfall LONG, waehrend das Overlay dieselben Instrumente
+#: kauft — unbeabsichtigte Doppelallokation in denselben Hedge.
+#: Muster uebernommen von refresh_sector_etf_cache.TARGET_SYMBOLS.
+HEDGE_ONLY_SYMBOLS = ["SH", "SHY", "VIXY", "XLU"]
+
+
 def cache_symbols(path: Path = CACHE_PATH) -> set[str]:
     """Return symbols currently in the price cache."""
     if not path.exists():
@@ -356,6 +368,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     watchlist = load_watchlist()
+    # Hedge-Instrumente nur fuer den PREIS-Pfad ergaenzen (F-senior-8) —
+    # sie bleiben ausserhalb von watchlist.txt und damit ausserhalb des
+    # Signal-Universums.
+    for _hedge in HEDGE_ONLY_SYMBOLS:
+        if _hedge not in watchlist:
+            watchlist.append(_hedge)
     cached = cache_symbols()
     missing = sorted(set(watchlist) - cached)
     stale = (

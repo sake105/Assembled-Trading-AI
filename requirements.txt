@@ -131,3 +131,7 @@ statsmodels==0.14.6
 # Pins statt Waiver — echte Fixes sind released.
 soupsieve==2.8.4
 wheel==0.46.2
+# F-senior-9 (2026-08-18): von 10+ Scripts genutzt (u.a. die
+# Pilot-Startup-Safety-Checks), war aber NIE deklariert — fehlt es,
+# laufen genau die Credential-abhaengigen Schutzchecks ins Leere.
+python-dotenv==1.0.1

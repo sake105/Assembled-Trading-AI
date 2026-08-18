@@ -37,6 +37,9 @@ dependencies = [
     "pyarrow>=10.0.0",
     "fastparquet>=2023.1.0",
     "python-dateutil>=2.9.0",
+    # F-senior-9 (2026-08-18): war nie deklariert, obwohl 10+ Scripts es
+    # importieren — darunter die Pilot-Startup-Safety-Checks.
+    "python-dotenv>=1.0.1",
     "requests>=2.32.0",
     # Security floor: 2.6.3 clears CVE-2025-66418, CVE-2025-66471, CVE-2026-21441.
     # Transitive via requests/yfinance/alpaca-py/polygon-api-client; declared

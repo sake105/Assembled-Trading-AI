@@ -445,6 +445,31 @@ def _prd_make_strategy_fns(
 
         def _tb_signal_fn(df: pd.DataFrame) -> pd.DataFrame:
             signals = tb_compute_signals(df, ma_fast=ma_fast, ma_slow=ma_slow)
+            # F-senior-8 (2026-08-18): die crisis_alpha-Hedges liegen seit
+            # der Pilot-Diagnose im PREIS-Frame (sonst werden ihre
+            # Overlay-Ziele nie zu Orders). Sie duerfen aber KEINE
+            # Core-Signale erzeugen: SH (inverse) und VIXY (Vol-Futures)
+            # flippen genau im Krisenfall auf MA20>MA60 — der Core ginge
+            # LONG, waehrend das Overlay dieselben Instrumente kauft
+            # (unbeabsichtigte Doppelallokation in denselben Hedge).
+            if not signals.empty and "symbol" in signals.columns:
+                try:
+                    from src.assembled_core.events.crisis_alpha.baskets import (
+                        get_basket_symbols,
+                    )
+
+                    _hedge_syms = set(get_basket_symbols())
+                except Exception:  # noqa: BLE001 - Ausschluss ist best-effort
+                    _hedge_syms = set()
+                if _hedge_syms:
+                    _before = len(signals)
+                    signals = signals[~signals["symbol"].isin(_hedge_syms)]
+                    if len(signals) < _before:
+                        log.info(
+                            "[TB] excluded %d crisis-hedge symbol(s) from core "
+                            "signals (price-frame only, overlay owns them)",
+                            _before - len(signals),
+                        )
             # Wire exit signals (mirrors ema_trend_v0 / multifactor_v2 pattern
             # in this same dispatch) — without this wire-up the exit gates
             # configured under strategy.stop_loss_pct etc. would be defined

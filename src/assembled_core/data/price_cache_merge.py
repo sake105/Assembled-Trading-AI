@@ -51,6 +51,8 @@ class MergeResult:
     combined: pd.DataFrame
     dropped_symbols: list[str] = field(default_factory=list)
     rescaled: dict[str, float] = field(default_factory=dict)
+    #: Zeilen ohne close, die am Schreibpunkt verworfen wurden (E-184).
+    dropped_priceless_rows: int = 0
 
 
 class SeamGuardError(RuntimeError):
@@ -90,7 +92,19 @@ def guarded_merge(
     existing = existing.copy() if existing is not None else pd.DataFrame()
     new_df = new_df.copy() if new_df is not None else pd.DataFrame()
 
-    result = MergeResult(combined=existing)
+    # E-184 (F-senior-2, 2026-08-18): Preislose Zeilen MUESSEN am INGRESS
+    # fallen — vor Overlap-Ratio, Naht-Guard und Dedup. Stand der Filter am
+    # Ende (erste Fassung dieses Fixes), gewann die NaN-Zeile das
+    # last-write-wins des drop_duplicates und riss die GUTE Bestandszeile
+    # desselben (symbol,timestamp) mit; zusaetzlich vergiftete NaN-close die
+    # Ratio-Pruefung (median=NaN, "NaN > threshold" ist False), wodurch ein
+    # Symbol ohne Beweis als "verified" galt und den fail-closed Naht-Guard
+    # uebersprang — genau die E-165-Klasse, gegen die dieser Helper existiert.
+    new_df, n_priceless = _drop_priceless_rows(new_df, source="new")
+    result = MergeResult(combined=existing, dropped_priceless_rows=n_priceless)
+    if new_df.empty and n_priceless:
+        result.combined = _enforce_adj_close(existing)
+        return result
     if new_df.empty:
         result.combined = _enforce_adj_close(existing)
         return result
@@ -180,6 +194,48 @@ def guarded_merge(
 
     result.combined = _enforce_adj_close(combined)
     return result
+
+
+def _drop_priceless_rows(
+    df: pd.DataFrame, *, source: str = "new"
+) -> tuple[pd.DataFrame, int]:
+    """Zeilen OHNE close verwerfen (E-184, Pilot-Diagnose 2026-08-18).
+
+    Ein Vendor lieferte fuer neu aufgenommene Symbole (SH/SHY/VIXY/XLU/TDG)
+    einen Bar MIT volume, aber mit NaN in OHLC. Diese Zeile ist wertlos und
+    zugleich gefaehrlich: der Frische-Check sieht einen Bar vom letzten
+    Handelstag (= "aktuell"), waehrend KEIN Preis existiert — die
+    Order-Generierung kann nichts umrechnen und das Symbol faellt still
+    aus (im Pilot: die Krisen-Hedges). Frische ohne Inhalt ist die
+    E-180-Klasse; hier am INGRESS des gemeinsamen Schreibpunkts entfernt,
+    damit KEIN Schreiber sie je wieder einschleust.
+
+    Wirkt bewusst NUR auf die eingehenden Zeilen (``source="new"``), nicht
+    auf den Bestand (F-senior-14): eine Bestandsbereinigung ist ein eigener,
+    protokollierter Ops-Schritt und darf nicht als Nebenwirkung eines
+    Merges passieren.
+    """
+    if df.empty or "close" not in df.columns:
+        return df, 0
+    bad = df["close"].isna()
+    n = int(bad.sum())
+    if n:
+        syms = (
+            sorted(set(df.loc[bad, "symbol"].astype(str)))
+            if "symbol" in df.columns
+            else []
+        )
+        logger.warning(
+            "[price-merge] dropped %d incoming row(s) without close "
+            "(volume-only bars, source=%s) for %d symbol(s): %s — a bar "
+            "without price is not a bar",
+            n,
+            source,
+            len(syms),
+            syms[:10],
+        )
+        df = df.loc[~bad].copy()
+    return df, n
 
 
 def _enforce_adj_close(df: pd.DataFrame) -> pd.DataFrame:

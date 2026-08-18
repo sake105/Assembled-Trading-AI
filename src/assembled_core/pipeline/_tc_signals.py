@@ -301,10 +301,10 @@ def generate_signals(
     try:
         eg_cfg = (policy.get("signal_generation") or {}).get("earnings_guard") or {}
         if eg_cfg.get("enabled", False) and not signals.empty:
-            # FIXME(mypy-sweep): Modul signals.earnings_integration existiert
-            # nicht — bei enabled=true schlägt der Import zur Laufzeit fehl und
-            # der Earnings-Guard wird vom except still geskippt.
-            from src.assembled_core.signals.earnings_integration import (  # type: ignore[import-not-found]
+            # Audit-Plan 4.5 (2026-08-17): Modul existiert jetzt real —
+            # der Import schlug seit 2026-04-22 zur Laufzeit fehl und der
+            # Guard wurde vom except still geskippt (Phantom-Gewicht 0.15).
+            from src.assembled_core.signals.earnings_integration import (
                 apply_earnings_integration,
             )
 
@@ -320,9 +320,47 @@ def generate_signals(
                     pead_window_days=int(eg_cfg.get("pead_window_days", 60)),
                     pead_weight=float(eg_cfg.get("pead_weight", 0.15)),
                 )
-                signals = adjusted_signals
+                # S1-M2 (risk-execution-reviewer, 2026-08-17): die Aktivierung
+                # waere sonst DATEN-getriggert live gegangen (erstes Erscheinen
+                # des Kalender-Caches), ohne Beobachtungsfenster — asymmetrisch
+                # zum Part-D-Prinzip, das dieselbe Welle bei 4.2 anwendet.
+                # Default shadow: Adjustments werden aufgezeichnet, nicht
+                # angewandt; Live-Flip = bewusster Operator-Schritt
+                # (signal_generation.earnings_guard.shadow_only: false).
+                eg_shadow = bool(eg_cfg.get("shadow_only", True))
+                _eg_changed = bool(
+                    _eg_result.suppressed_symbols or _eg_result.pead_symbols
+                )
+                if _eg_changed:
+                    # F-senior-17: eigener try — ein Recorder-Fehler darf im
+                    # LIVE-Modus nicht die bereits berechneten Adjustments
+                    # verwerfen (der Guard waere wirkungslos, nur mit WARN).
+                    try:
+                        from src.assembled_core.ops.shadow_recorder import (
+                            record_shadow,
+                        )
+
+                        record_shadow(
+                            "earnings_guard",
+                            {
+                                "suppressed": _eg_result.suppressed_symbols,
+                                "pead": _eg_result.pead_symbols,
+                            },
+                            as_of=str(ctx.as_of) if ctx.as_of else None,
+                            meta={"applied": not eg_shadow},
+                        )
+                    except Exception as _rec_exc:  # noqa: BLE001
+                        log.warning(
+                            "[SIGNAL-DIAG] earnings_guard shadow-record failed "
+                            "(adjustments unaffected): %s",
+                            _rec_exc,
+                        )
+                if not eg_shadow:
+                    signals = adjusted_signals
     except Exception as e:
-        log.debug("[SIGNAL-DIAG] earnings_guard skipped: %s", e)
+        # S1-N4: erstmals realer Consumer — Fehler hier nicht mehr auf
+        # DEBUG verschlucken (stille except-Pfadklasse, CLAUDE.md).
+        log.warning("[SIGNAL-DIAG] earnings_guard skipped: %s", e)
 
     # --- Step 3.35: News→Signal bridge ---
     try:

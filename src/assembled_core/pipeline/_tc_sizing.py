@@ -246,10 +246,94 @@ def _sp_dispatch_sizing(
                                 .fillna(0.0)
                                 .items()
                             }
+                    # Audit-Plan 4.4 (2026-08-17, nach Deny-Lift): per-Symbol-
+                    # Kosten an den Optimizer uebergeben — implementiert seit
+                    # jeher, am Call-Site nie benutzt, daher bekam JEDES
+                    # Symbol den flachen 6-bps-Default. Quelle = dieselbe
+                    # Engine wie die Fill-Simulation (transaction_costs:
+                    # ADV-Proxy + SpreadModel-Buckets — EINE Wahrheit,
+                    # Rule 50): one_way = commission + spread/2. Best-effort:
+                    # jeder Fehler faellt laut auf den bisherigen
+                    # Flat-Default zurueck, nie stumm.
+                    _per_sym_cost: dict[str, float] | None = None
+                    try:
+                        from src.assembled_core.execution.transaction_costs import (
+                            SpreadModel,
+                            assign_spread_bps,
+                            compute_adv_proxy,
+                        )
+
+                        _adv = compute_adv_proxy(prices_for_sizing)
+                        _adv_last = (
+                            _adv.dropna(subset=["adv_usd"])
+                            .groupby("symbol")["adv_usd"]
+                            .last()
+                        )
+                        if not _adv_last.empty:
+                            # F-senior-5 (E-186): commission aus DERSELBEN
+                            # Quelle wie die Fill-Simulation
+                            # (paper_pilot.cost_model), nicht aus einem
+                            # hartkodierten Default in einem anderen
+                            # Config-Zweig — sonst sind Optimizer- und
+                            # Fill-Kosten entkoppelt (Rule 50).
+                            _pol_cache = getattr(ctx, "_policy_cache", None)
+                            if _pol_cache is None:
+                                try:
+                                    _pol_cache = load_policy()
+                                except Exception:  # noqa: BLE001 - best effort
+                                    _pol_cache = {}
+                            _cost_cfg = (
+                                (_pol_cache or {}).get("paper_pilot", {}) or {}
+                            ).get("cost_model", {}) or {}
+                            _comm_bps = float(
+                                sizing_cfg.get("commission_bps")
+                                or _cost_cfg.get("commission_bps")
+                                or 10.0
+                            )
+                            # F-senior-5/E-186: SpreadModel() OHNE buckets gibt
+                            # fuer JEDES Symbol fallback_spread_bps zurueck —
+                            # "per-Symbol" waere nur ein anderer flacher Wert
+                            # gewesen (gemessen: ADV 124 Mio und ADV 24k
+                            # bekamen identische 5.0 bps). Explizite
+                            # ADV-Buckets stellen die Differenzierung her,
+                            # die der Name behauptet.
+                            _spreads = assign_spread_bps(
+                                _adv_last.to_numpy(),
+                                SpreadModel(
+                                    buckets=[
+                                        (1e6, 8.0),  # < 1 Mio USD ADV: illiquide
+                                        (1e7, 4.0),
+                                        (1e8, 2.0),
+                                    ],
+                                    fallback_spread_bps=1.0,  # >= 100 Mio: sehr liquide
+                                ),
+                            )
+                            _per_sym_cost = {
+                                str(s): _comm_bps + float(sp) / 2.0
+                                for s, sp in zip(_adv_last.index, _spreads)
+                            }
+                            log.info(
+                                "cost_aware: per_symbol_cost_bps for %d symbols "
+                                "(commission=%.1f bps + ADV-bucket spread/2, "
+                                "range %.2f-%.2f bps)",
+                                len(_per_sym_cost),
+                                _comm_bps,
+                                min(_per_sym_cost.values()),
+                                max(_per_sym_cost.values()),
+                            )
+                    except (ValueError, KeyError, TypeError) as _cost_exc:
+                        # Eng gefasst (broad-except-Ratchet am Cap); alles
+                        # andere faengt der aeussere cost_aware-Handler.
+                        log.warning(
+                            "cost_aware: per_symbol_cost_bps unavailable, "
+                            "optimizer flat default applies: %s",
+                            _cost_exc,
+                        )
                     cao_res = optimize_portfolio(
                         mu_cao,
                         sigma_cao,
                         _cur_w,
+                        per_symbol_cost_bps=_per_sym_cost,
                         config=OptimizerConfig(
                             risk_aversion=float(sizing_cfg.get("risk_aversion", 1.0)),
                             turnover_penalty=float(
@@ -1122,14 +1206,28 @@ def _sp_apply_trailing_stops(
                                 .fillna(target_positions[tw_col])
                             )
                             if "target_qty" in target_positions.columns:
+                                _sym_u = (
+                                    target_positions["symbol"].astype(str).str.upper()
+                                )
                                 for sym in ts_result.triggered_symbols:
                                     target_positions.loc[
-                                        target_positions["symbol"]
-                                        .astype(str)
-                                        .str.upper()
-                                        == sym,
-                                        "target_qty",
+                                        _sym_u == sym, "target_qty"
                                     ] = 0.0
+                                # Audit-Plan 4.1 (2026-08-17, nach Deny-Lift):
+                                # TEIL-Reduktionen erreichten target_qty nie —
+                                # nur target_weight wurde skaliert, waehrend
+                                # die Order-Generierung aus target_qty liest.
+                                # Der GRADUAL-DE-RISK-Pfad lief damit sichtbar
+                                # im Log, aber wirkungslos auf Orders (E-143,
+                                # dokumentierte ehrliche Grenze seit
+                                # 2026-08-11). Gleicher Faktor wie beim
+                                # Weight: qty *= (1 - reduction).
+                                for sym, _red in ts_result.reduction_symbols.items():
+                                    if sym in ts_result.triggered_symbols:
+                                        continue  # Voll-Stop hat Vorrang (qty=0)
+                                    target_positions.loc[
+                                        _sym_u == sym, "target_qty"
+                                    ] *= 1.0 - float(_red)
     except Exception as e:
         _record_degraded_step("trailing_stops", e, meta=meta, log_obj=log)
     return target_positions
@@ -1267,11 +1365,40 @@ def _sp_apply_correlation_guard(
                 shift_result = detect_correlation_regime_shift(
                     corr_prices, symbols_in_portfolio
                 )
+                # Audit-Plan 4.2 (2026-08-17, nach Deny-Lift): meta IMMER
+                # setzen — _sp_check_rebalance liest
+                # meta["correlation_regime_shift"], das bis zu diesem Fix
+                # NIE geschrieben wurde (corr_spiked war strukturell False,
+                # der Rebalance-Trigger inert).
+                meta["correlation_regime_shift"] = dict(shift_result)
                 if shift_result.get("regime_shift_detected", False):
                     exp_scale = shift_result["exposure_scale"]
-                    target_positions["target_weight"] *= exp_scale
-                    if "target_qty" in target_positions.columns:
-                        target_positions["target_qty"] *= exp_scale
+                    # Audit-Plan 4.2: der Regime-Shift skalierte target_qty
+                    # bis 2026-08-17 UNGATED und ohne Shadow-Aufzeichnung —
+                    # direkt neben dem shadow-gegateten Correlation-Guard
+                    # (Asymmetrie, Audit §5 VERDACHT bestaetigt). Jetzt
+                    # dasselbe Part-D-Muster: shadow_only-Default True =
+                    # aufzeichnen, nicht anwenden; Live-Anwendung erfordert
+                    # expliziten Policy-Flip nach Validierung.
+                    from src.assembled_core.ops.shadow_recorder import (
+                        is_shadow_only,
+                        record_shadow,
+                    )
+
+                    crs_shadow = is_shadow_only(policy, "correlation_regime_shift")
+                    record_shadow(
+                        "correlation_regime_shift",
+                        {
+                            "exposure_scale": float(exp_scale),
+                            "symbols": symbols_in_portfolio,
+                        },
+                        as_of=str(ctx.as_of) if ctx.as_of else None,
+                        meta={"applied": not crs_shadow},
+                    )
+                    if not crs_shadow:
+                        target_positions["target_weight"] *= exp_scale
+                        if "target_qty" in target_positions.columns:
+                            target_positions["target_qty"] *= exp_scale
     except Exception as e:
         _record_degraded_step("correlation_guard", e, meta=meta, log_obj=logger)
     return target_positions
@@ -2242,7 +2369,13 @@ def _sp_check_rebalance(
     vol_regime_changed = bool(
         meta.get("vol_targeting", {}).get("regime_changed", False)
     )
-    corr_spiked = bool(
+    from src.assembled_core.ops.shadow_recorder import is_shadow_only
+
+    # F-senior-7 (Stage 2, 2026-08-18): der Rebalance-Trigger ist die
+    # HANDELSWIRKSAME Haelfte des 4.2-Gates. Blieb er ungegatet, war das
+    # Part-D-Muster nur halb hergestellt: Skalierung shadow, Turnover live.
+    _crs_shadow = is_shadow_only(policy, "correlation_regime_shift")
+    corr_spiked = (not _crs_shadow) and bool(
         meta.get("correlation_regime_shift", {}).get("exposure_scale", 1.0) < 1.0
     )
     dd_pct = meta.get("drawdown_pct")

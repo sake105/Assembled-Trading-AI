@@ -145,6 +145,16 @@ def parse_eod_args() -> argparse.Namespace:
         default=False,
         help="Create evidence pack (ZIP + manifest) after ledger/accounting step.",
     )
+    p.add_argument(
+        "--write-tax-view",
+        action="store_true",
+        default=False,
+        help=(
+            "Audit-Plan 5.5: schreibe die parallele FIFO/PrivatDE-Steuer-Sicht "
+            "(tax_report_<run_id>/tax_view.json) nach dem Ledger-Step. Rein "
+            "lesend, best-effort, veraendert das operative Accounting nie."
+        ),
+    )
 
     args = p.parse_args()
 
@@ -252,6 +262,7 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
         broker_snapshot_file=getattr(args, "broker_snapshot_file", None),
         broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
         write_evidence_pack=getattr(args, "write_evidence_pack", False),
+        write_tax_view=getattr(args, "write_tax_view", False),
     )
 
     logger.info("=" * 60)
