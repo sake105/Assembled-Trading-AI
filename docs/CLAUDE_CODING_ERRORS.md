@@ -2721,3 +2721,31 @@ Voraussetzungen BERECHNEN, nie literal setzen.
 
 **Gefunden in:** `scripts/ops/build_tax_report.py`,
 `src/assembled_core/accounting/tax_view.py`.
+
+---
+
+## E-188 (2026-08-18) — test-anti-pattern / bewussten-vertrag-einseitig-umgedreht
+
+**Was passiert ist:** Beim Fix eines stillen CI-No-ops (`drift_check.py` hatte
+keinen sys.path-Anker, der ImportError wurde als "optional dependency" mit
+Exit 0 maskiert) habe ich ZWEI Dinge geaendert: den Anker (richtig, behebt die
+Ursache) UND die Semantik ImportError -> FAIL (falsch). Letzteres kippte den
+A26-Vertrag, der einheitlich fuer DREI ci-Smoke-Checks gilt und in
+`tests/test_batch10_scripts_honesty.py` bewusst gepinnt ist. Lokal fiel es
+nicht auf, weil ich nur die Datei selbst und die neuen Tests lief — Backend CI
+war auf zwei Commits rot.
+
+**Warum falsch:** Ein bestehender, getesteter Vertrag ist eine Entscheidung,
+keine Nachlaessigkeit. Wer ihn im Rahmen eines anderen Fixes umdreht, aendert
+Verhalten fuer Aufrufer, die nie gefragt wurden — und die Ursache (fehlender
+Anker) war ohnehin schon behoben. Die Vertragsaenderung war schlicht
+ueberfluessig.
+
+**Wie vermeiden:** Nach JEDER Aenderung an einem Script mit eigener Testdatei
+diese Datei laufen (`grep -rl "<script_name>" tests/`), nicht nur die neu
+geschriebenen Tests. Und: einen Fix auf die URSACHE begrenzen — wenn der
+Anker den No-op behebt, ist die Semantik-Aenderung eine zweite, separat zu
+begruendende Entscheidung. Sichtbarkeit laesst sich auch ohne Vertragsbruch
+herstellen (hier: SKIP bleibt, wird aber laut protokolliert).
+
+**Gefunden in:** `scripts/ci/drift_check.py` (Backend CI, Run 32124854335).
