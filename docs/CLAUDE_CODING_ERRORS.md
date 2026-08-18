@@ -2749,3 +2749,39 @@ begruendende Entscheidung. Sichtbarkeit laesst sich auch ohne Vertragsbruch
 herstellen (hier: SKIP bleibt, wird aber laut protokolliert).
 
 **Gefunden in:** `scripts/ci/drift_check.py` (Backend CI, Run 32124854335).
+
+---
+
+## E-189 (2026-08-18) — wiring-gap / alarm-auf-abgeschafften-producer-und-auf-die-falsche-frage
+
+**Was passiert ist:** Drei Telegram-Daueralarme, alle ohne realen Mangel:
+(1) CRITICAL "Pilot-Heartbeat VERALTET: scheduler Alter=1661h" — die Datei
+`output/ops/scheduler_heartbeat.json` wurde mit OPS-02 (Juni 2026) durch
+`output/state/heartbeat.json` ERSETZT; der Watchdog ueberwachte weiter das
+Relikt, waehrend der kanonische Heartbeat frisch war.
+(2) WARNING "1037/1117 Requests fehlgeschlagen (Quote 0.93)" — die
+yfinance-Requests scheiterten wirklich, aber der Alpaca-Fallback lieferte im
+selben Lauf vollstaendige Daten; das pull_log kennt nur die Primaerquelle.
+(3) WARNING "Sector-ETF-Refresh degradiert: error=yfinance_rate_limited" — der
+Refresher setzte das error-Feld blind bei 429, obwohl alle 9 Sektor-ETFs ueber
+prewarm/Alpaca frisch waren (Alter 1 Tag, Guard 7 Tage).
+
+**Warum falsch:** Alarme, die taeglich ohne Mangel feuern, trainieren den
+Operator darauf, sie zu ignorieren — der naechste ECHTE Ausfall geht im
+Rauschen unter. Inhaltlich stellten alle drei die falsche Frage: nicht "ist
+diese Datei alt / ist diese Quelle langsam", sondern "FEHLEN uns Daten".
+Punkt (1) ist zusaetzlich die E-140-Klasse: eine Migration liess den alten
+Konsumenten stehen.
+
+**Wie vermeiden:** (a) Bei jeder Producer-Migration ALLE Konsumenten des alten
+Artefakts mitziehen (grep auf den Dateinamen) und das Relikt archivieren.
+(b) Alarme auf den ERGEBNISZUSTAND formulieren (Datenstand, Frische), nicht auf
+Zwischenschritte (Fehlerquote einer von mehreren Quellen). (c) Wo ein Fallback
+existiert, muss er eine QUITTUNG hinterlassen, die der Alarm-Konsument lesen
+kann — sonst ist der Erfolg des Fallbacks fuer das Monitoring unsichtbar.
+(d) Jede Alarm-Entschaerfung braucht einen Gegentest, der beweist, dass der
+echte Ausfall weiterhin feuert.
+
+**Gefunden in:** `scripts/ops_watchdog.py`,
+`scripts/ops/refresh_sector_etf_cache.py`, `scripts/ops/prewarm_price_cache.py`
+(Operator-Meldung aus dem Telegram-Kanal).

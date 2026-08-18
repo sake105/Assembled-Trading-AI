@@ -167,20 +167,43 @@ def refresh(
     try:
         fetched = fetch_prices_yfinance(TARGET_SYMBOLS, start_date, end_date)
     except YFinanceRateLimitError as exc:
-        logger.warning(
-            "[refresh-sector] yfinance rate-limited (429): %s — cache unchanged, "
-            "sector_rotation_bias keeps its existing freshness state.",
-            exc,
-        )
-        cache_latest = pd.to_datetime(
+        # 2026-08-18 (Telegram-Alert "Sector-ETF-Refresh degradiert"): ein
+        # Rate-Limit ist NUR dann ein Problem, wenn die Sektor-Daten dadurch
+        # veralten. Seit alle 9 TARGET_SYMBOLS ueber prewarm_price_cache
+        # laufen (6 via watchlist, 3 via CACHE_ONLY_SYMBOLS) — inklusive
+        # Alpaca-Fallback — sind sie in aller Regel bereits frisch, wenn
+        # dieser Refresher an yfinance scheitert. Ein blindes error-Feld
+        # erzeugte daraus einen TAEGLICHEN Degradiert-Alarm ohne realen
+        # Mangel: Alert-Fatigue (E-189). Deshalb: Frische MESSEN und nur
+        # melden, wenn sie wirklich fehlt.
+        _cache_ts = pd.to_datetime(
             pd.read_parquet(cache_path, columns=["timestamp"])["timestamp"], utc=True
-        ).max()
+        )
+        cache_latest = _cache_ts.max()
+        _sector_age_days = (pd.Timestamp(today_utc, tz="UTC") - cache_latest).days
+        _fresh = _sector_age_days <= _STALE_DAYS_REF
+        logger.warning(
+            "[refresh-sector] yfinance rate-limited (429): %s — cache unchanged. "
+            "Sector data age=%dd (guard=%dd) -> %s",
+            exc,
+            _sector_age_days,
+            _STALE_DAYS_REF,
+            "still FRESH (prewarm/Alpaca keeps it current), no degradation"
+            if _fresh
+            else "STALE, sector_rotation_bias will be neutralised",
+        )
         _write_status(
             rc=0,
             cache_latest=cache_latest,
             fetch_latest=None,
             rows_appended=0,
-            error="yfinance_rate_limited",
+            # Nur ein echter Frische-Mangel ist ein Fehler. Sonst: kein
+            # error-Feld -> der Watchdog-Konsument schweigt zu Recht.
+            error=(
+                None
+                if _fresh
+                else f"yfinance_rate_limited_and_stale (age={_sector_age_days}d)"
+            ),
         )
         return 0
 

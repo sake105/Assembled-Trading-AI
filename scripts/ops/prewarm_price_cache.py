@@ -434,6 +434,57 @@ def main(argv: list[str] | None = None) -> int:
         write_failed_symbols(targets, reason=f"{fetch_reason}_empty")
         return 1
 
+    # 2026-08-18 (Telegram-Alert "1037/1117 Requests fehlgeschlagen"): das
+    # yfinance-pull_log protokolliert NUR die yfinance-Versuche. Griff der
+    # Alpaca-Fallback, waren die Daten trotzdem vollstaendig da — der
+    # Watchdog sah aber eine 93-%-Fehlerquote und alarmierte taeglich.
+    # Deshalb den Fallback-ERFOLG neben das Protokoll schreiben: der Leser
+    # kann dann zwischen "Quelle langsam, Daten da" und "Daten fehlen"
+    # unterscheiden (E-189).
+    if True:  # Quittung IMMER schreiben (auch ohne Fallback, s. u.)
+        try:
+            import json as _json
+            from datetime import datetime as _dt, timezone as _tz
+
+            import pandas as _pd
+
+            _marker = ROOT / "output" / "ops" / "pull_fallback_latest.json"
+            _marker.parent.mkdir(parents=True, exist_ok=True)
+            _marker.write_text(
+                _json.dumps(
+                    {
+                        "ts_utc": _dt.now(tz=_tz.utc).isoformat(),
+                        "primary_source": "yfinance",
+                        "primary_failure": (
+                            "rate_limited"
+                            if fetch_reason == "alpaca_fallback"
+                            else None
+                        ),
+                        "fallback_source": (
+                            "alpaca" if fetch_reason == "alpaca_fallback" else None
+                        ),
+                        "fallback_rows": int(len(df)),
+                        "fallback_symbols": int(
+                            df["symbol"].nunique() if "symbol" in df.columns else 0
+                        ),
+                        "requested_symbols": int(len(targets)),
+                        # Die eigentliche Frage des Watchdogs ist nicht "wie
+                        # viele Requests scheiterten", sondern "haben wir
+                        # aktuelle Preise". Deshalb den erreichten Datenstand
+                        # mitgeben (E-189).
+                        "data_latest": str(
+                            _pd.to_datetime(df["timestamp"], utc=True).max()
+                        )
+                        if "timestamp" in df.columns
+                        else None,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        except OSError as _mexc:
+            print(f"[prewarm] could not write fallback marker: {_mexc}")
+
     # Record any symbols that still had no data after the fetch
     fetched_syms = set(df["symbol"].unique()) if "symbol" in df.columns else set()
     still_missing = [s for s in targets if s not in fetched_syms]

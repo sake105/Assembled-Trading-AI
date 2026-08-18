@@ -90,14 +90,22 @@ def test_ack_clears_escalation():
 
 
 def test_stale_heartbeat_fires():
-    hb = {"timestamp_utc": (NOW - timedelta(hours=30)).isoformat()}
-    acts = ow.evaluate(state={}, snap=_snap(sched_hb=hb), cfg=CFG, now=NOW)
+    """UMGESTELLT 2026-08-18 auf den KANONISCHEN Heartbeat.
+
+    Der Test nutzte ``sched_hb`` (output/ops/scheduler_heartbeat.json). Diese
+    Datei wurde mit OPS-02 im Juni 2026 durch output/state/heartbeat.json
+    ersetzt und seither von NIEMANDEM mehr geschrieben — der Watchdog
+    alarmierte dafuer taeglich CRITICAL "Alter=1661h" (Alert-Fatigue, E-189).
+    Der Alarm haengt jetzt am lebenden Producer; die Staleness-Semantik selbst
+    ist unveraendert und hier weiter gepinnt."""
+    hb = {"timestamp": (NOW - timedelta(hours=30)).isoformat()}
+    acts = ow.evaluate(state={}, snap=_snap(state_hb=hb), cfg=CFG, now=NOW)
     assert "heartbeat_stale" in [a[1] for a in acts if a[0] == "fire"]
 
 
 def test_fresh_heartbeat_silent():
-    hb = {"timestamp_utc": (NOW - timedelta(hours=2)).isoformat()}
-    acts = ow.evaluate(state={}, snap=_snap(sched_hb=hb), cfg=CFG, now=NOW)
+    hb = {"timestamp": (NOW - timedelta(hours=2)).isoformat()}
+    acts = ow.evaluate(state={}, snap=_snap(state_hb=hb), cfg=CFG, now=NOW)
     assert "heartbeat_stale" not in [a[1] for a in acts if a[0] == "fire"]
 
 
@@ -394,3 +402,64 @@ def test_sector_status_cooldown_suppression_keeps_dedupe_open():
     # naechster Tick: derselbe Status muss erneut zur Meldung anstehen
     acts2 = ow.evaluate(state=state, snap=_snap(sector_status=sstat), cfg=CFG, now=NOW)
     assert any(a[1] == "sector_refresh_degraded" for a in acts2 if a[0] == "fire")
+
+
+# --- Alert-Fatigue-Fixes 2026-08-18 (E-189) ---------------------------------
+
+
+def test_no_heartbeat_alert_for_retired_scheduler_file():
+    """Der Relikt-Heartbeat (output/ops/scheduler_heartbeat.json, mit OPS-02
+    im Juni 2026 durch output/state/heartbeat.json ERSETZT) darf keinen
+    Alarm mehr ausloesen — er meldete taeglich CRITICAL 'Alter=1661h' fuer
+    einen Producer, den es nicht mehr gibt."""
+    ancient = {"timestamp_utc": (NOW - timedelta(days=69)).isoformat()}
+    fresh = {"timestamp": (NOW - timedelta(hours=1)).isoformat()}
+    acts = ow.evaluate(
+        state={}, snap=_snap(sched_hb=ancient, state_hb=fresh), cfg=CFG, now=NOW
+    )
+    assert all(a[1] != "heartbeat_stale" for a in acts if a[0] == "fire")
+
+
+def test_canonical_heartbeat_still_alerts_when_stale():
+    """Gegenprobe: der KANONISCHE Heartbeat muss weiterhin alarmieren."""
+    stale = {"timestamp": (NOW - timedelta(hours=48)).isoformat()}
+    acts = ow.evaluate(state={}, snap=_snap(state_hb=stale), cfg=CFG, now=NOW)
+    fired = [a for a in acts if a[0] == "fire" and a[1] == "heartbeat_stale"]
+    assert len(fired) == 1
+    assert fired[0][2]["source"] == "state"
+
+
+def test_pull_log_alert_suppressed_when_fallback_delivered():
+    """Eine hohe yfinance-Fehlerquote ist KEIN Datenausfall, wenn der
+    Alpaca-Fallback im selben Lauf die Daten geliefert hat (der Alarm
+    feuerte sonst taeglich, obwohl das Panel vollstaendig war)."""
+    plog = {"requested": 1117, "error": 1037, "skipped": 0, "log_name": "x.json"}
+    fb = {
+        "ts_utc": (NOW - timedelta(minutes=20)).isoformat(),
+        "fallback_source": "alpaca",
+        "fallback_rows": 15030,
+    }
+    acts = ow.evaluate(
+        state={}, snap=_snap(pull_log=plog, pull_fallback=fb), cfg=CFG, now=NOW
+    )
+    assert all(a[1] != "pull_log_errors" for a in acts if a[0] == "fire")
+
+
+def test_pull_log_alert_fires_when_fallback_is_stale_or_empty():
+    """Gegenprobe in beide Richtungen: ein ALTER Fallback (anderer Lauf) und
+    ein LEERER Fallback duerfen den echten Ausfall nicht verdecken."""
+    plog = {"requested": 1117, "error": 1037, "skipped": 0, "log_name": "x.json"}
+    old_fb = {
+        "ts_utc": (NOW - timedelta(days=3)).isoformat(),
+        "fallback_rows": 15030,
+    }
+    acts = ow.evaluate(
+        state={}, snap=_snap(pull_log=plog, pull_fallback=old_fb), cfg=CFG, now=NOW
+    )
+    assert any(a[1] == "pull_log_errors" for a in acts if a[0] == "fire")
+
+    empty_fb = {"ts_utc": (NOW - timedelta(minutes=5)).isoformat(), "fallback_rows": 0}
+    acts2 = ow.evaluate(
+        state={}, snap=_snap(pull_log=plog, pull_fallback=empty_fb), cfg=CFG, now=NOW
+    )
+    assert any(a[1] == "pull_log_errors" for a in acts2 if a[0] == "fire")

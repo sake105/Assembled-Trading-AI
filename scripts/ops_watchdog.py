@@ -18,6 +18,8 @@ import logging
 logger = logging.getLogger("ops_watchdog")
 
 HALT_FLAG = Path("output/ops/halt_ack_required.json")
+#: Relikt aus der Zeit vor OPS-02 — nur noch fuer Diagnose/Altbestand
+#: gelesen, NICHT mehr fuer Alarme (s. evaluate()).
 SCHED_HB = Path("output/ops/scheduler_heartbeat.json")
 STATE_HB = Path("output/state/heartbeat.json")
 PILOT_MANIFEST = Path("output/pilot/pilot_manifest.json")
@@ -28,6 +30,8 @@ PULL_LOG_DIR = _REPO / "output" / "ops"
 # E-176-Konsument (2026-08-17): erster Leser des sector_etf-Status-JSONs —
 # repo-verankert wie PULL_LOG_DIR (E-146), Producer schreibt ROOT/output/ops.
 SECTOR_STATUS = _REPO / "output" / "ops" / "refresh_sector_etf_status.json"
+#: Quittung eines erfolgreichen Fallback-Fetches (s. evaluate/pull_log).
+PULL_FALLBACK = _REPO / "output" / "ops" / "pull_fallback_latest.json"
 WATCHDOG_STATE = Path("output/ops/watchdog_state.json")
 ALERT_CFG = Path("configs/alerting.yaml")
 POLICY = Path("configs/policy.yaml")
@@ -92,7 +96,16 @@ def evaluate(state, snap, cfg, now):
             )
 
     # --- heartbeat staleness (alert only; DMS daemon owns the flatten) ---
-    for source, key in (("scheduler", "sched_hb"), ("state", "state_hb")):
+    # 2026-08-18: NUR noch der kanonische Heartbeat. output/ops/
+    # scheduler_heartbeat.json wurde mit OPS-02 (Juni 2026) durch
+    # output/state/heartbeat.json ERSETZT — paper_trading_scheduler schreibt
+    # seither ausschliesslich den kanonischen Pfad (Kommentar dort:
+    # "divergent ... field timestamp_utc that the DMS never read"). Der
+    # Watchdog ueberwachte die Relikt-Datei weiter und meldete taeglich
+    # CRITICAL "scheduler Alter=1661h" fuer einen Producer, den es nicht mehr
+    # gibt — ein Daueralarm, der echte Ausfaelle im Rauschen versteckt
+    # (Alert-Fatigue, E-189).
+    for source, key in (("state", "state_hb"),):
         hb = snap.get(key)
         if hb:
             hb_ts = _parse_ts(hb.get("timestamp_utc") or hb.get("timestamp"))
@@ -129,8 +142,32 @@ def evaluate(state, snap, cfg, now):
     # --- pull-log error ratio (E-112-Konsument, Audit-Plan 2.5b) ---
     # yfinance ist der einzige lebende Preispfad; sein Protokoll hatte bis
     # 2026-08-16 keinen einzigen Leser (Lautstaerke ohne Konsument, E-142).
+    # 2026-08-18: ein Fallback-Erfolg entschaerft die yfinance-Quote. Das
+    # pull_log kennt nur die PRIMAERquelle; lieferte Alpaca danach die
+    # vollstaendigen Daten, ist eine 93-%-yfinance-Fehlerquote kein
+    # Datenausfall, sondern eine langsame Primaerquelle. Ohne diese
+    # Unterscheidung feuerte der Alarm taeglich (Alert-Fatigue, E-189).
+    _fb = snap.get("pull_fallback")
+    _fb_fresh = False
+    if _fb:
+        _fb_ts = _parse_ts(_fb.get("ts_utc"))
+        if _fb_ts is not None:
+            _fb_fresh = (now - _fb_ts).total_seconds() <= 6 * 3600
+    # Die Quittung deckt den Alarm, wenn der Preis-Pfad im selben Zeitfenster
+    # ERFOLGREICH war — entweder ueber den Fallback (fallback_rows > 0) oder
+    # direkt (data_latest gesetzt). Entscheidend ist der Datenstand, nicht die
+    # Fehlerquote der Primaerquelle: der sector_etf-Refresher etwa laeuft
+    # bewusst yfinance-only und protokolliert dort taeglich 9 Fehlversuche,
+    # obwohl dieselben Symbole ueber prewarm/Alpaca frisch sind.
+    _fb_covered = bool(
+        _fb_fresh
+        and (
+            int((_fb or {}).get("fallback_rows") or 0) > 0
+            or (_fb or {}).get("data_latest")
+        )
+    )
     plog = snap.get("pull_log")
-    if plog:
+    if plog and not _fb_covered:
         requested = plog.get("requested") or 0
         # error + skipped: ein Rate-Limit-Abbruch protokolliert die nie
         # angefragten Symbole als skipped — ohne sie unterdrueckte der
@@ -311,6 +348,10 @@ def load_snapshot():
         "peak": peak,
         "pull_log": pull_log,
         "sector_status": _load_json(SECTOR_STATUS),
+        # Fallback-Quittung des Preis-Pfads (prewarm schreibt sie nach einem
+        # erfolgreichen Alpaca-Fetch) — entscheidet, ob eine hohe
+        # yfinance-Fehlerquote ein echter Datenausfall ist.
+        "pull_fallback": _load_json(PULL_FALLBACK),
     }
 
 
