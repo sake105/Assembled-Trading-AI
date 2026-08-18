@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,7 +28,25 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 PILOT_DIR = ROOT / "output" / "pilot"
-PILOT_MANIFEST = PILOT_DIR / "pilot_manifest.json"
+
+# 2026-08-18: GETRENNTE Manifeste fuer CI und Betrieb.
+#
+# Vorher schrieben BEIDE dieselbe Datei — und
+# .github/workflows/paper-trading-ci.yml committet sie mit `git add -f`.
+# Der CI-Runner checkt das Repo frisch aus, sieht also nur die zuletzt
+# COMMITTETE (kurze) Historie, haengt seinen Tag daran an und pusht das
+# Ergebnis. Beim naechsten lokalen `git pull` ueberschreibt diese
+# CI-Version die echte Betriebshistorie: gemessen 27 Tage -> 1 Tag.
+# Das Manifest ist die Bewertungsgrundlage des 30-Tage-Pilots UND ein
+# Watchdog-Input (zero_orders_unexpected) — ein Reset macht beides blind.
+#
+# Der Runner schreibt jetzt in eine EIGENE Datei. Damit hat der
+# `git add -f`-Step nichts Neues zu committen und die lokale Historie
+# bleibt unangetastet (E-190).
+_IN_CI = os.environ.get("GITHUB_ACTIONS") == "true"
+PILOT_MANIFEST = PILOT_DIR / (
+    "pilot_manifest_ci.json" if _IN_CI else "pilot_manifest.json"
+)
 
 logger = logging.getLogger(__name__)
 

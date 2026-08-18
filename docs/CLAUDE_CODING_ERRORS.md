@@ -2785,3 +2785,37 @@ echte Ausfall weiterhin feuert.
 **Gefunden in:** `scripts/ops_watchdog.py`,
 `scripts/ops/refresh_sector_etf_cache.py`, `scripts/ops/prewarm_price_cache.py`
 (Operator-Meldung aus dem Telegram-Kanal).
+
+---
+
+## E-190 (2026-08-18) — wiring-gap / zwei-schreiber-eine-evidenzdatei-ci-gewinnt
+
+**Was passiert ist:** ``output/pilot/pilot_manifest.json`` wurde von ZWEI
+Systemen geschrieben: dem lokalen Betrieb (Task Scheduler) und dem
+GitHub-Actions-Runner (``paper-trading-ci.yml`` ruft
+``run_paper_pilot.py --run-day``). Der Workflow committet die Datei
+zusaetzlich mit ``git add -f`` (force, umgeht .gitignore). Der Runner checkt
+das Repo frisch aus, sieht also nur die zuletzt COMMITTETE — kurze —
+Historie, haengt seinen Tag daran an und pusht. Ein lokales ``git pull``
+ersetzt damit die echte Betriebshistorie: gemessen 27 Tage -> 1 Tag.
+Betroffen sind die Bewertungsgrundlage des 30-Tage-Pilots UND der
+Watchdog-Input ``zero_orders_unexpected`` (ein zurueckgesetztes Manifest
+kann keine Null-Order-Serie mehr erkennen).
+
+**Warum falsch:** Ein Evidenz-Artefakt vertraegt genau EINEN Schreiber. Sind
+es zwei und einer davon committet in ein geteiltes Repo, ist Datenverlust
+kein Risiko mehr, sondern Zeitfrage — und er passiert lautlos, weil beide
+Seiten "erfolgreich" arbeiten. Erschwerend: ``git add -f`` hebelt genau die
+Schutzschicht (.gitignore) aus, die Betriebsartefakte aus dem Repo haelt.
+
+**Wie vermeiden:** Ein Artefakt, ein Schreiber. Laeuft dasselbe Script in
+CI und im Betrieb, muss es die Umgebung erkennen (``GITHUB_ACTIONS``) und in
+getrennte Pfade schreiben. Vor jedem ``git add -f`` auf ein Laufzeit-Artefakt
+fragen: wessen Version gewinnt beim naechsten Pull? Und: Historie, die nur an
+EINER Stelle lebt, braucht eine Rekonstruktionsquelle (hier
+``output/runs/live_paper_*``) — die Rekonstruktion muss sich als
+UNTERGRENZE ausweisen, weil abgebrochene Laeufe keine Artefakte hinterlassen.
+
+**Gefunden in:** ``scripts/run_paper_pilot.py``,
+``.github/workflows/paper-trading-ci.yml`` (Operator-Frage "ist der Pilot
+funktionstuechtig?", Nachmessung der Pilot-Tage).
