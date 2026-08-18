@@ -223,8 +223,16 @@ def test_missing_cache_returns_minus_one(tmp_path, monkeypatch):
     assert rc == -1
 
 
-def test_rate_limit_degrades_gracefully(tmp_path, monkeypatch):
-    """yfinance 429 → rc 0, cache unchanged, status flags the rate-limit."""
+def test_rate_limit_with_stale_cache_flags_error(tmp_path, monkeypatch):
+    """yfinance 429 UND veraltete Sektordaten → rc 0, Cache unveraendert,
+    error nennt Rate-Limit UND Alter.
+
+    VERTRAGS-UPDATE 2026-08-18 (E-189): das error-Feld wurde vorher BLIND bei
+    jedem 429 gesetzt. Da alle 9 TARGET_SYMBOLS ueber prewarm/Alpaca frisch
+    gehalten werden, erzeugte das einen taeglichen Degradiert-Alarm ohne
+    realen Mangel (Alert-Fatigue). Jetzt entscheidet die FRISCHE — dieser
+    Test deckt den Fall, in dem sie wirklich fehlt (Cache 2026-05-18 vs.
+    today 2026-06-01 = 14 Tage, Guard 7 Tage)."""
     mod = _load_module()
     status_path = tmp_path / "ops" / "status.json"
     monkeypatch.setattr(mod, "STATUS_PATH", status_path)
@@ -244,7 +252,34 @@ def test_rate_limit_degrades_gracefully(tmp_path, monkeypatch):
     pd.testing.assert_frame_equal(before, after)
     payload = _json.loads(status_path.read_text(encoding="utf-8"))
     assert payload["ok"] is True  # rc 0 is not a hard error
-    assert payload["error"] == "yfinance_rate_limited"
+    assert payload["error"] is not None
+    assert "yfinance_rate_limited" in payload["error"]
+    assert "stale" in payload["error"]  # nennt den echten Mangel
+
+
+def test_rate_limit_with_fresh_cache_is_no_degradation(tmp_path, monkeypatch):
+    """E-189-Gegenprobe: 429 bei FRISCHEN Sektordaten ist KEIN Mangel —
+    error bleibt None, der Watchdog-Konsument schweigt zu Recht."""
+    mod = _load_module()
+    status_path = tmp_path / "ops" / "status.json"
+    monkeypatch.setattr(mod, "STATUS_PATH", status_path)
+    syms = mod.TARGET_SYMBOLS
+    # Cache endet einen Tag vor `today` -> innerhalb des 7-Tage-Guards.
+    cache_path = _make_cache(tmp_path, latest="2026-05-31", syms=syms)
+
+    def _raise(*a, **k):
+        raise mod.YFinanceRateLimitError("429")
+
+    mod.fetch_prices_yfinance = _raise
+    n = mod.refresh(cache_path, dry_run=False, today=TODAY)
+
+    assert n == 0
+    payload = _json.loads(status_path.read_text(encoding="utf-8"))
+    assert payload["ok"] is True
+    assert payload["error"] is None, (
+        "frische Sektordaten duerfen keinen Degradiert-Alarm erzeugen "
+        "(taeglicher Fehlalarm vor E-189)"
+    )
 
 
 def test_empty_fetch_degrades_gracefully(tmp_path, monkeypatch):
