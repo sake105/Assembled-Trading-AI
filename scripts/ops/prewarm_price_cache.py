@@ -61,7 +61,16 @@ def load_watchlist(path: Path = WATCHLIST_PATH) -> list[str]:
 #: gehen genau im Krisenfall LONG, waehrend das Overlay dieselben Instrumente
 #: kauft — unbeabsichtigte Doppelallokation in denselben Hedge.
 #: Muster uebernommen von refresh_sector_etf_cache.TARGET_SYMBOLS.
-HEDGE_ONLY_SYMBOLS = ["SH", "SHY", "VIXY", "XLU"]
+#:
+#: Ergaenzt 2026-08-18 um XLP/XLY: die Sektor-ETFs des
+#: sector_rotation_bias-Faktors stehen nur teilweise in der Watchlist. Die
+#: uebrigen hingen ALLEIN am yfinance-basierten refresh_sector_etf_cache —
+#: der bei HTTP 429 ein No-op ist ("cache unchanged"), weshalb XLP/XLY dem
+#: Rest des Panels hinterherhinkten. Ueber diesen Pfad bekommen sie den
+#: Alpaca-Fallback und damit dieselbe Robustheit wie das Kernuniversum.
+CACHE_ONLY_SYMBOLS = ["SH", "SHY", "VIXY", "XLU", "XLP", "XLY"]
+#: Rueckwaertskompatibler Alias (der Name beschrieb nur die Hedges).
+HEDGE_ONLY_SYMBOLS = CACHE_ONLY_SYMBOLS
 
 
 def cache_symbols(path: Path = CACHE_PATH) -> set[str]:
@@ -368,12 +377,13 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     watchlist = load_watchlist()
-    # Hedge-Instrumente nur fuer den PREIS-Pfad ergaenzen (F-senior-8) —
-    # sie bleiben ausserhalb von watchlist.txt und damit ausserhalb des
-    # Signal-Universums.
-    for _hedge in HEDGE_ONLY_SYMBOLS:
-        if _hedge not in watchlist:
-            watchlist.append(_hedge)
+    # Cache-only-Instrumente (Crisis-Hedges + die nicht in der Watchlist
+    # gefuehrten Sektor-ETFs) nur fuer den PREIS-Pfad ergaenzen — sie
+    # bleiben ausserhalb von watchlist.txt und damit ausserhalb des
+    # Signal-Universums (F-senior-8).
+    for _extra in CACHE_ONLY_SYMBOLS:
+        if _extra not in watchlist:
+            watchlist.append(_extra)
     cached = cache_symbols()
     missing = sorted(set(watchlist) - cached)
     stale = (
