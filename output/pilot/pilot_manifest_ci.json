@@ -1,0 +1,25 @@
+{
+  "started_at": "2026-08-19T19:52:20.790994+00:00",
+  "days": [
+    {
+      "day": 1,
+      "timestamp": "2026-08-19T19:52:20.790994+00:00",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 0,
+      "output_snippet": "[INFO] Logging initialized: Run-ID=live_paper_20260819_195221Z_2b2a3332, Level=INFO, Log file=D:\\a\\Assembled-Trading-AI\\Assembled-Trading-AI\\logs\\live_paper_20260819_195221Z_2b2a3332.log\n[INFO] [run_live_paper] starting \u2014 command=once\n[WARNING] [AlpacaAdapter] initialized \u2014 base_url=https://paper-api.alpaca.markets is_paper=True\n[INFO] [AlpacaAdapter] using alpaca-py TradingClient\n[INFO] [run_live_paper] broker connected \u2014 equity=86895.25\n[INFO] generated new fontManager\n[INFO] [dividends] no un"
+    }
+  ],
+  "config": {
+    "duration_days": 30,
+    "max_daily_orders": 50,
+    "max_daily_loss_usd": 200.0,
+    "go_criteria": {
+      "min_sharpe": 0.8,
+      "max_mdd_pct": -15.0,
+      "min_fill_rate": 0.9,
+      "max_crash_days": 2,
+      "min_trades": 10
+    }
+  }
+}
