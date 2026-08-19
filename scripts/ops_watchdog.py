@@ -148,11 +148,20 @@ def evaluate(state, snap, cfg, now):
     # Datenausfall, sondern eine langsame Primaerquelle. Ohne diese
     # Unterscheidung feuerte der Alarm taeglich (Alert-Fatigue, E-189).
     _fb = snap.get("pull_fallback")
+    _plog_ts = _parse_ts((snap.get("pull_log") or {}).get("finished_at"))
     _fb_fresh = False
     if _fb:
         _fb_ts = _parse_ts(_fb.get("ts_utc"))
         if _fb_ts is not None:
-            _fb_fresh = (now - _fb_ts).total_seconds() <= 6 * 3600
+            # Die Quittung deckt den Lauf, wenn sie zeitlich ZU IHM gehoert
+            # (nicht mehr als 30 min vor dem Log-Ende, danach beliebig).
+            # Erste Fassung mass gegen `now` — nach einem Nachtlauf waren
+            # Log UND Quittung gleich alt und der Alarm kehrte zurueck,
+            # obwohl der Fallback die Daten geliefert hatte.
+            if _plog_ts is not None:
+                _fb_fresh = (_fb_ts - _plog_ts).total_seconds() >= -1800
+            else:
+                _fb_fresh = (now - _fb_ts).total_seconds() <= 6 * 3600
     # Die Quittung deckt den Alarm, wenn der Preis-Pfad im selben Zeitfenster
     # ERFOLGREICH war — entweder ueber den Fallback (fallback_rows > 0) oder
     # direkt (data_latest gesetzt). Entscheidend ist der Datenstand, nicht die
@@ -311,7 +320,14 @@ def load_snapshot():
     # empty auch legitim ist (Feiertag, leeres Fenster). Der Total-Ausfall
     # dieser Form wird vom heartbeat-/zero-orders-Check getragen.
     pull_log = None
-    _agg = {"requested": 0, "error": 0, "skipped": 0, "n_logs": 0, "log_name": ""}
+    _agg = {
+        "requested": 0,
+        "error": 0,
+        "skipped": 0,
+        "n_logs": 0,
+        "log_name": "",
+        "finished_at": None,
+    }
     # Beide Seiten auf YYYY-MM-DDTHH:MM:SS geschnitten: der Producer schreibt
     # UTC-isoformat(timespec="seconds"); unparsbares finished_at ueberspringt
     # NUR dieses Log statt den Check stumm zu beenden (F-senior-5, E-142).
@@ -336,6 +352,9 @@ def load_snapshot():
         _agg["n_logs"] += 1
         if not _agg["log_name"]:
             _agg["log_name"] = log_path.name  # juengstes als Referenz
+            # Zeitstempel des juengsten Logs: die Fallback-Quittung muss zu
+            # DIESEM Lauf passen, nicht zu "jetzt" (E-189-Nachbesserung).
+            _agg["finished_at"] = payload.get("finished_at")
     if _agg["n_logs"]:
         pull_log = _agg
 

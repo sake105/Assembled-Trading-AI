@@ -429,6 +429,40 @@ def test_canonical_heartbeat_still_alerts_when_stale():
     assert fired[0][2]["source"] == "state"
 
 
+def test_fallback_receipt_is_anchored_to_the_log_run_not_to_now():
+    """E-189-Nachbesserung: die Quittung muss zum LAUF passen, nicht zu
+    `now`. Erste Fassung prueft "juenger als 6h" gegen jetzt — nach einem
+    Nachtlauf waren Log UND Quittung gleich alt, der Alarm kehrte zurueck,
+    obwohl der Fallback die Daten geliefert hatte."""
+    old_run = NOW - timedelta(hours=11)
+    plog = {
+        "requested": 1138,
+        "error": 1056,
+        "skipped": 0,
+        "log_name": "x.json",
+        "finished_at": old_run.isoformat(),
+    }
+    fb = {
+        "ts_utc": (old_run + timedelta(minutes=2)).isoformat(),
+        "data_latest": "2026-08-17",
+    }
+    acts = ow.evaluate(
+        state={}, snap=_snap(pull_log=plog, pull_fallback=fb), cfg=CFG, now=NOW
+    )
+    assert all(a[1] != "pull_log_errors" for a in acts if a[0] == "fire")
+
+    # Gegenprobe: Quittung stammt aus einem FRUEHEREN Lauf (Stunden vor dem
+    # Log) -> sie deckt diesen Ausfall nicht.
+    stale_fb = {
+        "ts_utc": (old_run - timedelta(hours=5)).isoformat(),
+        "data_latest": "2026-08-10",
+    }
+    acts2 = ow.evaluate(
+        state={}, snap=_snap(pull_log=plog, pull_fallback=stale_fb), cfg=CFG, now=NOW
+    )
+    assert any(a[1] == "pull_log_errors" for a in acts2 if a[0] == "fire")
+
+
 def test_pull_log_alert_suppressed_when_fallback_delivered():
     """Eine hohe yfinance-Fehlerquote ist KEIN Datenausfall, wenn der
     Alpaca-Fallback im selben Lauf die Daten geliefert hat (der Alarm
