@@ -187,11 +187,38 @@ def check_state_recovery() -> None:
 
         adapter = AlpacaAdapter()
         positions = adapter.get_positions() if hasattr(adapter, "get_positions") else []
-        broker_symbols = {
-            getattr(p, "symbol", str(p))
-            for p in positions
-            if float(getattr(p, "qty", 0)) != 0.0
-        }
+        # E-192 (2026-08-19): STAUB ist keine Diskrepanz. Fraktionaler Handel
+        # hinterlaesst Rundungsreste — gemessen LLY mit qty=1e-09 und einem
+        # Marktwert von 0,000001 USD. Wirtschaftlich null, aber ein
+        # taeglicher STATE-DISCREPANCY-Alarm, weil das Ledger solche Reste
+        # (zu Recht) nicht fuehrt. Sie zu "adoptieren" waere Buchhaltungs-
+        # laerm, sie zu verkaufen scheitert an der Broker-Mindestgroesse.
+        # Schwelle bewusst konservativ: alles ab 0,001 Stueck ODER 1 USD
+        # Marktwert bleibt meldepflichtig.
+        _dust_qty, _dust_value = 1e-3, 1.0
+        _dust: list[str] = []
+        for pos in positions:
+            _sym = getattr(pos, "symbol", str(pos))
+            _qty = abs(float(getattr(pos, "qty", 0) or 0.0))
+            try:
+                _mv = abs(float(getattr(pos, "market_value", 0) or 0.0))
+            except (TypeError, ValueError):
+                _mv = 0.0
+            if _qty == 0.0:
+                continue
+            if _qty < _dust_qty and _mv < _dust_value:
+                _dust.append(f"{_sym}(qty={_qty:g}, mv={_mv:g})")
+                continue
+            broker_symbols.add(_sym)
+        if _dust:
+            logger.info(
+                "[pilot-startup] ignoring %d dust position(s) below "
+                "%g shares / %g USD: %s",
+                len(_dust),
+                _dust_qty,
+                _dust_value,
+                ", ".join(sorted(_dust)),
+            )
         logger.info(
             "[pilot-startup] Broker reports %d open positions: %s",
             len(broker_symbols),

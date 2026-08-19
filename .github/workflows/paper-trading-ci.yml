@@ -109,13 +109,20 @@ jobs:
           ALPACA_BASE_URL: https://paper-api.alpaca.markets
         run: python scripts/run_paper_pilot.py --run-day
 
-      - name: Persist pilot manifest
+      - name: Persist pilot manifest (CI-eigene Datei, E-190)
         if: steps.et_gate.outputs.in_window == 'true'
         run: |
+          # E-190: der Runner schreibt seit 2026-08-18 nach
+          # pilot_manifest_ci.json. Vorher teilten sich Runner und lokaler
+          # Betrieb DIESELBE Datei — der Runner sah nach dem Checkout nur die
+          # zuletzt committete (kurze) Historie, haengte seinen Tag an und
+          # pushte; ein lokales `git pull` ersetzte damit die echte
+          # Betriebshistorie (gemessen 27 Tage -> 1 Tag). Die Betriebsdatei
+          # wird hier bewusst NICHT mehr angefasst.
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f output/pilot/pilot_manifest.json
-          git diff --cached --quiet || git commit -m "chore: paper pilot manifest day update [skip ci]"
+          git add -f output/pilot/pilot_manifest_ci.json
+          git diff --cached --quiet || git commit -m "chore: paper pilot CI manifest day update [skip ci]"
           git push || echo "push skipped (no changes)"
 
       - name: Manual-dispatch preflight (dispatch only, out-of-window)
@@ -165,11 +172,19 @@ jobs:
           if [ -f output/ops/last_run_date.txt ]; then
             echo "- last_run_date: $(cat output/ops/last_run_date.txt)" >> "$GITHUB_STEP_SUMMARY"
           fi
-          if [ -f output/pilot/pilot_manifest.json ]; then
-            echo "### Pilot status" >> "$GITHUB_STEP_SUMMARY"
-            python -c "
-          import json, sys
-          m = json.load(open('output/pilot/pilot_manifest.json'))
+          # E-190: bevorzugt die CI-eigene Datei; die Betriebsdatei ist nur
+          # Fallback und traegt die LOKALE Historie (andere Zaehlung).
+          MANIFEST=""
+          if [ -f output/pilot/pilot_manifest_ci.json ]; then
+            MANIFEST=output/pilot/pilot_manifest_ci.json
+          elif [ -f output/pilot/pilot_manifest.json ]; then
+            MANIFEST=output/pilot/pilot_manifest.json
+          fi
+          if [ -n "$MANIFEST" ]; then
+            echo "### Pilot status (source: $MANIFEST)" >> "$GITHUB_STEP_SUMMARY"
+            MANIFEST="$MANIFEST" python -c "
+          import json, os
+          m = json.load(open(os.environ['MANIFEST']))
           days = m.get('days', [])
           crashes = sum(1 for d in days if d.get('crashed'))
           print(f'Day {len(days)}/30 | Crashes: {crashes}')

@@ -193,3 +193,53 @@ def test_state_check_uses_ledger_not_only_phantom_intent_file(monkeypatch, tmp_p
     assert "LLY" in flat, "die echte Abweichung muss gemeldet werden"
     assert "GLD" not in flat, "im Ledger bekannte Position darf NICHT alarmieren"
     assert "TLT" not in flat
+
+
+def test_dust_positions_are_not_reported_as_discrepancy(monkeypatch, tmp_path):
+    """E-192, zweite Haelfte: fraktionaler Handel hinterlaesst Rundungsreste.
+
+    Gemessen: LLY mit qty=1e-09 und 0,000001 USD Marktwert — wirtschaftlich
+    null, aber ein taeglicher STATE-DISCREPANCY-Alarm. Staub wird jetzt
+    transparent GEMELDET (INFO), aber nicht als Abweichung gewertet; eine
+    echte Position knapp ueber der Schwelle weiterhin schon.
+    """
+    import json as _json
+
+    mod = _load(monkeypatch, in_ci=False)
+    ledger = tmp_path / "output" / "runs" / "_paper_ledger" / "ledger_state.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        _json.dumps({"positions": {"GLD": {"qty": 10}}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    monkeypatch.setattr(mod, "_INTENT_STATE_PATH", tmp_path / "nope.json")
+
+    warned: list[str] = []
+    monkeypatch.setattr(
+        mod.logger, "warning", lambda msg, *a, **k: warned.append(str(a))
+    )
+
+    class _Pos:
+        def __init__(self, sym, qty, mv):
+            self.symbol, self.qty, self.market_value = sym, qty, mv
+
+    class _Adapter:
+        def __init__(self, *a, **k):
+            pass
+
+        def get_positions(self):
+            return [
+                _Pos("GLD", 10.0, 4000.0),  # bekannt
+                _Pos("LLY", 1e-09, 1e-06),  # Staub -> ignorieren
+                _Pos("NVDA", 0.5, 90.0),  # ECHT, unbekannt -> melden
+            ]
+
+    import src.assembled_core.execution.broker_adapter as ba
+
+    monkeypatch.setattr(ba, "AlpacaAdapter", _Adapter, raising=False)
+    mod.check_state_recovery()
+
+    flat = " ".join(warned)
+    assert "NVDA" in flat, "echte unbekannte Position muss gemeldet werden"
+    assert "LLY" not in flat, "Staub darf keinen Alarm ausloesen"
+    assert "GLD" not in flat
