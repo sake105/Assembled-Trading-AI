@@ -301,8 +301,49 @@ def _save_manifest(m: dict) -> None:
     PILOT_MANIFEST.write_text(json.dumps(m, indent=2), encoding="utf-8")
 
 
+#: Gemeinsamer Tages-Marker mit paper_trading_scheduler.py (E-191).
+LAST_RUN_PATH = ROOT / "output" / "ops" / "last_run_date.txt"
+
+
+def _already_ran_today(day: str) -> bool:
+    """True, wenn heute bereits ein Handelszyklus lief (egal von welchem Pfad)."""
+    try:
+        return LAST_RUN_PATH.read_text(encoding="utf-8").strip() == day
+    except OSError:
+        return False
+
+
+def _mark_today_done(day: str) -> None:
+    """Tages-Marker atomar setzen (tmp + replace, wie im Scheduler-Daemon)."""
+    try:
+        LAST_RUN_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = LAST_RUN_PATH.with_suffix(LAST_RUN_PATH.suffix + ".tmp")
+        tmp.write_text(day, encoding="utf-8")
+        os.replace(tmp, LAST_RUN_PATH)
+    except OSError as exc:
+        logger.error("[pilot] last_run_date write failed: %s", exc)
+
+
 def cmd_run_day() -> int:
     """Run one paper-live cycle and append daily summary to manifest."""
+    # E-191 (2026-08-18, gemessen): ZWEI Systeme fuhren am selben Abend je
+    # einen Broker-Zyklus — der Task AssembledTradingAI-PaperPilot (21:30,
+    # 8 Fills) und der Daemon AssembledTradingAI_PaperEngine (21:40,
+    # 2 Fills). Der Daemon hat einen Tages-Guard ueber last_run_date.txt;
+    # dieser Pfad kannte ihn nicht, prueft ihn also nicht und setzt ihn
+    # nicht. Folge: doppeltes Turnover-Budget (der Tages-Cap von 20 % gilt
+    # PRO Zyklus) und zwei Schreiber auf demselben Ledger. Jetzt teilen
+    # sich beide Pfade denselben Marker.
+    _today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if _already_ran_today(_today):
+        print(
+            f"[pilot] SKIP — es lief heute ({_today}) bereits ein "
+            "Handelszyklus (gemeinsamer Marker output/ops/last_run_date.txt, "
+            "geteilt mit paper_trading_scheduler). Ein zweiter Zyklus wuerde "
+            "das Tages-Turnover-Budget verdoppeln."
+        )
+        return 0
+
     # Items 68 + 80: startup safety checks (state recovery + stale order cancel)
     run_startup_checks()
 
@@ -343,6 +384,11 @@ def cmd_run_day() -> int:
         "output_snippet": (result.stdout + result.stderr)[:500],
     }
     m["days"].append(daily_summary)
+
+    # Marker NUR bei sauberem Lauf setzen: schlaegt der Zyklus fehl, muss der
+    # Daemon als Backup einspringen koennen (gleiche Semantik wie dort).
+    if rc == 0:
+        _mark_today_done(_today)
     _save_manifest(m)
 
     status = "CRASH" if crashed else "OK"

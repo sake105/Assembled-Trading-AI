@@ -2819,3 +2819,34 @@ UNTERGRENZE ausweisen, weil abgebrochene Laeufe keine Artefakte hinterlassen.
 **Gefunden in:** ``scripts/run_paper_pilot.py``,
 ``.github/workflows/paper-trading-ci.yml`` (Operator-Frage "ist der Pilot
 funktionstuechtig?", Nachmessung der Pilot-Tage).
+
+---
+
+## E-191 (2026-08-19) — wiring-gap / zwei-scheduler-ein-portfolio-guard-nur-auf-einer-seite
+
+**Was passiert ist:** Am Abend des 2026-08-18 fuhren ZWEI unabhaengige
+Systeme je einen echten Broker-Zyklus auf demselben Paper-Konto: der
+Task ``AssembledTradingAI-PaperPilot`` (21:30 -> 8 Fills) und der Daemon
+``AssembledTradingAI_PaperEngine`` (21:40 -> 2 Fills). Der Daemon besitzt
+einen Tages-Guard (``output/ops/last_run_date.txt``); der Task-Pfad
+(``run_paper_pilot.py``) kannte ihn nicht — er prueft ihn nicht und setzt
+ihn nicht. Der Daemon sah den Marker also noch auf "gestern" und startete
+zehn Minuten nach dem Task einen zweiten Zyklus.
+
+**Warum falsch:** Der Tages-Turnover-Cap (20 % des Portfolios) gilt PRO
+Zyklus — zwei Zyklen verdoppeln das Budget still. Zusaetzlich schreiben
+zwei Prozesse dasselbe Ledger und dieselben Ops-Artefakte. Beide Laeufe
+melden "erfolgreich", der Defekt ist nur an der Order-Historie sichtbar.
+Ein Guard, den nur EINE von zwei Startquellen kennt, ist kein Guard,
+sondern eine Illusion von Serialisierung.
+
+**Wie vermeiden:** Wenn zwei Einstiegspunkte dieselbe Ressource fahren
+(Konto, Ledger, Portfolio), MUSS der Guard bei beiden liegen und dieselbe
+Datei benutzen — Symmetrie ist Teil der Sperre. Beim Bauen einer zweiten
+Startquelle immer fragen: welche Guards hat die erste, und teile ich sie?
+Marker nur bei ERFOLGREICHEM Lauf setzen, damit der jeweils andere Pfad
+als Backup einspringen kann.
+
+**Gefunden in:** ``scripts/run_paper_pilot.py`` vs.
+``scripts/paper_trading_scheduler.py`` (Operator-Auftrag "pruefe ob alles
+klappt", Nachmessung der Broker-Zyklen des Vorabends).

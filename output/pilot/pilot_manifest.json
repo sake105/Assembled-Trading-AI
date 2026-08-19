@@ -1,25 +1,136 @@
 {
-  "started_at": "2026-08-17T19:53:46.176152+00:00",
+  "started_at": "2026-07-02T19:42:49.253876+00:00",
+  "reconstructed_at": "2026-08-18T12:32:39.995249+00:00",
+  "reconstructed_from": "output/runs/live_paper_* (since 2026-07-02)",
+  "phase_start": "2026-07-02",
+  "note": "Aus Run-Artefakten rekonstruiert (E-190). UNTERGRENZE, keine vollstaendige Historie: nur Laeufe MIT Run-Verzeichnis sind abbildbar \u2014 ein Lauf, der frueh abbrach (z. B. Kill-Switch-Abort mit rc=1, 10.-17.08.), hinterlaesst keine Artefakte und fehlt hier. Die vor dem Ueberschreiben gezaehlten 27 Tage sind daher NICHT wiederherstellbar; diese Datei belegt die Tage, die Artefakte tragen. rc wird als 0 gefuehrt, weil ein geschriebenes Run-Verzeichnis einen durchgelaufenen Zyklus belegt; n_orders_detected stammt aus orders_latest.json des Laufs.",
+  "is_lower_bound": true,
   "days": [
     {
-      "day": 1,
-      "timestamp": "2026-08-17T19:53:46.176152+00:00",
+      "timestamp": "2026-07-02T19:42:49.253876+00:00",
+      "date": "2026-07-02",
       "rc": 0,
       "crashed": false,
       "n_orders_detected": 0,
-      "output_snippet": "[INFO] Logging initialized: Run-ID=live_paper_20260817_195346Z_9d968da3, Level=INFO, Log file=D:\\a\\Assembled-Trading-AI\\Assembled-Trading-AI\\logs\\live_paper_20260817_195346Z_9d968da3.log\n[INFO] [run_live_paper] starting \u2014 command=once\n[WARNING] [AlpacaAdapter] initialized \u2014 base_url=https://paper-api.alpaca.markets is_paper=True\n[INFO] [AlpacaAdapter] using alpaca-py TradingClient\n[INFO] [run_live_paper] broker connected \u2014 equity=86728.93\n[INFO] generated new fontManager\n[INFO] [dividends] no un"
+      "source": "reconstructed:live_paper_20260702_194228Z_629ce35a",
+      "orders_artifact": true,
+      "day": 1
+    },
+    {
+      "timestamp": "2026-07-03T19:43:34.762036+00:00",
+      "date": "2026-07-03",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 0,
+      "source": "reconstructed:live_paper_20260703_194315Z_183b1e3d",
+      "orders_artifact": true,
+      "day": 2
+    },
+    {
+      "timestamp": "2026-07-06T20:02:49.664293+00:00",
+      "date": "2026-07-06",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 2,
+      "source": "reconstructed:live_paper_20260706_195952Z_6fd8ecfa",
+      "orders_artifact": true,
+      "day": 3
+    },
+    {
+      "timestamp": "2026-07-07T19:30:46.298813+00:00",
+      "date": "2026-07-07",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 0,
+      "source": "reconstructed:live_paper_20260707_193008Z_f247ad6f",
+      "orders_artifact": true,
+      "day": 4
+    },
+    {
+      "timestamp": "2026-07-14T20:10:42.355123+00:00",
+      "date": "2026-07-14",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 5,
+      "source": "reconstructed:live_paper_20260714_200744Z_f875698b",
+      "orders_artifact": true,
+      "day": 5
+    },
+    {
+      "timestamp": "2026-07-20T19:31:11.365917+00:00",
+      "date": "2026-07-20",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 2,
+      "source": "reconstructed:live_paper_20260720_193010Z_87c5aead",
+      "orders_artifact": true,
+      "day": 6
+    },
+    {
+      "timestamp": "2026-07-24T19:44:34.416563+00:00",
+      "date": "2026-07-24",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 2,
+      "source": "reconstructed:live_paper_20260724_194342Z_d6e6227f",
+      "orders_artifact": true,
+      "day": 7
+    },
+    {
+      "timestamp": "2026-07-27T19:41:37.830746+00:00",
+      "date": "2026-07-27",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 2,
+      "source": "reconstructed:live_paper_20260727_194049Z_3c504c67",
+      "orders_artifact": true,
+      "day": 8
+    },
+    {
+      "timestamp": "2026-07-28T19:43:02.608533+00:00",
+      "date": "2026-07-28",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 2,
+      "source": "reconstructed:live_paper_20260728_194204Z_3be6b250",
+      "orders_artifact": true,
+      "day": 9
+    },
+    {
+      "timestamp": "2026-08-17T22:47:03.741733+00:00",
+      "date": "2026-08-17",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 0,
+      "source": "reconstructed:live_paper_20260817_224622Z_2cc083d7",
+      "orders_artifact": true,
+      "day": 10
+    },
+    {
+      "timestamp": "2026-08-18T09:55:12.246682+00:00",
+      "date": "2026-08-18",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 8,
+      "source": "reconstructed:live_paper_20260818_095426Z_ca6c8d3f",
+      "orders_artifact": true,
+      "day": 11
+    },
+    {
+      "day": 12,
+      "timestamp": "2026-08-18T19:30:07.692081+00:00",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 17,
+      "output_snippet": "[INFO] Logging initialized: Run-ID=live_paper_20260818_193008Z_4f3802a6, Level=INFO, Log file=F:\\Python_Projekt\\Aktienger\u00fcst\\logs\\live_paper_20260818_193008Z_4f3802a6.log\n[INFO] [run_live_paper] starting \u2014 command=once\n[WARNING] [AlpacaAdapter] initialized \u2014 base_url=https://paper-api.alpaca.markets is_paper=True\n[INFO] [AlpacaAdapter] using alpaca-py TradingClient\n[INFO] [run_live_paper] broker connected \u2014 equity=86637.91\n[INFO] [dividends] no unbooked DIV activities\n[INFO] [AlpacaAdapter] cycl"
+    },
+    {
+      "day": 13,
+      "timestamp": "2026-08-19T04:26:07.231590+00:00",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 0,
+      "output_snippet": "[INFO] Logging initialized: Run-ID=live_paper_20260819_042607Z_dfdc1807, Level=INFO, Log file=F:\\Python_Projekt\\Aktienger\u00fcst\\logs\\live_paper_20260819_042607Z_dfdc1807.log\n[INFO] [run_live_paper] starting \u2014 command=once\n[WARNING] [AlpacaAdapter] initialized \u2014 base_url=https://paper-api.alpaca.markets is_paper=True\n[INFO] [AlpacaAdapter] using alpaca-py TradingClient\n[INFO] [run_live_paper] broker connected \u2014 equity=86620.44\n[INFO] [dividends] no unbooked DIV activities\n[INFO] [AlpacaAdapter] cycl"
     }
-  ],
-  "config": {
-    "duration_days": 30,
-    "max_daily_orders": 50,
-    "max_daily_loss_usd": 200.0,
-    "go_criteria": {
-      "min_sharpe": 0.8,
-      "max_mdd_pct": -15.0,
-      "min_fill_rate": 0.9,
-      "max_crash_days": 2,
-      "min_trades": 10
-    }
-  }
+  ]
 }

@@ -71,3 +71,77 @@ def test_reconstruction_marks_itself_as_lower_bound():
     src = Path(mod.__file__).read_text(encoding="utf-8") if mod.__file__ else ""
     assert "is_lower_bound" in src
     assert "UNTERGRENZE" in src
+
+
+# --- Doppellauf-Schutz (E-191) ----------------------------------------------
+
+
+def test_daily_marker_is_shared_with_scheduler_daemon(monkeypatch):
+    """Beide Pfade MUESSEN denselben Marker nutzen.
+
+    Gemessen 2026-08-18: der Task-Pilot fuhr 21:30 einen Broker-Zyklus
+    (8 Fills), der Daemon 21:40 einen zweiten (2 Fills) — der Tages-Cap von
+    20 % Turnover gilt PRO Zyklus, war also faktisch verdoppelt, und zwei
+    Systeme schrieben dasselbe Ledger.
+    """
+    import importlib.util as ilu
+
+    pilot = _load(monkeypatch, in_ci=False)
+    spec = ilu.spec_from_file_location(
+        "paper_trading_scheduler",
+        Path(__file__).resolve().parents[1] / "scripts" / "paper_trading_scheduler.py",
+    )
+    daemon = ilu.module_from_spec(spec)
+    spec.loader.exec_module(daemon)
+    assert pilot.LAST_RUN_PATH == daemon.LAST_RUN_PATH
+
+
+def test_pilot_skips_when_marker_is_today(monkeypatch, tmp_path):
+    """Marker == heute -> kein zweiter Zyklus (rc 0, kein Broker-Kontakt)."""
+    from datetime import datetime, timezone
+
+    mod = _load(monkeypatch, in_ci=False)
+    marker = tmp_path / "last_run_date.txt"
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    marker.write_text(today, encoding="utf-8")
+    monkeypatch.setattr(mod, "LAST_RUN_PATH", marker)
+
+    called = {"startup": 0}
+    monkeypatch.setattr(
+        mod, "run_startup_checks", lambda: called.__setitem__("startup", 1)
+    )
+    rc = mod.cmd_run_day()
+    assert rc == 0
+    assert called["startup"] == 0, "der Zyklus haette gar nicht starten duerfen"
+
+
+def test_pilot_runs_when_marker_is_stale(monkeypatch, tmp_path):
+    """Gegenprobe: Marker von gestern -> der Zyklus laeuft (kein Blockieren
+    des Betriebs durch einen alten Marker)."""
+    mod = _load(monkeypatch, in_ci=False)
+    marker = tmp_path / "last_run_date.txt"
+    marker.write_text("2020-01-01", encoding="utf-8")
+    monkeypatch.setattr(mod, "LAST_RUN_PATH", marker)
+    assert mod._already_ran_today("2026-08-19") is False
+
+
+def test_marker_not_set_on_failed_cycle(monkeypatch, tmp_path):
+    """Ein fehlgeschlagener Zyklus darf den Marker NICHT setzen — sonst
+    faellt auch das Daemon-Backup aus."""
+    mod = _load(monkeypatch, in_ci=False)
+    marker = tmp_path / "last_run_date.txt"
+    monkeypatch.setattr(mod, "LAST_RUN_PATH", marker)
+    monkeypatch.setattr(mod, "PILOT_MANIFEST", tmp_path / "m.json")
+    monkeypatch.setattr(mod, "PILOT_DIR", tmp_path)
+    monkeypatch.setattr(mod, "run_startup_checks", lambda: None)
+
+    class _Res:
+        returncode = 1
+        stdout = "boom"
+        stderr = ""
+
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Res())
+    mod.cmd_run_day()
+    assert not marker.exists(), "Marker nach fehlgeschlagenem Zyklus gesetzt"
