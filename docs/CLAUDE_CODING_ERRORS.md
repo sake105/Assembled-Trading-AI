@@ -2850,3 +2850,31 @@ als Backup einspringen kann.
 **Gefunden in:** ``scripts/run_paper_pilot.py`` vs.
 ``scripts/paper_trading_scheduler.py`` (Operator-Auftrag "pruefe ob alles
 klappt", Nachmessung der Broker-Zyklen des Vorabends).
+
+---
+
+## E-192 (2026-08-19) — wiring-gap / check-vergleicht-gegen-eine-datei-die-niemand-schreibt
+
+**Was passiert ist:** Der Pilot-Startup-Check ``check_state_recovery``
+verglich die offenen Broker-Positionen mit ``intent_state.json`` — einer
+Datei, die im ganzen Repo NUR gelesen und von niemandem geschrieben wird
+(einziger Treffer: der Leser selbst). ``disk_symbols`` war damit immer leer,
+also meldete der Check bei JEDEM Start JEDE Broker-Position als "out-of-band
+trade or state loss" (zuletzt ``['GLD', 'LLY', 'TLT']``). Nach dem Umbau auf
+den tatsaechlichen Ledger-State bleibt genau EINE Meldung uebrig: ``LLY`` —
+die reale Abweichung, die vorher im Rauschen unterging.
+
+**Warum falsch:** Ein Vergleich gegen eine leere Menge ist kein Vergleich.
+Der Check war gleichzeitig zu LAUT (meldet alles) und BLIND (kann das eine
+echte Problem nicht auszeichnen) — dieselbe Doppelwirkung wie E-189. Und die
+Ursache ist erneut ein Consumer ohne Producer (E-176-Familie), diesmal in
+einem SAFETY-Check, wo die Folge nicht Lärm, sondern falsche Beruhigung ist.
+
+**Wie vermeiden:** Bei jedem Vergleich gegen eine Zustandsdatei zuerst
+pruefen, WER sie schreibt (``grep`` auf den Dateinamen, Treffer ausserhalb
+des Lesers). Gibt es keinen Producer, ist der Check nicht implementiert,
+sondern nur formuliert. Und: die Referenz muss die Systemwahrheit sein —
+hier der Ledger-State, nicht ein nie gefuelltes Nebenartefakt.
+
+**Gefunden in:** ``scripts/run_paper_pilot.py`` (Operator-Auftrag "pruefe ob
+alles klappt", Nachgehen der wiederkehrenden STATE-DISCREPANCY-Warnung).

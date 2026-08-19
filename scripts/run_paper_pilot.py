@@ -132,13 +132,37 @@ def check_state_recovery() -> None:
     Minimal implementation per spec: no automatic reconciliation — just clear
     warnings so the operator can decide.  Runs on each pilot startup.
     """
-    # 1. Load disk intent-state (if present)
+    # 1. Load disk state.
+    #
+    # E-192 (2026-08-19): geprueft wurde bis hierher ``intent_state.json`` —
+    # eine Datei, die NIEMAND schreibt (repo-weit nur dieser Leser). Damit war
+    # ``disk_symbols`` IMMER leer und der Check meldete bei jedem Start JEDE
+    # Broker-Position als "out-of-band" — ein Dauer-Fehlalarm, der den echten
+    # Fall (eine Position, die unser System wirklich nicht kennt) im Rauschen
+    # versteckte. Die Systemwahrheit ueber offene Positionen ist der
+    # LEDGER-State; ``intent_state.json`` bleibt als optionale Zusatzquelle
+    # erhalten, falls ein Producer nachgeruestet wird.
     disk_symbols: set[str] = set()
+    _ledger_path = ROOT / "output" / "runs" / "_paper_ledger" / "ledger_state.json"
+    if _ledger_path.exists():
+        try:
+            _ledger = json.loads(_ledger_path.read_text(encoding="utf-8"))
+            disk_symbols = {
+                str(sym)
+                for sym, pos in (_ledger.get("positions") or {}).items()
+                if float((pos or {}).get("qty", 0.0)) != 0.0
+            }
+            logger.info(
+                "[pilot-startup] Ledger state loaded: %d open symbols.",
+                len(disk_symbols),
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            logger.warning("[pilot-startup] Could not read ledger state: %s", exc)
     if _INTENT_STATE_PATH.exists():
         try:
             intent_data = json.loads(_INTENT_STATE_PATH.read_text(encoding="utf-8"))
             if isinstance(intent_data, dict):
-                disk_symbols = {
+                disk_symbols |= {
                     sym
                     for sym, qty in intent_data.get("positions", {}).items()
                     if float(qty) != 0.0

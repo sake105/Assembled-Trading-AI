@@ -145,3 +145,51 @@ def test_marker_not_set_on_failed_cycle(monkeypatch, tmp_path):
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Res())
     mod.cmd_run_day()
     assert not marker.exists(), "Marker nach fehlgeschlagenem Zyklus gesetzt"
+
+
+# --- State-Recovery-Check (E-192) -------------------------------------------
+
+
+def test_state_check_uses_ledger_not_only_phantom_intent_file(monkeypatch, tmp_path):
+    """E-192: der Check verglich Broker-Positionen gegen intent_state.json —
+    eine Datei, die NIEMAND schreibt. disk_symbols war immer leer, also
+    meldete er JEDE Broker-Position als out-of-band: ein Dauer-Fehlalarm,
+    der die eine ECHTE Abweichung im Rauschen versteckte."""
+    import json as _json
+
+    mod = _load(monkeypatch, in_ci=False)
+    ledger = tmp_path / "output" / "runs" / "_paper_ledger" / "ledger_state.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        _json.dumps({"positions": {"GLD": {"qty": 10}, "TLT": {"qty": 5}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    monkeypatch.setattr(mod, "_INTENT_STATE_PATH", tmp_path / "nope.json")
+
+    warned: list[str] = []
+    monkeypatch.setattr(
+        mod.logger, "warning", lambda msg, *a, **k: warned.append(str(a))
+    )
+
+    class _Pos:
+        def __init__(self, s):
+            self.symbol = s
+            self.qty = 1.0  # der Check filtert qty == 0 heraus
+
+    class _Adapter:
+        def __init__(self, *a, **k):
+            pass
+
+        def get_positions(self):
+            return [_Pos("GLD"), _Pos("TLT"), _Pos("LLY")]
+
+    import src.assembled_core.execution.broker_adapter as ba
+
+    monkeypatch.setattr(ba, "AlpacaAdapter", _Adapter, raising=False)
+    mod.check_state_recovery()
+
+    flat = " ".join(warned)
+    assert "LLY" in flat, "die echte Abweichung muss gemeldet werden"
+    assert "GLD" not in flat, "im Ledger bekannte Position darf NICHT alarmieren"
+    assert "TLT" not in flat
