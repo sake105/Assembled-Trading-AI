@@ -457,3 +457,54 @@ def test_merge_creates_adj_close_on_fresh_cache(tmp_path):
     out = pd.read_parquet(cache)
     assert "adj_close" in out.columns
     assert float(out["adj_close"].iloc[0]) == 1.5
+
+
+def test_clean_run_clears_stale_failure_record(tmp_path):
+    """2026-08-19: ein GELOESTER Fehlschlag darf nicht als offen stehen
+    bleiben.
+
+    Der Eintrag (TDG, overlap_ratio_not_constant) ueberlebte mehrere
+    Laeufe, obwohl der Cache laengst lueckenlos frisch war — eine
+    Statusdatei, die einen erledigten Fehler behauptet, ist dieselbe
+    Irrefuehrung wie ein veralteter Alarm (E-189-Klasse).
+    """
+    import json
+
+    mod = _load_module()
+    rec = tmp_path / "prewarm_failed_symbols.json"
+    rec.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-08-18T10:02:51+00:00",
+                "reason": "overlap_ratio_not_constant",
+                "symbols": ["TDG"],
+                "count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    mod._clear_failed_symbols("cache_fully_fresh", path=rec)
+
+    after = json.loads(rec.read_text(encoding="utf-8"))
+    assert after["symbols"] == []
+    assert after["count"] == 0
+    assert after["reason"].startswith("resolved:")
+    assert after["previously"] == ["TDG"]  # Historie bleibt nachvollziehbar
+
+
+def test_clear_is_noop_when_nothing_was_failing(tmp_path):
+    """Kein unnoetiges Schreiben, wenn ohnehin nichts offen war."""
+    import json
+
+    mod = _load_module()
+    rec = tmp_path / "prewarm_failed_symbols.json"
+    payload = {"timestamp": "2026-08-19T00:00:00+00:00", "symbols": [], "count": 0}
+    rec.write_text(json.dumps(payload), encoding="utf-8")
+    before = rec.read_text(encoding="utf-8")
+    mod._clear_failed_symbols("cache_fully_fresh", path=rec)
+    assert rec.read_text(encoding="utf-8") == before
+
+    # Und ohne Datei passiert gar nichts (kein Phantom-Artefakt).
+    missing = tmp_path / "nope.json"
+    mod._clear_failed_symbols("cache_fully_fresh", path=missing)
+    assert not missing.exists()

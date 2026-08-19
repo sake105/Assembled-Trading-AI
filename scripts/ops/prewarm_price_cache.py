@@ -221,6 +221,39 @@ def fetch_missing_alpaca(missing: list[str], years: int) -> "pd.DataFrame":
 _FAILED_SYMBOLS_PATH = ROOT / "output" / "prewarm_failed_symbols.json"
 
 
+def _clear_failed_symbols(reason: str, path: Path | None = None) -> None:
+    """Fehlerstand als GELOEST markieren (Datei bleibt, wird ehrlich leer).
+
+    Bewusst kein Loeschen: die Datei ist der Ort, an dem ein Operator den
+    letzten Stand nachsieht — ein leerer, datierter Eintrag sagt "geprueft,
+    nichts offen", eine fehlende Datei sagt gar nichts.
+    """
+    import json
+
+    target = path or _FAILED_SYMBOLS_PATH
+    try:
+        if target.exists():
+            prev = json.loads(target.read_text(encoding="utf-8"))
+            if not (prev.get("symbols") or []):
+                return  # schon leer — keine unnoetige Schreiblast
+        elif not target.exists():
+            return  # nie ein Fehlschlag protokolliert
+        payload = {
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "reason": f"resolved:{reason}",
+            "symbols": [],
+            "count": 0,
+            "previously": prev.get("symbols", []),
+        }
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(target.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(target)
+        print(f"[prewarm] cleared stale failure record (was: {payload['previously']})")
+    except (OSError, ValueError) as exc:
+        print(f"[prewarm] could not clear failed-symbols record: {exc}")
+
+
 def write_failed_symbols(
     symbols: list[str],
     reason: str,
@@ -399,6 +432,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if not missing and not stale:
         print("[prewarm] no gap, no stale rows — cache fully fresh")
+        # 2026-08-19: einen ALTEN Fehlerstand nicht stehen lassen. Der
+        # letzte Eintrag (TDG, overlap_ratio_not_constant) blieb liegen,
+        # obwohl der Cache inzwischen lueckenlos frisch war — eine
+        # Statusdatei, die einen laengst geloesten Fehlschlag behauptet, ist
+        # dieselbe Irrefuehrung wie ein veralteter Alarm (E-189-Klasse).
+        _clear_failed_symbols("cache_fully_fresh")
         return 0
 
     # Budget: missing first (truly absent), then stale (refresh-eligible).
