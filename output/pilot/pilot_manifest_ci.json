@@ -32,6 +32,14 @@
       "crashed": false,
       "n_orders_detected": 0,
       "output_snippet": "[INFO] Logging initialized: Run-ID=live_paper_20260824_195735Z_ac982936, Level=INFO, Log file=D:\\a\\Assembled-Trading-AI\\Assembled-Trading-AI\\logs\\live_paper_20260824_195735Z_ac982936.log\n[INFO] [run_live_paper] starting \u2014 command=once\n[WARNING] [AlpacaAdapter] initialized \u2014 base_url=https://paper-api.alpaca.markets is_paper=True\n[INFO] [AlpacaAdapter] using alpaca-py TradingClient\n[INFO] [run_live_paper] broker connected \u2014 equity=86886.96\n[INFO] generated new fontManager\n[INFO] [dividends] no un"
+    },
+    {
+      "day": 5,
+      "timestamp": "2026-08-25T19:58:17.427554+00:00",
+      "rc": 0,
+      "crashed": false,
+      "n_orders_detected": 0,
+      "output_snippet": "[INFO] Logging initialized: Run-ID=live_paper_20260825_195818Z_17b72be0, Level=INFO, Log file=D:\\a\\Assembled-Trading-AI\\Assembled-Trading-AI\\logs\\live_paper_20260825_195818Z_17b72be0.log\n[INFO] [run_live_paper] starting \u2014 command=once\n[WARNING] [AlpacaAdapter] initialized \u2014 base_url=https://paper-api.alpaca.markets is_paper=True\n[INFO] [AlpacaAdapter] using alpaca-py TradingClient\n[INFO] [run_live_paper] broker connected \u2014 equity=86653.03\n[WARNING] Matplotlib is building the font cache; this may"
     }
   ],
   "config": {
